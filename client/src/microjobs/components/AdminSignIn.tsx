@@ -17,7 +17,7 @@ export function AdminSignIn() {
   }
 
   if (!isLoading && isAuthenticated && user?.role === "admin") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/dashboard/admin-dashboard" replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -47,7 +47,7 @@ export function AdminSignIn() {
       }
 
       toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
-      toast.info("Admin access is limited. Super Admin is required for the Admin Dashboard.");
+      toast.info("Admin access is limited to Dashboard, Analytics, Job Posting, and E-Wallet.");
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {
@@ -70,7 +70,7 @@ export function AdminSignIn() {
           <div className="w-16 h-16 rounded-[16px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-[28px] font-bold text-[#111827] mb-2">Super Admin Sign In</h2>
+          <h2 className="text-[28px] font-bold text-[#111827] mb-2">Admin Sign In</h2>
           <p className="text-[14px] text-[#6B7280]">Restricted access for platform administrators</p>
         </div>
 
@@ -117,7 +117,7 @@ export function AdminSignIn() {
             disabled={isLoading}
             className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? "Signing in..." : "Sign In as Super Admin"}
+            {isLoading ? "Signing in..." : "Sign In as Admin"}
           </button>
         </form>
 

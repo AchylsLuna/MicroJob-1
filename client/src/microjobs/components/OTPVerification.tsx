@@ -35,21 +35,52 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
     return () => clearInterval(timer);
   }, []);
 
+  const applyOtpDigits = (startIndex: number, digits: string) => {
+    const nextOtp = [...otp];
+    let index = startIndex;
+
+    for (const digit of digits) {
+      if (index > 5) break;
+      nextOtp[index] = digit;
+      index += 1;
+    }
+
+    setOtp(nextOtp);
+
+    const lastIndex = Math.min(startIndex + digits.length - 1, 5);
+    inputRefs.current[lastIndex]?.focus();
+
+    if (!nextOtp.some((item) => !item)) {
+      handleVerify(nextOtp.join(""));
+    }
+  };
+
   const handleChange = (index: number, value: string) => {
-    // Only allow numbers
-    if (value && !/^\d$/.test(value)) return;
+    const digits = value.replace(/\D/g, "");
+
+    if (!digits) {
+      const newOtp = [...otp];
+      newOtp[index] = "";
+      setOtp(newOtp);
+      return;
+    }
+
+    if (digits.length > 1) {
+      applyOtpDigits(index, digits);
+      return;
+    }
 
     const newOtp = [...otp];
-    newOtp[index] = value;
+    newOtp[index] = digits;
     setOtp(newOtp);
 
     // Auto-focus next input
-    if (value && index < 5) {
+    if (digits && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
 
     // Auto-submit when all fields are filled
-    if (index === 5 && value) {
+    if (index === 5 && digits) {
       const fullOtp = newOtp.join("");
       handleVerify(fullOtp);
     }
@@ -93,12 +124,9 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
         onClose();
         navigate("/dashboard");
       } else {
-        // Clear OTP on error
-        setOtp(["", "", "", "", "", ""]);
         inputRefs.current[0]?.focus();
       }
     } catch (error) {
-      setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0]?.focus();
     } finally {
       setIsVerifying(false);
@@ -155,6 +183,9 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
               }}
               type="text"
               maxLength={1}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="\\d*"
               value={digit}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}

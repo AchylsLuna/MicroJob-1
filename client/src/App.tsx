@@ -30,7 +30,14 @@ import { Notifications } from "./microjobs/components/Notifications";
 import { Settings } from "./microjobs/components/Settings";
 import { Support } from "./microjobs/components/Support";
 import { AdminDashboard } from "./microjobs/components/AdminDashboard";
+import { AdminAnalytics } from "./microjobs/components/AdminAnalytics";
+import { AdminEWalletMonitoring } from "./microjobs/components/AdminEWalletMonitoring";
+import { AdminJobMonitoring } from "./microjobs/components/AdminJobMonitoring";
+import { AdminSecurity } from "./microjobs/components/AdminSecurity";
+import { AdminUserManagement } from "./microjobs/components/AdminUserManagement";
+import { AdminReports } from "./microjobs/components/AdminReports";
 import PhoneVerification from "./pages/phoneVerification";
+import { Toaster } from "./microjobs/lib/toast";
 
 const LegacyJobDetailsRedirect: React.FC = () => {
   const { jobId } = useParams();
@@ -41,6 +48,7 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
+        <Toaster position="top-right" />
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
@@ -72,11 +80,11 @@ const App: React.FC = () => {
           <Route path="/employer/applications" element={<Navigate to="/dashboard/employer/applications" replace />} />
           <Route path="/employer/job-posts" element={<Navigate to="/dashboard/employer/jobs" replace />} />
           <Route path="/admin-dashboard" element={<Navigate to="/dashboard/admin-dashboard" replace />} />
-          <Route path="/admin/job-posting-monitoring" element={<Navigate to="/dashboard/employer/jobs" replace />} />
-          <Route path="/admin/e-wallet-monitoring" element={<Navigate to="/dashboard/e-wallet" replace />} />
-          <Route path="/admin/users" element={<Navigate to="/dashboard/admin-dashboard" replace />} />
-          <Route path="/admin/administrator" element={<Navigate to="/dashboard/admin-dashboard" replace />} />
-          <Route path="/admin/system-admin" element={<Navigate to="/dashboard/admin-dashboard" replace />} />
+          <Route path="/admin/job-posting-monitoring" element={<Navigate to="/dashboard/admin-dashboard/jobs" replace />} />
+          <Route path="/admin/e-wallet-monitoring" element={<Navigate to="/dashboard/admin-dashboard/e-wallet" replace />} />
+          <Route path="/admin/users" element={<Navigate to="/dashboard/admin-dashboard/user-management" replace />} />
+          <Route path="/admin/administrator" element={<Navigate to="/dashboard/admin-dashboard/user-management" replace />} />
+          <Route path="/admin/system-admin" element={<Navigate to="/dashboard/admin-dashboard/user-management" replace />} />
 
           {/* Dashboard Routes */}
           <Route path="/dashboard" element={<ProtectedDashboardLayout />}>
@@ -98,6 +106,12 @@ const App: React.FC = () => {
             <Route path="settings" element={<Settings />} />
             <Route path="support" element={<Support />} />
             <Route path="admin-dashboard" element={<AdminDashboard />} />
+            <Route path="admin-dashboard/analytics" element={<AdminAnalytics />} />
+            <Route path="admin-dashboard/e-wallet" element={<AdminEWalletMonitoring />} />
+            <Route path="admin-dashboard/jobs" element={<AdminJobMonitoring />} />
+            <Route path="admin-dashboard/reports" element={<AdminReports />} />
+            <Route path="admin-dashboard/security" element={<AdminSecurity />} />
+            <Route path="admin-dashboard/user-management" element={<AdminUserManagement />} />
           </Route>
 
           {/* Catch-all */}

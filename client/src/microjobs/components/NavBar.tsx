@@ -45,6 +45,7 @@ export function NavBar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [dashboardSearch, setDashboardSearch] = useState("");
+  const canSwitchAccount = !!user && user.role !== "admin" && user.role !== "superadmin";
   
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -99,8 +100,47 @@ export function NavBar() {
     if (path.startsWith("/dashboard/employer")) {
       return { title: "Employer Dashboard" };
     }
+    if (path.startsWith("/dashboard/admin-dashboard/analytics")) {
+      return {
+        title: "Admin Analytics",
+        subtitle: "Understand category performance and recent platform activity",
+      };
+    }
+    if (path.startsWith("/dashboard/admin-dashboard/e-wallet")) {
+      return {
+        title: "E-Wallet Monitoring",
+        subtitle: "Track payout volume, pending balances, and recent completions",
+      };
+    }
+    if (path.startsWith("/dashboard/admin-dashboard/jobs")) {
+      return {
+        title: "Job Posting Monitoring",
+        subtitle: "Monitor job listings, statuses, and applicant activity",
+      };
+    }
+    if (path.startsWith("/dashboard/admin-dashboard/user-management")) {
+      return {
+        title: "Users",
+        subtitle: "Manage platform users and their profiles",
+      };
+    }
+    if (path.startsWith("/dashboard/admin-dashboard/reports")) {
+      return {
+        title: "Reports",
+        subtitle: "Generate and download platform reports",
+      };
+    }
+    if (path.startsWith("/dashboard/admin-dashboard/security")) {
+      return {
+        title: "Security & Access",
+        subtitle: "Manage user access, roles, and security status",
+      };
+    }
     if (path.startsWith("/dashboard/admin-dashboard")) {
-      return { title: "Admin Dashboard" };
+      return {
+        title: "Admin Dashboard",
+        subtitle: "Overview of your job posting platform",
+      };
     }
     if (path.startsWith("/dashboard/job-details")) {
       return { title: "Job Details" };
@@ -174,11 +214,25 @@ export function NavBar() {
   return (
     <div className="w-full sticky top-0 z-40 bg-[#f8f8f8]">
       <div className="max-w-[1341px] mx-auto flex items-center gap-6 px-6 py-4 min-h-[56px] flex-nowrap">
-        <div className="min-w-0 h-10 flex items-center shrink-0">
+        <div className="min-w-0 shrink-0">
           {pageMeta.title && (
-            <h1 className="font-semibold text-[28px] leading-[1.15] text-[#111827] whitespace-nowrap">
-              {pageMeta.title}
-            </h1>
+            <div className="flex items-center gap-3">
+              {pageMeta.icon && (
+                <span className="flex items-center justify-center w-10 h-10 rounded-[12px] bg-[#E8F2F8]">
+                  {pageMeta.icon}
+                </span>
+              )}
+              <div className="min-w-0">
+                <h1 className="font-semibold text-[28px] leading-[1.15] text-[#111827] whitespace-nowrap">
+                  {pageMeta.title}
+                </h1>
+                {pageMeta.subtitle && (
+                  <p className="text-[13px] text-[#6B7280] mt-1 whitespace-nowrap">
+                    {pageMeta.subtitle}
+                  </p>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
@@ -303,14 +357,16 @@ export function NavBar() {
                 </p>
               </div>
 
-              <div className="p-4 border-b border-[#E5E7EB]">
-                <button
-                  onClick={handleSwitchAccount}
-                  className="w-full rounded-[12px] bg-[#1EC19A] text-white text-[15px] font-semibold py-3 hover:bg-[#18a882] transition-colors"
-                >
-                  {user?.accountType === "employer" ? "Switch to Worker" : "Switch to Hiring"}
-                </button>
-              </div>
+              {canSwitchAccount && (
+                <div className="p-4 border-b border-[#E5E7EB]">
+                  <button
+                    onClick={handleSwitchAccount}
+                    className="w-full rounded-[12px] bg-[#1EC19A] text-white text-[15px] font-semibold py-3 hover:bg-[#18a882] transition-colors"
+                  >
+                    {user?.accountType === "employer" ? "Switch to Worker" : "Switch to Hiring"}
+                  </button>
+                </div>
+              )}
 
               <div className="p-4">
                 <button

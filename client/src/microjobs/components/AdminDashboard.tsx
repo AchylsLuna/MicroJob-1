@@ -1,679 +1,351 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Users,
   Briefcase,
+  Clock,
   DollarSign,
-  Search,
-  UserCheck,
-  UserX,
   Eye,
+  MapPin,
+  MoreHorizontal,
+  Pencil,
+  Search,
   Trash2,
-  Shield,
-  Layers,
-  ClipboardList,
+  TrendingUp,
+  Users,
 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AdminGate } from "./admin/AdminGate";
+import { useAdminData } from "../hooks/useAdminData";
 import { toast } from "../lib/toast";
-import { useAuth } from "../contexts/AuthContext";
-import { Navigate } from "react-router-dom";
-import { deleteUser, getCategories, getJobs, getUserList, updateUserStatus } from "../../services/api";
 
-type ApiUser = {
-  _id: string;
-  firstName?: string;
-  lastName?: string;
-  email: string;
-  phoneNumber?: string | null;
-  role?: "hire" | "work" | "both" | "admin" | "superadmin";
-  status?: "active" | "pending" | "disabled";
-};
+function AdminDashboardContent() {
+  const {
+    isLoading,
+    loadError,
+    stats,
+    jobs,
+    formatCurrency,
+    formatSalary,
+    formatDateFromObjectId,
+    getJobStatusColor,
+  } = useAdminData();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
-type ApiJob = {
-  _id: string;
-  title: string;
-  status?: "Available" | "In Progress" | "Completed" | "Cancelled";
-  salary?: string;
-  createdAt?: string;
-  applicants?: string[];
-  category?: { _id: string; name: string } | string | null;
-  jobPoster?: { _id: string; firstName?: string; lastName?: string; email?: string } | string | null;
-};
+  const parseSalary = (value?: string) => {
+    if (!value) return 0;
+    const cleaned = value.replace(/[^0-9.]/g, "");
+    const amount = Number.parseFloat(cleaned);
+    return Number.isFinite(amount) ? amount : 0;
+  };
 
-type ApiCategory = {
-  _id: string;
-  name: string;
-};
+  const totalApplicants = useMemo(
+    () => jobs.reduce((sum, job) => sum + (job.applicants?.length ?? 0), 0),
+    [jobs],
+  );
 
-type UserStatusFilter = "all" | "active" | "pending" | "disabled";
-type UserRoleFilter = "all" | "hire" | "work" | "both" | "admin" | "superadmin";
+  const activeJobs = useMemo(
+    () => jobs.filter((job) => job.status === "Available" || job.status === "In Progress").length,
+    [jobs],
+  );
 
-export function AdminDashboard() {
-  const { user, logout } = useAuth();
-  const isSuperAdmin = user?.role === "superadmin";
-  const [redirectToSignIn, setRedirectToSignIn] = useState(false);
-  const [users, setUsers] = useState<ApiUser[]>([]);
-  const [jobs, setJobs] = useState<ApiJob[]>([]);
-  const [categories, setCategories] = useState<ApiCategory[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<UserStatusFilter>("all");
-  const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("all");
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const totalBudget = useMemo(
+    () => jobs.reduce((sum, job) => sum + parseSalary(job.salary), 0),
+    [jobs],
+  );
 
-  if (!user) {
-    return <Navigate to="/admin-sign-in" replace />;
-  }
-
-  if (redirectToSignIn) {
-    return <Navigate to="/admin-sign-in" replace />;
-  }
-
-  if (!isSuperAdmin) {
-    return (
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-[14px] text-[#6B7280]">
-        Redirecting to Super Admin sign-in...
-      </div>
-    );
-  }
-
-  useEffect(() => {
-    if (!user) return;
-    if (user.role !== "superadmin") {
-      toast.error("Super Admin access required.");
-      logout({ silent: true });
-      setRedirectToSignIn(true);
-    }
-  }, [user, logout]);
-
-  useEffect(() => {
-    let isActive = true;
-    const loadData = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const [userList, jobList, categoryList] = await Promise.all([
-          getUserList(),
-          getJobs(),
-          getCategories(),
-        ]);
-        if (!isActive) return;
-        setUsers(Array.isArray(userList) ? userList : []);
-        setJobs(Array.isArray(jobList) ? jobList : []);
-        setCategories(Array.isArray(categoryList) ? categoryList : []);
-      } catch (error: any) {
-        if (!isActive) return;
-        const message = error?.message || "Failed to load admin data.";
-        setLoadError(message);
-        toast.error(message);
-      } finally {
-        if (isActive) setIsLoading(false);
-      }
-    };
-
-    if (isSuperAdmin) {
-      loadData();
-    }
-
-    return () => {
-      isActive = false;
-    };
-  }, [isSuperAdmin]);
-
-  const jobsByUser = useMemo(() => {
-    const map = new Map<string, number>();
+  const statusOptions = useMemo(() => {
+    const options = new Set<string>();
     jobs.forEach((job) => {
-      const posterId = typeof job.jobPoster === "string" ? job.jobPoster : job.jobPoster?._id;
-      if (!posterId) return;
-      map.set(posterId, (map.get(posterId) || 0) + 1);
+      if (job.status) options.add(job.status);
     });
-    return map;
+    return ["all", ...Array.from(options)];
   }, [jobs]);
 
-  const categoriesById = useMemo(() => {
-    const map = new Map<string, ApiCategory>();
-    categories.forEach((category) => {
-      map.set(category._id, category);
+  const filteredJobs = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+    return jobs.filter((job) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        job.title.toLowerCase().includes(normalizedSearch) ||
+        (job.location || "").toLowerCase().includes(normalizedSearch);
+      const matchesStatus = statusFilter === "all" || job.status === statusFilter;
+      return matchesSearch && matchesStatus;
     });
-    return map;
-  }, [categories]);
+  }, [jobs, searchTerm, statusFilter]);
 
-  const jobsByCategory = useMemo(() => {
-    const map = new Map<string, number>();
-    jobs.forEach((job) => {
-      const categoryId = typeof job.category === "string" ? job.category : job.category?._id;
-      if (!categoryId) return;
-      map.set(categoryId, (map.get(categoryId) || 0) + 1);
-    });
-    return map;
-  }, [jobs]);
-
-  const filteredUsers = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return users.filter((u) => {
-      const name = `${u.firstName || ""} ${u.lastName || ""}`.trim().toLowerCase();
-      const email = (u.email || "").toLowerCase();
-      const phone = (u.phoneNumber || "").toLowerCase();
-      const matchesSearch = !query || name.includes(query) || email.includes(query) || phone.includes(query);
-      const matchesStatus = statusFilter === "all" || u.status === statusFilter;
-      const matchesRole = roleFilter === "all" || u.role === roleFilter;
-      return matchesSearch && matchesStatus && matchesRole;
-    });
-  }, [users, searchQuery, statusFilter, roleFilter]);
-
-  const stats = {
-    totalUsers: users.length,
-    activeUsers: users.filter((u) => u.status === "active").length,
-    pendingUsers: users.filter((u) => u.status === "pending").length,
-    disabledUsers: users.filter((u) => u.status === "disabled").length,
-    totalJobs: jobs.length,
-    availableJobs: jobs.filter((j) => j.status === "Available").length,
-    totalCategories: categories.length,
-  };
-
-  const topCategories = useMemo(() => {
-    return categories
-      .map((category) => ({
-        id: category._id,
-        name: category.name,
-        count: jobsByCategory.get(category._id) || 0,
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 6);
-  }, [categories, jobsByCategory]);
-
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case "active":
-        return "bg-[#D1FAE5] text-[#065F46]";
-      case "disabled":
-        return "bg-[#FEE2E2] text-[#991B1B]";
-      case "pending":
-        return "bg-[#FEF3C7] text-[#92400E]";
-      default:
-        return "bg-[#F3F4F6] text-[#6B7280]";
-    }
-  };
-
-  const getRoleColor = (role?: string) => {
-    switch (role) {
-      case "admin":
-      case "superadmin":
-        return "bg-[#E9D5FF] text-[#6B21A8]";
-      case "hire":
-        return "bg-[#DBEAFE] text-[#1E40AF]";
-      case "both":
-        return "bg-[#FDE68A] text-[#92400E]";
-      default:
-        return "bg-[#D1FAE5] text-[#065F46]";
-    }
-  };
-
-  const getJobStatusColor = (status?: string) => {
-    switch (status) {
-      case "Available":
-        return "bg-[#D1FAE5] text-[#065F46]";
-      case "In Progress":
-        return "bg-[#DBEAFE] text-[#1E40AF]";
-      case "Completed":
-        return "bg-[#E9D5FF] text-[#6B21A8]";
-      case "Cancelled":
-        return "bg-[#FEE2E2] text-[#991B1B]";
-      default:
-        return "bg-[#F3F4F6] text-[#6B7280]";
-    }
-  };
-
-  const formatDateFromObjectId = (id?: string) => {
-    if (!id || id.length < 8) return "—";
-    const timestamp = parseInt(id.slice(0, 8), 16) * 1000;
-    return new Date(timestamp).toLocaleDateString();
-  };
-
-  const getUserDisplayName = (u: ApiUser) =>
-    `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email;
-
-  const handleApproveUser = async (u: ApiUser) => {
-    try {
-      await updateUserStatus(u._id, "active");
-      setUsers((prev) => prev.map((item) => (item._id === u._id ? { ...item, status: "active" } : item)));
-      toast.success(`User ${getUserDisplayName(u)} approved`);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to approve user");
-    }
-  };
-
-  const handleToggleUserStatus = async (u: ApiUser) => {
-    const nextStatus = u.status === "disabled" ? "active" : "disabled";
-    try {
-      await updateUserStatus(u._id, nextStatus);
-      setUsers((prev) => prev.map((item) => (item._id === u._id ? { ...item, status: nextStatus } : item)));
-      toast.success(`User ${getUserDisplayName(u)} ${nextStatus === "disabled" ? "disabled" : "activated"}`);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to update user status");
-    }
-  };
-
-  const handleDeleteUser = async (u: ApiUser) => {
-    const label = getUserDisplayName(u);
-    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
-    try {
-      await deleteUser(u._id);
-      setUsers((prev) => prev.filter((item) => item._id !== u._id));
-      toast.success(`User ${label} deleted`);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to delete user");
-    }
-  };
-
-  const recentActivity = useMemo(() => {
-    const activities: Array<{ id: string; title: string; subtitle: string; date: Date; type: "user" | "job" }> = [];
-    const sortedUsers = [...users].sort((a, b) => {
-      const aTime = parseInt(a._id.slice(0, 8), 16) * 1000;
-      const bTime = parseInt(b._id.slice(0, 8), 16) * 1000;
-      return bTime - aTime;
-    });
-    sortedUsers.slice(0, 6).forEach((u) => {
-      const name = `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email;
-      const date = new Date(parseInt(u._id.slice(0, 8), 16) * 1000);
-      activities.push({
-        id: `user-${u._id}`,
-        title: "New user registered",
-        subtitle: name,
-        date,
-        type: "user",
-      });
-    });
-
-    const sortedJobs = [...jobs].sort((a, b) => {
+  const visibleJobs = useMemo(() => {
+    return [...filteredJobs].sort((a, b) => {
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bTime - aTime;
+      if (aTime && bTime) return bTime - aTime;
+      return b._id.localeCompare(a._id);
     });
-    sortedJobs.slice(0, 6).forEach((job) => {
-      const date = job.createdAt ? new Date(job.createdAt) : new Date();
-      activities.push({
-        id: `job-${job._id}`,
-        title: "New job posted",
-        subtitle: job.title,
-        date,
-        type: "job",
-      });
-    });
+  }, [filteredJobs]);
 
-    return activities.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 6);
-  }, [users, jobs]);
+  const pendingReviewLabel = stats.pendingUsers > 0 ? "Awaiting action" : "All clear";
+  const getCompanyName = (job: (typeof jobs)[number]) => {
+    const poster = job.jobPoster;
+    if (!poster || typeof poster === "string") return "—";
+    return `${poster.firstName || ""} ${poster.lastName || ""}`.trim() || poster.email || "—";
+  };
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const handleWindowClick = () => setOpenMenuId(null);
+    window.addEventListener("click", handleWindowClick);
+    return () => window.removeEventListener("click", handleWindowClick);
+  }, [openMenuId]);
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-semibold text-[28px] text-[#111827] flex items-center gap-3">
-            <Shield className="w-8 h-8 text-[#1C4D8D]" />
-            Admin Dashboard
-          </h1>
-          <p className="text-[14px] text-[#6B7280] mt-1">
-            Manage users, monitor activity, and oversee platform operations
-          </p>
-        </div>
-      </div>
-
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#DBEAFE] to-[#BFDBFE] flex items-center justify-center">
-              <Users className="w-6 h-6 text-[#3B82F6]" />
-            </div>
-            <span className="text-[12px] text-[#10B981] font-semibold bg-[#D1FAE5] px-2 py-1 rounded-full">
-              +12%
-            </span>
-          </div>
-          <p className="text-[13px] text-[#6B7280] mb-1">Total Users</p>
-          <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.totalUsers}</p>
-        </div>
-
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#D1FAE5] to-[#A7F3D0] flex items-center justify-center">
-              <UserCheck className="w-6 h-6 text-[#10B981]" />
-            </div>
-            <span className="text-[12px] text-[#10B981] font-semibold bg-[#D1FAE5] px-2 py-1 rounded-full">
-              +8%
-            </span>
-          </div>
-          <p className="text-[13px] text-[#6B7280] mb-1">Active Users</p>
-          <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.activeUsers}</p>
-        </div>
-
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] flex items-center justify-center">
-              <Briefcase className="w-6 h-6 text-[#F59E0B]" />
-            </div>
-            <span className="text-[12px] text-[#10B981] font-semibold bg-[#D1FAE5] px-2 py-1 rounded-full">
-              +24%
-            </span>
-          </div>
-          <p className="text-[13px] text-[#6B7280] mb-1">Total Jobs</p>
-          <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.totalJobs}</p>
-        </div>
-
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#E9D5FF] to-[#DDD6FE] flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-[#8B5CF6]" />
-            </div>
-            <span className="text-[12px] text-[#10B981] font-semibold bg-[#D1FAE5] px-2 py-1 rounded-full">
-              +18%
-            </span>
-          </div>
-          <p className="text-[13px] text-[#6B7280] mb-1">Available Jobs</p>
-          <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.availableJobs}</p>
-        </div>
-
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#FDE68A] to-[#FCD34D] flex items-center justify-center">
-              <ClipboardList className="w-6 h-6 text-[#B45309]" />
-            </div>
-            <span className="text-[12px] text-[#10B981] font-semibold bg-[#D1FAE5] px-2 py-1 rounded-full">
-              +6%
-            </span>
-          </div>
-          <p className="text-[13px] text-[#6B7280] mb-1">Pending Users</p>
-          <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.pendingUsers}</p>
-        </div>
-
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-center justify-between mb-4">
-            <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#DBEAFE] to-[#BFDBFE] flex items-center justify-center">
-              <Layers className="w-6 h-6 text-[#1D4ED8]" />
-            </div>
-            <span className="text-[12px] text-[#10B981] font-semibold bg-[#D1FAE5] px-2 py-1 rounded-full">
-              +4%
-            </span>
-          </div>
-          <p className="text-[13px] text-[#6B7280] mb-1">Total Categories</p>
-          <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.totalCategories}</p>
-        </div>
-      </div>
-
-      {/* User Management */}
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[20px] font-semibold text-[#111827]">User Management</h2>
-          <div className="flex items-center gap-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search users..."
-                className="w-[280px] pl-10 pr-4 py-2 border border-[#E5E7EB] rounded-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-              />
-            </div>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as UserStatusFilter)}
-              className="px-4 py-2 border border-[#E5E7EB] rounded-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="pending">Pending</option>
-              <option value="disabled">Disabled</option>
-            </select>
-
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value as UserRoleFilter)}
-              className="px-4 py-2 border border-[#E5E7EB] rounded-[10px] text-[14px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-            >
-              <option value="all">All Roles</option>
-              <option value="hire">Employer</option>
-              <option value="work">Worker</option>
-              <option value="both">Both</option>
-              <option value="admin">Admin</option>
-              <option value="superadmin">Super Admin</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#E5E7EB]">
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">User</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Email</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Role</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Status</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Joined</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Phone</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Jobs</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map((userData) => (
-                <tr key={userData._id} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white font-semibold text-[14px]">
-                        {(userData.firstName?.charAt(0) || userData.email.charAt(0)).toUpperCase()}
-                      </div>
-                      <span className="text-[14px] font-medium text-[#111827]">
-                        {`${userData.firstName || ""} ${userData.lastName || ""}`.trim() || userData.email}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[14px] text-[#6B7280]">{userData.email}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getRoleColor(userData.role)}`}>
-                      {(userData.role || "work").toUpperCase()}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getStatusColor(userData.status)}`}>
-                      {userData.status ? userData.status.charAt(0).toUpperCase() + userData.status.slice(1) : "Unknown"}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[14px] text-[#6B7280]">{formatDateFromObjectId(userData._id)}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[14px] text-[#6B7280]">{userData.phoneNumber || "—"}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[14px] font-medium text-[#111827]">{jobsByUser.get(userData._id) || 0}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <div className="flex items-center gap-2">
-                      {userData.status === "pending" && (
-                        <button
-                          onClick={() => handleApproveUser(userData)}
-                          className="p-2 rounded-[8px] bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0] transition-colors"
-                          title="Approve user"
-                        >
-                          <UserCheck className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleToggleUserStatus(userData)}
-                        className={`p-2 rounded-[8px] transition-colors ${
-                          userData.status === "disabled"
-                            ? "bg-[#D1FAE5] text-[#065F46] hover:bg-[#A7F3D0]"
-                            : "bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA]"
-                        }`}
-                        title={userData.status === "disabled" ? "Activate user" : "Disable user"}
-                      >
-                        <UserX className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => toast.info("Viewing user details...")}
-                        className="p-2 rounded-[8px] bg-[#DBEAFE] text-[#1E40AF] hover:bg-[#BFDBFE] transition-colors"
-                        title="View details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(userData)}
-                        className="p-2 rounded-[8px] bg-[#F3F4F6] text-[#6B7280] hover:bg-[#E5E7EB] transition-colors"
-                        title="Delete user"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {filteredUsers.length === 0 && !isLoading && (
-            <div className="text-center py-12">
-              <Users className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
-              <p className="text-[14px] text-[#6B7280]">No users found</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Jobs Overview */}
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[20px] font-semibold text-[#111827]">Job Monitoring</h2>
-          <div className="text-[13px] text-[#6B7280]">
-            {isLoading ? "Loading jobs..." : `${jobs.length} total jobs`}
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#E5E7EB]">
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Job</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Category</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Status</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Applicants</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Posted</th>
-                <th className="text-left py-4 px-4 text-[13px] font-semibold text-[#6B7280]">Salary</th>
-              </tr>
-            </thead>
-            <tbody>
-              {jobs.slice(0, 8).map((job) => (
-                <tr key={job._id} className="border-b border-[#F3F4F6] hover:bg-[#F9FAFB] transition-colors">
-                  <td className="py-4 px-4">
-                    <div className="text-[14px] font-medium text-[#111827]">{job.title}</div>
-                    <div className="text-[12px] text-[#6B7280]">
-                      {typeof job.jobPoster === "string"
-                        ? "Unknown poster"
-                        : `${job.jobPoster?.firstName || ""} ${job.jobPoster?.lastName || ""}`.trim() ||
-                          job.jobPoster?.email}
-                    </div>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[13px] text-[#6B7280]">
-                      {typeof job.category === "string"
-                        ? categoriesById.get(job.category)?.name || "Uncategorized"
-                        : job.category?.name || "Uncategorized"}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getJobStatusColor(job.status)}`}>
-                      {job.status || "Unknown"}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[14px] font-medium text-[#111827]">{job.applicants?.length || 0}</span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[13px] text-[#6B7280]">
-                      {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "—"}
-                    </span>
-                  </td>
-                  <td className="py-4 px-4">
-                    <span className="text-[14px] text-[#111827]">{job.salary || "—"}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {jobs.length === 0 && !isLoading && (
-            <div className="text-center py-12">
-              <Briefcase className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
-              <p className="text-[14px] text-[#6B7280]">No jobs found</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Category Overview */}
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[20px] font-semibold text-[#111827]">Category Overview</h2>
-          <div className="text-[13px] text-[#6B7280]">
-            {isLoading ? "Loading categories..." : `${categories.length} categories`}
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {topCategories.map((category) => (
-            <div key={category.id} className="border border-[#E5E7EB] rounded-[14px] p-4 bg-[#F9FAFB]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold text-[#111827]">{category.name}</p>
-                  <p className="text-[12px] text-[#6B7280]">Jobs posted</p>
-                </div>
-                <div className="text-[20px] font-bold text-[#1C4D8D]">{category.count}</div>
+      <section id="dashboard" className="space-y-4 scroll-mt-24">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-12 h-12 rounded-[14px] bg-[#E8F2FF] flex items-center justify-center">
+                <Briefcase className="w-6 h-6 text-[#2563EB]" />
               </div>
             </div>
-          ))}
-          {topCategories.length === 0 && !isLoading && (
-            <div className="text-[14px] text-[#6B7280]">No categories available.</div>
-          )}
-        </div>
-      </div>
+            <p className="text-[13px] text-[#6B7280] mb-1">Total Jobs</p>
+            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.totalJobs}</p>
+          </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-        <h2 className="text-[20px] font-semibold text-[#111827] mb-4">Recent Activity</h2>
-        <div className="space-y-4">
-          {recentActivity.map((activity) => (
-            <div key={activity.id} className="flex items-start gap-4 p-4 bg-[#F9FAFB] rounded-[12px]">
-              <div
-                className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                  activity.type === "user" ? "bg-[#D1FAE5]" : "bg-[#DBEAFE]"
-                }`}
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-12 h-12 rounded-[14px] bg-[#E6F7EE] flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-[#059669]" />
+              </div>
+            </div>
+            <p className="text-[13px] text-[#6B7280] mb-1">Active Jobs</p>
+            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : activeJobs}</p>
+          </div>
+
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-12 h-12 rounded-[14px] bg-[#F1E7FF] flex items-center justify-center">
+                <Users className="w-6 h-6 text-[#7C3AED]" />
+              </div>
+            </div>
+            <p className="text-[13px] text-[#6B7280] mb-1">Applications</p>
+            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : totalApplicants}</p>
+          </div>
+
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-12 h-12 rounded-[14px] bg-[#FFF1E6] flex items-center justify-center">
+                <Eye className="w-6 h-6 text-[#EA580C]" />
+              </div>
+            </div>
+            <p className="text-[13px] text-[#6B7280] mb-1">Total Views</p>
+            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.totalUsers}</p>
+          </div>
+
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-12 h-12 rounded-[14px] bg-[#FCE7F3] flex items-center justify-center">
+                <DollarSign className="w-6 h-6 text-[#DB2777]" />
+              </div>
+            </div>
+            <p className="text-[13px] text-[#6B7280] mb-1">Total Budget</p>
+            <p className="text-[28px] font-bold text-[#111827]">
+              {isLoading ? "—" : formatCurrency(totalBudget)}
+            </p>
+          </div>
+
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between mb-6">
+              <div className="w-12 h-12 rounded-[14px] bg-[#E8F2FF] flex items-center justify-center">
+                <Clock className="w-6 h-6 text-[#2563EB]" />
+              </div>
+            </div>
+            <p className="text-[13px] text-[#6B7280] mb-1">Pending Review</p>
+            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.pendingUsers}</p>
+            <span className="inline-flex items-center mt-3 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#DBEAFE] text-[#1D4ED8]">
+              {pendingReviewLabel}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-[20px] font-semibold text-[#111827]">Jobs & Applications Overview</h2>
+          <p className="text-[13px] text-[#6B7280] mt-1">
+            Track recent job postings and application activity.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+            <h3 className="text-[18px] font-semibold text-[#111827]">Job Postings</h3>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative min-w-[220px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Search jobs..."
+                  className="w-full h-10 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                />
+              </div>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="h-10 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
               >
-                {activity.type === "user" ? (
-                  <UserCheck className="w-5 h-5 text-[#10B981]" />
-                ) : (
-                  <Briefcase className="w-5 h-5 text-[#3B82F6]" />
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="text-[14px] text-[#111827] font-medium">{activity.title}</p>
-                <p className="text-[13px] text-[#6B7280]">{activity.subtitle}</p>
-                <p className="text-[12px] text-[#9CA3AF] mt-1">
-                  {activity.date.toLocaleDateString()} · {activity.date.toLocaleTimeString()}
-                </p>
-              </div>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {status === "all" ? "All Status" : status}
+                  </option>
+                ))}
+              </select>
             </div>
-          ))}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
+                  <th className="py-3 pr-4 font-medium">Job Title</th>
+                  <th className="py-3 pr-4 font-medium">Location</th>
+                  <th className="py-3 pr-4 font-medium">Salary</th>
+                  <th className="py-3 pr-4 font-medium">Applicants</th>
+                  <th className="py-3 pr-4 font-medium">Status</th>
+                  <th className="py-3 pr-4 font-medium">Posted</th>
+                  <th className="py-3 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading && (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center text-[#9CA3AF]">
+                      Loading job postings...
+                    </td>
+                  </tr>
+                )}
 
-          {recentActivity.length === 0 && !isLoading && (
-            <div className="text-[14px] text-[#6B7280]">No recent activity yet.</div>
-          )}
+                {!isLoading && visibleJobs.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="py-6 text-center text-[#9CA3AF]">
+                      No jobs match the current filters.
+                    </td>
+                  </tr>
+                )}
+
+                {!isLoading &&
+                  visibleJobs.map((job) => {
+                    const postedDate = job.createdAt
+                      ? new Date(job.createdAt).toLocaleDateString()
+                      : formatDateFromObjectId(job._id);
+                    return (
+                      <tr key={job._id} className="border-b border-[#F3F4F6]">
+                        <td className="py-3 pr-4">
+                          <div className="text-[#111827] font-medium">{job.title}</div>
+                          <div className="text-[12px] text-[#6B7280]">{getCompanyName(job)}</div>
+                        </td>
+                        <td className="py-3 pr-4 text-[#6B7280]">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="w-4 h-4 text-[#94A3B8]" />
+                            <span>{job.location || "—"}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4 text-[#111827]">{formatSalary(job.salary)}</td>
+                        <td className="py-3 pr-4 text-[#111827]">
+                          <div className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-[#94A3B8]" />
+                            <span>{job.applicants?.length ?? 0}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4">
+                          <span
+                            className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold ${
+                              getJobStatusColor(job.status)
+                            }`}
+                          >
+                            {job.status || "—"}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-[#6B7280]">
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-[#94A3B8]" />
+                            <span>{postedDate}</span>
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setOpenMenuId((prev) => (prev === job._id ? null : job._id));
+                              }}
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-[#F3F4F6]"
+                              aria-label="Open job actions"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                            {openMenuId === job._id && (
+                              <div
+                                className="absolute right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg z-10"
+                                onClick={(event) => event.stopPropagation()}
+                              >
+                                <Link
+                                  to={`/dashboard/job-details/${job._id}`}
+                                  onClick={() => setOpenMenuId(null)}
+                                  className="flex items-center gap-2 px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
+                                >
+                                  <Eye className="w-4 h-4 text-[#64748B]" />
+                                  View Details
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    toast.info("Edit job is coming soon.");
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
+                                >
+                                  <Pencil className="w-4 h-4 text-[#64748B]" />
+                                  Edit Job
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    toast.info("Delete job is coming soon.");
+                                    setOpenMenuId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[#DC2626] hover:bg-[#FEF2F2]"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete Job
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </section>
     </div>
+  );
+}
+
+export function AdminDashboard() {
+  return (
+    <AdminGate allowedRoles={["superadmin", "admin"]}>
+      <AdminDashboardContent />
+    </AdminGate>
   );
 }
