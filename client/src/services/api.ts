@@ -1,7 +1,27 @@
+import { markActivity } from "../utils/activityTracker";
+
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 export type AuthUser = { id: string; username?: string; firstName?: string; lastName?: string; email: string; role?: string };
 export type AuthResponse = { token: string; user: AuthUser; message?: string };
+export type UserProfile = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phoneNumber?: string;
+  role?: string;
+  city?: string;
+  province?: string;
+  address?: string;
+  facebook?: string;
+  profilePhotoName?: string;
+  jobPosition?: string;
+  companyName?: string;
+  startDate?: string;
+  endDate?: string;
+  logoName?: string;
+  resumeFileName?: string;
+};
 
 type RequestInitInput = Omit<RequestInit, 'body' | 'method'>;
 
@@ -10,7 +30,8 @@ async function request<T>(
   path: string,
   options: RequestInitInput & { body?: unknown; method?: string } = {}
 ): Promise<T> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('auth_token');
+  markActivity();
   
   const res = await fetch(`${API_BASE}${path}`, {
     method: options.method || 'GET',
@@ -31,7 +52,7 @@ async function request<T>(
 }
 
 // Auth APIs
-export function registerUser(payload: { username?: string; firstName?: string; lastName?: string; phoneNumber?: string; email: string; password: string; role?: string }) {
+export function registerUser(payload: { username: string; email: string; password: string; role?: string }) {
   return request<AuthResponse>('/users/register', { method: 'POST', body: payload });
 }
 
@@ -110,10 +131,10 @@ export function getUserList() {
   return request<any[]>('/users/userlist', { method: 'GET' });
 }
 
-export function updateUserStatus(userId: string, status: 'active' | 'pending' | 'disabled') {
-  return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
+export function getUserProfile() {
+  return request<{ profile: UserProfile }>('/users/profile', { method: 'GET' });
 }
 
-export function deleteUser(userId: string) {
-  return request(`/users/${userId}`, { method: 'DELETE' });
+export function updateUserProfile(payload: Partial<UserProfile>) {
+  return request<{ profile: UserProfile }>('/users/profile', { method: 'PUT', body: payload });
 }

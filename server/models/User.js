@@ -40,6 +40,50 @@ const UserSchema = new mongoose.Schema(
             enum: ["pending", "active", "disabled"],
             default: "pending",
         },
+        city: {
+            type: String,
+            trim: true,
+        },
+        province: {
+            type: String,
+            trim: true,
+        },
+        address: {
+            type: String,
+            trim: true,
+        },
+        facebook: {
+            type: String,
+            trim: true,
+        },
+        profilePhotoName: {
+            type: String,
+            trim: true,
+        },
+        jobPosition: {
+            type: String,
+            trim: true,
+        },
+        companyName: {
+            type: String,
+            trim: true,
+        },
+        startDate: {
+            type: String,
+            trim: true,
+        },
+        endDate: {
+            type: String,
+            trim: true,
+        },
+        logoName: {
+            type: String,
+            trim: true,
+        },
+        resumeFileName: {
+            type: String,
+            trim: true,
+        },
         passwordHashed: {
             type: String,
             required: true,

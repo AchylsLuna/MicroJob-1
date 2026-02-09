@@ -1,124 +1,154 @@
-import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from "react-router-dom";
-import { AuthProvider } from "./microjobs/contexts/AuthContext";
-import { LandingPage } from "./microjobs/components/LandingPage";
-import { LogoShowcase } from "./microjobs/components/LogoShowcase";
-import { SignIn } from "./microjobs/components/SignIn";
-import { AdminSignIn } from "./microjobs/components/AdminSignIn";
-import { SignUp } from "./microjobs/components/SignUp";
-import { ForgotPassword } from "./microjobs/components/ForgotPassword";
-import { ResetPassword } from "./microjobs/components/ResetPassword";
-import { TermsAndConditions } from "./microjobs/components/TermsAndConditions";
-import { PrivacyPolicy } from "./microjobs/components/PrivacyPolicy";
-import { CookiePolicy } from "./microjobs/components/CookiePolicy";
-import { ProtectedDashboardLayout } from "./microjobs/components/ProtectedDashboardLayout";
-import { Dashboard } from "./microjobs/components/Dashboard";
-import { EmployerDashboard } from "./microjobs/components/EmployerDashboard";
-import { ApplicationsManagement } from "./microjobs/components/ApplicationsManagement";
-import { JobsManagement } from "./microjobs/components/JobsManagement";
-import { JobPosting } from "./microjobs/components/JobPosting";
-import { Profile } from "./microjobs/components/Profile";
-import { ProfileNew } from "./microjobs/components/ProfileNew";
-import { FindJobs } from "./microjobs/components/FindJobs";
-import { JobDetails } from "./microjobs/components/JobDetails";
-import { JobDetailsNew } from "./microjobs/components/JobDetailsNew";
-import { AppliedJobs } from "./microjobs/components/AppliedJobs";
-import { Messages } from "./microjobs/components/Messages";
-import { SavedJobs } from "./microjobs/components/SavedJobs";
-import { EWallet } from "./microjobs/components/EWallet";
-import { Notifications } from "./microjobs/components/Notifications";
-import { Settings } from "./microjobs/components/Settings";
-import { Support } from "./microjobs/components/Support";
-import { AdminDashboard } from "./microjobs/components/AdminDashboard";
-import { AdminAnalytics } from "./microjobs/components/AdminAnalytics";
-import { AdminEWalletMonitoring } from "./microjobs/components/AdminEWalletMonitoring";
-import { AdminJobMonitoring } from "./microjobs/components/AdminJobMonitoring";
-import { AdminSecurity } from "./microjobs/components/AdminSecurity";
-import { AdminUserManagement } from "./microjobs/components/AdminUserManagement";
-import { AdminReports } from "./microjobs/components/AdminReports";
-import PhoneVerification from "./pages/phoneVerification";
-import { Toaster } from "./microjobs/lib/toast";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
+import SidebarLayout from "./components/layout/SidebarLayout";
+import Home from "./pages/Home";
+import SignIn from "./pages/signIn";
+import SignUp from "./pages/signUp";
+import Dashboard from "./pages/Dashboard";
+import EmailVerification from "./pages/emailVerification";
+import FindJobs from "./pages/FindJobs";
+import JobDetails from "./pages/JobDetails";
+import Settings from "./pages/Settings";
+import EWallet from "./pages/EWallet";
+import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
+import { AppliedJobs, SavedJobs } from "./pages/worker";
+import { PostJob, Applications, JobPosts } from "./pages/employer";
 
-const LegacyJobDetailsRedirect: React.FC = () => {
-  const { jobId } = useParams();
-  return <Navigate to={`/dashboard/job-details/${jobId ?? ""}`} replace />;
+const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
+const WARNING_DURATION_MS = 1 * 1000;
+
+const InactivityHandler: React.FC = () => {
+  const navigate = useNavigate();
+  const [showWarning, setShowWarning] = useState(false);
+  const warningTimerRef = useRef<number | null>(null);
+  const logoutTimerRef = useRef<number | null>(null);
+
+  const clearTimers = useCallback(() => {
+    if (warningTimerRef.current) {
+      window.clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+    if (logoutTimerRef.current) {
+      window.clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+  }, []);
+
+  const isAuthenticated = useCallback(() => {
+    return Boolean(localStorage.getItem("auth_token"));
+  }, []);
+
+  const performLogout = useCallback(() => {
+    localStorage.removeItem("auth_user");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("pending_verification_email");
+    window.dispatchEvent(new Event("auth_user_updated"));
+    setShowWarning(false);
+    navigate("/signin", { replace: true });
+  }, [navigate]);
+
+  const scheduleTimers = useCallback(() => {
+    clearTimers();
+    if (!isAuthenticated()) {
+      setShowWarning(false);
+      return;
+    }
+
+    warningTimerRef.current = window.setTimeout(() => {
+      setShowWarning(true);
+    }, Math.max(IDLE_TIMEOUT_MS - WARNING_DURATION_MS, 0));
+
+    logoutTimerRef.current = window.setTimeout(() => {
+      performLogout();
+    }, IDLE_TIMEOUT_MS);
+  }, [clearTimers, isAuthenticated, performLogout]);
+
+  const handleActivity = useCallback(
+    (force = false) => {
+      if (!isAuthenticated()) {
+        return;
+      }
+      if (showWarning && !force) {
+        return;
+      }
+      setShowWarning(false);
+      scheduleTimers();
+    },
+    [isAuthenticated, scheduleTimers, showWarning]
+  );
+
+  useEffect(() => {
+    const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+    const handleEvent = () => handleActivity();
+
+    events.forEach((eventName) => window.addEventListener(eventName, handleEvent, { passive: true }));
+    window.addEventListener(ACTIVITY_EVENT, handleEvent);
+    window.addEventListener("auth_user_updated", handleEvent);
+
+    scheduleTimers();
+
+    return () => {
+      events.forEach((eventName) => window.removeEventListener(eventName, handleEvent));
+      window.removeEventListener(ACTIVITY_EVENT, handleEvent);
+      window.removeEventListener("auth_user_updated", handleEvent);
+      clearTimers();
+    };
+  }, [clearTimers, handleActivity, scheduleTimers]);
+
+  if (!showWarning) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <h3 className="text-lg font-bold text-gray-900 mb-2">Session timeout</h3>
+        <p className="text-sm text-gray-900 mb-6">
+          Your session will end due to inactivity. Press OK to continue.
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              markActivity();
+              handleActivity(true);
+            }}
+            className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-semibold text-black hover:bg-red-600"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <Router>
-        <Toaster position="top-right" />
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/logo-showcase" element={<LogoShowcase />} />
-          <Route path="/sign-in" element={<SignIn />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/admin-sign-in" element={<AdminSignIn />} />
-          <Route path="/sign-up" element={<SignUp />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/terms" element={<TermsAndConditions />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
-          <Route path="/cookie-policy" element={<CookiePolicy />} />
-          <Route path="/phone-verification" element={<PhoneVerification />} />
+    <Router>
+      <InactivityHandler />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/signin" element={<SignIn />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route path="/email-verification" element={<EmailVerification />} />
 
-          {/* Legacy routes -> new dashboard paths */}
-          <Route path="/find-jobs" element={<Navigate to="/dashboard/find-jobs" replace />} />
-          <Route path="/job-details/:jobId" element={<LegacyJobDetailsRedirect />} />
-          <Route path="/settings" element={<Navigate to="/dashboard/settings" replace />} />
-          <Route path="/e-wallet" element={<Navigate to="/dashboard/e-wallet" replace />} />
-          <Route path="/messages" element={<Navigate to="/dashboard/messages" replace />} />
-          <Route path="/notifications" element={<Navigate to="/dashboard/notifications" replace />} />
-          <Route path="/support" element={<Navigate to="/dashboard/support" replace />} />
-          <Route path="/profile" element={<Navigate to="/dashboard/profile" replace />} />
-          <Route path="/worker/applied-jobs" element={<Navigate to="/dashboard/applied-jobs" replace />} />
-          <Route path="/worker/saved-jobs" element={<Navigate to="/dashboard/saved-jobs" replace />} />
-          <Route path="/employer/post-job" element={<Navigate to="/dashboard/employer/post-job" replace />} />
-          <Route path="/employer/applications" element={<Navigate to="/dashboard/employer/applications" replace />} />
-          <Route path="/employer/job-posts" element={<Navigate to="/dashboard/employer/jobs" replace />} />
-          <Route path="/admin-dashboard" element={<Navigate to="/dashboard/admin-dashboard" replace />} />
-          <Route path="/admin/job-posting-monitoring" element={<Navigate to="/dashboard/admin-dashboard/jobs" replace />} />
-          <Route path="/admin/e-wallet-monitoring" element={<Navigate to="/dashboard/admin-dashboard/e-wallet" replace />} />
-          <Route path="/admin/users" element={<Navigate to="/dashboard/admin-dashboard/user-management" replace />} />
-          <Route path="/admin/administrator" element={<Navigate to="/dashboard/admin-dashboard/user-management" replace />} />
-          <Route path="/admin/system-admin" element={<Navigate to="/dashboard/admin-dashboard/user-management" replace />} />
+        <Route element={<SidebarLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/find-jobs" element={<FindJobs />} />
+          <Route path="/job-details/:jobId" element={<JobDetails />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/e-wallet" element={<EWallet />} />
 
-          {/* Dashboard Routes */}
-          <Route path="/dashboard" element={<ProtectedDashboardLayout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="employer" element={<EmployerDashboard />} />
-            <Route path="employer/applications" element={<ApplicationsManagement />} />
-            <Route path="employer/jobs" element={<JobsManagement />} />
-            <Route path="employer/post-job" element={<JobPosting />} />
-            <Route path="profile" element={<Profile />} />
-            <Route path="profile-new" element={<ProfileNew />} />
-            <Route path="find-jobs" element={<FindJobs />} />
-            <Route path="job-details/:jobId" element={<JobDetails />} />
-            <Route path="job-details-new/:jobId" element={<JobDetailsNew />} />
-            <Route path="applied-jobs" element={<AppliedJobs />} />
-            <Route path="messages" element={<Messages />} />
-            <Route path="saved-jobs" element={<SavedJobs />} />
-            <Route path="e-wallet" element={<EWallet />} />
-            <Route path="notifications" element={<Notifications />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="support" element={<Support />} />
-            <Route path="admin-dashboard" element={<AdminDashboard />} />
-            <Route path="admin-dashboard/analytics" element={<AdminAnalytics />} />
-            <Route path="admin-dashboard/e-wallet" element={<AdminEWalletMonitoring />} />
-            <Route path="admin-dashboard/jobs" element={<AdminJobMonitoring />} />
-            <Route path="admin-dashboard/reports" element={<AdminReports />} />
-            <Route path="admin-dashboard/security" element={<AdminSecurity />} />
-            <Route path="admin-dashboard/user-management" element={<AdminUserManagement />} />
-          </Route>
+          <Route path="/worker/applied-jobs" element={<AppliedJobs />} />
+          <Route path="/worker/saved-jobs" element={<SavedJobs />} />
 
-          {/* Catch-all */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </AuthProvider>
+          <Route path="/employer/post-job" element={<PostJob />} />
+          <Route path="/employer/applications" element={<Applications />} />
+          <Route path="/employer/job-posts" element={<JobPosts />} />
+        </Route>
+      </Routes>
+    </Router>
   );
 };
 

@@ -1,6 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Animated, Dimensions } from 'react-native';
-import { useEffect, useState, useRef } from 'react';
+import { StyleSheet, Text, View, Animated, Dimensions, TouchableOpacity } from 'react-native';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import "./global.css";
 import Screen1 from './pages/Screen1';
@@ -28,8 +28,14 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Home');
   const [isReady, setIsReady] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [showIdleWarning, setShowIdleWarning] = useState(false);
   const transition = useRef(new Animated.Value(0)).current;
   const screenWidth = Dimensions.get('window').width;
+  const warningTimerRef = useRef(null);
+  const logoutTimerRef = useRef(null);
+
+  const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+  const WARNING_DURATION_MS = 10 * 1000;
 
   // Toggle for testing onboarding screens
   const FORCE_ONBOARDING = true;
@@ -55,6 +61,19 @@ export default function App() {
     Profile: 17,
     Settings: 18,
   };
+
+  const isSessionActive = currentScreen >= SCREEN.Dashboard;
+
+  const clearIdleTimers = useCallback(() => {
+    if (warningTimerRef.current) {
+      clearTimeout(warningTimerRef.current);
+      warningTimerRef.current = null;
+    }
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -209,9 +228,57 @@ export default function App() {
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('auth_token');
+    await AsyncStorage.removeItem('auth_user');
+    await AsyncStorage.removeItem('pending_verification_email');
     setActiveTab('Home');
     setCurrentScreen(SCREEN.SignIn); // Always go to login
   };
+
+  const scheduleIdleTimers = useCallback(() => {
+    clearIdleTimers();
+    if (!isSessionActive) {
+      setShowIdleWarning(false);
+      return;
+    }
+
+    warningTimerRef.current = setTimeout(() => {
+      setShowIdleWarning(true);
+    }, Math.max(IDLE_TIMEOUT_MS - WARNING_DURATION_MS, 0));
+
+    logoutTimerRef.current = setTimeout(() => {
+      handleLogout();
+    }, IDLE_TIMEOUT_MS);
+  }, [clearIdleTimers, isSessionActive]);
+
+  const handleActivity = useCallback((force = false) => {
+    if (!isSessionActive) {
+      return;
+    }
+    if (showIdleWarning && !force) {
+      return;
+    }
+    setShowIdleWarning(false);
+    scheduleIdleTimers();
+  }, [isSessionActive, scheduleIdleTimers, showIdleWarning]);
+
+  useEffect(() => {
+    scheduleIdleTimers();
+    return () => {
+      clearIdleTimers();
+    };
+  }, [scheduleIdleTimers, clearIdleTimers]);
+
+  useEffect(() => {
+    const originalFetch = global.fetch;
+    global.fetch = async (...args) => {
+      handleActivity();
+      return originalFetch(...args);
+    };
+
+    return () => {
+      global.fetch = originalFetch;
+    };
+  }, [handleActivity]);
 
   const screens = [
     <Screen1 onNext={handleNext} />,
@@ -219,7 +286,7 @@ export default function App() {
     <Screen3 onNext={handleNext} />,
     <Screen4 onNext={handleGoToSignUp} />,
     <SignUp onBack={handleBack} onNavigateToSignIn={handleGoToSignIn} onNavigateToVerify={handleGoToVerify} />,
-    <SignIn onBack={handleBack} onNavigateToSignUp={handleGoToSignUp} onNavigateToForgot={handleGoToForgot} onLogin={handleGoToDashboard} />,
+    <SignIn onBack={handleBack} onNavigateToSignUp={handleGoToSignUp} onNavigateToForgot={handleGoToForgot} onNavigateToVerify={handleGoToVerify} />,
     <SignSuccess onBackToLogin={handleGoToSignIn} />,
     <ForgotPass onBack={handleGoToSignIn} onSendReset={handleGoToVerify} />,
     <VerifyEmail onVerified={handleGoToDashboard} onBack={handleGoToSignIn} />,
@@ -287,7 +354,12 @@ export default function App() {
   }
 
   return (
-    <View style={{ flex: 1, overflow: 'hidden', backgroundColor: '#0a2847' }}>
+    <View
+      style={{ flex: 1, overflow: 'hidden', backgroundColor: '#0a2847' }}
+      onStartShouldSetResponder={() => true}
+      onResponderGrant={handleActivity}
+      onTouchStart={handleActivity}
+    >
       <Animated.View
         style={{
           flex: 1,
@@ -297,6 +369,19 @@ export default function App() {
       >
         {screens[currentScreen]}
       </Animated.View>
+      {showIdleWarning && (
+        <View style={styles.idleOverlay}>
+          <View style={styles.idleCard}>
+            <Text style={styles.idleTitle}>Session timeout</Text>
+            <Text style={styles.idleSubtitle}>Your session will end due to inactivity. Press OK to continue.</Text>
+            <View style={styles.idleActions}>
+              <TouchableOpacity style={styles.idlePrimary} onPress={() => handleActivity(true)}>
+                <Text style={styles.idlePrimaryText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -312,5 +397,52 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  idleOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  idleCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  idleTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  idleSubtitle: {
+    fontSize: 13,
+    color: '#111',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  idleActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  idlePrimary: {
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  idlePrimaryText: {
+    color: '#111',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
