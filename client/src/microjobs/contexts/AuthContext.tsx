@@ -19,6 +19,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  devOtpCode: string | null;
   login: (email: string, password: string, options?: { suppressToast?: boolean }) => Promise<void>;
   register: (email: string, password: string, name: string, accountPreference: "employer" | "worker" | "both", phoneNumber?: string) => Promise<void>;
   logout: (options?: { silent?: boolean }) => void;
@@ -69,6 +70,7 @@ const splitName = (fullName: string) => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState<{
     email: string;
     password: string;
@@ -120,11 +122,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
       });
 
-      await sendOtp({ email: normalizedEmail });
+      const otpResponse = await sendOtp({ email: normalizedEmail });
+      setDevOtpCode(otpResponse?.code ?? null);
       toast.success("OTP sent to your email!");
     } catch (error: any) {
       setPendingVerification(null);
       localStorage.removeItem("pending_account_preference");
+      setDevOtpCode(null);
       setIsLoading(false);
       throw new Error(error?.message || "Registration failed");
     }
@@ -175,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       localStorage.removeItem("pending_account_preference");
       setPendingVerification(null);
+      setDevOtpCode(null);
 
       setIsLoading(false);
       toast.success("Registration successful!");
@@ -193,7 +198,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await sendOtp({ email: pendingVerification.email });
+      const otpResponse = await sendOtp({ email: pendingVerification.email });
+      setDevOtpCode(otpResponse?.code ?? null);
       toast.success("New OTP sent!");
     } catch (error: any) {
       toast.error(error?.message || "Failed to resend OTP");
@@ -248,6 +254,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore logout errors
     }
     setUser(null);
+    setDevOtpCode(null);
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -328,6 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
+        devOtpCode,
         login,
         register,
         logout,

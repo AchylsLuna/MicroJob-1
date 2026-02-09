@@ -323,6 +323,7 @@ export function Sidebar() {
     (!settingsTabParam || settingsAccountTabs.includes(settingsTabParam));
   const isAdminUser = user?.role === "admin" || user?.role === "superadmin";
   const isSuperAdmin = user?.role === "superadmin";
+  const isEmployerAccount = user?.accountType === "employer";
   const adminBasePath = "/dashboard/admin-dashboard";
   const isAdminOverview = location.pathname === adminBasePath;
   const isAdminAnalytics = location.pathname.startsWith(`${adminBasePath}/analytics`);
@@ -425,16 +426,18 @@ export function Sidebar() {
                   to="/dashboard" 
                   isCollapsed={isCollapsed}
                 />
-                <ExpandableNavItem
-                  icon={<BriefcaseIcon isActive={location.pathname.startsWith("/dashboard/employer")} />}
-                  label="Employer"
-                  basePath="/dashboard/employer"
-                  isCollapsed={isCollapsed}
-                  children={[
-                    { label: "Dashboard", to: "/dashboard/employer" },
-                    { label: "Applications", to: "/dashboard/employer/applications" },
-                  ]}
-                />
+                {isEmployerAccount && (
+                  <ExpandableNavItem
+                    icon={<BriefcaseIcon isActive={location.pathname.startsWith("/dashboard/employer")} />}
+                    label="Employer"
+                    basePath="/dashboard/employer"
+                    isCollapsed={isCollapsed}
+                    children={[
+                      { label: "Dashboard", to: "/dashboard/employer" },
+                      { label: "Applications", to: "/dashboard/employer/applications" },
+                    ]}
+                  />
+                )}
                 <NavItem 
                   icon={<InboxIcon />} 
                   label="Find Jobs" 

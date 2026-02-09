@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 import { Bell, User, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -53,8 +53,26 @@ export function NavBar() {
   const unreadCount = notifications.filter(n => !n.read).length;
   const path = location.pathname;
 
-  const pageMeta = (() => {
+  type PageMeta =
+    | { title: string; subtitle?: string; icon?: ReactNode; search?: undefined }
+    | {
+        title: string;
+        subtitle?: string;
+        icon?: ReactNode;
+        search: { placeholder: string; mode: "query" };
+      }
+    | {
+        title: string;
+        subtitle?: string;
+        icon?: ReactNode;
+        search: { placeholder: string; mode: "redirect"; redirectTo: string };
+      };
+
+  const pageMeta: PageMeta = (() => {
     if (path === "/dashboard") {
+      if (user?.accountType === "employer") {
+        return { title: "Employer Dashboard" };
+      }
       return {
         title: "Dashboard",
         search: {

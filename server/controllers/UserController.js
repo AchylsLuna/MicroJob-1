@@ -169,16 +169,13 @@ export async function logout(req, res) {
 export async function sendOtp(req, res) {
     try {
         const { email } = req.body;
+        const isDev = process.env.NODE_ENV !== "production";
 
         if (!email) {
             return res.status(400).json({ message: "Email is required." });
         }
 
         const transporter = getEmailTransporter();
-        if (!transporter) {
-            return res.status(500).json({ message: "Email service is not configured." });
-        }
-
         const user = await User.findOne({ email: email.toLowerCase().trim() });
         if (!user) {
             return res.status(404).json({ message: "User not found." });
@@ -189,6 +186,13 @@ export async function sendOtp(req, res) {
             code,
             expiresAt: Date.now() + OTP_TTL_MS,
         });
+
+        if (!transporter) {
+            if (isDev) {
+                return res.status(200).json({ message: "OTP generated.", code });
+            }
+            return res.status(500).json({ message: "Email service is not configured." });
+        }
 
         const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
         const displayName = user.firstName || "there";
@@ -210,7 +214,7 @@ export async function sendOtp(req, res) {
             html,
         });
 
-        return res.status(200).json({ message: "OTP sent." });
+        return res.status(200).json({ message: "OTP sent.", ...(isDev ? { code } : {}) });
     } catch (error) {
         console.error("Send OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";

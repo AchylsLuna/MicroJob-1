@@ -3,6 +3,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { toast } from "../lib/toast";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { EmployerDashboard } from "./EmployerDashboard";
 import imgBigShoesAvatar from "../assets/8b9f86452ff0e90495bf9daf1494dd6920ad538a.png";
 
 const vacancyData = [
@@ -107,6 +109,12 @@ function StatCard({ icon, title, count, bgColor, change, onClick }: StatCardProp
 }
 
 export function Dashboard() {
+  const { user } = useAuth();
+
+  if (user?.accountType === "employer") {
+    return <EmployerDashboard />;
+  }
+
   const navigate = useNavigate();
   const [selectedFilter, setSelectedFilter] = useState<"accepted" | "interviews" | "rejected">("accepted");
   const [selectedPeriod, setSelectedPeriod] = useState("This Month");

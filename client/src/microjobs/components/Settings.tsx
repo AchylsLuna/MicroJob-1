@@ -417,10 +417,6 @@ export function Settings() {
     toast.success("Payment method removed");
   };
 
-  const handleDisableAccount = () => {
-    toast.success("Account disabled. You can reactivate anytime.");
-  };
-
   const handleDeleteAccount = () => {
     toast.error("Account deletion request submitted");
   };
@@ -941,15 +937,9 @@ export function Settings() {
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
                 <h3 className="text-[16px] font-semibold text-[#111827] mb-2">Delete My Account</h3>
                 <p className="text-[13px] text-[#6B7280] mb-4">
-                  You can delete your account and all associated jobs here.
+                  You can delete your account here.
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleDisableAccount}
-                    className="px-6 py-3 rounded-full bg-[#B91C1C] text-white text-[14px] font-semibold hover:bg-[#991B1B]"
-                  >
-                    Disable Account
-                  </button>
                   <button
                     onClick={handleDeleteAccount}
                     className="px-6 py-3 rounded-full border border-[#FCA5A5] text-[#B91C1C] text-[14px] font-semibold hover:bg-[#FEF2F2]"

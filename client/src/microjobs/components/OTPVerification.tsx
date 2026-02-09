@@ -9,13 +9,14 @@ interface OTPVerificationProps {
 }
 
 export function OTPVerification({ onClose, email }: OTPVerificationProps) {
-  const { verifyOTP, resendOTP } = useAuth();
+  const { verifyOTP, resendOTP, devOtpCode } = useAuth();
   const navigate = useNavigate();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const [canResend, setCanResend] = useState(false);
   const [countdown, setCountdown] = useState(60);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const shouldShowDevCode = Boolean(devOtpCode) && otp.some((digit) => !digit);
 
   useEffect(() => {
     // Focus first input on mount
@@ -225,12 +226,20 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
           )}
         </div>
 
-        {/* Help Text */}
-        <div className="mt-6 p-4 bg-[#F9FAFB] rounded-[12px] border border-[#E5E7EB]">
-          <p className="text-[12px] text-[#6B7280] text-center">
-            💡 <span className="font-semibold">Development Mode:</span> Check your browser console for the OTP code
-          </p>
-        </div>
+        {shouldShowDevCode ? (
+          <div className="mt-6 p-4 bg-[#F9FAFB] rounded-[12px] border border-[#E5E7EB]">
+            <p className="text-[12px] text-[#6B7280] text-center">
+              💡 <span className="font-semibold">Development OTP:</span>{" "}
+              <span className="font-semibold text-[#111827]">{devOtpCode}</span>
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 p-4 bg-[#F9FAFB] rounded-[12px] border border-[#E5E7EB]">
+            <p className="text-[12px] text-[#6B7280] text-center">
+              Enter the 6-digit code sent to your email.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

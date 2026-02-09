@@ -372,7 +372,7 @@ function AdminReportsContent() {
 
         <button
           type="button"
-          onClick={generateFile}
+          onClick={() => generateFile()}
           disabled={isLoading}
           className="inline-flex items-center gap-2 rounded-[14px] bg-[#2563EB] text-white px-5 py-3 text-[13px] font-semibold shadow-sm hover:bg-[#1D4ED8] disabled:opacity-60"
         >
