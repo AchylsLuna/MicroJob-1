@@ -166,104 +166,6 @@ export async function logout(req, res) {
     return res.status(200).json({message: "Logout successful."});
 }
 
-export async function getProfile(req, res) {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        if (!userId) {
-            return res.status(401).json({ message: "Authentication required." });
-        }
-
-        const user = await User.findById(userId).select(
-            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName"
-        );
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
-        return res.status(200).json({ profile: user });
-    } catch (error) {
-        console.error("Get profile error:", error);
-        return res.status(500).json({ message: "Failed to load profile." });
-    }
-}
-
-export async function updateProfile(req, res) {
-    try {
-        const userId = req.user?.id || req.user?.userId;
-        if (!userId) {
-            return res.status(401).json({ message: "Authentication required." });
-        }
-
-        const allowed = [
-            "firstName",
-            "lastName",
-            "city",
-            "province",
-            "address",
-            "phoneNumber",
-            "email",
-            "facebook",
-            "profilePhotoName",
-            "jobPosition",
-            "companyName",
-            "startDate",
-            "endDate",
-            "logoName",
-            "resumeFileName",
-        ];
-
-        const updates = {};
-        const unset = {};
-        for (const key of allowed) {
-            if (req.body[key] !== undefined) {
-                const value = typeof req.body[key] === "string"
-                    ? req.body[key].trim()
-                    : req.body[key];
-                if (value === "") {
-                    if (key === "firstName" || key === "lastName" || key === "email") {
-                        return res.status(400).json({ message: `${key} is required.` });
-                    }
-                    unset[key] = "";
-                } else {
-                    updates[key] = value;
-                }
-            }
-        }
-
-        if (updates.email) {
-            updates.email = updates.email.toLowerCase();
-        }
-
-        const updateOps = { $set: updates };
-        if (Object.keys(unset).length) {
-            updateOps.$unset = unset;
-        }
-
-        const user = await User.findByIdAndUpdate(userId, updateOps, {
-            new: true,
-            runValidators: true,
-        }).select(
-            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName"
-        );
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found." });
-        }
-
-        return res.status(200).json({ profile: user });
-    } catch (error) {
-        console.error("Update profile error:", error);
-        if (error?.name === "ValidationError") {
-            return res.status(400).json({ message: error.message || "Invalid profile data." });
-        }
-        if (error?.code === 11000) {
-            return res.status(409).json({ message: "Email or phone number is already in use." });
-        }
-        return res.status(500).json({ message: "Failed to update profile." });
-    }
-}
-
 export async function sendOtp(req, res) {
     try {
         const { email } = req.body;
@@ -295,11 +197,12 @@ export async function sendOtp(req, res) {
         const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
         const displayName = user.firstName || "there";
         const subject = "MicroJobs email verification";
-        const text = `Hi ${displayName},\n\nUse this code to verify your email for MicroJobs: ${code}\n\nIf you did not request this, you can ignore this message.`;
+        const text = `Hi ${displayName},\n\nUse this code to verify your email for MicroJobs: ${code}\n\nThis code expires in 5 minutes. If you did not request this, you can ignore this message.`;
         const html = `
             <p>Hi ${displayName},</p>
             <p>Use this code to verify your email for MicroJobs:</p>
             <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
+            <p>This code expires in 5 minutes.</p>
             <p>If you did not request this, you can ignore this message.</p>
         `;
 

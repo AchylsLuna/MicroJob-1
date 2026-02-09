@@ -7,12 +7,12 @@ export default function SignIn({
   onBack,
   onNavigateToSignUp,
   onNavigateToForgot,
-  onNavigateToVerify,
+  onLogin,
 }: {
   onBack: () => void;
   onNavigateToSignUp?: () => void;
   onNavigateToForgot?: () => void;
-  onNavigateToVerify?: () => void;
+  onLogin?: () => void;
 }) {
   const [email, setEmail] = useState(''); // Changed from phoneNumber to email
   const [password, setPassword] = useState('');
@@ -47,18 +47,14 @@ export default function SignIn({
 
       const data = await response.json();
 
-      if (response.ok) {
-        const userEmail = data?.user?.email?.toLowerCase?.() || email.toLowerCase().trim();
-        if (!userEmail) {
-          Alert.alert('Error', 'No email found on your account. Please contact support.');
-          return;
-        }
-
-        await AsyncStorage.removeItem('auth_token');
-        await AsyncStorage.removeItem('auth_user');
-        await AsyncStorage.setItem('pending_verification_email', userEmail);
-        Alert.alert('Success', 'Verification code sent to your email.');
-        onNavigateToVerify?.();
+      if (response.ok && data.token) {
+        // Store token and user info
+        await AsyncStorage.setItem('auth_token', data.token);
+        await AsyncStorage.setItem('auth_user', JSON.stringify(data.user));
+        await AsyncStorage.setItem('has_onboarded', 'true');
+        
+        Alert.alert('Success', 'Login successful!');
+        if (onLogin) onLogin();
       } else {
         Alert.alert('Error', data.message || 'Invalid credentials');
       }

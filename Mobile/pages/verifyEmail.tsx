@@ -12,6 +12,8 @@ type Props = {
 export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Props) {
   const [code, setCode] = useState(Array(6).fill(''));
   const [email, setEmail] = useState(emailProp || '');
+  const [timer, setTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const inputs = useRef<TextInput[]>([]);
@@ -44,6 +46,21 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
     sendOtp();
   }, [email]);
 
+  useEffect(() => {
+    if (!canResend && timer > 0) {
+      const interval = setInterval(() => {
+        setTimer((prev) => {
+          if (prev <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [timer, canResend]);
+
   const sendOtp = async () => {
     if (!email) {
       setErrorMessage('Missing email. Please sign up again.');
@@ -64,6 +81,8 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
         throw new Error(data?.message || 'Failed to send OTP.');
       }
 
+      setTimer(30);
+      setCanResend(false);
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to send OTP.');
     } finally {
@@ -105,21 +124,6 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
       setIsLoading(false);
     }
   };
-
-  if (!email) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <View style={styles.card}>
-          <Text style={styles.title}>Email Required</Text>
-          <Text style={styles.subtitle}>Please sign in again to receive a code.</Text>
-          <TouchableOpacity style={styles.button} onPress={onBack}>
-            <Text style={styles.buttonText}>Back to login</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
@@ -168,9 +172,13 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
 
         <View style={styles.resendRow}>
           <Text style={styles.resendText}>Didn’t receive the code? </Text>
-          <TouchableOpacity onPress={sendOtp} disabled={isLoading}>
-            <Text style={styles.resendLink}>Resend Code</Text>
-          </TouchableOpacity>
+          {canResend ? (
+            <TouchableOpacity onPress={sendOtp} disabled={isLoading}>
+              <Text style={styles.resendLink}>Resend Code</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.resendLink}>Resend Code (0:{timer.toString().padStart(2, '0')})</Text>
+          )}
         </View>
       </View>
     </View>
