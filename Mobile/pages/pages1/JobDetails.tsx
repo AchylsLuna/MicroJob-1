@@ -131,6 +131,11 @@ export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, ac
         {/* Job Title */}
         <Text style={styles.jobTitle}>{jobDetails?.title || 'Job Details'}</Text>
         <Text style={styles.jobMeta}>{jobDetails?.jobType || ''} {jobDetails?.location ? `• ${jobDetails.location}` : ''}</Text>
+        {jobDetails?.urgent ? (
+          <View style={styles.urgentBadge}>
+            <Text style={styles.urgentText}>Urgent</Text>
+          </View>
+        ) : null}
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
@@ -170,7 +175,7 @@ export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, ac
         {/* Skills */}
         <Text style={styles.sectionTitle}>Must have skills</Text>
         <View style={styles.skillsGrid}>
-          {(jobDetails?.skills || []).map((skill, index) => (
+          {(jobDetails?.skills || []).map((skill: string, index: number) => (
             <View key={index} style={styles.skillTag}>
               <Text style={styles.skillText}>{skill}</Text>
             </View>
@@ -245,6 +250,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
+  urgentBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 16,
+  },
+  urgentText: { color: '#b91c1c', fontSize: 12, fontWeight: '700' },
   statsRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',

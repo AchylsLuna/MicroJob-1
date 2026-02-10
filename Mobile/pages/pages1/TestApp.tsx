@@ -6,19 +6,21 @@ import SavedJobs from './SavedJobs';
 import JobDetails from './JobDetails';
 
 type Job = {
-  id: number;
+  _id: string;
   title: string;
-  company: string;
-  tags: string[];
-  time: string;
-  type: string;
-  duration: string;
+  description: string;
+  location: string;
   salary: string;
-  location?: string;
+  jobType: string;
+  urgent?: boolean;
+  skills?: string[];
+  createdAt?: string;
+  category?: { _id: string; name: string } | string;
+  jobPoster?: { firstName?: string; lastName?: string; email?: string };
 };
 
 type SavedJob = {
-  id: number;
+  _id: string;
   title: string;
   company: string;
   location: string;
@@ -45,29 +47,50 @@ export default function AppExample() {
 
   const handleSaveJob = (job: Job) => {
     console.log('Saving job:', job);
-    const exists = savedJobs.some(j => j.id === job.id);
+    const exists = savedJobs.some(j => j._id === job._id);
     if (!exists) {
+      // Extract company name from jobPoster or category
+      const companyName = job.jobPoster
+        ? `${job.jobPoster.firstName || ''} ${job.jobPoster.lastName || ''}`.trim()
+        : typeof job.category === 'object' 
+          ? job.category.name 
+          : 'Unknown Company';
+      
       const newSavedJob: SavedJob = {
-        id: job.id,
+        _id: job._id,
         title: job.title,
-        company: job.company,
+        company: companyName,
         location: job.location || 'Pangasinan, PH',
-        tags: job.tags,
+        tags: job.skills || [],
         salary: job.salary,
       };
       setSavedJobs([...savedJobs, newSavedJob]);
     }
   };
 
-  const handleRemoveJob = (jobId: number) => {
+  const handleRemoveJob = (jobId: string) => {
     console.log('Removing job:', jobId);
-    setSavedJobs(savedJobs.filter(job => job.id !== jobId));
+    setSavedJobs(savedJobs.filter(job => job._id !== jobId));
   };
 
-  const handleViewDetails = (job: Job | SavedJob) => {
+  const handleViewDetails = (job: Job) => {
     console.log('Viewing job details:', job);
-    // Convert SavedJob to Job if needed
-    const jobData = job as any;
+    setSelectedJob(job);
+    setCurrentScreen('JobDetails');
+  };
+
+  const handleViewSavedJobDetails = (job: SavedJob) => {
+    console.log('Viewing saved job details:', job);
+    // Convert SavedJob to Job format
+    const jobData: Job = {
+      _id: job._id,
+      title: job.title,
+      description: '',
+      location: job.location,
+      salary: job.salary,
+      jobType: '',
+      skills: job.tags,
+    };
     setSelectedJob(jobData);
     setCurrentScreen('JobDetails');
   };
@@ -83,7 +106,7 @@ export default function AppExample() {
         job={selectedJob}
         onBack={() => setCurrentScreen('Jobs')}
         onSaveJob={handleSaveJob}
-        isSaved={savedJobs.some(j => j.id === selectedJob.id)}
+        isSaved={savedJobs.some(j => j._id === selectedJob._id)}
         activeTab={activeTab}
         onTabPress={(tab) => {
           setActiveTab(tab);
@@ -104,7 +127,7 @@ export default function AppExample() {
       <SavedJobs
         savedJobs={savedJobs}
         onRemoveJob={handleRemoveJob}
-        onViewDetails={(job: SavedJob) => handleViewDetails(job)}
+        onViewDetails={handleViewSavedJobDetails}
         activeTab={activeTab}
         onTabPress={(tab) => {
           setActiveTab(tab);
@@ -123,7 +146,8 @@ export default function AppExample() {
       <Jobs 
         onBack={handleBackToDashboard}
         onViewDetails={handleViewDetails}
-        onSaveJob={handleSaveJob}
+        onToggleSave={handleSaveJob}
+        savedJobIds={savedJobs.map(j => j._id)}
       />
     );
   }

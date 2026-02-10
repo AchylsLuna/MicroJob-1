@@ -1,8 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Animated, Dimensions, TouchableOpacity } from 'react-native';
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import "./global.css";
+import { API_URL } from './config';
 import Screen1 from './pages/Screen1';
 import Screen2 from './pages/Screen2';
 import Screen3 from './pages/Screen3';
@@ -22,12 +23,19 @@ import AppliedJobs from './pages/pages1/AppliedJobs';
 import Profile from './pages/pages1/Profile';
 import NotificationsInbox from './pages/pages1/NotificationsInbox';
 import Settings from './pages/pages1/Settings';
+import EmployerJobPosts from './pages/employer/EmployerJobPosts';
+import EmployerPostJob from './pages/employer/EmployerPostJob';
+import EmployerApplications from './pages/employer/EmployerApplications';
+import EmployerProfile from './pages/employer/EmployerProfile';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState(0);
   const [activeTab, setActiveTab] = useState('Home');
   const [isReady, setIsReady] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [savedJobs, setSavedJobs] = useState([]);
+  const [selectedEmployerJob, setSelectedEmployerJob] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const transition = useRef(new Animated.Value(0)).current;
   const screenWidth = Dimensions.get('window').width;
@@ -38,7 +46,7 @@ export default function App() {
   const WARNING_DURATION_MS = 10 * 1000;
 
   // Toggle for testing onboarding screens
-  const FORCE_ONBOARDING = true;
+  const FORCE_ONBOARDING = false;
 
   const SCREEN = {
     Screen1: 0,
@@ -60,9 +68,89 @@ export default function App() {
     Messages: 16,
     Profile: 17,
     Settings: 18,
+    EmployerJobPosts: 19,
+    EmployerPostJob: 20,
+    EmployerApplications: 21,
+    EmployerProfile: 22,
   };
 
   const isSessionActive = currentScreen >= SCREEN.Dashboard;
+  const normalizeRole = useCallback((role) => {
+    if (!role) return null;
+    if (role === 'hire') return 'employer';
+    if (role === 'work') return 'worker';
+    return role;
+  }, []);
+  const isEmployerRole = userRole === 'employer' || userRole === 'both' || userRole === 'hire';
+
+  const fetchUserRole = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) return null;
+      const response = await fetch(`${API_URL}/users/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        const profile = data?.profile || data?.user;
+        const role = profile?.role || data?.role || data?.user?.role;
+        if (profile) {
+          await AsyncStorage.setItem('auth_user', JSON.stringify(profile));
+        }
+        return normalizeRole(role || null);
+      }
+    } catch (error) {
+      console.log('Failed to fetch user role', error);
+    }
+
+    try {
+      const storedUser = await AsyncStorage.getItem('auth_user');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        return normalizeRole(parsed?.role || null);
+      }
+    } catch (error) {
+      console.log('Failed to load stored user role', error);
+    }
+
+    return null;
+  }, [normalizeRole]);
+
+  const savedJobIds = useMemo(() => savedJobs.map((job) => job._id).filter(Boolean), [savedJobs]);
+
+  const normalizeSavedJob = useCallback((job) => {
+    if (!job) return null;
+    const company = job.jobPoster?.firstName
+      ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ''}`.trim()
+      : job.company || 'Job Poster';
+
+    return {
+      _id: job._id || job.id,
+      title: job.title || 'Untitled job',
+      company,
+      location: job.location || 'Unknown location',
+      tags: Array.isArray(job.skills) ? job.skills : Array.isArray(job.tags) ? job.tags : [],
+      salary: job.salary || '',
+      jobType: job.jobType,
+      jobPoster: job.jobPoster,
+    };
+  }, []);
+
+  const handleToggleSaveJob = useCallback((job) => {
+    const normalized = normalizeSavedJob(job);
+    if (!normalized || !normalized._id) return;
+    setSavedJobs((prev) => {
+      const exists = prev.some((item) => item._id === normalized._id);
+      if (exists) {
+        return prev.filter((item) => item._id !== normalized._id);
+      }
+      return [...prev, normalized];
+    });
+  }, [normalizeSavedJob]);
+
+  const handleRemoveSavedJob = useCallback((jobId) => {
+    setSavedJobs((prev) => prev.filter((item) => item._id !== jobId));
+  }, []);
 
   const clearIdleTimers = useCallback(() => {
     if (warningTimerRef.current) {
@@ -87,7 +175,13 @@ export default function App() {
 
         if (token) {
           setActiveTab('Home');
-          setCurrentScreen(SCREEN.Dashboard);
+          const role = await fetchUserRole();
+          setUserRole(role);
+          if (role === 'employer' || role === 'both') {
+            setCurrentScreen(SCREEN.EmployerJobPosts);
+          } else {
+            setCurrentScreen(SCREEN.Dashboard);
+          }
         } else if (hasOnboarded === 'true') {
           setCurrentScreen(SCREEN.SignIn);
         } else {
@@ -99,7 +193,37 @@ export default function App() {
     };
 
     init();
+  }, [fetchUserRole]);
+
+  useEffect(() => {
+    const loadSaved = async () => {
+      try {
+        const stored = await AsyncStorage.getItem('saved_jobs');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setSavedJobs(parsed);
+          }
+        }
+      } catch (error) {
+        console.log('Failed to load saved jobs', error);
+      }
+    };
+
+    loadSaved();
   }, []);
+
+  useEffect(() => {
+    const persistSaved = async () => {
+      try {
+        await AsyncStorage.setItem('saved_jobs', JSON.stringify(savedJobs));
+      } catch (error) {
+        console.log('Failed to persist saved jobs', error);
+      }
+    };
+
+    persistSaved();
+  }, [savedJobs]);
 
   const transitionTo = (nextScreen) => {
     const isOnboarding = currentScreen <= SCREEN.Screen4;
@@ -158,7 +282,30 @@ export default function App() {
   const handleGoToDashboard = async () => {
     await AsyncStorage.setItem('has_onboarded', 'true');
     setActiveTab('Home');
-    setCurrentScreen(SCREEN.Dashboard);
+    const role = await fetchUserRole();
+    setUserRole(role);
+    if (role === 'employer' || role === 'both') {
+      setCurrentScreen(SCREEN.EmployerJobPosts);
+    } else {
+      setCurrentScreen(SCREEN.Dashboard);
+    }
+  };
+
+  const handleGoToEmployerPosts = () => {
+    setCurrentScreen(SCREEN.EmployerJobPosts);
+  };
+
+  const handleGoToEmployerPostJob = (job) => {
+    setSelectedEmployerJob(job || null);
+    setCurrentScreen(SCREEN.EmployerPostJob);
+  };
+
+  const handleGoToEmployerApplications = () => {
+    setCurrentScreen(SCREEN.EmployerApplications);
+  };
+
+  const handleGoToEmployerProfile = () => {
+    setCurrentScreen(SCREEN.EmployerProfile);
   };
 
   const handleGoToJobs = () => {
@@ -203,7 +350,11 @@ export default function App() {
   const handleTabPress = (tab) => {
     switch (tab) {
       case 'Home':
-        handleGoToDashboard();
+        if (isEmployerRole) {
+          handleGoToEmployerPosts();
+        } else {
+          handleGoToDashboard();
+        }
         break;
       case 'Jobs':
         handleGoToJobs();
@@ -298,21 +449,30 @@ export default function App() {
       onTabPress={handleTabPress}
       onNavigateToJobs={handleGoToJobs}
       onViewJobDetails={handleGoToJobDetails}
+      onSaveJob={handleToggleSaveJob}
+      savedJobIds={savedJobIds}
       onOpenNotifications={handleGoToMessages}
     />,
     <Jobs
       onBack={handleGoToDashboard}
       onViewDetails={handleGoToJobDetails}
+      onToggleSave={handleToggleSaveJob}
+      savedJobIds={savedJobIds}
       activeTab={activeTab}
       onTabPress={handleTabPress}
     />,
     <JobDetails
       job={selectedJob}
       onBack={handleGoToJobs}
+      onSaveJob={handleToggleSaveJob}
+      isSaved={selectedJob ? savedJobIds.includes(selectedJob._id) : false}
       activeTab={activeTab}
       onTabPress={handleTabPress}
     />,
     <SavedJobs
+      savedJobs={savedJobs}
+      onRemoveJob={handleRemoveSavedJob}
+      onViewDetails={handleGoToJobDetails}
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onViewAppliedJobs={handleGoToApplied}
@@ -336,6 +496,28 @@ export default function App() {
     <Settings
       onBack={handleBackFromSettings}
       onLogout={handleLogout}
+    />,
+    <EmployerJobPosts
+      onBack={handleGoToDashboard}
+      onOpenPostJob={handleGoToEmployerPostJob}
+      onOpenApplications={handleGoToEmployerApplications}
+      onOpenNotifications={handleGoToMessages}
+      onOpenProfile={handleGoToEmployerProfile}
+      onEditJob={handleGoToEmployerPostJob}
+    />,
+    <EmployerPostJob
+      onBack={handleGoToEmployerPosts}
+      onPosted={() => {
+        setSelectedEmployerJob(null);
+        handleGoToEmployerPosts();
+      }}
+      jobToEdit={selectedEmployerJob}
+    />,
+    <EmployerApplications
+      onBack={handleGoToEmployerPosts}
+    />,
+    <EmployerProfile
+      onBack={handleGoToEmployerPosts}
     />,
   ];
 

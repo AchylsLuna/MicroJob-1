@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import Navigation from '../../components/navigation';
 
 type SavedJob = {
-  id: number;
+  _id: string;
   title: string;
   company: string;
   location: string;
@@ -21,7 +21,7 @@ export default function SavedJobs({
   onViewAppliedJobs,
 }: { 
   savedJobs?: SavedJob[];
-  onRemoveJob?: (jobId: number) => void;
+  onRemoveJob?: (jobId: string) => void;
   onViewDetails?: (job: SavedJob) => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
@@ -72,7 +72,7 @@ export default function SavedJobs({
           <View style={styles.jobsList}>
             {savedJobs.map((job) => (
               <TouchableOpacity 
-                key={job.id} 
+                key={job._id} 
                 style={styles.jobCard}
                 onPress={() => onViewDetails?.(job)}
               >
@@ -84,7 +84,7 @@ export default function SavedJobs({
                   </View>
                   <TouchableOpacity 
                     style={styles.deleteBtn}
-                    onPress={() => onRemoveJob?.(job.id)}
+                    onPress={() => onRemoveJob?.(job._id)}
                   >
                     <Text style={styles.deleteIcon}>🗑️</Text>
                   </TouchableOpacity>

@@ -88,6 +88,7 @@ const JobDetails: React.FC = () => {
       responsibilities: job.responsibilities || [],
       requirements: job.requirements || [],
       skills: job.skills || [],
+      urgent: Boolean(job.urgent || job.isUrgent),
       jobPoster: job.jobPoster,
     };
   }, [job]);
@@ -148,6 +149,11 @@ const JobDetails: React.FC = () => {
                       <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
                         {jobData.jobType}
                       </span>
+                      {jobData.urgent ? (
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                          Urgent
+                        </span>
+                      ) : null}
                       <span className="text-gray-500">⏰ {jobData.postedTime}</span>
                     </div>
 

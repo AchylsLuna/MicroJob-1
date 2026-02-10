@@ -15,6 +15,7 @@ interface JobItem {
   description: string;
   location: string;
   jobType: string;
+  urgent?: boolean;
   category?: { _id?: string; name?: string };
   jobPoster?: { _id?: string; id?: string; firstName?: string; lastName?: string };
 }
@@ -223,10 +224,15 @@ const FindJobs: React.FC = () => {
                 </div>
 
                 {/* Category Badge */}
-                <div className="mb-3">
+                <div className="mb-3 flex flex-wrap gap-2">
                   <span className="px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">
                     {job.category?.name || "Uncategorized"}
                   </span>
+                  {job.urgent ? (
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                      Urgent
+                    </span>
+                  ) : null}
                 </div>
 
                 {/* Description */}

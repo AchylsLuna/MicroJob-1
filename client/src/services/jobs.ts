@@ -33,6 +33,9 @@ export const jobsAPI = {
   // Create new job
   createJob: (jobData: any) => api.post('/jobs', jobData),
 
+  // Update job
+  updateJob: (jobId: string, jobData: any) => api.put(`/jobs/${jobId}`, jobData),
+
   // Get jobs posted by logged-in employer
   getMyJobs: () => api.get('/jobs/mine'),
 

@@ -1,11 +1,29 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 
+type JobEdit = {
+  _id: string;
+  title?: string;
+  category?: { _id?: string; name?: string } | string;
+  description?: string;
+  requirements?: string[];
+  responsibilities?: string[];
+  skills?: string[];
+  salary?: string;
+  location?: string;
+  jobType?: string;
+  deadline?: string;
+  urgent?: boolean;
+};
+
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const authUser = useAuth();
+  const jobToEdit = (location.state as { job?: JobEdit } | undefined)?.job;
+  const isEditing = Boolean(jobToEdit?._id);
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -24,6 +42,12 @@ const PostJob: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const parsedSalary = useMemo(() => {
+    if (!jobToEdit?.salary) return "";
+    const matches = jobToEdit.salary.match(/\d[\d,]*/g);
+    return matches?.[0] || "";
+  }, [jobToEdit]);
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -38,15 +62,40 @@ const PostJob: React.FC = () => {
 
   useEffect(() => {
     if (!categoryQuery) {
-      setFormData((prev) => ({ ...prev, category: "" }));
+      setFormData((prev) => {
+        if (isEditing && prev.category) return prev;
+        return { ...prev, category: "" };
+      });
       return;
     }
 
     const match = categories.find((category) =>
       category.name.toLowerCase() === categoryQuery.toLowerCase()
     );
-    setFormData((prev) => ({ ...prev, category: match?._id || "" }));
-  }, [categoryQuery, categories]);
+    setFormData((prev) => ({ ...prev, category: match?._id || prev.category }));
+  }, [categoryQuery, categories, isEditing]);
+
+  useEffect(() => {
+    if (!jobToEdit) return;
+    const categoryId = typeof jobToEdit.category === "object" ? jobToEdit.category?._id : jobToEdit.category;
+    const categoryName = typeof jobToEdit.category === "object" ? jobToEdit.category?.name : "";
+    const deadlineValue = jobToEdit.deadline
+      ? new Date(jobToEdit.deadline).toISOString().slice(0, 10)
+      : "";
+    setFormData({
+      title: jobToEdit.title || "",
+      category: categoryId || "",
+      description: jobToEdit.description || "",
+      requirements: jobToEdit.requirements?.join("\n") || "",
+      responsibilities: jobToEdit.responsibilities?.join("\n") || "",
+      skills: jobToEdit.skills?.join(", ") || "",
+      salary: parsedSalary,
+      location: jobToEdit.location || "",
+      jobType: jobToEdit.jobType || "Fulltime",
+      deadline: deadlineValue,
+    });
+    setCategoryQuery(categoryName || "");
+  }, [jobToEdit, parsedSalary]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +132,7 @@ const PostJob: React.FC = () => {
         return;
       }
 
-      if (!formData.category) {
+      if (!formData.category && !(isEditing && jobToEdit?.category)) {
         setError("Please select a valid category from the list.");
         setSubmitting(false);
         return;
@@ -107,10 +156,14 @@ const PostJob: React.FC = () => {
         deadline: parsedDeadline.toISOString(),
       };
 
-      await jobsAPI.createJob(payload);
+      if (isEditing && jobToEdit?._id) {
+        await jobsAPI.updateJob(jobToEdit._id, payload);
+      } else {
+        await jobsAPI.createJob(payload);
+      }
       navigate("/employer/job-posts");
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to post job.");
+      setError(err?.response?.data?.message || (isEditing ? "Failed to update job." : "Failed to post job."));
     } finally {
       setSubmitting(false);
     }
@@ -119,7 +172,7 @@ const PostJob: React.FC = () => {
   return (
     <div>
       <div className="bg-gradient-to-r from-sky-600 to-sky-400 text-white p-8 mb-8">
-        <h1 className="text-4xl font-extrabold mb-2">Post a Job</h1>
+        <h1 className="text-4xl font-extrabold mb-2">{isEditing ? "Edit Job" : "Post a Job"}</h1>
         <p className="text-sky-100 text-lg">Find the perfect talent for your project</p>
       </div>
 
@@ -304,6 +357,7 @@ const PostJob: React.FC = () => {
                 >
                   <option value="Fulltime">Fulltime</option>
                   <option value="Freelance">Freelance</option>
+                  <option value="Contract">Contract</option>
                   <option value="Remote">Remote</option>
                   <option value="Part-time">Part-time</option>
                 </select>
@@ -334,7 +388,7 @@ const PostJob: React.FC = () => {
                   className="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-xl transition disabled:opacity-60"
                   disabled={submitting}
                 >
-                  {submitting ? "Posting..." : "Post Job"}
+                  {submitting ? (isEditing ? "Updating..." : "Posting...") : (isEditing ? "Update Job" : "Post Job")}
                 </button>
               </div>
             </form>

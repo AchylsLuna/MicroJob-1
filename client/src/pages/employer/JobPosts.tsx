@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { jobsAPI } from "../../services/jobs";
 
 interface JobItem {
@@ -9,11 +10,13 @@ interface JobItem {
   jobType: string;
   status?: string;
   applicants?: string[];
-  category?: { name: string };
+  category?: { _id?: string; name?: string } | string;
   createdAt?: string;
+  urgent?: boolean;
 }
 
 const JobPosts: React.FC = () => {
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +67,9 @@ const JobPosts: React.FC = () => {
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {jobs.map((job) => (
+          {jobs.map((job) => {
+            const categoryName = typeof job.category === "object" ? job.category?.name : "";
+            return (
             <div key={job._id} className="bg-white rounded-2xl p-6 shadow-sm border border-sky-100">
               <div className="flex items-start justify-between">
                 <div>
@@ -72,9 +77,14 @@ const JobPosts: React.FC = () => {
                   <p className="text-sm text-gray-500 mt-1">
                     {job.location}
                   </p>
-                  {job.category?.name && (
+                  {categoryName && (
                     <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-700">
-                      {job.category.name}
+                      {categoryName}
+                    </span>
+                  )}
+                  {job.urgent && (
+                    <span className="inline-block mt-2 ml-2 px-3 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                      Urgent
                     </span>
                   )}
                 </div>
@@ -92,10 +102,20 @@ const JobPosts: React.FC = () => {
 
               <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
                 <span>Applicants: {job.applicants?.length || 0}</span>
-                <span>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ""}</span>
+                <div className="flex items-center gap-3">
+                  <span>{job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ""}</span>
+                  <button
+                    type="button"
+                    className="px-3 py-1 rounded-lg bg-sky-100 text-white text-xs font-semibold hover:bg-sky-700"
+                    onClick={() => navigate("/employer/post-job", { state: { job } })}
+                  >
+                    Edit
+                  </button>
+                </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
