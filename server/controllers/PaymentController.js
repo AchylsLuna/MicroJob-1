@@ -16,31 +16,49 @@ export const createTopUp = async (req, res) => {
         const userId = req.user.id;
         const { amount } = req.body;
 
-        if (amount < 100) return res.status(400).json({ message: "Minimum amount is 100" });
+        // 1. Force Amount to be a Number
+        const amountNum = Number(amount); 
+
+        if (!amountNum || amountNum < 100) {
+            return res.status(400).json({ message: "Minimum amount is 100" });
+        }
+
         let wallet = await Wallet.findOne({ user: userId });
         if (!wallet) wallet = await Wallet.create({ user: userId });
 
-        // Invoice
         const invoiceData = {
-            amount: amount,
+            amount: amountNum, 
+            externalId: `TOPUP-${Date.now()}-${userId}`,
             description: `Wallet Top-up for User ${userId}`,
-            payerEmail: req.user.email,
+            currency: 'PHP',
+            reminderTime: 1,
         };
 
+        // Only add email if it exists and is valid
+        if (req.user.email && req.user.email.includes('@')) {
+            invoiceData.payerEmail = req.user.email;
+        }
+
         const response = await Invoice.createInvoice({ data: invoiceData });
+
         await Transaction.create({
             wallet: wallet._id,
             type: 'TOPUP',
-            amount: amount,
-            referenceId: response.id, // Xendit Invoice ID
+            amount: amountNum,
+            referenceId: response.id,
             status: 'PENDING',
             description: 'Waiting for payment'
         });
+
         res.status(200).json({ paymentUrl: response.invoiceUrl });
 
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Top-up failed" });
+        console.error("Xendit Error Details:", JSON.stringify(error.response, null, 2));
+        
+        res.status(500).json({ 
+            message: "Top-up failed",
+            details: error.response?.errors || error.message 
+        });
     }
 };
 
