@@ -9,9 +9,17 @@ type ProfileProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   onOpenSettings?: () => void;
+  currentRole?: 'worker' | 'employer';
+  onSwitchRole?: (role: 'worker' | 'employer') => void;
 };
 
-export default function Profile({ activeTab = 'Profile', onTabPress, onOpenSettings }: ProfileProps) {
+export default function Profile({
+  activeTab = 'Profile',
+  onTabPress,
+  onOpenSettings,
+  currentRole = 'worker',
+  onSwitchRole,
+}: ProfileProps) {
   const [profileTab, setProfileTab] = useState(activeTab || 'Profile');
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [showAddEducation, setShowAddEducation] = useState(false);
@@ -20,6 +28,11 @@ export default function Profile({ activeTab = 'Profile', onTabPress, onOpenSetti
   const handleTabPress = (tab: string) => {
     setProfileTab(tab);
     onTabPress?.(tab);
+  };
+
+  const handleRoleSwitch = (role: 'worker' | 'employer') => {
+    if (role === currentRole) return;
+    onSwitchRole?.(role);
   };
 
   return (
@@ -47,6 +60,25 @@ export default function Profile({ activeTab = 'Profile', onTabPress, onOpenSetti
 
           {/* Name */}
           <Text style={styles.name}>Jonas</Text>
+
+          <View style={styles.roleSwitchRow}>
+            <TouchableOpacity
+              style={[styles.roleChip, currentRole === 'worker' && styles.roleChipActive]}
+              onPress={() => handleRoleSwitch('worker')}
+            >
+              <Text style={[styles.roleChipText, currentRole === 'worker' && styles.roleChipTextActive]}>
+                Worker
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleChip, currentRole === 'employer' && styles.roleChipActive]}
+              onPress={() => handleRoleSwitch('employer')}
+            >
+              <Text style={[styles.roleChipText, currentRole === 'employer' && styles.roleChipTextActive]}>
+                Employer
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Stats */}
           <View style={styles.statsRow}>
@@ -241,6 +273,25 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: '#3b5a85',
   },
+  roleSwitchRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  roleChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#ffffff',
+  },
+  roleChipActive: {
+    backgroundColor: '#0a2847',
+    borderColor: '#0a2847',
+  },
+  roleChipText: { fontSize: 12, fontWeight: '700', color: '#334155' },
+  roleChipTextActive: { color: '#ffffff' },
   section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: 'row',

@@ -12,16 +12,26 @@ type Job = {
   location: string;
   salary: string;
   jobType: string;
+  urgent?: boolean;
   skills?: string[];
   createdAt?: string;
   category?: { _id: string; name: string } | string;
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 };
 
-export default function Jobs({ onBack, onViewDetails, onSaveJob, activeTab: externalActiveTab, onTabPress: externalOnTabPress }: { onBack?: () => void; onViewDetails?: (job: any) => void; onSaveJob?: (job: any) => void; activeTab?: string; onTabPress?: (tab: string) => void }) {
+type JobsProps = {
+  onViewDetails?: (job: Job) => void;
+  onToggleSave?: (job: Job) => void;
+  savedJobIds?: string[];
+  activeTab?: string;
+  onTabPress?: (tab: string) => void;
+  navigation?: any;
+};
+
+export default function Jobs(props: JobsProps) {
+  const { onViewDetails, onToggleSave, savedJobIds = [], activeTab: externalActiveTab, onTabPress: externalOnTabPress, navigation } = props;
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [searchQuery, setSearchQuery] = useState('');
-  const [savedJobIds, setSavedJobIds] = useState<string[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
@@ -99,18 +109,10 @@ export default function Jobs({ onBack, onViewDetails, onSaveJob, activeTab: exte
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);
     externalOnTabPress?.(tab);
-    if (tab === 'Home' && onBack) {
-      onBack();
-    }
   };
 
-  const handleToggleSave = (jobId: string, job: Job) => {
-    if (savedJobIds.includes(jobId)) {
-      setSavedJobIds(savedJobIds.filter(id => id !== jobId));
-    } else {
-      setSavedJobIds([...savedJobIds, jobId]);
-      onSaveJob?.(job);
-    }
+  const handleToggleSave = (job: Job) => {
+    onToggleSave?.(job);
   };
 
   return (
@@ -215,7 +217,14 @@ export default function Jobs({ onBack, onViewDetails, onSaveJob, activeTab: exte
             >
               <View style={styles.jobCardHeader}>
                 <View style={styles.jobInfo}>
-                  <Text style={styles.jobTitle}>{job.title}</Text>
+                  <View style={styles.titleRow}>
+                    <Text style={styles.jobTitle}>{job.title}</Text>
+                    {job.urgent ? (
+                      <View style={styles.urgentBadge}>
+                        <Text style={styles.urgentText}>Urgent</Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={styles.jobCompany}>
                     {job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ''}`.trim() : 'Job Poster'}
                   </Text>
@@ -224,7 +233,7 @@ export default function Jobs({ onBack, onViewDetails, onSaveJob, activeTab: exte
                   style={styles.bookmarkBtn}
                   onPress={(e) => {
                     e.stopPropagation?.();
-                    handleToggleSave(job._id, job);
+                    handleToggleSave(job);
                   }}
                 >
                   <Text style={styles.bookmarkIcon}>
@@ -257,6 +266,24 @@ export default function Jobs({ onBack, onViewDetails, onSaveJob, activeTab: exte
                 </View>
                 <Text style={styles.salary}>{job.salary}</Text>
               </View>
+
+              {/* Message Button */}
+              {job.jobPoster && typeof job.jobPoster === 'object' && job.jobPoster.email ? (
+                <TouchableOpacity
+                  style={{marginTop: 8, backgroundColor: '#3b82f6', borderRadius: 8, padding: 10, alignItems: 'center'}} 
+                  onPress={() => {
+                    if (navigation && navigation.navigate) {
+                      navigation.navigate('ChatScreen', {
+                        recipientId: job.jobPoster?.email,
+                        recipientName: `${job.jobPoster?.firstName || ''} ${job.jobPoster?.lastName || ''}`.trim() || 'Employer',
+                        jobId: job._id,
+                      });
+                    }
+                  }}
+                >
+                  <Text style={{color: '#fff', fontWeight: '700'}}>Message Employer</Text>
+                </TouchableOpacity>
+              ) : null}
             </TouchableOpacity>
           ))}
         </View>
@@ -381,8 +408,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   jobInfo: { flex: 1 },
   jobTitle: { fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
+  urgentBadge: {
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  urgentText: { color: '#b91c1c', fontSize: 10, fontWeight: '700' },
   jobCompany: { fontSize: 13, color: '#6b7280' },
   bookmarkBtn: {
     width: 32,

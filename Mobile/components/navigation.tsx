@@ -19,7 +19,7 @@ export default function Navigation({ activeTab = 'Home', onTabPress }: Props) {
     { label: 'Home', icon: '🏠', screen: 'Home' },
     { label: 'Jobs', icon: '💼', screen: 'Jobs' },
     { label: 'Saved', icon: '🔖', screen: 'Saved' },
-    { label: 'Messages', icon: '✉️', badge: 1, screen: 'Messages' },
+    { label: 'Messages', icon: '✉️', screen: 'Messages' },
     { label: 'Profile', icon: '👤', screen: 'Profile' },
   ];
 

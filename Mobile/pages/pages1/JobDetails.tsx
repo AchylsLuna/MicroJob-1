@@ -6,14 +6,13 @@ import { API_URL } from '../../config';
 
 type JobDetailsProps = {
   job: any;
-  onBack?: () => void;
   onSaveJob?: (job: any) => void;
   isSaved?: boolean;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
 };
 
-export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, activeTab = 'Jobs', onTabPress }: JobDetailsProps) {
+export default function JobDetails({ job, onSaveJob, isSaved = false, activeTab = 'Jobs', onTabPress }: JobDetailsProps) {
   const [saved, setSaved] = useState(isSaved);
   const [showSuccess, setShowSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState(job);
@@ -120,17 +119,15 @@ export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, ac
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Job Title */}
         <Text style={styles.jobTitle}>{jobDetails?.title || 'Job Details'}</Text>
         <Text style={styles.jobMeta}>{jobDetails?.jobType || ''} {jobDetails?.location ? `• ${jobDetails.location}` : ''}</Text>
+        {jobDetails?.urgent ? (
+          <View style={styles.urgentBadge}>
+            <Text style={styles.urgentText}>Urgent</Text>
+          </View>
+        ) : null}
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
@@ -170,7 +167,7 @@ export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, ac
         {/* Skills */}
         <Text style={styles.sectionTitle}>Must have skills</Text>
         <View style={styles.skillsGrid}>
-          {(jobDetails?.skills || []).map((skill, index) => (
+          {(jobDetails?.skills || []).map((skill: string, index: number) => (
             <View key={index} style={styles.skillTag}>
               <Text style={styles.skillText}>{skill}</Text>
             </View>
@@ -219,19 +216,7 @@ export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, ac
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1e3a5f' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: { fontSize: 24, color: '#fff' },
-  scroll: { paddingHorizontal: 20, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 100 },
   jobTitle: {
     fontSize: 24,
     fontWeight: '800',
@@ -245,6 +230,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 24,
   },
+  urgentBadge: {
+    alignSelf: 'center',
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginBottom: 16,
+  },
+  urgentText: { color: '#b91c1c', fontSize: 12, fontWeight: '700' },
   statsRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',

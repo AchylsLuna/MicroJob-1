@@ -22,7 +22,7 @@ const JobSchema = new mongoose.Schema(
         },
         jobType: {
             type: String,
-            enum: ['Fulltime', 'Freelance', 'Remote', 'Part-time'],
+            enum: ['Fulltime', 'Freelance', 'Remote', 'Part-time', 'Contract'],
             required: true
         },
         deadline: {
@@ -46,6 +46,10 @@ const JobSchema = new mongoose.Schema(
             type: String,
             enum: ['Available', 'In Progress', 'Completed', 'Cancelled'],
             default: 'Available',
+        },
+        urgent: {
+            type: Boolean,
+            default: false,
         },
         category: {
             type: mongoose.Schema.Types.ObjectId,

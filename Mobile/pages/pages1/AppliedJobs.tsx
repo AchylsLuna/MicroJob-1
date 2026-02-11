@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,19 +14,16 @@ type AppliedJob = {
   hasDetails?: boolean;
 };
 
-type Props = {
+type AppliedJobsProps = {
   onViewSavedJobs?: () => void;
   onViewDetails?: (job: { _id: string }) => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  navigation?: any;
 };
 
-export default function AppliedJobs({
-  onViewSavedJobs,
-  onViewDetails,
-  activeTab: externalActiveTab,
-  onTabPress: externalOnTabPress,
-}: Props) {
+export default function AppliedJobs(props: AppliedJobsProps) {
+  const { onViewSavedJobs, onViewDetails, activeTab: externalActiveTab, onTabPress: externalOnTabPress, navigation } = props;
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Saved');
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [applications, setApplications] = useState<AppliedJob[]>([]);
@@ -96,11 +94,7 @@ export default function AppliedJobs({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Text style={styles.backIcon}>‹</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Applied jobs</Text>
-        <View style={styles.placeholder} />
       </View>
 
       <View style={styles.toggleContainer}>
@@ -172,6 +166,39 @@ export default function AppliedJobs({
                     </TouchableOpacity>
                   ) : null}
                 </View>
+
+                {/* Message Button */}
+                <TouchableOpacity
+                  style={{marginTop: 8, backgroundColor: '#3b82f6', borderRadius: 8, padding: 10, alignItems: 'center'}}
+                  onPress={async () => {
+                    // Find the employer userId from the application/job data
+                    const token = await AsyncStorage.getItem('auth_token');
+                    // Fetch the full application to get employer userId if not present
+                    let employerId = null;
+                    try {
+                      const response = await fetch(`${API_URL}/applications/${job.id}`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+                      });
+                      if (response.ok) {
+                        const data = await response.json();
+                        employerId = data?.job?.jobPoster?._id;
+                      }
+                    } catch {}
+                    if (!employerId) {
+                      Alert.alert('Error', 'Could not find employer user ID.');
+                      return;
+                    }
+                    if (typeof navigation !== 'undefined' && navigation?.navigate) {
+                      navigation.navigate('ChatScreen', {
+                        userId: employerId,
+                        jobId: job.jobId,
+                        employerName: job.company,
+                      });
+                    }
+                  }}
+                >
+                  <Text style={{color: '#fff', fontWeight: '700'}}>Message Employer</Text>
+                </TouchableOpacity>
               </View>
             ))}
           </View>
@@ -192,17 +219,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a5f',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: { fontSize: 28, color: '#fff', fontWeight: '700' },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  placeholder: { width: 40 },
   toggleContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,

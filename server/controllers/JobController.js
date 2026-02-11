@@ -33,9 +33,8 @@ export async function getJobList(req, res) {
                 const token = authHeader.substring(7);
                 try {
                     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
-                    const userId = decoded?.id || decoded?.userId;
-                    if (userId) {
-                        filter.jobPoster = { $ne: userId };
+                    if (decoded?.id) {
+                        filter.jobPoster = { $ne: decoded.id };
                     }
                 } catch (error) {
                     // Ignore invalid token; return unfiltered results
@@ -114,7 +113,8 @@ export async function createJob(req, res){
             responsibilities,
             requirements,
             category, 
-            image
+            image,
+            urgent
         } = req.body;
         const jobPoster = req.user.id;
         
@@ -144,7 +144,8 @@ export async function createJob(req, res){
             requirements: requirements || [],
             category,
             image,
-            jobPoster
+            jobPoster,
+            urgent: Boolean(urgent)
         });
 
         await newJob.save();
@@ -231,5 +232,72 @@ export async function getMyJobs(req, res) {
     } catch (error) {
         console.error('Get my jobs error:', error);
         res.status(500).json({ message: 'Failed to get my jobs.', error: error.message });
+    }
+}
+
+export async function updateJob(req, res) {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+
+        const job = await Job.findById(id);
+        if (!job) {
+            return res.status(404).json({ message: "Job not found." });
+        }
+
+        if (job.jobPoster.toString() !== userId) {
+            return res.status(403).json({ message: "You are not allowed to update this job." });
+        }
+
+        const allowed = [
+            "title",
+            "description",
+            "location",
+            "salary",
+            "jobType",
+            "deadline",
+            "skills",
+            "responsibilities",
+            "requirements",
+            "category",
+            "image",
+            "urgent",
+        ];
+
+        const updates = {};
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) {
+                let value = req.body[key];
+                if (typeof value === "string") {
+                    value = value.trim();
+                    if (value === "") {
+                        return res.status(400).json({ message: `${key} is required.` });
+                    }
+                }
+                if (key === "deadline" && value) {
+                    const parsed = new Date(value);
+                    if (Number.isNaN(parsed.getTime())) {
+                        return res.status(400).json({ message: "Invalid deadline date." });
+                    }
+                    value = parsed;
+                }
+                if (["skills", "responsibilities", "requirements"].includes(key) && value && !Array.isArray(value)) {
+                    return res.status(400).json({ message: `${key} must be an array.` });
+                }
+                if (key === "urgent") {
+                    value = Boolean(value);
+                }
+                updates[key] = value;
+            }
+        }
+
+        const updated = await Job.findByIdAndUpdate(id, updates, { new: true })
+            .populate('category', 'name')
+            .populate('jobPoster', 'firstName lastName email');
+
+        return res.status(200).json({ message: "Job updated successfully.", job: updated });
+    } catch (error) {
+        console.error('Update job error:', error);
+        return res.status(500).json({ message: "Failed to update job.", error: error.message });
     }
 }
