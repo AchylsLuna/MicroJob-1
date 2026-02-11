@@ -187,6 +187,9 @@ export default function EmployerJobPosts({
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Applicants List (count only, no message button due to type) */}
+            {/* If you want to show applicant details, update the backend to return applicant objects, not just string IDs */}
           </View>
         ))}
       </ScrollView>

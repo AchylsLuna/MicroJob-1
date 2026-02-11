@@ -21,6 +21,7 @@ type ApplicationItem = {
     title: string;
   };
   applicant: {
+    _id: string;
     firstName: string;
     lastName: string;
     email: string;
@@ -34,11 +35,12 @@ type ApplicationItem = {
 type EmployerApplicationsProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  onMessageWorker?: (workerId: string, jobId: string) => void;
 };
 
 const STATUS_OPTIONS: ApplicationItem['status'][] = ['Pending', 'Reviewed', 'Accepted', 'Rejected'];
 
-export default function EmployerApplications({ activeTab, onTabPress }: EmployerApplicationsProps) {
+export default function EmployerApplications({ activeTab, onTabPress, onMessageWorker }: EmployerApplicationsProps) {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -233,11 +235,6 @@ export default function EmployerApplications({ activeTab, onTabPress }: Employer
                 <Text style={styles.statusText}>{app.status}</Text>
               </View>
             </View>
-
-            {app.coverLetter ? (
-              <Text style={styles.coverLetter}>{app.coverLetter}</Text>
-            ) : null}
-
             <View style={styles.metaRow}>
               <Text style={styles.metaText}>
                 {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ''}
@@ -249,6 +246,11 @@ export default function EmployerApplications({ activeTab, onTabPress }: Employer
                 <TouchableOpacity onPress={() => handleRemoveApplication(app._id)}>
                   <Text style={styles.removeText}>Remove</Text>
                 </TouchableOpacity>
+                {onMessageWorker && (
+                  <TouchableOpacity onPress={() => onMessageWorker(app.applicant._id, app.job._id)}>
+                    <Text style={styles.linkText}>Message</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 

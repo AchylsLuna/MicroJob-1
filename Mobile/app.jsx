@@ -22,12 +22,14 @@ import SavedJobs from './pages/pages1/SavedJobs';
 import AppliedJobs from './pages/pages1/AppliedJobs';
 import Profile from './pages/pages1/Profile';
 import NotificationsInbox from './pages/pages1/NotificationsInbox';
+import WorkerInbox from './pages/pages1/WorkerInbox';
 import Settings from './pages/pages1/Settings';
 import EmployerJobPosts from './pages/employer/EmployerJobPosts';
 import EmployerPostJob from './pages/employer/EmployerPostJob';
 import EmployerApplications from './pages/employer/EmployerApplications';
 import EmployerProfile from './pages/employer/EmployerProfile';
 import EmployerNotifications from './pages/employer/EmployerNotifications';
+import EmployerInbox from './pages/employer/EmployerInbox';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState(0);
@@ -75,6 +77,7 @@ export default function App() {
     EmployerApplications: 21,
     EmployerProfile: 22,
     EmployerNotifications: 23,
+    EmployerMessages: 24,
   };
 
   const isSessionActive = currentScreen >= SCREEN.Dashboard;
@@ -410,7 +413,7 @@ export default function App() {
         handleGoToSaved();
         break;
       case 'Messages':
-        handleGoToMessages();
+        setCurrentScreen(SCREEN.Messages);
         break;
       case 'Profile':
         handleGoToProfile();
@@ -422,24 +425,18 @@ export default function App() {
 
   const handleEmployerTabPress = (tab) => {
     setActiveEmployerTab(tab);
-    switch (tab) {
-      case 'Home':
-        handleGoToEmployerPosts();
-        break;
-      case 'Applications':
-        handleGoToEmployerApplications();
-        break;
-      case 'Post Job':
-        handleGoToEmployerPostJob(null);
-        break;
-      case 'Notifications':
-        handleGoToEmployerNotifications();
-        break;
-      case 'Profile':
-        handleGoToEmployerProfile();
-        break;
-      default:
-        break;
+    if (tab === 'Home') {
+      handleGoToEmployerPosts();
+    } else if (tab === 'Applications') {
+      handleGoToEmployerApplications();
+    } else if (tab === 'Post Job') {
+      handleGoToEmployerPostJob(null);
+    } else if (tab === 'Notifications') {
+      handleGoToEmployerNotifications();
+    } else if (tab === 'Profile') {
+      handleGoToEmployerProfile();
+    } else if (tab === 'Messages') {
+      setCurrentScreen(SCREEN.EmployerMessages);
     }
   };
 
@@ -559,10 +556,7 @@ export default function App() {
       onViewDetails={handleGoToJobDetails}
       onViewSavedJobs={handleGoToSaved}
     />,
-    <NotificationsInbox
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-    />,
+    <WorkerInbox activeTab={activeTab} onTabPress={handleTabPress} />,
     <Profile
       activeTab={activeTab}
       onTabPress={handleTabPress}
@@ -595,6 +589,7 @@ export default function App() {
     <EmployerApplications
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
+      onMessageWorker={handleMessageWorker}
     />,
     <EmployerProfile
       activeTab={activeEmployerTab}
@@ -607,7 +602,17 @@ export default function App() {
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
     />,
+    <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} />,
   ];
+
+  const [selectedWorkerId, setSelectedWorkerId] = useState(null);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+
+  const handleMessageWorker = (workerId, jobId) => {
+    setSelectedWorkerId(workerId);
+    setSelectedJobId(jobId);
+    setCurrentScreen(SCREEN.EmployerMessages);
+  };
 
   const translateX = transition.interpolate({
     inputRange: [0, 1],

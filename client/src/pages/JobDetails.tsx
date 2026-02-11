@@ -158,9 +158,22 @@ const JobDetails: React.FC = () => {
                     </div>
 
                     {jobData.jobPoster && (
-                      <p className="text-sm text-gray-500 mb-4">
-                        Posted by {jobData.jobPoster.firstName} {jobData.jobPoster.lastName}
-                      </p>
+                      <>
+                        <p className="text-sm text-gray-500 mb-4">
+                          Posted by {jobData.jobPoster.firstName} {jobData.jobPoster.lastName}
+                        </p>
+                        {/* Message Button for Worker */}
+                        {(!isOwnJob && jobData.jobPoster && jobData.jobPoster._id) ? (
+                          <button
+                            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 mb-4"
+                            onClick={() => {
+                              navigate('/messages', { state: { userId: jobData.jobPoster._id, name: `${jobData.jobPoster.firstName || ''} ${jobData.jobPoster.lastName || ''}`.trim() } });
+                            }}
+                          >
+                            💬 Message Employer
+                          </button>
+                        ) : null}
+                      </>
                     )}
 
                     {/* Salary */}

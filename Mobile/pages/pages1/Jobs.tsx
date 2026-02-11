@@ -19,19 +19,17 @@ type Job = {
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 };
 
-export default function Jobs({
-  onViewDetails,
-  onToggleSave,
-  savedJobIds = [],
-  activeTab: externalActiveTab,
-  onTabPress: externalOnTabPress,
-}: {
+type JobsProps = {
   onViewDetails?: (job: Job) => void;
   onToggleSave?: (job: Job) => void;
   savedJobIds?: string[];
   activeTab?: string;
   onTabPress?: (tab: string) => void;
-}) {
+  navigation?: any;
+};
+
+export default function Jobs(props: JobsProps) {
+  const { onViewDetails, onToggleSave, savedJobIds = [], activeTab: externalActiveTab, onTabPress: externalOnTabPress, navigation } = props;
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -268,6 +266,24 @@ export default function Jobs({
                 </View>
                 <Text style={styles.salary}>{job.salary}</Text>
               </View>
+
+              {/* Message Button */}
+              {job.jobPoster && typeof job.jobPoster === 'object' && job.jobPoster.email ? (
+                <TouchableOpacity
+                  style={{marginTop: 8, backgroundColor: '#3b82f6', borderRadius: 8, padding: 10, alignItems: 'center'}} 
+                  onPress={() => {
+                    if (navigation && navigation.navigate) {
+                      navigation.navigate('ChatScreen', {
+                        recipientId: job.jobPoster?.email,
+                        recipientName: `${job.jobPoster?.firstName || ''} ${job.jobPoster?.lastName || ''}`.trim() || 'Employer',
+                        jobId: job._id,
+                      });
+                    }
+                  }}
+                >
+                  <Text style={{color: '#fff', fontWeight: '700'}}>Message Employer</Text>
+                </TouchableOpacity>
+              ) : null}
             </TouchableOpacity>
           ))}
         </View>

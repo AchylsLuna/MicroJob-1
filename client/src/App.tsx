@@ -13,6 +13,7 @@ import EWallet from "./pages/EWallet";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { AppliedJobs, SavedJobs } from "./pages/worker";
 import { PostJob, Applications, JobPosts } from "./pages/employer";
+import Messages from "./pages/Messages";
 
 const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 const WARNING_DURATION_MS = 1 * 1000;
@@ -146,6 +147,7 @@ const App: React.FC = () => {
           <Route path="/employer/post-job" element={<PostJob />} />
           <Route path="/employer/applications" element={<Applications />} />
           <Route path="/employer/job-posts" element={<JobPosts />} />
+          <Route path="/messages" element={<Messages />} />
         </Route>
       </Routes>
     </Router>

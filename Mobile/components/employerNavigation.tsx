@@ -23,6 +23,7 @@ export default function EmployerNavigation({
     { label: 'Home', icon: '🏠', screen: 'Home' },
     { label: 'Applications', icon: '📋', screen: 'Applications' },
     { label: 'Post Job', icon: '➕', screen: 'Post Job' },
+    { label: 'Messages', icon: '✉️', screen: 'Messages' },
     { label: 'Notifications', icon: '🔔', screen: 'Notifications', badge: notificationsCount },
     { label: 'Profile', icon: '👤', screen: 'Profile' },
   ];
