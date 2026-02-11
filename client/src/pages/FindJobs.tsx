@@ -22,7 +22,7 @@ interface JobItem {
 
 const FindJobs: React.FC = () => {
   const navigate = useNavigate();
-  const authUser = useAuth();
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -58,10 +58,10 @@ const FindJobs: React.FC = () => {
       }
     };
 
-    if (authUser) {
+    if (user) {
       fetchAppliedJobs();
     }
-  }, [authUser]);
+  }, [user]);
 
   useEffect(() => {
     const fetchJobs = async () => {
@@ -95,7 +95,7 @@ const FindJobs: React.FC = () => {
     }
   };
 
-  const authUserId = authUser?.id || (authUser as any)?._id;
+  const authUserId = user?.id || (user as any)?._id;
   const displayedJobs = jobs.filter((job) => !appliedJobIds.has(job._id));
 
   return (

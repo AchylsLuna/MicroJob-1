@@ -1,9 +1,38 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 
+const normalizeId = (value) => {
+  if (!value) return value;
+  if (typeof value === 'object' && value._id) return value._id.toString();
+  if (typeof value === 'string') return value;
+  if (typeof value.toString === 'function') return value.toString();
+  return value;
+};
+
+const formatMessage = (message) => {
+  const raw = message?.toObject ? message.toObject() : message;
+  const senderName = raw?.sender?.firstName
+    ? `${raw.sender.firstName} ${raw.sender.lastName || ''}`.trim()
+    : undefined;
+  const receiverName = raw?.receiver?.firstName
+    ? `${raw.receiver.firstName} ${raw.receiver.lastName || ''}`.trim()
+    : undefined;
+
+  return {
+    ...raw,
+    sender: normalizeId(raw?.sender),
+    receiver: normalizeId(raw?.receiver),
+    senderName,
+    receiverName,
+  };
+};
+
 const getConversationWithUser = async (req, res) => {
   try {
-    const userId = req.user._id;
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication required.' });
+    }
     const { otherUserId } = req.params;
     if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
     const messages = await Message.find({
@@ -11,8 +40,11 @@ const getConversationWithUser = async (req, res) => {
         { sender: userId, receiver: otherUserId },
         { sender: otherUserId, receiver: userId }
       ]
-    }).sort({ createdAt: 1 });
-    res.json({ messages });
+    })
+      .populate('sender', 'firstName lastName')
+      .populate('receiver', 'firstName lastName')
+      .sort({ createdAt: 1 });
+    res.json({ messages: messages.map(formatMessage) });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -23,7 +55,10 @@ const MessageController = {
   sendMessage: async (req, res) => {
     try {
       const { receiverId, content, jobId } = req.body;
-      const senderId = req.user._id;
+      const senderId = req.user?.id || req.user?.userId;
+      if (!senderId) {
+        return res.status(401).json({ message: 'Authentication required.' });
+      }
       if (!receiverId || !content) {
         return res.status(400).json({ message: 'Receiver and content are required.' });
       }
@@ -33,7 +68,8 @@ const MessageController = {
         job: jobId,
         content,
       });
-      res.status(201).json({ message: 'Message sent', data: message });
+      const populated = await message.populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName');
+      res.status(201).json({ message: 'Message sent', data: formatMessage(populated) });
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
@@ -42,16 +78,28 @@ const MessageController = {
   // Get all conversations for the logged-in user
   getConversations: async (req, res) => {
     try {
-      const userId = req.user._id;
+      const userId = req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required.' });
+      }
       // Find all users this user has messaged or received messages from
       const messages = await Message.find({ $or: [ { sender: userId }, { receiver: userId } ] })
+        .populate('sender', 'firstName lastName')
+        .populate('receiver', 'firstName lastName')
         .sort({ createdAt: -1 });
+      const formattedMessages = messages.map(formatMessage);
       // Group by other user
       const conversations = {};
-      messages.forEach(msg => {
-        const otherUser = msg.sender.equals(userId) ? msg.receiver : msg.sender;
+      formattedMessages.forEach(msg => {
+        const isSender = msg.sender === userId;
+        const otherUser = isSender ? msg.receiver : msg.sender;
+        const convoMessage = {
+          ...msg,
+          senderName: isSender ? undefined : msg.senderName,
+          receiverName: isSender ? msg.receiverName : undefined,
+        };
         if (!conversations[otherUser]) conversations[otherUser] = [];
-        conversations[otherUser].push(msg);
+        conversations[otherUser].push(convoMessage);
       });
       res.json({ conversations });
     } catch (error) {
@@ -62,7 +110,10 @@ const MessageController = {
   // Get messages between two users (optionally for a job)
   getMessages: async (req, res) => {
     try {
-      const userId = req.user._id;
+      const userId = req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required.' });
+      }
       const { otherUserId, jobId } = req.query;
       if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
       const filter = {
@@ -72,8 +123,11 @@ const MessageController = {
         ],
       };
       if (jobId) filter.job = jobId;
-      const messages = await Message.find(filter).sort({ createdAt: 1 });
-      res.json({ messages });
+      const messages = await Message.find(filter)
+        .populate('sender', 'firstName lastName')
+        .populate('receiver', 'firstName lastName')
+        .sort({ createdAt: 1 });
+      res.json({ messages: messages.map(formatMessage) });
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
@@ -82,7 +136,10 @@ const MessageController = {
   // Mark messages as read
   markAsRead: async (req, res) => {
     try {
-      const userId = req.user._id;
+      const userId = req.user?.id || req.user?.userId;
+      if (!userId) {
+        return res.status(401).json({ message: 'Authentication required.' });
+      }
       const { otherUserId, jobId } = req.body;
       if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
       const filter = {

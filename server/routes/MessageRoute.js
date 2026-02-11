@@ -5,6 +5,8 @@ import MessageController from '../controllers/MessageController.js';
 const router = express.Router();
 // Send a message
 router.post('/', auth, MessageController.sendMessage);
+// Backward-compatible send endpoint (mobile)
+router.post('/send', auth, MessageController.sendMessage);
 // Get all conversations for logged-in user
 router.get('/conversations', auth, MessageController.getConversations);
 // Get messages between two users (optionally for a job)
