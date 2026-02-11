@@ -1,64 +1,85 @@
 import { ArrowLeft, MapPin, Briefcase, DollarSign, Clock, Building2, Users, Calendar, Share2, Bookmark, CheckCircle2 } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useNavigate, useParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { applyForJob, getJobDetails } from "../../services/api";
+
+type ApiJob = {
+  _id: string;
+  title: string;
+  description: string;
+  location?: string;
+  salary?: string;
+  jobType?: string;
+  deadline?: string;
+  createdAt?: string;
+  responsibilities?: string[];
+  requirements?: string[];
+  skills?: string[];
+  applicants?: string[];
+  jobPoster?: { firstName?: string; lastName?: string; email?: string };
+};
 
 export function JobDetails() {
   const navigate = useNavigate();
   const { jobId } = useParams();
   const [isSaved, setIsSaved] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
+  const [job, setJob] = useState<ApiJob | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Mock job data - in real app, fetch based on jobId
-  const job = {
-    id: jobId || "1",
-    title: "Senior React Developer",
-    company: "Tech Solutions Inc.",
-    companyLogo: "TS",
-    location: "Manila, Philippines",
-    type: "Full-time",
-    level: "Senior",
-    salary: "₱80,000 - ₱120,000",
-    posted: "2 days ago",
-    applicants: 24,
-    deadline: "February 28, 2026",
-    description: `We are seeking a talented Senior React Developer to join our innovative team. You will be responsible for developing and implementing user interface components using React.js concepts and workflows such as Redux, Flux, and Webpack. You will also be responsible for profiling and improving front-end performance and documenting our front-end codebase.`,
-    responsibilities: [
-      "Develop new user-facing features using React.js",
-      "Build reusable components and front-end libraries for future use",
-      "Translate designs and wireframes into high-quality code",
-      "Optimize components for maximum performance across a vast array of web-capable devices and browsers",
-      "Collaborate with team members and stakeholders",
-      "Mentor junior developers and conduct code reviews",
-    ],
-    requirements: [
-      "5+ years of experience in frontend development",
-      "Strong proficiency in JavaScript, including DOM manipulation and the JavaScript object model",
-      "Thorough understanding of React.js and its core principles",
-      "Experience with popular React.js workflows (such as Flux or Redux)",
-      "Familiarity with RESTful APIs and modern authorization mechanisms",
-      "Knowledge of modern frontend build pipelines and tools",
-      "Experience with TypeScript is a plus",
-    ],
-    benefits: [
-      "Competitive salary and performance bonuses",
-      "Health insurance coverage",
-      "Flexible working hours",
-      "Work from home options",
-      "Professional development opportunities",
-      "Collaborative and innovative work environment",
-      "Modern office facilities",
-    ],
-    skills: ["React", "TypeScript", "Redux", "GraphQL", "Jest", "Git"],
-  };
+  const benefits = [
+    "Competitive salary and performance bonuses",
+    "Health insurance coverage",
+    "Flexible working hours",
+    "Work from home options",
+    "Professional development opportunities",
+    "Collaborative and innovative work environment",
+    "Modern office facilities",
+  ];
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadJob = async () => {
+      if (!jobId) return;
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getJobDetails(jobId);
+        if (!isMounted) return;
+        setJob(data as ApiJob);
+      } catch (error: any) {
+        if (!isMounted) return;
+        setLoadError(error?.message || "Failed to load job details.");
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadJob();
+    return () => {
+      isMounted = false;
+    };
+  }, [jobId]);
+
+  useEffect(() => {
+    setHasApplied(false);
+    setIsSaved(false);
+  }, [jobId]);
 
   const handleBack = () => {
     navigate(-1);
   };
 
-  const handleApply = () => {
-    setHasApplied(true);
-    toast.success("Application submitted successfully!");
+  const handleApply = async () => {
+    if (!job?._id) return;
+    try {
+      await applyForJob(job._id);
+      setHasApplied(true);
+      toast.success("Application submitted successfully!");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to apply.");
+    }
   };
 
   const handleSave = () => {
@@ -71,8 +92,21 @@ export function JobDetails() {
   };
 
   const handleCompanyProfile = () => {
-    toast.info(`Opening ${job.company} profile...`);
+    if (!job) return;
+    const companyName = `${job.jobPoster?.firstName || ""} ${job.jobPoster?.lastName || ""}`.trim() || "Company";
+    toast.info(`Opening ${companyName} profile...`);
   };
+
+  const companyName =
+    job?.jobPoster
+      ? `${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim() || job.jobPoster.email || "MicroJobs"
+      : "MicroJobs";
+
+  const companyLogo = companyName.charAt(0) || "M";
+  const postedDaysAgo = job?.createdAt
+    ? Math.max(0, Math.floor((Date.now() - new Date(job.createdAt).getTime()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const deadlineLabel = job?.deadline ? new Date(job.deadline).toLocaleDateString() : "—";
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
@@ -90,9 +124,16 @@ export function JobDetails() {
         <div className="lg:col-span-2 space-y-6">
           {/* Job Header */}
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
-            <div className="flex items-start gap-4 mb-4">
+            {isLoading && (
+              <div className="text-[#6B7280] text-[14px]">Loading job details...</div>
+            )}
+            {loadError && !isLoading && (
+              <div className="text-[#B91C1C] text-[14px]">{loadError}</div>
+            )}
+            {!isLoading && !loadError && job && (
+              <div className="flex items-start gap-4 mb-4">
               <div className="w-20 h-20 rounded-[16px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white font-bold text-[24px] shadow-lg flex-shrink-0">
-                {job.companyLogo}
+                {companyLogo}
               </div>
               <div className="flex-1">
                 <h1 className="text-[28px] font-bold text-[#111827] mb-2">{job.title}</h1>
@@ -101,43 +142,49 @@ export function JobDetails() {
                   className="text-[16px] text-[#1C4D8D] hover:text-[#0F2954] font-semibold mb-3 flex items-center gap-2"
                 >
                   <Building2 className="w-4 h-4" />
-                  {job.company}
+                  {companyName}
                 </button>
                 <div className="flex flex-wrap items-center gap-3 text-[14px] text-[#6B7280]">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4" />
-                    {job.location}
+                    {job.location || "Remote"}
                   </div>
                   <span className="text-[#D1D5DB]">•</span>
                   <div className="flex items-center gap-2">
                     <Briefcase className="w-4 h-4" />
-                    {job.type}
+                    {job.jobType || "Fulltime"}
                   </div>
                   <span className="text-[#D1D5DB]">•</span>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4" />
-                    {job.posted}
+                    Posted {postedDaysAgo} days ago
                   </div>
                 </div>
               </div>
             </div>
+            )}
 
-            <div className="flex items-center gap-2 mb-4">
+            {job && (
+              <div className="flex items-center gap-2 mb-4">
               <span className="bg-[#DBEAFE] text-[#1E40AF] px-4 py-2 rounded-[10px] text-[13px] font-semibold">
-                {job.type}
+                {job.jobType || "Fulltime"}
               </span>
               <span className="bg-[#FEF3C7] text-[#92400E] px-4 py-2 rounded-[10px] text-[13px] font-semibold">
-                {job.level}
+                Entry Level
               </span>
             </div>
+            )}
 
-            <div className="flex items-center gap-2 mb-6">
+            {job && (
+              <div className="flex items-center gap-2 mb-6">
               <DollarSign className="w-6 h-6 text-[#10B981]" />
-              <p className="text-[24px] font-bold text-[#10B981]">{job.salary}</p>
+              <p className="text-[24px] font-bold text-[#10B981]">{job.salary || "—"}</p>
               <span className="text-[14px] text-[#6B7280]">per month</span>
             </div>
+            )}
 
-            <div className="flex items-center gap-3">
+            {job && (
+              <div className="flex items-center gap-3">
               {hasApplied ? (
                 <button
                   disabled
@@ -173,19 +220,20 @@ export function JobDetails() {
                 <Share2 className="w-6 h-6" />
               </button>
             </div>
+            )}
           </div>
 
           {/* Job Description */}
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
             <h2 className="text-[20px] font-bold text-[#111827] mb-4">Job Description</h2>
-            <p className="text-[14px] text-[#6B7280] leading-relaxed">{job.description}</p>
+            <p className="text-[14px] text-[#6B7280] leading-relaxed">{job?.description || "No description provided."}</p>
           </div>
 
           {/* Responsibilities */}
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
             <h2 className="text-[20px] font-bold text-[#111827] mb-4">Responsibilities</h2>
             <ul className="space-y-3">
-              {job.responsibilities.map((item, index) => (
+              {(job?.responsibilities?.length ? job.responsibilities : ["No responsibilities provided."]).map((item, index) => (
                 <li key={index} className="flex items-start gap-3 text-[14px] text-[#6B7280]">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#1C4D8D] mt-2 flex-shrink-0"></div>
                   <span className="flex-1">{item}</span>
@@ -198,7 +246,7 @@ export function JobDetails() {
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
             <h2 className="text-[20px] font-bold text-[#111827] mb-4">Requirements</h2>
             <ul className="space-y-3">
-              {job.requirements.map((item, index) => (
+              {(job?.requirements?.length ? job.requirements : ["No requirements provided."]).map((item, index) => (
                 <li key={index} className="flex items-start gap-3 text-[14px] text-[#6B7280]">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#1C4D8D] mt-2 flex-shrink-0"></div>
                   <span className="flex-1">{item}</span>
@@ -211,7 +259,7 @@ export function JobDetails() {
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
             <h2 className="text-[20px] font-bold text-[#111827] mb-4">Benefits</h2>
             <ul className="space-y-3">
-              {job.benefits.map((item, index) => (
+              {benefits.map((item, index) => (
                 <li key={index} className="flex items-start gap-3 text-[14px] text-[#6B7280]">
                   <CheckCircle2 className="w-5 h-5 text-[#10B981] flex-shrink-0" />
                   <span className="flex-1">{item}</span>
@@ -233,7 +281,7 @@ export function JobDetails() {
                 </div>
                 <div>
                   <p className="text-[12px] text-[#6B7280] mb-1">Application Deadline</p>
-                  <p className="text-[14px] font-semibold text-[#111827]">{job.deadline}</p>
+                  <p className="text-[14px] font-semibold text-[#111827]">{deadlineLabel}</p>
                 </div>
               </div>
 
@@ -243,7 +291,7 @@ export function JobDetails() {
                 </div>
                 <div>
                   <p className="text-[12px] text-[#6B7280] mb-1">Total Applicants</p>
-                  <p className="text-[14px] font-semibold text-[#111827]">{job.applicants} applicants</p>
+                  <p className="text-[14px] font-semibold text-[#111827]">{job?.applicants?.length || 0} applicants</p>
                 </div>
               </div>
 
@@ -253,7 +301,7 @@ export function JobDetails() {
                 </div>
                 <div>
                   <p className="text-[12px] text-[#6B7280] mb-1">Experience Level</p>
-                  <p className="text-[14px] font-semibold text-[#111827]">{job.level}</p>
+                  <p className="text-[14px] font-semibold text-[#111827]">Entry Level</p>
                 </div>
               </div>
 
@@ -263,7 +311,7 @@ export function JobDetails() {
                 </div>
                 <div>
                   <p className="text-[12px] text-[#6B7280] mb-1">Job Type</p>
-                  <p className="text-[14px] font-semibold text-[#111827]">{job.type}</p>
+                  <p className="text-[14px] font-semibold text-[#111827]">{job?.jobType || "Fulltime"}</p>
                 </div>
               </div>
             </div>
@@ -273,7 +321,7 @@ export function JobDetails() {
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
             <h3 className="text-[18px] font-bold text-[#111827] mb-4">Required Skills</h3>
             <div className="flex flex-wrap gap-2">
-              {job.skills.map((skill, index) => (
+              {(job?.skills?.length ? job.skills : ["No skills listed"]).map((skill, index) => (
                 <span
                   key={index}
                   className="px-4 py-2 bg-gradient-to-br from-[#EEF2FF] to-[#E0E7FF] text-[#1C4D8D] rounded-[10px] text-[13px] font-semibold border border-[#E0E7FF]"

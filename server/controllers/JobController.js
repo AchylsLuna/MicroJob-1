@@ -33,8 +33,9 @@ export async function getJobList(req, res) {
                 const token = authHeader.substring(7);
                 try {
                     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
-                    if (decoded?.id) {
-                        filter.jobPoster = { $ne: decoded.id };
+                    const userId = decoded?.id || decoded?.userId;
+                    if (userId) {
+                        filter.jobPoster = { $ne: userId };
                     }
                 } catch (error) {
                     // Ignore invalid token; return unfiltered results

@@ -7,11 +7,14 @@ type SettingsProps = {
   onNavigatePersonalDetails?: () => void;
   onNavigateChangePassword?: () => void;
   onNavigateNotifications?: () => void;
+  onNavigateEWallet?: () => void;
+  onNavigateLocation?: () => void;
+  onNavigateMfa?: () => void;
   onNavigateAbout?: () => void;
   onNavigateDeleteAccount?: () => void;
 };
 
-export default function Settings({ onBack, onLogout, onNavigatePersonalDetails, onNavigateChangePassword, onNavigateNotifications, onNavigateAbout, onNavigateDeleteAccount }: SettingsProps) {
+export default function Settings({ onBack, onLogout, onNavigatePersonalDetails, onNavigateChangePassword, onNavigateNotifications, onNavigateEWallet, onNavigateLocation, onNavigateMfa, onNavigateAbout, onNavigateDeleteAccount }: SettingsProps) {
   const handleLogout = () => {
     Alert.alert(
       'Log out',
@@ -27,6 +30,9 @@ export default function Settings({ onBack, onLogout, onNavigatePersonalDetails, 
     { title: 'Personal Information', onPress: onNavigatePersonalDetails },
     { title: 'Change Password', onPress: onNavigateChangePassword },
     { title: 'Notifications', onPress: onNavigateNotifications },
+    { title: 'E-Wallet & Payments', onPress: onNavigateEWallet },
+    { title: 'Location Services', onPress: onNavigateLocation },
+    { title: 'Two-Factor Authentication', onPress: onNavigateMfa },
     { title: 'Contact Support', onPress: () => {} },
     { title: 'About', onPress: onNavigateAbout },
     { title: 'Delete Account', onPress: onNavigateDeleteAccount },

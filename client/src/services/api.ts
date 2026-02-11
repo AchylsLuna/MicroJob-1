@@ -1,16 +1,41 @@
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
-export type AuthUser = { id: string; username?: string; firstName?: string; lastName?: string; email: string; role?: string };
+export type AuthUser = {
+  id: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  email: string;
+  role?: string;
+  phoneNumber?: string;
+  city?: string;
+  country?: string;
+  linkedin?: string;
+  avatarUrl?: string;
+};
 export type AuthResponse = { token: string; user: AuthUser; message?: string };
 
 type RequestInitInput = Omit<RequestInit, 'body' | 'method'>;
+
+type QueryParams = Record<string, string | number | boolean | null | undefined>;
+
+function buildQuery(params?: QueryParams) {
+  if (!params) return '';
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    search.append(key, String(value));
+  });
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
 
 // Helper function for API requests
 async function request<T>(
   path: string,
   options: RequestInitInput & { body?: unknown; method?: string } = {}
 ): Promise<T> {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
   
   const res = await fetch(`${API_BASE}${path}`, {
     method: options.method || 'GET',
@@ -69,8 +94,8 @@ export function deleteCategory(id: string) {
 }
 
 // Job APIs
-export function getJobs() {
-  return request<any[]>('/jobs', { method: 'GET' });
+export function getJobs(params?: QueryParams) {
+  return request<any[]>(`/jobs${buildQuery(params)}`, { method: 'GET' });
 }
 
 export function getAvailableJobs() {
@@ -89,8 +114,8 @@ export function createJob(payload: any) {
   return request('/jobs', { method: 'POST', body: payload });
 }
 
-export function applyForJob(jobId: string) {
-  return request(`/jobs/${jobId}/apply`, { method: 'POST' });
+export function applyForJob(jobId: string, payload?: { resume?: string; coverLetter?: string }) {
+  return request(`/jobs/${jobId}/apply`, { method: 'POST', body: payload });
 }
 
 export function getApplicantsList(jobId: string) {
@@ -105,6 +130,27 @@ export function changeJobStatus(jobId: string, status: string) {
   return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status } });
 }
 
+export function getMyJobs() {
+  return request<any[]>('/jobs/mine', { method: 'GET' });
+}
+
+// Application APIs
+export function getUserApplications(status?: string) {
+  return request<any[]>(`/applications${buildQuery(status ? { status } : undefined)}`, { method: 'GET' });
+}
+
+export function getEmployerApplications(params?: QueryParams) {
+  return request<any[]>(`/applications/employer${buildQuery(params)}`, { method: 'GET' });
+}
+
+export function withdrawApplication(applicationId: string) {
+  return request(`/applications/${applicationId}`, { method: 'DELETE' });
+}
+
+export function updateApplicationStatus(applicationId: string, status: 'Pending' | 'Reviewed' | 'Accepted' | 'Rejected') {
+  return request(`/applications/${applicationId}/status`, { method: 'PUT', body: { status } });
+}
+
 // User APIs
 export function getUserList() {
   return request<any[]>('/users/userlist', { method: 'GET' });
@@ -116,4 +162,21 @@ export function updateUserStatus(userId: string, status: 'active' | 'pending' | 
 
 export function deleteUser(userId: string) {
   return request(`/users/${userId}`, { method: 'DELETE' });
+}
+
+// Profile APIs
+export function getProfile() {
+  return request<any>('/users/me', { method: 'GET' });
+}
+
+export function updateProfile(payload: {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  city?: string;
+  country?: string;
+  linkedin?: string;
+  avatarUrl?: string;
+}) {
+  return request<any>('/users/me', { method: 'PATCH', body: payload });
 }

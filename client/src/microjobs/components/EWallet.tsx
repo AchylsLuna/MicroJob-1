@@ -99,6 +99,12 @@ export function EWallet() {
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [sendAmount, setSendAmount] = useState("");
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [xenditAmount, setXenditAmount] = useState("");
+  const [xenditEmail, setXenditEmail] = useState("");
+  const [xenditName, setXenditName] = useState("");
+  const [xenditMethod, setXenditMethod] = useState("GCash");
+
+  const jobPayments = transactions.filter((transaction) => transaction.category === "Job Payment");
 
   const handleTopUp = () => {
     setIsTopUpOpen(true);
@@ -161,6 +167,26 @@ export function EWallet() {
 
   const handleTransactionClick = (transaction: Transaction) => {
     toast.info(`Transaction: ${transaction.description}`);
+  };
+
+  const handleXenditTestPayment = () => {
+    if (!xenditAmount || Number(xenditAmount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+    if (!xenditEmail) {
+      toast.error("Please enter a customer email");
+      return;
+    }
+    if (!xenditName) {
+      toast.error("Please enter a customer name");
+      return;
+    }
+    toast.success(`Xendit test payment created for ${xenditName} via ${xenditMethod}`);
+    setXenditAmount("");
+    setXenditEmail("");
+    setXenditName("");
+    setXenditMethod("GCash");
   };
 
   return (
@@ -335,6 +361,100 @@ export function EWallet() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Job Payment History */}
+      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-[20px] font-semibold text-[#111827]">Job Payment History</h3>
+          <span className="text-[12px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
+            {jobPayments.length} payments
+          </span>
+        </div>
+        <div className="space-y-3">
+          {jobPayments.map((payment) => (
+            <div
+              key={payment.id}
+              className="flex items-center justify-between p-4 border border-[#E5E7EB] rounded-[12px]"
+            >
+              <div>
+                <p className="text-[14px] font-semibold text-[#111827]">{payment.description}</p>
+                <p className="text-[12px] text-[#6B7280]">{payment.date}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[14px] font-semibold text-[#10B981]">
+                  +₱{payment.amount.toLocaleString()}
+                </p>
+                <span className="text-[11px] font-semibold px-2 py-1 rounded-full text-[#10B981] bg-[#D1FAE5]">
+                  {payment.status === "completed" ? "Completed" : "Pending"}
+                </span>
+              </div>
+            </div>
+          ))}
+          {jobPayments.length === 0 && (
+            <div className="text-[14px] text-[#6B7280]">No job payments yet.</div>
+          )}
+        </div>
+      </div>
+
+      {/* Xendit Test Payment */}
+      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-[20px] font-semibold text-[#111827]">Xendit Test Payment</h3>
+          <span className="text-[12px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
+            Sandbox
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="text-[13px] text-[#6B7280]">Customer Name</label>
+            <input
+              value={xenditName}
+              onChange={(e) => setXenditName(e.target.value)}
+              placeholder="e.g. Juan Dela Cruz"
+              className="w-full p-3 border border-[#E5E7EB] rounded-[12px] mt-2"
+            />
+          </div>
+          <div>
+            <label className="text-[13px] text-[#6B7280]">Customer Email</label>
+            <input
+              type="email"
+              value={xenditEmail}
+              onChange={(e) => setXenditEmail(e.target.value)}
+              placeholder="e.g. juan@email.com"
+              className="w-full p-3 border border-[#E5E7EB] rounded-[12px] mt-2"
+            />
+          </div>
+          <div>
+            <label className="text-[13px] text-[#6B7280]">Amount</label>
+            <input
+              type="number"
+              value={xenditAmount}
+              onChange={(e) => setXenditAmount(e.target.value)}
+              placeholder="Enter amount"
+              className="w-full p-3 border border-[#E5E7EB] rounded-[12px] mt-2"
+            />
+          </div>
+          <div>
+            <label className="text-[13px] text-[#6B7280]">Payment Method</label>
+            <select
+              value={xenditMethod}
+              onChange={(e) => setXenditMethod(e.target.value)}
+              className="w-full p-3 border border-[#E5E7EB] rounded-[12px] mt-2"
+            >
+              <option>GCash</option>
+              <option>Credit/Debit Card</option>
+              <option>PayMaya</option>
+              <option>Bank Transfer</option>
+            </select>
+          </div>
+        </div>
+        <button
+          onClick={handleXenditTestPayment}
+          className="bg-[#1C4D8D] text-white font-semibold py-3 px-6 rounded-[12px] hover:bg-[#0F2954] transition-all duration-300"
+        >
+          Create Test Payment
+        </button>
       </div>
 
       {/* Top Up Modal */}

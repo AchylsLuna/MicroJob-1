@@ -12,6 +12,11 @@ interface User {
   accountOptions: ("employer" | "worker")[];
   isVerified: boolean;
   avatar?: string;
+  phoneNumber?: string;
+  city?: string;
+  country?: string;
+  linkedin?: string;
+  avatarUrl?: string;
   createdAt?: string;
 }
 
@@ -29,6 +34,7 @@ interface AuthContextType {
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (code: string, newPassword: string) => Promise<void>;
   pendingVerification: { email: string; password: string; name: string } | null;
+  updateProfile: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -165,6 +171,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accountType,
         accountOptions: [...accountOptions],
         isVerified: true,
+        phoneNumber: apiUser.phoneNumber,
+        city: apiUser.city,
+        country: apiUser.country,
+        linkedin: apiUser.linkedin,
+        avatarUrl: apiUser.avatarUrl,
         createdAt: new Date().toISOString(),
       };
 
@@ -225,6 +236,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         accountType,
         accountOptions: [...accountOptions],
         isVerified: true,
+        phoneNumber: apiUser.phoneNumber,
+        city: apiUser.city,
+        country: apiUser.country,
+        linkedin: apiUser.linkedin,
+        avatarUrl: apiUser.avatarUrl,
         createdAt: new Date().toISOString(),
       };
 
@@ -273,6 +289,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(updatedUser);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
     toast.success(`Switched to ${nextType === "employer" ? "Employer" : "Worker"} account`);
+  };
+
+  const updateProfile = (updates: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
+    window.dispatchEvent(new Event("auth_user_updated"));
   };
 
   const requestPasswordReset = async (email: string) => {
@@ -345,6 +370,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         requestPasswordReset,
         resetPassword,
         pendingVerification,
+        updateProfile,
       }}
     >
       {children}

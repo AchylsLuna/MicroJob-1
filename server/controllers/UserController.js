@@ -33,6 +33,104 @@ export async function getUserList(req, res) {
     }
 }
 
+export async function getMe(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        const user = await User.findById(userId).select('-passwordHashed');
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(500).json({ message: "Failed to retrieve profile." });
+    }
+}
+
+export async function updateMe(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const {
+            firstName,
+            lastName,
+            phoneNumber,
+            city,
+            country,
+            linkedin,
+            avatarUrl,
+        } = req.body || {};
+
+        if (firstName !== undefined) {
+            const value = String(firstName).trim();
+            if (!value) {
+                return res.status(400).json({ message: "First name is required." });
+            }
+            user.firstName = value;
+        }
+
+        if (lastName !== undefined) {
+            const value = String(lastName).trim();
+            if (!value) {
+                return res.status(400).json({ message: "Last name is required." });
+            }
+            user.lastName = value;
+        }
+
+        if (phoneNumber !== undefined) {
+            const normalizedPhone = String(phoneNumber || "").replace(/\D/g, "");
+            if (!normalizedPhone) {
+                user.phoneNumber = undefined;
+            } else {
+                if (!/^\d{10,15}$/.test(normalizedPhone)) {
+                    return res.status(400).json({ message: "Phone number must be 10-15 digits." });
+                }
+                const existing = await User.findOne({
+                    phoneNumber: normalizedPhone,
+                    _id: { $ne: userId },
+                });
+                if (existing) {
+                    return res.status(409).json({ message: "Phone number is already registered." });
+                }
+                user.phoneNumber = normalizedPhone;
+            }
+        }
+
+        if (city !== undefined) {
+            user.city = String(city).trim() || undefined;
+        }
+
+        if (country !== undefined) {
+            user.country = String(country).trim() || undefined;
+        }
+
+        if (linkedin !== undefined) {
+            user.linkedin = String(linkedin).trim() || undefined;
+        }
+
+        if (avatarUrl !== undefined) {
+            user.avatarUrl = String(avatarUrl).trim() || undefined;
+        }
+
+        await user.save();
+        const updatedUser = await User.findById(userId).select('-passwordHashed');
+        return res.status(200).json({ message: "Profile updated.", user: updatedUser });
+    } catch (error) {
+        console.error("Update profile error:", error);
+        return res.status(500).json({ message: "Failed to update profile." });
+    }
+}
+
 export async function register(req, res) {
     try {
         const { phoneNumber, email, firstName, lastName, username, password, role } = req.body;
@@ -148,7 +246,11 @@ export async function login(req, res) {
                 lastName: user.lastName,
                 phoneNumber: user.phoneNumber,
                 email: user.email,
-                role: user.role // hire, work, both, admin, superadmin
+                role: user.role, // hire, work, both, admin, superadmin
+                city: user.city,
+                country: user.country,
+                linkedin: user.linkedin,
+                avatarUrl: user.avatarUrl,
             }
         });
     } catch (error){
@@ -271,6 +373,10 @@ export async function verifyOtp(req, res) {
                 phoneNumber: user.phoneNumber,
                 email: user.email,
                 role: user.role,
+                city: user.city,
+                country: user.country,
+                linkedin: user.linkedin,
+                avatarUrl: user.avatarUrl,
             },
         });
     } catch (error) {

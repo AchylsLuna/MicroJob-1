@@ -1,11 +1,12 @@
 import { Calendar, Send, Wallet, Mail, TrendingUp, MapPin, Building2, Briefcase, CheckCircle2, Clock, Users, ArrowUpRight, ChevronRight } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "../lib/toast";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { EmployerDashboard } from "./EmployerDashboard";
 import imgBigShoesAvatar from "../assets/8b9f86452ff0e90495bf9daf1494dd6920ad538a.png";
+import { getUserApplications } from "../../services/api";
 
 const vacancyData = [
   { month: "Week 01", accepted: 4, interviews: 3, rejected: 1 },
@@ -116,9 +117,38 @@ export function Dashboard() {
   }
 
   const navigate = useNavigate();
+  const [applicationCount, setApplicationCount] = useState(0);
+  const [interviewCount, setInterviewCount] = useState(0);
+  const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<"accepted" | "interviews" | "rejected">("accepted");
   const [selectedPeriod, setSelectedPeriod] = useState("This Month");
   const latestVacancy = vacancyData[vacancyData.length - 1];
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadStats = async () => {
+      setIsStatsLoading(true);
+      try {
+        const applications = await getUserApplications();
+        if (!isMounted) return;
+        const total = Array.isArray(applications) ? applications.length : 0;
+        const interviews = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Reviewed").length
+          : 0;
+        setApplicationCount(total);
+        setInterviewCount(interviews);
+      } catch (error: any) {
+        if (!isMounted) return;
+        toast.error(error?.message || "Failed to load dashboard stats.");
+      } finally {
+        if (isMounted) setIsStatsLoading(false);
+      }
+    };
+    loadStats();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleViewAllActivities = () => {
     navigate("/dashboard/notifications");
@@ -176,7 +206,7 @@ export function Dashboard() {
         <StatCard
           icon={<Calendar className="w-7 h-7 text-white" />}
           title="Interviews Schedule"
-          count={12}
+          count={isStatsLoading ? 0 : interviewCount}
           bgColor="bg-gradient-to-br from-[#4988C4] to-[#1C4D8D]"
           change="+12%"
           onClick={() => handleStatClick("Interviews Schedule")}
@@ -184,7 +214,7 @@ export function Dashboard() {
         <StatCard
           icon={<Send className="w-7 h-7 text-white" />}
           title="Application Sent"
-          count={37}
+          count={isStatsLoading ? 0 : applicationCount}
           bgColor="bg-gradient-to-br from-[#1C4D8D] to-[#0F2954]"
           change="+8%"
           onClick={() => handleStatClick("Application Sent")}
@@ -192,7 +222,7 @@ export function Dashboard() {
         <StatCard
           icon={<Wallet className="w-7 h-7 text-white" />}
           title="E-wallet"
-          count={12}
+          count={0}
           bgColor="bg-gradient-to-br from-[#4988C4] to-[#1C4D8D]"
           change="+5%"
           onClick={() => handleStatClick("E-wallet")}
@@ -200,7 +230,7 @@ export function Dashboard() {
         <StatCard
           icon={<Mail className="w-7 h-7 text-white" />}
           title="Unread Messages"
-          count={8}
+          count={0}
           bgColor="bg-gradient-to-br from-[#1C4D8D] to-[#0F2954]"
           change="+3%"
           onClick={() => handleStatClick("Unread Messages")}

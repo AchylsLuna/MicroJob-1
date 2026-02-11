@@ -22,6 +22,9 @@ import AppliedJobs from './pages/pages1/AppliedJobs';
 import Profile from './pages/pages1/Profile';
 import NotificationsInbox from './pages/pages1/NotificationsInbox';
 import Settings from './pages/pages1/Settings';
+import EWallet from './pages/pages1/EWallet';
+import LocationServices from './pages/pages1/LocationServices';
+import MFA from './pages/pages1/MFA';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState(0);
@@ -54,6 +57,9 @@ export default function App() {
     Messages: 16,
     Profile: 17,
     Settings: 18,
+    EWallet: 19,
+    Location: 20,
+    MFA: 21,
   };
 
   useEffect(() => {
@@ -181,6 +187,22 @@ export default function App() {
     setCurrentScreen(SCREEN.Profile);
   };
 
+  const handleGoToEWallet = () => {
+    setCurrentScreen(SCREEN.EWallet);
+  };
+
+  const handleGoToLocation = () => {
+    setCurrentScreen(SCREEN.Location);
+  };
+
+  const handleGoToMFA = () => {
+    setCurrentScreen(SCREEN.MFA);
+  };
+
+  const handleBackToSettings = () => {
+    setCurrentScreen(SCREEN.Settings);
+  };
+
   const handleTabPress = (tab) => {
     switch (tab) {
       case 'Home':
@@ -269,7 +291,13 @@ export default function App() {
     <Settings
       onBack={handleBackFromSettings}
       onLogout={handleLogout}
+      onNavigateEWallet={handleGoToEWallet}
+      onNavigateLocation={handleGoToLocation}
+      onNavigateMfa={handleGoToMFA}
     />,
+    <EWallet onBack={handleBackToSettings} />,
+    <LocationServices onBack={handleBackToSettings} />,
+    <MFA onBack={handleBackToSettings} />,
   ];
 
   const translateX = transition.interpolate({

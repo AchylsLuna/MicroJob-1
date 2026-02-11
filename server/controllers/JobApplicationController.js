@@ -64,10 +64,10 @@ export const getUserApplications = async (req, res) => {
         const applications = await JobApplication.find(filter)
             .populate({
                 path: 'job',
-                populate: {
-                    path: 'category',
-                    select: 'name'
-                }
+                populate: [
+                    { path: 'category', select: 'name' },
+                    { path: 'jobPoster', select: 'firstName lastName email' },
+                ],
             })
             .sort({ createdAt: -1 });
 

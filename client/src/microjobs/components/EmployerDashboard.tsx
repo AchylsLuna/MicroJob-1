@@ -1,8 +1,54 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, Clock, MessageSquare, CheckCircle, XCircle, TrendingUp, ArrowRight, Briefcase, ChevronRight } from "lucide-react";
+import { getEmployerApplications } from "../../services/api";
+import { toast } from "../lib/toast";
 
 export function EmployerDashboard() {
   const navigate = useNavigate();
+  const [stats, setStats] = useState({
+    total: 0,
+    pending: 0,
+    inProgress: 0,
+    accepted: 0,
+    rejected: 0,
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadApplications = async () => {
+      setIsLoading(true);
+      try {
+        const applications = await getEmployerApplications();
+        if (!isMounted) return;
+        const total = Array.isArray(applications) ? applications.length : 0;
+        const pending = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Pending").length
+          : 0;
+        const inProgress = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Reviewed").length
+          : 0;
+        const accepted = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Accepted").length
+          : 0;
+        const rejected = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Rejected").length
+          : 0;
+
+        setStats({ total, pending, inProgress, accepted, rejected });
+      } catch (error: any) {
+        if (!isMounted) return;
+        toast.error(error?.message || "Failed to load applications.");
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadApplications();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
@@ -34,7 +80,7 @@ export function EmployerDashboard() {
           </div>
           <div>
             <p className="text-[#6B7280] text-[13px] mb-1">Total Applications</p>
-            <p className="font-bold text-[32px] text-[#111827]">12</p>
+            <p className="font-bold text-[32px] text-[#111827]">{isLoading ? "—" : stats.total}</p>
           </div>
         </div>
 
@@ -49,7 +95,7 @@ export function EmployerDashboard() {
           </div>
           <div>
             <p className="text-[#6B7280] text-[13px] mb-1">Pending Review</p>
-            <p className="font-bold text-[32px] text-[#111827]">4</p>
+            <p className="font-bold text-[32px] text-[#111827]">{isLoading ? "—" : stats.pending}</p>
           </div>
         </div>
 
@@ -64,7 +110,7 @@ export function EmployerDashboard() {
           </div>
           <div>
             <p className="text-[#6B7280] text-[13px] mb-1">In Progress</p>
-            <p className="font-bold text-[32px] text-[#111827]">6</p>
+            <p className="font-bold text-[32px] text-[#111827]">{isLoading ? "—" : stats.inProgress}</p>
           </div>
         </div>
       </div>
@@ -83,7 +129,7 @@ export function EmployerDashboard() {
           </div>
           <div>
             <p className="text-[#6B7280] text-[13px] mb-1">Accepted</p>
-            <p className="font-bold text-[32px] text-[#111827]">1</p>
+            <p className="font-bold text-[32px] text-[#111827]">{isLoading ? "—" : stats.accepted}</p>
           </div>
         </div>
 
@@ -98,7 +144,7 @@ export function EmployerDashboard() {
           </div>
           <div>
             <p className="text-[#6B7280] text-[13px] mb-1">Rejected</p>
-            <p className="font-bold text-[32px] text-[#111827]">1</p>
+            <p className="font-bold text-[32px] text-[#111827]">{isLoading ? "—" : stats.rejected}</p>
           </div>
         </div>
       </div>

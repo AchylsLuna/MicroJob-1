@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
+import { getProfile, updateProfile } from "../../services/api";
+import { useAuth } from "../contexts/AuthContext";
 
 type TabType = "account" | "privacy" | "payments";
 type AccountTab = "personal" | "experience" | "resume";
@@ -122,6 +124,9 @@ export function Settings() {
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
+  const { user, updateProfile: updateAuthProfile } = useAuth();
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
 
   const completedSteps = verificationSteps.filter((step) => step.status === "complete").length;
   const completionPercent = Math.round((completedSteps / verificationSteps.length) * 100);
@@ -249,8 +254,89 @@ export function Settings() {
     }
   };
 
-  const handleSavePersonalInfo = () => {
-    toast.success("Personal information saved successfully!");
+  useEffect(() => {
+    if (!user) return;
+    setPersonalInfo((prev) => ({
+      ...prev,
+      firstName: user.firstName || prev.firstName,
+      lastName: user.lastName || prev.lastName,
+      email: user.email || prev.email,
+      phone: user.phoneNumber || prev.phone,
+      city: user.city || prev.city,
+      country: user.country || prev.country,
+      linkedin: user.linkedin || prev.linkedin,
+    }));
+  }, [user]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadProfile = async () => {
+      setIsProfileLoading(true);
+      try {
+        const response = await getProfile();
+        const profile = (response as any)?.user ?? response;
+        if (!isMounted || !profile) return;
+        setPersonalInfo((prev) => ({
+          ...prev,
+          firstName: profile.firstName || prev.firstName,
+          lastName: profile.lastName || prev.lastName,
+          email: profile.email || prev.email,
+          phone: profile.phoneNumber || prev.phone,
+          city: profile.city || prev.city,
+          country: profile.country || prev.country,
+          linkedin: profile.linkedin || prev.linkedin,
+        }));
+        updateAuthProfile({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          email: profile.email,
+          phoneNumber: profile.phoneNumber,
+          city: profile.city,
+          country: profile.country,
+          linkedin: profile.linkedin,
+          avatarUrl: profile.avatarUrl,
+        });
+      } catch (error: any) {
+        const message = error?.message || "Failed to load profile.";
+        toast.error(message);
+      } finally {
+        if (isMounted) setIsProfileLoading(false);
+      }
+    };
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSavePersonalInfo = async () => {
+    setIsProfileSaving(true);
+    try {
+      const response = await updateProfile({
+        firstName: personalInfo.firstName,
+        lastName: personalInfo.lastName,
+        phoneNumber: personalInfo.phone,
+        city: personalInfo.city,
+        country: personalInfo.country,
+        linkedin: personalInfo.linkedin,
+      });
+      const updated = (response as any)?.user ?? response;
+      updateAuthProfile({
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        email: updated.email,
+        phoneNumber: updated.phoneNumber,
+        city: updated.city,
+        country: updated.country,
+        linkedin: updated.linkedin,
+        avatarUrl: updated.avatarUrl,
+      });
+      toast.success("Personal information saved successfully!");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save personal information.");
+    } finally {
+      setIsProfileSaving(false);
+    }
   };
 
   const handleAddExperience = () => {
@@ -449,6 +535,9 @@ export function Settings() {
                       <div>
                         <h2 className="text-[18px] font-semibold text-[#111827]">Personal Information</h2>
                         <p className="text-[13px] text-[#6B7280]">Update your profile information.</p>
+                        {isProfileLoading && (
+                          <p className="text-[12px] text-[#6B7280] mt-1">Loading profile...</p>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -508,8 +597,8 @@ export function Settings() {
                           <input
                             type="email"
                             value={personalInfo.email}
-                            onChange={(e) => handlePersonalInfoChange("email", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            disabled
+                            className="w-full bg-gray-50 border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
                           />
                         </div>
                       </div>
@@ -543,9 +632,12 @@ export function Settings() {
 
                       <button
                         onClick={handleSavePersonalInfo}
-                        className="bg-[#2563EB] text-white font-semibold px-8 py-3 rounded-[10px] hover:bg-[#1D4ED8] transition-all"
+                        disabled={isProfileSaving}
+                        className={`bg-[#2563EB] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
+                          isProfileSaving ? "opacity-70 cursor-not-allowed" : "hover:bg-[#1D4ED8]"
+                        }`}
                       >
-                        Save changes
+                        {isProfileSaving ? "Saving..." : "Save changes"}
                       </button>
                     </div>
                   )}

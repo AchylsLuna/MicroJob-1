@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Building2, MapPin, DollarSign, Calendar, Clock, FileText, Eye, Trash2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { getUserApplications, withdrawApplication } from "../../services/api";
 
 interface Application {
   id: string;
+  jobId: string;
   jobTitle: string;
   company: string;
   companyLogo: string;
@@ -15,90 +17,100 @@ interface Application {
   interviewDate?: string;
 }
 
-const applicationsData: Application[] = [
-  {
-    id: "1",
-    jobTitle: "Senior React Developer",
-    company: "Tech Solutions Inc.",
-    companyLogo: "TS",
-    location: "Manila, Philippines",
-    salary: "₱80,000 - ₱120,000",
-    appliedDate: "Jan 28, 2026",
-    status: "Interview Scheduled",
-    interviewDate: "Feb 5, 2026 at 10:00 AM",
-  },
-  {
-    id: "2",
-    jobTitle: "Full Stack Engineer",
-    company: "Innovation Labs",
-    companyLogo: "IL",
-    location: "Cebu, Philippines",
-    salary: "₱60,000 - ₱90,000",
-    appliedDate: "Jan 25, 2026",
-    status: "Under Review",
-  },
-  {
-    id: "3",
-    jobTitle: "Frontend Developer",
-    company: "Digital Ventures",
-    companyLogo: "DV",
-    location: "Makati, Philippines",
-    salary: "₱40,000 - ₱60,000",
-    appliedDate: "Jan 22, 2026",
-    status: "Accepted",
-  },
-  {
-    id: "4",
-    jobTitle: "UI/UX Designer",
-    company: "Creative Studio",
-    companyLogo: "CS",
-    location: "BGC, Philippines",
-    salary: "₱50,000 - ₱80,000",
-    appliedDate: "Jan 20, 2026",
-    status: "Rejected",
-  },
-  {
-    id: "5",
-    jobTitle: "Backend Developer",
-    company: "Cloud Systems",
-    companyLogo: "CS",
-    location: "Quezon City, Philippines",
-    salary: "₱70,000 - ₱100,000",
-    appliedDate: "Jan 30, 2026",
-    status: "Pending",
-  },
-  {
-    id: "6",
-    jobTitle: "Mobile Developer",
-    company: "App Masters",
-    companyLogo: "AM",
-    location: "Remote",
-    salary: "₱65,000 - ₱95,000",
-    appliedDate: "Jan 27, 2026",
-    status: "Under Review",
-  },
-];
-
 export function AppliedJobs() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [applications, setApplications] = useState<Application[]>(applicationsData);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
 
-  const handleViewDetails = (appId: string) => {
-    navigate(`/dashboard/job-details/${appId}`);
+  const handleViewDetails = (jobId: string) => {
+    if (!jobId) {
+      toast.error("Job details not available.");
+      return;
+    }
+    navigate(`/dashboard/job-details/${jobId}`);
   };
 
-  const handleWithdrawApplication = (appId: string) => {
+  const handleWithdrawApplication = async (appId: string) => {
     const app = applications.find(a => a.id === appId);
-    setApplications(applications.filter(a => a.id !== appId));
-    toast.success(`Application for ${app?.jobTitle} withdrawn`);
+    try {
+      await withdrawApplication(appId);
+      setApplications(applications.filter(a => a.id !== appId));
+      toast.success(`Application for ${app?.jobTitle} withdrawn`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to withdraw application.");
+    }
   };
 
   const handleViewApplication = (jobTitle: string) => {
     toast.info(`Viewing application details for: ${jobTitle}`);
   };
+
+  const formatDate = (value?: string) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+  };
+
+  const mapStatus = (status?: string): Application["status"] => {
+    switch (status) {
+      case "Pending":
+        return "Pending";
+      case "Reviewed":
+        return "Under Review";
+      case "Accepted":
+        return "Accepted";
+      case "Rejected":
+        return "Rejected";
+      default:
+        return "Under Review";
+    }
+  };
+
+  const mapApplication = (app: any): Application => {
+    const job = app.job || {};
+    const poster = job.jobPoster || {};
+    const companyName = `${poster.firstName || ""} ${poster.lastName || ""}`.trim() || poster.email || "MicroJobs";
+    return {
+      id: app._id,
+      jobId: job._id || "",
+      jobTitle: job.title || "Untitled Job",
+      company: companyName,
+      companyLogo: companyName.charAt(0) || "M",
+      location: job.location || "Remote",
+      salary: job.salary || "—",
+      appliedDate: formatDate(app.appliedDate || app.createdAt),
+      status: mapStatus(app.status),
+    };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadApplications = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getUserApplications();
+        if (!isMounted) return;
+        const mapped = Array.isArray(data) ? data.map(mapApplication) : [];
+        setApplications(mapped);
+      } catch (error: any) {
+        if (!isMounted) return;
+        setLoadError(error?.message || "Failed to load applications.");
+        setApplications([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadApplications();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const getStatusColor = (status: Application["status"]) => {
     switch (status) {
@@ -225,6 +237,16 @@ export function AppliedJobs() {
 
       {/* Applications List */}
       <div className="space-y-4">
+        {isLoading && (
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#6B7280]">
+            Loading applications...
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#B91C1C]">
+            {loadError}
+          </div>
+        )}
         {filteredApplications.map((app) => (
           <div
             key={app.id}
@@ -315,7 +337,7 @@ export function AppliedJobs() {
 
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={() => handleViewDetails(app.id)}
+                      onClick={() => handleViewDetails(app.jobId)}
                       className="bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] hover:shadow-lg transition-all duration-300 flex items-center gap-2"
                     >
                       <Eye className="w-4 h-4" />
@@ -346,7 +368,7 @@ export function AppliedJobs() {
       </div>
 
       {/* Empty State */}
-      {filteredApplications.length === 0 && (
+      {!isLoading && !loadError && filteredApplications.length === 0 && (
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-12 text-center">
           <FileText className="w-16 h-16 text-[#D1D5DB] mx-auto mb-4" />
           <h3 className="text-[18px] font-semibold text-[#111827] mb-2">No applications found</h3>

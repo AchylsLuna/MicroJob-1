@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Heart, Clock, SlidersHorizontal, CheckCircle2, Star } from "lucide-react";
 import { toast } from "../lib/toast";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { getJobs } from "../../services/api";
 
 interface CompanyInfo {
   founded: string;
@@ -23,11 +24,26 @@ interface Job {
   experienceLevel: "Entry Level" | "Intermediate" | "Expert";
   description: string;
   responsibilities: string[];
-  hourlyRate: number;
+  salary: string;
   postedDaysAgo: number;
   saved: boolean;
   category: string;
   companyInfo: CompanyInfo;
+}
+
+interface ApiJob {
+  _id: string;
+  title: string;
+  description: string;
+  location?: string;
+  salary?: string;
+  jobType?: string;
+  createdAt?: string;
+  category?: { name?: string } | string;
+  applicants?: string[];
+  responsibilities?: string[];
+  requirements?: string[];
+  jobPoster?: { firstName?: string; lastName?: string; email?: string };
 }
 
 const defaultCompanyInfo: CompanyInfo = {
@@ -50,168 +66,17 @@ const defaultResponsibilities = [
   "Bring curiosity and a problem-solving mindset to every stage of the project lifecycle.",
 ];
 
-const jobsData: Job[] = [
-  {
-    id: "1",
-    title: "Product designer",
-    company: "MetaMask",
-    companyLogo: "🔷",
-    applicants: 25,
-    type: "Full-Time",
-    workMode: "Hybrid",
-    experienceLevel: "Entry Level",
-    description: "Doing the right thing for investors is what we're all about at Vanguard, and that in...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 250,
-    postedDaysAgo: 12,
-    saved: false,
-    category: "Design",
-    companyInfo: buildCompanyInfo({ location: "New York, USA" }),
-  },
-  {
-    id: "2",
-    title: "Sr. UX Designer",
-    company: "Netflix",
-    companyLogo: "N",
-    applicants: 14,
-    type: "Part-Time",
-    workMode: "Remote",
-    experienceLevel: "Expert",
-    description: "Netflix is one of the world's leading streaming entertainment service with o...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 195,
-    postedDaysAgo: 5,
-    saved: false,
-    category: "Design",
-    companyInfo: buildCompanyInfo({ location: "Los Angeles, USA" }),
-  },
-  {
-    id: "3",
-    title: "Product designer",
-    company: "Microsoft",
-    companyLogo: "⊞",
-    applicants: 58,
-    type: "Full-Time",
-    workMode: "Remote",
-    experienceLevel: "Intermediate",
-    description: "Welcome to Lightspeed LA, the first U.S.- based, AAA game development studio f...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 210,
-    postedDaysAgo: 4,
-    saved: false,
-    category: "Design",
-    companyInfo: buildCompanyInfo({ location: "Seattle, USA" }),
-  },
-  {
-    id: "4",
-    title: "Product designer",
-    company: "Reddit",
-    companyLogo: "🔴",
-    applicants: 33,
-    type: "Part-Time",
-    workMode: "Hybrid",
-    experienceLevel: "Expert",
-    description: "Prelim is how banks onboard their customers for business checking accou...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 120,
-    postedDaysAgo: 22,
-    saved: false,
-    category: "Design",
-    companyInfo: buildCompanyInfo({ location: "San Francisco, USA" }),
-  },
-  {
-    id: "5",
-    title: "Backend Dev.",
-    company: "Google",
-    companyLogo: "G",
-    applicants: 21,
-    type: "Full-Time",
-    workMode: "On-site",
-    experienceLevel: "Intermediate",
-    description: "Coalfire is on a mission to make the world a safer place by solving our client...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 260,
-    postedDaysAgo: 5,
-    saved: false,
-    category: "Development",
-    companyInfo: buildCompanyInfo({ location: "Mountain View, USA" }),
-  },
-  {
-    id: "6",
-    title: "SMM Manager",
-    company: "Spotify",
-    companyLogo: "🎵",
-    applicants: 73,
-    type: "Full-Time",
-    workMode: "Hybrid",
-    experienceLevel: "Intermediate",
-    description: "Join us as we increase access to banking and financial services, helping banks on...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 170,
-    postedDaysAgo: 8,
-    saved: false,
-    category: "Marketing",
-    companyInfo: buildCompanyInfo({ location: "Stockholm, Sweden" }),
-  },
-  {
-    id: "7",
-    title: "Frontend Developer",
-    company: "Meta",
-    companyLogo: "M",
-    applicants: 45,
-    type: "Full-Time",
-    workMode: "Hybrid",
-    experienceLevel: "Intermediate",
-    description: "Build the future of social technology and create immersive experiences...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 280,
-    postedDaysAgo: 3,
-    saved: false,
-    category: "Development",
-    companyInfo: buildCompanyInfo({ location: "Menlo Park, USA" }),
-  },
-  {
-    id: "8",
-    title: "UI/UX Designer",
-    company: "Apple",
-    companyLogo: "",
-    applicants: 67,
-    type: "Full-Time",
-    workMode: "On-site",
-    experienceLevel: "Expert",
-    description: "Create innovative user experiences for millions of Apple users worldwide...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 320,
-    postedDaysAgo: 6,
-    saved: false,
-    category: "Design",
-    companyInfo: buildCompanyInfo({ location: "Cupertino, USA" }),
-  },
-  {
-    id: "9",
-    title: "DevOps Engineer",
-    company: "Amazon",
-    companyLogo: "a",
-    applicants: 39,
-    type: "Full-Time",
-    workMode: "Remote",
-    experienceLevel: "Expert",
-    description: "Manage and optimize cloud infrastructure at scale for Amazon Web Services...",
-    responsibilities: defaultResponsibilities,
-    hourlyRate: 290,
-    postedDaysAgo: 7,
-    saved: false,
-    category: "Development",
-    companyInfo: buildCompanyInfo({ location: "Seattle, USA" }),
-  },
-];
+
 
 export function FindJobs() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
-  const [jobs, setJobs] = useState<Job[]>(jobsData);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "salary" | "applicants">("recent");
-  const [selectedJobId, setSelectedJobId] = useState(jobsData[0]?.id ?? "");
+  const [selectedJobId, setSelectedJobId] = useState("");
 
   const sortLabels = {
     recent: "Most recent",
@@ -244,6 +109,86 @@ export function FindJobs() {
     }
   };
 
+  const getJobTypeLabel = (jobType?: string): Job["type"] => {
+    switch (jobType) {
+      case "Part-time":
+        return "Part-Time";
+      case "Freelance":
+        return "Project Work";
+      case "Remote":
+        return "Full-Time";
+      case "Fulltime":
+      default:
+        return "Full-Time";
+    }
+  };
+
+  const getWorkModeLabel = (jobType?: string): Job["workMode"] => {
+    if (jobType === "Remote") return "Remote";
+    return "On-site";
+  };
+
+  const getPostedDays = (createdAt?: string) => {
+    if (!createdAt) return 0;
+    const created = new Date(createdAt).getTime();
+    if (Number.isNaN(created)) return 0;
+    const diff = Date.now() - created;
+    return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+  };
+
+  const getCompanyName = (poster?: ApiJob["jobPoster"]) => {
+    if (!poster) return "MicroJobs";
+    const name = `${poster.firstName || ""} ${poster.lastName || ""}`.trim();
+    return name || poster.email || "MicroJobs";
+  };
+
+  const mapApiJob = (job: ApiJob): Job => {
+    const companyName = getCompanyName(job.jobPoster);
+    const categoryName =
+      typeof job.category === "string" ? job.category : job.category?.name || "General";
+    return {
+      id: job._id,
+      title: job.title,
+      company: companyName,
+      companyLogo: companyName.charAt(0) || "M",
+      applicants: job.applicants?.length || 0,
+      type: getJobTypeLabel(job.jobType),
+      workMode: getWorkModeLabel(job.jobType),
+      experienceLevel: "Entry Level",
+      description: job.description,
+      responsibilities: job.responsibilities?.length ? job.responsibilities : defaultResponsibilities,
+      salary: job.salary || "—",
+      postedDaysAgo: getPostedDays(job.createdAt),
+      saved: false,
+      category: categoryName,
+      companyInfo: buildCompanyInfo({ location: job.location || defaultCompanyInfo.location }),
+    };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadJobs = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getJobs({ search: searchQuery || undefined, excludeOwn: true });
+        if (!isMounted) return;
+        const mapped = Array.isArray(data) ? data.map(mapApiJob) : [];
+        setJobs(mapped);
+      } catch (error: any) {
+        if (!isMounted) return;
+        setLoadError(error?.message || "Failed to load jobs.");
+        setJobs([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadJobs();
+    return () => {
+      isMounted = false;
+    };
+  }, [searchQuery]);
+
   const getJobTypeColor = (type: string) => {
     switch (type) {
       case "Full-Time":
@@ -268,6 +213,12 @@ export function FindJobs() {
     }
   };
 
+  const parseSalaryValue = (value: string) => {
+    const cleaned = value.replace(/[^0-9.]/g, "");
+    const amount = Number.parseFloat(cleaned);
+    return Number.isFinite(amount) ? amount : 0;
+  };
+
   const filteredJobs = jobs.filter(job => {
     if (!searchQuery) {
       return true;
@@ -282,9 +233,9 @@ export function FindJobs() {
       case "recent":
         return a.postedDaysAgo - b.postedDaysAgo;
       case "salary":
-        return b.hourlyRate - a.hourlyRate;
+        return parseSalaryValue(b.salary) - parseSalaryValue(a.salary);
       case "applicants":
-        return a.applicants - b.applicants;
+        return b.applicants - a.applicants;
       default:
         return 0;
     }
@@ -375,8 +326,8 @@ export function FindJobs() {
 
                   <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#E5E7EB]">
                     <div>
-                      <span className="text-[16px] font-semibold text-[#111827]">${job.hourlyRate}</span>
-                      <span className="text-[12px] text-[#9CA3AF]">/hr</span>
+                      <span className="text-[16px] font-semibold text-[#111827]">{job.salary}</span>
+                      <span className="text-[12px] text-[#9CA3AF]"> salary</span>
                     </div>
                     <div className="flex items-center gap-1 text-[12px] text-[#9CA3AF]">
                       <Clock className="w-3.5 h-3.5" />
@@ -387,7 +338,17 @@ export function FindJobs() {
               );
             })}
 
-            {sortedJobs.length === 0 && (
+            {isLoading && (
+              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#6B7280]">
+                Loading jobs...
+              </div>
+            )}
+            {loadError && !isLoading && (
+              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#B91C1C]">
+                {loadError}
+              </div>
+            )}
+            {!isLoading && !loadError && sortedJobs.length === 0 && (
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#6B7280]">
                 No jobs found. Try another search.
               </div>
@@ -437,6 +398,15 @@ export function FindJobs() {
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => navigate(`/dashboard/job-details/${selectedJob.id}`)}
+                  className="px-5 py-3 bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white text-[14px] font-semibold rounded-[12px] hover:shadow-lg transition-all"
+                >
+                  View Full Details
+                </button>
               </div>
             </div>
           ) : (

@@ -30,6 +30,26 @@ const UserSchema = new mongoose.Schema(
             trim: true,
             maxLength: 30,
         },
+        city: {
+            type: String,
+            trim: true,
+            maxlength: 80,
+        },
+        country: {
+            type: String,
+            trim: true,
+            maxlength: 80,
+        },
+        linkedin: {
+            type: String,
+            trim: true,
+            maxlength: 200,
+        },
+        avatarUrl: {
+            type: String,
+            trim: true,
+            maxlength: 500,
+        },
         role: {
             type: String,
             enum: ["hire", "work", "both", "admin", "superadmin"],

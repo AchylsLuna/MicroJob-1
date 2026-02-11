@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { Search, Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLink, ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "../lib/toast";
+import { getEmployerApplications, updateApplicationStatus } from "../../services/api";
 
 type ApplicationStatus = "all" | "under-review" | "pending" | "reviewing" | "interviewed" | "accepted" | "rejected";
 
 interface Application {
   id: string;
+  jobId: string;
   name: string;
   email: string;
   position: string;
@@ -14,49 +16,6 @@ interface Application {
   appliedDate: string;
   status: Exclude<ApplicationStatus, "all">;
 }
-
-const mockApplications: Application[] = [
-  {
-    id: "1",
-    name: "Sarah Chen",
-    email: "sarah.chen@email.com",
-    position: "Senior Frontend Developer",
-    company: "TechCorp Inc.",
-    coverLetter: "I am excited to apply for the Senior Frontend Developer position. With over 6 years of experience in React and TypeScript, I have led multiple successful projects at top tech companies. I am passionate about creating accessible, performant user interfaces.",
-    appliedDate: "about 1 year ago",
-    status: "under-review",
-  },
-  {
-    id: "2",
-    name: "Michael Rodriguez",
-    email: "michael.r@email.com",
-    position: "Senior Frontend Developer",
-    company: "TechCorp Inc.",
-    coverLetter: "As a frontend developer with expertise in modern JavaScript frameworks, I am eager to contribute to TechCorp's innovative projects. My background includes building design systems and component libraries.",
-    appliedDate: "about 1 year ago",
-    status: "pending",
-  },
-  {
-    id: "3",
-    name: "Jonas Enriquez",
-    email: "enriquezjonas@gmail.com",
-    position: "Backend Engineer",
-    company: "CloudScale",
-    coverLetter: "I am a backend engineer with 5 years of experience building scalable distributed systems. I have extensive experience with Node.js, Python, and cloud infrastructure.",
-    appliedDate: "2 months ago",
-    status: "accepted",
-  },
-  {
-    id: "4",
-    name: "Emily Watson",
-    email: "e.watson@example.com",
-    position: "Full Stack Developer",
-    company: "StartupXYZ",
-    coverLetter: "Full stack developer passionate about building end-to-end solutions. Experienced in React, Node.js, and PostgreSQL with a focus on clean code and scalable architecture.",
-    appliedDate: "3 weeks ago",
-    status: "interviewed",
-  },
-];
 
 function getInitials(name: string): string {
   return name
@@ -220,13 +179,14 @@ export function ApplicationsManagement() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus>("all");
   const [jobFilter, setJobFilter] = useState("all");
-  const [applications, setApplications] = useState<Application[]>(mockApplications);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 4;
 
-  const handleStatusChange = (id: string, newStatus: Exclude<ApplicationStatus, "all">) => {
-    const oldStatus = applications.find(app => app.id === id)?.status;
-    
+  const handleStatusChange = async (id: string, newStatus: Exclude<ApplicationStatus, "all">) => {
+    const previous = applications.find(app => app.id === id)?.status;
     setApplications((apps) =>
       apps.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
     );
@@ -240,10 +200,93 @@ export function ApplicationsManagement() {
       "rejected": "Rejected",
     };
 
-    toast.success(`Application marked as ${statusLabels[newStatus].toLowerCase()}`, {
-      description: "Candidate status has been updated.",
-    });
+    const backendStatus =
+      newStatus === "accepted"
+        ? "Accepted"
+        : newStatus === "rejected"
+        ? "Rejected"
+        : newStatus === "pending"
+        ? "Pending"
+        : "Reviewed";
+
+    try {
+      await updateApplicationStatus(id, backendStatus);
+      toast.success(`Application marked as ${statusLabels[newStatus].toLowerCase()}`, {
+        description: "Candidate status has been updated.",
+      });
+    } catch (error: any) {
+      if (previous) {
+        setApplications((apps) =>
+          apps.map((app) => (app.id === id ? { ...app, status: previous } : app))
+        );
+      }
+      toast.error(error?.message || "Failed to update status.");
+    }
   };
+
+  const formatDate = (value?: string) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+  };
+
+  const mapStatus = (status?: string): Exclude<ApplicationStatus, "all"> => {
+    switch (status) {
+      case "Pending":
+        return "pending";
+      case "Reviewed":
+        return "under-review";
+      case "Accepted":
+        return "accepted";
+      case "Rejected":
+        return "rejected";
+      default:
+        return "under-review";
+    }
+  };
+
+  const mapApplication = (app: any): Application => {
+    const applicant = app.applicant || {};
+    const job = app.job || {};
+    const applicantName = `${applicant.firstName || ""} ${applicant.lastName || ""}`.trim() || "Applicant";
+    const companyName = job.company || "MicroJobs";
+    return {
+      id: app._id,
+      jobId: job._id || "",
+      name: applicantName,
+      email: applicant.email || "—",
+      position: job.title || "Untitled Job",
+      company: companyName,
+      coverLetter: app.coverLetter || "No cover letter provided.",
+      appliedDate: formatDate(app.createdAt || app.appliedDate),
+      status: mapStatus(app.status),
+    };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadApplications = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getEmployerApplications();
+        if (!isMounted) return;
+        const mapped = Array.isArray(data) ? data.map(mapApplication) : [];
+        setApplications(mapped);
+      } catch (error: any) {
+        if (!isMounted) return;
+        setLoadError(error?.message || "Failed to load applications.");
+        setApplications([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadApplications();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredApplications = applications.filter((app) => {
     const matchesSearch =
@@ -254,9 +297,8 @@ export function ApplicationsManagement() {
     const matchesStatus = statusFilter === "all" || app.status === statusFilter;
     const matchesJob =
       jobFilter === "all" ||
-      (jobFilter === "frontend" && app.position.toLowerCase().includes("frontend")) ||
-      (jobFilter === "backend" && app.position.toLowerCase().includes("backend")) ||
-      (jobFilter === "fullstack" && app.position.toLowerCase().includes("full stack"));
+      app.jobId === jobFilter ||
+      (!app.jobId && app.position === jobFilter);
 
     return matchesSearch && matchesStatus && matchesJob;
   });
@@ -266,6 +308,10 @@ export function ApplicationsManagement() {
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
+
+  const jobOptions = Array.from(
+    new Map(applications.map((app) => [app.jobId || app.position, app.position])).entries(),
+  ).map(([id, label]) => ({ id, label }));
 
   useEffect(() => {
     setCurrentPage(1);
@@ -325,9 +371,11 @@ export function ApplicationsManagement() {
               className="w-full bg-white border border-[#D1D5DB] rounded-lg px-4 pr-10 py-2.5 text-[14px] text-[#111827] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent appearance-none cursor-pointer"
             >
               <option value="all">All Jobs</option>
-              <option value="frontend">Frontend Developer</option>
-              <option value="backend">Backend Engineer</option>
-              <option value="fullstack">Full Stack Developer</option>
+              {jobOptions.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.label}
+                </option>
+              ))}
             </select>
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
               <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -340,7 +388,16 @@ export function ApplicationsManagement() {
 
       {/* Applications List */}
       <div className="space-y-4">
-        {pagedApplications.length > 0 ? (
+        {isLoading ? (
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
+            <p className="text-[#6B7280] text-[16px]">Loading applications...</p>
+          </div>
+        ) : loadError ? (
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
+            <p className="text-[#6B7280] text-[16px]">{loadError}</p>
+            <p className="text-[#9CA3AF] text-[14px] mt-2">Please try again later.</p>
+          </div>
+        ) : pagedApplications.length > 0 ? (
           pagedApplications.map((application) => (
             <ApplicationCard
               key={application.id}

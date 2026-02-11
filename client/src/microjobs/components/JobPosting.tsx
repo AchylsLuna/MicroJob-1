@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   Check,
   Bold,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
+import { createJob, getCategories } from "../../services/api";
 
 interface Responsibility {
   id: string;
@@ -40,6 +41,15 @@ interface ApplicationField {
 export function JobPosting() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState<number>(1);
+  const [jobTitle, setJobTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [salary, setSalary] = useState("");
+  const [jobType, setJobType] = useState("Fulltime");
+  const [deadline, setDeadline] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [categories, setCategories] = useState<{ _id: string; name: string }[]>([]);
+  const [requirementsText, setRequirementsText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [jobDescription, setJobDescription] = useState(
     "We are seeking a talented React Native Mobile Developer to join our dynamic and innovative development team. The ideal candidate will have a strong background in mobile application development, with a focus on building cross-platform applications using React Native. As a React Native Mobile Developer, you will collaborate with a..."
@@ -101,6 +111,24 @@ export function JobPosting() {
     { id: "portfolio", label: "Portfolio link", required: false },
   ]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadCategories = async () => {
+      try {
+        const data = await getCategories();
+        if (!isMounted) return;
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (error: any) {
+        if (!isMounted) return;
+        toast.error(error?.message || "Failed to load categories.");
+      }
+    };
+    loadCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const addResponsibility = () => {
     const newId = String(responsibilities.length + 1);
     setResponsibilities([
@@ -134,8 +162,39 @@ export function JobPosting() {
     toast.success("AI-generated job description added!");
   };
 
-  const handleSave = () => {
-    toast.success("Job posting saved successfully!");
+  const handleSave = async () => {
+    const responsibilitiesList = responsibilities.map((item) => item.text.trim()).filter(Boolean);
+    const requirementsList = requirementsText
+      .split(/\n+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (!jobTitle || !jobDescription || !location || !salary || !jobType || !deadline) {
+      toast.error("Please fill in all required job details.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await createJob({
+        title: jobTitle,
+        description: jobDescription,
+        location,
+        salary,
+        jobType,
+        deadline,
+        skills,
+        responsibilities: responsibilitiesList,
+        requirements: requirementsList,
+        category: categoryId || undefined,
+      });
+      toast.success("Job posting created successfully!");
+      navigate("/dashboard/employer/jobs");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to create job.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const scrollToStep = (stepNumber: number, sectionId: string) => {
@@ -254,6 +313,73 @@ export function JobPosting() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-[13px] text-gray-700 mb-2">Job Title *</label>
+                  <input
+                    value={jobTitle}
+                    onChange={(e) => setJobTitle(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Senior Frontend Developer"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] text-gray-700 mb-2">Location *</label>
+                  <input
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. Manila, Philippines"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] text-gray-700 mb-2">Salary *</label>
+                  <input
+                    value={salary}
+                    onChange={(e) => setSalary(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g. ₱60,000 - ₱90,000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] text-gray-700 mb-2">Job Type *</label>
+                  <select
+                    value={jobType}
+                    onChange={(e) => setJobType(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Fulltime">Fulltime</option>
+                    <option value="Part-time">Part-time</option>
+                    <option value="Freelance">Freelance</option>
+                    <option value="Remote">Remote</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[13px] text-gray-700 mb-2">Deadline *</label>
+                  <input
+                    type="date"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[13px] text-gray-700 mb-2">Category</label>
+                  <select
+                    value={categoryId}
+                    onChange={(e) => setCategoryId(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Select category</option>
+                    {categories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="mb-6">
                 <label className="block text-[13px] text-gray-700 mb-2">About the job</label>
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -368,6 +494,8 @@ export function JobPosting() {
                 <label className="block text-[13px] text-gray-700 mb-2">Requirement</label>
                 <textarea
                   placeholder="Enter job requirements..."
+                  value={requirementsText}
+                  onChange={(e) => setRequirementsText(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-[14px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                   rows={4}
                 />
@@ -513,9 +641,12 @@ export function JobPosting() {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-6 py-2.5 bg-blue-600 text-white text-[14px] font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  disabled={isSubmitting}
+                  className={`px-6 py-2.5 bg-blue-600 text-white text-[14px] font-medium rounded-lg transition-colors ${
+                    isSubmitting ? "opacity-70 cursor-not-allowed" : "hover:bg-blue-700"
+                  }`}
                 >
-                  Continue
+                  {isSubmitting ? "Saving..." : "Continue"}
                 </button>
               </div>
             </div>

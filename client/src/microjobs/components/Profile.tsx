@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 interface WorkExperience {
   id: string;
@@ -46,15 +47,20 @@ interface AcceptedWork {
 export function Profile() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"overview" | "experience" | "portfolio">("overview");
+  const { user } = useAuth();
+
+  const fallbackName = "Jonas Dela Cruz";
+  const displayName = user ? `${user.firstName} ${user.lastName}`.trim() : fallbackName;
+  const location = [user?.city, user?.country].filter(Boolean).join(", ") || "Manila, Philippines";
 
   const profileData = {
-    name: "Jonas Dela Cruz",
+    name: displayName || fallbackName,
     title: "Senior Frontend Developer",
     avatar: null, // Will use initials
-    email: "jonas.delacruz@email.com",
-    phone: "+63 912 345 6789",
-    location: "Manila, Philippines",
-    linkedin: "linkedin.com/in/jonasdelacruz",
+    email: user?.email || "jonas.delacruz@email.com",
+    phone: user?.phoneNumber || "+63 912 345 6789",
+    location,
+    linkedin: user?.linkedin || "linkedin.com/in/jonasdelacruz",
     website: "jonasdelacruz.dev",
     about: "Passionate Frontend Developer with 5+ years of experience building scalable web applications. Specialized in React, TypeScript, and modern web technologies. Strong focus on creating intuitive user experiences and clean, maintainable code.",
     skills: ["React", "TypeScript", "Node.js", "Next.js", "Tailwind CSS", "GraphQL", "Redux", "Jest", "Git", "Figma"],

@@ -4,6 +4,8 @@ import {
     login,
     logout,
     getUserList,
+    getMe,
+    updateMe,
     sendOtp,
     verifyOtp,
     updateUserStatus,
@@ -18,6 +20,8 @@ router.post('/register', register);
 router.post('/login', login);
 router.post('/logout', auth, logout);
 router.get('/userlist', auth, requireAdmin, getUserList);
+router.get('/me', auth, getMe);
+router.patch('/me', auth, updateMe);
 router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
 

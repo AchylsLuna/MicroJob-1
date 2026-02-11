@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, 
@@ -9,6 +10,8 @@ import {
   ChevronRight,
   ArrowRight
 } from "lucide-react";
+import { getMyJobs } from "../../services/api";
+import { toast } from "../lib/toast";
 
 interface JobPosting {
   id: string;
@@ -31,131 +34,99 @@ interface JobPosting {
   createdBy: string;
 }
 
-const mockJobPostings: JobPosting[] = [
-  {
-    id: "1",
-    title: "ReactJS Developer",
-    department: "Development",
-    location: "Surat",
-    date: "Feb 24, 2025",
-    status: "Open",
-    matchPercentage: 90,
-    matchQuality: "Strong Match",
-    salary: "$25K-30K annually",
-    candidatesApplied: 15,
-    completedInterviews: 8,
-    tags: {
-      workLocation: "On Site",
-      workType: "Full Time",
-      experience: "3 Years exp.",
-      positions: "2 Positions"
-    },
-    createdBy: "Brooklyn"
-  },
-  {
-    id: "2",
-    title: "iOS Developer",
-    department: "Development",
-    location: "Surat",
-    date: "March 30, 2025",
-    status: "Open",
-    matchPercentage: 95,
-    matchQuality: "Strong Match",
-    salary: "$40K-60K annually",
-    candidatesApplied: 14,
-    completedInterviews: 10,
-    tags: {
-      workLocation: "On Site",
-      workType: "Full Time",
-      experience: "2-3 Years exp.",
-      positions: "4 Positions"
-    },
-    createdBy: "Brooklyn"
-  },
-  {
-    id: "3",
-    title: "Intern UI/UX Designer",
-    department: "Design",
-    location: "Surat",
-    date: "March 30, 2025",
-    status: "Open",
-    matchPercentage: 85,
-    matchQuality: "Strong Match",
-    salary: "$30K-40K annually",
-    candidatesApplied: 12,
-    completedInterviews: 8,
-    tags: {
-      workLocation: "On Site",
-      workType: "Full Time",
-      experience: "1-2 Years exp.",
-      positions: "3 Positions"
-    },
-    createdBy: "Robert"
-  },
-  {
-    id: "4",
-    title: "3D Animation (Junior)",
-    department: "Design",
-    location: "Surat",
-    date: "April 01, 2025",
-    status: "Hold",
-    matchPercentage: 36,
-    matchQuality: "Fair Match",
-    salary: "$15K-20K annually",
-    candidatesApplied: 12,
-    completedInterviews: 3,
-    tags: {
-      workLocation: "On Site",
-      workType: "Full Time",
-      experience: "1 Years exp.",
-      positions: "5 positions"
-    },
-    createdBy: "Brooklyn"
-  },
-  {
-    id: "5",
-    title: "Python Developer",
-    department: "Development",
-    location: "Surat",
-    date: "April 02, 2025",
-    status: "Open",
-    matchPercentage: 60,
-    matchQuality: "Good Match",
-    salary: "$25K-30K annually",
-    candidatesApplied: 22,
-    completedInterviews: 4,
-    tags: {
-      workLocation: "On Site",
-      workType: "Full Time",
-      experience: "2 Years exp.",
-      positions: "2 Positions"
-    },
-    createdBy: "Samantha"
-  },
-  {
-    id: "6",
-    title: "Senior Front-End Developer",
-    department: "Development",
-    location: "Surat",
-    date: "April 05, 2025",
-    status: "Open",
-    matchPercentage: 75,
-    matchQuality: "Good Match",
-    salary: "$50K-70K annually",
-    candidatesApplied: 18,
-    completedInterviews: 12,
-    tags: {
-      workLocation: "On Site",
-      workType: "Full Time",
-      experience: "5+ Years exp.",
-      positions: "1 Position"
-    },
-    createdBy: "Robert"
-  }
-];
-
 export function JobsManagement() {
   const navigate = useNavigate();
+  const [jobs, setJobs] = useState<JobPosting[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const mapStatus = (status?: string): JobPosting["status"] => {
+    switch (status) {
+      case "Available":
+        return "Open";
+      case "In Progress":
+        return "Hold";
+      case "Completed":
+      case "Cancelled":
+        return "Closed";
+      default:
+        return "Open";
+    }
+  };
+
+  const getMatchQuality = (percentage: number): JobPosting["matchQuality"] => {
+    if (percentage >= 80) return "Strong Match";
+    if (percentage >= 50) return "Good Match";
+    return "Fair Match";
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+  };
+
+  const mapJob = (job: any): JobPosting => {
+    const applicantsCount = Array.isArray(job.applicants) ? job.applicants.length : 0;
+    const matchPercentage = Math.min(100, applicantsCount * 7 + 30);
+    const workTypeLabel =
+      job.jobType === "Part-time"
+        ? "Part Time"
+        : job.jobType === "Freelance"
+        ? "Freelance"
+        : job.jobType === "Remote"
+        ? "Remote"
+        : "Full Time";
+    const workLocationLabel = job.jobType === "Remote" ? "Remote" : "On Site";
+
+    return {
+      id: job._id,
+      title: job.title || "Untitled Job",
+      department: job.category?.name || "General",
+      location: job.location || "Remote",
+      date: formatDate(job.createdAt),
+      status: mapStatus(job.status),
+      matchPercentage,
+      matchQuality: getMatchQuality(matchPercentage),
+      salary: job.salary || "—",
+      candidatesApplied: applicantsCount,
+      completedInterviews: Math.max(0, Math.floor(applicantsCount / 3)),
+      tags: {
+        workLocation: workLocationLabel,
+        workType: workTypeLabel,
+        experience: "Entry level",
+        positions: "1 Position",
+      },
+      createdBy: "You",
+    };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadJobs = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getMyJobs();
+        if (!isMounted) return;
+        const mapped = Array.isArray(data) ? data.map(mapJob) : [];
+        setJobs(mapped);
+      } catch (error: any) {
+        if (!isMounted) return;
+        const message = error?.message || "Failed to load job postings.";
+        setLoadError(message);
+        toast.error(message);
+        setJobs([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadJobs();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -204,7 +175,17 @@ export function JobsManagement() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {mockJobPostings.map((job) => (
+        {isLoading && (
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <p className="text-[14px] text-[#6B7280]">Loading job postings...</p>
+          </div>
+        )}
+        {loadError && !isLoading && (
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <p className="text-[14px] text-[#6B7280]">{loadError}</p>
+          </div>
+        )}
+        {!isLoading && !loadError && jobs.map((job) => (
           <div
             key={job.id}
             className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-lg transition-all"
@@ -337,6 +318,11 @@ export function JobsManagement() {
                 </div>
           </div>
         ))}
+        {!isLoading && !loadError && jobs.length === 0 && (
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <p className="text-[14px] text-[#6B7280]">No job postings found.</p>
+          </div>
+        )}
       </div>
     </div>
   );
