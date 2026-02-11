@@ -38,14 +38,10 @@ export default function SavedJobs({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Saved jobs</Text>
           <Text style={styles.headerSubtitle}>{savedJobs.length} jobs saved for later</Text>
         </View>
-        <View style={styles.placeholder} />
       </View>
 
       {/* Toggle Buttons */}
@@ -122,19 +118,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a5f',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: { fontSize: 24, color: '#fff' },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
   headerSubtitle: { fontSize: 12, color: '#b0c4de', marginTop: 2 },
-  placeholder: { width: 40 },
   toggleContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,

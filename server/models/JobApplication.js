@@ -25,6 +25,18 @@ const JobApplicationSchema = new mongoose.Schema(
             enum: ['Pending', 'Reviewed', 'Accepted', 'Rejected'],
             default: 'Pending'
         },
+        employerReadAt: {
+            type: Date,
+            default: null
+        },
+        employerHidden: {
+            type: Boolean,
+            default: false
+        },
+        employerHiddenAt: {
+            type: Date,
+            default: null
+        },
         appliedDate: {
             type: Date,
             default: Date.now

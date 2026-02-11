@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import EmployerNavigation from '../../components/employerNavigation';
 
 type ApplicationItem = {
   _id: string;
@@ -31,12 +32,13 @@ type ApplicationItem = {
 };
 
 type EmployerApplicationsProps = {
-  onBack?: () => void;
+  activeTab?: string;
+  onTabPress?: (tab: string) => void;
 };
 
 const STATUS_OPTIONS: ApplicationItem['status'][] = ['Pending', 'Reviewed', 'Accepted', 'Rejected'];
 
-export default function EmployerApplications({ onBack }: EmployerApplicationsProps) {
+export default function EmployerApplications({ activeTab, onTabPress }: EmployerApplicationsProps) {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -71,7 +73,7 @@ export default function EmployerApplications({ onBack }: EmployerApplicationsPro
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.message || 'Failed to load applications.');
-      setApplications(data || []);
+      setApplications(Array.isArray(data) ? data : []);
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load applications.');
     } finally {
@@ -108,12 +110,24 @@ export default function EmployerApplications({ onBack }: EmployerApplicationsPro
     }
   };
 
+  const handleRemoveApplication = (applicationId: string) => {
+    setErrorMessage('');
+    AsyncStorage.getItem('auth_token')
+      .then((token) =>
+        fetch(`${API_URL}/applications/${applicationId}/employer/remove`, {
+          method: 'PATCH',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        })
+      )
+      .catch((error) => {
+        setErrorMessage(error?.message || 'Failed to remove application.');
+      });
+    setApplications((prev) => prev.filter((app) => app._id !== applicationId));
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>Applications</Text>
           <Text style={styles.headerSubtitle}>Review candidates and update statuses</Text>
@@ -228,9 +242,14 @@ export default function EmployerApplications({ onBack }: EmployerApplicationsPro
               <Text style={styles.metaText}>
                 {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ''}
               </Text>
-              <TouchableOpacity onPress={() => setExpandedId(expandedId === app._id ? null : app._id)}>
-                <Text style={styles.linkText}>View Profile</Text>
-              </TouchableOpacity>
+              <View style={styles.metaActions}>
+                <TouchableOpacity onPress={() => setExpandedId(expandedId === app._id ? null : app._id)}>
+                  <Text style={styles.linkText}>View Profile</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => handleRemoveApplication(app._id)}>
+                  <Text style={styles.removeText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={styles.statusRow}>
@@ -275,6 +294,8 @@ export default function EmployerApplications({ onBack }: EmployerApplicationsPro
           </View>
         ))}
       </ScrollView>
+
+      <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
     </View>
   );
 }
@@ -289,18 +310,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: { color: '#ffffff', fontSize: 18 },
   headerTitle: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
   headerSubtitle: { color: '#cbd5f0', fontSize: 13, marginTop: 4 },
-  scroll: { padding: 20, paddingBottom: 40 },
+  scroll: { padding: 20, paddingBottom: 90 },
   filterCard: {
     backgroundColor: '#ffffff',
     borderRadius: 16,
@@ -393,7 +405,9 @@ const styles = StyleSheet.create({
   coverLetter: { fontSize: 12, color: '#4b5563', marginTop: 12, lineHeight: 18 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
   metaText: { fontSize: 12, color: '#6b7280' },
+  metaActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   linkText: { fontSize: 12, color: '#2563eb', fontWeight: '600' },
+  removeText: { fontSize: 12, color: '#b91c1c', fontWeight: '700' },
   statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   statusButton: {
     borderRadius: 12,

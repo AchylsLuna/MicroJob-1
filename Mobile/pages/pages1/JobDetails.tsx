@@ -6,14 +6,13 @@ import { API_URL } from '../../config';
 
 type JobDetailsProps = {
   job: any;
-  onBack?: () => void;
   onSaveJob?: (job: any) => void;
   isSaved?: boolean;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
 };
 
-export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, activeTab = 'Jobs', onTabPress }: JobDetailsProps) {
+export default function JobDetails({ job, onSaveJob, isSaved = false, activeTab = 'Jobs', onTabPress }: JobDetailsProps) {
   const [saved, setSaved] = useState(isSaved);
   const [showSuccess, setShowSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState(job);
@@ -120,13 +119,6 @@ export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, ac
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Job Title */}
         <Text style={styles.jobTitle}>{jobDetails?.title || 'Job Details'}</Text>
@@ -224,19 +216,7 @@ export default function JobDetails({ job, onBack, onSaveJob, isSaved = false, ac
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1e3a5f' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: { fontSize: 24, color: '#fff' },
-  scroll: { paddingHorizontal: 20, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 100 },
   jobTitle: {
     fontSize: 24,
     fontWeight: '800',

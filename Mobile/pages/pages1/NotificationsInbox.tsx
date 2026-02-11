@@ -3,12 +3,11 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import Navigation from '../../components/navigation';
 
 type NotificationsInboxProps = {
-  onBack?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
 };
 
-export default function NotificationsInbox({ onBack, activeTab = 'Messages', onTabPress }: NotificationsInboxProps) {
+export default function NotificationsInbox({ activeTab = 'Messages', onTabPress }: NotificationsInboxProps) {
   const [notifications, setNotifications] = useState([
     {
       id: 1,
@@ -41,11 +40,7 @@ export default function NotificationsInbox({ onBack, activeTab = 'Messages', onT
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>‹</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        <View style={styles.placeholder} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -100,17 +95,7 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 16,
     backgroundColor: '#1e3a5f',
-  },
-  backButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
     justifyContent: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#fff',
-    fontWeight: '700',
   },
   headerTitle: {
     flex: 1,
@@ -118,9 +103,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#fff',
     textAlign: 'center',
-  },
-  placeholder: {
-    width: 32,
   },
   scroll: {
     paddingHorizontal: 16,

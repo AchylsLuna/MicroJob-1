@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import EmployerNavigation from '../../components/employerNavigation';
 
 type EmployerProfileProps = {
   employer?: {
@@ -15,10 +16,21 @@ type EmployerProfileProps = {
     email?: string;
     phone?: string;
   };
-  onBack?: () => void;
+  activeTab?: string;
+  onTabPress?: (tab: string) => void;
+  onLogout?: () => void;
+  currentRole?: 'worker' | 'employer';
+  onSwitchRole?: (role: 'worker' | 'employer') => void;
 };
 
-export default function EmployerProfile({ employer, onBack }: EmployerProfileProps) {
+export default function EmployerProfile({
+  employer,
+  activeTab,
+  onTabPress,
+  onLogout,
+  currentRole = 'employer',
+  onSwitchRole,
+}: EmployerProfileProps) {
   const [firstName, setFirstName] = useState(employer?.firstName || '');
   const [lastName, setLastName] = useState(employer?.lastName || '');
   const [email, setEmail] = useState(employer?.email || '');
@@ -103,15 +115,13 @@ export default function EmployerProfile({ employer, onBack }: EmployerProfilePro
     }
   };
 
+  const handleRoleSwitch = (role: 'worker' | 'employer') => {
+    if (role === currentRole) return;
+    onSwitchRole?.(role);
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>←</Text>
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
@@ -119,6 +129,24 @@ export default function EmployerProfile({ employer, onBack }: EmployerProfilePro
           </View>
           <Text style={styles.name}>{employerName}</Text>
           <Text style={styles.subtitle}>Employer</Text>
+          <View style={styles.roleSwitchRow}>
+            <TouchableOpacity
+              style={[styles.roleChip, currentRole === 'worker' && styles.roleChipActive]}
+              onPress={() => handleRoleSwitch('worker')}
+            >
+              <Text style={[styles.roleChipText, currentRole === 'worker' && styles.roleChipTextActive]}>
+                Worker
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.roleChip, currentRole === 'employer' && styles.roleChipActive]}
+              onPress={() => handleRoleSwitch('employer')}
+            >
+              <Text style={[styles.roleChipText, currentRole === 'employer' && styles.roleChipTextActive]}>
+                Employer
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -173,28 +201,24 @@ export default function EmployerProfile({ employer, onBack }: EmployerProfilePro
         >
           {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Profile</Text>}
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={onLogout}
+          disabled={!onLogout}
+        >
+          <Text style={styles.logoutButtonText}>Log out</Text>
+        </TouchableOpacity>
       </ScrollView>
+
+      <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#ffffff' },
-  header: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 6,
-    backgroundColor: '#ffffff',
-  },
-  backButton: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 6,
-    paddingVertical: 6,
-  },
-  backIcon: { fontSize: 22, color: '#1e3a5f' },
-  backText: { fontSize: 16, color: '#1e3a5f', fontWeight: '600' },
-  scroll: { paddingHorizontal: 20, paddingBottom: 40 },
+  scroll: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 90 },
   profileCard: {
     backgroundColor: '#f7f8fb',
     borderRadius: 16,
@@ -228,6 +252,25 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center' },
   statValue: { fontSize: 16, fontWeight: '700', color: '#1e3a5f' },
   statLabel: { fontSize: 12, color: '#6b7280' },
+  roleSwitchRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  roleChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    backgroundColor: '#ffffff',
+  },
+  roleChipActive: {
+    backgroundColor: '#1e3a5f',
+    borderColor: '#1e3a5f',
+  },
+  roleChipText: { fontSize: 12, fontWeight: '700', color: '#334155' },
+  roleChipTextActive: { color: '#ffffff' },
   section: {
     marginBottom: 16,
   },
@@ -251,4 +294,12 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  logoutButton: {
+    marginTop: 12,
+    backgroundColor: '#fee2e2',
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  logoutButtonText: { color: '#b91c1c', fontSize: 14, fontWeight: '700' },
 });

@@ -20,14 +20,12 @@ type Job = {
 };
 
 export default function Jobs({
-  onBack,
   onViewDetails,
   onToggleSave,
   savedJobIds = [],
   activeTab: externalActiveTab,
   onTabPress: externalOnTabPress,
 }: {
-  onBack?: () => void;
   onViewDetails?: (job: Job) => void;
   onToggleSave?: (job: Job) => void;
   savedJobIds?: string[];
@@ -113,9 +111,6 @@ export default function Jobs({
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);
     externalOnTabPress?.(tab);
-    if (tab === 'Home' && onBack) {
-      onBack();
-    }
   };
 
   const handleToggleSave = (job: Job) => {

@@ -96,11 +96,7 @@ export default function AppliedJobs({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Text style={styles.backIcon}>‹</Text>
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>Applied jobs</Text>
-        <View style={styles.placeholder} />
       </View>
 
       <View style={styles.toggleContainer}>
@@ -192,17 +188,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#1e3a5f',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: { fontSize: 28, color: '#fff', fontWeight: '700' },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  placeholder: { width: 40 },
   toggleContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,

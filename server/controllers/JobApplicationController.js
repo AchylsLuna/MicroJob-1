@@ -172,7 +172,7 @@ export const getEmployerApplications = async (req, res) => {
         const postedJobs = await Job.find({ jobPoster: userId }).select('_id');
         const jobIds = postedJobs.map((job) => job._id);
 
-        let filter = { job: { $in: jobIds } };
+        let filter = { job: { $in: jobIds }, employerHidden: { $ne: true } };
         if (status && status !== 'All') {
             filter.status = status;
         }
@@ -197,6 +197,61 @@ export const getEmployerApplications = async (req, res) => {
         res.status(200).json(applications);
     } catch (error) {
         console.error('Get employer applications error:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Mark employer notification as read
+export const markEmployerApplicationRead = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+
+        const application = await JobApplication.findById(applicationId).populate('job', 'jobPoster');
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        if (application.job.jobPoster.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to update this application' });
+        }
+
+        application.employerReadAt = new Date();
+        await application.save();
+
+        res.status(200).json({
+            message: 'Notification marked as read',
+            application
+        });
+    } catch (error) {
+        console.error('Mark employer read error:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Hide application from employer notifications/applications
+export const hideEmployerApplication = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+
+        const application = await JobApplication.findById(applicationId).populate('job', 'jobPoster');
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        if (application.job.jobPoster.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to update this application' });
+        }
+
+        application.employerHidden = true;
+        application.employerHiddenAt = new Date();
+        await application.save();
+
+        res.status(200).json({
+            message: 'Application removed',
+            application
+        });
+    } catch (error) {
+        console.error('Hide employer application error:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

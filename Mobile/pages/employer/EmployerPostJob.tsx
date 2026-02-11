@@ -15,13 +15,15 @@ import {
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import EmployerNavigation from '../../components/employerNavigation';
 
 type Category = { _id: string; name: string };
 
 type PostJobProps = {
-  onBack?: () => void;
   onPosted?: () => void;
   jobToEdit?: any;
+  activeTab?: string;
+  onTabPress?: (tab: string) => void;
 };
 
 type FormData = {
@@ -36,7 +38,7 @@ type FormData = {
   jobType: string;
 };
 
-export default function EmployerPostJob({ onBack, onPosted, jobToEdit }: PostJobProps) {
+export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabPress }: PostJobProps) {
   const [formData, setFormData] = useState<FormData>({
     title: '',
     category: '',
@@ -268,9 +270,6 @@ export default function EmployerPostJob({ onBack, onPosted, jobToEdit }: PostJob
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>{isEditing ? 'Edit Job' : 'Post a Job'}</Text>
           <Text style={styles.headerSubtitle}>Find the perfect talent for your project</Text>
@@ -485,6 +484,8 @@ export default function EmployerPostJob({ onBack, onPosted, jobToEdit }: PostJob
           }}
         />
       ) : null}
+
+      <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
     </View>
   );
 }
@@ -500,18 +501,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  backButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: { color: '#ffffff', fontSize: 18 },
+  scroll: { padding: 20, paddingBottom: 90 },
   headerTitle: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
   headerSubtitle: { color: '#cbd5f0', fontSize: 13, marginTop: 4 },
-  scroll: { padding: 20, paddingBottom: 40 },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 18,

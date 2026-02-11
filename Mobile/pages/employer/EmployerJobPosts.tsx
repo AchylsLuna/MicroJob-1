@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import EmployerNavigation from '../../components/employerNavigation';
 
 type JobItem = {
   _id: string;
@@ -24,22 +25,25 @@ type JobItem = {
 };
 
 type EmployerJobPostsProps = {
-  onBack?: () => void;
   onOpenPostJob?: () => void;
   onOpenApplications?: () => void;
   onOpenProfile?: () => void;
   onOpenNotifications?: () => void;
   onEditJob?: (job: JobItem) => void;
+  activeTab?: string;
+  onTabPress?: (tab: string) => void;
 };
 
 export default function EmployerJobPosts({
-  onBack,
   onOpenPostJob,
   onOpenApplications,
   onOpenProfile,
   onOpenNotifications,
   onEditJob,
+  activeTab,
+  onTabPress,
 }: EmployerJobPostsProps) {
+  const [employerName, setEmployerName] = useState('Employer');
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -70,50 +74,43 @@ export default function EmployerJobPosts({
     fetchJobs();
   }, []);
 
+  useEffect(() => {
+    const loadEmployerName = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('auth_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          const name = [parsed?.firstName, parsed?.lastName].filter(Boolean).join(' ');
+          if (name) {
+            setEmployerName(name);
+            return;
+          }
+        }
+        const token = await AsyncStorage.getItem('auth_token');
+        if (!token) return;
+        const response = await fetch(`${API_URL}/users/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return;
+        const profile = data?.profile || data?.user;
+        const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
+        if (name) setEmployerName(name);
+      } catch (error) {
+        console.log('Failed to load employer name', error);
+      }
+    };
+
+    loadEmployerName();
+  }, []);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Employer Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Track applicants across your job posts</Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, !onOpenPostJob && styles.actionButtonDisabled]}
-              onPress={onOpenPostJob}
-              disabled={!onOpenPostJob}
-            >
-              <Text style={styles.actionButtonText}>Post Job</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionButtonGhost, !onOpenApplications && styles.actionButtonDisabled]}
-              onPress={onOpenApplications}
-              disabled={!onOpenApplications}
-            >
-              <Text style={[styles.actionButtonText, styles.actionButtonGhostText]}>Applications</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionButtonGhost, !onOpenNotifications && styles.actionButtonDisabled]}
-              onPress={onOpenNotifications}
-              disabled={!onOpenNotifications}
-            >
-              <Text style={[styles.actionButtonText, styles.actionButtonGhostText]}>Notifications</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.actionButtonGhost, !onOpenProfile && styles.actionButtonDisabled]}
-              onPress={onOpenProfile}
-              disabled={!onOpenProfile}
-            >
-              <Text style={[styles.actionButtonText, styles.actionButtonGhostText]}>Profile</Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.headerTitle}>{employerName}</Text>
+          <Text style={styles.headerSubtitle}>Employer</Text>
         </View>
-        <TouchableOpacity
-          style={[styles.plusButton, !onOpenPostJob && styles.actionButtonDisabled]}
-          onPress={onOpenPostJob}
-          disabled={!onOpenPostJob}
-        >
-          <Text style={styles.plusButtonText}>+</Text>
-        </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -183,9 +180,8 @@ export default function EmployerJobPosts({
                   {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}
                 </Text>
                 <TouchableOpacity
-                  style={[styles.editButton, !onEditJob && styles.actionButtonDisabled]}
+                  style={styles.editButton}
                   onPress={() => onEditJob?.(job)}
-                  disabled={!onEditJob}
                 >
                   <Text style={styles.editButtonText}>Edit</Text>
                 </TouchableOpacity>
@@ -194,6 +190,12 @@ export default function EmployerJobPosts({
           </View>
         ))}
       </ScrollView>
+
+      <EmployerNavigation
+        activeTab={activeTab}
+        onTabPress={onTabPress}
+        notificationsCount={totalApplicants}
+      />
     </View>
   );
 }
@@ -211,33 +213,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
   headerSubtitle: { color: '#cbd5f0', fontSize: 13, marginTop: 4 },
-  headerActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  actionButton: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  actionButtonGhost: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  actionButtonText: { color: '#0a2847', fontSize: 12, fontWeight: '700' },
-  actionButtonGhostText: { color: '#ffffff' },
-  actionButtonDisabled: { opacity: 0.6 },
-  plusButton: {
-    marginLeft: 'auto',
-    marginRight: 12,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  plusButtonText: { color: '#0a2847', fontSize: 26, fontWeight: '700' },
-  scroll: { padding: 20, paddingBottom: 40 },
+  scroll: { padding: 20, paddingBottom: 90 },
   summaryCard: {
     backgroundColor: '#ffffff',
     borderRadius: 18,
