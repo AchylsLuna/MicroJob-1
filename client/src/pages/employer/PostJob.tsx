@@ -161,7 +161,7 @@ const PostJob: React.FC = () => {
       } else {
         await jobsAPI.createJob(payload);
       }
-      navigate("/employer/job-posts");
+      navigate("/dashboard/employer/job-posts");
     } catch (err: any) {
       setError(err?.response?.data?.message || (isEditing ? "Failed to update job." : "Failed to post job."));
     } finally {

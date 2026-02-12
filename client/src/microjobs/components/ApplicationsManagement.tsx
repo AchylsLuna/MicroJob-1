@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { Search, Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLink, ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "../lib/toast";
 import { getEmployerApplications, updateApplicationStatus } from "../../services/api";
+import { useNavigate } from "react-router-dom";
 
 type ApplicationStatus = "all" | "under-review" | "pending" | "reviewing" | "interviewed" | "accepted" | "rejected";
 
 interface Application {
   id: string;
   jobId: string;
+  applicantId: string;
   name: string;
   email: string;
   position: string;
@@ -99,9 +101,10 @@ function StatusBadge({ status }: StatusBadgeProps) {
 interface ApplicationCardProps {
   application: Application;
   onStatusChange: (id: string, status: Exclude<ApplicationStatus, "all">) => void;
+  onMessage: (application: Application) => void;
 }
 
-function ApplicationCard({ application, onStatusChange }: ApplicationCardProps) {
+function ApplicationCard({ application, onStatusChange, onMessage }: ApplicationCardProps) {
   const initials = getInitials(application.name);
   const avatarColor = getAvatarColor(application.name);
 
@@ -153,6 +156,14 @@ function ApplicationCard({ application, onStatusChange }: ApplicationCardProps) 
                 <UserIcon className="w-4 h-4" />
                 View Profile
               </button>
+              {application.applicantId && (
+                <button
+                  className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors"
+                  onClick={() => onMessage(application)}
+                >
+                  💬 Message
+                </button>
+              )}
             </div>
 
             {/* Status Dropdown */}
@@ -176,6 +187,7 @@ function ApplicationCard({ application, onStatusChange }: ApplicationCardProps) 
 }
 
 export function ApplicationsManagement() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus>("all");
   const [jobFilter, setJobFilter] = useState("all");
@@ -254,6 +266,7 @@ export function ApplicationsManagement() {
     return {
       id: app._id,
       jobId: job._id || "",
+      applicantId: applicant._id || "",
       name: applicantName,
       email: applicant.email || "—",
       position: job.title || "Untitled Job",
@@ -287,6 +300,17 @@ export function ApplicationsManagement() {
       isMounted = false;
     };
   }, []);
+
+  const handleMessageApplicant = (application: Application) => {
+    if (!application.applicantId) return;
+    navigate("/dashboard/messages", {
+      state: {
+        userId: application.applicantId,
+        name: application.name,
+        jobId: application.jobId,
+      },
+    });
+  };
 
   const filteredApplications = applications.filter((app) => {
     const matchesSearch =
@@ -403,6 +427,7 @@ export function ApplicationsManagement() {
               key={application.id}
               application={application}
               onStatusChange={handleStatusChange}
+              onMessage={handleMessageApplicant}
             />
           ))
         ) : (

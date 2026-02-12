@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
-import Job from '../models/Job.js'
+import Job from '../models/Job.js';
+import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 export async function getJobList(req, res) {
     try {
@@ -196,6 +198,24 @@ export async function applyForJob(req, res){
             return res.status(400).json({message: "You cannot apply for your own job."});
         }
         job.applicants.push(userId);
+        await job.save();
+
+        try {
+            const applicant = await User.findById(userId).select('firstName lastName');
+            const applicantName = applicant?.firstName
+                ? `${applicant.firstName} ${applicant.lastName || ''}`.trim()
+                : 'A worker';
+            await Notification.create({
+                user: job.jobPoster,
+                type: 'application',
+                title: 'New application received',
+                message: `${applicantName} applied for ${job.title}`,
+                link: '/dashboard/employer/applications',
+                metadata: { jobId: job._id },
+            });
+        } catch (notifyError) {
+            console.error('Create job apply notification error:', notifyError);
+        }
 
         return res.status(200).json({message: "Successfully applied for the job.", job});
     } catch (error) {

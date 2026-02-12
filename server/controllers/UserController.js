@@ -33,6 +33,26 @@ export async function getUserList(req, res) {
     }
 }
 
+export async function getAdminUsers(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+
+        const admins = await User.find({
+            role: { $in: ["admin", "superadmin"] },
+            status: "active",
+            _id: { $ne: userId },
+        }).select("firstName lastName email role");
+
+        return res.status(200).json(admins);
+    } catch (error) {
+        console.error("Get admin users error:", error);
+        return res.status(500).json({ message: "Failed to retrieve admin users." });
+    }
+}
+
 export async function getMe(req, res) {
     try {
         const userId = req.user?.id || req.user?.userId;
@@ -69,6 +89,7 @@ export async function updateMe(req, res) {
             country,
             linkedin,
             avatarUrl,
+            email,
         } = req.body || {};
 
         if (firstName !== undefined) {
@@ -104,6 +125,21 @@ export async function updateMe(req, res) {
                 }
                 user.phoneNumber = normalizedPhone;
             }
+        }
+
+        if (email !== undefined) {
+            const normalizedEmail = String(email).trim().toLowerCase();
+            if (!normalizedEmail) {
+                return res.status(400).json({ message: "Email is required." });
+            }
+            const existing = await User.findOne({
+                email: normalizedEmail,
+                _id: { $ne: userId },
+            });
+            if (existing) {
+                return res.status(409).json({ message: "Email is already registered." });
+            }
+            user.email = normalizedEmail;
         }
 
         if (city !== undefined) {

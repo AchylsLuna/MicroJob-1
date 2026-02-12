@@ -118,15 +118,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("pending_account_preference", accountPreference);
 
     try {
-      await registerUser({
-        username: name,
-        firstName,
-        lastName,
-        email: normalizedEmail,
-        password,
-        phoneNumber: normalizedPhone,
-        role,
-      });
+      try {
+        await registerUser({
+          username: name,
+          firstName,
+          lastName,
+          email: normalizedEmail,
+          password,
+          phoneNumber: normalizedPhone,
+          role,
+        });
+      } catch (error: any) {
+        const message = String(error?.message || "");
+        const isAlreadyRegistered = /already registered|already exists/i.test(message);
+        if (!isAlreadyRegistered) {
+          throw error;
+        }
+      }
 
       const otpResponse = await sendOtp({ email: normalizedEmail });
       setDevOtpCode(otpResponse?.code ?? null);

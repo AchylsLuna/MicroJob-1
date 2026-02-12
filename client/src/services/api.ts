@@ -156,6 +156,10 @@ export function getUserList() {
   return request<any[]>('/users/userlist', { method: 'GET' });
 }
 
+export function getAdminUsers() {
+  return request<any[]>('/users/admins', { method: 'GET' });
+}
+
 export function updateUserStatus(userId: string, status: 'active' | 'pending' | 'disabled') {
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
 }
@@ -173,10 +177,45 @@ export function updateProfile(payload: {
   firstName?: string;
   lastName?: string;
   phoneNumber?: string;
+  email?: string;
   city?: string;
   country?: string;
   linkedin?: string;
   avatarUrl?: string;
 }) {
   return request<any>('/users/me', { method: 'PATCH', body: payload });
+}
+
+// Notifications APIs
+export function getNotifications(params?: QueryParams) {
+  return request<any[]>(`/notifications${buildQuery(params)}`, { method: 'GET' });
+}
+
+export function markNotificationRead(notificationId: string) {
+  return request(`/notifications/${notificationId}/read`, { method: 'PATCH' });
+}
+
+export function markAllNotificationsRead() {
+  return request(`/notifications/read-all`, { method: 'PATCH' });
+}
+
+export function deleteNotification(notificationId: string) {
+  return request(`/notifications/${notificationId}`, { method: 'DELETE' });
+}
+
+export function deleteReadNotifications() {
+  return request(`/notifications/read`, { method: 'DELETE' });
+}
+
+// Alerts APIs
+export function getAlerts(params?: QueryParams) {
+  return request<any[]>(`/alerts${buildQuery(params)}`, { method: 'GET' });
+}
+
+export function updateAlertStatus(alertId: string, status: 'open' | 'snoozed' | 'resolved') {
+  return request(`/alerts/${alertId}/status`, { method: 'PATCH', body: { status } });
+}
+
+export function deleteAlert(alertId: string) {
+  return request(`/alerts/${alertId}`, { method: 'DELETE' });
 }

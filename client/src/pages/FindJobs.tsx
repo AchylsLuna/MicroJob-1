@@ -205,7 +205,7 @@ const FindJobs: React.FC = () => {
               return (
               <div
                 key={job._id}
-                onClick={() => navigate(`/job-details/${job._id}`)}
+                onClick={() => navigate(`/dashboard/job-details/${job._id}`)}
                 className="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg transition cursor-pointer"
               >
                 <div className="flex gap-4 mb-4">

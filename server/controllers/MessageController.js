@@ -1,5 +1,6 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
+import Notification from '../models/Notification.js';
 
 const normalizeId = (value) => {
   if (!value) return value;
@@ -68,8 +69,25 @@ const MessageController = {
         job: jobId,
         content,
       });
-      const populated = await message.populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName');
-      res.status(201).json({ message: 'Message sent', data: formatMessage(populated) });
+      await message.populate('sender', 'firstName lastName');
+      await message.populate('receiver', 'firstName lastName');
+      try {
+        const senderName = message.sender?.firstName
+          ? `${message.sender.firstName} ${message.sender.lastName || ''}`.trim()
+          : 'Someone';
+        const preview = content.length > 120 ? `${content.slice(0, 117)}...` : content;
+        await Notification.create({
+          user: receiverId,
+          type: 'message',
+          title: `New message from ${senderName}`,
+          message: preview,
+          link: '/dashboard/messages',
+          metadata: { senderId, jobId },
+        });
+      } catch (notifyError) {
+        console.error('Create message notification error:', notifyError);
+      }
+      res.status(201).json({ message: 'Message sent', data: formatMessage(message) });
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }

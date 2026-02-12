@@ -103,8 +103,33 @@ export function EWallet() {
   const [xenditEmail, setXenditEmail] = useState("");
   const [xenditName, setXenditName] = useState("");
   const [xenditMethod, setXenditMethod] = useState("GCash");
+  const [walletTab, setWalletTab] = useState<"overview" | "history">("overview");
 
-  const jobPayments = transactions.filter((transaction) => transaction.category === "Job Payment");
+  const paymentCategories = [
+    "All",
+    ...Array.from(new Set(transactions.map((transaction) => transaction.category))),
+  ];
+  const [paymentCategory, setPaymentCategory] = useState(paymentCategories[0]);
+  const [paymentPage, setPaymentPage] = useState(1);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const paymentPageSize = 4;
+
+  const filteredPayments =
+    paymentCategory === "All"
+      ? transactions
+      : transactions.filter((transaction) => transaction.category === paymentCategory);
+
+  const paymentPageCount = Math.max(1, Math.ceil(filteredPayments.length / paymentPageSize));
+  const paymentPageSafe = Math.min(paymentPage, paymentPageCount);
+  const pagedPayments = filteredPayments.slice(
+    (paymentPageSafe - 1) * paymentPageSize,
+    paymentPageSafe * paymentPageSize
+  );
+
+  const selectedPayment =
+    filteredPayments.find((transaction) => transaction.id === selectedPaymentId) ||
+    pagedPayments[0] ||
+    null;
 
   const handleTopUp = () => {
     setIsTopUpOpen(true);
@@ -169,6 +194,10 @@ export function EWallet() {
     toast.info(`Transaction: ${transaction.description}`);
   };
 
+  const handlePaymentClick = (transaction: Transaction) => {
+    setSelectedPaymentId(transaction.id);
+  };
+
   const handleXenditTestPayment = () => {
     if (!xenditAmount || Number(xenditAmount) <= 0) {
       toast.error("Please enter a valid amount");
@@ -191,6 +220,34 @@ export function EWallet() {
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
+      {/* E-Wallet Tabs */}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setWalletTab("overview")}
+          className={`px-4 py-2 rounded-full text-[12px] font-semibold transition ${
+            walletTab === "overview"
+              ? "bg-[#1C4D8D] text-white"
+              : "bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB]"
+          }`}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          onClick={() => setWalletTab("history")}
+          className={`px-4 py-2 rounded-full text-[12px] font-semibold transition ${
+            walletTab === "history"
+              ? "bg-[#1C4D8D] text-white"
+              : "bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB]"
+          }`}
+        >
+          Payment History
+        </button>
+      </div>
+
+      {walletTab === "overview" && (
+        <>
       {/* Balance Card */}
       <div className="bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] rounded-[20px] p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32"></div>
@@ -362,42 +419,173 @@ export function EWallet() {
           ))}
         </div>
       </div>
+      </>
+      )}
 
-      {/* Job Payment History */}
+      {/* Payment History */}
+      {walletTab === "history" && (
       <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-[20px] font-semibold text-[#111827]">Job Payment History</h3>
+          <h3 className="text-[20px] font-semibold text-[#111827]">Payment History</h3>
           <span className="text-[12px] text-[#6B7280] bg-[#F3F4F6] px-3 py-1 rounded-full">
-            {jobPayments.length} payments
+            {filteredPayments.length} records
           </span>
         </div>
-        <div className="space-y-3">
-          {jobPayments.map((payment) => (
-            <div
-              key={payment.id}
-              className="flex items-center justify-between p-4 border border-[#E5E7EB] rounded-[12px]"
+
+        <div className="flex flex-wrap gap-2 mb-6">
+          {paymentCategories.map((category) => (
+            <button
+              key={category}
+              onClick={() => {
+                setPaymentCategory(category);
+                setPaymentPage(1);
+                setSelectedPaymentId(null);
+              }}
+              className={`px-4 py-2 rounded-full text-[12px] font-semibold transition ${
+                paymentCategory === category
+                  ? "bg-[#1C4D8D] text-white"
+                  : "bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB]"
+              }`}
             >
-              <div>
-                <p className="text-[14px] font-semibold text-[#111827]">{payment.description}</p>
-                <p className="text-[12px] text-[#6B7280]">{payment.date}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[14px] font-semibold text-[#10B981]">
-                  +₱{payment.amount.toLocaleString()}
-                </p>
-                <span className="text-[11px] font-semibold px-2 py-1 rounded-full text-[#10B981] bg-[#D1FAE5]">
-                  {payment.status === "completed" ? "Completed" : "Pending"}
-                </span>
-              </div>
-            </div>
+              {category}
+            </button>
           ))}
-          {jobPayments.length === 0 && (
-            <div className="text-[14px] text-[#6B7280]">No job payments yet.</div>
-          )}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_0.9fr] gap-6">
+          <div className="space-y-3">
+            {pagedPayments.map((payment) => (
+              <button
+                key={payment.id}
+                type="button"
+                onClick={() => handlePaymentClick(payment)}
+                className={`w-full text-left flex items-center justify-between p-4 rounded-[12px] border transition-colors ${
+                  selectedPaymentId === payment.id
+                    ? "border-[#1C4D8D] bg-[#F5F9FF]"
+                    : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                }`}
+              >
+                <div>
+                  <p className="text-[14px] font-semibold text-[#111827]">{payment.description}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-[12px] text-[#6B7280]">{payment.date}</p>
+                    <span className="text-[12px] text-[#9CA3AF]">•</span>
+                    <span className="text-[11px] text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
+                      {payment.category}
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p
+                    className={`text-[14px] font-semibold ${
+                      payment.type === "credit" ? "text-[#10B981]" : "text-[#EF4444]"
+                    }`}
+                  >
+                    {payment.type === "credit" ? "+" : "-"}₱{payment.amount.toLocaleString()}
+                  </p>
+                  <span
+                    className={`text-[11px] font-semibold px-2 py-1 rounded-full ${
+                      payment.status === "completed"
+                        ? "text-[#10B981] bg-[#D1FAE5]"
+                        : "text-[#F59E0B] bg-[#FEF3C7]"
+                    }`}
+                  >
+                    {payment.status === "completed" ? "Completed" : "Pending"}
+                  </span>
+                </div>
+              </button>
+            ))}
+            {pagedPayments.length === 0 && (
+              <div className="text-[14px] text-[#6B7280]">No payments found for this category.</div>
+            )}
+
+            <div className="flex items-center justify-between pt-4">
+              <button
+                type="button"
+                onClick={() => setPaymentPage((prev) => Math.max(1, prev - 1))}
+                className={`px-3 py-2 text-[12px] font-semibold rounded-[10px] border ${
+                  paymentPageSafe === 1
+                    ? "border-[#E5E7EB] text-[#9CA3AF] cursor-not-allowed"
+                    : "border-[#1C4D8D] text-[#1C4D8D] hover:bg-[#F5F9FF]"
+                }`}
+                disabled={paymentPageSafe === 1}
+              >
+                Previous
+              </button>
+              <p className="text-[12px] text-[#6B7280]">
+                Page {paymentPageSafe} of {paymentPageCount}
+              </p>
+              <button
+                type="button"
+                onClick={() => setPaymentPage((prev) => Math.min(paymentPageCount, prev + 1))}
+                className={`px-3 py-2 text-[12px] font-semibold rounded-[10px] border ${
+                  paymentPageSafe === paymentPageCount
+                    ? "border-[#E5E7EB] text-[#9CA3AF] cursor-not-allowed"
+                    : "border-[#1C4D8D] text-[#1C4D8D] hover:bg-[#F5F9FF]"
+                }`}
+                disabled={paymentPageSafe === paymentPageCount}
+              >
+                Next
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-[16px] p-5">
+            <h4 className="text-[16px] font-semibold text-[#111827] mb-4">Payment Details</h4>
+            {selectedPayment ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[12px] text-[#6B7280]">Description</p>
+                  <p className="text-[14px] font-semibold text-[#111827]">{selectedPayment.description}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-[12px] text-[#6B7280]">Type</p>
+                    <p className="text-[14px] font-semibold text-[#111827]">
+                      {selectedPayment.type === "credit" ? "Credit" : "Debit"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-[#6B7280]">Status</p>
+                    <p className="text-[14px] font-semibold text-[#111827]">
+                      {selectedPayment.status === "completed" ? "Completed" : "Pending"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-[#6B7280]">Category</p>
+                    <p className="text-[14px] font-semibold text-[#111827]">{selectedPayment.category}</p>
+                  </div>
+                  <div>
+                    <p className="text-[12px] text-[#6B7280]">Date</p>
+                    <p className="text-[14px] font-semibold text-[#111827]">{selectedPayment.date}</p>
+                  </div>
+                </div>
+                <div className="bg-white border border-[#E5E7EB] rounded-[12px] p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-[12px] text-[#6B7280]">Amount</p>
+                    <p
+                      className={`text-[18px] font-bold ${
+                        selectedPayment.type === "credit" ? "text-[#10B981]" : "text-[#EF4444]"
+                      }`}
+                    >
+                      {selectedPayment.type === "credit" ? "+" : "-"}₱{selectedPayment.amount.toLocaleString()}
+                    </p>
+                  </div>
+                  <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-[#EEF2FF] text-[#1C4D8D]">
+                    Ref #{selectedPayment.id.padStart(6, "0")}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-[13px] text-[#6B7280]">Select a payment to view details.</div>
+            )}
+          </div>
         </div>
       </div>
+      )}
 
       {/* Xendit Test Payment */}
+      {walletTab === "overview" && (
       <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-[20px] font-semibold text-[#111827]">Xendit Test Payment</h3>
@@ -456,6 +644,7 @@ export function EWallet() {
           Create Test Payment
         </button>
       </div>
+      )}
 
       {/* Top Up Modal */}
       {isTopUpOpen && (

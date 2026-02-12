@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { 
   User, 
   Mail, 
@@ -19,6 +19,7 @@ import {
 import { toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { getProfile } from "../../services/api";
 
 interface WorkExperience {
   id: string;
@@ -47,20 +48,62 @@ interface AcceptedWork {
 export function Profile() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"overview" | "experience" | "portfolio">("overview");
-  const { user } = useAuth();
+  const { user, updateProfile: updateAuthProfile } = useAuth();
+  const [profileUser, setProfileUser] = useState(user);
+
+  useEffect(() => {
+    if (user) {
+      setProfileUser(user);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadProfile = async () => {
+      try {
+        const response = await getProfile();
+        const profile = (response as any)?.user ?? response;
+        if (!profile || !isMounted) return;
+        setProfileUser(profile);
+        updateAuthProfile({
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          email: profile.email,
+          phoneNumber: profile.phoneNumber,
+          city: profile.city,
+          country: profile.country,
+          linkedin: profile.linkedin,
+          avatarUrl: profile.avatarUrl,
+        });
+      } catch (error) {
+        // keep fallback to auth context
+      }
+    };
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [updateAuthProfile]);
 
   const fallbackName = "Jonas Dela Cruz";
-  const displayName = user ? `${user.firstName} ${user.lastName}`.trim() : fallbackName;
-  const location = [user?.city, user?.country].filter(Boolean).join(", ") || "Manila, Philippines";
+  const displayName = profileUser ? `${profileUser.firstName || ""} ${profileUser.lastName || ""}`.trim() : fallbackName;
+  const location = [profileUser?.city, profileUser?.country].filter(Boolean).join(", ") || "Manila, Philippines";
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase() || "JD";
 
   const profileData = {
     name: displayName || fallbackName,
     title: "Senior Frontend Developer",
     avatar: null, // Will use initials
-    email: user?.email || "jonas.delacruz@email.com",
-    phone: user?.phoneNumber || "+63 912 345 6789",
+    email: profileUser?.email || "jonas.delacruz@email.com",
+    phone: profileUser?.phoneNumber || "+63 912 345 6789",
     location,
-    linkedin: user?.linkedin || "linkedin.com/in/jonasdelacruz",
+    linkedin: profileUser?.linkedin || "linkedin.com/in/jonasdelacruz",
     website: "jonasdelacruz.dev",
     about: "Passionate Frontend Developer with 5+ years of experience building scalable web applications. Specialized in React, TypeScript, and modern web technologies. Strong focus on creating intuitive user experiences and clean, maintainable code.",
     skills: ["React", "TypeScript", "Node.js", "Next.js", "Tailwind CSS", "GraphQL", "Redux", "Jest", "Git", "Figma"],
@@ -186,7 +229,7 @@ export function Profile() {
             <div className="flex items-end gap-6">
               {/* Avatar */}
               <div className="w-32 h-32 rounded-[20px] bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] border-4 border-white shadow-lg flex items-center justify-center">
-                <span className="text-white font-bold text-[48px]">JD</span>
+                <span className="text-white font-bold text-[48px]">{initials}</span>
               </div>
               
               {/* Name and Title */}

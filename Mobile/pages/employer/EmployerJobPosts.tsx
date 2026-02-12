@@ -88,7 +88,7 @@ export default function EmployerJobPosts({
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
-        const response = await fetch(`${API_URL}/users/profile`, {
+        const response = await fetch(`${API_URL}/users/me`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await response.json().catch(() => ({}));

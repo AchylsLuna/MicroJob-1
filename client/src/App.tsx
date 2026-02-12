@@ -14,6 +14,19 @@ import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { AppliedJobs, SavedJobs } from "./pages/worker";
 import { PostJob, Applications, JobPosts } from "./pages/employer";
 import Messages from "./pages/Messages";
+import { EmployerDashboard } from "./microjobs/components/EmployerDashboard";
+import { JobsManagement } from "./microjobs/components/JobsManagement";
+import { Notifications } from "./microjobs/components/Notifications";
+import { Support } from "./microjobs/components/Support";
+import { Profile } from "./microjobs/components/Profile";
+import { AdminDashboard } from "./microjobs/components/AdminDashboard";
+import { AdminAnalytics } from "./microjobs/components/AdminAnalytics";
+import { AdminReports } from "./microjobs/components/AdminReports";
+import { AdminEWalletMonitoring } from "./microjobs/components/AdminEWalletMonitoring";
+import { AdminJobMonitoring } from "./microjobs/components/AdminJobMonitoring";
+import { AdminSecurity } from "./microjobs/components/AdminSecurity";
+import { AdminUserManagement } from "./microjobs/components/AdminUserManagement";
+import { AdminSignIn } from "./microjobs/components/AdminSignIn";
 
 const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 const WARNING_DURATION_MS = 1 * 1000;
@@ -131,11 +144,39 @@ const App: React.FC = () => {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/signin" element={<SignIn />} />
+        <Route path="/sign-in" element={<SignIn />} />
         <Route path="/signup" element={<SignUp />} />
+        <Route path="/sign-up" element={<SignUp />} />
         <Route path="/email-verification" element={<EmailVerification />} />
+        <Route path="/admin-sign-in" element={<AdminSignIn />} />
 
         <Route element={<SidebarLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/find-jobs" element={<FindJobs />} />
+          <Route path="/dashboard/job-details/:jobId" element={<JobDetails />} />
+          <Route path="/dashboard/job-details-new/:jobId" element={<JobDetails />} />
+          <Route path="/dashboard/settings" element={<Settings />} />
+          <Route path="/dashboard/e-wallet" element={<EWallet />} />
+          <Route path="/dashboard/messages" element={<Messages />} />
+          <Route path="/dashboard/applied-jobs" element={<AppliedJobs />} />
+          <Route path="/dashboard/saved-jobs" element={<SavedJobs />} />
+          <Route path="/dashboard/notifications" element={<Notifications />} />
+          <Route path="/dashboard/support" element={<Support />} />
+          <Route path="/dashboard/profile" element={<Profile />} />
+
+          <Route path="/dashboard/employer" element={<EmployerDashboard />} />
+          <Route path="/dashboard/employer/applications" element={<Applications />} />
+          <Route path="/dashboard/employer/post-job" element={<PostJob />} />
+          <Route path="/dashboard/employer/job-posts" element={<JobPosts />} />
+          <Route path="/dashboard/employer/jobs" element={<JobsManagement />} />
+
+          <Route path="/dashboard/admin-dashboard" element={<AdminDashboard />} />
+          <Route path="/dashboard/admin-dashboard/analytics" element={<AdminAnalytics />} />
+          <Route path="/dashboard/admin-dashboard/reports" element={<AdminReports />} />
+          <Route path="/dashboard/admin-dashboard/e-wallet" element={<AdminEWalletMonitoring />} />
+          <Route path="/dashboard/admin-dashboard/jobs" element={<AdminJobMonitoring />} />
+          <Route path="/dashboard/admin-dashboard/security" element={<AdminSecurity />} />
+          <Route path="/dashboard/admin-dashboard/user-management" element={<AdminUserManagement />} />
           <Route path="/find-jobs" element={<FindJobs />} />
           <Route path="/job-details/:jobId" element={<JobDetails />} />
           <Route path="/settings" element={<Settings />} />

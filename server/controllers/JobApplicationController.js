@@ -1,5 +1,6 @@
 import JobApplication from '../models/JobApplication.js';
 import Job from '../models/Job.js';
+import Notification from '../models/Notification.js';
 
 // Apply for a job
 export const applyForJob = async (req, res) => {
@@ -33,11 +34,28 @@ export const applyForJob = async (req, res) => {
         });
 
         await application.save();
+        await application.populate('applicant', 'firstName lastName');
 
         // Add applicant to job's applicants array if not already there
         if (!job.applicants.includes(userId)) {
             job.applicants.push(userId);
             await job.save();
+        }
+
+        try {
+            const applicantName = application.applicant?.firstName
+                ? `${application.applicant.firstName} ${application.applicant.lastName || ''}`.trim()
+                : 'A worker';
+            await Notification.create({
+                user: job.jobPoster,
+                type: 'application',
+                title: 'New application received',
+                message: `${applicantName} applied for ${job.title}`,
+                link: '/dashboard/employer/applications',
+                metadata: { jobId: job._id, applicationId: application._id },
+            });
+        } catch (notifyError) {
+            console.error('Create application notification error:', notifyError);
         }
 
         res.status(201).json({
@@ -152,6 +170,20 @@ export const updateApplicationStatus = async (req, res) => {
 
         application.status = status;
         await application.save();
+
+        try {
+            const jobTitle = application.job?.title || 'your job';
+            await Notification.create({
+                user: application.applicant,
+                type: 'application',
+                title: 'Application status updated',
+                message: `Your application for ${jobTitle} was marked ${status}.`,
+                link: '/dashboard/applied-jobs',
+                metadata: { jobId: application.job?._id, applicationId: application._id, status },
+            });
+        } catch (notifyError) {
+            console.error('Create status notification error:', notifyError);
+        }
 
         res.status(200).json({
             message: 'Application status updated successfully',

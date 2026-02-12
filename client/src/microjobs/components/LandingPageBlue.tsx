@@ -1,10 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle, Briefcase, TrendingUp, Star, ChevronRight, MapPin, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import logoImage from "../assets/68a121b08b33b30d03e128f79030947b62e7077c.png";
 import { motion, useScroll, useTransform } from "motion/react";
 import { useState, useEffect } from "react";
 import { CombinedLogo } from "./CombinedLogo";
+import { MicroJobsLogo } from "./MicroJobsLogo";
 
 // Animated Counter Component
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -161,10 +161,8 @@ export function LandingPageBlue() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              <img 
-                src={logoImage} 
-                alt="Micro Jobs" 
-                className="h-12 w-auto object-contain cursor-pointer"
+              <MicroJobsLogo
+                className="cursor-pointer"
                 onClick={() => navigate("/")}
               />
             </motion.div>
@@ -886,13 +884,13 @@ export function LandingPageBlue() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
             >
-              <motion.img 
-                whileHover={{ scale: 1.05 }}
-                src={logoImage} 
-                alt="Micro Jobs" 
-                className="h-10 w-auto object-contain mb-4 cursor-pointer brightness-0 invert"
-                onClick={() => navigate("/")}
-              />
+              <motion.div whileHover={{ scale: 1.05 }}>
+                <MicroJobsLogo
+                  variant="light"
+                  className="cursor-pointer mb-4"
+                  onClick={() => navigate("/")}
+                />
+              </motion.div>
               <p className="text-[13px] text-gray-400">
                 © 2026 Micro Jobs. All rights reserved.
               </p>

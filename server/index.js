@@ -29,7 +29,7 @@ app.use(express.urlencoded({ extended: true}));
 app.use(cors({
     origin: '*', // Allow all origins for mobile development
     credentials:true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
 }))
 
 // Routes
@@ -39,6 +39,8 @@ import UserRoute from './routes/UserRoute.js';
 import authRoutes from './routes/authRoutes.js';
 import JobApplicationRoute from './routes/JobApplicationRoute.js';
 import MessageRoute from './routes/MessageRoute.js';
+import NotificationRoute from './routes/NotificationRoute.js';
+import AlertRoute from './routes/AlertRoute.js';
 
 app.get('/', (req, res) => {
     res.json({ message: 'Backend server is running' });
@@ -53,6 +55,8 @@ app.use('/api/jobs', JobRoute);
 app.use('/api/users', UserRoute);
 app.use('/api', JobApplicationRoute);
 app.use('/api/messages', MessageRoute);
+app.use('/api/notifications', NotificationRoute);
+app.use('/api/alerts', AlertRoute);
 
 //Error handler
 app.use((err, req, res, next) => {

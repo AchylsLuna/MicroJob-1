@@ -316,6 +316,10 @@ export function Sidebar() {
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { user } = useAuth();
+  const displayName =
+    `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+    user?.email ||
+    "Account";
   const settingsTabParam = new URLSearchParams(location.search).get("tab");
   const settingsAccountTabs = ["account", "personal", "experience", "resume", "cv"];
   const isSettingsAccountActive =
@@ -384,6 +388,18 @@ export function Sidebar() {
                   to={`${adminBasePath}/reports`}
                   isCollapsed={isCollapsed}
                   isActiveOverride={isAdminReports}
+                />
+                <NavItem
+                  icon={<BellIcon />}
+                  label="Notifications"
+                  to="/dashboard/notifications"
+                  isCollapsed={isCollapsed}
+                />
+                <NavItem
+                  icon={<SupportIcon />}
+                  label="Support Inbox"
+                  to="/dashboard/messages"
+                  isCollapsed={isCollapsed}
                 />
                 <NavItem
                   icon={<WalletMonitoringIcon isActive={isAdminWallet} />}
@@ -547,7 +563,7 @@ export function Sidebar() {
                 </div>
                 <div className="content-stretch flex flex-[1_0_0] flex-col font-['Poppins:Medium',sans-serif] gap-[2px] items-start leading-[20px] min-h-px min-w-px not-italic relative whitespace-pre-wrap">
                   <p className="relative shrink-0 text-[#64748b] text-[12px] w-full">Welcome back 👋</p>
-                  <p className="relative shrink-0 text-[#081021] text-[14px] w-full group-hover:text-[#1C4D8D] transition-colors">Jonas</p>
+                  <p className="relative shrink-0 text-[#081021] text-[14px] w-full group-hover:text-[#1C4D8D] transition-colors">{displayName}</p>
                 </div>
               </div>
               <div className="relative shrink-0 w-5 h-5 flex items-center justify-center">

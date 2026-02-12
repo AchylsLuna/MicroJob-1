@@ -15,6 +15,8 @@ interface Application {
   appliedDate: string;
   status: "Pending" | "Under Review" | "Interview Scheduled" | "Accepted" | "Rejected";
   interviewDate?: string;
+  employerId?: string;
+  employerName?: string;
 }
 
 export function AppliedJobs() {
@@ -47,6 +49,16 @@ export function AppliedJobs() {
 
   const handleViewApplication = (jobTitle: string) => {
     toast.info(`Viewing application details for: ${jobTitle}`);
+  };
+
+  const handleMessageEmployer = (app: Application) => {
+    if (!app.employerId) {
+      toast.error("Employer contact not available.");
+      return;
+    }
+    navigate("/dashboard/messages", {
+      state: { userId: app.employerId, name: app.employerName || app.company },
+    });
   };
 
   const formatDate = (value?: string) => {
@@ -85,6 +97,8 @@ export function AppliedJobs() {
       salary: job.salary || "—",
       appliedDate: formatDate(app.appliedDate || app.createdAt),
       status: mapStatus(app.status),
+      employerId: poster._id,
+      employerName: companyName,
     };
   };
 
@@ -343,6 +357,14 @@ export function AppliedJobs() {
                       <Eye className="w-4 h-4" />
                       View Job Details
                     </button>
+                    {app.employerId && (
+                      <button
+                        onClick={() => handleMessageEmployer(app)}
+                        className="bg-white border border-[#C7D2FE] text-[#1C4D8D] font-semibold px-5 py-2.5 rounded-[10px] hover:bg-[#EEF2FF] transition-colors flex items-center gap-2"
+                      >
+                        💬 Message Employer
+                      </button>
+                    )}
                     <button
                       onClick={() => handleViewApplication(app.jobTitle)}
                       className="bg-white border border-[#E5E7EB] text-[#6B7280] font-semibold px-5 py-2.5 rounded-[10px] hover:bg-[#F9FAFB] transition-colors flex items-center gap-2"

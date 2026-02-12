@@ -12,6 +12,7 @@
     "dev": "node ../scripts/run-with-node.cjs nodemon index.js",
     "seed:superadmin": "node scripts/seedSuperAdmin.js",
     "seed:demo-user": "node scripts/seedDemoUser.js",
+    "seed:alerts": "node scripts/seedAlerts.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

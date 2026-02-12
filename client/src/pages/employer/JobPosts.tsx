@@ -107,7 +107,7 @@ const JobPosts: React.FC = () => {
                   <button
                     type="button"
                     className="px-3 py-1 rounded-lg bg-sky-100 text-white text-xs font-semibold hover:bg-sky-700"
-                    onClick={() => navigate("/employer/post-job", { state: { job } })}
+                    onClick={() => navigate("/dashboard/employer/post-job", { state: { job } })}
                   >
                     Edit
                   </button>

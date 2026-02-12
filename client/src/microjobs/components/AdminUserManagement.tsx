@@ -3,8 +3,10 @@ import { MoreHorizontal, Search, UserPlus } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../hooks/useAdminData";
 import { toast } from "../lib/toast";
+import { useNavigate } from "react-router-dom";
 
 function AdminUserManagementContent() {
+  const navigate = useNavigate();
   const {
     isLoading,
     loadError,
@@ -231,6 +233,18 @@ function AdminUserManagementContent() {
                                 className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 Edit User
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigate("/dashboard/messages", {
+                                    state: { userId: user._id, name: getUserName(user) },
+                                  });
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
+                              >
+                                Message User
                               </button>
                               {user.status === "pending" && (
                                 <button

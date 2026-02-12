@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 import './Messages.css';
+import { getAdminUsers, getUserList } from '../services/api';
+import { useAuth } from '../hooks/useAuth';
 
 interface ConversationSummary {
   userId: string;
@@ -28,7 +30,12 @@ interface MessageLocationState {
 
 export default function Messages() {
   const location = useLocation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [supportContacts, setSupportContacts] = useState<ConversationSummary[]>([]);
+  const [employerContacts, setEmployerContacts] = useState<ConversationSummary[]>([]);
+  const [workerContacts, setWorkerContacts] = useState<ConversationSummary[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -133,6 +140,66 @@ export default function Messages() {
   }, [fetchConversations]);
 
   useEffect(() => {
+    let isMounted = true;
+    const loadSupportContacts = async () => {
+      try {
+        const token = getToken();
+        if (!token) {
+          if (isMounted) {
+            setSupportContacts([]);
+            setEmployerContacts([]);
+            setWorkerContacts([]);
+          }
+          return;
+        }
+        if (isAdmin) {
+          const users = await getUserList();
+          if (!isMounted) return;
+          const mapped = (Array.isArray(users) ? users : [])
+            .filter((u: any) => u?.role !== 'admin' && u?.role !== 'superadmin')
+            .map((u: any) => ({
+              userId: u._id,
+              name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email || 'User',
+              lastMessage: u.role ? String(u.role).toUpperCase() : 'USER',
+              lastTime: '',
+              role: u.role || 'work',
+            }));
+
+          const employers = mapped.filter((u: any) => u.role === 'hire' || u.role === 'both');
+          const workers = mapped.filter((u: any) => u.role === 'work');
+
+          setEmployerContacts(employers);
+          setWorkerContacts(workers);
+          setSupportContacts([]);
+          return;
+        }
+
+        const admins = await getAdminUsers();
+        if (!isMounted) return;
+        const mapped = (Array.isArray(admins) ? admins : []).map((admin: any) => ({
+          userId: admin._id,
+          name: `${admin.firstName || ''} ${admin.lastName || ''}`.trim() || admin.email || 'Support',
+          lastMessage: 'Support Team',
+          lastTime: '',
+        })) as ConversationSummary[];
+        setSupportContacts(mapped);
+        setEmployerContacts([]);
+        setWorkerContacts([]);
+      } catch (error) {
+        if (isMounted) {
+          setSupportContacts([]);
+          setEmployerContacts([]);
+          setWorkerContacts([]);
+        }
+      }
+    };
+    loadSupportContacts();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdmin]);
+
+  useEffect(() => {
     if (!selectedUserId) return;
     fetchMessages(selectedUserId);
   }, [selectedUserId, fetchMessages]);
@@ -174,7 +241,72 @@ export default function Messages() {
   return (
     <div className="messages-root">
       <div className="messages-sidebar">
-        <h2>Messages</h2>
+        <h2>{isAdmin ? "Support Inbox" : "Messages"}</h2>
+        <div className="messages-sidebar-scroll">
+        {!isAdmin && supportContacts.length > 0 && (
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>Support</div>
+            <ul className="messages-list">
+              {supportContacts.map((contact) => (
+                <li
+                  key={`support-${contact.userId}`}
+                  className={selectedUserId === contact.userId ? 'active' : ''}
+                  onClick={() => {
+                    setSelectedUserId(contact.userId);
+                    upsertConversation(contact.userId, contact.name);
+                  }}
+                >
+                  <div className="messages-list-name">{contact.name}</div>
+                  <div className="messages-list-last">{contact.lastMessage}</div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {isAdmin && (employerContacts.length > 0 || workerContacts.length > 0) && (
+          <div style={{ marginBottom: '12px' }}>
+            {employerContacts.length > 0 && (
+              <>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>Employers</div>
+                <ul className="messages-list">
+                  {employerContacts.map((contact) => (
+                    <li
+                      key={`employer-${contact.userId}`}
+                      className={selectedUserId === contact.userId ? 'active' : ''}
+                      onClick={() => {
+                        setSelectedUserId(contact.userId);
+                        upsertConversation(contact.userId, contact.name);
+                      }}
+                    >
+                      <div className="messages-list-name">{contact.name}</div>
+                      <div className="messages-list-last">{contact.lastMessage}</div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {workerContacts.length > 0 && (
+              <>
+                <div style={{ fontSize: '12px', color: '#6b7280', margin: '10px 0 6px' }}>Workers</div>
+                <ul className="messages-list">
+                  {workerContacts.map((contact) => (
+                    <li
+                      key={`worker-${contact.userId}`}
+                      className={selectedUserId === contact.userId ? 'active' : ''}
+                      onClick={() => {
+                        setSelectedUserId(contact.userId);
+                        upsertConversation(contact.userId, contact.name);
+                      }}
+                    >
+                      <div className="messages-list-name">{contact.name}</div>
+                      <div className="messages-list-last">{contact.lastMessage}</div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        )}
         {loading ? (
           <div className="messages-loading">Loading...</div>
         ) : (
@@ -193,6 +325,7 @@ export default function Messages() {
             {conversations.length === 0 && <div className="messages-empty">No conversations yet.</div>}
           </ul>
         )}
+        </div>
       </div>
       <div className="messages-main">
         {selectedUserId ? (

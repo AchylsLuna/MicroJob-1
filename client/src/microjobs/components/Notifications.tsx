@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Bell,
   CheckCheck,
@@ -20,6 +20,16 @@ import {
 } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
+import {
+  deleteNotification as deleteNotificationApi,
+  deleteReadNotifications,
+  getNotifications,
+  getAlerts,
+  updateAlertStatus,
+  deleteAlert,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "../../services/api";
 
 interface Notification {
   id: string;
@@ -29,6 +39,7 @@ interface Notification {
   time: string;
   read: boolean;
   actionable?: boolean;
+  link?: string;
 }
 
 interface AlertItem {
@@ -50,98 +61,16 @@ interface NotificationRule {
   enabled: boolean;
 }
 
-const notificationsData: Notification[] = [
-  {
-    id: "1",
-    type: "application",
-    title: "New Application Received",
-    message: "Sarah Chen applied for Senior Frontend Developer position",
-    time: "5 minutes ago",
-    read: false,
-    actionable: true,
-  },
-  {
-    id: "2",
-    type: "payment",
-    title: "Payment Received",
-    message: "You received ₱25,000 from Tech Solutions Inc.",
-    time: "1 hour ago",
-    read: false,
-    actionable: false,
-  },
-  {
-    id: "3",
-    type: "application",
-    title: "Application Status Updated",
-    message: "Michael Rodriguez has been moved to interview stage",
-    time: "2 hours ago",
-    read: false,
-    actionable: true,
-  },
-  {
-    id: "4",
-    type: "message",
-    title: "New Message",
-    message: "You have a new message from Innovation Labs",
-    time: "3 hours ago",
-    read: true,
-    actionable: true,
-  },
-  {
-    id: "5",
-    type: "alert",
-    title: "Job Posting Approved",
-    message: "Your Backend Engineer job posting is now live",
-    time: "5 hours ago",
-    read: true,
-    actionable: false,
-  },
-  {
-    id: "6",
-    type: "achievement",
-    title: "Milestone Reached!",
-    message: "Congratulations! You've completed 50 jobs",
-    time: "1 day ago",
-    read: true,
-    actionable: false,
-  },
-  {
-    id: "7",
-    type: "payment",
-    title: "Withdrawal Completed",
-    message: "₱10,000 has been transferred to your bank account",
-    time: "1 day ago",
-    read: true,
-    actionable: false,
-  },
-  {
-    id: "8",
-    type: "application",
-    title: "Candidate Applied",
-    message: "John Doe applied for UI/UX Designer position",
-    time: "2 days ago",
-    read: true,
-    actionable: true,
-  },
-  {
-    id: "9",
-    type: "alert",
-    title: "Profile Verification Complete",
-    message: "Your profile has been successfully verified",
-    time: "3 days ago",
-    read: true,
-    actionable: false,
-  },
-  {
-    id: "10",
-    type: "message",
-    title: "New Chat Message",
-    message: "Digital Ventures sent you a message about the project",
-    time: "3 days ago",
-    read: true,
-    actionable: true,
-  },
-];
+const formatTimeLabel = (value?: string) => {
+  if (!value) return "just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "just now";
+  const diff = Date.now() - date.getTime();
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return date.toLocaleDateString();
+};
 
 const alertsData: AlertItem[] = [
   {
@@ -228,9 +157,13 @@ const notificationRulesData: NotificationRule[] = [
 
 export function Notifications() {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState<Notification[]>(notificationsData);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "unread" | "application" | "payment" | "message" | "alert" | "achievement">("all");
-  const [alerts, setAlerts] = useState<AlertItem[]>(alertsData);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
   const [alertFilter, setAlertFilter] = useState<"all" | "open" | "critical" | "snoozed" | "resolved">("all");
   const [deliveryPreferences, setDeliveryPreferences] = useState({
     inApp: true,
@@ -244,43 +177,146 @@ export function Notifications() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAsRead = (id: string, options?: { silent?: boolean }) => {
+  useEffect(() => {
+    let isMounted = true;
+    const loadNotifications = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const data = await getNotifications();
+        if (!isMounted) return;
+        const mapped = (Array.isArray(data) ? data : []).map((item: any) => ({
+          id: item._id || item.id,
+          type: item.type || "alert",
+          title: item.title || "Notification",
+          message: item.message || "",
+          time: formatTimeLabel(item.createdAt),
+          read: Boolean(item.readAt),
+          actionable: Boolean(item.link),
+          link: item.link || undefined,
+        })) as Notification[];
+        setNotifications(mapped);
+      } catch (error: any) {
+        if (!isMounted) return;
+        const message = error?.message || "Failed to load notifications.";
+        setLoadError(message);
+        toast.error(message);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadNotifications();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadAlerts = async () => {
+      setAlertsLoading(true);
+      setAlertsError(null);
+      try {
+        const data = await getAlerts();
+        if (!isMounted) return;
+        const mapped = (Array.isArray(data) ? data : []).map((item: any) => ({
+          id: item._id || item.id,
+          severity: item.severity || "info",
+          category: item.category || "system",
+          title: item.title || "Alert",
+          description: item.description || "",
+          time: formatTimeLabel(item.createdAt),
+          status: item.status || "open",
+          actionLabel: item.actionLabel || undefined,
+        })) as AlertItem[];
+        setAlerts(mapped);
+      } catch (error: any) {
+        if (!isMounted) return;
+        const message = error?.message || "Failed to load alerts.";
+        setAlertsError(message);
+        toast.error(message);
+      } finally {
+        if (isMounted) setAlertsLoading(false);
+      }
+    };
+    loadAlerts();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const markAsRead = async (id: string, options?: { silent?: boolean }) => {
     setNotifications(notifications.map(n =>
       n.id === id ? { ...n, read: true } : n
     ));
-    if (!options?.silent) {
-      toast.success("Marked as read");
+    try {
+      await markNotificationRead(id);
+      if (!options?.silent) {
+        toast.success("Marked as read");
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to mark notification.");
     }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
-    toast.success("All notifications marked as read");
+    try {
+      await markAllNotificationsRead();
+      toast.success("All notifications marked as read");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to mark all as read.");
+    }
   };
 
-  const deleteNotification = (id: string) => {
+  const deleteNotification = async (id: string) => {
     setNotifications(notifications.filter(n => n.id !== id));
-    toast.success("Notification deleted");
+    try {
+      await deleteNotificationApi(id);
+      toast.success("Notification deleted");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete notification.");
+    }
   };
 
-  const deleteAllRead = () => {
+  const deleteAllRead = async () => {
     setNotifications(notifications.filter(n => !n.read));
-    toast.success("All read notifications deleted");
+    try {
+      await deleteReadNotifications();
+      toast.success("All read notifications deleted");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete read notifications.");
+    }
   };
 
-  const resolveAlert = (id: string) => {
+  const resolveAlert = async (id: string) => {
     setAlerts(alerts.map(alert => (alert.id === id ? { ...alert, status: "resolved" } : alert)));
-    toast.success("Alert resolved");
+    try {
+      await updateAlertStatus(id, "resolved");
+      toast.success("Alert resolved");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to resolve alert.");
+    }
   };
 
-  const snoozeAlert = (id: string) => {
+  const snoozeAlert = async (id: string) => {
     setAlerts(alerts.map(alert => (alert.id === id ? { ...alert, status: "snoozed" } : alert)));
-    toast.info("Alert snoozed for 24 hours");
+    try {
+      await updateAlertStatus(id, "snoozed");
+      toast.info("Alert snoozed for 24 hours");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to snooze alert.");
+    }
   };
 
-  const dismissAlert = (id: string) => {
+  const dismissAlert = async (id: string) => {
     setAlerts(alerts.filter(alert => alert.id !== id));
-    toast.success("Alert dismissed");
+    try {
+      await deleteAlert(id);
+      toast.success("Alert dismissed");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to dismiss alert.");
+    }
   };
 
   const togglePreference = (key: keyof typeof deliveryPreferences) => {
@@ -301,6 +337,10 @@ export function Notifications() {
   const handleViewDetails = (notification: Notification) => {
     if (!notification.read) {
       markAsRead(notification.id, { silent: true });
+    }
+    if (notification.link) {
+      navigate(notification.link);
+      return;
     }
     switch (notification.type) {
       case "application":
@@ -585,7 +625,15 @@ export function Notifications() {
 
       {/* Notifications List */}
       <div className="space-y-3">
-        {filteredNotifications.length > 0 ? (
+        {isLoading ? (
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[14px] text-[#6B7280]">
+            Loading notifications...
+          </div>
+        ) : loadError ? (
+          <div className="bg-white rounded-[16px] border border-[#FECACA] p-6 text-center text-[14px] text-[#B91C1C]">
+            {loadError}
+          </div>
+        ) : filteredNotifications.length > 0 ? (
           filteredNotifications.map((notification) => (
             <div
               key={notification.id}
@@ -747,7 +795,15 @@ export function Notifications() {
         </div>
 
         <div className="space-y-3">
-          {filteredAlerts.length > 0 ? (
+          {alertsLoading ? (
+            <div className="border border-dashed border-[#E5E7EB] rounded-[16px] p-8 text-center text-[14px] text-[#6B7280]">
+              Loading alerts...
+            </div>
+          ) : alertsError ? (
+            <div className="border border-dashed border-[#FECACA] rounded-[16px] p-8 text-center text-[14px] text-[#B91C1C]">
+              {alertsError}
+            </div>
+          ) : filteredAlerts.length > 0 ? (
             filteredAlerts.map((alert) => (
               <div
                 key={alert.id}

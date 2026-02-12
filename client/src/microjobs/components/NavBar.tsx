@@ -3,6 +3,7 @@ import { Bell, User, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { getNotifications, markAllNotificationsRead, markNotificationRead } from "../../services/api";
 
 interface Notification {
   id: string;
@@ -10,31 +11,19 @@ interface Notification {
   message: string;
   time: string;
   read: boolean;
+  link?: string;
 }
 
-const mockNotifications: Notification[] = [
-  {
-    id: "1",
-    title: "New Application Received",
-    message: "Sarah Chen applied for Senior Frontend Developer position",
-    time: "5 minutes ago",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Application Status Updated",
-    message: "Michael Rodriguez has been moved to interview stage",
-    time: "1 hour ago",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Job Posting Approved",
-    message: "Your Backend Engineer job posting is now live",
-    time: "2 hours ago",
-    read: false,
-  },
-];
+const formatTimeLabel = (value?: string) => {
+  if (!value) return "just now";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "just now";
+  const diff = Date.now() - date.getTime();
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return date.toLocaleDateString();
+};
 
 export function NavBar() {
   const navigate = useNavigate();
@@ -43,7 +32,8 @@ export function NavBar() {
   const { logout, user, switchAccountType } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
   const canSwitchAccount = !!user && user.role !== "admin" && user.role !== "superadmin";
   
@@ -52,6 +42,26 @@ export function NavBar() {
 
   const unreadCount = notifications.filter(n => !n.read).length;
   const path = location.pathname;
+
+  const loadNotifications = async () => {
+    setNotificationsLoading(true);
+    try {
+      const data = await getNotifications({ limit: 10 });
+      const mapped = (Array.isArray(data) ? data : []).map((item: any) => ({
+        id: item._id || item.id,
+        title: item.title || "Notification",
+        message: item.message || "",
+        time: formatTimeLabel(item.createdAt),
+        read: Boolean(item.readAt),
+        link: item.link || undefined,
+      })) as Notification[];
+      setNotifications(mapped);
+    } catch (error: any) {
+      // avoid noisy toast when user is not authenticated
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
 
   type PageMeta =
     | { title: string; subtitle?: string; icon?: ReactNode; search?: undefined }
@@ -189,6 +199,16 @@ export function NavBar() {
     }
   };
 
+  useEffect(() => {
+    loadNotifications();
+  }, []);
+
+  useEffect(() => {
+    if (showNotifications) {
+      loadNotifications();
+    }
+  }, [showNotifications]);
+
   // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -204,15 +224,25 @@ export function NavBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const markAsRead = (id: string) => {
-    setNotifications(notifications.map(n => 
+  const markAsRead = async (id: string) => {
+    setNotifications(notifications.map(n =>
       n.id === id ? { ...n, read: true } : n
     ));
+    try {
+      await markNotificationRead(id);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to mark notification.");
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
     setNotifications(notifications.map(n => ({ ...n, read: true })));
-    toast.success("All notifications marked as read");
+    try {
+      await markAllNotificationsRead();
+      toast.success("All notifications marked as read");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to mark all as read.");
+    }
   };
 
   const handleSignOut = () => {
@@ -306,14 +336,24 @@ export function NavBar() {
               </div>
               
               <div className="max-h-[400px] overflow-y-auto">
-                {notifications.length > 0 ? (
+                {notificationsLoading ? (
+                  <div className="p-6 text-center text-[14px] text-[#6B7280]">Loading notifications...</div>
+                ) : notifications.length > 0 ? (
                   notifications.map((notification) => (
                     <div
                       key={notification.id}
                       className={`p-4 border-b border-[#E5E7EB] last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
                         !notification.read ? "bg-[#EEF2FF]" : ""
                       }`}
-                      onClick={() => markAsRead(notification.id)}
+                      onClick={async () => {
+                        await markAsRead(notification.id);
+                        if (notification.link) {
+                          navigate(notification.link);
+                        } else {
+                          navigate("/dashboard/notifications");
+                        }
+                        setShowNotifications(false);
+                      }}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">

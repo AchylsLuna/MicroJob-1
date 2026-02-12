@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Navigation from '../../components/navigation';
 import AddExperience from './AddExperience';
 import AddEducation from './AddEducation';
 import AddCV from './AddCV';
+import { API_URL } from '../../config';
 
 type ProfileProps = {
   activeTab?: string;
@@ -24,6 +26,8 @@ export default function Profile({
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [showAddEducation, setShowAddEducation] = useState(false);
   const [showAddCV, setShowAddCV] = useState(false);
+  const [firstName, setFirstName] = useState('Jonas');
+  const [lastName, setLastName] = useState('');
 
   const handleTabPress = (tab: string) => {
     setProfileTab(tab);
@@ -34,6 +38,44 @@ export default function Profile({
     if (role === currentRole) return;
     onSwitchRole?.(role);
   };
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('auth_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          setFirstName(parsed?.firstName || 'Jonas');
+          setLastName(parsed?.lastName || '');
+        }
+        const token = await AsyncStorage.getItem('auth_token');
+        if (!token) return;
+        const response = await fetch(`${API_URL}/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) return;
+        const profile = data?.user || data;
+        if (profile) {
+          setFirstName(profile.firstName || 'Jonas');
+          setLastName(profile.lastName || '');
+        }
+      } catch (error) {
+        console.log('Failed to load profile', error);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  const displayName = [firstName, lastName].filter(Boolean).join(' ') || 'Jonas';
+  const initials = displayName
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase() || 'JD';
 
   return (
     <View style={styles.container}>
@@ -51,7 +93,7 @@ export default function Profile({
           {/* Avatar */}
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>JD</Text>
+              <Text style={styles.avatarText}>{initials}</Text>
             </View>
             <TouchableOpacity style={styles.cameraBtn}>
               <Text style={styles.cameraIcon}>📷</Text>
@@ -59,7 +101,7 @@ export default function Profile({
           </View>
 
           {/* Name */}
-          <Text style={styles.name}>Jonas</Text>
+          <Text style={styles.name}>{displayName}</Text>
 
           <View style={styles.roleSwitchRow}>
             <TouchableOpacity
