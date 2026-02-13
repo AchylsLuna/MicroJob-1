@@ -14,13 +14,8 @@ import {
     getAllAdmins,
     getUserDetails,
     patchUserDetails,
-    getWorkersCount,
-    getEmployersCount,
+    getUserCount,
     getJobsCount,
-    getAvailableJobsCount,
-    getInProgressJobsCount,
-    getCancelledJobsCount,
-    getCompletedJobsCount,
 } from '../controllers/adminController.js';
 import verifyToken from '../middleware/verifyToken.js';
 
@@ -48,13 +43,8 @@ router.get('/user-details/:id', verifyToken, getUserDetails);
 router.patch('/user-details/:id', verifyToken, patchUserDetails);
 
 //analytics routes
-router.get('/analytics/workers-count', verifyToken, getWorkersCount);
-router.get('/analytics/employers-count', verifyToken, getEmployersCount);
+router.get('/analytics/users=count', verifyToken, getUserCount);
 router.get('/analytics/jobs-count', verifyToken, getJobsCount);
-router.get('/analytics/available-jobs-count', verifyToken, getAvailableJobsCount);
-router.get('/analytics/inprogress-jobs-count', verifyToken, getInProgressJobsCount);
-router.get('/analytics/cancelled-jobs-count', verifyToken, getCancelledJobsCount);
-router.get('/analytics/completed-jobs-count', verifyToken, getCompletedJobsCount);
 
 
 export default router;

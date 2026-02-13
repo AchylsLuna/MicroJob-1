@@ -142,66 +142,27 @@ export async function patchUserDetails(req, res) {
 }
 
 //Analytics stuff
-export async function getWorkersCount(req, res) {
+export async function getUserCount(req, res) {
     try {
-        const count = await User.countDocuments({role: 'work'});
-        res.status(200).json({count});
+        const workerCount = await User.countDocuments({role: 'work'});
+        const employerCount = await User.countDocuments({role: 'hire'});
+        const bothCount = await User.countDocuments({role: 'both'});
+        const totalCount = await User.countDocuments({role: {$in: ['work', 'hire', 'both']}});
+        res.status(200).json({workerCount, employerCount, bothCount, totalCount});
     } catch (error) {
-        res.status(500).json({message: "Failed to load Workers Count."});
-    }
-}
-
-export async function getEmployersCount(req, res) {
-    try {
-        const count = await User.countDocuments({role: 'hire'});
-        res.status(200).json({count});
-    } catch (error) {
-        res.status(500).json({message: "Failed to load Employers Count."});
+        res.status(500).json({message: "Failed to load User Count."});
     }
 }
 
 export async function getJobsCount(req, res) {
     try {
-        const count = await Job.countDocuments();
-        res.status(200).json({count});
+        const totalCount = await Job.countDocuments();
+        const availableCount = await Job.countDocuments({status: 'Available'});
+        const inProgressCount = await Job.countDocuments({status: 'In Progress'});
+        const completedCount = await Job.countDocuments({status: 'Completed'});
+        const cancelledCount = await Job.countDocuments({status: 'Cancelled'});
+        res.status(200).json({totalCount, availableCount, inProgressCount, completedCount, cancelledCount});
     } catch (error) {
         res.status(500).json({message: "Failed to load Jobs Count."});
     }
 }
-
-export async function getAvailableJobsCount(req, res) {
-    try {
-        const count = await Job.countDocuments({status: 'Available'});
-        res.status(200).json({count});
-    } catch (error) {
-        res.status(500).json({message: "Failed to load Available Jobs Count."});
-    }
-}
-
-export async function getInProgressJobsCount(req, res) {
-    try {
-        const count = await Job.countDocuments({status: 'In Progress'});
-        res.status(200).json({count});
-    } catch (error) {
-        res.status(500).json({message: "Failed to load In Progress Jobs Count."});
-    }
-}
-
-export async function getCancelledJobsCount(req, res) {
-    try {
-        const count = await Job.countDocuments({status: 'Cancelled'});
-        res.status(200).json({count});
-    } catch (error) {
-        res.status(500).json({message: "Failed to load Cancelled Jobs Count."});
-    }
-}
-
-export async function getCompletedJobsCount(req, res) {
-    try {
-        const count = await Job.countDocuments({status: 'Completed'});
-        res.status(200).json({count});
-    } catch (error) {
-        res.status(500).json({message: "Failed to load Completed Jobs Count."});
-    }
-}
-
