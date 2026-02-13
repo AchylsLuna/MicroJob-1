@@ -1,11 +1,17 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config({ path: resolve(__dirname, '.env') });
 
 //Connection Config
 const config = {
