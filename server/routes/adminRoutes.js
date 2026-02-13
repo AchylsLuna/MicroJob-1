@@ -17,7 +17,7 @@ import {
     getUserCount,
     getJobsCount,
 } from '../controllers/adminController.js';
-import verifyToken from '../middleware/verifyToken.js';
+import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();
 
