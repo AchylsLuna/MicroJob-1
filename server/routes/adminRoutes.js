@@ -22,38 +22,39 @@ import {
     getCancelledJobsCount,
     getCompletedJobsCount,
 } from '../controllers/adminController.js';
+import verifyToken from '../middleware/verifyToken.js';
 
 const router = express.Router();
 
 //routes to get all jobs
-router.get('/all-jobs', getAllJobs);
-router.get('/all-available-jobs', getAllAvailableJobs);
-router.get('/all-completed-jobs', getAllCompletedJobs);
-router.get('/all-inprogress-jobs', getAllInProgressJobs);
-router.get('/all-cancelled-jobs', getAllCancelledJobs);
+router.get('/all-jobs', verifyToken, getAllJobs);
+router.get('/all-available-jobs', verifyToken, getAllAvailableJobs);
+router.get('/all-completed-jobs', verifyToken, getAllCompletedJobs);
+router.get('/all-inprogress-jobs', verifyToken, getAllInProgressJobs);
+router.get('/all-cancelled-jobs', verifyToken, getAllCancelledJobs);
 
 //route to get job details
-router.get('/job-details/:id', getJobDetails);
-router.patch('/job-details/:id', updateJobDetails);
+router.get('/job-details/:id', verifyToken, getJobDetails);
+router.patch('/job-details/:id', verifyToken, updateJobDetails);
 //route to get all users
-router.get('/all-users', getAllUsers);
-router.get('/both-users', getBothUsers);
-router.get('/all-workers', getAllWorkers);
-router.get('/all-employers', getAllEmployers);
-router.get('/all-admins', getAllAdmins);
+router.get('/all-users', verifyToken, getAllUsers);
+router.get('/both-users', verifyToken, getBothUsers);
+router.get('/all-workers', verifyToken, getAllWorkers);
+router.get('/all-employers', verifyToken, getAllEmployers);
+router.get('/all-admins', verifyToken, getAllAdmins);
 
 //route to get user details && update details
-router.get('/user-details/:id', getUserDetails);
-router.patch('/user-details/:id', patchUserDetails);
+router.get('/user-details/:id', verifyToken, getUserDetails);
+router.patch('/user-details/:id', verifyToken, patchUserDetails);
 
 //analytics routes
-router.get('/analytics/workers-count', getWorkersCount);
-router.get('/analytics/employers-count', getEmployersCount);
-router.get('/analytics/jobs-count', getJobsCount);
-router.get('/analytics/available-jobs-count', getAvailableJobsCount);
-router.get('/analytics/inprogress-jobs-count', getInProgressJobsCount);
-router.get('/analytics/cancelled-jobs-count', getCancelledJobsCount);
-router.get('/analytics/completed-jobs-count', getCompletedJobsCount);
+router.get('/analytics/workers-count', verifyToken, getWorkersCount);
+router.get('/analytics/employers-count', verifyToken, getEmployersCount);
+router.get('/analytics/jobs-count', verifyToken, getJobsCount);
+router.get('/analytics/available-jobs-count', verifyToken, getAvailableJobsCount);
+router.get('/analytics/inprogress-jobs-count', verifyToken, getInProgressJobsCount);
+router.get('/analytics/cancelled-jobs-count', verifyToken, getCancelledJobsCount);
+router.get('/analytics/completed-jobs-count', verifyToken, getCompletedJobsCount);
 
 
 export default router;
