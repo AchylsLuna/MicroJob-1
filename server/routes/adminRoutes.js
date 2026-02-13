@@ -43,7 +43,7 @@ router.get('/user-details/:id', verifyToken, getUserDetails);
 router.patch('/user-details/:id', verifyToken, patchUserDetails);
 
 //analytics routes
-router.get('/analytics/users=count', verifyToken, getUserCount);
+router.get('/analytics/users-count', verifyToken, getUserCount);
 router.get('/analytics/jobs-count', verifyToken, getJobsCount);
 
 
