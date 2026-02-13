@@ -72,58 +72,6 @@ const formatTimeLabel = (value?: string) => {
   return date.toLocaleDateString();
 };
 
-const alertsData: AlertItem[] = [
-  {
-    id: "a1",
-    severity: "critical",
-    category: "payments",
-    title: "Payment dispute opened",
-    description: "Client flagged Job #4821 for a payout dispute. Review evidence within 24 hours.",
-    time: "12 minutes ago",
-    status: "open",
-    actionLabel: "Review dispute",
-  },
-  {
-    id: "a2",
-    severity: "warning",
-    category: "jobs",
-    title: "Job posting nearing deadline",
-    description: "The Product Designer role closes in 8 hours. Consider extending if still hiring.",
-    time: "45 minutes ago",
-    status: "open",
-    actionLabel: "Extend deadline",
-  },
-  {
-    id: "a3",
-    severity: "info",
-    category: "security",
-    title: "New device login detected",
-    description: "A login from a new device was detected in Cebu City. Review if this was you.",
-    time: "2 hours ago",
-    status: "snoozed",
-    actionLabel: "Review activity",
-  },
-  {
-    id: "a4",
-    severity: "warning",
-    category: "system",
-    title: "Scheduled maintenance window",
-    description: "Planned downtime on Friday from 1:00 AM to 2:00 AM. Notify active clients.",
-    time: "Yesterday",
-    status: "open",
-    actionLabel: "Send notice",
-  },
-  {
-    id: "a5",
-    severity: "info",
-    category: "payments",
-    title: "Payout bank info updated",
-    description: "Bank details for payouts were updated successfully. Verify if correct.",
-    time: "2 days ago",
-    status: "resolved",
-  },
-];
-
 const notificationRulesData: NotificationRule[] = [
   {
     id: "r1",

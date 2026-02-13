@@ -57,23 +57,23 @@ async function request<T>(
 
 // Auth APIs
 export function registerUser(payload: { username?: string; firstName?: string; lastName?: string; phoneNumber?: string; email: string; password: string; role?: string }) {
-  return request<AuthResponse>('/users/register', { method: 'POST', body: payload });
+  return request<AuthResponse>('/auth/register', { method: 'POST', body: payload });
 }
 
 export function loginUser(payload: { emailOrUsername: string; password: string }) {
-  return request<AuthResponse>('/users/login', { method: 'POST', body: payload });
+  return request<AuthResponse>('/auth/login', { method: 'POST', body: payload });
 }
 
 export function sendOtp(payload: { email: string }) {
-  return request<{ message: string; code?: string }>('/users/otp/send', { method: 'POST', body: payload });
+  return request<{ message: string; code?: string }>('/auth/otp/send', { method: 'POST', body: payload });
 }
 
 export function verifyOtp(payload: { email: string; code: string }) {
-  return request<AuthResponse>('/users/otp/verify', { method: 'POST', body: payload });
+  return request<AuthResponse>('/auth/otp/verify', { method: 'POST', body: payload });
 }
 
 export function logoutUser() {
-  return request('/users/logout', { method: 'POST' });
+  return request('/auth/logout', { method: 'POST' });
 }
 
 // Category APIs
@@ -170,7 +170,7 @@ export function deleteUser(userId: string) {
 
 // Profile APIs
 export function getProfile() {
-  return request<any>('/users/me', { method: 'GET' });
+  return request<any>('/auth/me', { method: 'GET' });
 }
 
 export function updateProfile(payload: {
@@ -183,7 +183,7 @@ export function updateProfile(payload: {
   linkedin?: string;
   avatarUrl?: string;
 }) {
-  return request<any>('/users/me', { method: 'PATCH', body: payload });
+  return request<any>('/auth/me', { method: 'PATCH', body: payload });
 }
 
 // Notifications APIs

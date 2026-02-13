@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Download,
   FileText,
@@ -187,11 +187,6 @@ function AdminReportsContent() {
       })
       .filter((row) => withinRange(row.date, rangeFrom, rangeTo));
   };
-
-  const reportData = useMemo(
-    () => buildReportData(reportType, fromDate, toDate),
-    [reportType, users, jobs, fromDate, toDate, formatCurrency],
-  );
 
   const generateFile = (options?: {
     type?: ReportType;

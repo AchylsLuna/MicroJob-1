@@ -3,6 +3,9 @@ import Job from '../models/Job.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 
+const isAdminRole = (role) => role === 'admin' || role === 'superadmin';
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export async function getJobList(req, res) {
     try {
         const { category, jobType, search, excludeOwn } = req.query;
@@ -22,10 +25,11 @@ export async function getJobList(req, res) {
         
         // Search filter
         if (search) {
+            const safeSearch = escapeRegex(String(search).trim());
             filter.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-                { location: { $regex: search, $options: 'i' } }
+                { title: { $regex: safeSearch, $options: 'i' } },
+                { description: { $regex: safeSearch, $options: 'i' } },
+                { location: { $regex: safeSearch, $options: 'i' } }
             ];
         }
 
@@ -34,7 +38,7 @@ export async function getJobList(req, res) {
             if (authHeader.startsWith('Bearer ')) {
                 const token = authHeader.substring(7);
                 try {
-                    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
+                    const decoded = jwt.verify(token, process.env.JWT_SECRET);
                     if (decoded?.id) {
                         filter.jobPoster = { $ne: decoded.id };
                     }
@@ -93,9 +97,14 @@ export async function getJobDetails(req, res){
 export async function getApplicantsList(req, res){
     try {
         const {jobId} = req.params;
+        const userId = req.user?.id;
+        const role = req.user?.role;
         const job = await Job.findById(jobId).populate('applicants');
         if(!job) {
             return res.status(404).json({message: "Job not found."});
+        }
+        if (job.jobPoster.toString() !== userId && !isAdminRole(role)) {
+            return res.status(403).json({ message: "Not authorized to view applicants for this job." });
         }
         res.status(200).json(job.applicants);
     } catch (error) {
@@ -162,16 +171,23 @@ export async function changeJobStatus(req, res){
     try {
         const {id} = req.params;
         const {status} = req.body;
+        const userId = req.user?.id;
+        const role = req.user?.role;
         const statusOptions = ['Available', 'In Progress', 'Completed', 'Cancelled'];
 
         if(!statusOptions.includes(status)) {
             return res.status(400).json({message: "Invalid status value."});
         }
-        const job = await Job.findByIdAndUpdate(id, {status}, {new: true});
+        const job = await Job.findById(id);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
-        res.status(200).json({message: "Job status updated."}, job);
+        if (job.jobPoster.toString() !== userId && !isAdminRole(role)) {
+            return res.status(403).json({ message: "Not authorized to update this job status." });
+        }
+        job.status = status;
+        await job.save();
+        res.status(200).json({message: "Job status updated.", job});
     } catch (error) {
         res.status(500).json({message: "Failed to change job status."});
     }
@@ -227,8 +243,13 @@ export async function selectApplicant(req, res){
     try {
         const {jobId, applicantId} = req.params,
         job = await Job.findById(jobId);
+        const userId = req.user?.id;
+        const role = req.user?.role;
         if(!job) {
             return res.status(404).json({message: "Job not found."});
+        }
+        if (job.jobPoster.toString() !== userId && !isAdminRole(role)) {
+            return res.status(403).json({ message: "Not authorized to select applicants for this job." });
         }
         if(!job.applicants.includes(applicantId)) {
             return res.status(400).json({message: "Applicant did not apply for this job."});

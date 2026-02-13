@@ -1,8 +1,9 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../lib/toast";
+import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 
 export function ResetPassword() {
   const navigate = useNavigate();
@@ -15,6 +16,23 @@ export function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const showPasswordStrength = Boolean(newPassword || confirmPassword);
+  const passwordStrength = getPasswordStrength(newPassword);
+  const confirmPasswordHasError = Boolean(confirmPassword) && newPassword !== confirmPassword;
+
+  const strengthTextColor =
+    passwordStrength.score <= 2
+      ? "text-[#F97316]"
+      : passwordStrength.score === 3
+        ? "text-[#EAB308]"
+        : "text-[#10B981]";
+
+  const strengthBarColor =
+    passwordStrength.score <= 2
+      ? "bg-[#F97316]"
+      : passwordStrength.score === 3
+        ? "bg-[#EAB308]"
+        : "bg-[#10B981]";
 
   const handleCodeChange = (index: number, value: string) => {
     if (value && !/^\d$/.test(value)) return;
@@ -68,8 +86,8 @@ export function ResetPassword() {
       return;
     }
 
-    if (newPassword.length < 6) {
-      toast.error("Password must be at least 6 characters");
+    if (!passwordStrength.isStrong) {
+      toast.error(STRONG_PASSWORD_ERROR);
       return;
     }
 
@@ -214,7 +232,12 @@ export function ResetPassword() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
                 disabled={isLoading}
-                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-12 py-4 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                aria-invalid={confirmPasswordHasError}
+                className={`w-full bg-[#F9FAFB] border rounded-[12px] pl-12 pr-12 py-4 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:border-transparent transition-all ${
+                  confirmPasswordHasError
+                    ? "border-[#EF4444] focus:ring-[#EF4444]"
+                    : "border-[#E5E7EB] focus:ring-[#1C4D8D]"
+                }`}
               />
               <button
                 type="button"
@@ -224,20 +247,56 @@ export function ResetPassword() {
                 {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
+            {confirmPasswordHasError && (
+              <p className="mt-2 text-[12px] text-[#EF4444]">Passwords do not match</p>
+            )}
           </div>
 
           {/* Password Requirements */}
-          <div className="bg-[#F9FAFB] rounded-[12px] p-4 border border-[#E5E7EB]">
-            <p className="text-[12px] font-semibold text-[#111827] mb-2">Password must contain:</p>
-            <ul className="text-[12px] text-[#6B7280] space-y-1">
-              <li className={newPassword.length >= 6 ? "text-[#10B981]" : ""}>
-                • At least 6 characters
-              </li>
-              <li className={newPassword && confirmPassword && newPassword === confirmPassword ? "text-[#10B981]" : ""}>
-                • Passwords must match
-              </li>
-            </ul>
-          </div>
+          {showPasswordStrength && (
+            <div className="bg-[#F9FAFB] rounded-[12px] p-4 border border-[#E5E7EB] space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[12px] font-semibold text-[#111827]">Password Strength</p>
+                <span className={`text-[12px] font-semibold ${strengthTextColor}`}>{passwordStrength.label}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-[#E5E7EB] overflow-hidden">
+                <div
+                  className={`h-full ${strengthBarColor} transition-all duration-300`}
+                  style={{ width: `${passwordStrength.percent}%` }}
+                />
+              </div>
+              <ul className="space-y-1.5">
+                {PASSWORD_RULES.map((rule) => {
+                  const met = passwordStrength.checks[rule.key];
+                  return (
+                    <li
+                      key={rule.key}
+                      className={`text-[12px] flex items-center gap-2 ${met ? "text-[#10B981]" : "text-[#6B7280]"}`}
+                    >
+                      {met ? <CheckCircle2 className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5" />}
+                      {rule.label}
+                    </li>
+                  );
+                })}
+                <li
+                  className={`text-[12px] flex items-center gap-2 ${
+                    confirmPassword
+                      ? confirmPasswordHasError
+                        ? "text-[#EF4444]"
+                        : "text-[#10B981]"
+                      : "text-[#6B7280]"
+                  }`}
+                >
+                  {confirmPassword && !confirmPasswordHasError ? (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5" />
+                  )}
+                  Passwords match
+                </li>
+              </ul>
+            </div>
+          )}
 
           {/* Submit Button */}
           <button

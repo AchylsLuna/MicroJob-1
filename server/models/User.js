@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 
 const UserSchema = new mongoose.Schema(
     {   
@@ -8,8 +9,8 @@ const UserSchema = new mongoose.Schema(
             required: false, // Changed to optional - can be added in settings later
             unique: true,
             sparse: true, // Allows multiple null values for unique field
-            minlength: 10,
-            maxlength: 15,
+            minlength: 11,
+            maxlength: 11,
         },
         email: {
             type: String,
@@ -67,6 +68,9 @@ const UserSchema = new mongoose.Schema(
     },
 );
 UserSchema.methods.setPassword = async function (password) {
+    if (!isStrongPassword(password)) {
+        throw new Error(PASSWORD_POLICY_MESSAGE);
+    }
     this.passwordHashed = await bcrypt.hash(password, 10);
 };
 UserSchema.methods.validatePassword = async function (password) {

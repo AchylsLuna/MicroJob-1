@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Mail, ArrowLeft, Briefcase, Shield, CheckCircle } from "lucide-react";
+import { Mail, ArrowLeft, Shield, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../lib/toast";
 

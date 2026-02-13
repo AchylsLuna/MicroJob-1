@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 
 type JobEdit = {
@@ -21,7 +20,6 @@ type JobEdit = {
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const authUser = useAuth();
   const jobToEdit = (location.state as { job?: JobEdit } | undefined)?.job;
   const isEditing = Boolean(jobToEdit?._id);
   const [formData, setFormData] = useState({

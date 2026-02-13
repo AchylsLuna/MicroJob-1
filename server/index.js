@@ -11,12 +11,20 @@ const app = express();
 const config = {
     PORT: process.env.PORT || 5001,
     MONGO_URI: process.env.MONGO_URI,
-    ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    JWT_SECRET: process.env.JWT_SECRET,
+    ORIGINS: (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean),
     DB_NAME: 'MicroJob',
 };
 
 if (!config.MONGO_URI){
     console.error('MONGO_URI is not defined');
+    process.exit(1);
+}
+if (!config.JWT_SECRET) {
+    console.error('JWT_SECRET is not defined');
     process.exit(1);
 }
 app.use (morgan('dev'));
@@ -27,7 +35,15 @@ app.use(cookieParser());
 app.use(express.urlencoded({ extended: true}));
 
 app.use(cors({
-    origin: '*', // Allow all origins for mobile development
+    origin: (origin, callback) => {
+        if (!origin) {
+            return callback(null, true);
+        }
+        if (config.ORIGINS.includes(origin)) {
+            return callback(null, true);
+        }
+        return callback(new Error('Origin not allowed by CORS'));
+    },
     credentials:true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
 }))

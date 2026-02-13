@@ -274,16 +274,6 @@ function CalendarIcon() {
   );
 }
 
-function MessagesIcon() {
-  return (
-    <div className="relative shrink-0 w-5 h-5">
-      <svg className="block w-full h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 20 20">
-        <path d={svgPaths.p2bff9300} stroke="#64748B" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
-      </svg>
-    </div>
-  );
-}
-
 function AnalyticsIcon({ isActive }: { isActive: boolean }) {
   return <BarChart3 className={`w-5 h-5 ${isActive ? "text-[#498BC9]" : "text-[#64748B]"}`} />;
 }

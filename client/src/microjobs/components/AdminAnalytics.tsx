@@ -42,14 +42,14 @@ function AdminAnalyticsContent() {
 
   const userDates = users.map((user) => getDateFromId(user._id));
 
-  const monthlyJobs = monthBuckets.map((bucket, index) => {
+  const monthlyJobs = monthBuckets.map((bucket) => {
     return jobs.filter((_, jobIndex) => {
       const date = jobDates[jobIndex];
       return date && date.getMonth() === bucket.month && date.getFullYear() === bucket.year;
     }).length;
   });
 
-  const monthlyUsers = monthBuckets.map((bucket, index) => {
+  const monthlyUsers = monthBuckets.map((bucket) => {
     return users.filter((_, userIndex) => {
       const date = userDates[userIndex];
       return date && date.getMonth() === bucket.month && date.getFullYear() === bucket.year;

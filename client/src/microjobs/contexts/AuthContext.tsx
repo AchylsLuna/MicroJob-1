@@ -1,6 +1,15 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { toast } from "../lib/toast";
 import { loginUser, registerUser, sendOtp, verifyOtp, logoutUser } from "../../services/api";
+import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
+import {
+  EMAIL_VALIDATION_MESSAGE,
+  PHONE_VALIDATION_MESSAGE,
+  isValidEmail,
+  isValidPhone,
+  normalizeEmail,
+  normalizePhone,
+} from "../lib/authValidation";
 
 interface User {
   id: string;
@@ -106,12 +115,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     accountPreference: "employer" | "worker" | "both",
     phoneNumber?: string,
   ) => {
+    if (!getPasswordStrength(password).isStrong) {
+      throw new Error(STRONG_PASSWORD_ERROR);
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
+      throw new Error(EMAIL_VALIDATION_MESSAGE);
+    }
+
+    const normalizedPhone = phoneNumber ? normalizePhone(phoneNumber) : undefined;
+    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+      throw new Error(PHONE_VALIDATION_MESSAGE);
+    }
+
     setIsLoading(true);
-    
-    const normalizedEmail = email.trim().toLowerCase();
+
     const { firstName, lastName } = splitName(name);
     const role = accountPreference === "employer" ? "hire" : accountPreference === "worker" ? "work" : "both";
-    const normalizedPhone = phoneNumber ? phoneNumber.replace(/\D/g, "") : undefined;
 
     // Store pending verification
     setPendingVerification({ email: normalizedEmail, password, name });
@@ -322,6 +343,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (code: string, newPassword: string) => {
+    if (!getPasswordStrength(newPassword).isStrong) {
+      throw new Error(STRONG_PASSWORD_ERROR);
+    }
+
     setIsLoading(true);
     
     // Simulate API call

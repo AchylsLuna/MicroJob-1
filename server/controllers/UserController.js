@@ -1,9 +1,20 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
+import {
+    EMAIL_VALIDATION_MESSAGE,
+    PHONE_VALIDATION_MESSAGE,
+    isValidEmail,
+    isValidPhone,
+    normalizeEmail,
+    normalizePhone,
+} from "../lib/authValidation.js";
 
 const otpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
+const MAX_OTP_ATTEMPTS = 5;
+const OTP_SENT_GENERIC_MESSAGE = "If an account exists for this email, an OTP has been sent.";
 
 function getEmailTransporter() {
     const host = process.env.SMTP_HOST;
@@ -109,12 +120,12 @@ export async function updateMe(req, res) {
         }
 
         if (phoneNumber !== undefined) {
-            const normalizedPhone = String(phoneNumber || "").replace(/\D/g, "");
+            const normalizedPhone = normalizePhone(phoneNumber || "");
             if (!normalizedPhone) {
                 user.phoneNumber = undefined;
             } else {
-                if (!/^\d{10,15}$/.test(normalizedPhone)) {
-                    return res.status(400).json({ message: "Phone number must be 10-15 digits." });
+                if (!isValidPhone(normalizedPhone)) {
+                    return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
                 }
                 const existing = await User.findOne({
                     phoneNumber: normalizedPhone,
@@ -128,9 +139,12 @@ export async function updateMe(req, res) {
         }
 
         if (email !== undefined) {
-            const normalizedEmail = String(email).trim().toLowerCase();
+            const normalizedEmail = normalizeEmail(email);
             if (!normalizedEmail) {
                 return res.status(400).json({ message: "Email is required." });
+            }
+            if (!isValidEmail(normalizedEmail)) {
+                return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
             }
             const existing = await User.findOne({
                 email: normalizedEmail,
@@ -170,7 +184,8 @@ export async function updateMe(req, res) {
 export async function register(req, res) {
     try {
         const { phoneNumber, email, firstName, lastName, username, password, role } = req.body;
-        const normalizedPhone = phoneNumber ? String(phoneNumber).replace(/\D/g, "") : "";
+        const normalizedPhone = phoneNumber ? normalizePhone(phoneNumber) : "";
+        const normalizedEmail = normalizeEmail(email);
 
         let finalFirstName = firstName;
         let finalLastName = lastName;
@@ -181,8 +196,16 @@ export async function register(req, res) {
             finalLastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
         }
 
-        if (!finalFirstName || !password || !email) {
+        if (!finalFirstName || typeof password !== "string" || !password || !normalizedEmail) {
             return res.status(400).json({ message: "Missing Fields." });
+        }
+
+        if (!isValidEmail(normalizedEmail)) {
+            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+        }
+
+        if (!isStrongPassword(password)) {
+            return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
         }
 
         if (!finalLastName) {
@@ -190,8 +213,8 @@ export async function register(req, res) {
         }
 
         if (normalizedPhone) {
-            if (!/^\d{10,15}$/.test(normalizedPhone)) {
-                return res.status(400).json({ message: "Phone number must be 10-15 digits." });
+            if (!isValidPhone(normalizedPhone)) {
+                return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
             }
 
             const phoneExists = await User.findOne({ phoneNumber: normalizedPhone });
@@ -200,18 +223,18 @@ export async function register(req, res) {
             }
         }
 
-        const emailExists = await User.findOne({ email });
+        const emailExists = await User.findOne({ email: normalizedEmail });
         if (emailExists) {
             return res.status(409).json({ message: "Email is already registered." });
         }
 
-        const validRoles = ["hire", "work", "both", "admin", "superadmin"];
+        const validRoles = ["hire", "work", "both"];
         const userRole = role && validRoles.includes(role) ? role : "work";
         console.log("Register - User role being set to:", userRole);
 
         const user = new User({
             phoneNumber: normalizedPhone || undefined,
-            email,
+            email: normalizedEmail,
             firstName: finalFirstName,
             lastName: finalLastName,
             role: userRole,
@@ -229,19 +252,17 @@ export async function register(req, res) {
 
 export async function login(req, res) {
     try{
-        console.log("Login request body:", req.body);
         const {phonenumber, password, phoneNumber, email, emailOrUsername} = req.body;
-        // Support both web (emailOrUsername) and mobile (email) formats
-        const phone = phonenumber || phoneNumber;
-        const identifier = emailOrUsername || email || phone;
-        const normalizedIdentifier = identifier && identifier.includes('@')
-            ? identifier.toLowerCase().trim()
-            : identifier?.replace(/\D/g, "").trim() || identifier?.trim();
-        
-        console.log("Identifier:", identifier, "Password present:", !!password);
-        
-        if(!normalizedIdentifier || !password) {
-            console.log("Missing fields - identifier:", normalizedIdentifier, "password:", !!password);
+        // Support both web (emailOrUsername) and mobile (email/phone) formats
+        const rawIdentifier = emailOrUsername ?? email ?? phonenumber ?? phoneNumber ?? "";
+        const identifier = typeof rawIdentifier === "string"
+            ? rawIdentifier.trim()
+            : String(rawIdentifier).trim();
+        const normalizedIdentifier = identifier.includes("@")
+            ? normalizeEmail(identifier)
+            : normalizePhone(identifier) || identifier;
+
+        if(!normalizedIdentifier || typeof password !== "string" || !password) {
             return res.status(400).json({message: "Missing Fields."});
         }
         
@@ -308,26 +329,32 @@ export async function sendOtp(req, res) {
     try {
         const { email } = req.body;
         const isDev = process.env.NODE_ENV !== "production";
+        const normalizedEmail = normalizeEmail(email);
 
-        if (!email) {
+        if (!normalizedEmail) {
             return res.status(400).json({ message: "Email is required." });
         }
 
+        if (!isValidEmail(normalizedEmail)) {
+            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+        }
+
         const transporter = getEmailTransporter();
-        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
-            return res.status(404).json({ message: "User not found." });
+            return res.status(200).json({ message: OTP_SENT_GENERIC_MESSAGE });
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        otpStore.set(email.toLowerCase().trim(), {
+        otpStore.set(normalizedEmail, {
             code,
             expiresAt: Date.now() + OTP_TTL_MS,
+            attempts: 0,
         });
 
         if (!transporter) {
             if (isDev) {
-                return res.status(200).json({ message: "OTP generated.", code });
+                return res.status(200).json({ message: OTP_SENT_GENERIC_MESSAGE, code });
             }
             return res.status(500).json({ message: "Email service is not configured." });
         }
@@ -346,13 +373,13 @@ export async function sendOtp(req, res) {
 
         await transporter.sendMail({
             from: `MicroJobs <${fromAddress}>`,
-            to: email,
+            to: normalizedEmail,
             subject,
             text,
             html,
         });
 
-        return res.status(200).json({ message: "OTP sent.", ...(isDev ? { code } : {}) });
+        return res.status(200).json({ message: OTP_SENT_GENERIC_MESSAGE, ...(isDev ? { code } : {}) });
     } catch (error) {
         console.error("Send OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
@@ -363,24 +390,36 @@ export async function sendOtp(req, res) {
 export async function verifyOtp(req, res) {
     try {
         const { email, code } = req.body;
+        const key = normalizeEmail(email);
 
-        if (!email || !code) {
+        if (!key || !code) {
             return res.status(400).json({ message: "Email and code are required." });
         }
+        if (!isValidEmail(key)) {
+            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+        }
 
-        const key = email.toLowerCase().trim();
         const record = otpStore.get(key);
         if (!record) {
-            return res.status(400).json({ message: "OTP not found or expired." });
+            return res.status(400).json({ message: "Invalid or expired OTP." });
         }
 
         if (record.expiresAt < Date.now()) {
             otpStore.delete(key);
-            return res.status(400).json({ message: "OTP expired." });
+            return res.status(400).json({ message: "Invalid or expired OTP." });
+        }
+
+        if ((record.attempts || 0) >= MAX_OTP_ATTEMPTS) {
+            otpStore.delete(key);
+            return res.status(400).json({ message: "Invalid or expired OTP." });
         }
 
         if (record.code !== code) {
-            return res.status(400).json({ message: "Invalid OTP." });
+            otpStore.set(key, {
+                ...record,
+                attempts: (record.attempts || 0) + 1,
+            });
+            return res.status(400).json({ message: "Invalid or expired OTP." });
         }
 
         const user = await User.findOne({ email: key });
@@ -388,8 +427,13 @@ export async function verifyOtp(req, res) {
             return res.status(404).json({ message: "User not found." });
         }
 
-        user.status = "active";
-        await user.save();
+        if (user.status === "disabled") {
+            return res.status(403).json({ message: "Account is disabled. Contact an Admin." });
+        }
+        if (user.status === "pending") {
+            user.status = "active";
+            await user.save();
+        }
 
         const token = jwt.sign(
             { id: user._id, role: user.role },
@@ -425,10 +469,26 @@ export async function updateUserStatus(req, res) {
     try {
         const { userId } = req.params;
         const { status } = req.body;
+        const actorRole = req.user?.role;
+        const actorId = req.user?.id || req.user?.userId;
 
         const allowedStatuses = ["active", "pending", "disabled"];
         if (!allowedStatuses.includes(status)) {
             return res.status(400).json({ message: "Invalid status value." });
+        }
+
+        const targetUser = await User.findById(userId).select("role");
+        if (!targetUser) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        if (
+            (targetUser.role === "admin" || targetUser.role === "superadmin") &&
+            actorRole !== "superadmin"
+        ) {
+            return res.status(403).json({ message: "Only superadmin can modify admin accounts." });
+        }
+        if (actorId && String(actorId) === String(userId) && status === "disabled") {
+            return res.status(400).json({ message: "You cannot disable your own account." });
         }
 
         const updatedUser = await User.findByIdAndUpdate(
@@ -454,14 +514,21 @@ export async function updateUserStatus(req, res) {
 export async function deleteUser(req, res) {
     try {
         const { userId } = req.params;
+        const actorRole = req.user?.role;
 
         if (req.user?.id === userId) {
             return res.status(400).json({ message: "You cannot delete your own account." });
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).select("role");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
+        }
+        if (
+            (user.role === "admin" || user.role === "superadmin") &&
+            actorRole !== "superadmin"
+        ) {
+            return res.status(403).json({ message: "Only superadmin can delete admin accounts." });
         }
 
         await user.deleteOne();

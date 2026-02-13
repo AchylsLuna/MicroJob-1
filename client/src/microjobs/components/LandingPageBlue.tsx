@@ -3,7 +3,6 @@ import { ArrowRight, CheckCircle, Briefcase, TrendingUp, Star, ChevronRight, Map
 import { useAuth } from "../contexts/AuthContext";
 import { motion, useScroll, useTransform } from "motion/react";
 import { useState, useEffect } from "react";
-import { CombinedLogo } from "./CombinedLogo";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 
 // Animated Counter Component
@@ -66,13 +65,6 @@ export function LandingPageBlue() {
   const { isAuthenticated, user } = useAuth();
   const isSuperAdmin = user?.role === "superadmin";
   const { scrollYProgress } = useScroll();
-  const [scrollY, setScrollY] = useState(0);
-
-  useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
 
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.8]);

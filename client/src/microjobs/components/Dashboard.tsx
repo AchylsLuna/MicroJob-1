@@ -1,11 +1,10 @@
-import { Calendar, Send, Wallet, Mail, TrendingUp, MapPin, Building2, Briefcase, CheckCircle2, Clock, Users, ArrowUpRight, ChevronRight } from "lucide-react";
+import { Calendar, Send, Wallet, Mail, TrendingUp, MapPin, Building2, Briefcase, CheckCircle2, Clock, Users, ArrowUpRight } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { toast } from "../lib/toast";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { EmployerDashboard } from "./EmployerDashboard";
-import imgBigShoesAvatar from "../assets/8b9f86452ff0e90495bf9daf1494dd6920ad538a.png";
 import { getUserApplications } from "../../services/api";
 
 const vacancyData = [
@@ -193,10 +192,6 @@ export function Dashboard() {
       default:
         toast.info(`Viewing details for: ${statTitle}`);
     }
-  };
-
-  const handleProfileClick = () => {
-    navigate("/dashboard/profile");
   };
 
   return (

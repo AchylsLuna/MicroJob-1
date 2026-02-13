@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { MapPin, Calendar, Heart, Star, DollarSign, Briefcase } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { Calendar, Heart, Star } from "lucide-react";
 import { toast } from "../lib/toast";
-import imgNetflix from "../assets/eb3a4c132d9ba4934da046219f88853e32272b51.png";
 
 interface Job {
   id: string;
@@ -91,7 +90,6 @@ const mockJobs: Job[] = [
 ];
 
 export function JobDetailsNew() {
-  const navigate = useNavigate();
   const { jobId } = useParams();
   const [selectedJobId, setSelectedJobId] = useState(jobId || "1");
   const [savedJobs, setSavedJobs] = useState<string[]>([]);

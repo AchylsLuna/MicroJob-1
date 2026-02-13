@@ -1,23 +1,16 @@
 import { useState } from "react";
 import { 
   User, 
-  Mail, 
-  MapPin, 
   Settings, 
   Calendar,
   FileText,
   LayoutDashboard,
   Clock,
-  ChevronDown,
   Link as LinkIcon,
-  X
 } from "lucide-react";
 import { toast } from "../lib/toast";
-import { useNavigate } from "react-router-dom";
-import imgAvatar from "../assets/bda9a52c26578a6f12610edd3cd448cf9606b430.png";
 
 export function ProfileNew() {
-  const navigate = useNavigate();
   const [activeMenu, setActiveMenu] = useState<string>("User Profile");
   
   const [formData, setFormData] = useState({
