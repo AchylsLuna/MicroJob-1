@@ -7,12 +7,16 @@ import { toast } from "../lib/toast";
 import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import {
   EMAIL_VALIDATION_MESSAGE,
+  FULL_NAME_VALIDATION_MESSAGE,
   PHONE_DIGITS,
   PHONE_VALIDATION_MESSAGE,
   isValidEmail,
+  isValidFullName,
   isValidPhone,
   normalizeEmail,
+  normalizeFullName,
   normalizePhone,
+  sanitizeFullNameInput,
 } from "../lib/authValidation";
 
 export function SignUp() {
@@ -31,8 +35,10 @@ export function SignUp() {
   const [showOTP, setShowOTP] = useState(false);
   const [userType, setUserType] = useState<"employer" | "worker" | "both">("both");
   const showPasswordStrength = Boolean(formData.password || formData.confirmPassword);
+  const normalizedFullName = normalizeFullName(formData.fullName);
   const normalizedEmail = normalizeEmail(formData.email);
   const normalizedPhone = normalizePhone(formData.phone);
+  const fullNameHasError = Boolean(formData.fullName) && !isValidFullName(normalizedFullName);
   const emailHasError = Boolean(formData.email) && !isValidEmail(normalizedEmail);
   const phoneHasError = Boolean(formData.phone) && !isValidPhone(normalizedPhone);
   const passwordStrength = getPasswordStrength(formData.password);
@@ -60,6 +66,10 @@ export function SignUp() {
   }, [isAuthenticated, pendingVerification, navigate]);
 
   const handleChange = (field: string, value: string) => {
+    if (field === "fullName") {
+      setFormData({ ...formData, fullName: sanitizeFullNameInput(value) });
+      return;
+    }
     if (field === "phone") {
       setFormData({ ...formData, phone: normalizePhone(value) });
       return;
@@ -72,6 +82,11 @@ export function SignUp() {
     
     if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    if (!isValidFullName(normalizedFullName)) {
+      toast.error(FULL_NAME_VALIDATION_MESSAGE);
       return;
     }
 
@@ -101,7 +116,7 @@ export function SignUp() {
     }
 
     try {
-      await register(normalizedEmail, formData.password, formData.fullName, userType, normalizedPhone);
+      await register(normalizedEmail, formData.password, normalizedFullName, userType, normalizedPhone);
       setShowOTP(true);
     } catch (error: any) {
       toast.error(error.message || "Registration failed");
@@ -200,9 +215,17 @@ export function SignUp() {
                   value={formData.fullName}
                   onChange={(e) => handleChange("fullName", e.target.value)}
                   placeholder="Enter your full name"
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-4 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                  aria-invalid={fullNameHasError}
+                  className={`w-full bg-[#F9FAFB] border rounded-[12px] pl-12 pr-4 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:border-transparent transition-all ${
+                    fullNameHasError
+                      ? "border-[#EF4444] focus:ring-[#EF4444]"
+                      : "border-[#E5E7EB] focus:ring-[#1C4D8D]"
+                  }`}
                 />
               </div>
+              {fullNameHasError && (
+                <p className="mt-2 text-[12px] text-[#EF4444]">{FULL_NAME_VALIDATION_MESSAGE}</p>
+              )}
             </div>
 
             {/* Email */}

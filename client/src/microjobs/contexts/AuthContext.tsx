@@ -4,10 +4,13 @@ import { loginUser, registerUser, sendOtp, verifyOtp, logoutUser } from "../../s
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import {
   EMAIL_VALIDATION_MESSAGE,
+  FULL_NAME_VALIDATION_MESSAGE,
   PHONE_VALIDATION_MESSAGE,
   isValidEmail,
+  isValidFullName,
   isValidPhone,
   normalizeEmail,
+  normalizeFullName,
   normalizePhone,
 } from "../lib/authValidation";
 
@@ -124,6 +127,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(EMAIL_VALIDATION_MESSAGE);
     }
 
+    const normalizedName = normalizeFullName(name);
+    if (!isValidFullName(normalizedName)) {
+      throw new Error(FULL_NAME_VALIDATION_MESSAGE);
+    }
+
     const normalizedPhone = phoneNumber ? normalizePhone(phoneNumber) : undefined;
     if (normalizedPhone && !isValidPhone(normalizedPhone)) {
       throw new Error(PHONE_VALIDATION_MESSAGE);
@@ -131,17 +139,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setIsLoading(true);
 
-    const { firstName, lastName } = splitName(name);
+    const { firstName, lastName } = splitName(normalizedName);
     const role = accountPreference === "employer" ? "hire" : accountPreference === "worker" ? "work" : "both";
 
     // Store pending verification
-    setPendingVerification({ email: normalizedEmail, password, name });
+    setPendingVerification({ email: normalizedEmail, password, name: normalizedName });
     localStorage.setItem("pending_account_preference", accountPreference);
 
     try {
       try {
         await registerUser({
-          username: name,
+          username: normalizedName,
           firstName,
           lastName,
           email: normalizedEmail,

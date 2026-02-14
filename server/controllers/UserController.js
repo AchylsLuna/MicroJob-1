@@ -4,10 +4,13 @@ import nodemailer from "nodemailer";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 import {
     EMAIL_VALIDATION_MESSAGE,
+    NAME_VALIDATION_MESSAGE,
     PHONE_VALIDATION_MESSAGE,
     isValidEmail,
+    isValidName,
     isValidPhone,
     normalizeEmail,
+    normalizeName,
     normalizePhone,
 } from "../lib/authValidation.js";
 
@@ -104,17 +107,23 @@ export async function updateMe(req, res) {
         } = req.body || {};
 
         if (firstName !== undefined) {
-            const value = String(firstName).trim();
+            const value = normalizeName(firstName);
             if (!value) {
                 return res.status(400).json({ message: "First name is required." });
+            }
+            if (!isValidName(value)) {
+                return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
             }
             user.firstName = value;
         }
 
         if (lastName !== undefined) {
-            const value = String(lastName).trim();
+            const value = normalizeName(lastName);
             if (!value) {
                 return res.status(400).json({ message: "Last name is required." });
+            }
+            if (!isValidName(value)) {
+                return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
             }
             user.lastName = value;
         }
@@ -196,8 +205,17 @@ export async function register(req, res) {
             finalLastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
         }
 
-        if (!finalFirstName || typeof password !== "string" || !password || !normalizedEmail) {
+        const normalizedFirstName = normalizeName(finalFirstName);
+        let normalizedLastName = normalizeName(finalLastName);
+        if (!normalizedLastName) {
+            normalizedLastName = normalizedFirstName;
+        }
+
+        if (!normalizedFirstName || typeof password !== "string" || !password || !normalizedEmail) {
             return res.status(400).json({ message: "Missing Fields." });
+        }
+        if (!isValidName(normalizedFirstName) || !isValidName(normalizedLastName)) {
+            return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
         }
 
         if (!isValidEmail(normalizedEmail)) {
@@ -206,10 +224,6 @@ export async function register(req, res) {
 
         if (!isStrongPassword(password)) {
             return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
-        }
-
-        if (!finalLastName) {
-            finalLastName = finalFirstName;
         }
 
         if (normalizedPhone) {
@@ -235,8 +249,8 @@ export async function register(req, res) {
         const user = new User({
             phoneNumber: normalizedPhone || undefined,
             email: normalizedEmail,
-            firstName: finalFirstName,
-            lastName: finalLastName,
+            firstName: normalizedFirstName,
+            lastName: normalizedLastName,
             role: userRole,
             status: "pending",
         });
