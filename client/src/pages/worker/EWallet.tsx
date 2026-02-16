@@ -1,5 +1,5 @@
 import { ArrowUpRight, ArrowDownLeft, CreditCard, TrendingUp, DollarSign, Send, Download, ChevronRight } from "lucide-react";
-import { toast } from "../lib/toast";
+import { toast } from "../../microjobs/lib/toast";
 import { useState } from "react";
 
 interface Transaction {

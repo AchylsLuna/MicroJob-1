@@ -16,9 +16,9 @@ import {
   Globe,
   DollarSign
 } from "lucide-react";
-import { toast } from "../lib/toast";
+import { toast } from "../../microjobs/lib/toast";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../../microjobs/contexts/AuthContext";
 import { getProfile } from "../../services/api";
 
 interface WorkExperience {

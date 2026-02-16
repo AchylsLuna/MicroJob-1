@@ -11,8 +11,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
-import { useAdminData } from "../hooks/useAdminData";
-import { toast } from "../lib/toast";
+import { useAdminData } from "../../microjobs/hooks/useAdminData";
+import { toast } from "../../microjobs/lib/toast";
 
 const REPORT_STORAGE_KEY = "admin_reports";
 

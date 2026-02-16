@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLink, ArrowLeft, ArrowRight } from "lucide-react";
-import { toast } from "../lib/toast";
+import { toast } from "../../microjobs/lib/toast";
 import { getEmployerApplications, updateApplicationStatus } from "../../services/api";
 import { useNavigate } from "react-router-dom";
 

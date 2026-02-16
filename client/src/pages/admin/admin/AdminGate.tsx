@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { toast } from "../../lib/toast";
-import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "../../../microjobs/lib/toast";
+import { useAuth } from "../../../microjobs/contexts/AuthContext";
 
 const DEFAULT_ALLOWED_ROLES = ["superadmin"] as const;
 
@@ -27,9 +27,9 @@ export function AdminGate({
       if (fallbackPath) {
         setRedirectPath(fallbackPath);
       } else if (role === "admin" || role === "superadmin") {
-        setRedirectPath("/dashboard/admin-dashboard");
+        setRedirectPath("/admin/dashboard");
       } else {
-        setRedirectPath("/dashboard");
+        setRedirectPath("/worker/dashboard");
       }
     }
   }, [user, allowedRoles, fallbackPath]);

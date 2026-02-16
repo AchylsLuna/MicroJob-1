@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Search, Send, Paperclip, MoreVertical, Phone, Video, Star } from "lucide-react";
-import { toast } from "../lib/toast";
+import { toast } from "../../microjobs/lib/toast";
 import { useSearchParams } from "react-router-dom";
 
 interface Message {

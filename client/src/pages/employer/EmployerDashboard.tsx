@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Users, Clock, MessageSquare, CheckCircle, XCircle, TrendingUp, ArrowRight, Briefcase, ChevronRight } from "lucide-react";
 import { getEmployerApplications } from "../../services/api";
-import { toast } from "../lib/toast";
+import { toast } from "../../microjobs/lib/toast";
 
 export function EmployerDashboard() {
   const navigate = useNavigate();

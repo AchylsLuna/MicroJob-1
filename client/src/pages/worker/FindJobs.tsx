@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Heart, Clock, SlidersHorizontal, CheckCircle2, Star } from "lucide-react";
-import { toast } from "../lib/toast";
+import { toast } from "../../microjobs/lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getJobs } from "../../services/api";
 
