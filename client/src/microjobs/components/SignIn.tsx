@@ -6,7 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 export function SignIn() {
   const navigate = useNavigate();
-  const { login, isAuthenticated, logout, user } = useAuth();
+  const { login, isAuthenticated, logout, user, googleLogin } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -51,8 +51,50 @@ export function SignIn() {
   };
 
   const handleGoogleSignIn = () => {
-    toast.info("Signing in with Google...");
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      toast.error("Google client ID is not configured.");
+      return;
+    }
+
+    if (!(window as any).google?.accounts?.id) {
+      // Load the Google Identity Services script then initialize
+      const script = document.createElement('script');
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
+      script.onload = () => startGoogle();
+      document.body.appendChild(script);
+    } else {
+      startGoogle();
+    }
+
+    function startGoogle() {
+      try {
+        (window as any).google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleCredentialResponse,
+        });
+        (window as any).google.accounts.id.prompt();
+      } catch (err) {
+        toast.error('Google sign-in failed to initialize.');
+      }
+    }
   };
+
+  async function handleCredentialResponse(response: any) {
+    try {
+      const idToken = response?.credential;
+      if (!idToken) {
+        toast.error('Failed to receive Google credential.');
+        return;
+      }
+      await googleLogin(idToken);
+      navigate('/dashboard');
+    } catch (error: any) {
+      toast.error(error?.message || 'Google sign-in failed');
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">

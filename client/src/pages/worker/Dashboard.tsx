@@ -4,7 +4,7 @@ import { toast } from "../../microjobs/lib/toast";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../microjobs/contexts/AuthContext";
-import { EmployerDashboard } from "./EmployerDashboard";
+import { EmployerDashboard } from "../employer";
 import { getUserApplications } from "../../services/api";
 
 const vacancyData = [

@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { toast } from "../lib/toast";
 import { loginUser, registerUser, sendOtp, verifyOtp, logoutUser } from "../../services/api";
+import { googleSignIn } from "../../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import {
   EMAIL_VALIDATION_MESSAGE,
@@ -47,6 +48,7 @@ interface AuthContextType {
   resetPassword: (code: string, newPassword: string) => Promise<void>;
   pendingVerification: { email: string; password: string; name: string } | null;
   updateProfile: (updates: Partial<User>) => void;
+  googleLogin: (idToken: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -177,6 +179,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setIsLoading(false);
+  };
+
+  const googleLogin = async (idToken: string) => {
+    setIsLoading(true);
+    try {
+      const response = await googleSignIn(idToken);
+      const apiUser = response.user;
+      const role = (apiUser.role || "work") as User["role"];
+      const { accountType, accountOptions } = normalizeAccount(role);
+
+      const loggedInUser: User = {
+        id: apiUser.id,
+        email: apiUser.email,
+        firstName: apiUser.firstName || "User",
+        lastName: apiUser.lastName || "User",
+        role,
+        accountType,
+        accountOptions: [...accountOptions],
+        isVerified: true,
+        phoneNumber: apiUser.phoneNumber,
+        city: apiUser.city,
+        country: apiUser.country,
+        linkedin: apiUser.linkedin,
+        avatarUrl: apiUser.avatarUrl,
+        createdAt: new Date().toISOString(),
+      };
+
+      setUser(loggedInUser);
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedInUser));
+      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(loggedInUser));
+      if (response.token) {
+        localStorage.setItem(AUTH_TOKEN_KEY, response.token);
+        localStorage.setItem(LEGACY_TOKEN_KEY, response.token);
+      }
+      window.dispatchEvent(new Event("auth_user_updated"));
+      setIsLoading(false);
+      toast.success(`Welcome back, ${loggedInUser.firstName}!`);
+    } catch (error: any) {
+      setIsLoading(false);
+      throw new Error(error?.message || "Google login failed");
+    }
   };
 
   const verifyOTP = async (otp: string): Promise<boolean> => {
@@ -412,6 +455,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         pendingVerification,
         updateProfile,
+        googleLogin,
       }}
     >
       {children}

@@ -7,6 +7,7 @@ import {
   sendOtp,
   updateMe,
   verifyOtp,
+  googleAuth,
 } from "../controllers/UserController.js";
 import verifyToken from "../middleware/auth.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
@@ -40,6 +41,7 @@ router.post("/login", loginRateLimiter, login);
 router.post("/logout", verifyToken, logout);
 router.post("/otp/send", otpSendRateLimiter, sendOtp);
 router.post("/otp/verify", otpVerifyRateLimiter, verifyOtp);
+router.post("/google", loginRateLimiter, googleAuth);
 router.get("/me", verifyToken, getMe);
 router.patch("/me", verifyToken, updateMe);
 router.get("/profile", verifyToken, getMe);

@@ -207,6 +207,11 @@ export function deleteReadNotifications() {
   return request(`/notifications/read`, { method: 'DELETE' });
 }
 
+// Social sign-in
+export function googleSignIn(idToken: string) {
+  return request<{ token?: string; user?: any; message?: string }>(`/auth/google`, { method: 'POST', body: { idToken } });
+}
+
 // Alerts APIs
 export function getAlerts(params?: QueryParams) {
   return request<any[]>(`/alerts${buildQuery(params)}`, { method: 'GET' });
