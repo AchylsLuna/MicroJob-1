@@ -1,6 +1,6 @@
 import { BarChart3, Clock, DollarSign, TrendingUp, Wallet } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
-import { useAdminData } from "../../microjobs/hooks/useAdminData";
+import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminEWalletMonitoringContent() {
   const {

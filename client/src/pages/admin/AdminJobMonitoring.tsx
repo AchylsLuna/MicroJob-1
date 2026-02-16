@@ -1,5 +1,5 @@
 import { AdminGate } from "./admin/AdminGate";
-import { useAdminData } from "../../microjobs/hooks/useAdminData";
+import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminJobMonitoringContent() {
   const {

@@ -1,60 +1,38 @@
-// Dashboard route constants and utilities for different user roles
+export interface DashboardRouteUser {
+  role?: string | null;
+  user_type?: string | null;
+  accountType?: string | null;
+}
 
 export const WORKER_DASHBOARD_PATH = "/worker/dashboard";
 export const EMPLOYER_DASHBOARD_PATH = "/employer/dashboard";
 export const ADMIN_DASHBOARD_PATH = "/admin/dashboard";
 
-export type UserRole = "admin" | "employer" | "worker";
+const getRole = (user?: DashboardRouteUser | null) =>
+  (user?.role || user?.user_type || "").toLowerCase();
 
-export interface DashboardUser {
-  role?: UserRole | string;
-  user_type?: string;
+export function isAdmin(user?: DashboardRouteUser | null) {
+  const role = getRole(user);
+  return role === "admin" || role === "superadmin";
 }
 
-/**
- * Get the default dashboard path based on user role
- */
-export const getDefaultDashboardPath = (user: DashboardUser | null): string => {
-  if (!user) {
-    return WORKER_DASHBOARD_PATH;
+export function isEmployer(user?: DashboardRouteUser | null) {
+  const role = getRole(user);
+  return user?.accountType === "employer" || role === "employer" || role === "hire";
+}
+
+export function isWorker(user?: DashboardRouteUser | null) {
+  return !isAdmin(user) && !isEmployer(user);
+}
+
+export function getDefaultDashboardPath(user?: DashboardRouteUser | null) {
+  if (isAdmin(user)) {
+    return ADMIN_DASHBOARD_PATH;
   }
 
-  const role = (user.role || user.user_type || "worker").toLowerCase();
-
-  switch (role) {
-    case "admin":
-      return ADMIN_DASHBOARD_PATH;
-    case "employer":
-      return EMPLOYER_DASHBOARD_PATH;
-    case "worker":
-    default:
-      return WORKER_DASHBOARD_PATH;
+  if (isEmployer(user)) {
+    return EMPLOYER_DASHBOARD_PATH;
   }
-};
 
-/**
- * Check if a user has admin role
- */
-export const isAdmin = (user: DashboardUser | null): boolean => {
-  if (!user) return false;
-  const role = (user.role || user.user_type || "").toLowerCase();
-  return role === "admin";
-};
-
-/**
- * Check if a user has employer role
- */
-export const isEmployer = (user: DashboardUser | null): boolean => {
-  if (!user) return false;
-  const role = (user.role || user.user_type || "").toLowerCase();
-  return role === "employer";
-};
-
-/**
- * Check if a user has worker role
- */
-export const isWorker = (user: DashboardUser | null): boolean => {
-  if (!user) return false;
-  const role = (user.role || user.user_type || "").toLowerCase();
-  return role === "worker";
-};
+  return WORKER_DASHBOARD_PATH;
+}

@@ -1,10 +1,10 @@
 import { Calendar, Send, Wallet, Mail, TrendingUp, MapPin, Building2, Briefcase, CheckCircle2, Clock, Users, ArrowUpRight } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { toast } from "../../microjobs/lib/toast";
+import { toast } from "../../lib/toast";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../microjobs/contexts/AuthContext";
-import { EmployerDashboard } from "./EmployerDashboard";
+import { useAuth } from "../../contexts/AuthContext";
+import { EmployerDashboard } from "../employer/EmployerDashboard";
 import { getUserApplications } from "../../services/api";
 
 const vacancyData = [

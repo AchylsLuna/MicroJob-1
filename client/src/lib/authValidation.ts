@@ -1,6 +1,6 @@
 export const PHONE_DIGITS = 11;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const NAME_REGEX = /^[\p{L}][\p{L}\s'.-]*$/u;
+const NAME_REGEX = /^[A-Za-z][A-Za-z\s'.-]*$/;
 
 export const EMAIL_VALIDATION_MESSAGE =
   "Please enter a valid email address (example: email@gmail.com).";
@@ -29,7 +29,7 @@ export function normalizeFullName(value: string): string {
 }
 
 export function sanitizeFullNameInput(value: string): string {
-  return value.replace(/[^\p{L}\s'.-]/gu, "").replace(/\s{2,}/g, " ");
+  return value.replace(/[^A-Za-z\s'.-]/g, "").replace(/\s{2,}/g, " ");
 }
 
 export function isValidFullName(value: string): boolean {

@@ -1,4 +1,4 @@
-import { ProtectedDashboardLayout } from "../../microjobs/components/ProtectedDashboardLayout";
+import { ProtectedDashboardLayout } from "../../components/ProtectedDashboardLayout";
 
 export default function SidebarLayout() {
   return <ProtectedDashboardLayout />;

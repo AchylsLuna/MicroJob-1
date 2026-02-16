@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { toast } from "../lib/toast";
-import { loginUser, registerUser, sendOtp, verifyOtp, logoutUser } from "../../services/api";
+import { loginUser, registerUser, sendOtp, verifyOtp, logoutUser } from "../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import {
   EMAIL_VALIDATION_MESSAGE,
@@ -45,7 +45,7 @@ interface AuthContextType {
   resendOTP: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (code: string, newPassword: string) => Promise<void>;
-  pendingVerification: { email: string; password: string; name: string } | null;
+  pendingVerification: { email: string; name: string } | null;
   updateProfile: (updates: Partial<User>) => void;
 }
 
@@ -55,6 +55,8 @@ const CURRENT_USER_KEY = "current_user";
 const AUTH_USER_KEY = "auth_user";
 const AUTH_TOKEN_KEY = "auth_token";
 const LEGACY_TOKEN_KEY = "token";
+const PENDING_VERIFICATION_EMAIL_KEY = "pending_verification_email";
+const PENDING_VERIFICATION_NAME_KEY = "pending_verification_name";
 
 const normalizeAccount = (
   role: User["role"],
@@ -91,7 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState<{
     email: string;
-    password: string;
     name: string;
   } | null>(null);
 
@@ -108,6 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(normalizedUser);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
     }
+
+    const pendingEmail = localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
+    if (pendingEmail) {
+      const pendingName = localStorage.getItem(PENDING_VERIFICATION_NAME_KEY) || "User";
+      setPendingVerification({ email: pendingEmail, name: pendingName });
+    }
+
     setIsLoading(false);
   }, []);
 
@@ -143,7 +151,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const role = accountPreference === "employer" ? "hire" : accountPreference === "worker" ? "work" : "both";
 
     // Store pending verification
-    setPendingVerification({ email: normalizedEmail, password, name: normalizedName });
+    setPendingVerification({ email: normalizedEmail, name: normalizedName });
+    localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, normalizedEmail);
+    localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, normalizedName);
     localStorage.setItem("pending_account_preference", accountPreference);
 
     try {
@@ -171,6 +181,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       setPendingVerification(null);
       localStorage.removeItem("pending_account_preference");
+      localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
+      localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
       setDevOtpCode(null);
       setIsLoading(false);
       throw new Error(error?.message || "Registration failed");
@@ -182,7 +194,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyOTP = async (otp: string): Promise<boolean> => {
     setIsLoading(true);
 
-    if (!pendingVerification) {
+    const verificationEmail =
+      pendingVerification?.email || localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY) || "";
+    const verificationName =
+      pendingVerification?.name || localStorage.getItem(PENDING_VERIFICATION_NAME_KEY) || "User";
+
+    if (!verificationEmail) {
       setIsLoading(false);
       toast.error("No pending verification");
       return false;
@@ -194,7 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       | "both";
 
     try {
-      const response = await verifyOtp({ email: pendingVerification.email, code: otp });
+      const response = await verifyOtp({ email: verificationEmail, code: otp });
       const apiUser = response.user;
       const role = (apiUser.role || "work") as User["role"];
       const { accountType, accountOptions } = normalizeAccount(role, accountPreference);
@@ -202,8 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUser: User = {
         id: apiUser.id,
         email: apiUser.email,
-        firstName: apiUser.firstName || splitName(pendingVerification.name).firstName,
-        lastName: apiUser.lastName || splitName(pendingVerification.name).lastName,
+        firstName: apiUser.firstName || splitName(verificationName).firstName,
+        lastName: apiUser.lastName || splitName(verificationName).lastName,
         role,
         accountType,
         accountOptions: [...accountOptions],
@@ -226,6 +243,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.dispatchEvent(new Event("auth_user_updated"));
 
       localStorage.removeItem("pending_account_preference");
+      localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
+      localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
       setPendingVerification(null);
       setDevOtpCode(null);
 
@@ -240,13 +259,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resendOTP = async () => {
-    if (!pendingVerification) {
+    const verificationEmail =
+      pendingVerification?.email || localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY) || "";
+
+    if (!verificationEmail) {
       toast.error("No pending verification");
       return;
     }
 
     try {
-      const otpResponse = await sendOtp({ email: pendingVerification.email });
+      const otpResponse = await sendOtp({ email: verificationEmail });
       setDevOtpCode(otpResponse?.code ?? null);
       toast.success("New OTP sent!");
     } catch (error: any) {
@@ -308,10 +330,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setDevOtpCode(null);
+    setPendingVerification(null);
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(LEGACY_TOKEN_KEY);
+    localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
+    localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
     if (!options?.silent) {
       toast.success("Logged out successfully");
     }

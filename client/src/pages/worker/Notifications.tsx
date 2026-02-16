@@ -18,7 +18,7 @@ import {
   BellRing,
   CheckCircle2,
 } from "lucide-react";
-import { toast } from "../../microjobs/lib/toast";
+import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import {
   deleteNotification as deleteNotificationApi,

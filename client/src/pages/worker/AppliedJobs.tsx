@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Building2, MapPin, DollarSign, Calendar, Clock, FileText, Eye, Trash2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
-import { toast } from "../../microjobs/lib/toast";
+import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getUserApplications, withdrawApplication } from "../../services/api";
 

@@ -1,1 +1,1 @@
-export { AuthProvider, useAuth } from "../microjobs/contexts/AuthContext";
+export { AuthProvider, useAuth } from "../contexts/AuthContext";

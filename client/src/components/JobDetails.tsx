@@ -2,7 +2,7 @@ import { ArrowLeft, MapPin, Briefcase, DollarSign, Clock, Building2, Users, Cale
 import { toast } from "../lib/toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { applyForJob, getJobDetails } from "../../services/api";
+import { applyForJob, getJobDetails } from "../services/api";
 
 type ApiJob = {
   _id: string;

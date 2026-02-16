@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Mail, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 
 interface OTPVerificationProps {
   onClose: () => void;
@@ -9,7 +10,7 @@ interface OTPVerificationProps {
 }
 
 export function OTPVerification({ onClose, email }: OTPVerificationProps) {
-  const { verifyOTP, resendOTP, devOtpCode } = useAuth();
+  const { verifyOTP, resendOTP, devOtpCode, user } = useAuth();
   const navigate = useNavigate();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -122,8 +123,18 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
     try {
       const success = await verifyOTP(otpCode);
       if (success) {
+        let nextUser = user;
+        try {
+          const storedUserRaw =
+            localStorage.getItem("auth_user") || localStorage.getItem("current_user");
+          if (storedUserRaw) {
+            nextUser = JSON.parse(storedUserRaw);
+          }
+        } catch {
+          // Ignore malformed storage payload and use in-memory auth user.
+        }
         onClose();
-        navigate("/dashboard");
+        navigate(getDefaultDashboardPath(nextUser), { replace: true });
       } else {
         inputRefs.current[0]?.focus();
       }

@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminGate } from "./admin/AdminGate";
-import { useAdminData } from "../../microjobs/hooks/useAdminData";
-import { toast } from "../../microjobs/lib/toast";
+import { useAdminData } from "../../hooks/useAdminData";
+import { toast } from "../../lib/toast";
 
 const CHART_MONTHS = 6;
 

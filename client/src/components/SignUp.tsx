@@ -18,10 +18,11 @@ import {
   normalizePhone,
   sanitizeFullNameInput,
 } from "../lib/authValidation";
+import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 
 export function SignUp() {
   const navigate = useNavigate();
-  const { register, pendingVerification, isAuthenticated } = useAuth();
+  const { register, pendingVerification, isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -61,9 +62,9 @@ export function SignUp() {
   // Redirect to dashboard if already authenticated
   useEffect(() => {
     if (isAuthenticated && !pendingVerification) {
-      navigate("/dashboard");
+      navigate(getDefaultDashboardPath(user), { replace: true });
     }
-  }, [isAuthenticated, pendingVerification, navigate]);
+  }, [isAuthenticated, pendingVerification, navigate, user]);
 
   const handleChange = (field: string, value: string) => {
     if (field === "fullName") {

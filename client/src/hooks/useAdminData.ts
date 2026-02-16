@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "../lib/toast";
-import { deleteUser, getCategories, getJobs, getUserList, updateUserStatus } from "../../services/api";
+import { deleteUser, getCategories, getJobs, getUserList, updateUserStatus } from "../services/api";
 
 export type AdminUser = {
   _id: string;

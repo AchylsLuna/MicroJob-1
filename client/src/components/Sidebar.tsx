@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { BarChart3, ClipboardList, FileText, LayoutDashboard, Shield, Users, Wallet } from "lucide-react";
 import svgPaths from "../imports/svg-at917c2et3";
-import imgBigShoesAvatar from "../assets/8b9f86452ff0e90495bf9daf1494dd6920ad538a.png";
 import { useAuth } from "../contexts/AuthContext";
 
 function Logo1() {
@@ -310,6 +309,7 @@ export function Sidebar() {
     `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
     user?.email ||
     "Account";
+  const avatarInitial = displayName.charAt(0).toUpperCase();
   const settingsTabParam = new URLSearchParams(location.search).get("tab");
   const settingsAccountTabs = ["account", "personal", "experience", "resume", "cv"];
   const isSettingsAccountActive =
@@ -547,8 +547,8 @@ export function Sidebar() {
             <div className="content-stretch flex gap-[12px] items-center p-[24px] relative w-full">
               <div className="content-stretch flex flex-[1_0_0] gap-[12px] items-center min-h-px min-w-px relative">
                 <div className="bg-[#ffb31f] overflow-clip relative rounded-[99px] shrink-0 w-10 h-10 group-hover:scale-105 transition-transform">
-                  <div className="absolute inset-[-35%_-40%_-45%_-40%]">
-                    <img alt="User avatar" className="absolute inset-0 max-w-none object-contain pointer-events-none w-full h-full" src={imgBigShoesAvatar} />
+                  <div className="w-full h-full flex items-center justify-center text-[15px] font-semibold text-[#1F2937]">
+                    {avatarInitial}
                   </div>
                 </div>
                 <div className="content-stretch flex flex-[1_0_0] flex-col font-['Poppins:Medium',sans-serif] gap-[2px] items-start leading-[20px] min-h-px min-w-px not-italic relative whitespace-pre-wrap">
@@ -569,8 +569,8 @@ export function Sidebar() {
         <Link to="/dashboard/profile" className="relative shrink-0 w-full z-[1] pb-4 hover:bg-gray-50 transition-colors cursor-pointer">
           <div className="flex flex-col items-center">
             <div className="bg-[#ffb31f] overflow-clip relative rounded-[99px] shrink-0 w-10 h-10 hover:scale-105 transition-transform">
-              <div className="absolute inset-[-35%_-40%_-45%_-40%]">
-                <img alt="User avatar" className="absolute inset-0 max-w-none object-contain pointer-events-none w-full h-full" src={imgBigShoesAvatar} />
+              <div className="w-full h-full flex items-center justify-center text-[15px] font-semibold text-[#1F2937]">
+                {avatarInitial}
               </div>
             </div>
           </div>

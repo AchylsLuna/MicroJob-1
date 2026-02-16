@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { motion, useScroll, useTransform } from "motion/react";
 import { useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
+import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 
 // Animated Counter Component
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -64,6 +65,7 @@ export function LandingPageBlue() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const isSuperAdmin = user?.role === "superadmin";
+  const dashboardPath = getDefaultDashboardPath(user);
   const { scrollYProgress } = useScroll();
 
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
@@ -171,7 +173,7 @@ export function LandingPageBlue() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate(isAuthenticated ? "/dashboard" : "/sign-in")}
+                onClick={() => navigate(isAuthenticated ? dashboardPath : "/sign-in")}
                 className="text-[14px] font-semibold text-gray-700 px-5 py-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 Sign In

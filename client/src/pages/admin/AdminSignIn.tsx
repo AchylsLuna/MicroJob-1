@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Shield, ArrowLeft } from "lucide-react";
-import { toast } from "../../microjobs/lib/toast";
+import { toast } from "../../lib/toast";
 import { Navigate, useNavigate } from "react-router-dom";
-import { useAuth } from "../../microjobs/contexts/AuthContext";
+import { useAuth } from "../../contexts/AuthContext";
 
 export function AdminSignIn() {
   const navigate = useNavigate();

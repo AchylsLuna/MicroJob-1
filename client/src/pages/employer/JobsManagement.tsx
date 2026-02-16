@@ -11,7 +11,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { getMyJobs } from "../../services/api";
-import { toast } from "../../microjobs/lib/toast";
+import { toast } from "../../lib/toast";
 
 interface JobPosting {
   id: string;

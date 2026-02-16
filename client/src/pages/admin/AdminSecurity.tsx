@@ -1,6 +1,6 @@
 import { Shield, ShieldCheck, UserCog, UserMinus } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
-import { useAdminData } from "../../microjobs/hooks/useAdminData";
+import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminSecurityContent() {
   const { isLoading, loadError, stats, users, recentActivity } = useAdminData();

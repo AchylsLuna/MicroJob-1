@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { MoreHorizontal, Search, UserPlus } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
-import { useAdminData } from "../../microjobs/hooks/useAdminData";
-import { toast } from "../../microjobs/lib/toast";
+import { useAdminData } from "../../hooks/useAdminData";
+import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 
 function AdminUserManagementContent() {

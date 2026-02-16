@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
-import { getProfile, updateProfile } from "../../services/api";
+import { getProfile, updateProfile } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 
 type TabType = "account" | "privacy" | "payments";

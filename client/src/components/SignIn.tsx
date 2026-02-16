@@ -3,10 +3,12 @@ import { Mail, Lock, Eye, EyeOff, Briefcase, Award, Users, TrendingUp, ArrowLeft
 import { toast } from "../lib/toast";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 
 export function SignIn() {
   const navigate = useNavigate();
   const { login, isAuthenticated, logout, user } = useAuth();
+  const dashboardPath = getDefaultDashboardPath(user);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -14,7 +16,7 @@ export function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
 
   if (!isLoading && isAuthenticated && user?.role && user.role !== "admin" && user.role !== "superadmin") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={dashboardPath} replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {

@@ -1,23 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useParams } from "react-router-dom";
 import SidebarLayout from "./components/layout/SidebarLayout";
-import { LandingPage } from "./microjobs/components/LandingPage";
-import { SignIn } from "./microjobs/components/SignIn";
-import { SignUp } from "./microjobs/components/SignUp";
-import { OTPVerification as EmailVerification } from "./microjobs/components/OTPVerification";
+import { LandingPage } from "./components/LandingPage";
+import { SignIn } from "./components/SignIn";
+import { SignUp } from "./components/SignUp";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { AppliedJobs, SavedJobs, WorkerDashboard, WorkerNotifications, WorkerProfile, WorkerSupport, WorkerMessages, WorkerEWallet, FindJobs } from "./pages/worker";
 import { PostJob, JobPosts, Applications, EmployerDashboard, JobsManagement } from "./pages/employer";
 import { AdminDashboard, AdminAnalytics, AdminReports, AdminEWalletMonitoring, AdminJobMonitoring, AdminSecurity, AdminUserManagement, AdminSignIn } from "./pages/admin";
-import { JobDetails } from "./microjobs/components/JobDetails";
+import { JobDetails } from "./components/JobDetails";
 import { useAuth } from "./hooks/useAuth";
 import {
   EMPLOYER_DASHBOARD_PATH,
   ADMIN_DASHBOARD_PATH,
-  WORKER_DASHBOARD_PATH,
   getDefaultDashboardPath,
-  isAdmin,
-  isEmployer,
 } from "./utils/dashboardRoutes";
 
 const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
@@ -137,6 +133,15 @@ const DashboardHomeRoute: React.FC = () => {
   return <Navigate to={destination} replace />;
 };
 
+const LegacyJobDetailsRedirect: React.FC = () => {
+  const { jobId } = useParams();
+  if (!jobId) {
+    return <Navigate to="/worker/find-jobs" replace />;
+  }
+
+  return <Navigate to={`/worker/job-details/${jobId}`} replace />;
+};
+
 const App: React.FC = () => {
   return (
     <Router>
@@ -181,8 +186,8 @@ const App: React.FC = () => {
           {/* ========== LEGACY ROUTES (Backward Compatibility) ========== */}
           <Route path="/dashboard" element={<DashboardHomeRoute />} />
           <Route path="/dashboard/find-jobs" element={<Navigate to="/worker/find-jobs" replace />} />
-          <Route path="/dashboard/job-details/:jobId" element={<Navigate to="/worker/job-details/:jobId" replace />} />
-          <Route path="/dashboard/job-details-new/:jobId" element={<Navigate to="/worker/job-details/:jobId" replace />} />
+          <Route path="/dashboard/job-details/:jobId" element={<LegacyJobDetailsRedirect />} />
+          <Route path="/dashboard/job-details-new/:jobId" element={<LegacyJobDetailsRedirect />} />
           <Route path="/dashboard/e-wallet" element={<Navigate to="/worker/e-wallet" replace />} />
           <Route path="/dashboard/messages" element={<Navigate to="/worker/messages" replace />} />
           <Route path="/dashboard/applied-jobs" element={<Navigate to="/worker/applied-jobs" replace />} />
@@ -209,7 +214,7 @@ const App: React.FC = () => {
 
           {/* Root-level redirects (old patterns) */}
           <Route path="/find-jobs" element={<Navigate to="/worker/find-jobs" replace />} />
-          <Route path="/job-details/:jobId" element={<Navigate to="/worker/job-details/:jobId" replace />} />
+          <Route path="/job-details/:jobId" element={<LegacyJobDetailsRedirect />} />
           <Route path="/e-wallet" element={<Navigate to="/worker/e-wallet" replace />} />
           <Route path="/messages" element={<Navigate to="/worker/messages" replace />} />
 

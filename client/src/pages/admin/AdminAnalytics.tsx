@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Briefcase, DollarSign, TrendingUp, Users } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
-import { useAdminData } from "../../microjobs/hooks/useAdminData";
+import { useAdminData } from "../../hooks/useAdminData";
 
 const CHART_MONTHS = 6;
 
