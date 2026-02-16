@@ -479,6 +479,92 @@ export async function verifyOtp(req, res) {
     }
 }
 
+export async function googleAuth(req, res) {
+    try {
+        const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ message: 'idToken is required.' });
+        }
+
+        const {OAuth2Client} = await import('google-auth-library');
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        if (!clientId) {
+            return res.status(500).json({ message: 'Google client ID not configured.' });
+        }
+        const client = new OAuth2Client(clientId);
+        const ticket = await client.verifyIdToken({ idToken, audience: clientId });
+        const payload = ticket.getPayload();
+        if (!payload || !payload.email) {
+            return res.status(400).json({ message: 'Invalid Google token.' });
+        }
+
+        const email = payload.email.toLowerCase();
+        const firstName = payload.given_name || payload.name?.split(' ')[0] || 'User';
+        const lastName = payload.family_name || payload.name?.split(' ').slice(1).join(' ') || firstName;
+        const avatarUrl = payload.picture;
+
+        let user = await User.findOne({ email });
+        if (!user) {
+            user = new User({
+                email,
+                firstName,
+                lastName,
+                role: 'work',
+                status: 'active',
+                avatarUrl: avatarUrl,
+            });
+            // set a random strong password so the schema requirement is satisfied
+            const crypto = await import('crypto');
+            const random = crypto.randomBytes(24).toString('base64') + Date.now().toString();
+            try {
+                await user.setPassword(random);
+            } catch (pwErr) {
+                // fallback: hash with bcrypt directly
+                const bcrypt = await import('bcryptjs');
+                user.passwordHashed = await bcrypt.hash(random, 10);
+            }
+            await user.save();
+        }
+
+        if (user.status === 'disabled') {
+            return res.status(403).json({ message: 'Account disabled.' });
+        }
+
+        const token = jwt.sign(
+            { id: user._id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        return res.status(200).json({
+            message: 'Login successful.',
+            token,
+            user: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                phoneNumber: user.phoneNumber,
+                email: user.email,
+                role: user.role,
+                city: user.city,
+                country: user.country,
+                linkedin: user.linkedin,
+                avatarUrl: user.avatarUrl,
+            }
+        });
+    } catch (error) {
+        console.error('Google auth error:', error);
+        return res.status(500).json({ message: 'Google authentication failed.' });
+    }
+}
+
 export async function updateUserStatus(req, res) {
     try {
         const { userId } = req.params;
