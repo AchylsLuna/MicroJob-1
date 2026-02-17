@@ -18,6 +18,7 @@ interface ApplicationItem {
   };
   coverLetter?: string;
   resume?: string;
+  employerReadAt?: string | null;
 }
 
 const Applications: React.FC = () => {
@@ -67,6 +68,15 @@ const Applications: React.FC = () => {
       );
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to update status.");
+    }
+  };
+
+  const markEmployerRead = async (applicationId: string) => {
+    try {
+      await jobsAPI.markEmployerRead(applicationId);
+      setApplications((prev) => prev.map((a) => (a._id === applicationId ? { ...a, employerReadAt: new Date().toISOString() } : a)));
+    } catch (err) {
+      console.warn('Failed to mark employer notification read', err);
     }
   };
 
@@ -139,7 +149,7 @@ const Applications: React.FC = () => {
             )}
 
             {applications.map((app) => (
-              <div key={app._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+              <div key={app._id} onClick={() => { if (!app.employerReadAt) markEmployerRead(app._id); }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4">
                     <div className="h-12 w-12 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
@@ -150,6 +160,9 @@ const Applications: React.FC = () => {
                       <h3 className="text-lg font-bold text-gray-900">
                         {app.applicant?.firstName} {app.applicant?.lastName}
                       </h3>
+                      {!app.employerReadAt && (
+                        <div className="inline-block ml-2 w-2 h-2 bg-blue-600 rounded-full" />
+                      )}
                       <p className="text-sm text-gray-500">{app.applicant?.email}</p>
                       <p className="text-sm text-gray-700 mt-2">
                         Applied for: <span className="font-semibold">{app.job?.title}</span>.

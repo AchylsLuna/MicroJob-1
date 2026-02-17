@@ -12,6 +12,7 @@ import Settings from "./pages/Settings";
 import EWallet from "./pages/EWallet";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { AppliedJobs, SavedJobs } from "./pages/worker";
+import NotificationsRouter from "./pages/NotificationsRouter";
 import { PostJob, Applications, JobPosts } from "./pages/employer";
 import Messages from "./pages/Messages";
 
@@ -143,6 +144,7 @@ const App: React.FC = () => {
 
           <Route path="/worker/applied-jobs" element={<AppliedJobs />} />
           <Route path="/worker/saved-jobs" element={<SavedJobs />} />
+          <Route path="/notifications" element={<NotificationsRouter />} />
 
           <Route path="/employer/post-job" element={<PostJob />} />
           <Route path="/employer/applications" element={<Applications />} />

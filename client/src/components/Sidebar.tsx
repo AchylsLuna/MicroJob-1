@@ -14,6 +14,7 @@ import settingsIcon from "../assets/dashboard/settingsIcon.png";
 import starIcon from "../assets/dashboard/starIcon.png";
 import walletIcon from "../assets/dashboard/walletIcon.png";
 import { useAuth } from "../hooks/useAuth";
+import { jobsAPI } from "../services/jobs";
 
 interface SidebarProps {
   userName?: string;
@@ -134,6 +135,34 @@ const Sidebar: React.FC<SidebarProps> = ({
     logout: logoutIcon,
   };
 
+  const [notifCount, setNotifCount] = useState<number>(0);
+
+  const loadNotifCount = async () => {
+    try {
+      if (userRoleFromAuth === 'hire') {
+        const res = await jobsAPI.getEmployerApplications();
+        const apps = res.data || [];
+        const unread = apps.filter((a: any) => !a.employerReadAt).length;
+        setNotifCount(unread);
+      } else {
+        const res = await jobsAPI.getUserApplications();
+        const apps = res.data || [];
+        const allowed = new Set(['Accepted','Rejected','Reviewed']);
+        const unread = apps.filter((a: any) => allowed.has(a.status) && !a.applicantReadAt).length;
+        setNotifCount(unread);
+      }
+    } catch (err) {
+      // ignore
+    }
+  };
+
+  useEffect(() => {
+    loadNotifCount();
+    const handler = () => loadNotifCount();
+    window.addEventListener('auth_user_updated', handler);
+    return () => window.removeEventListener('auth_user_updated', handler);
+  }, [userRoleFromAuth]);
+
   const renderIcon = (iconKey: string) => (
     <img
       src={iconMap[iconKey] || starIcon}
@@ -251,7 +280,13 @@ const Sidebar: React.FC<SidebarProps> = ({
               {renderIcon(item.icon)}
               {!isCollapsed && <span>{item.label}</span>}
               {item.notification && (
-                <span className={`w-2 h-2 bg-blue-600 rounded-full ${isCollapsed ? "absolute right-2 top-2" : ""}`}></span>
+                item.path === '/notifications' ? (
+                  <span className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${isCollapsed ? 'absolute right-2 top-2' : ''}`}>
+                    {notifCount > 0 ? notifCount : ''}
+                  </span>
+                ) : (
+                  <span className={`w-2 h-2 bg-blue-600 rounded-full ${isCollapsed ? "absolute right-2 top-2" : ""}`}></span>
+                )
               )}
             </button>
           ))}
@@ -273,7 +308,13 @@ const Sidebar: React.FC<SidebarProps> = ({
               {renderIcon(item.icon)}
               {!isCollapsed && <span>{item.label}</span>}
               {item.notification && (
-                <span className={`w-2 h-2 bg-blue-600 rounded-full ${isCollapsed ? "absolute right-2 top-2" : ""}`}></span>
+                item.path === '/notifications' ? (
+                  <span className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${isCollapsed ? 'absolute right-2 top-2' : ''}`}>
+                    {notifCount > 0 ? notifCount : ''}
+                  </span>
+                ) : (
+                  <span className={`w-2 h-2 bg-blue-600 rounded-full ${isCollapsed ? "absolute right-2 top-2" : ""}`}></span>
+                )
               )}
             </button>
           ))}

@@ -151,6 +151,8 @@ export const updateApplicationStatus = async (req, res) => {
         }
 
         application.status = status;
+        // mark applicant as unread for the new status so they get a notification
+        application.applicantReadAt = null;
         await application.save();
 
         res.status(200).json({
@@ -252,6 +254,34 @@ export const hideEmployerApplication = async (req, res) => {
         });
     } catch (error) {
         console.error('Hide employer application error:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Mark applicant notification as read
+export const markApplicantApplicationRead = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+
+        const application = await JobApplication.findById(applicationId).populate('job', 'jobPoster');
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        // Only the applicant can mark their application notification as read
+        if (application.applicant.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to update this application' });
+        }
+
+        application.applicantReadAt = new Date();
+        await application.save();
+
+        res.status(200).json({
+            message: 'Notification marked as read',
+            application
+        });
+    } catch (error) {
+        console.error('Mark applicant read error:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

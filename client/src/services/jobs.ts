@@ -58,6 +58,12 @@ export const jobsAPI = {
   // Update application status
   updateApplicationStatus: (applicationId: string, status: string) =>
     api.put(`/applications/${applicationId}/status`, { status }),
+  // Mark employer notification as read
+  markEmployerRead: (applicationId: string) =>
+    api.patch(`/applications/${applicationId}/employer/read`),
+  // Mark applicant notification as read
+  markApplicantRead: (applicationId: string) =>
+    api.patch(`/applications/${applicationId}/applicant/read`),
 };
 
 // Categories API

@@ -60,7 +60,13 @@ const Dashboard: React.FC = () => {
   const [userEmail, setUserEmail] = useState("you@example.com");
   const [activeVacancyTab, setActiveVacancyTab] = useState("Application Sent");
   const [showNotifications, setShowNotifications] = useState(false);
-  const [applications, setApplications] = useState<Array<{ status: string; createdAt?: string; job?: { _id: string; title: string; location?: string; salary?: string; jobType?: string } }>>([]);
+  const [applications, setApplications] = useState<Array<{
+    _id?: string;
+    status: string;
+    createdAt?: string;
+    applicantReadAt?: string | null;
+    job?: { _id: string; title: string; location?: string; salary?: string; jobType?: string };
+  }>>([]);
   const [appsLoading, setAppsLoading] = useState(false);
   const [jobs, setJobs] = useState<Array<{ _id: string; title: string; location?: string; salary?: string; jobType?: string; category?: { name?: string }; jobPoster?: { _id?: string; id?: string } }>>([]);
   const [jobsLoading, setJobsLoading] = useState(false);
@@ -231,19 +237,36 @@ const Dashboard: React.FC = () => {
   const notifications = useMemo(() => {
     const allowed = new Set(["accepted", "rejected", "reviewed"]);
     return applications
-      .filter((app) => allowed.has((app.status || "").toLowerCase()))
+      .filter((app) => allowed.has((app.status || "").toLowerCase()) && (!app.applicantReadAt))
       .slice(0, 6)
-      .map((app, index) => {
+      .map((app) => {
         const status = app.status || "Reviewed";
         return {
-          id: `${app.job?._id || "app"}-${index}`,
+          applicationId: app._id,
+          id: app._id,
           title: `Application ${status}`,
           description: `Your application for ${app.job?.title || "a job"} was ${status.toLowerCase()}.`,
           time: app.createdAt ? new Date(app.createdAt).toLocaleString() : "Just now",
-          isNew: true,
+          isNew: !app.applicantReadAt,
         };
       });
   }, [applications]);
+
+  const markNotificationRead = async (applicationId?: string) => {
+    if (!applicationId) return;
+    try {
+      await jobsAPI.markApplicantRead(applicationId);
+      setApplications((prev) => prev.map((a) => (a._id === applicationId ? { ...a, applicantReadAt: new Date().toISOString() } : a)));
+    } catch (err) {
+      console.warn('Failed to mark notification read', err);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    const unread = applications.filter((a) => a._id && !a.applicantReadAt).slice(0, 20);
+    await Promise.all(unread.map((a) => jobsAPI.markApplicantRead(a._id!).catch(() => null)));
+    setApplications((prev) => prev.map((a) => (a._id && !a.applicantReadAt ? { ...a, applicantReadAt: new Date().toISOString() } : a)));
+  };
 
   return (
     <div className="p-8 pb-20">
@@ -288,7 +311,7 @@ const Dashboard: React.FC = () => {
                     {/* Header */}
                     <div className="flex items-center justify-between p-6 border-b border-gray-200">
                       <h3 className="font-bold text-gray-900">Notifications ({notifications.length})</h3>
-                      <button className="text-blue-600 text-sm font-semibold hover:text-blue-700">
+                      <button onClick={markAllNotificationsRead} className="text-blue-600 text-sm font-semibold hover:text-blue-700">
                         Mark all as read
                       </button>
                     </div>
@@ -298,6 +321,7 @@ const Dashboard: React.FC = () => {
                       {notifications.map((notif) => (
                         <div
                           key={notif.id}
+                          onClick={() => markNotificationRead(notif.applicationId)}
                           className="px-6 py-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition cursor-pointer"
                         >
                           <div className="flex gap-3">
