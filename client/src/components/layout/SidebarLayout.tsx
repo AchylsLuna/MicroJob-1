@@ -17,7 +17,7 @@ const SidebarLayout: React.FC = () => {
       />
 
       <div className="flex-1 overflow-auto ml-64">
-        <div className="page-transition">
+        <div className="page-transition h-full">
           <Outlet />
         </div>
       </div>

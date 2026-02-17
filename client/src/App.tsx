@@ -16,8 +16,8 @@ import NotificationsRouter from "./pages/NotificationsRouter";
 import { PostJob, Applications, JobPosts } from "./pages/employer";
 import Messages from "./pages/Messages";
 
-const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
-const WARNING_DURATION_MS = 1 * 1000;
+const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const WARNING_DURATION_MS = 30 * 1000;
 
 const InactivityHandler: React.FC = () => {
   const navigate = useNavigate();

@@ -167,7 +167,16 @@ const JobDetails: React.FC = () => {
                           <button
                             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 mb-4"
                             onClick={() => {
-                              navigate('/messages', { state: { userId: jobData.jobPoster._id, name: `${jobData.jobPoster.firstName || ''} ${jobData.jobPoster.lastName || ''}`.trim() } });
+                              const employerName = `${jobData.jobPoster.firstName || ''} ${jobData.jobPoster.lastName || ''}`.trim();
+                              navigate('/messages', {
+                                state: {
+                                  userId: jobData.jobPoster._id,
+                                  name: employerName || 'Employer',
+                                  jobId: jobData.id,
+                                  jobTitle: jobData.title,
+                                  prefill: `Hi ${employerName || 'there'}, I am interested in "${jobData.title}". Is this job still available?`,
+                                },
+                              });
                             }}
                           >
                             💬 Message Employer

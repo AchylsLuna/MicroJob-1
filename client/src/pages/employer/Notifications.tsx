@@ -33,7 +33,7 @@ export default function EmployerNotifications() {
           isNew: !a.employerReadAt,
         }))
         .filter(Boolean)
-        .sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+        .sort((a: EmployerNotif, b: EmployerNotif) => (b.time || '').localeCompare(a.time || ''));
 
       setItems(notifs);
     } catch (err: any) {

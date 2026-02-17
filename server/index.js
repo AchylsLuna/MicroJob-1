@@ -1,11 +1,14 @@
 import 'dotenv/config';
 import express from 'express';
+import http from 'http';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
+import { initSocket } from './lib/socket.js';
 
 const app = express();
+const server = http.createServer(app);
 
 //Connection Config
 const config = {
@@ -26,11 +29,17 @@ app.use(cookieParser());
 
 app.use(express.urlencoded({ extended: true}));
 
+// Allow CORS including PATCH and preflight for the client
 app.use(cors({
-    origin: '*', // Allow all origins for mobile development
-    credentials:true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-}))
+    origin: '*', // Allow all origins for mobile/dev
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,
+}));
+
+// Ensure OPTIONS preflight is handled for all routes
+// No explicit app.options needed because CORS middleware is applied globally
 
 // Routes
 import CategoryRoute from './routes/CategoryRoute.js';
@@ -68,7 +77,10 @@ const startServer = async () => {
         await mongoose.connect(config.MONGO_URI, { dbName: config.DB_NAME});
         console.log('Connected to DB');
 
-        app.listen(config.PORT, '0.0.0.0', () => {
+        // initialize socket.io
+        initSocket(server);
+
+        server.listen(config.PORT, '0.0.0.0', () => {
             console.log(`Server is running on http://localhost:${config.PORT}`);
             console.log(`Mobile can access: http://192.168.1.20:${config.PORT}`);
         });
