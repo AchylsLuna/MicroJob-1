@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 
 type JobDetailsProps = {
+  onBack?: () => void;
   job: any;
   onSaveJob?: (job: any) => void;
   isSaved?: boolean;

@@ -1,5 +1,7 @@
 import JobApplication from '../models/JobApplication.js';
 import Job from '../models/Job.js';
+import User from '../models/User.js';
+import { emitToUser } from '../lib/socket.js';
 
 // Apply for a job
 export const applyForJob = async (req, res) => {
@@ -33,6 +35,33 @@ export const applyForJob = async (req, res) => {
         });
 
         await application.save();
+
+        // notify the job poster (employer) in real-time
+        try {
+            const jobPosterId = job.jobPoster?.toString();
+            if (jobPosterId) {
+                // fetch applicant's name for a nicer notification
+                let applicantName = 'Applicant';
+                try {
+                    const applicant = await User.findById(userId).select('firstName lastName');
+                    if (applicant) applicantName = [applicant.firstName, applicant.lastName].filter(Boolean).join(' ');
+                } catch (e) {
+                    // ignore
+                }
+
+                const payload = {
+                    id: application._id,
+                    applicantId: userId,
+                    applicantName,
+                    jobId: job._id,
+                    jobTitle: job.title,
+                    createdAt: application.createdAt,
+                };
+                emitToUser(jobPosterId, 'new_application', payload);
+            }
+        } catch (e) {
+            // swallow
+        }
 
         // Add applicant to job's applicants array if not already there
         if (!job.applicants.includes(userId)) {
@@ -154,6 +183,23 @@ export const updateApplicationStatus = async (req, res) => {
         // mark applicant as unread for the new status so they get a notification
         application.applicantReadAt = null;
         await application.save();
+
+        // Notify the applicant in real-time about status change
+        try {
+            const applicantId = application.applicant?.toString();
+            if (applicantId) {
+                const payload = {
+                    id: application._id,
+                    jobId: application.job?._id,
+                    jobTitle: application.job?.title,
+                    status: application.status,
+                    updatedAt: application.updatedAt,
+                };
+                emitToUser(applicantId, 'application_status_updated', payload);
+            }
+        } catch (e) {
+            // swallow
+        }
 
         res.status(200).json({
             message: 'Application status updated successfully',

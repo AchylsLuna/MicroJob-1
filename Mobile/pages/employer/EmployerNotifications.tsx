@@ -22,11 +22,13 @@ type NotificationItem = {
 type EmployerNotificationsProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  liveNotifications?: any[];
 };
 
 export default function EmployerNotifications({
   activeTab = 'Notifications',
   onTabPress,
+  liveNotifications = [],
 }: EmployerNotificationsProps) {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,19 @@ export default function EmployerNotifications({
   useEffect(() => {
     fetchNotifications();
   }, []);
+
+  // merge live notifications from socket
+  useEffect(() => {
+    if (!liveNotifications || liveNotifications.length === 0) return;
+    const mapped = liveNotifications.map((n: any) => ({
+      id: n.id || `${n.jobId}-${Date.now()}`,
+      applicantName: n.applicantName || 'Applicant',
+      jobTitle: n.jobTitle || 'Job post',
+      createdAt: n.createdAt,
+      isRead: false,
+    }));
+    setNotifications((prev) => [...mapped, ...prev]);
+  }, [liveNotifications]);
 
   const handleRemoveNotification = (notificationId: string) => {
     setErrorMessage('');

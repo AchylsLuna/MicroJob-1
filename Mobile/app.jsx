@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, Animated, Dimensions, TouchableOpacity, Alert } from 'react-native';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import "./global.css";
 import { API_URL } from './config';
@@ -40,6 +41,10 @@ export default function App() {
   const [savedJobs, setSavedJobs] = useState([]);
   const [selectedEmployerJob, setSelectedEmployerJob] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const socketRef = useRef(null);
+  const [workerNotifications, setWorkerNotifications] = useState([]);
+  const [employerNotifications, setEmployerNotifications] = useState([]);
+  const [messageEvents, setMessageEvents] = useState([]);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const transition = useRef(new Animated.Value(0)).current;
   const screenWidth = Dimensions.get('window').width;
@@ -69,15 +74,16 @@ export default function App() {
     JobDetails: 13,
     Saved: 14,
     Applied: 15,
-    Messages: 16,
-    Profile: 17,
-    Settings: 18,
-    EmployerJobPosts: 19,
-    EmployerPostJob: 20,
-    EmployerApplications: 21,
-    EmployerProfile: 22,
-    EmployerNotifications: 23,
-    EmployerMessages: 24,
+    Messages: 16, // WorkerInbox
+    Notifications: 17, // NotificationsInbox
+    Profile: 18,
+    Settings: 19,
+    EmployerJobPosts: 20,
+    EmployerPostJob: 21,
+    EmployerApplications: 22,
+    EmployerProfile: 23,
+    EmployerNotifications: 24,
+    EmployerMessages: 25, // EmployerInbox / EmployerMessages
   };
 
   const isSessionActive = currentScreen >= SCREEN.Dashboard;
@@ -87,7 +93,8 @@ export default function App() {
     if (role === 'work') return 'worker';
     return role;
   }, []);
-  const isEmployerRole = userRole === 'employer' || userRole === 'both' || userRole === 'hire';
+  // Treat 'both' as neutral: don't auto-switch to employer unless explicitly employer-only
+  const isEmployerRole = userRole === 'employer' || userRole === 'hire';
 
   const fetchUserRole = useCallback(async () => {
     try {
@@ -121,6 +128,65 @@ export default function App() {
 
     return null;
   }, [normalizeRole]);
+
+  // Initialize socket when ready and user is known
+  useEffect(() => {
+    let mounted = true;
+    const initSocket = async () => {
+      try {
+        const token = await AsyncStorage.getItem('auth_token');
+        const storedUser = await AsyncStorage.getItem('auth_user');
+        if (!token || !storedUser) return;
+        const parsed = JSON.parse(storedUser);
+        const userId = parsed?._id || parsed?.id || parsed?.userId;
+        if (!userId) return;
+
+        // avoid reconnecting
+        if (socketRef.current) return;
+
+        const socket = io(API_URL, { transports: ['websocket'], auth: { token } });
+        socketRef.current = socket;
+
+        socket.on('connect', () => {
+          console.log('socket connected', socket.id);
+          socket.emit('register', String(userId));
+        });
+
+        socket.on('new_application', (payload) => {
+          console.log('received new_application', payload);
+          // employer receives when a worker applies
+          setEmployerNotifications((prev) => [payload, ...prev]);
+        });
+
+        socket.on('application_status_updated', (payload) => {
+          console.log('received application_status_updated', payload);
+          // worker receives when employer updates status
+          setWorkerNotifications((prev) => [payload, ...prev]);
+        });
+        socket.on('new_message', (payload) => {
+          console.log('received new_message', payload);
+          setMessageEvents((prev) => [payload, ...prev]);
+        });
+
+        socket.on('new_message_echo', (payload) => {
+          console.log('received new_message_echo', payload);
+          setMessageEvents((prev) => [payload, ...prev]);
+        });
+      } catch (error) {
+        // ignore
+      }
+    };
+
+    if (isReady) initSocket();
+
+    return () => {
+      mounted = false;
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, [isReady]);
 
   const savedJobIds = useMemo(() => savedJobs.map((job) => job._id).filter(Boolean), [savedJobs]);
 
@@ -183,7 +249,7 @@ export default function App() {
           setActiveTab('Home');
           const role = await fetchUserRole();
           setUserRole(role);
-          if (role === 'employer' || role === 'both') {
+          if (role === 'employer') {
             setCurrentScreen(SCREEN.EmployerJobPosts);
           } else {
             setCurrentScreen(SCREEN.Dashboard);
@@ -290,7 +356,7 @@ export default function App() {
     setActiveTab('Home');
     const role = await fetchUserRole();
     setUserRole(role);
-    if (role === 'employer' || role === 'both') {
+    if (role === 'employer') {
       setActiveEmployerTab('Home');
       setCurrentScreen(SCREEN.EmployerJobPosts);
     } else {
@@ -413,10 +479,29 @@ export default function App() {
         handleGoToSaved();
         break;
       case 'Messages':
-        setCurrentScreen(SCREEN.Messages);
+        if (isEmployerRole) {
+          setActiveEmployerTab('Messages');
+          setCurrentScreen(SCREEN.EmployerMessages);
+        } else {
+          setCurrentScreen(SCREEN.Messages);
+        }
+        break;
+      case 'Notifications':
+        if (isEmployerRole) {
+          setActiveEmployerTab('Notifications');
+          setCurrentScreen(SCREEN.EmployerNotifications);
+        } else {
+          setCurrentScreen(SCREEN.Notifications);
+        }
         break;
       case 'Profile':
-        handleGoToProfile();
+          if (isEmployerRole) {
+            // navigate to employer profile without changing role state
+            setActiveEmployerTab('Profile');
+            setCurrentScreen(SCREEN.EmployerProfile);
+          } else {
+            handleGoToProfile();
+          }
         break;
       default:
         break;
@@ -556,7 +641,8 @@ export default function App() {
       onViewDetails={handleGoToJobDetails}
       onViewSavedJobs={handleGoToSaved}
     />,
-    <WorkerInbox activeTab={activeTab} onTabPress={handleTabPress} />,
+    <WorkerInbox activeTab={activeTab} onTabPress={handleTabPress} liveMessages={messageEvents} />,
+    <NotificationsInbox activeTab={activeTab} onTabPress={handleTabPress} liveNotifications={workerNotifications} />,
     <Profile
       activeTab={activeTab}
       onTabPress={handleTabPress}
@@ -601,7 +687,9 @@ export default function App() {
     <EmployerNotifications
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
+      liveNotifications={employerNotifications}
     />,
+    <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} liveMessages={messageEvents} />,
     <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} />,
   ];
 

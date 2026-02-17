@@ -169,22 +169,22 @@ const MessageController = {
     }
   },
 
-  // Mark messages as read
+  // Mark messages as read/unread
   markAsRead: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId, jobId } = req.body;
+      const { otherUserId, jobId, read } = req.body;
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (!userId) return res.status(401).json({ message: 'Authentication required.' });
       if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
       const filter = {
         sender: otherUserId,
         receiver: userId,
-        read: false,
       };
       if (normalizedJobId) filter.job = normalizedJobId;
-      await Message.updateMany(filter, { $set: { read: true } });
-      res.json({ message: 'Messages marked as read' });
+      const setRead = read === false ? false : true; // default to true
+      await Message.updateMany(filter, { $set: { read: setRead } });
+      res.json({ message: setRead ? 'Messages marked as read' : 'Messages marked as unread' });
     } catch (error) {
       res.status(500).json({ message: 'Server error', error: error.message });
     }
