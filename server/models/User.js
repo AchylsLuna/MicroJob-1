@@ -42,6 +42,16 @@ const UserSchema = new mongoose.Schema(
             enum: ["pending", "active", "disabled"],
             default: "pending",
         },
+        // Separate balances for employer (funds used to post jobs / escrow)
+        // and worker (funds received from completed jobs / payouts)
+        employerBalance: {
+            type: Number,
+            default: 0,
+        },
+        workerBalance: {
+            type: Number,
+            default: 0,
+        },
         city: {
             type: String,
             trim: true,

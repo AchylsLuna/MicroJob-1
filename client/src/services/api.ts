@@ -21,6 +21,8 @@ export type UserProfile = {
   endDate?: string;
   logoName?: string;
   resumeFileName?: string;
+  employerBalance?: number;
+  workerBalance?: number;
 };
 
 type RequestInitInput = Omit<RequestInit, 'body' | 'method'>;
@@ -124,6 +126,19 @@ export function selectApplicant(jobId: string, applicantId: string) {
 
 export function changeJobStatus(jobId: string, status: string) {
   return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status } });
+}
+
+// Payment APIs
+export function createTopUpSession(payload: { amount: number; target?: 'EMPLOYER' | 'WORKER' | 'BOTH' }) {
+  return request<{ checkoutUrl: string; referenceNumber?: string; checkoutId?: string }>('/payment/topup', { method: 'POST', body: payload });
+}
+
+export function confirmTopUp(payload: { referenceNumber?: string; checkoutId?: string }) {
+  return request<{ message: string; transaction?: any }>('/payment/topup/confirm', { method: 'POST', body: payload });
+}
+
+export function getTransactions() {
+  return request<{ transactions: any[] }>('/payment/transactions', { method: 'GET' });
 }
 
 // User APIs

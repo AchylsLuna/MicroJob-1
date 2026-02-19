@@ -11,6 +11,7 @@ import FindJobs from "./pages/FindJobs";
 import JobDetails from "./pages/JobDetails";
 import Settings from "./pages/Settings";
 import EWallet from "./pages/EWallet";
+import TopupSuccess from "./pages/topupSuccess";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { AppliedJobs, SavedJobs } from "./pages/worker";
 import NotificationsRouter from "./pages/NotificationsRouter";
@@ -142,6 +143,7 @@ const App: React.FC = () => {
           <Route path="/job-details/:jobId" element={<JobDetails />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/e-wallet" element={<EWallet />} />
+          <Route path="/topup-success" element={<TopupSuccess />} />
 
           <Route path="/worker/applied-jobs" element={<AppliedJobs />} />
           <Route path="/worker/saved-jobs" element={<SavedJobs />} />

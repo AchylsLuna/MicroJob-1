@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
-import Job from '../models/Job.js'
+import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
+import User from '../models/User.js';
+import Transaction from '../models/Transaction.js';
 
 export async function getJobList(req, res) {
     try {
@@ -118,7 +120,7 @@ export async function createJob(req, res){
             urgent,
             positionsNeeded
         } = req.body;
-        const jobPoster = req.user.id;
+        const jobPosterId = req.user?.userId || req.user?.id;
         
         const missingFields = [];
         if (!title) missingFields.push('title');
@@ -134,11 +136,29 @@ export async function createJob(req, res){
             });
         }
 
+        const salaryAmount = Number(salary);
+        const positions = positionsNeeded ? Number(positionsNeeded) : 1;
+
+        // total escrow required (salary per worker * positions)
+        const totalEscrow = salaryAmount * positions;
+
+        // 1. Check if user has enough balance
+        const poster = await User.findById(jobPosterId);
+        if (!poster) return res.status(404).json({ message: 'Job poster not found.' });
+        if ((poster.employerBalance || 0) < totalEscrow) {
+            return res.status(400).json({ message: 'Insufficient employer wallet balance. Please top up.' });
+        }
+
+        // 2. Deduct the balance (move to escrow)
+        poster.employerBalance = (poster.employerBalance || 0) - totalEscrow;
+        await poster.save();
+
+        // 3. Create the job (funds are now effectively in "escrow")
         const newJob = new Job({
             title,
             description,
             location,
-            salary,
+            salary: salaryAmount,
             jobType,
             deadline,
             skills: skills || [],
@@ -146,14 +166,24 @@ export async function createJob(req, res){
             requirements: requirements || [],
             category,
             image,
-            jobPoster,
-            urgent: Boolean(urgent)
-            ,
-            positionsNeeded: positionsNeeded ? Number(positionsNeeded) : 1
+            jobPoster: jobPosterId,
+            urgent: Boolean(urgent),
+            positionsNeeded: positions
         });
-
         await newJob.save();
-        res.status(201).json({message: "Job created successfully.", job: newJob});
+
+        // 4. Record the transaction in the ledger (ESCROW)
+        await Transaction.create({
+            sender: poster._id,
+            receiver: null, // Escrow
+            amount: totalEscrow,
+            type: 'ESCROW',
+            jobReference: newJob._id,
+            label: `Escrow (Job ${newJob._id})`
+        });
+        try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_escrow', ip: req.ip || null, userAgent: req.get('user-agent'), amount: totalEscrow, status: 'success', meta: { job: newJob._id } }); } catch (e) {}
+
+        res.status(201).json({message: "Job created and funds secured.", job: newJob});
     } catch (error) {
         console.error('Create job error:', error);
         res.status(500).json({message: "Failed to create job.", error: error.message});
@@ -169,11 +199,74 @@ export async function changeJobStatus(req, res){
         if(!statusOptions.includes(status)) {
             return res.status(400).json({message: "Invalid status value."});
         }
-        const job = await Job.findByIdAndUpdate(id, {status}, {new: true});
-        if(!job) {
-            return res.status(404).json({message: "Job not found."});
+        const job = await Job.findById(id);
+        if(!job) return res.status(404).json({message: "Job not found."});
+
+        if (status === 'Completed' && job.status !== 'Completed') {
+            // When completing a job, pay out all applicants that were marked as Hired
+            const hiredApplications = await JobApplication.find({ job: job._id, status: 'Hired' });
+            if (!hiredApplications || hiredApplications.length === 0) {
+                return res.status(400).json({ message: 'No hired applicants to pay out.' });
+            }
+
+            for (const app of hiredApplications) {
+                try {
+                    const worker = await User.findById(app.applicant);
+                    if (!worker) continue;
+                    worker.workerBalance = (worker.workerBalance || 0) + job.salary;
+                    await worker.save();
+
+                    await Transaction.create({
+                        sender: null, // From escrow
+                        receiver: worker._id,
+                        amount: job.salary,
+                        type: 'PAYOUT',
+                        jobReference: job._id,
+                        label: `Payout (Job ${job._id})`
+                    });
+                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: null, action: 'job_payout', ip: req.ip || null, userAgent: req.get('user-agent'), amount: job.salary, status: 'success', meta: { job: job._id, worker: worker._id } }); } catch (e) {}
+                } catch (e) {
+                    console.warn('Failed to payout worker for job completion', e);
+                }
+            }
         }
-        res.status(200).json({message: "Job status updated."}, job);
+
+        // Handle Refund logic if status is changing to Cancelled (refund remaining escrow)
+        if (status === 'Cancelled' && job.status !== 'Cancelled' && job.status !== 'Completed') {
+            const poster = await User.findById(job.jobPoster);
+            if (poster) {
+                // Calculate total escrow originally held for this job
+                const totalEscrow = job.salary * (job.positionsNeeded || 1);
+
+                // Sum payouts already made for this job
+                const payouts = await Transaction.aggregate([
+                    { $match: { jobReference: job._id, type: 'PAYOUT' } },
+                    { $group: { _id: null, totalPaid: { $sum: '$amount' } } }
+                ]);
+                const totalPaid = (payouts[0] && payouts[0].totalPaid) || 0;
+
+                const refundAmount = Math.max(0, totalEscrow - totalPaid);
+                if (refundAmount > 0) {
+                    poster.employerBalance = (poster.employerBalance || 0) + refundAmount;
+                    await poster.save();
+
+                    await Transaction.create({
+                        sender: null,
+                        receiver: poster._id,
+                        amount: refundAmount,
+                        type: 'REFUND',
+                        jobReference: job._id,
+                        label: `Refund (Job ${job._id})`
+                    });
+                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_refund', ip: req.ip || null, userAgent: req.get('user-agent'), amount: refundAmount, status: 'success', meta: { job: job._id } }); } catch (e) {}
+                }
+            }
+        }
+
+        job.status = status;
+        await job.save();
+
+        res.status(200).json({message: "Job status updated.", job});
     } catch (error) {
         res.status(500).json({message: "Failed to change job status."});
     }
@@ -200,6 +293,8 @@ export async function applyForJob(req, res){
             return res.status(400).json({message: "You cannot apply for your own job."});
         }
         job.applicants.push(userId);
+
+        await job.save();
 
         return res.status(200).json({message: "Successfully applied for the job.", job});
     } catch (error) {

@@ -10,6 +10,23 @@ import { initSocket } from './lib/socket.js';
 const app = express();
 const server = http.createServer(app);
 
+// Security: trust proxy (for HTTPS enforcement behind a proxy)
+app.set('trust proxy', 1);
+
+// Enforce HTTPS and HSTS in production
+if (process.env.NODE_ENV === 'production') {
+    app.use((req, res, next) => {
+        const proto = req.headers['x-forwarded-proto'] || req.protocol;
+        if (proto && proto !== 'https') {
+            // Redirect to https
+            return res.redirect(`https://${req.headers.host}${req.url}`);
+        }
+        // Set HSTS header for browsers to enforce HTTPS
+        res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+        next();
+    });
+}
+
 //Connection Config
 const config = {
     PORT: process.env.PORT || 5000,
@@ -31,10 +48,10 @@ app.use(express.urlencoded({ extended: true}));
 
 // Allow CORS including PATCH and preflight for the client
 app.use(cors({
-    origin: '*', // Allow all origins for mobile/dev
+    origin: process.env.NODE_ENV === 'production' ? config.ORIGIN : '*',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     preflightContinue: false,
 }));
 
@@ -48,6 +65,8 @@ import UserRoute from './routes/UserRoute.js';
 import authRoutes from './routes/authRoutes.js';
 import JobApplicationRoute from './routes/JobApplicationRoute.js';
 import MessageRoute from './routes/MessageRoute.js';
+import paymentRoutes from './routes/PaymentRoute.js';
+
 
 app.get('/', (req, res) => {
     res.json({ message: 'Backend server is running' });
@@ -62,6 +81,7 @@ app.use('/api/jobs', JobRoute);
 app.use('/api/users', UserRoute);
 app.use('/api', JobApplicationRoute);
 app.use('/api/messages', MessageRoute);
+app.use('/api/payment', paymentRoutes);
 
 //Error handler
 app.use((err, req, res, next) => {

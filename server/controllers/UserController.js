@@ -169,7 +169,7 @@ export async function getProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName"
+            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName employerBalance workerBalance"
         );
 
         if (!user) {

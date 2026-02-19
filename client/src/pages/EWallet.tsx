@@ -1,66 +1,165 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { createTopUpSession, getTransactions, getUserProfile, confirmTopUp } from "../services/api";
 
 const EWallet: React.FC = () => {
+  const [balance, setBalance] = useState<number | null>(null);
+  const [employerBalance, setEmployerBalance] = useState<number | null>(null);
+  const [workerBalance, setWorkerBalance] = useState<number | null>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [amount, setAmount] = useState<number>(0);
+  const MIN_TOPUP = 100;
+  const [target, setTarget] = useState<'EMPLOYER' | 'WORKER' | 'BOTH'>('EMPLOYER');
+  const [isBothRole, setIsBothRole] = useState(false);
+  const pollingRef = React.useRef<number | null>(null);
+  const prevEmployerRef = React.useRef<number>(0);
+  const prevWorkerRef = React.useRef<number>(0);
 
-  const quickActions = [
-    { label: "Top Up", icon: "➕" },
-    { label: "Withdraw", icon: "⬇️" },
-    { label: "Send", icon: "✉️" },
-  ];
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      const res = await getUserProfile();
+      setEmployerBalance(res.profile?.employerBalance ?? 0);
+      setWorkerBalance(res.profile?.workerBalance ?? 0);
+      if (res.profile?.role === 'both') {
+        setIsBothRole(true);
+        setTarget('BOTH');
+      } else {
+        setIsBothRole(false);
+      }
+    } catch (err) {
+      console.error('Failed to load profile', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const stats = [
-    { label: "This Month Income", value: "₱43,000", badge: "+24%", badgeColor: "bg-green-100 text-green-700" },
-    { label: "Pending Payments", value: "₱18,500", badge: "8 Jobs", badgeColor: "bg-blue-100 text-blue-700" },
-    { label: "Completed Jobs", value: "₱82,000", badge: "12 Total", badgeColor: "bg-yellow-100 text-yellow-700" },
-  ];
+  function TypeIcon({ type }: { type: string }) {
+    // simple SVG "stickers" instead of emoji
+    if (type === 'TOP_UP') return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+        <circle cx="12" cy="12" r="10" fill="#0b47a1" />
+        <path d="M12 8v8M8 12h8" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+    if (type === 'PAYOUT') return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+        <circle cx="12" cy="12" r="10" fill="#0b47a1" />
+        <path d="M7 12h10M12 7v10" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+    if (type === 'ESCROW') return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+        <circle cx="12" cy="12" r="10" fill="#0b47a1" />
+        <path d="M8 11v-1a4 4 0 118 0v1" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+        <circle cx="12" cy="12" r="10" fill="#0b47a1" />
+        <path d="M9 12h6" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
 
-  const transactions = [
-    {
-      id: 1,
-      title: "Payment received from Tech Solutions Inc.",
-      date: "Feb 1, 2026",
-      type: "Job Payment",
-      amount: "+₱25,000",
-      status: "Completed",
-      isCredit: true,
-    },
-    {
-      id: 2,
-      title: "Withdrawal to Bank Account",
-      date: "Jan 30, 2026",
-      type: "Withdrawal",
-      amount: "-₱10,000",
-      status: "Completed",
-      isCredit: false,
-    },
-    {
-      id: 3,
-      title: "Payment received from Innovation Labs",
-      date: "Jan 28, 2026",
-      type: "Job Payment",
-      amount: "+₱18,000",
-      status: "Completed",
-      isCredit: true,
-    },
-    {
-      id: 4,
-      title: "Platform Fee",
-      date: "Jan 28, 2026",
-      type: "Fee",
-      amount: "-₱500",
-      status: "Completed",
-      isCredit: false,
-    },
-    {
-      id: 5,
-      title: "Bonus Payment",
-      date: "Jan 25, 2026",
-      type: "Bonus",
-      amount: "+₱5,000",
-      status: "Completed",
-      isCredit: true,
-    },
-  ];
+  const loadTransactions = async () => {
+    try {
+      const res = await getTransactions();
+      setTransactions(res.transactions || []);
+    } catch (err) {
+      console.error('Failed to load transactions', err);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+    loadTransactions();
+  }, []);
+
+  const handleTopUp = async () => {
+    try {
+      setLoading(true);
+      const res = await createTopUpSession({ amount, target });
+      if (res.checkoutUrl) {
+        // capture current balances so we can detect the update
+        prevEmployerRef.current = employerBalance ?? 0;
+        prevWorkerRef.current = workerBalance ?? 0;
+
+        // open checkout in new tab
+        window.open(res.checkoutUrl, '_blank');
+
+        // start polling to detect balance change (for up to 60s)
+        const start = Date.now();
+        pollingRef.current = window.setInterval(async () => {
+          try {
+            // first try server-side confirmation by checkoutId if available
+            if (res.checkoutId) {
+              try {
+                const confirmRes = await confirmTopUp({ checkoutId: res.checkoutId });
+                if (confirmRes?.message?.toLowerCase().includes('top-up') || confirmRes?.transaction || confirmRes?.transactions) {
+                  // success: stop both intervals
+                  if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+                  // refresh profile and transactions
+                  const profileRes2 = await getUserProfile();
+                  const newEmployer2 = profileRes2.profile?.employerBalance ?? 0;
+                  const newWorker2 = profileRes2.profile?.workerBalance ?? 0;
+                  setEmployerBalance(newEmployer2);
+                  setWorkerBalance(newWorker2);
+                  await loadTransactions();
+                  window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Top-up successful — your balance has been updated.', type: 'success' } }));
+                  return;
+                }
+              } catch (e) {
+                // ignore errors from confirm attempts and continue with profile polling
+                console.debug('confirmTopUp attempt failed', e?.message || e);
+              }
+            }
+            // fetch fresh profile directly to avoid stale React state inside interval
+            const profileRes = await getUserProfile();
+            const newEmployer = profileRes.profile?.employerBalance ?? 0;
+            const newWorker = profileRes.profile?.workerBalance ?? 0;
+
+            let detected = false;
+            if (target === 'EMPLOYER') {
+              if (newEmployer > prevEmployerRef.current) detected = true;
+            } else if (target === 'WORKER') {
+              if (newWorker > prevWorkerRef.current) detected = true;
+            } else { // BOTH
+              if (newEmployer > prevEmployerRef.current || newWorker > prevWorkerRef.current) detected = true;
+            }
+
+            if (detected) {
+              // stop polling
+              if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+              // update UI balances from fresh data
+              setEmployerBalance(newEmployer);
+              setWorkerBalance(newWorker);
+              // refresh transactions
+              await loadTransactions();
+              // dispatch a toast event handled by the ToastProvider
+              window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Top-up successful — your balance has been updated.', type: 'success' } }));
+            }
+
+            // timeout after 60s
+            if (Date.now() - start > 60_000) {
+              if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+            }
+          } catch (e) {
+            console.error('Polling error', e);
+          }
+        }, 3000);
+      }
+    } catch (err: any) {
+      alert(err?.message || 'Failed to initiate top up');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // clear polling on unmount
+  useEffect(() => {
+    return () => { if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; } };
+  }, []);
 
   return (
     <div>
@@ -68,105 +167,139 @@ const EWallet: React.FC = () => {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-900">E-Wallet</h1>
           <div className="flex items-center gap-3">
-            <button className="relative h-9 w-9 rounded-full border border-sky-200 flex items-center justify-center text-sky-600">
-              🔔
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                3
-              </span>
+            <button className="relative h-9 w-9 rounded-full border border-blue-200 flex items-center justify-center text-blue-700 bg-white">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                <path d="M15 17H9" stroke="#0b47a1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M12 3v2.5" stroke="#0b47a1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M18 8a6 6 0 01-12 0" stroke="#0b47a1" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">3</span>
             </button>
-            <div className="h-9 w-9 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center font-semibold">
-              JD
-            </div>
+            <div className="h-9 w-9 rounded-full bg-blue-800 text-white flex items-center justify-center font-semibold">JD</div>
           </div>
         </div>
       </div>
 
       <div className="px-8 py-6">
-          <div className="bg-gradient-to-r from-sky-600 to-sky-400 rounded-2xl p-6 text-white shadow-sm">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sky-100 text-base">Total Balance</p>
-                <h2 className="text-4xl font-extrabold mt-1">₱71,201</h2>
-              </div>
-              <button className="h-12 w-12 rounded-xl bg-white/30 text-white flex items-center justify-center text-xl">
-                ➕
-              </button>
+        <div className="bg-gradient-to-r from-blue-900 to-blue-700 rounded-2xl p-6 text-white shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-blue-100 text-base">Employer Balance</p>
+              <h2 className="text-4xl font-extrabold mt-1">{loading ? 'Loading...' : `₱${(employerBalance ?? 0).toLocaleString()}`}</h2>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-              <div className="bg-white/20 rounded-xl p-4">
-                <p className="text-sky-100 text-sm">Total Income</p>
-                <p className="text-2xl font-bold">₱82,000</p>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center border border-gray-200 rounded-md overflow-hidden bg-white">
+                <span className="px-3 text-gray-700">₱</span>
+                {
+                  (() => {
+                    const formattedAmount = (amount && amount !== 0) ? amount.toLocaleString() : '';
+                    return (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0"
+                        aria-label="Top up amount"
+                        value={formattedAmount}
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/,/g, '').replace(/[^0-9.]/g, '');
+                          const parsed = raw ? Number(raw) : 0;
+                          setAmount(parsed);
+                        }}
+                        className="p-2 text-black w-28 outline-none"
+                      />
+                    );
+                  })()
+                }
               </div>
-              <div className="bg-white/20 rounded-xl p-4">
-                <p className="text-sky-100 text-sm">Total Expenses</p>
-                <p className="text-2xl font-bold">₱10,799</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
-              {quickActions.map((action) => (
-                <button
-                  key={action.label}
-                  className="bg-white/25 hover:bg-white/35 transition rounded-xl py-3 font-semibold text-lg flex items-center justify-center gap-2"
-                >
-                  <span className="text-lg">{action.icon}</span>
-                  {action.label}
-                </button>
-              ))}
+              <div className="text-xs text-gray-500 mt-1">Enter amount (min ₱100). Commas added automatically.</div>
+              {!isBothRole && (
+                <select value={target} onChange={(e) => setTarget(e.target.value as any)} className="rounded-md p-2 text-black">
+                  <option value="EMPLOYER">Employer</option>
+                  <option value="WORKER">Worker</option>
+                </select>
+              )}
+              <button onClick={handleTopUp} disabled={loading || amount < MIN_TOPUP} className={`h-12 px-4 rounded-xl ${amount >= MIN_TOPUP ? 'bg-blue-800 text-white' : 'bg-gray-100 text-gray-400 cursor-not-allowed'} font-semibold`}>Top Up</button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-            {stats.map((stat) => (
-              <div key={stat.label} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-start justify-between">
+          
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div className="bg-white/20 rounded-xl p-4">
+              <p className="text-sky-100 text-sm">Total Income</p>
+              <p className="text-2xl font-bold">₱82,000</p>
+            </div>
+            <div className="bg-white/20 rounded-xl p-4">
+              <p className="text-sky-100 text-sm">Total Expenses</p>
+              <p className="text-2xl font-bold">₱10,799</p>
+            </div>
+          </div>
+        </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mt-6">
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">Worker Balance: <span className="font-semibold">₱{(workerBalance ?? 0).toLocaleString()}</span></p>
+              </div>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">Recent Transactions</h3>
+            <button onClick={loadTransactions} className="text-sky-600 text-sm font-semibold hover:text-sky-700">Refresh</button>
+          </div>
+
+          <div className="divide-y divide-gray-100">
+            {transactions.length === 0 && <p className="text-gray-500">No transactions yet</p>}
+            {transactions.map((tx) => {
+              const when = new Date(tx.createdAt).toLocaleDateString();
+              const subject = tx.jobReference?.title ? tx.jobReference.title : (tx.jobReference ? 'Job' : 'Wallet');
+              const actorName = tx.actor?.name || tx.sender?.name || 'System';
+
+              // amount sign and color by type
+              let amountSign = '';
+              let amountColor = 'text-gray-700';
+              if (tx.type === 'TOP_UP' || tx.type === 'PAYOUT' || tx.type === 'REFUND') {
+                amountSign = '+';
+                amountColor = 'text-green-600';
+              } else if (tx.type === 'ESCROW') {
+                // escrow is money held from poster, display as negative
+                amountSign = '-';
+                amountColor = 'text-red-500';
+              }
+
+              return (
+              <div key={tx._id || tx.id} className="py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${tx.receiver && tx.receiver === tx._id ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                    <TypeIcon type={tx.type} />
+                  </div>
                   <div>
-                    <p className="text-gray-500 text-base">{stat.label}</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
+                    {
+                      (() => {
+                        const title = tx.label || (tx.type + (tx.reference ? ` · ${tx.reference}` : ''));
+                        return <p className="text-gray-900 font-semibold text-base">{title}</p>;
+                      })()
+                    }
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <span>{when}</span>
+                      <span>•</span>
+                      <span>{subject}</span>
+                      <span>•</span>
+                      <span>By: {actorName}</span>
+                    </div>
+                    {tx.meta && tx.reference && tx.label && (
+                      <div className="text-xs text-gray-400 mt-1">Ref: {tx.reference}</div>
+                    )}
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${stat.badgeColor}`}>
-                    {stat.badge}
-                  </span>
+                </div>
+                <div className="text-right">
+                  <p className={`text-lg font-bold ${amountColor}`}>
+                    {amountSign}₱{Math.abs(tx.amount)}
+                  </p>
+                  <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded-full">{tx.type}</span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
-
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Recent Transactions</h3>
-              <button className="text-sky-600 text-sm font-semibold hover:text-sky-700">
-                View All →
-              </button>
-            </div>
-
-            <div className="divide-y divide-gray-100">
-              {transactions.map((tx) => (
-                <div key={tx.id} className="py-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`h-10 w-10 rounded-xl flex items-center justify-center ${tx.isCredit ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"}`}>
-                      {tx.isCredit ? "➕" : "➖"}
-                    </div>
-                    <div>
-                      <p className="text-gray-900 font-semibold text-base">{tx.title}</p>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>{tx.date}</span>
-                        <span>•</span>
-                        <span>{tx.type}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-lg font-bold ${tx.isCredit ? "text-green-600" : "text-red-500"}`}>{tx.amount}</p>
-                    <span className="text-xs text-green-700 bg-green-100 px-2 py-1 rounded-full">
-                      {tx.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        </div>
       </div>
     </div>
   );
