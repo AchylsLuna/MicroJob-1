@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
 import Job from '../models/Job.js'
+import User from '../models/User.js';
+import Transaction from '../models/Transaction.js';
 
 export async function getJobList(req, res) {
     try {
@@ -132,24 +134,35 @@ export async function createJob(req, res){
             });
         }
 
+        const salaryAmount = Number(salary);
+
+        // 1. Check if user has enough balance
+        const poster = await User.findById(jobPoster);
+        if (poster.walletBalance < salaryAmount) {
+            return res.status(400).json({ message: "Insufficient wallet balance. Please top up." });
+        }
+        // 2. Deduct the balance
+        poster.walletBalance -= salaryAmount;
+        await poster.save();
+
+        // 3. Create the job (funds are now effectively in "escrow")
         const newJob = new Job({
-            title,
-            description,
-            location,
-            salary,
-            jobType,
-            deadline,
-            skills: skills || [],
-            responsibilities: responsibilities || [],
-            requirements: requirements || [],
-            category,
-            image,
-            jobPoster,
-            urgent: Boolean(urgent)
+            title, description, location, salary: salaryAmount, jobType, deadline,
+            skills: skills || [], responsibilities: responsibilities || [], requirements: requirements || [],
+            category, image, jobPoster: jobPosterId, urgent: Boolean(urgent)
+        });
+        await newJob.save();
+
+        // 4. Record the transaction in the ledger
+        await Transaction.create({
+            sender: jobPosterId,
+            receiver: null, // Escrow
+            amount: salaryAmount,
+            type: 'ESCROW',
+            jobReference: newJob._id
         });
 
-        await newJob.save();
-        res.status(201).json({message: "Job created successfully.", job: newJob});
+        res.status(201).json({message: "Job created and funds secured.", job: newJob});
     } catch (error) {
         console.error('Create job error:', error);
         res.status(500).json({message: "Failed to create job.", error: error.message});
@@ -165,11 +178,41 @@ export async function changeJobStatus(req, res){
         if(!statusOptions.includes(status)) {
             return res.status(400).json({message: "Invalid status value."});
         }
-        const job = await Job.findByIdAndUpdate(id, {status}, {new: true});
-        if(!job) {
-            return res.status(404).json({message: "Job not found."});
+        const job = await Job.findById(id);
+        if(!job) return res.status(404).json({message: "Job not found."});
+
+        if (status === 'Completed' && job.status !== 'Completed') {
+            if (!job.selectedApplicant) {
+                return res.status(400).json({message: "Cannot complete job without a selected worker."});
+            }
+
+            // Find worker and add funds
+            const worker = await User.findById(job.selectedApplicant);
+            worker.walletBalance += job.salary;
+            await worker.save();
+
+            // Record the transaction
+            await Transaction.create({
+                sender: null, // From Escrow
+                receiver: worker._id,
+                amount: job.salary,
+                type: 'PAYOUT',
+                jobReference: job._id
+            });
         }
-        res.status(200).json({message: "Job status updated."}, job);
+
+        // Handle Refund logic if status is changing to Cancelled
+        if (status === 'Cancelled' && job.status !== 'Cancelled' && job.status !== 'Completed') {
+             const poster = await User.findById(job.jobPoster);
+             poster.walletBalance += job.salary; // Refund escrow
+             await poster.save();
+             // (Optional: Create a REFUND transaction record here)
+        }
+
+        job.status = status;
+        await job.save();
+
+        res.status(200).json({message: "Job status updated.", job});
     } catch (error) {
         res.status(500).json({message: "Failed to change job status."});
     }

@@ -42,6 +42,10 @@ const UserSchema = new mongoose.Schema(
             enum: ["pending", "active", "disabled"],
             default: "pending",
         },
+        walletBalance: {
+            type: Number,
+            default: 0,
+        },
         city: {
             type: String,
             trim: true,

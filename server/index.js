@@ -48,6 +48,8 @@ import UserRoute from './routes/UserRoute.js';
 import authRoutes from './routes/authRoutes.js';
 import JobApplicationRoute from './routes/JobApplicationRoute.js';
 import MessageRoute from './routes/MessageRoute.js';
+import paymentRoutes from './routes/PaymentRoute.js';
+
 
 app.get('/', (req, res) => {
     res.json({ message: 'Backend server is running' });
@@ -62,6 +64,7 @@ app.use('/api/jobs', JobRoute);
 app.use('/api/users', UserRoute);
 app.use('/api', JobApplicationRoute);
 app.use('/api/messages', MessageRoute);
+app.use('/api/payment', paymentRoutes);
 
 //Error handler
 app.use((err, req, res, next) => {
