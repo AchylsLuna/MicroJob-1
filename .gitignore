@@ -1,7 +1,4 @@
-server/.env
-**/.env
 .env
-.env.*
 server/serviceAccountKey.json
 
 node_modules
