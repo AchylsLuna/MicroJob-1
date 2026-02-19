@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import logo from "../assets/MicroIcon.png";
-import bagIcon1 from "../assets/dashboard/bagIcon1.png";
-import bagtransIcon from "../assets/dashboard/bagtransIcon.png";
-import clockIcon from "../assets/dashboard/clockIcon.png";
-import helpIcon from "../assets/dashboard/helpIcon.png";
-import logoutIcon from "../assets/dashboard/logoutIcon.png";
-import mailIcon from "../assets/dashboard/mailIcon.png";
-import messageIcon from "../assets/dashboard/messageIcon.png";
-import messageIcon1 from "../assets/dashboard/messageIcon1.png";
-import searchIcon from "../assets/dashboard/searchIcon.png";
-import settingsIcon from "../assets/dashboard/settingsIcon.png";
-import starIcon from "../assets/dashboard/starIcon.png";
-import walletIcon from "../assets/dashboard/walletIcon.png";
+import {
+  Bell,
+  Briefcase,
+  CircleHelp,
+  ClipboardList,
+  LogOut,
+  Mail,
+  MessageSquare,
+  Plus,
+  Search,
+  Settings as SettingsIcon,
+  Star,
+  Wallet,
+} from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { jobsAPI } from "../services/jobs";
 
@@ -41,7 +42,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const stored = localStorage.getItem("sidebar_active_role");
     return stored === "hire" ? "hire" : "work";
   });
-  const authUser = useAuth();
+  const { user: authUser } = useAuth();
 
   const loadProfilePhoto = () => {
     try {
@@ -120,19 +121,19 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: "support", label: "Support", path: "/support" },
   ];
 
-  const iconMap: Record<string, string> = {
-    dashboard: starIcon,
-    "find-jobs": searchIcon,
-    "applied-jobs": mailIcon,
-    "post-job": bagtransIcon,
-    "job-posts": bagIcon1,
-    applications: messageIcon1,
-    messages: messageIcon,
-    "e-wallet": walletIcon,
-    notifications: clockIcon,
-    settings: settingsIcon,
-    support: helpIcon,
-    logout: logoutIcon,
+  const iconMap: Record<string, React.ReactNode> = {
+    dashboard: <Star className="h-5 w-5" />,
+    "find-jobs": <Search className="h-5 w-5" />,
+    "applied-jobs": <Mail className="h-5 w-5" />,
+    "post-job": <Plus className="h-5 w-5" />,
+    "job-posts": <Briefcase className="h-5 w-5" />,
+    applications: <ClipboardList className="h-5 w-5" />,
+    messages: <MessageSquare className="h-5 w-5" />,
+    "e-wallet": <Wallet className="h-5 w-5" />,
+    notifications: <Bell className="h-5 w-5" />,
+    settings: <SettingsIcon className="h-5 w-5" />,
+    support: <CircleHelp className="h-5 w-5" />,
+    logout: <LogOut className="h-5 w-5" />,
   };
 
   const [notifCount, setNotifCount] = useState<number>(0);
@@ -164,12 +165,9 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [userRoleFromAuth]);
 
   const renderIcon = (iconKey: string) => (
-    <img
-      src={iconMap[iconKey] || starIcon}
-      alt=""
-      aria-hidden="true"
-      className="h-5 w-5 grayscale"
-    />
+    <span aria-hidden="true" className="text-current">
+      {iconMap[iconKey] || <Star className="h-5 w-5" />}
+    </span>
   );
 
   return (
@@ -185,7 +183,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="flex items-center gap-2 cursor-pointer"
           onClick={() => navigate("/")}
         >
-          <img src={logo} alt="MicroJobs Logo" className="h-8 w-8" />
+          <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 font-bold flex items-center justify-center">
+            M
+          </div>
           {!isCollapsed && (
             <span className="text-xl font-bold text-black">MicroJobs</span>
           )}

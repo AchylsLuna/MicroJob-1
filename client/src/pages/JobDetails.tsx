@@ -7,7 +7,7 @@ const JobDetails: React.FC = () => {
   const navigate = useNavigate();
   const { jobId } = useParams();
   const location = useLocation();
-  const authUser = useAuth();
+  const { user: authUser } = useAuth();
   const [showApplyModal, setShowApplyModal] = useState(false);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [coverLetter, setCoverLetter] = useState("");
@@ -93,7 +93,7 @@ const JobDetails: React.FC = () => {
     };
   }, [job]);
 
-  const authUserId = authUser?.id || (authUser as any)?._id;
+  const authUserId = authUser?.id;
   const isOwnJob = !!authUserId && (jobData?.jobPoster?._id || jobData?.jobPoster?.id) === authUserId;
 
   return (

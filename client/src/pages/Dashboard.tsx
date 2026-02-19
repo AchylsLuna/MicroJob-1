@@ -55,7 +55,7 @@ type ProfileSettings = {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const authUser = useAuth();
+  const { user: authUser } = useAuth();
   const [userName, setUserName] = useState("Jonas Dick");
   const [userEmail, setUserEmail] = useState("you@example.com");
   const [activeVacancyTab, setActiveVacancyTab] = useState("Application Sent");

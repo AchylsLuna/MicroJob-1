@@ -1,5 +1,5 @@
 import { Outlet } from "react-router-dom";
-import { Sidebar } from "./Sidebar";
+import Sidebar from "./Sidebar";
 import { Toaster } from "../lib/toast";
 import { NavBar } from "./NavBar";
 
