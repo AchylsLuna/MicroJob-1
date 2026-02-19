@@ -41,6 +41,8 @@ export default function App() {
   const [savedJobs, setSavedJobs] = useState([]);
   const [selectedEmployerJob, setSelectedEmployerJob] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const [viewMode, setViewMode] = useState('worker');
+  const [explicitEmployerView, setExplicitEmployerView] = useState(false);
   const socketRef = useRef(null);
   const [workerNotifications, setWorkerNotifications] = useState([]);
   const [employerNotifications, setEmployerNotifications] = useState([]);
@@ -356,6 +358,8 @@ export default function App() {
     setActiveTab('Home');
     const role = await fetchUserRole();
     setUserRole(role);
+    setViewMode('worker');
+    setExplicitEmployerView(false);
     if (role === 'employer') {
       setActiveEmployerTab('Home');
       setCurrentScreen(SCREEN.EmployerJobPosts);
@@ -412,11 +416,13 @@ export default function App() {
 
   const handleGoToMessages = () => {
     setActiveTab('Messages');
+    setViewMode('worker');
     setCurrentScreen(SCREEN.Messages);
   };
 
   const handleGoToProfile = () => {
     setActiveTab('Profile');
+    setViewMode('worker');
     setCurrentScreen(SCREEN.Profile);
   };
 
@@ -431,6 +437,8 @@ export default function App() {
           text: 'Switch',
           onPress: async () => {
             setUserRole(normalizedRole);
+            setViewMode(normalizedRole === 'employer' ? 'employer' : 'worker');
+            setExplicitEmployerView(normalizedRole === 'employer');
             try {
               const storedUser = await AsyncStorage.getItem('auth_user');
               if (storedUser) {
@@ -466,7 +474,10 @@ export default function App() {
   const handleTabPress = (tab) => {
     switch (tab) {
       case 'Home':
-        if (isEmployerRole) {
+        // Only switch to the employer section if the user explicitly switched
+        // to employer view. This prevents auto-switching when a user with
+        // employer privileges is using the worker UI.
+        if (isEmployerRole && explicitEmployerView) {
           handleGoToEmployerPosts();
         } else {
           handleGoToDashboard();
@@ -479,29 +490,35 @@ export default function App() {
         handleGoToSaved();
         break;
       case 'Messages':
-        if (isEmployerRole) {
+        if (isEmployerRole && explicitEmployerView) {
           setActiveEmployerTab('Messages');
           setCurrentScreen(SCREEN.EmployerMessages);
         } else {
+          setViewMode('worker');
+          setExplicitEmployerView(false);
           setCurrentScreen(SCREEN.Messages);
         }
         break;
       case 'Notifications':
-        if (isEmployerRole) {
+        if (isEmployerRole && explicitEmployerView) {
           setActiveEmployerTab('Notifications');
           setCurrentScreen(SCREEN.EmployerNotifications);
         } else {
+          setViewMode('worker');
+          setExplicitEmployerView(false);
           setCurrentScreen(SCREEN.Notifications);
         }
         break;
       case 'Profile':
-          if (isEmployerRole) {
-            // navigate to employer profile without changing role state
-            setActiveEmployerTab('Profile');
-            setCurrentScreen(SCREEN.EmployerProfile);
-          } else {
-            handleGoToProfile();
-          }
+        // Only switch to employer profile if the user explicitly switched
+        // to employer view.
+        if (isEmployerRole && explicitEmployerView) {
+          setActiveEmployerTab('Profile');
+          setCurrentScreen(SCREEN.EmployerProfile);
+        } else {
+          setExplicitEmployerView(false);
+          handleGoToProfile();
+        }
         break;
       default:
         break;
