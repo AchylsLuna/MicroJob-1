@@ -56,6 +56,8 @@ const UserSchema = new mongoose.Schema(
             enum: ["hire", "work", "both", "admin", "superadmin"],
             default: "work",
         },
+            blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+            archivedConversations: [{ type: String }],
         status: {
             type: String,
             enum: ["pending", "active", "disabled"],

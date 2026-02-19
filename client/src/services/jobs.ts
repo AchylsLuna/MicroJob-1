@@ -36,8 +36,14 @@ export const jobsAPI = {
   // Update job
   updateJob: (jobId: string, jobData: any) => api.put(`/jobs/${jobId}`, jobData),
 
+  // Change job status (reopen/close etc.)
+  changeJobStatus: (jobId: string, status: string) => api.patch(`/jobs/${jobId}/status`, { status }),
+
   // Get jobs posted by logged-in employer
   getMyJobs: () => api.get('/jobs/mine'),
+
+  // Delete job
+  deleteJob: (jobId: string) => api.delete(`/jobs/${jobId}`),
 
   // Apply for a job
   applyForJob: (jobId: string, applicationData: { resume?: string; coverLetter?: string }) =>
@@ -55,9 +61,19 @@ export const jobsAPI = {
   withdrawApplication: (applicationId: string) =>
     api.delete(`/applications/${applicationId}`),
 
+  // Employer: delete an application permanently
+  deleteEmployerApplication: (applicationId: string) =>
+    api.delete(`/applications/${applicationId}/employer`),
+
   // Update application status
   updateApplicationStatus: (applicationId: string, status: string) =>
     api.put(`/applications/${applicationId}/status`, { status }),
+  // Mark employer notification as read
+  markEmployerRead: (applicationId: string) =>
+    api.patch(`/applications/${applicationId}/employer/read`),
+  // Mark applicant notification as read
+  markApplicantRead: (applicationId: string) =>
+    api.patch(`/applications/${applicationId}/applicant/read`),
 };
 
 // Categories API

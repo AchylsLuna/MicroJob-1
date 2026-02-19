@@ -20,6 +20,7 @@ type Job = {
 };
 
 type JobsProps = {
+  onBack?: () => void;
   onViewDetails?: (job: Job) => void;
   onToggleSave?: (job: Job) => void;
   savedJobIds?: string[];
@@ -268,16 +269,46 @@ export default function Jobs(props: JobsProps) {
               </View>
 
               {/* Message Button */}
-              {job.jobPoster && typeof job.jobPoster === 'object' && job.jobPoster.email ? (
+              {job.jobPoster ? (
                 <TouchableOpacity
-                  style={{marginTop: 8, backgroundColor: '#3b82f6', borderRadius: 8, padding: 10, alignItems: 'center'}} 
-                  onPress={() => {
-                    if (navigation && navigation.navigate) {
-                      navigation.navigate('ChatScreen', {
-                        recipientId: job.jobPoster?.email,
-                        recipientName: `${job.jobPoster?.firstName || ''} ${job.jobPoster?.lastName || ''}`.trim() || 'Employer',
-                        jobId: job._id,
-                      });
+                  style={{marginTop: 8, backgroundColor: '#3b82f6', borderRadius: 8, padding: 10, alignItems: 'center'}}
+                  onPress={async () => {
+                    const recipientCandidate = (job.jobPoster as any);
+                    const recipientId = typeof recipientCandidate === 'string'
+                      ? recipientCandidate
+                      : recipientCandidate && (recipientCandidate._id || recipientCandidate.id || recipientCandidate.email);
+
+                    const recipientName = typeof recipientCandidate === 'string'
+                      ? 'Employer'
+                      : `${recipientCandidate?.firstName || ''} ${recipientCandidate?.lastName || ''}`.trim() || 'Employer';
+
+                    // Prepare a default message; this can be customized later
+                    const defaultMessage = `Hi ${recipientName}, I'm interested in your job "${job.title}".`;
+
+                    try {
+                      const token = await AsyncStorage.getItem('auth_token');
+                      if (recipientId && token) {
+                        // Attempt to send an initial message first
+                        await fetch(`${API_URL}/messages`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`,
+                          },
+                          body: JSON.stringify({ receiverId: recipientId, content: defaultMessage, jobId: job._id }),
+                        });
+                      }
+                    } catch (e) {
+                      // ignore send errors; we'll still navigate to chat
+                      console.warn('Initial message send failed', e);
+                    } finally {
+                      if (navigation && navigation.navigate) {
+                        navigation.navigate('ChatScreen', {
+                          recipientId,
+                          recipientName,
+                          jobId: job._id,
+                        });
+                      }
                     }
                   }}
                 >

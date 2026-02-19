@@ -1,36 +1,25 @@
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import express from 'express';
+import http from 'http';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import { initSocket } from './lib/socket.js';
 
 const app = express();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-dotenv.config({ path: resolve(__dirname, '.env') });
+const server = http.createServer(app);
 
 //Connection Config
 const config = {
-    PORT: process.env.PORT || 5001,
+    PORT: process.env.PORT || 5000,
     MONGO_URI: process.env.MONGO_URI,
-    JWT_SECRET: process.env.JWT_SECRET,
-    ORIGINS: (process.env.CLIENT_ORIGIN || 'http://localhost:5173')
-        .split(',')
-        .map((origin) => origin.trim())
-        .filter(Boolean),
+    ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
     DB_NAME: 'MicroJob',
 };
 
 if (!config.MONGO_URI){
     console.error('MONGO_URI is not defined');
-    process.exit(1);
-}
-if (!config.JWT_SECRET) {
-    console.error('JWT_SECRET is not defined');
     process.exit(1);
 }
 app.use (morgan('dev'));
@@ -40,19 +29,17 @@ app.use(cookieParser());
 
 app.use(express.urlencoded({ extended: true}));
 
+// Allow CORS including PATCH and preflight for the client
 app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin) {
-            return callback(null, true);
-        }
-        if (config.ORIGINS.includes(origin)) {
-            return callback(null, true);
-        }
-        return callback(new Error('Origin not allowed by CORS'));
-    },
-    credentials:true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
-}))
+    origin: '*', // Allow all origins for mobile/dev
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,
+}));
+
+// Ensure OPTIONS preflight is handled for all routes
+// No explicit app.options needed because CORS middleware is applied globally
 
 // Routes
 import CategoryRoute from './routes/CategoryRoute.js';
@@ -61,8 +48,6 @@ import UserRoute from './routes/UserRoute.js';
 import authRoutes from './routes/authRoutes.js';
 import JobApplicationRoute from './routes/JobApplicationRoute.js';
 import MessageRoute from './routes/MessageRoute.js';
-import NotificationRoute from './routes/NotificationRoute.js';
-import AlertRoute from './routes/AlertRoute.js';
 
 app.get('/', (req, res) => {
     res.json({ message: 'Backend server is running' });
@@ -77,8 +62,6 @@ app.use('/api/jobs', JobRoute);
 app.use('/api/users', UserRoute);
 app.use('/api', JobApplicationRoute);
 app.use('/api/messages', MessageRoute);
-app.use('/api/notifications', NotificationRoute);
-app.use('/api/alerts', AlertRoute);
 
 //Error handler
 app.use((err, req, res, next) => {
@@ -94,7 +77,10 @@ const startServer = async () => {
         await mongoose.connect(config.MONGO_URI, { dbName: config.DB_NAME});
         console.log('Connected to DB');
 
-        app.listen(config.PORT, '0.0.0.0', () => {
+        // initialize socket.io
+        initSocket(server);
+
+        server.listen(config.PORT, '0.0.0.0', () => {
             console.log(`Server is running on http://localhost:${config.PORT}`);
             console.log(`Mobile can access: http://192.168.1.20:${config.PORT}`);
         });

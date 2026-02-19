@@ -1,11 +1,33 @@
 {
-  "name": "microjobs-client",
+  "name": "client",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "axios": "^1.13.4",
+    "socket.io-client": "^4.8.1",
+    "firebase": "^9.22.0",
+    "chart.js": "^4.5.1",
+    "react": "^19.2.3",
+    "react-chartjs-2": "^5.3.1",
+    "react-dom": "^19.2.3",
+    "react-router-dom": "^7.12.0",
+    "typescript": "^4.9.5"
+  },
   "scripts": {
-    "start": "vite --config vite.config.ts",
-    "dev": "vite --config vite.config.ts",
-    "build": "tsc -p tsconfig.json && vite build --config vite.config.ts",
-    "preview": "vite preview --config vite.config.ts"
+    "start": "vite",
+    "build": "tsc && vite build",
+    "dev": "vite",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.3.4",
+    "vite": "^5.0.0"
   }
 }

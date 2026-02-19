@@ -5,10 +5,11 @@ import Navigation from '../../components/navigation';
 type NotificationsInboxProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  liveNotifications?: any[];
 };
 
-export default function NotificationsInbox({ activeTab = 'Messages', onTabPress }: NotificationsInboxProps) {
-  const [notifications, setNotifications] = useState([
+export default function NotificationsInbox({ activeTab = 'Messages', onTabPress, liveNotifications = [] }: NotificationsInboxProps) {
+  const [notifications, setNotifications] = useState<any[]>([
     {
       id: 1,
       title: 'Application Sent',
@@ -35,6 +36,20 @@ export default function NotificationsInbox({ activeTab = 'Messages', onTabPress 
   const handleClearNotification = (id: number) => {
     setNotifications(notifications.filter(n => n.id !== id));
   };
+
+  // merge live notifications (from socket)
+  React.useEffect(() => {
+    if (!liveNotifications || liveNotifications.length === 0) return;
+    // map payloads to same shape used by this component
+    const mapped = liveNotifications.map((n: any) => ({
+      id: n.id || `${n.jobId}-${Date.now()}`,
+      title: n.status ? `Application ${n.status}` : 'Application Update',
+      company: n.jobTitle || 'Job',
+      description: n.status ? `Your application was ${n.status}` : 'New application update',
+      time: n.updatedAt || n.createdAt || 'Just now',
+    }));
+    setNotifications((prev) => [...mapped, ...prev]);
+  }, [liveNotifications]);
 
   return (
     <View style={styles.container}>

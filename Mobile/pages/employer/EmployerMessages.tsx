@@ -59,12 +59,16 @@ export default function EmployerMessages({ workerId, jobId }: EmployerMessagesPr
       <FlatList
         data={messages}
         keyExtractor={item => item._id}
-        renderItem={({ item }) => (
-          <View style={[styles.message, item.sender === workerId ? styles.left : styles.right]}>
-            <Text style={styles.text}>{item.content}</Text>
-            <Text style={styles.time}>{new Date(item.createdAt).toLocaleTimeString()}</Text>
-          </View>
-        )}
+        style={{ flex: 1 }}
+        renderItem={({ item }) => {
+          const isWorker = item.sender === workerId;
+          return (
+            <View style={[styles.message, isWorker ? styles.left : styles.right]}>
+              <Text style={[styles.text, isWorker ? styles.textLeft : styles.textRight]}>{item.content}</Text>
+              <Text style={[styles.time, isWorker ? styles.timeLeft : styles.timeRight]}>{new Date(item.createdAt).toLocaleTimeString()}</Text>
+            </View>
+          );
+        }}
         contentContainerStyle={styles.list}
         refreshing={loading}
         onRefresh={fetchMessages}
@@ -95,8 +99,12 @@ const styles = StyleSheet.create({
   },
   left: { backgroundColor: '#e5e7eb', alignSelf: 'flex-start' },
   right: { backgroundColor: '#0a2847', alignSelf: 'flex-end' },
-  text: { color: '#111', fontSize: 15 },
-  time: { fontSize: 10, color: '#64748b', marginTop: 2 },
+  text: { fontSize: 15 },
+  textLeft: { color: '#111' },
+  textRight: { color: '#fff' },
+  time: { fontSize: 10, marginTop: 2 },
+  timeLeft: { color: '#64748b' },
+  timeRight: { color: '#cbd5e1' },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -126,3 +134,4 @@ const styles = StyleSheet.create({
   },
   sendText: { color: '#fff', fontWeight: '700' },
 });
+

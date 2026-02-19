@@ -1,6 +1,7 @@
 import JobApplication from '../models/JobApplication.js';
 import Job from '../models/Job.js';
-import Notification from '../models/Notification.js';
+import User from '../models/User.js';
+import { emitToUser } from '../lib/socket.js';
 
 // Apply for a job
 export const applyForJob = async (req, res) => {
@@ -34,28 +35,38 @@ export const applyForJob = async (req, res) => {
         });
 
         await application.save();
-        await application.populate('applicant', 'firstName lastName');
+
+        // notify the job poster (employer) in real-time
+        try {
+            const jobPosterId = job.jobPoster?.toString();
+            if (jobPosterId) {
+                // fetch applicant's name for a nicer notification
+                let applicantName = 'Applicant';
+                try {
+                    const applicant = await User.findById(userId).select('firstName lastName');
+                    if (applicant) applicantName = [applicant.firstName, applicant.lastName].filter(Boolean).join(' ');
+                } catch (e) {
+                    // ignore
+                }
+
+                const payload = {
+                    id: application._id,
+                    applicantId: userId,
+                    applicantName,
+                    jobId: job._id,
+                    jobTitle: job.title,
+                    createdAt: application.createdAt,
+                };
+                emitToUser(jobPosterId, 'new_application', payload);
+            }
+        } catch (e) {
+            // swallow
+        }
 
         // Add applicant to job's applicants array if not already there
         if (!job.applicants.includes(userId)) {
             job.applicants.push(userId);
             await job.save();
-        }
-
-        try {
-            const applicantName = application.applicant?.firstName
-                ? `${application.applicant.firstName} ${application.applicant.lastName || ''}`.trim()
-                : 'A worker';
-            await Notification.create({
-                user: job.jobPoster,
-                type: 'application',
-                title: 'New application received',
-                message: `${applicantName} applied for ${job.title}`,
-                link: '/dashboard/employer/applications',
-                metadata: { jobId: job._id, applicationId: application._id },
-            });
-        } catch (notifyError) {
-            console.error('Create application notification error:', notifyError);
         }
 
         res.status(201).json({
@@ -82,10 +93,10 @@ export const getUserApplications = async (req, res) => {
         const applications = await JobApplication.find(filter)
             .populate({
                 path: 'job',
-                populate: [
-                    { path: 'category', select: 'name' },
-                    { path: 'jobPoster', select: 'firstName lastName email' },
-                ],
+                populate: {
+                    path: 'category',
+                    select: 'name'
+                }
             })
             .sort({ createdAt: -1 });
 
@@ -153,7 +164,8 @@ export const updateApplicationStatus = async (req, res) => {
         const { applicationId } = req.params;
         const { status } = req.body;
 
-        if (!['Pending', 'Reviewed', 'Accepted', 'Rejected'].includes(status)) {
+        const validStatuses = ['Pending', 'Shortlisted', 'Terms', 'Hired'];
+        if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: 'Invalid status' });
         }
 
@@ -168,21 +180,50 @@ export const updateApplicationStatus = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this application' });
         }
 
+        const previousStatus = application.status;
+
         application.status = status;
+        // mark applicant as unread for the new status so they get a notification
+        application.applicantReadAt = null;
         await application.save();
 
+        // If application was newly marked as Hired, increment job.hiredCount and possibly close the job
         try {
-            const jobTitle = application.job?.title || 'your job';
-            await Notification.create({
-                user: application.applicant,
-                type: 'application',
-                title: 'Application status updated',
-                message: `Your application for ${jobTitle} was marked ${status}.`,
-                link: '/dashboard/applied-jobs',
-                metadata: { jobId: application.job?._id, applicationId: application._id, status },
-            });
-        } catch (notifyError) {
-            console.error('Create status notification error:', notifyError);
+            const jobDoc = await Job.findById(application.job._id);
+            if (jobDoc) {
+                // adjust hiredCount when status transitions to/from Hired
+                if (previousStatus !== 'Hired' && status === 'Hired') {
+                    jobDoc.hiredCount = (jobDoc.hiredCount || 0) + 1;
+                } else if (previousStatus === 'Hired' && status !== 'Hired') {
+                    jobDoc.hiredCount = Math.max(0, (jobDoc.hiredCount || 0) - 1);
+                }
+
+                // If hires meet required positions, close the job
+                if (jobDoc.hiredCount >= (jobDoc.positionsNeeded || 1)) {
+                    jobDoc.status = 'Closed';
+                }
+
+                await jobDoc.save();
+            }
+        } catch (e) {
+            console.warn('Failed to update job hire counts', e);
+        }
+
+        // Notify the applicant in real-time about status change
+        try {
+            const applicantId = application.applicant?.toString();
+            if (applicantId) {
+                const payload = {
+                    id: application._id,
+                    jobId: application.job?._id,
+                    jobTitle: application.job?.title,
+                    status: application.status,
+                    updatedAt: application.updatedAt,
+                };
+                emitToUser(applicantId, 'application_status_updated', payload);
+            }
+        } catch (e) {
+            // swallow
         }
 
         res.status(200).json({
@@ -284,6 +325,73 @@ export const hideEmployerApplication = async (req, res) => {
         });
     } catch (error) {
         console.error('Hide employer application error:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Permanently delete an application (employer only)
+export const deleteEmployerApplication = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+
+        const application = await JobApplication.findById(applicationId).populate('job');
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        // Only the job poster (employer) can delete this application
+        if (application.job.jobPoster.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to delete this application' });
+        }
+
+        // If this application was Hired, decrement hiredCount on job
+        try {
+            const jobDoc = await Job.findById(application.job._id);
+            if (jobDoc) {
+                if (application.status === 'Hired') {
+                    jobDoc.hiredCount = Math.max(0, (jobDoc.hiredCount || 0) - 1);
+                }
+                // remove applicant from applicants array
+                jobDoc.applicants = (jobDoc.applicants || []).filter((id) => id.toString() !== application.applicant.toString());
+                await jobDoc.save();
+            }
+        } catch (e) {
+            console.warn('Failed to update job after application deletion', e);
+        }
+
+        await JobApplication.deleteOne({ _id: applicationId });
+
+        res.status(200).json({ message: 'Application deleted' });
+    } catch (error) {
+        console.error('Delete employer application error:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Mark applicant notification as read
+export const markApplicantApplicationRead = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+
+        const application = await JobApplication.findById(applicationId).populate('job', 'jobPoster');
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        // Only the applicant can mark their application notification as read
+        if (application.applicant.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to update this application' });
+        }
+
+        application.applicantReadAt = new Date();
+        await application.save();
+
+        res.status(200).json({
+            message: 'Notification marked as read',
+            application
+        });
+    } catch (error) {
+        console.error('Mark applicant read error:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

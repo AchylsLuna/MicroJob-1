@@ -1,8 +1,4 @@
 
 server/serviceAccountKey.json
-node_modules/
-**/node_modules/
-npm-debug.log
-yarn-error.log
-.DS_Store
-.expo/
+
+node_modules

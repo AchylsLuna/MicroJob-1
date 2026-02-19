@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, StatusBar, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Message {
   _id: string;
@@ -15,10 +16,14 @@ interface Message {
 
 interface ChatScreenProps {
   userId: string;
+  displayName?: string;
   onBack: () => void;
+  liveMessages?: any[];
 }
 
-export default function ChatScreen({ userId, onBack }: ChatScreenProps) {
+export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [] }: ChatScreenProps) {
+  const [displayName, setDisplayName] = useState<string | undefined>(initialDisplayName);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,6 +38,22 @@ export default function ChatScreen({ userId, onBack }: ChatScreenProps) {
       });
       const data = await res.json();
       setMessages(data.messages || []);
+      // derive display name from messages if available
+      try {
+        const storedUser = await AsyncStorage.getItem('auth_user');
+        const parsedUser = storedUser ? JSON.parse(storedUser) : null;
+        const meId = parsedUser?._id || parsedUser?.id || parsedUser?.userId;
+        setCurrentUserId(meId || null);
+        const msgs = data.messages || [];
+        if (msgs.length > 0) {
+          const first = msgs[0];
+          const senderId = first?.sender?._id || first?.sender;
+          const receiverId = first?.receiver?._id || first?.receiver;
+          const other = String(senderId) === String(meId) ? first.receiver : first.sender;
+          const otherName = other?.firstName ? `${other.firstName} ${other.lastName || ''}`.trim() : (other?.senderName || other?.receiverName || undefined);
+          if (otherName) setDisplayName(otherName);
+        }
+      } catch (e) {}
     } finally {
       setLoading(false);
     }
@@ -40,19 +61,66 @@ export default function ChatScreen({ userId, onBack }: ChatScreenProps) {
 
   useEffect(() => { fetchMessages(); }, [userId]);
 
+  // Merge incoming live messages for this conversation
+  useEffect(() => {
+    if (!liveMessages || liveMessages.length === 0) return;
+    // liveMessages is a list of payloads; find those related to this conversation
+    const relevant = liveMessages.filter((p: any) => {
+      try {
+        const senderId = p?.sender?._id || p?.sender || p?.senderId || (p?.sender && p.sender.toString && p.sender.toString());
+        const receiverId = p?.receiver?._id || p?.receiver || p?.receiverId || (p?.receiver && p.receiver.toString && p.receiver.toString());
+        return String(senderId) === String(userId) || String(receiverId) === String(userId);
+      } catch (e) { return false; }
+    });
+    if (relevant.length === 0) return;
+    setMessages((prev) => {
+      const existingIds = new Set(prev.map((m) => String(m._id)));
+      const toAdd = [] as any[];
+      for (const p of relevant) {
+        const id = p?._id || p?.id || (p?._doc && p._doc._id) || `${Date.now()}-${Math.random()}`;
+        if (existingIds.has(String(id))) continue;
+        const sender = p?.sender?.firstName ? `${p.sender.firstName} ${p.sender.lastName || ''}`.trim() : (p?.senderName || 'User');
+        const receiver = p?.receiver?.firstName ? `${p.receiver.firstName} ${p.receiver.lastName || ''}`.trim() : (p?.receiverName || 'User');
+        toAdd.push({
+          _id: id,
+          sender: p?.sender?._id || p?.sender || p?.senderId,
+          receiver: p?.receiver?._id || p?.receiver || p?.receiverId,
+          content: p?.content || (p?._doc && p._doc.content) || '',
+          createdAt: p?.createdAt || new Date().toISOString(),
+          senderName: sender,
+          receiverName: receiver,
+        });
+      }
+      if (toAdd.length === 0) return prev;
+      return [...prev, ...toAdd].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    });
+  }, [liveMessages]);
+
   const sendMessage = async () => {
     if (!input.trim()) return;
     const token = await AsyncStorage.getItem('auth_token');
-    await fetch(`${API_URL}/messages/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ receiverId: userId, content: input }),
-    });
-    setInput('');
-    fetchMessages();
+    try {
+      const res = await fetch(`${API_URL}/messages/send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ receiverId: userId, content: input }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        console.warn('Send message failed', res.status, body);
+        Alert && Alert.alert && Alert.alert('Send failed', body?.message || 'Unable to send message');
+        return;
+      }
+      setInput('');
+      // refresh messages (server will also emit socket event)
+      fetchMessages();
+    } catch (err) {
+      console.warn('Send message error', err);
+      Alert && Alert.alert && Alert.alert('Send failed', 'Network error');
+    }
   };
 
   useEffect(() => {
@@ -68,23 +136,25 @@ export default function ChatScreen({ userId, onBack }: ChatScreenProps) {
   }, [messages]);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}><Text style={styles.backBtn}>{'< Back'}</Text></TouchableOpacity>
-        <Text style={styles.headerText}>Chat</Text>
-      </View>
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={item => item._id}
-        renderItem={({ item }) => (
-          <View style={[styles.msgBubble, item.sender === userId ? styles.theirMsg : styles.myMsg]}>
-            <Text style={styles.msgText}>{item.content}</Text>
-            <Text style={styles.msgTime}>{new Date(item.createdAt).toLocaleTimeString()}</Text>
-          </View>
-        )}
-        contentContainerStyle={{ padding: 16 }}
-      />
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack}><Text style={styles.backBtn}>{'< Back'}</Text></TouchableOpacity>
+          <Text style={styles.headerText}>{displayName || 'Chat'}</Text>
+        </View>
+        <FlatList
+          ref={flatListRef}
+          style={{ flex: 1, backgroundColor: '#ffffff' }}
+          data={messages}
+          keyExtractor={item => item._id}
+          renderItem={({ item }) => (
+            <View style={[styles.msgBubble, item.sender === currentUserId ? styles.myMsg : styles.theirMsg]}>
+              <Text style={[styles.msgText, item.sender === currentUserId ? styles.myMsgText : styles.theirMsgText]}>{item.content}</Text>
+              <Text style={styles.msgTime}>{new Date(item.createdAt).toLocaleTimeString()}</Text>
+            </View>
+          )}
+          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+        />
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
@@ -96,12 +166,13 @@ export default function ChatScreen({ userId, onBack }: ChatScreenProps) {
           <Text style={{ color: '#fff', fontWeight: '700' }}>Send</Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f5f7fb' },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
   backBtn: { color: '#0a2847', fontWeight: '700', fontSize: 16, marginRight: 12 },
   headerText: { fontSize: 18, fontWeight: '700', color: '#0a2847' },
   msgBubble: {
@@ -118,7 +189,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e7eb',
     alignSelf: 'flex-start',
   },
-  msgText: { color: '#0a2847', fontSize: 15 },
+  msgText: { fontSize: 15 },
+  myMsgText: { color: '#ffffff' },
+  theirMsgText: { color: '#0a2847' },
   msgTime: { color: '#64748b', fontSize: 11, marginTop: 4, textAlign: 'right' },
   inputRow: { flexDirection: 'row', padding: 12, backgroundColor: '#fff', alignItems: 'center' },
   input: { flex: 1, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 20, padding: 10, marginRight: 8 },

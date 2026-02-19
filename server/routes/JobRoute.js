@@ -10,6 +10,7 @@ import {
     selectApplicant,
     getMyJobs,
     updateJob
+    , deleteJob
 } from '../controllers/JobController.js'; 
 
 import verifyToken from '../middleware/auth.js';
@@ -27,5 +28,6 @@ router.put('/:id', verifyToken, updateJob);
 router.get('/:jobId/applicants', verifyToken, getApplicantsList);
 router.patch('/:jobId/select/:applicantId', verifyToken, selectApplicant);
 router.patch('/:id/status', verifyToken, changeJobStatus);
+router.delete('/:id', verifyToken, deleteJob);
 
 export default router;

@@ -7,7 +7,9 @@ import {
     updateApplicationStatus,
     getEmployerApplications,
     markEmployerApplicationRead,
+    markApplicantApplicationRead,
     hideEmployerApplication
+    , deleteEmployerApplication
 } from '../controllers/JobApplicationController.js';
 import authenticateToken from '../middleware/auth.js';
 
@@ -34,5 +36,8 @@ router.put('/applications/:applicationId/status', authenticateToken, updateAppli
 // Employer notification actions
 router.patch('/applications/:applicationId/employer/read', authenticateToken, markEmployerApplicationRead);
 router.patch('/applications/:applicationId/employer/remove', authenticateToken, hideEmployerApplication);
+router.delete('/applications/:applicationId/employer', authenticateToken, deleteEmployerApplication);
+// Applicant notification actions
+router.patch('/applications/:applicationId/applicant/read', authenticateToken, markApplicantApplicationRead);
 
 export default router;

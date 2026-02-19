@@ -33,6 +33,7 @@ const PostJob: React.FC = () => {
     location: "",
     jobType: "Fulltime",
     deadline: "",
+    positionsNeeded: "1",
   });
   const [categories, setCategories] = useState<{ _id: string; name: string }[]>([]);
   const [categoryQuery, setCategoryQuery] = useState("");
@@ -91,6 +92,7 @@ const PostJob: React.FC = () => {
       location: jobToEdit.location || "",
       jobType: jobToEdit.jobType || "Fulltime",
       deadline: deadlineValue,
+      positionsNeeded: (jobToEdit as any).positionsNeeded ? String((jobToEdit as any).positionsNeeded) : "1",
     });
     setCategoryQuery(categoryName || "");
   }, [jobToEdit, parsedSalary]);
@@ -119,6 +121,13 @@ const PostJob: React.FC = () => {
 
       if (missingFields.length > 0) {
         setError(`Missing required fields: ${missingFields.join(", ")}.`);
+        setSubmitting(false);
+        return;
+      }
+
+      const positionsNeededNum = Number(formData.positionsNeeded || 1);
+      if (Number.isNaN(positionsNeededNum) || positionsNeededNum < 1) {
+        setError('Please provide a valid number of workers needed (minimum 1).');
         setSubmitting(false);
         return;
       }
@@ -152,6 +161,7 @@ const PostJob: React.FC = () => {
         location: trimmedLocation,
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),
+        positionsNeeded: Number(formData.positionsNeeded) || 1,
       };
 
       if (isEditing && jobToEdit?._id) {
@@ -369,6 +379,18 @@ const PostJob: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-sky-500"
                   required
+                />
+              </div>
+
+              <div>
+                <label className="block text-base font-semibold text-gray-900 mb-2">Number of Workers Needed</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={formData.positionsNeeded}
+                  onChange={(e) => setFormData({ ...formData, positionsNeeded: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  placeholder="1"
                 />
               </div>
 

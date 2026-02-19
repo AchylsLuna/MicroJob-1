@@ -1,6 +1,7 @@
 .messages-root {
   display: flex;
-  height: 80vh;
+  height: 100%;
+  min-height: 0;
   background: #f5f7fb;
   border-radius: 16px;
   box-shadow: 0 2px 12px #0f172a0a;
@@ -14,7 +15,8 @@
   padding: 24px 0 0 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  height: 100%;
+  min-height: 0;
 }
 
 .messages-sidebar h2 {
@@ -24,18 +26,12 @@
   margin: 0 0 18px 32px;
 }
 
-.messages-sidebar-scroll {
-  flex: 1;
-  overflow-y: auto;
-  padding-bottom: 16px;
-}
-
 .messages-list {
   list-style: none;
   margin: 0;
   padding: 0 0 0 0;
-  flex: 0 0 auto;
-  overflow: visible;
+  flex: 1;
+  overflow-y: auto;
 }
 
 .messages-list li {
@@ -53,6 +49,13 @@
   font-weight: 700;
   color: #0a2847;
   font-size: 16px;
+}
+
+.messages-list-job {
+  font-size: 12px;
+  color: #0ea5e9;
+  margin-top: 4px;
+  font-weight: 600;
 }
 
 .messages-list-last {
@@ -79,6 +82,26 @@
   flex-direction: column;
   background: #f5f7fb;
   position: relative;
+  min-height: 0;
+}
+
+.messages-chat-header {
+  padding: 20px 32px 14px 32px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
+}
+
+.messages-chat-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0a2847;
+}
+
+.messages-chat-job {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #0ea5e9;
+  font-weight: 600;
 }
 
 .messages-chat {
@@ -167,4 +190,11 @@
   color: #64748b;
   text-align: center;
   margin: 40px 0;
+}
+
+.messages-error {
+  margin: 8px 32px 16px 32px;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 600;
 }
