@@ -8,8 +8,9 @@ const EmailVerification: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [hasSent, setHasSent] = useState(false);
+  const [verified, setVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const email = localStorage.getItem('pending_verification_email') || '';
+  const [email, setEmail] = useState(() => localStorage.getItem('pending_verification_email') || '');
 
   useEffect(() => {
     if (!email || hasSent) {
@@ -24,6 +25,8 @@ const EmailVerification: React.FC = () => {
         await sendOtp({ email });
         if (!isCancelled) {
           setHasSent(true);
+          // persist email so page refresh keeps it
+          localStorage.setItem('pending_verification_email', email);
         }
       } catch (error) {
         console.error('Error sending OTP:', error);
@@ -90,16 +93,12 @@ const EmailVerification: React.FC = () => {
         window.dispatchEvent(new Event('auth_user_updated'));
       }
       localStorage.removeItem('pending_verification_email');
-      alert('Email verified successfully!');
-      navigate('/dashboard', { replace: true });
+      // show a dedicated confirmation UI instead of redirecting immediately
+      setVerified(true);
     } catch (error) {
       console.error('Error verifying OTP:', error);
-      const err = error as { code?: string; message?: string };
-      const detail = err?.code ? `${err.code} ${err.message || ''}`.trim() : err?.message || '';
-      if (detail) {
-        setErrorMessage(detail);
-      }
-      alert('Invalid verification code');
+      // Avoid showing raw error details (like hostnames). Show a friendly message below the inputs.
+      setErrorMessage('Invalid verification code. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -159,6 +158,26 @@ const EmailVerification: React.FC = () => {
     );
   }
 
+  if (verified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2942] to-[#0f1820] p-4 page-transition">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Email Verified</h2>
+            <p className="text-gray-600 mb-6">Thank you — your email has been verified successfully.</p>
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard', { replace: true })}
+              className="w-full bg-[#1e3a5f] text-white py-3 rounded-xl font-semibold hover:bg-[#2d5080] transition-colors"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2942] to-[#0f1820] p-4 page-transition">
       <div className="w-full max-w-md">
@@ -211,11 +230,6 @@ const EmailVerification: React.FC = () => {
               {hasSent ? "We've sent a 6-digit code to" : 'Sending a 6-digit code to'}
             </p>
 
-            {errorMessage && (
-              <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
-                {errorMessage}
-              </p>
-            )}
             <p className="text-center text-gray-700 font-medium mb-8">
               {email || 'Missing email'}
             </p>
@@ -238,6 +252,12 @@ const EmailVerification: React.FC = () => {
                   />
                 ))}
               </div>
+
+              {errorMessage && (
+                <p className="mt-2 mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 text-center">
+                  {errorMessage}
+                </p>
+              )}
 
               <button
                 type="submit"

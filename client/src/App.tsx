@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate } from "react-router-dom";
 import SidebarLayout from "./components/layout/SidebarLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Home from "./pages/Home";
 import SignIn from "./pages/signIn";
 import SignUp from "./pages/signUp";
@@ -135,7 +136,7 @@ const App: React.FC = () => {
         <Route path="/signup" element={<SignUp />} />
         <Route path="/email-verification" element={<EmailVerification />} />
 
-        <Route element={<SidebarLayout />}>
+        <Route element={<ProtectedRoute><SidebarLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/find-jobs" element={<FindJobs />} />
           <Route path="/job-details/:jobId" element={<JobDetails />} />

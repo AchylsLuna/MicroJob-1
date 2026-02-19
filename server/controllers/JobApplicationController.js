@@ -164,7 +164,8 @@ export const updateApplicationStatus = async (req, res) => {
         const { applicationId } = req.params;
         const { status } = req.body;
 
-        if (!['Pending', 'Reviewed', 'Accepted', 'Rejected'].includes(status)) {
+        const validStatuses = ['Pending', 'Shortlisted', 'Terms', 'Hired'];
+        if (!validStatuses.includes(status)) {
             return res.status(400).json({ message: 'Invalid status' });
         }
 
@@ -179,10 +180,34 @@ export const updateApplicationStatus = async (req, res) => {
             return res.status(403).json({ message: 'Not authorized to update this application' });
         }
 
+        const previousStatus = application.status;
+
         application.status = status;
         // mark applicant as unread for the new status so they get a notification
         application.applicantReadAt = null;
         await application.save();
+
+        // If application was newly marked as Hired, increment job.hiredCount and possibly close the job
+        try {
+            const jobDoc = await Job.findById(application.job._id);
+            if (jobDoc) {
+                // adjust hiredCount when status transitions to/from Hired
+                if (previousStatus !== 'Hired' && status === 'Hired') {
+                    jobDoc.hiredCount = (jobDoc.hiredCount || 0) + 1;
+                } else if (previousStatus === 'Hired' && status !== 'Hired') {
+                    jobDoc.hiredCount = Math.max(0, (jobDoc.hiredCount || 0) - 1);
+                }
+
+                // If hires meet required positions, close the job
+                if (jobDoc.hiredCount >= (jobDoc.positionsNeeded || 1)) {
+                    jobDoc.status = 'Closed';
+                }
+
+                await jobDoc.save();
+            }
+        } catch (e) {
+            console.warn('Failed to update job hire counts', e);
+        }
 
         // Notify the applicant in real-time about status change
         try {
@@ -300,6 +325,45 @@ export const hideEmployerApplication = async (req, res) => {
         });
     } catch (error) {
         console.error('Hide employer application error:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+// Permanently delete an application (employer only)
+export const deleteEmployerApplication = async (req, res) => {
+    try {
+        const { applicationId } = req.params;
+
+        const application = await JobApplication.findById(applicationId).populate('job');
+        if (!application) {
+            return res.status(404).json({ message: 'Application not found' });
+        }
+
+        // Only the job poster (employer) can delete this application
+        if (application.job.jobPoster.toString() !== req.user.id) {
+            return res.status(403).json({ message: 'Not authorized to delete this application' });
+        }
+
+        // If this application was Hired, decrement hiredCount on job
+        try {
+            const jobDoc = await Job.findById(application.job._id);
+            if (jobDoc) {
+                if (application.status === 'Hired') {
+                    jobDoc.hiredCount = Math.max(0, (jobDoc.hiredCount || 0) - 1);
+                }
+                // remove applicant from applicants array
+                jobDoc.applicants = (jobDoc.applicants || []).filter((id) => id.toString() !== application.applicant.toString());
+                await jobDoc.save();
+            }
+        } catch (e) {
+            console.warn('Failed to update job after application deletion', e);
+        }
+
+        await JobApplication.deleteOne({ _id: applicationId });
+
+        res.status(200).json({ message: 'Application deleted' });
+    } catch (error) {
+        console.error('Delete employer application error:', error);
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

@@ -24,14 +24,14 @@ export default function NotificationsPage() {
     try {
       const res = await jobsAPI.getUserApplications();
       const apps = res.data || [];
-      const allowed = new Set(['Accepted', 'Rejected', 'Reviewed']);
+      const allowed = new Set(['Shortlisted', 'Terms', 'Hired']);
       const notifs: NotificationItem[] = apps
         .filter((a: any) => allowed.has(a.status) )
         .map((a: any) => ({
           id: a._id || `${a.job?._id || 'app'}-${Math.random()}`,
           applicationId: a._id,
           title: `Application ${a.status}`,
-          description: `Your application for ${a.job?.title || 'a job'} was ${a.status.toLowerCase()}.`,
+          description: `Your application for ${a.job?.title || 'a job'} is now ${a.status.toLowerCase()}.`,
           time: a.createdAt ? new Date(a.createdAt).toLocaleString() : undefined,
           jobId: a.job?._id,
           isNew: !a.applicantReadAt,

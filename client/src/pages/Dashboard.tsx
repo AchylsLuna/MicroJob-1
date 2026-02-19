@@ -213,9 +213,9 @@ const Dashboard: React.FC = () => {
     const status = app.status || "Pending";
     const iconMap: Record<string, string> = {
       Pending: "⏳",
-      Reviewed: "👀",
-      Accepted: "✅",
-      Rejected: "❌",
+      Shortlisted: "👀",
+      Terms: "✉️",
+      Hired: "✅",
     };
     return {
       id: `${app.job?._id || "app"}-${index}`,
@@ -225,27 +225,26 @@ const Dashboard: React.FC = () => {
       icon: iconMap[status] || "📌",
     };
   });
-
-  const analyticsLabels = ["Pending", "Reviewed", "Accepted", "Rejected"];
+  const analyticsLabels = ["Pending", "Shortlisted", "Terms", "Hired"];
   const analyticsValues = [
     statusCounts.Pending || 0,
-    statusCounts.Reviewed || 0,
-    statusCounts.Accepted || 0,
-    statusCounts.Rejected || 0,
+    statusCounts.Shortlisted || 0,
+    statusCounts.Terms || 0,
+    statusCounts.Hired || 0,
   ];
 
   const notifications = useMemo(() => {
-    const allowed = new Set(["accepted", "rejected", "reviewed"]);
+    const allowed = new Set(["shortlisted", "terms", "hired"]);
     return applications
       .filter((app) => allowed.has((app.status || "").toLowerCase()) && (!app.applicantReadAt))
       .slice(0, 6)
       .map((app) => {
-        const status = app.status || "Reviewed";
+        const status = app.status || "Shortlisted";
         return {
           applicationId: app._id,
           id: app._id,
           title: `Application ${status}`,
-          description: `Your application for ${app.job?.title || "a job"} was ${status.toLowerCase()}.`,
+          description: `Your application for ${app.job?.title || "a job"} is now ${status.toLowerCase()}.`,
           time: app.createdAt ? new Date(app.createdAt).toLocaleString() : "Just now",
           isNew: !app.applicantReadAt,
         };
@@ -371,8 +370,8 @@ const Dashboard: React.FC = () => {
             <div className="bg-gradient-to-br from-blue-700 to-blue-900 rounded-2xl p-6 text-white">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-blue-200 text-sm mb-2">Reviewed</p>
-                  <p className="text-4xl font-bold">{statusCounts.Reviewed || 0}</p>
+                  <p className="text-blue-200 text-sm mb-2">Shortlisted</p>
+                  <p className="text-4xl font-bold">{statusCounts.Shortlisted || 0}</p>
                 </div>
                 <div className="text-2xl">👀</div>
               </div>
@@ -382,10 +381,10 @@ const Dashboard: React.FC = () => {
             <div className="bg-gradient-to-br from-blue-400 to-blue-500 rounded-2xl p-6 text-white">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-blue-100 text-sm mb-2">Accepted</p>
-                  <p className="text-4xl font-bold">{statusCounts.Accepted || 0}</p>
+                  <p className="text-blue-100 text-sm mb-2">Terms</p>
+                  <p className="text-4xl font-bold">{statusCounts.Terms || 0}</p>
                 </div>
-                <div className="text-2xl">✅</div>
+                <div className="text-2xl">✉️</div>
               </div>
               <p className="text-xs text-blue-100 mt-3">{appsLoading ? "Loading..." : "Applications"}</p>
             </div>
@@ -393,10 +392,10 @@ const Dashboard: React.FC = () => {
             <div className="bg-gradient-to-br from-blue-800 to-blue-900 rounded-2xl p-6 text-white">
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-blue-200 text-sm mb-2">Rejected</p>
-                  <p className="text-4xl font-bold">{statusCounts.Rejected || 0}</p>
+                  <p className="text-blue-200 text-sm mb-2">Hired</p>
+                  <p className="text-4xl font-bold">{statusCounts.Hired || 0}</p>
                 </div>
-                <div className="text-2xl">❌</div>
+                <div className="text-2xl">✅</div>
               </div>
               <p className="text-xs text-blue-200 mt-3">{appsLoading ? "Loading..." : "Applications"}</p>
             </div>
@@ -443,9 +442,9 @@ const Dashboard: React.FC = () => {
                   {recentActivities.map((activity) => (
                     <div key={activity.id} className="flex gap-3 pb-4 border-b border-gray-200 last:border-b-0">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                        activity.type === "accepted" ? "bg-green-100" :
-                        activity.type === "reviewed" ? "bg-blue-100" :
-                        activity.type === "rejected" ? "bg-red-100" :
+                        activity.type === "hired" ? "bg-green-100" :
+                        activity.type === "shortlisted" ? "bg-blue-100" :
+                        activity.type === "terms" ? "bg-indigo-100" :
                         "bg-gray-100"
                       }`}>
                         <span className="text-lg">{activity.icon}</span>
@@ -473,7 +472,7 @@ const Dashboard: React.FC = () => {
 
                 {/* Tabs */}
                 <div className="flex gap-2 mb-6 border-b border-gray-200">
-                  {["Application Sent", "Interviews", "Rejected", "This Month"].map((tab) => (
+                  {["Application Sent", "Interviews", "Hired", "This Month"].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveVacancyTab(tab)}
@@ -592,16 +591,16 @@ const Dashboard: React.FC = () => {
                     <span className="text-gray-600 ml-1">Pending</span>
                   </div>
                   <div>
-                    <span className="font-semibold text-blue-600">{statusCounts.Reviewed || 0}</span>
-                    <span className="text-gray-600 ml-1">Reviewed</span>
+                    <span className="font-semibold text-blue-600">{statusCounts.Shortlisted || 0}</span>
+                    <span className="text-gray-600 ml-1">Shortlisted</span>
                   </div>
                   <div>
-                    <span className="font-semibold text-blue-600">{statusCounts.Accepted || 0}</span>
-                    <span className="text-gray-600 ml-1">Accepted</span>
+                    <span className="font-semibold text-blue-600">{statusCounts.Terms || 0}</span>
+                    <span className="text-gray-600 ml-1">Terms</span>
                   </div>
                   <div>
-                    <span className="font-semibold text-blue-600">{statusCounts.Rejected || 0}</span>
-                    <span className="text-gray-600 ml-1">Rejected</span>
+                    <span className="font-semibold text-blue-600">{statusCounts.Hired || 0}</span>
+                    <span className="text-gray-600 ml-1">Hired</span>
                   </div>
                 </div>
               </div>

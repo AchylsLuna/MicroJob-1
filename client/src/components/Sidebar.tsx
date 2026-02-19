@@ -147,7 +147,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       } else {
         const res = await jobsAPI.getUserApplications();
         const apps = res.data || [];
-        const allowed = new Set(['Accepted','Rejected','Reviewed']);
+        const allowed = new Set(['Shortlisted','Terms','Hired']);
         const unread = apps.filter((a: any) => allowed.has(a.status) && !a.applicantReadAt).length;
         setNotifCount(unread);
       }

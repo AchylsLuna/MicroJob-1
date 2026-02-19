@@ -16,7 +16,7 @@ interface JobData {
 
 interface Application {
   _id: string;
-  status: "Pending" | "Reviewed" | "Accepted" | "Rejected";
+  status: "Pending" | "Shortlisted" | "Terms" | "Hired";
   appliedDate: string;
   job: JobData;
 }
@@ -30,7 +30,7 @@ const AppliedJobs: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const filterOptions = ["All", "Pending", "Reviewed", "Accepted", "Rejected"];
+  const filterOptions = ["All", "Pending", "Shortlisted", "Terms", "Hired"];
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -53,9 +53,9 @@ const AppliedJobs: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Pending": return "bg-yellow-100 text-yellow-700";
-      case "Reviewed": return "bg-blue-100 text-blue-700";
-      case "Accepted": return "bg-green-100 text-green-700";
-      case "Rejected": return "bg-red-100 text-red-700";
+      case "Shortlisted": return "bg-blue-100 text-blue-700";
+      case "Terms": return "bg-indigo-100 text-indigo-700";
+      case "Hired": return "bg-green-100 text-green-700";
       default: return "bg-gray-100 text-gray-700";
     }
   };

@@ -3,7 +3,7 @@ import { jobsAPI } from "../../services/jobs";
 
 interface ApplicationItem {
   _id: string;
-  status: "Pending" | "Reviewed" | "Accepted" | "Rejected";
+  status: "Pending" | "Shortlisted" | "Terms" | "Hired";
   createdAt?: string;
   job: {
     _id: string;
@@ -29,6 +29,8 @@ const Applications: React.FC = () => {
   const [jobFilter, setJobFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
+  const [appToDelete, setAppToDelete] = useState<ApplicationItem | null>(null);
+  const [deletingApp, setDeletingApp] = useState(false);
 
   const jobOptions = useMemo(() => {
     const unique = new Map<string, string>();
@@ -115,9 +117,9 @@ const Applications: React.FC = () => {
                 >
                   <option value="All">All Statuses</option>
                   <option value="Pending">Pending</option>
-                  <option value="Reviewed">Reviewed</option>
-                  <option value="Accepted">Accepted</option>
-                  <option value="Rejected">Rejected</option>
+                  <option value="Shortlisted">Shortlisted</option>
+                  <option value="Terms">Terms</option>
+                  <option value="Hired">Hired</option>
                 </select>
                 <select
                   className="px-4 py-3 border border-gray-200 rounded-xl text-sm bg-white"
@@ -149,8 +151,18 @@ const Applications: React.FC = () => {
             )}
 
             {applications.map((app) => (
-              <div key={app._id} onClick={() => { if (!app.employerReadAt) markEmployerRead(app._id); }} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <div className="flex items-start justify-between">
+              <div key={app._id} onClick={() => { if (!app.employerReadAt) markEmployerRead(app._id); }} className="relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                <button
+                  type="button"
+                  aria-label="Delete application"
+                  onClick={(e) => { e.stopPropagation(); setAppToDelete(app); }}
+                  className="absolute top-4 right-4 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-full p-1 w-8 h-10 flex items-center justify-center z-20"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M10 11v6M14 11v6" />
+                  </svg>
+                </button>
+                <div className="relative flex items-start justify-between">
                   <div className="flex items-start gap-4">
                     <div className="h-12 w-12 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
                       {(app.applicant?.firstName?.[0] || "").toUpperCase()}
@@ -169,11 +181,11 @@ const Applications: React.FC = () => {
                       </p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+                  <span className="absolute top-4 right-12 z-10 h-8 flex items-center px-3 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
                     {app.status}
                   </span>
                 </div>
-
+                
                 {app.coverLetter && (
                   <p className="text-sm text-gray-600 mt-4 leading-relaxed">{app.coverLetter}</p>
                 )}
@@ -195,11 +207,13 @@ const Applications: React.FC = () => {
                     onChange={(e) => handleStatusChange(app._id, e.target.value)}
                   >
                     <option value="Pending">Pending</option>
-                    <option value="Reviewed">Reviewed</option>
-                    <option value="Accepted">Accepted</option>
-                    <option value="Rejected">Rejected</option>
+                    <option value="Shortlisted">Shortlisted</option>
+                    <option value="Terms">Terms</option>
+                    <option value="Hired">Hired</option>
                   </select>
                 </div>
+
+                
 
                 {selectedApplicantId === app._id && (
                   <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-700">
@@ -215,6 +229,43 @@ const Applications: React.FC = () => {
               </div>
             ))}
           </div>
+          {appToDelete && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-lg">
+                <h3 className="text-lg font-bold text-gray-900 mb-3">Are you sure?</h3>
+                <p className="text-sm text-gray-600 mb-6">Are you sure you want to delete this application?</p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold"
+                    onClick={() => setAppToDelete(null)}
+                    disabled={deletingApp}
+                  >
+                    No
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold"
+                    onClick={async () => {
+                      if (!appToDelete) return;
+                      setDeletingApp(true);
+                      try {
+                        await jobsAPI.deleteEmployerApplication(appToDelete._id);
+                        setApplications((prev) => prev.filter((a) => a._id !== appToDelete._id));
+                        setAppToDelete(null);
+                      } catch (e) {
+                        console.warn('Failed to delete application', e);
+                      } finally {
+                        setDeletingApp(false);
+                      }
+                    }}
+                  >
+                    {deletingApp ? 'Deleting...' : 'Yes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
     </div>
   );
 };

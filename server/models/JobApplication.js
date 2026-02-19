@@ -22,7 +22,8 @@ const JobApplicationSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['Pending', 'Reviewed', 'Accepted', 'Rejected'],
+            // New workflow: Pending -> Shortlisted -> Terms -> Hired
+            enum: ['Pending', 'Shortlisted', 'Terms', 'Hired'],
             default: 'Pending'
         },
         applicantReadAt: {

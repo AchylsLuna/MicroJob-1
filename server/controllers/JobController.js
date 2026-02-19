@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import Job from '../models/Job.js'
+import JobApplication from '../models/JobApplication.js';
 
 export async function getJobList(req, res) {
     try {
@@ -114,7 +115,8 @@ export async function createJob(req, res){
             requirements,
             category, 
             image,
-            urgent
+            urgent,
+            positionsNeeded
         } = req.body;
         const jobPoster = req.user.id;
         
@@ -146,6 +148,8 @@ export async function createJob(req, res){
             image,
             jobPoster,
             urgent: Boolean(urgent)
+            ,
+            positionsNeeded: positionsNeeded ? Number(positionsNeeded) : 1
         });
 
         await newJob.save();
@@ -160,7 +164,7 @@ export async function changeJobStatus(req, res){
     try {
         const {id} = req.params;
         const {status} = req.body;
-        const statusOptions = ['Available', 'In Progress', 'Completed', 'Cancelled'];
+        const statusOptions = ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed'];
 
         if(!statusOptions.includes(status)) {
             return res.status(400).json({message: "Invalid status value."});
@@ -262,6 +266,7 @@ export async function updateJob(req, res) {
             "category",
             "image",
             "urgent",
+            "positionsNeeded",
         ];
 
         const updates = {};
@@ -287,6 +292,13 @@ export async function updateJob(req, res) {
                 if (key === "urgent") {
                     value = Boolean(value);
                 }
+                if (key === "positionsNeeded") {
+                    const n = Number(value);
+                    if (Number.isNaN(n) || n < 1) {
+                        return res.status(400).json({ message: "positionsNeeded must be a positive number." });
+                    }
+                    value = n;
+                }
                 updates[key] = value;
             }
         }
@@ -299,5 +311,35 @@ export async function updateJob(req, res) {
     } catch (error) {
         console.error('Update job error:', error);
         return res.status(500).json({ message: "Failed to update job.", error: error.message });
+    }
+}
+
+export async function deleteJob(req, res) {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+
+        const job = await Job.findById(id);
+        if (!job) {
+            return res.status(404).json({ message: 'Job not found.' });
+        }
+
+        if (job.jobPoster.toString() !== userId) {
+            return res.status(403).json({ message: 'You are not allowed to delete this job.' });
+        }
+
+        // Delete associated applications
+        try {
+            await JobApplication.deleteMany({ job: id });
+        } catch (e) {
+            console.warn('Failed to remove job applications for deleted job', e);
+        }
+
+        await Job.findByIdAndDelete(id);
+
+        return res.status(200).json({ message: 'Job deleted successfully.' });
+    } catch (error) {
+        console.error('Delete job error:', error);
+        return res.status(500).json({ message: 'Failed to delete job.', error: error.message });
     }
 }

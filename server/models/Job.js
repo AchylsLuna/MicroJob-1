@@ -44,12 +44,24 @@ const JobSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ['Available', 'In Progress', 'Completed', 'Cancelled'],
+            enum: ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed'],
             default: 'Available',
         },
         urgent: {
             type: Boolean,
             default: false,
+        },
+        // Number of workers needed for this job post
+        positionsNeeded: {
+            type: Number,
+            default: 1,
+            min: 1,
+        },
+        // How many applicants have been hired
+        hiredCount: {
+            type: Number,
+            default: 0,
+            min: 0,
         },
         category: {
             type: mongoose.Schema.Types.ObjectId,
