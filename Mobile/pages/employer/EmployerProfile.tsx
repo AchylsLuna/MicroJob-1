@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Activi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import { apiRequest, asObject } from '../../lib/api';
 
 type EmployerProfileProps = {
   employer?: {
@@ -61,12 +62,13 @@ export default function EmployerProfile({
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
-        const response = await fetch(`${API_URL}/users/me`, {
+        const result = await apiRequest(`${API_URL}/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) return;
-        const profile = data?.profile || data?.user;
+        }, 'Failed to load profile.');
+        if (!result.ok) return;
+        const payload = asObject<any>(result.raw) || {};
+        const dataPayload = asObject<any>(result.data) || {};
+        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
         if (profile) {
           setFirstName(profile.firstName || '');
           setLastName(profile.lastName || '');
@@ -90,7 +92,7 @@ export default function EmployerProfile({
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/users/me`, {
+      const result = await apiRequest(`${API_URL}/auth/profile`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -102,10 +104,17 @@ export default function EmployerProfile({
           email: email.trim().toLowerCase(),
           phoneNumber: phone.trim(),
         }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to update profile.');
+      }, 'Failed to update profile.');
+
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to update profile.');
+      }
+
+      const payload = asObject<any>(result.raw) || {};
+      const dataPayload = asObject<any>(result.data) || {};
+      const user = dataPayload?.user || payload?.user || dataPayload;
+      if (user) {
+        await AsyncStorage.setItem('auth_user', JSON.stringify(user));
       }
       Alert.alert('Success', 'Profile updated.');
     } catch (error: any) {

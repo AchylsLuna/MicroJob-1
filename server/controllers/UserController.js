@@ -2,6 +2,7 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
+import { sendError, sendSuccess } from "../lib/apiResponse.js";
 import {
     EMAIL_VALIDATION_MESSAGE,
     NAME_VALIDATION_MESSAGE,
@@ -87,12 +88,12 @@ export async function updateMe(req, res) {
     try {
         const userId = req.user?.id || req.user?.userId;
         if (!userId) {
-            return res.status(401).json({ message: "Authentication required." });
+            return sendError(res, 401, "Authentication required.");
         }
 
         const user = await User.findById(userId);
         if (!user) {
-            return res.status(404).json({ message: "User not found." });
+            return sendError(res, 404, "User not found.");
         }
 
         const {
@@ -109,10 +110,10 @@ export async function updateMe(req, res) {
         if (firstName !== undefined) {
             const value = normalizeName(firstName);
             if (!value) {
-                return res.status(400).json({ message: "First name is required." });
+                return sendError(res, 400, "First name is required.");
             }
             if (!isValidName(value)) {
-                return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+                return sendError(res, 400, NAME_VALIDATION_MESSAGE);
             }
             user.firstName = value;
         }
@@ -120,10 +121,10 @@ export async function updateMe(req, res) {
         if (lastName !== undefined) {
             const value = normalizeName(lastName);
             if (!value) {
-                return res.status(400).json({ message: "Last name is required." });
+                return sendError(res, 400, "Last name is required.");
             }
             if (!isValidName(value)) {
-                return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+                return sendError(res, 400, NAME_VALIDATION_MESSAGE);
             }
             user.lastName = value;
         }
@@ -134,14 +135,14 @@ export async function updateMe(req, res) {
                 user.phoneNumber = undefined;
             } else {
                 if (!isValidPhone(normalizedPhone)) {
-                    return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
+                    return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
                 }
                 const existing = await User.findOne({
                     phoneNumber: normalizedPhone,
                     _id: { $ne: userId },
                 });
                 if (existing) {
-                    return res.status(409).json({ message: "Phone number is already registered." });
+                    return sendError(res, 409, "Phone number is already registered.");
                 }
                 user.phoneNumber = normalizedPhone;
             }
@@ -150,17 +151,17 @@ export async function updateMe(req, res) {
         if (email !== undefined) {
             const normalizedEmail = normalizeEmail(email);
             if (!normalizedEmail) {
-                return res.status(400).json({ message: "Email is required." });
+                return sendError(res, 400, "Email is required.");
             }
             if (!isValidEmail(normalizedEmail)) {
-                return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+                return sendError(res, 400, EMAIL_VALIDATION_MESSAGE);
             }
             const existing = await User.findOne({
                 email: normalizedEmail,
                 _id: { $ne: userId },
             });
             if (existing) {
-                return res.status(409).json({ message: "Email is already registered." });
+                return sendError(res, 409, "Email is already registered.");
             }
             user.email = normalizedEmail;
         }
@@ -183,10 +184,10 @@ export async function updateMe(req, res) {
 
         await user.save();
         const updatedUser = await User.findById(userId).select('-passwordHashed');
-        return res.status(200).json({ message: "Profile updated.", user: updatedUser });
+        return sendSuccess(res, 200, "Profile updated.", updatedUser, { user: updatedUser });
     } catch (error) {
         console.error("Update profile error:", error);
-        return res.status(500).json({ message: "Failed to update profile." });
+        return sendError(res, 500, "Failed to update profile.");
     }
 }
 
@@ -346,17 +347,17 @@ export async function sendOtp(req, res) {
         const normalizedEmail = normalizeEmail(email);
 
         if (!normalizedEmail) {
-            return res.status(400).json({ message: "Email is required." });
+            return sendError(res, 400, "Email is required.");
         }
 
         if (!isValidEmail(normalizedEmail)) {
-            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+            return sendError(res, 400, EMAIL_VALIDATION_MESSAGE);
         }
 
         const transporter = getEmailTransporter();
         const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
-            return res.status(200).json({ message: OTP_SENT_GENERIC_MESSAGE });
+            return sendSuccess(res, 200, OTP_SENT_GENERIC_MESSAGE, null);
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
@@ -368,9 +369,15 @@ export async function sendOtp(req, res) {
 
         if (!transporter) {
             if (isDev) {
-                return res.status(200).json({ message: OTP_SENT_GENERIC_MESSAGE, code });
+                return sendSuccess(
+                    res,
+                    200,
+                    OTP_SENT_GENERIC_MESSAGE,
+                    { email: normalizedEmail, code },
+                    { code }
+                );
             }
-            return res.status(500).json({ message: "Email service is not configured." });
+            return sendError(res, 500, "Email service is not configured.");
         }
 
         const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
@@ -393,11 +400,17 @@ export async function sendOtp(req, res) {
             html,
         });
 
-        return res.status(200).json({ message: OTP_SENT_GENERIC_MESSAGE, ...(isDev ? { code } : {}) });
+        return sendSuccess(
+            res,
+            200,
+            OTP_SENT_GENERIC_MESSAGE,
+            { email: normalizedEmail, ...(isDev ? { code } : {}) },
+            isDev ? { code } : {}
+        );
     } catch (error) {
         console.error("Send OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
-        return res.status(500).json({ message: `Failed to send OTP.${detail}`.trim() });
+        return sendError(res, 500, `Failed to send OTP.${detail}`.trim());
     }
 }
 
@@ -407,25 +420,25 @@ export async function verifyOtp(req, res) {
         const key = normalizeEmail(email);
 
         if (!key || !code) {
-            return res.status(400).json({ message: "Email and code are required." });
+            return sendError(res, 400, "Email and code are required.");
         }
         if (!isValidEmail(key)) {
-            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+            return sendError(res, 400, EMAIL_VALIDATION_MESSAGE);
         }
 
         const record = otpStore.get(key);
         if (!record) {
-            return res.status(400).json({ message: "Invalid or expired OTP." });
+            return sendError(res, 400, "Invalid or expired OTP.");
         }
 
         if (record.expiresAt < Date.now()) {
             otpStore.delete(key);
-            return res.status(400).json({ message: "Invalid or expired OTP." });
+            return sendError(res, 400, "Invalid or expired OTP.");
         }
 
         if ((record.attempts || 0) >= MAX_OTP_ATTEMPTS) {
             otpStore.delete(key);
-            return res.status(400).json({ message: "Invalid or expired OTP." });
+            return sendError(res, 400, "Invalid or expired OTP.");
         }
 
         if (record.code !== code) {
@@ -433,16 +446,16 @@ export async function verifyOtp(req, res) {
                 ...record,
                 attempts: (record.attempts || 0) + 1,
             });
-            return res.status(400).json({ message: "Invalid or expired OTP." });
+            return sendError(res, 400, "Invalid or expired OTP.");
         }
 
         const user = await User.findOne({ email: key });
         if (!user) {
-            return res.status(404).json({ message: "User not found." });
+            return sendError(res, 404, "User not found.");
         }
 
         if (user.status === "disabled") {
-            return res.status(403).json({ message: "Account is disabled. Contact an Admin." });
+            return sendError(res, 403, "Account is disabled. Contact an Admin.");
         }
         if (user.status === "pending") {
             user.status = "active";
@@ -457,25 +470,29 @@ export async function verifyOtp(req, res) {
 
         otpStore.delete(key);
 
-        return res.status(200).json({
-            message: "Email verified and login successful.",
-            token,
-            user: {
-                id: user._id,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phoneNumber: user.phoneNumber,
-                email: user.email,
-                role: user.role,
-                city: user.city,
-                country: user.country,
-                linkedin: user.linkedin,
-                avatarUrl: user.avatarUrl,
-            },
-        });
+        const userPayload = {
+            id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            phoneNumber: user.phoneNumber,
+            email: user.email,
+            role: user.role,
+            city: user.city,
+            country: user.country,
+            linkedin: user.linkedin,
+            avatarUrl: user.avatarUrl,
+        };
+
+        return sendSuccess(
+            res,
+            200,
+            "Email verified and login successful.",
+            { token, user: userPayload },
+            { token, user: userPayload }
+        );
     } catch (error) {
         console.error("Verify OTP error:", error);
-        return res.status(500).json({ message: "Failed to verify OTP." });
+        return sendError(res, 500, "Failed to verify OTP.");
     }
 }
 

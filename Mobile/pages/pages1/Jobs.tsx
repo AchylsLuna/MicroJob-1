@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Activi
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { apiRequest, asList } from '../../lib/api';
 
 type Category = { _id: string; name: string };
-type Job = {
+export type Job = {
   _id: string;
   title: string;
   description: string;
@@ -54,10 +55,9 @@ export default function Jobs(props: JobsProps) {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_URL}/categories`);
-      const data = await response.json();
-      if (response.ok && Array.isArray(data)) {
-        setCategories(data);
+      const result = await apiRequest<Category[]>(`${API_URL}/categories`, undefined, 'Failed to load categories.');
+      if (result.ok) {
+        setCategories(asList<Category>(result.raw, ['categories']));
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
@@ -81,14 +81,15 @@ export default function Jobs(props: JobsProps) {
       }
       params.append('excludeOwn', 'true');
 
-      const response = await fetch(`${API_URL}/jobs?${params.toString()}`, {
+      const result = await apiRequest<Job[]>(
+        `${API_URL}/jobs?${params.toString()}`,
+        {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await response.json().catch(() => []);
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to load jobs.');
-      }
-      setJobs(Array.isArray(data) ? data : []);
+        },
+        'Failed to load jobs.'
+      );
+      if (!result.ok) throw new Error(result.message || 'Failed to load jobs.');
+      setJobs(asList<Job>(result.raw, ['jobs']));
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load jobs.');
     } finally {
@@ -289,14 +290,14 @@ export default function Jobs(props: JobsProps) {
                       const token = await AsyncStorage.getItem('auth_token');
                       if (recipientId && token) {
                         // Attempt to send an initial message first
-                        await fetch(`${API_URL}/messages`, {
+                        await apiRequest(`${API_URL}/messages`, {
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
                             Authorization: `Bearer ${token}`,
                           },
                           body: JSON.stringify({ receiverId: recipientId, content: defaultMessage, jobId: job._id }),
-                        });
+                        }, 'Failed to send message.');
                       }
                     } catch (e) {
                       // ignore send errors; we'll still navigate to chat

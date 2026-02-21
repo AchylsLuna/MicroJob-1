@@ -11,10 +11,12 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import { apiRequest, asList } from '../../lib/api';
+import { APPLICATION_STATUSES, ApplicationStatus, normalizeApplicationStatus } from '../../lib/status';
 
 type ApplicationItem = {
   _id: string;
-  status: 'Pending' | 'Reviewed' | 'Accepted' | 'Rejected';
+  status: ApplicationStatus;
   createdAt?: string;
   job: {
     _id: string;
@@ -38,13 +40,13 @@ type EmployerApplicationsProps = {
   onMessageWorker?: (workerId: string, jobId: string) => void;
 };
 
-const STATUS_OPTIONS: ApplicationItem['status'][] = ['Pending', 'Reviewed', 'Accepted', 'Rejected'];
+const STATUS_OPTIONS: ApplicationStatus[] = APPLICATION_STATUSES;
 
 export default function EmployerApplications({ activeTab, onTabPress, onMessageWorker }: EmployerApplicationsProps) {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | ApplicationItem['status']>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | ApplicationStatus>('All');
   const [jobFilter, setJobFilter] = useState<'All' | string>('All');
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -68,14 +70,17 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
       if (jobFilter !== 'All') params.set('jobId', jobFilter);
       if (search) params.set('search', search);
       const url = `${API_URL}/applications/employer${params.toString() ? `?${params}` : ''}`;
-      const response = await fetch(url, {
+      const result = await apiRequest(url, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.message || 'Failed to load applications.');
-      setApplications(Array.isArray(data) ? data : []);
+      }, 'Failed to load applications.');
+      if (!result.ok) throw new Error(result.message || 'Failed to load applications.');
+      const mapped = asList<any>(result.raw, ['applications']).map((item) => ({
+        ...item,
+        status: normalizeApplicationStatus(item?.status),
+      }));
+      setApplications(mapped as ApplicationItem[]);
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load applications.');
     } finally {
@@ -88,20 +93,19 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
     return () => clearTimeout(debounce);
   }, [statusFilter, jobFilter, search]);
 
-  const handleStatusChange = async (applicationId: string, status: ApplicationItem['status']) => {
+  const handleStatusChange = async (applicationId: string, status: ApplicationStatus) => {
     setUpdatingId(applicationId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/applications/${applicationId}/status`, {
+      const result = await apiRequest(`${API_URL}/applications/${applicationId}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ status }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.message || 'Failed to update status.');
+      }, 'Failed to update status.');
+      if (!result.ok) throw new Error(result.message || 'Failed to update status.');
       setApplications((prev) =>
         prev.map((app) => (app._id === applicationId ? { ...app, status } : app))
       );
@@ -116,15 +120,23 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
     setErrorMessage('');
     AsyncStorage.getItem('auth_token')
       .then((token) =>
-        fetch(`${API_URL}/applications/${applicationId}/employer/remove`, {
+        apiRequest(`${API_URL}/applications/${applicationId}/employer/remove`, {
           method: 'PATCH',
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        })
+        }, 'Failed to remove application.')
       )
+      .then((result) => {
+        if (result?.ok) {
+          setApplications((prev) => prev.filter((app) => app._id !== applicationId));
+          return;
+        }
+        if (result) {
+          setErrorMessage(result.message || 'Failed to remove application.');
+        }
+      })
       .catch((error) => {
         setErrorMessage(error?.message || 'Failed to remove application.');
       });
-    setApplications((prev) => prev.filter((app) => app._id !== applicationId));
   };
 
   return (

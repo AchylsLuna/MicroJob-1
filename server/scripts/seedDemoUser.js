@@ -16,8 +16,13 @@ if (!uri) {
   process.exit(1);
 }
 
-const email = process.env.DEMO_USER_EMAIL || 'user@microjobs.local';
-const password = process.env.DEMO_USER_PASSWORD || 'User12345!';
+const isProduction = process.env.NODE_ENV === 'production';
+const email = process.env.DEMO_USER_EMAIL || (!isProduction ? 'user@microjobs.local' : '');
+const password = process.env.DEMO_USER_PASSWORD || (!isProduction ? 'User12345!' : '');
+if (!email || !password) {
+  console.error('DEMO_USER_EMAIL and DEMO_USER_PASSWORD are required in production.');
+  process.exit(1);
+}
 const role = process.env.DEMO_USER_ROLE || 'work';
 const resetPassword = ['1', 'true', 'yes'].includes(
   String(process.env.DEMO_USER_RESET_PASSWORD || '').toLowerCase()

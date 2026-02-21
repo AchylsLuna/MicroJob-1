@@ -2,3 +2,5 @@
 server/serviceAccountKey.json
 
 node_modules
+.expo/
+Mobile/.expo/

@@ -16,8 +16,13 @@ if (!uri) {
   process.exit(1);
 }
 
-const email = process.env.SUPERADMIN_EMAIL || 'superadmin@microjobs.local';
-const password = process.env.SUPERADMIN_PASSWORD || 'SuperAdmin123!';
+const isProduction = process.env.NODE_ENV === 'production';
+const email = process.env.SUPERADMIN_EMAIL || (!isProduction ? 'superadmin@microjobs.local' : '');
+const password = process.env.SUPERADMIN_PASSWORD || (!isProduction ? 'SuperAdmin123!' : '');
+if (!email || !password) {
+  console.error('SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD are required in production.');
+  process.exit(1);
+}
 const resetPassword = ['1', 'true', 'yes'].includes(
   String(process.env.SUPERADMIN_RESET_PASSWORD || '').toLowerCase()
 );

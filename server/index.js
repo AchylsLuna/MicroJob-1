@@ -6,21 +6,42 @@ import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
 import { initSocket } from './lib/socket.js';
+import { getJwtSecret } from './lib/jwtSecret.js';
 
 const app = express();
 const server = http.createServer(app);
 
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultMongoUri = 'mongodb://127.0.0.1:27017';
+const mongoUri = process.env.MONGO_URI?.trim() || (isProduction ? '' : defaultMongoUri);
+
 //Connection Config
 const config = {
     PORT: process.env.PORT || 5000,
-    MONGO_URI: process.env.MONGO_URI,
+    MONGO_URI: mongoUri,
     ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
     DB_NAME: 'MicroJob',
 };
 
+const splitOrigins = (value) =>
+    (value || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+const allowedOrigins = new Set([
+    ...splitOrigins(config.ORIGIN),
+    ...splitOrigins(process.env.CORS_ORIGINS),
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+]);
+
 if (!config.MONGO_URI){
-    console.error('MONGO_URI is not defined');
+    console.error('MONGO_URI is not defined. Set MONGO_URI in production environment.');
     process.exit(1);
+}
+if (!process.env.MONGO_URI && !isProduction) {
+    console.warn(`MONGO_URI is not set; defaulting to ${defaultMongoUri} for local development.`);
 }
 app.use (morgan('dev'));
 
@@ -31,10 +52,20 @@ app.use(express.urlencoded({ extended: true}));
 
 // Allow CORS including PATCH and preflight for the client
 app.use(cors({
-    origin: '*', // Allow all origins for mobile/dev
+    origin: (origin, callback) => {
+        if (!origin) {
+            callback(null, true);
+            return;
+        }
+        if (allowedOrigins.has(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
     preflightContinue: false,
 }));
 
@@ -74,6 +105,7 @@ app.use((err, req, res, next) => {
 }) 
 const startServer = async () => {
     try {
+        getJwtSecret();
         await mongoose.connect(config.MONGO_URI, { dbName: config.DB_NAME});
         console.log('Connected to DB');
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert, Platform, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { apiRequest, asList } from '../../lib/api';
 
 // Conversation summary type
 interface ConversationSummary {
@@ -27,13 +28,13 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const res = await fetch(`${API_URL}/messages/conversations`, {
+      const result = await apiRequest(`${API_URL}/messages/conversations`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      }, 'Failed to fetch conversations');
+      const items = asList<any>(result.raw, ['conversations']);
       // Server returns an array of conversation objects with otherUserId, otherUserName, lastMessage, lastMessageAt
-      const convs: ConversationSummary[] = Array.isArray(data.conversations)
-        ? data.conversations
+      const convs: ConversationSummary[] = Array.isArray(items)
+        ? items
             .map((c: any) => {
               const otherId = c.otherUserId || c.otherUser || c.userId || '';
               const convId = c.conversationId || `${otherId}::${c.jobId || 'general'}`;
@@ -67,12 +68,12 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const res = await fetch(`${API_URL}/messages/conversation`, {
+      const result = await apiRequest(`${API_URL}/messages/conversation`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId }),
-      });
-      if (!res.ok) throw new Error('Delete failed');
+      }, 'Delete failed');
+      if (!result.ok) throw new Error(result.message || 'Delete failed');
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to delete conversation', err);
@@ -86,11 +87,12 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      await fetch(`${API_URL}/messages/archive`, {
+      const result = await apiRequest(`${API_URL}/messages/archive`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId, archive: true }),
-      });
+      }, 'Unable to archive conversation');
+      if (!result.ok) throw new Error(result.message || 'Unable to archive conversation');
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to archive conversation', err);
@@ -104,11 +106,12 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      await fetch(`${API_URL}/messages/block`, {
+      const result = await apiRequest(`${API_URL}/messages/block`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId }),
-      });
+      }, 'Unable to block user');
+      if (!result.ok) throw new Error(result.message || 'Unable to block user');
       Alert.alert('Blocked', 'User has been blocked');
       await fetchConversations();
     } catch (err) {
@@ -123,11 +126,12 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      await fetch(`${API_URL}/messages/read`, {
+      const result = await apiRequest(`${API_URL}/messages/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId, read: markRead }),
-      });
+      }, 'Unable to update read status');
+      if (!result.ok) throw new Error(result.message || 'Unable to update read status');
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to mark read/unread', err);

@@ -1,6 +1,7 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 import { emitToUser } from '../lib/socket.js';
+import { sendError, sendSuccess } from '../lib/apiResponse.js';
 
 const getAuthUserId = (req) => req.user?.id || req.user?._id || req.user?.userId || null;
 
@@ -35,8 +36,8 @@ const getConversationWithUser = async (req, res) => {
     const userId = getAuthUserId(req);
     const { otherUserId } = req.params;
     const jobId = normalizeOptionalJobId(req.query?.jobId);
-    if (!userId) return res.status(401).json({ message: 'Authentication required.' });
-    if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
+    if (!userId) return sendError(res, 401, 'Authentication required.');
+    if (!otherUserId) return sendError(res, 400, 'otherUserId required');
 
     const filter = {
       $or: [
@@ -47,9 +48,9 @@ const getConversationWithUser = async (req, res) => {
     if (jobId) filter.job = jobId;
 
     const messages = await withMessagePopulate(Message.find(filter)).sort({ createdAt: 1 });
-    res.json({ messages });
+    return sendSuccess(res, 200, 'Messages retrieved', messages, { messages });
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error: error.message });
+    return sendError(res, 500, 'Server error', { error: error.message });
   }
 };
 
@@ -63,21 +64,21 @@ const MessageController = {
       const normalizedJobId = normalizeOptionalJobId(jobId);
 
       if (!senderId) {
-        return res.status(401).json({ message: 'Authentication required.' });
+        return sendError(res, 401, 'Authentication required.');
       }
       if (!receiverId || !trimmedContent) {
-        return res.status(400).json({ message: 'Receiver and content are required.' });
+        return sendError(res, 400, 'Receiver and content are required.');
       }
 
       const receiver = await User.findById(receiverId).select('blockedUsers');
       if (!receiver) {
-        return res.status(404).json({ message: 'Receiver not found.' });
+        return sendError(res, 404, 'Receiver not found.');
       }
 
       // If the receiver has blocked the sender, disallow sending
       const blocked = Array.isArray(receiver.blockedUsers) && receiver.blockedUsers.some((id) => String(id) === String(senderId));
       if (blocked) {
-        return res.status(403).json({ message: 'You are blocked by this user.' });
+        return sendError(res, 403, 'You are blocked by this user.');
       }
 
       const message = await Message.create({
@@ -97,9 +98,10 @@ const MessageController = {
         // ignore emit errors
       }
 
-      res.status(201).json({ message: 'Message sent', data: hydratedMessage || message });
+      const payload = hydratedMessage || message;
+      return sendSuccess(res, 201, 'Message sent', payload, { data: payload });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
 
@@ -107,7 +109,7 @@ const MessageController = {
   getConversations: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
 
       // Most recent first so the first hit per conversation key is the preview we need.
       const messages = await withMessagePopulate(
@@ -141,9 +143,9 @@ const MessageController = {
       });
 
       const conversations = Array.from(conversationMap.values());
-      res.json({ conversations });
+      return sendSuccess(res, 200, 'Conversations retrieved', conversations, { conversations });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
 
@@ -153,8 +155,8 @@ const MessageController = {
       const userId = getAuthUserId(req);
       const { otherUserId, jobId } = req.query;
       const normalizedJobId = normalizeOptionalJobId(jobId);
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
-      if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
+      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       const filter = {
         $or: [
           { sender: userId, receiver: otherUserId },
@@ -163,9 +165,9 @@ const MessageController = {
       };
       if (normalizedJobId) filter.job = normalizedJobId;
       const messages = await withMessagePopulate(Message.find(filter)).sort({ createdAt: 1 });
-      res.json({ messages });
+      return sendSuccess(res, 200, 'Messages retrieved', messages, { messages });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
 
@@ -175,8 +177,8 @@ const MessageController = {
       const userId = getAuthUserId(req);
       const { otherUserId, jobId, read } = req.body;
       const normalizedJobId = normalizeOptionalJobId(jobId);
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
-      if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
+      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       const filter = {
         sender: otherUserId,
         receiver: userId,
@@ -184,9 +186,14 @@ const MessageController = {
       if (normalizedJobId) filter.job = normalizedJobId;
       const setRead = read === false ? false : true; // default to true
       await Message.updateMany(filter, { $set: { read: setRead } });
-      res.json({ message: setRead ? 'Messages marked as read' : 'Messages marked as unread' });
+      return sendSuccess(
+        res,
+        200,
+        setRead ? 'Messages marked as read' : 'Messages marked as unread',
+        { otherUserId, read: setRead }
+      );
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
   // Block another user
@@ -194,16 +201,16 @@ const MessageController = {
     try {
       const userId = getAuthUserId(req);
       const { otherUserId } = req.body;
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
-      if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
+      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       await User.updateOne({ _id: userId }, { $addToSet: { blockedUsers: otherUserId } });
       // notify the blocked user via socket that they were blocked by userId
       try {
         emitToUser(otherUserId, 'user_blocked', { blockerId: userId });
       } catch (e) {}
-      res.json({ message: 'User blocked' });
+      return sendSuccess(res, 200, 'User blocked', { otherUserId });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
 
@@ -211,15 +218,15 @@ const MessageController = {
     try {
       const userId = getAuthUserId(req);
       const { otherUserId } = req.body;
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
-      if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
+      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       await User.updateOne({ _id: userId }, { $pull: { blockedUsers: otherUserId } });
       try {
         emitToUser(otherUserId, 'user_unblocked', { unblockedBy: userId });
       } catch (e) {}
-      res.json({ message: 'User unblocked' });
+      return sendSuccess(res, 200, 'User unblocked', { otherUserId });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
 
@@ -228,17 +235,17 @@ const MessageController = {
     try {
       const userId = getAuthUserId(req);
       const { otherUserId, jobId, archive } = req.body;
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
-      if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
+      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       const convId = `${otherUserId}::${jobId || 'general'}`;
       if (archive) {
         await User.updateOne({ _id: userId }, { $addToSet: { archivedConversations: convId } });
-        return res.json({ message: 'Conversation archived' });
+        return sendSuccess(res, 200, 'Conversation archived', { conversationId: convId });
       }
       await User.updateOne({ _id: userId }, { $pull: { archivedConversations: convId } });
-      res.json({ message: 'Conversation unarchived' });
+      return sendSuccess(res, 200, 'Conversation unarchived', { conversationId: convId });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
 
@@ -246,19 +253,19 @@ const MessageController = {
   getBlockedUsers: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
       const user = await User.findById(userId).populate('blockedUsers', 'firstName lastName email');
       const blocked = (user?.blockedUsers || []).map((u) => ({ id: u._id, firstName: u.firstName, lastName: u.lastName, email: u.email }));
-      res.json({ blocked });
+      return sendSuccess(res, 200, 'Blocked users retrieved', blocked, { blocked });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
   // Get archived conversations for the current user
   getArchivedConversations: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
       const user = await User.findById(userId).select('archivedConversations');
       const archived = Array.isArray(user?.archivedConversations) ? user.archivedConversations : [];
 
@@ -292,9 +299,9 @@ const MessageController = {
         });
       }
 
-      res.json({ archived: results });
+      return sendSuccess(res, 200, 'Archived conversations retrieved', results, { archived: results });
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
 
@@ -303,8 +310,8 @@ const MessageController = {
     try {
       const userId = getAuthUserId(req);
       const { otherUserId, jobId } = req.body;
-      if (!userId) return res.status(401).json({ message: 'Authentication required.' });
-      if (!otherUserId) return res.status(400).json({ message: 'otherUserId required' });
+      if (!userId) return sendError(res, 401, 'Authentication required.');
+      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
       const normalizedJobId = normalizeOptionalJobId(jobId);
       const filter = {
         $or: [
@@ -319,9 +326,15 @@ const MessageController = {
       await User.updateOne({ _id: userId }, { $pull: { archivedConversations: convId } });
       const convId2 = `${userId}::${normalizedJobId || 'general'}`;
       await User.updateOne({ _id: otherUserId }, { $pull: { archivedConversations: convId2 } });
-      res.json({ message: 'Conversation deleted for both users' });
+      return sendSuccess(
+        res,
+        200,
+        'Conversation deleted for both users',
+        { conversationId: convId },
+        { conversationId: convId }
+      );
     } catch (error) {
-      res.status(500).json({ message: 'Server error', error: error.message });
+      return sendError(res, 500, 'Server error', { error: error.message });
     }
   },
   getConversationWithUser,

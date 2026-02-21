@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, ActivityIndicator, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../config';
+import { apiRequest, asObject } from '../lib/api';
 
 type Props = {
   email?: string;
@@ -70,15 +71,14 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const response = await fetch(`${API_URL}/users/otp/send`, {
+      const result = await apiRequest(`${API_URL}/auth/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
-      });
+      }, 'Failed to send OTP.');
 
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to send OTP.');
+      if (!result.ok) {
+        throw new Error(`${result.message || 'Failed to send OTP.'} (HTTP ${result.status})`);
       }
 
       setTimer(30);
@@ -100,20 +100,24 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const response = await fetch(`${API_URL}/users/otp/verify`, {
+      const result = await apiRequest(`${API_URL}/auth/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code: otpCode }),
-      });
+      }, 'Verification failed.');
 
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || 'Verification failed.');
+      if (!result.ok) {
+        throw new Error(`${result.message || 'Verification failed.'} (HTTP ${result.status})`);
       }
 
-      if (data?.token && data?.user) {
-        await AsyncStorage.setItem('auth_token', data.token);
-        await AsyncStorage.setItem('auth_user', JSON.stringify(data.user));
+      const dataPayload = asObject<any>(result.data) || {};
+      const rawPayload = asObject<any>(result.raw) || {};
+      const token = dataPayload?.token || rawPayload?.token;
+      const user = dataPayload?.user || rawPayload?.user;
+
+      if (token && user) {
+        await AsyncStorage.setItem('auth_token', token);
+        await AsyncStorage.setItem('auth_user', JSON.stringify(user));
         await AsyncStorage.setItem('has_onboarded', 'true');
       }
       await AsyncStorage.removeItem('pending_verification_email');

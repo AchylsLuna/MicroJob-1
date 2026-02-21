@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { apiRequest, asList } from '../../lib/api';
 
 type Category = { _id: string; name: string };
 type Job = {
@@ -29,10 +30,9 @@ export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_URL}/categories`);
-      const data = await response.json();
-      if (response.ok && Array.isArray(data)) {
-        setCategories(data.slice(0, 3));
+      const result = await apiRequest<Category[]>(`${API_URL}/categories`, undefined, 'Failed to load categories.');
+      if (result.ok) {
+        setCategories(asList<Category>(result.raw, ['categories']).slice(0, 3));
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
@@ -44,14 +44,17 @@ export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/jobs?excludeOwn=true`, {
+      const result = await apiRequest<Job[]>(
+        `${API_URL}/jobs?excludeOwn=true`,
+        {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await response.json().catch(() => []);
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to load jobs.');
+        },
+        'Failed to load jobs.'
+      );
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to load jobs.');
       }
-      setJobs(Array.isArray(data) ? data : []);
+      setJobs(asList<Job>(result.raw, ['jobs']));
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load jobs.');
     } finally {

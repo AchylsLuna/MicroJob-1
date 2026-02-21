@@ -4,13 +4,15 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { apiRequest, asList, asObject } from '../../lib/api';
+import { APPLICATION_STATUSES, ApplicationStatus, getApplicationStatusColor, normalizeApplicationStatus } from '../../lib/status';
 
 type AppliedJob = {
   id: string;
   jobId: string;
   title: string;
   company: string;
-  status: 'Pending' | 'Reviewed' | 'Accepted' | 'Rejected';
+  status: ApplicationStatus;
   hasDetails?: boolean;
 };
 
@@ -25,53 +27,37 @@ type AppliedJobsProps = {
 export default function AppliedJobs(props: AppliedJobsProps) {
   const { onViewSavedJobs, onViewDetails, activeTab: externalActiveTab, onTabPress: externalOnTabPress, navigation } = props;
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Saved');
-  const [selectedFilter, setSelectedFilter] = useState('All');
+  const [selectedFilter, setSelectedFilter] = useState<'All' | ApplicationStatus>('All');
   const [applications, setApplications] = useState<AppliedJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const filters = ['All', 'Pending', 'Reviewed', 'Accepted', 'Rejected'];
+  const filters = ['All', ...APPLICATION_STATUSES] as const;
 
   const filteredJobs = applications.filter((job) => {
     if (selectedFilter === 'All') return true;
     return job.status === selectedFilter;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Pending':
-        return '#3b82f6';
-      case 'Reviewed':
-        return '#f59e0b';
-      case 'Accepted':
-        return '#10b981';
-      case 'Rejected':
-        return '#ef4444';
-      default:
-        return '#6b7280';
-    }
-  };
-
   const fetchApplications = async () => {
     setIsLoading(true);
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/applications`, {
+      const result = await apiRequest(`${API_URL}/applications`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await response.json().catch(() => []);
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to load applications.');
+      }, 'Failed to load applications.');
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to load applications.');
       }
-      const mapped = (Array.isArray(data) ? data : []).map((app: any) => ({
+      const mapped = asList<any>(result.raw, ['applications']).map((app: any) => ({
         id: app._id,
         jobId: app.job?._id,
         title: app.job?.title || 'Untitled job',
         company: app.job?.jobPoster
           ? `${app.job.jobPoster.firstName || ''} ${app.job.jobPoster.lastName || ''}`.trim()
           : 'Job Poster',
-        status: app.status || 'Pending',
+        status: normalizeApplicationStatus(app.status),
         hasDetails: true,
       }));
       setApplications(mapped);
@@ -112,7 +98,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
         {filters.map((filter) => {
           const isActive = selectedFilter === filter;
-          const color = filter === 'All' ? '#1f2937' : getStatusColor(filter as AppliedJob['status']);
+          const color = filter === 'All' ? '#1f2937' : getApplicationStatusColor(filter as ApplicationStatus);
           return (
             <TouchableOpacity
               key={filter}
@@ -152,7 +138,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                 </View>
 
                 <View style={styles.jobDetails}>
-                  <View style={[styles.statusBadge, { backgroundColor: getStatusColor(job.status) }]}
+                  <View style={[styles.statusBadge, { backgroundColor: getApplicationStatusColor(job.status) }]}
                   >
                     <Text style={styles.statusText}>{job.status}</Text>
                   </View>
@@ -176,12 +162,14 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                     // Fetch the full application to get employer userId if not present
                     let employerId = null;
                     try {
-                      const response = await fetch(`${API_URL}/applications/${job.id}`, {
+                      const result = await apiRequest(`${API_URL}/applications/${job.id}`, {
                         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                      });
-                      if (response.ok) {
-                        const data = await response.json();
-                        employerId = data?.job?.jobPoster?._id;
+                      }, 'Failed to load application details.');
+                      if (result.ok) {
+                        const rawObject = asObject<any>(result.raw);
+                        const payload = asObject<any>(result.data);
+                        const application = rawObject?.application || payload?.application || payload;
+                        employerId = application?.job?.jobPoster?._id;
                       }
                     } catch {}
                     if (!employerId) {

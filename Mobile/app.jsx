@@ -4,7 +4,8 @@ import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import "./global.css";
-import { API_URL } from './config';
+import { API_URL, SOCKET_URL } from './config';
+import { apiRequest, asObject } from './lib/api';
 import Screen1 from './pages/Screen1';
 import Screen2 from './pages/Screen2';
 import Screen3 from './pages/Screen3';
@@ -40,6 +41,8 @@ export default function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [savedJobs, setSavedJobs] = useState([]);
   const [selectedEmployerJob, setSelectedEmployerJob] = useState(null);
+  const [selectedWorkerId, setSelectedWorkerId] = useState(null);
+  const [selectedJobId, setSelectedJobId] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [viewMode, setViewMode] = useState('worker');
   const [explicitEmployerView, setExplicitEmployerView] = useState(false);
@@ -102,13 +105,15 @@ export default function App() {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return null;
-      const response = await fetch(`${API_URL}/users/me`, {
+      const result = await apiRequest(`${API_URL}/auth/profile`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (response.ok) {
-        const profile = data?.profile || data?.user;
-        const role = profile?.role || data?.role || data?.user?.role;
+      }, 'Failed to load profile.');
+
+      if (result.ok) {
+        const payload = asObject(result.raw) || {};
+        const dataPayload = asObject(result.data) || {};
+        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
+        const role = profile?.role || payload?.role || payload?.user?.role;
         if (profile) {
           await AsyncStorage.setItem('auth_user', JSON.stringify(profile));
         }
@@ -146,12 +151,15 @@ export default function App() {
         // avoid reconnecting
         if (socketRef.current) return;
 
-        const socket = io(API_URL, { transports: ['websocket'], auth: { token } });
+        const socket = io(SOCKET_URL, { transports: ['websocket'], auth: { token } });
         socketRef.current = socket;
 
         socket.on('connect', () => {
           console.log('socket connected', socket.id);
           socket.emit('register', String(userId));
+        });
+        socket.on('connect_error', (err) => {
+          console.log('socket connect_error', err?.message || err);
         });
 
         socket.on('new_application', (payload) => {
@@ -382,6 +390,12 @@ export default function App() {
   const handleGoToEmployerApplications = () => {
     setActiveEmployerTab('Applications');
     setCurrentScreen(SCREEN.EmployerApplications);
+  };
+
+  const handleMessageWorker = (workerId, jobId) => {
+    setSelectedWorkerId(workerId);
+    setSelectedJobId(jobId);
+    setCurrentScreen(SCREEN.EmployerMessages);
   };
 
   const handleGoToEmployerProfile = () => {
@@ -707,17 +721,8 @@ export default function App() {
       liveNotifications={employerNotifications}
     />,
     <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} liveMessages={messageEvents} />,
-    <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} />,
   ];
-
-  const [selectedWorkerId, setSelectedWorkerId] = useState(null);
-  const [selectedJobId, setSelectedJobId] = useState(null);
-
-  const handleMessageWorker = (workerId, jobId) => {
-    setSelectedWorkerId(workerId);
-    setSelectedJobId(jobId);
-    setCurrentScreen(SCREEN.EmployerMessages);
-  };
+  const currentView = screens[currentScreen] ?? screens[SCREEN.SignIn] ?? null;
 
   const translateX = transition.interpolate({
     inputRange: [0, 1],
@@ -747,7 +752,7 @@ export default function App() {
           transform: [{ translateX }],
         }}
       >
-        {screens[currentScreen]}
+        {currentView}
       </Animated.View>
       {showIdleWarning && (
         <View style={styles.idleOverlay}>

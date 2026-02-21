@@ -6,6 +6,7 @@ import AddExperience from './AddExperience';
 import AddEducation from './AddEducation';
 import AddCV from './AddCV';
 import { API_URL } from '../../config';
+import { apiRequest, asObject } from '../../lib/api';
 
 type ProfileProps = {
   activeTab?: string;
@@ -50,12 +51,13 @@ export default function Profile({
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
-        const response = await fetch(`${API_URL}/users/me`, {
+        const result = await apiRequest(`${API_URL}/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) return;
-        const profile = data?.user || data;
+        }, 'Failed to load profile.');
+        if (!result.ok) return;
+        const payload = asObject<any>(result.raw) || {};
+        const dataPayload = asObject<any>(result.data) || {};
+        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
         if (profile) {
           setFirstName(profile.firstName || 'Jonas');
           setLastName(profile.lastName || '');
@@ -131,12 +133,12 @@ export default function Profile({
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statCount}>5</Text>
-              <Text style={styles.statLabel}>Reviewed</Text>
+              <Text style={styles.statLabel}>Shortlisted</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
               <Text style={styles.statCount}>5</Text>
-              <Text style={styles.statLabel}>Interview</Text>
+              <Text style={styles.statLabel}>Terms</Text>
             </View>
           </View>
         </View>

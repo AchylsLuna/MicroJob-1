@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import { apiRequest, asList, asObject } from '../../lib/api';
 
 type JobItem = {
   _id: string;
@@ -55,14 +56,13 @@ export default function EmployerJobPosts({
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/jobs/mine`, {
+      const result = await apiRequest<JobItem[]>(`${API_URL}/jobs/mine`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.message || 'Failed to load job posts.');
-      setJobs(data || []);
+      }, 'Failed to load job posts.');
+      if (!result.ok) throw new Error(result.message || 'Failed to load job posts.');
+      setJobs(asList<JobItem>(result.raw, ['jobs']));
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load job posts.');
     } finally {
@@ -88,12 +88,13 @@ export default function EmployerJobPosts({
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
-        const response = await fetch(`${API_URL}/users/me`, {
+        const result = await apiRequest(`${API_URL}/auth/profile`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) return;
-        const profile = data?.profile || data?.user;
+        }, 'Failed to load profile.');
+        if (!result.ok) return;
+        const payload = asObject<any>(result.raw) || {};
+        const dataPayload = asObject<any>(result.data) || {};
+        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
         const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
         if (name) setEmployerName(name);
       } catch (error) {

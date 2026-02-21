@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, ActivityInd
 import { useState } from 'react';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiRequest, asObject } from '../lib/api';
 
 export default function SignIn({
   onBack,
@@ -34,7 +35,7 @@ export default function SignIn({
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_URL}/users/login`, {
+      const result = await apiRequest(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -43,24 +44,29 @@ export default function SignIn({
           emailOrUsername: email.toLowerCase().trim(),
           password,
         }),
-      });
+      }, 'Unable to sign in.');
 
-      const data = await response.json();
+      const responseData = asObject<any>(result.data) || {};
+      const responseRaw = asObject<any>(result.raw) || {};
+      const token = responseData?.token || responseRaw?.token;
+      const user = responseData?.user || responseRaw?.user;
 
-      if (response.ok && data.token) {
+      if (result.ok && token) {
         // Store token and user info
-        await AsyncStorage.setItem('auth_token', data.token);
-        await AsyncStorage.setItem('auth_user', JSON.stringify(data.user));
+        await AsyncStorage.setItem('auth_token', token);
+        if (user) {
+          await AsyncStorage.setItem('auth_user', JSON.stringify(user));
+        }
         await AsyncStorage.setItem('has_onboarded', 'true');
         
         Alert.alert('Success', 'Login successful!');
         if (onLogin) onLogin();
       } else {
-        Alert.alert('Error', data.message || 'Invalid credentials');
+        Alert.alert('Error', `${result.message || 'Invalid credentials'} (HTTP ${result.status})`);
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'Network error. Please check your connection.');
+      Alert.alert('Error', 'Network error. Please check your connection and server status.');
     } finally {
       setIsLoading(false);
     }
