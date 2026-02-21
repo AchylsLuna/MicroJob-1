@@ -1,7 +1,6 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 import { sendError, sendSuccess } from "../lib/apiResponse.js";
 import {
     EMAIL_VALIDATION_MESSAGE,
@@ -14,11 +13,13 @@ import {
     normalizeName,
     normalizePhone,
 } from "../lib/authValidation.js";
+import { getJwtSecret } from "../lib/jwtSecret.js";
 
 const otpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_SENT_GENERIC_MESSAGE = "If an account exists for this email, an OTP has been sent.";
+const jwtSecret = getJwtSecret();
 
 function getEmailTransporter() {
     const host = process.env.SMTP_HOST;
@@ -191,155 +192,6 @@ export async function updateMe(req, res) {
     }
 }
 
-export async function register(req, res) {
-    try {
-        const { phoneNumber, email, firstName, lastName, username, password, role } = req.body;
-        const normalizedPhone = phoneNumber ? normalizePhone(phoneNumber) : "";
-        const normalizedEmail = normalizeEmail(email);
-
-        let finalFirstName = firstName;
-        let finalLastName = lastName;
-
-        if (username && !firstName && !lastName) {
-            const nameParts = username.trim().split(" ");
-            finalFirstName = nameParts[0] || "";
-            finalLastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
-        }
-
-        const normalizedFirstName = normalizeName(finalFirstName);
-        let normalizedLastName = normalizeName(finalLastName);
-        if (!normalizedLastName) {
-            normalizedLastName = normalizedFirstName;
-        }
-
-        if (!normalizedFirstName || typeof password !== "string" || !password || !normalizedEmail) {
-            return res.status(400).json({ message: "Missing Fields." });
-        }
-        if (!isValidName(normalizedFirstName) || !isValidName(normalizedLastName)) {
-            return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
-        }
-
-        if (!isValidEmail(normalizedEmail)) {
-            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
-        }
-
-        if (!isStrongPassword(password)) {
-            return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
-        }
-
-        if (normalizedPhone) {
-            if (!isValidPhone(normalizedPhone)) {
-                return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
-            }
-
-            const phoneExists = await User.findOne({ phoneNumber: normalizedPhone });
-            if (phoneExists) {
-                return res.status(409).json({ message: "Phone Number is already registered." });
-            }
-        }
-
-        const emailExists = await User.findOne({ email: normalizedEmail });
-        if (emailExists) {
-            return res.status(409).json({ message: "Email is already registered." });
-        }
-
-        const validRoles = ["hire", "work", "both"];
-        const userRole = role && validRoles.includes(role) ? role : "work";
-        console.log("Register - User role being set to:", userRole);
-
-        const user = new User({
-            phoneNumber: normalizedPhone || undefined,
-            email: normalizedEmail,
-            firstName: normalizedFirstName,
-            lastName: normalizedLastName,
-            role: userRole,
-            status: "pending",
-        });
-        await user.setPassword(password);
-        await user.save();
-
-        return res.status(201).json({ message: "Successfully registered." });
-    } catch (error) {
-        console.error("Registration Failed.");
-        return res.status(500).json({ message: "Registration Failed." });
-    }
-}
-
-export async function login(req, res) {
-    try{
-        const {phonenumber, password, phoneNumber, email, emailOrUsername} = req.body;
-        // Support both web (emailOrUsername) and mobile (email/phone) formats
-        const rawIdentifier = emailOrUsername ?? email ?? phonenumber ?? phoneNumber ?? "";
-        const identifier = typeof rawIdentifier === "string"
-            ? rawIdentifier.trim()
-            : String(rawIdentifier).trim();
-        const normalizedIdentifier = identifier.includes("@")
-            ? normalizeEmail(identifier)
-            : normalizePhone(identifier) || identifier;
-
-        if(!normalizedIdentifier || typeof password !== "string" || !password) {
-            return res.status(400).json({message: "Missing Fields."});
-        }
-        
-        // Search by phoneNumber or email
-        const user = await User.findOne({
-            $or: [
-                {phoneNumber: normalizedIdentifier}, 
-                {phonenumber: normalizedIdentifier},
-                {email: normalizedIdentifier}
-            ]
-        });
-        if(!user || !(await user.validatePassword(password))) {
-            return res.status(401).json({message: "Invalid credentials."});
-        }
-        if(user.status !== "active") {
-            return res.status(401).json({message: "Account is disabled. Contact an Admin."});
-        }
-        
-        const token = jwt.sign(
-            {id: user._id, role: user.role},
-            process.env.JWT_SECRET,
-            {expiresIn: "7d"}
-        );
-
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 7* 24 * 60 * 60 * 1000,
-        });
-        
-        return res.status(200).json({
-            message: "Login successful.",
-            token,
-            user: {
-                id: user._id,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phoneNumber: user.phoneNumber,
-                email: user.email,
-                role: user.role, // hire, work, both, admin, superadmin
-                city: user.city,
-                country: user.country,
-                linkedin: user.linkedin,
-                avatarUrl: user.avatarUrl,
-            }
-        });
-    } catch (error){
-        console.error("Login error:", error);
-        res.status(500).json({message: "Login failed."});
-    }
-}
-
-export async function logout(req, res) {
-    res.clearCookie("token", {
-        httpOnly: true,
-        sameSite: "strict",
-        secure: process.env.NODE_ENV === 'production'
-    });
-    return res.status(200).json({message: "Logout successful."});
-}
-
 export async function sendOtp(req, res) {
     try {
         const { email } = req.body;
@@ -464,7 +316,7 @@ export async function verifyOtp(req, res) {
 
         const token = jwt.sign(
             { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
+            jwtSecret,
             { expiresIn: "7d" }
         );
 
@@ -493,92 +345,6 @@ export async function verifyOtp(req, res) {
     } catch (error) {
         console.error("Verify OTP error:", error);
         return sendError(res, 500, "Failed to verify OTP.");
-    }
-}
-
-export async function googleAuth(req, res) {
-    try {
-        const { idToken } = req.body;
-        if (!idToken) {
-            return res.status(400).json({ message: 'idToken is required.' });
-        }
-
-        const {OAuth2Client} = await import('google-auth-library');
-        const clientId = process.env.GOOGLE_CLIENT_ID;
-        if (!clientId) {
-            return res.status(500).json({ message: 'Google client ID not configured.' });
-        }
-        const client = new OAuth2Client(clientId);
-        const ticket = await client.verifyIdToken({ idToken, audience: clientId });
-        const payload = ticket.getPayload();
-        if (!payload || !payload.email) {
-            return res.status(400).json({ message: 'Invalid Google token.' });
-        }
-
-        const email = payload.email.toLowerCase();
-        const firstName = payload.given_name || payload.name?.split(' ')[0] || 'User';
-        const lastName = payload.family_name || payload.name?.split(' ').slice(1).join(' ') || firstName;
-        const avatarUrl = payload.picture;
-
-        let user = await User.findOne({ email });
-        if (!user) {
-            user = new User({
-                email,
-                firstName,
-                lastName,
-                role: 'work',
-                status: 'active',
-                avatarUrl: avatarUrl,
-            });
-            // set a random strong password so the schema requirement is satisfied
-            const crypto = await import('crypto');
-            const random = crypto.randomBytes(24).toString('base64') + Date.now().toString();
-            try {
-                await user.setPassword(random);
-            } catch (pwErr) {
-                // fallback: hash with bcrypt directly
-                const bcrypt = await import('bcryptjs');
-                user.passwordHashed = await bcrypt.hash(random, 10);
-            }
-            await user.save();
-        }
-
-        if (user.status === 'disabled') {
-            return res.status(403).json({ message: 'Account disabled.' });
-        }
-
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        res.cookie('token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
-
-        return res.status(200).json({
-            message: 'Login successful.',
-            token,
-            user: {
-                id: user._id,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phoneNumber: user.phoneNumber,
-                email: user.email,
-                role: user.role,
-                city: user.city,
-                country: user.country,
-                linkedin: user.linkedin,
-                avatarUrl: user.avatarUrl,
-            }
-        });
-    } catch (error) {
-        console.error('Google auth error:', error);
-        return res.status(500).json({ message: 'Google authentication failed.' });
     }
 }
 

@@ -22,11 +22,19 @@ type AppliedJobsProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   navigation?: any;
+  messageBadgeCount?: number;
 };
 
 export default function AppliedJobs(props: AppliedJobsProps) {
-  const { onViewSavedJobs, onViewDetails, activeTab: externalActiveTab, onTabPress: externalOnTabPress, navigation } = props;
-  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Saved');
+  const {
+    onViewSavedJobs,
+    onViewDetails,
+    activeTab: externalActiveTab,
+    onTabPress: externalOnTabPress,
+    navigation,
+    messageBadgeCount = 0,
+  } = props;
+  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [selectedFilter, setSelectedFilter] = useState<'All' | ApplicationStatus>('All');
   const [applications, setApplications] = useState<AppliedJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -193,7 +201,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         )}
       </ScrollView>
 
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} />
+      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

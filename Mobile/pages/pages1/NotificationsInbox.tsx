@@ -6,9 +6,15 @@ type NotificationsInboxProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   liveNotifications?: any[];
+  messageBadgeCount?: number;
 };
 
-export default function NotificationsInbox({ activeTab = 'Messages', onTabPress, liveNotifications = [] }: NotificationsInboxProps) {
+export default function NotificationsInbox({
+  activeTab = 'Home',
+  onTabPress,
+  liveNotifications = [],
+  messageBadgeCount = 0,
+}: NotificationsInboxProps) {
   const [notifications, setNotifications] = useState<any[]>([
     {
       id: 1,
@@ -93,7 +99,7 @@ export default function NotificationsInbox({ activeTab = 'Messages', onTabPress,
         )}
       </ScrollView>
 
-      <Navigation activeTab={activeTab} onTabPress={onTabPress} />
+      <Navigation activeTab={activeTab} onTabPress={onTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

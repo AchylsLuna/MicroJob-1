@@ -9,6 +9,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   root: __dirname,
   plugins: [react()],
+  resolve: {
+    alias: {
+      react: resolve(__dirname, "node_modules/react"),
+      "react-dom": resolve(__dirname, "node_modules/react-dom"),
+      "react/jsx-runtime": resolve(__dirname, "node_modules/react/jsx-runtime"),
+      "react/jsx-dev-runtime": resolve(__dirname, "node_modules/react/jsx-dev-runtime"),
+    },
+    dedupe: ["react", "react-dom"],
+  },
   publicDir: resolve(__dirname, "public"),
   build: {
     outDir: resolve(__dirname, "dist"),

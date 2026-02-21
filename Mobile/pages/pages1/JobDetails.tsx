@@ -11,9 +11,17 @@ type JobDetailsProps = {
   isSaved?: boolean;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  messageBadgeCount?: number;
 };
 
-export default function JobDetails({ job, onSaveJob, isSaved = false, activeTab = 'Jobs', onTabPress }: JobDetailsProps) {
+export default function JobDetails({
+  job,
+  onSaveJob,
+  isSaved = false,
+  activeTab = 'Jobs',
+  onTabPress,
+  messageBadgeCount = 0,
+}: JobDetailsProps) {
   const [saved, setSaved] = useState(isSaved);
   const [showSuccess, setShowSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState(job);
@@ -113,7 +121,7 @@ export default function JobDetails({ job, onSaveJob, isSaved = false, activeTab 
             </TouchableOpacity>
           </View>
         </View>
-        <Navigation activeTab={activeTab} onTabPress={handleTabPress} />
+        <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
       </View>
     );
   }
@@ -210,7 +218,7 @@ export default function JobDetails({ job, onSaveJob, isSaved = false, activeTab 
       </ScrollView>
 
       {/* Bottom nav */}
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} />
+      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

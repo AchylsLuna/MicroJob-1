@@ -19,6 +19,7 @@ export default function SavedJobs({
   activeTab: externalActiveTab,
   onTabPress: externalOnTabPress,
   onViewAppliedJobs,
+  messageBadgeCount = 0,
 }: { 
   savedJobs?: SavedJob[];
   onRemoveJob?: (jobId: string) => void;
@@ -26,8 +27,9 @@ export default function SavedJobs({
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   onViewAppliedJobs?: () => void;
+  messageBadgeCount?: number;
 }) {
-  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Saved');
+  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);
@@ -104,7 +106,7 @@ export default function SavedJobs({
       </ScrollView>
 
       {/* Bottom nav */}
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} />
+      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

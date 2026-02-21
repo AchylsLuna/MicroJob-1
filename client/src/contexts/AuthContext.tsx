@@ -100,14 +100,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Check for existing session
     const currentUser = localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(CURRENT_USER_KEY);
     if (currentUser) {
-      const parsed = JSON.parse(currentUser) as User;
-      const normalizedUser = {
-        ...parsed,
-        accountType: parsed.accountType ?? "worker",
-        accountOptions: parsed.accountOptions ?? [parsed.accountType ?? "worker"],
-      };
-      setUser(normalizedUser);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
+      try {
+        const parsed = JSON.parse(currentUser) as User;
+        const normalizedUser = {
+          ...parsed,
+          accountType: parsed.accountType ?? "worker",
+          accountOptions: parsed.accountOptions ?? [parsed.accountType ?? "worker"],
+        };
+        setUser(normalizedUser);
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
+      } catch {
+        // Corrupted or legacy non-JSON values can break initial render.
+        localStorage.removeItem(AUTH_USER_KEY);
+        localStorage.removeItem(CURRENT_USER_KEY);
+      }
     }
 
     const pendingEmail = localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);

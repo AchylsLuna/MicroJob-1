@@ -25,6 +25,7 @@ import AppliedJobs from './pages/pages1/AppliedJobs';
 import Profile from './pages/pages1/Profile';
 import NotificationsInbox from './pages/pages1/NotificationsInbox';
 import WorkerInbox from './pages/pages1/WorkerInbox';
+import EWallet from './pages/pages1/EWallet';
 import Settings from './pages/pages1/Settings';
 import EmployerJobPosts from './pages/employer/EmployerJobPosts';
 import EmployerPostJob from './pages/employer/EmployerPostJob';
@@ -50,11 +51,13 @@ export default function App() {
   const [workerNotifications, setWorkerNotifications] = useState([]);
   const [employerNotifications, setEmployerNotifications] = useState([]);
   const [messageEvents, setMessageEvents] = useState([]);
+  const [workerUnreadMessageCount, setWorkerUnreadMessageCount] = useState(0);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const transition = useRef(new Animated.Value(0)).current;
   const screenWidth = Dimensions.get('window').width;
   const warningTimerRef = useRef(null);
   const logoutTimerRef = useRef(null);
+  const currentScreenRef = useRef(currentScreen);
 
   const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
   const WARNING_DURATION_MS = 10 * 1000;
@@ -76,22 +79,27 @@ export default function App() {
     PassChanged: 10,
     Dashboard: 11,
     Jobs: 12,
-    JobDetails: 13,
-    Saved: 14,
-    Applied: 15,
-    Messages: 16, // WorkerInbox
-    Notifications: 17, // NotificationsInbox
-    Profile: 18,
-    Settings: 19,
-    EmployerJobPosts: 20,
-    EmployerPostJob: 21,
-    EmployerApplications: 22,
-    EmployerProfile: 23,
-    EmployerNotifications: 24,
-    EmployerMessages: 25, // EmployerInbox / EmployerMessages
+    EWallet: 13,
+    JobDetails: 14,
+    Saved: 15,
+    Applied: 16,
+    Messages: 17, // WorkerInbox
+    Notifications: 18, // NotificationsInbox
+    Profile: 19,
+    Settings: 20,
+    EmployerJobPosts: 21,
+    EmployerPostJob: 22,
+    EmployerApplications: 23,
+    EmployerProfile: 24,
+    EmployerNotifications: 25,
+    EmployerMessages: 26, // EmployerInbox / EmployerMessages
   };
 
   const isSessionActive = currentScreen >= SCREEN.Dashboard;
+  useEffect(() => {
+    currentScreenRef.current = currentScreen;
+  }, [currentScreen]);
+
   const normalizeRole = useCallback((role) => {
     if (!role) return null;
     if (role === 'hire') return 'employer';
@@ -176,6 +184,10 @@ export default function App() {
         socket.on('new_message', (payload) => {
           console.log('received new_message', payload);
           setMessageEvents((prev) => [payload, ...prev]);
+          const isViewingWorkerMessages = currentScreenRef.current === SCREEN.Messages;
+          if (!isViewingWorkerMessages) {
+            setWorkerUnreadMessageCount((prev) => prev + 1);
+          }
         });
 
         socket.on('new_message_echo', (payload) => {
@@ -410,7 +422,16 @@ export default function App() {
 
   const handleGoToJobs = () => {
     setActiveTab('Jobs');
+    setViewMode('worker');
+    setExplicitEmployerView(false);
     setCurrentScreen(SCREEN.Jobs);
+  };
+
+  const handleGoToEWallet = () => {
+    setActiveTab('EWallet');
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setCurrentScreen(SCREEN.EWallet);
   };
 
   const handleGoToJobDetails = (job) => {
@@ -419,24 +440,33 @@ export default function App() {
   };
 
   const handleGoToSaved = () => {
-    setActiveTab('Saved');
+    setActiveTab('Jobs');
     setCurrentScreen(SCREEN.Saved);
   };
 
   const handleGoToApplied = () => {
-    setActiveTab('Saved');
+    setActiveTab('Jobs');
     setCurrentScreen(SCREEN.Applied);
   };
 
   const handleGoToMessages = () => {
     setActiveTab('Messages');
     setViewMode('worker');
+    setExplicitEmployerView(false);
+    setWorkerUnreadMessageCount(0);
     setCurrentScreen(SCREEN.Messages);
+  };
+
+  const handleGoToNotifications = () => {
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setCurrentScreen(SCREEN.Notifications);
   };
 
   const handleGoToProfile = () => {
     setActiveTab('Profile');
     setViewMode('worker');
+    setExplicitEmployerView(false);
     setCurrentScreen(SCREEN.Profile);
   };
 
@@ -500,27 +530,15 @@ export default function App() {
       case 'Jobs':
         handleGoToJobs();
         break;
-      case 'Saved':
-        handleGoToSaved();
+      case 'EWallet':
+        handleGoToEWallet();
         break;
       case 'Messages':
         if (isEmployerRole && explicitEmployerView) {
           setActiveEmployerTab('Messages');
           setCurrentScreen(SCREEN.EmployerMessages);
         } else {
-          setViewMode('worker');
-          setExplicitEmployerView(false);
-          setCurrentScreen(SCREEN.Messages);
-        }
-        break;
-      case 'Notifications':
-        if (isEmployerRole && explicitEmployerView) {
-          setActiveEmployerTab('Notifications');
-          setCurrentScreen(SCREEN.EmployerNotifications);
-        } else {
-          setViewMode('worker');
-          setExplicitEmployerView(false);
-          setCurrentScreen(SCREEN.Notifications);
+          handleGoToMessages();
         }
         break;
       case 'Profile':
@@ -565,6 +583,7 @@ export default function App() {
     await AsyncStorage.removeItem('auth_user');
     await AsyncStorage.removeItem('pending_verification_email');
     setActiveTab('Home');
+    setWorkerUnreadMessageCount(0);
     setCurrentScreen(SCREEN.SignIn); // Always go to login
   };
 
@@ -641,15 +660,25 @@ export default function App() {
       onViewJobDetails={handleGoToJobDetails}
       onSaveJob={handleToggleSaveJob}
       savedJobIds={savedJobIds}
-      onOpenNotifications={handleGoToMessages}
+      onOpenNotifications={handleGoToNotifications}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <Jobs
       onBack={handleGoToDashboard}
       onViewDetails={handleGoToJobDetails}
       onToggleSave={handleToggleSaveJob}
       savedJobIds={savedJobIds}
+      onOpenSavedJobs={handleGoToSaved}
+      onOpenAppliedJobs={handleGoToApplied}
       activeTab={activeTab}
       onTabPress={handleTabPress}
+      messageBadgeCount={workerUnreadMessageCount}
+    />,
+    <EWallet
+      onBack={handleGoToJobs}
+      activeTab={activeTab}
+      onTabPress={handleTabPress}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <JobDetails
       job={selectedJob}
@@ -657,6 +686,7 @@ export default function App() {
       isSaved={selectedJob ? savedJobIds.includes(selectedJob._id) : false}
       activeTab={activeTab}
       onTabPress={handleTabPress}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <SavedJobs
       savedJobs={savedJobs}
@@ -665,25 +695,40 @@ export default function App() {
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onViewAppliedJobs={handleGoToApplied}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <AppliedJobs
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onViewDetails={handleGoToJobDetails}
       onViewSavedJobs={handleGoToSaved}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
-    <WorkerInbox activeTab={activeTab} onTabPress={handleTabPress} liveMessages={messageEvents} />,
-    <NotificationsInbox activeTab={activeTab} onTabPress={handleTabPress} liveNotifications={workerNotifications} />,
+    <WorkerInbox
+      activeTab={activeTab}
+      onTabPress={handleTabPress}
+      liveMessages={messageEvents}
+      messageBadgeCount={workerUnreadMessageCount}
+    />,
+    <NotificationsInbox
+      activeTab={activeTab}
+      onTabPress={handleTabPress}
+      liveNotifications={workerNotifications}
+      messageBadgeCount={workerUnreadMessageCount}
+    />,
     <Profile
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onOpenSettings={handleGoToSettings}
       currentRole={isEmployerRole ? 'employer' : 'worker'}
       onSwitchRole={handleSwitchRole}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <Settings
       onBack={handleBackFromSettings}
       onLogout={handleLogoutConfirm}
+      onNavigateNotifications={handleGoToNotifications}
+      onNavigateEWallet={handleGoToEWallet}
     />,
     <EmployerJobPosts
       onOpenPostJob={handleGoToEmployerPostJob}

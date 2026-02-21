@@ -14,6 +14,7 @@ type ProfileProps = {
   onOpenSettings?: () => void;
   currentRole?: 'worker' | 'employer';
   onSwitchRole?: (role: 'worker' | 'employer') => void;
+  messageBadgeCount?: number;
 };
 
 export default function Profile({
@@ -22,6 +23,7 @@ export default function Profile({
   onOpenSettings,
   currentRole = 'worker',
   onSwitchRole,
+  messageBadgeCount = 0,
 }: ProfileProps) {
   const [profileTab, setProfileTab] = useState(activeTab || 'Profile');
   const [showAddExperience, setShowAddExperience] = useState(false);
@@ -214,7 +216,12 @@ export default function Profile({
       </ScrollView>
 
       {/* Bottom nav */}
-      <Navigation activeTab={profileTab} onTabPress={handleTabPress} />
+      <Navigation
+        activeTab={profileTab}
+        onTabPress={handleTabPress}
+        messageBadgeCount={messageBadgeCount}
+        profileInitials={initials}
+      />
 
       {/* Modals */}
       <AddExperience 

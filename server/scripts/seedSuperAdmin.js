@@ -26,6 +26,9 @@ if (!email || !password) {
 const resetPassword = ['1', 'true', 'yes'].includes(
   String(process.env.SUPERADMIN_RESET_PASSWORD || '').toLowerCase()
 );
+const verbose = ['1', 'true', 'yes'].includes(
+  String(process.env.SEED_VERBOSE || '').toLowerCase()
+);
 
 const run = async () => {
   await mongoose.connect(uri, { dbName });
@@ -43,7 +46,11 @@ const run = async () => {
     await user.save();
     console.log('✅ Super admin created');
     console.log(`Email: ${email}`);
-    console.log(`Password: ${password}`);
+    if (verbose) {
+      console.log(`Password: ${password}`);
+    } else {
+      console.log('Password: [hidden] (set SEED_VERBOSE=1 to print)');
+    }
   } else {
     let changed = false;
     if (user.role !== 'superadmin') {
@@ -65,8 +72,10 @@ const run = async () => {
       console.log('✅ Super admin already exists');
     }
     console.log(`Email: ${email}`);
-    if (resetPassword) {
+    if (resetPassword && verbose) {
       console.log(`Password: ${password}`);
+    } else if (resetPassword) {
+      console.log('Password reset applied. Set SEED_VERBOSE=1 to print.');
     } else {
       console.log('Password unchanged (set SUPERADMIN_RESET_PASSWORD=1 to reset)');
     }

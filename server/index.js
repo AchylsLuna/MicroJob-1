@@ -7,6 +7,7 @@ import morgan from 'morgan';
 import cors from 'cors';
 import { initSocket } from './lib/socket.js';
 import { getJwtSecret } from './lib/jwtSecret.js';
+import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
 
 const app = express();
 const server = http.createServer(app);
@@ -23,18 +24,10 @@ const config = {
     DB_NAME: 'MicroJob',
 };
 
-const splitOrigins = (value) =>
-    (value || '')
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean);
-
-const allowedOrigins = new Set([
-    ...splitOrigins(config.ORIGIN),
-    ...splitOrigins(process.env.CORS_ORIGINS),
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-]);
+const allowedOrigins = buildAllowedOrigins({
+    clientOrigin: config.ORIGIN,
+    extraOrigins: process.env.CORS_ORIGINS,
+});
 
 if (!config.MONGO_URI){
     console.error('MONGO_URI is not defined. Set MONGO_URI in production environment.');
@@ -53,11 +46,7 @@ app.use(express.urlencoded({ extended: true}));
 // Allow CORS including PATCH and preflight for the client
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin) {
-            callback(null, true);
-            return;
-        }
-        if (allowedOrigins.has(origin)) {
+        if (isAllowedOrigin(origin, allowedOrigins)) {
             callback(null, true);
             return;
         }
@@ -110,7 +99,7 @@ const startServer = async () => {
         console.log('Connected to DB');
 
         // initialize socket.io
-        initSocket(server);
+        initSocket(server, { allowedOrigins });
 
         server.listen(config.PORT, '0.0.0.0', () => {
             console.log(`Server is running on http://localhost:${config.PORT}`);

@@ -27,6 +27,9 @@ const role = process.env.DEMO_USER_ROLE || 'work';
 const resetPassword = ['1', 'true', 'yes'].includes(
   String(process.env.DEMO_USER_RESET_PASSWORD || '').toLowerCase()
 );
+const verbose = ['1', 'true', 'yes'].includes(
+  String(process.env.SEED_VERBOSE || '').toLowerCase()
+);
 
 const run = async () => {
   await mongoose.connect(uri, { dbName });
@@ -44,7 +47,11 @@ const run = async () => {
     await user.save();
     console.log('✅ Demo user created');
     console.log(`Email: ${email}`);
-    console.log(`Password: ${password}`);
+    if (verbose) {
+      console.log(`Password: ${password}`);
+    } else {
+      console.log('Password: [hidden] (set SEED_VERBOSE=1 to print)');
+    }
   } else {
     let changed = false;
     if (user.role !== role) {
@@ -66,8 +73,10 @@ const run = async () => {
       console.log('✅ Demo user already exists');
     }
     console.log(`Email: ${email}`);
-    if (resetPassword) {
+    if (resetPassword && verbose) {
       console.log(`Password: ${password}`);
+    } else if (resetPassword) {
+      console.log('Password reset applied. Set SEED_VERBOSE=1 to print.');
     } else {
       console.log('Password unchanged (set DEMO_USER_RESET_PASSWORD=1 to reset)');
     }

@@ -19,7 +19,7 @@ type Job = {
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 };
 
-export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails, onSaveJob, savedJobIds = [], activeTab: externalActiveTab, onTabPress: externalOnTabPress, onOpenNotifications }: { onLogout?: () => void; onNavigateToJobs?: () => void; onViewJobDetails?: (job: any) => void; onSaveJob?: (job: any) => void; savedJobIds?: string[]; activeTab?: string; onTabPress?: (tab: string) => void; onOpenNotifications?: () => void }) {
+export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails, onSaveJob, savedJobIds = [], activeTab: externalActiveTab, onTabPress: externalOnTabPress, onOpenNotifications, messageBadgeCount = 0 }: { onLogout?: () => void; onNavigateToJobs?: () => void; onViewJobDetails?: (job: any) => void; onSaveJob?: (job: any) => void; savedJobIds?: string[]; activeTab?: string; onTabPress?: (tab: string) => void; onOpenNotifications?: () => void; messageBadgeCount?: number }) {
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Home');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -187,7 +187,7 @@ export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails
       </ScrollView>
 
       {/* Bottom nav */}
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} />
+      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

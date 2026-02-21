@@ -24,14 +24,27 @@ type JobsProps = {
   onBack?: () => void;
   onViewDetails?: (job: Job) => void;
   onToggleSave?: (job: Job) => void;
+  onOpenSavedJobs?: () => void;
+  onOpenAppliedJobs?: () => void;
   savedJobIds?: string[];
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   navigation?: any;
+  messageBadgeCount?: number;
 };
 
 export default function Jobs(props: JobsProps) {
-  const { onViewDetails, onToggleSave, savedJobIds = [], activeTab: externalActiveTab, onTabPress: externalOnTabPress, navigation } = props;
+  const {
+    onViewDetails,
+    onToggleSave,
+    onOpenSavedJobs,
+    onOpenAppliedJobs,
+    savedJobIds = [],
+    activeTab: externalActiveTab,
+    onTabPress: externalOnTabPress,
+    navigation,
+    messageBadgeCount = 0,
+  } = props;
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -152,6 +165,15 @@ export default function Jobs(props: JobsProps) {
           <TouchableOpacity style={styles.filterBtn} onPress={() => fetchJobs()}>
             <Text style={styles.filterIcon}>☰</Text>
             <Text style={styles.filterText}>Refresh</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.quickActionsRow}>
+          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenSavedJobs}>
+            <Text style={styles.quickActionText}>Saved Jobs</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenAppliedJobs}>
+            <Text style={styles.quickActionText}>Applied Jobs</Text>
           </TouchableOpacity>
         </View>
 
@@ -322,7 +344,7 @@ export default function Jobs(props: JobsProps) {
       </ScrollView>
 
       {/* Bottom nav */}
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} />
+      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }
@@ -363,6 +385,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  quickActionBtn: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#dbe3ef',
+  },
+  quickActionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e3a5f',
   },
   sectionHeaderRow: {
     flexDirection: 'row',

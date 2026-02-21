@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import Navigation from '../../components/navigation';
 
 const transactions = [
   {
@@ -25,7 +26,19 @@ const transactions = [
   },
 ];
 
-export default function EWallet({ onBack }: { onBack?: () => void }) {
+type EWalletProps = {
+  onBack?: () => void;
+  activeTab?: string;
+  onTabPress?: (tab: string) => void;
+  messageBadgeCount?: number;
+};
+
+export default function EWallet({
+  onBack,
+  activeTab = 'EWallet',
+  onTabPress,
+  messageBadgeCount = 0,
+}: EWalletProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [amount, setAmount] = useState('');
@@ -135,6 +148,7 @@ export default function EWallet({ onBack }: { onBack?: () => void }) {
           ))}
         </View>
       </ScrollView>
+      <Navigation activeTab={activeTab} onTabPress={onTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }
