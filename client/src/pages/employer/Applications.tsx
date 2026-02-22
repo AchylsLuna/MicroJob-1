@@ -1,273 +1,493 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
+import { Search, Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLink, ArrowLeft, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { jobsAPI } from "../../services/jobs";
+import { useToast } from "../../contexts/ToastContext";
 
-interface ApplicationItem {
-  _id: string;
-  status: "Pending" | "Shortlisted" | "Terms" | "Hired";
-  createdAt?: string;
-  job: {
-    _id: string;
-    title: string;
-  };
-  applicant: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    role?: string;
-    phoneNumber?: string;
-  };
-  coverLetter?: string;
-  resume?: string;
-  employerReadAt?: string | null;
+type ApplicationStatus = "all" | "under-review" | "pending" | "reviewing" | "interviewed" | "accepted" | "rejected";
+
+interface Application {
+  id: string;
+  jobId: string;
+  applicantId: string;
+  name: string;
+  email: string;
+  position: string;
+  company: string;
+  coverLetter: string;
+  appliedDate: string;
+  status: Exclude<ApplicationStatus, "all">;
 }
 
-const Applications: React.FC = () => {
-  const [applications, setApplications] = useState<ApplicationItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [jobFilter, setJobFilter] = useState("All");
-  const [search, setSearch] = useState("");
-  const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
-  const [appToDelete, setAppToDelete] = useState<ApplicationItem | null>(null);
-  const [deletingApp, setDeletingApp] = useState(false);
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
-  const jobOptions = useMemo(() => {
-    const unique = new Map<string, string>();
-    applications.forEach((app) => {
-      if (app.job?._id) unique.set(app.job._id, app.job.title);
-    });
-    return Array.from(unique.entries()).map(([id, title]) => ({ id, title }));
-  }, [applications]);
+function getAvatarColor(name: string): string {
+  const colors = [
+    "bg-[#93C5FD]",
+    "bg-[#A5B4FC]",
+    "bg-[#C4B5FD]",
+    "bg-[#F9A8D4]",
+    "bg-[#FCA5A5]",
+    "bg-[#FDBA74]",
+    "bg-[#FCD34D]",
+    "bg-[#BEF264]",
+  ];
+  const index = name.charCodeAt(0) % colors.length;
+  return colors[index];
+}
 
-  useEffect(() => {
-    const fetchApplications = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const params: any = {};
-        if (statusFilter !== "All") params.status = statusFilter;
-        if (jobFilter !== "All") params.jobId = jobFilter;
-        if (search) params.search = search;
-        const response = await jobsAPI.getEmployerApplications(params);
-        setApplications(response.data || []);
-      } catch (err: any) {
-        setError(err?.response?.data?.message || "Failed to load applications.");
-      } finally {
-        setLoading(false);
-      }
-    };
+interface StatusBadgeProps {
+  status: Exclude<ApplicationStatus, "all">;
+}
 
-    const debounce = setTimeout(fetchApplications, 300);
-    return () => clearTimeout(debounce);
-  }, [statusFilter, jobFilter, search]);
-
-  const handleStatusChange = async (applicationId: string, status: string) => {
-    try {
-      await jobsAPI.updateApplicationStatus(applicationId, status);
-      setApplications((prev) =>
-        prev.map((app) => (app._id === applicationId ? { ...app, status: status as ApplicationItem["status"] } : app))
-      );
-    } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to update status.");
+function StatusBadge({ status }: StatusBadgeProps) {
+  const getStatusStyles = () => {
+    switch (status) {
+      case "under-review":
+        return {
+          bg: "bg-[#DBEAFE]",
+          text: "text-[#1E40AF]",
+          label: "Under Review",
+        };
+      case "pending":
+        return {
+          bg: "bg-[#E0E7FF]",
+          text: "text-[#5B21B6]",
+          label: "Pending Review",
+        };
+      case "reviewing":
+        return {
+          bg: "bg-[#FEF3C7]",
+          text: "text-[#92400E]",
+          label: "Reviewing",
+        };
+      case "interviewed":
+        return {
+          bg: "bg-[#DBEAFE]",
+          text: "text-[#1E40AF]",
+          label: "Interviewed",
+        };
+      case "accepted":
+        return {
+          bg: "bg-[#D1FAE5]",
+          text: "text-[#065F46]",
+          label: "Accepted",
+        };
+      case "rejected":
+        return {
+          bg: "bg-[#FEE2E2]",
+          text: "text-[#991B1B]",
+          label: "Rejected",
+        };
     }
   };
 
-  const markEmployerRead = async (applicationId: string) => {
-    try {
-      await jobsAPI.markEmployerRead(applicationId);
-      setApplications((prev) => prev.map((a) => (a._id === applicationId ? { ...a, employerReadAt: new Date().toISOString() } : a)));
-    } catch (err) {
-      console.warn('Failed to mark employer notification read', err);
-    }
-  };
+  const styles = getStatusStyles() as any;
 
   return (
-    <div className="px-8 py-6">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
-          <p className="text-gray-500 text-sm">Manage candidate applications and update statuses</p>
+    <span className={`${styles.bg} ${styles.text} px-3 py-1 rounded-full text-[12px] font-medium`}>
+      {styles.label}
+    </span>
+  );
+}
+
+interface ApplicationCardProps {
+  application: Application;
+  onStatusChange: (id: string, status: Exclude<ApplicationStatus, "all">) => void;
+  onMessage: (application: Application) => void;
+}
+
+function ApplicationCard({ application, onStatusChange, onMessage }: ApplicationCardProps) {
+  const initials = getInitials(application.name);
+  const avatarColor = getAvatarColor(application.name);
+
+  return (
+    <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+      <div className="flex items-start gap-4">
+        {/* Avatar */}
+        <div className={`${avatarColor} rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0`}>
+          <span className="text-[#1F2937] font-semibold text-[16px]">{initials}</span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <div>
+              <h3 className="font-semibold text-[16px] text-[#111827]">{application.name}</h3>
+              <div className="flex items-center gap-2 mt-1">
+                <Mail className="w-4 h-4 text-[#6B7280]" />
+                <span className="text-[14px] text-[#6B7280]">{application.email}</span>
+              </div>
+            </div>
+            <StatusBadge status={application.status} />
+          </div>
+
+          {/* Position */}
+          <p className="text-[14px] text-[#4B5563] mb-3">
+            Applied for: <span className="font-semibold text-[#111827]">{application.position}</span> at {application.company}
+          </p>
+
+          {/* Cover Letter */}
+          <p className="text-[14px] text-[#6B7280] leading-relaxed mb-4">
+            {application.coverLetter}
+          </p>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-3 border-t border-[#E5E7EB]">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-[#6B7280] text-[14px]">
+                <Calendar className="w-4 h-4" />
+                <span>{application.appliedDate}</span>
+              </div>
+              <button className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors">
+                <FileText className="w-4 h-4" />
+                Resume
+                <ExternalLink className="w-3 h-3" />
+              </button>
+              <button className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors">
+                <UserIcon className="w-4 h-4" />
+                View Profile
+              </button>
+              {application.applicantId && (
+                <button
+                  className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors"
+                  onClick={() => onMessage(application)}
+                >
+                  💬 Message
+                </button>
+              )}
+            </div>
+
+            {/* Status Dropdown */}
+            <select
+              value={application.status}
+              onChange={(e) => onStatusChange(application.id, e.target.value as Exclude<ApplicationStatus, "all">)}
+              className="px-4 py-2 border border-[#D1D5DB] rounded-lg text-[14px] text-[#374151] bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent"
+            >
+              <option value="under-review">Under Review</option>
+              <option value="pending">Pending Review</option>
+              <option value="reviewing">Reviewing</option>
+              <option value="interviewed">Interviewed</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function Applications() {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ApplicationStatus>("all");
+  const [jobFilter, setJobFilter] = useState("all");
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 4;
+  const toast = useToast();
+
+  const handleStatusChange = async (id: string, newStatus: Exclude<ApplicationStatus, "all">) => {
+    const previous = applications.find(app => app.id === id)?.status;
+    setApplications((apps) =>
+      apps.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
+    );
+
+    const statusLabels: Record<Exclude<ApplicationStatus, "all">, string> = {
+      "under-review": "Under Review",
+      "pending": "Pending Review",
+      "reviewing": "Reviewing",
+      "interviewed": "Interviewed",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+    };
+
+    const backendStatus =
+      newStatus === "accepted"
+        ? "Accepted"
+        : newStatus === "rejected"
+        ? "Rejected"
+        : newStatus === "pending"
+        ? "Pending"
+        : "Reviewed";
+
+    try {
+      await jobsAPI.updateApplicationStatus(id, backendStatus);
+      toast.showToast?.(`Application marked as ${statusLabels[newStatus].toLowerCase()}`, 'success');
+    } catch (error: any) {
+      if (previous) {
+        setApplications((apps) =>
+          apps.map((app) => (app.id === id ? { ...app, status: previous } : app))
+        );
+      }
+      toast.showToast?.(error?.message || "Failed to update status.", 'error');
+    }
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+  };
+
+  const mapStatus = (status?: string): Exclude<ApplicationStatus, "all"> => {
+    switch (status) {
+      case "Pending":
+        return "pending";
+      case "Reviewed":
+        return "under-review";
+      case "Accepted":
+        return "accepted";
+      case "Rejected":
+        return "rejected";
+      default:
+        return "under-review";
+    }
+  };
+
+  const mapApplication = (app: any): Application => {
+    const applicant = app.applicant || {};
+    const job = app.job || {};
+    const applicantName = `${applicant.firstName || ""} ${applicant.lastName || ""}`.trim() || "Applicant";
+    const companyName = job.company || "MicroJobs";
+    return {
+      id: app._id,
+      jobId: job._id || "",
+      applicantId: applicant._id || "",
+      name: applicantName,
+      email: applicant.email || "—",
+      position: job.title || "Untitled Job",
+      company: companyName,
+      coverLetter: app.coverLetter || "No cover letter provided.",
+      appliedDate: formatDate(app.createdAt || app.appliedDate),
+      status: mapStatus(app.status),
+    };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadApplications = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      try {
+        const res = await jobsAPI.getEmployerApplications();
+        const data = res?.data || [];
+        if (!isMounted) return;
+        const mapped = Array.isArray(data) ? data.map(mapApplication) : [];
+        setApplications(mapped);
+      } catch (error: any) {
+        if (!isMounted) return;
+        setLoadError(error?.message || "Failed to load applications.");
+        setApplications([]);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+    loadApplications();
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleMessageApplicant = (application: Application) => {
+    if (!application.applicantId) return;
+    navigate("/messages", {
+      state: {
+        userId: application.applicantId,
+        name: application.name,
+        jobId: application.jobId,
+      },
+    });
+  };
+
+  const filteredApplications = applications.filter((app) => {
+    const matchesSearch =
+      app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      app.position.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStatus = statusFilter === "all" || app.status === statusFilter;
+    const matchesJob =
+      jobFilter === "all" ||
+      app.jobId === jobFilter ||
+      (!app.jobId && app.position === jobFilter);
+
+    return matchesSearch && matchesStatus && matchesJob;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredApplications.length / pageSize));
+  const pagedApplications = filteredApplications.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
+  const jobOptions = Array.from(
+    new Map(applications.map((app) => [app.jobId || app.position, app.position])).entries(),
+  ).map(([id, label]) => ({ id, label }));
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, jobFilter]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  return (
+    <div className="max-w-[1200px] mx-auto space-y-6">
+      {/* Search and Filter Bar */}
+      <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-4">
+        <div className="flex flex-col md:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-[#D1D5DB] rounded-lg pl-12 pr-4 py-2.5 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent"
+            />
+          </div>
+
+          {/* Status Filter */}
+          <div className="relative min-w-[180px]">
+            <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus)}
+              className="w-full bg-white border border-[#D1D5DB] rounded-lg pl-10 pr-10 py-2.5 text-[14px] text-[#111827] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent appearance-none cursor-pointer"
+            >
+              <option value="all">All Statuses</option>
+              <option value="under-review">Under Review</option>
+              <option value="pending">Pending Review</option>
+              <option value="reviewing">Reviewing</option>
+              <option value="interviewed">Interviewed</option>
+              <option value="accepted">Accepted</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          {/* Job Filter */}
+          <div className="relative min-w-[180px]">
+            <select
+              value={jobFilter}
+              onChange={(e) => setJobFilter(e.target.value)}
+              className="w-full bg-white border border-[#D1D5DB] rounded-lg px-4 pr-10 py-2.5 text-[14px] text-[#111827] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent appearance-none cursor-pointer"
+            >
+              <option value="all">All Jobs</option>
+              {jobOptions.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+              <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm mb-6">
-              {error}
-            </div>
-          )}
+      {/* Applications List */}
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
+            <p className="text-[#6B7280] text-[16px]">Loading applications...</p>
+          </div>
+        ) : loadError ? (
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
+            <p className="text-[#6B7280] text-[16px]">{loadError}</p>
+            <p className="text-[#9CA3AF] text-[14px] mt-2">Please try again later.</p>
+          </div>
+        ) : pagedApplications.length > 0 ? (
+          pagedApplications.map((application) => (
+            <ApplicationCard
+              key={application.id}
+              application={application}
+              onStatusChange={handleStatusChange}
+              onMessage={handleMessageApplicant}
+            />
+          ))
+        ) : (
+          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
+            <p className="text-[#6B7280] text-[16px]">No applications found</p>
+            <p className="text-[#9CA3AF] text-[14px] mt-2">Try adjusting your search or filter criteria</p>
+          </div>
+        )}
+      </div>
 
-          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Search by name or email..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <span className="absolute left-3 top-3.5 text-gray-400">🔍</span>
-              </div>
-              <div className="flex gap-3">
-                <select
-                  className="px-4 py-3 border border-gray-200 rounded-xl text-sm bg-white"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option value="All">All Statuses</option>
-                  <option value="Pending">Pending</option>
-                  <option value="Shortlisted">Shortlisted</option>
-                  <option value="Terms">Terms</option>
-                  <option value="Hired">Hired</option>
-                </select>
-                <select
-                  className="px-4 py-3 border border-gray-200 rounded-xl text-sm bg-white"
-                  value={jobFilter}
-                  onChange={(e) => setJobFilter(e.target.value)}
-                >
-                  <option value="All">All Jobs</option>
-                  {jobOptions.map((job) => (
-                    <option key={job.id} value={job.id}>
-                      {job.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+      {filteredApplications.length > 0 && (
+        <div className="bg-white rounded-[12px] border border-[#E5E7EB] px-6 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            className="flex items-center gap-3 text-[14px] text-[#4F46E5] hover:text-[#4338CA] font-semibold disabled:text-[#94A3B8]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Go to page {String(1).padStart(2, "0")}
+          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              disabled={currentPage === 1}
+              className="w-11 h-11 rounded-full border border-[#4F46E5] flex items-center justify-center text-[#4F46E5] hover:bg-[#EEF2FF] disabled:border-[#E5E7EB] disabled:text-[#94A3B8]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+              disabled={currentPage === totalPages}
+              className="flex items-center gap-3 px-6 py-2.5 rounded-full bg-[#4F46E5] text-white text-[14px] font-semibold hover:bg-[#4338CA] disabled:opacity-50"
+            >
+              Next Page
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
 
-          <div className="space-y-6">
-            {loading && (
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-gray-600">
-                Loading applications...
-              </div>
-            )}
-
-            {!loading && applications.length === 0 && (
-              <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-100 text-center text-gray-600">
-                No applications found.
-              </div>
-            )}
-
-            {applications.map((app) => (
-              <div key={app._id} onClick={() => { if (!app.employerReadAt) markEmployerRead(app._id); }} className="relative bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <button
-                  type="button"
-                  aria-label="Delete application"
-                  onClick={(e) => { e.stopPropagation(); setAppToDelete(app); }}
-                  className="absolute top-4 right-4 text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-full p-1 w-8 h-10 flex items-center justify-center z-20"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M10 11v6M14 11v6" />
-                  </svg>
-                </button>
-                <div className="relative flex items-start justify-between">
-                  <div className="flex items-start gap-4">
-                    <div className="h-12 w-12 rounded-full bg-pink-100 text-pink-700 flex items-center justify-center font-bold">
-                      {(app.applicant?.firstName?.[0] || "").toUpperCase()}
-                      {(app.applicant?.lastName?.[0] || "").toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900">
-                        {app.applicant?.firstName} {app.applicant?.lastName}
-                      </h3>
-                      {!app.employerReadAt && (
-                        <div className="inline-block ml-2 w-2 h-2 bg-blue-600 rounded-full" />
-                      )}
-                      <p className="text-sm text-gray-500">{app.applicant?.email}</p>
-                      <p className="text-sm text-gray-700 mt-2">
-                        Applied for: <span className="font-semibold">{app.job?.title}</span>.
-                      </p>
-                    </div>
-                  </div>
-                  <span className="absolute top-4 right-12 z-10 h-8 flex items-center px-3 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
-                    {app.status}
-                  </span>
-                </div>
-                
-                {app.coverLetter && (
-                  <p className="text-sm text-gray-600 mt-4 leading-relaxed">{app.coverLetter}</p>
-                )}
-
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mt-6 pt-4 border-t border-gray-100">
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <span>🕒 {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ""}</span>
-                    <button className="text-blue-600 font-semibold">Resume</button>
-                    <button
-                      className="text-blue-600 font-semibold"
-                      onClick={() => setSelectedApplicantId(selectedApplicantId === app._id ? null : app._id)}
-                    >
-                      View Profile
-                    </button>
-                  </div>
-                  <select
-                    className="mt-3 md:mt-0 px-4 py-2 border border-blue-200 text-blue-700 rounded-lg text-sm font-semibold bg-white"
-                    value={app.status}
-                    onChange={(e) => handleStatusChange(app._id, e.target.value)}
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Shortlisted">Shortlisted</option>
-                    <option value="Terms">Terms</option>
-                    <option value="Hired">Hired</option>
-                  </select>
-                </div>
-
-                
-
-                {selectedApplicantId === app._id && (
-                  <div className="mt-4 bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm text-gray-700">
-                    <p className="font-semibold">Applicant Details</p>
-                    <div className="mt-2 space-y-1">
-                      <p>Name: {app.applicant?.firstName} {app.applicant?.lastName}</p>
-                      <p>Email: {app.applicant?.email}</p>
-                      {app.applicant?.phoneNumber && <p>Phone: {app.applicant.phoneNumber}</p>}
-                      {app.applicant?.role && <p>Role: {app.applicant.role}</p>}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="flex items-center gap-3 text-[14px] text-[#6B7280]">
+            <span>Page</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={String(currentPage).padStart(2, "0")}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9]/g, "");
+                if (!raw) {
+                  setCurrentPage(1);
+                  return;
+                }
+                const value = Number(raw);
+                if (!Number.isNaN(value)) {
+                  setCurrentPage(Math.min(Math.max(1, value), totalPages));
+                }
+              }}
+              className="w-[72px] text-center border border-[#E5E7EB] rounded-full px-3 py-2 text-[14px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+            />
+            <span>of {String(totalPages).padStart(2, "0")}</span>
           </div>
-          {appToDelete && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-lg">
-                <h3 className="text-lg font-bold text-gray-900 mb-3">Are you sure?</h3>
-                <p className="text-sm text-gray-600 mb-6">Are you sure you want to delete this application?</p>
-                <div className="flex gap-3 justify-end">
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 font-semibold"
-                    onClick={() => setAppToDelete(null)}
-                    disabled={deletingApp}
-                  >
-                    No
-                  </button>
-                  <button
-                    type="button"
-                    className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold"
-                    onClick={async () => {
-                      if (!appToDelete) return;
-                      setDeletingApp(true);
-                      try {
-                        await jobsAPI.deleteEmployerApplication(appToDelete._id);
-                        setApplications((prev) => prev.filter((a) => a._id !== appToDelete._id));
-                        setAppToDelete(null);
-                      } catch (e) {
-                        console.warn('Failed to delete application', e);
-                      } finally {
-                        setDeletingApp(false);
-                      }
-                    }}
-                  >
-                    {deletingApp ? 'Deleting...' : 'Yes'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+        </div>
+      )}
     </div>
   );
-};
-
-export default Applications;
+}

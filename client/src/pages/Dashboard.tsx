@@ -480,8 +480,7 @@ const Dashboard: React.FC = () => {
                         activeVacancyTab === tab
                           ? "text-blue-600 border-b-2 border-blue-600"
                           : "text-gray-600 hover:text-gray-900"
-                      }`}
-                    >
+                      }`}>
                       {tab}
                     </button>
                   ))}

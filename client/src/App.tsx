@@ -13,9 +13,19 @@ import Settings from "./pages/Settings";
 import EWallet from "./pages/EWallet";
 import TopupSuccess from "./pages/topupSuccess";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
-import { AppliedJobs, SavedJobs } from "./pages/worker";
+import { AppliedJobs, SavedJobs, WorkerDashboard } from "./pages/worker";
 import NotificationsRouter from "./pages/NotificationsRouter";
-import { PostJob, Applications, JobPosts } from "./pages/employer";
+import { PostJob, Applications, JobPosts, EmployerDashboard } from "./pages/employer";
+import {
+  AdminDashboard,
+  AdminAnalytics,
+  AdminReports,
+  AdminEWalletMonitoring,
+  AdminJobMonitoring,
+  AdminSecurity,
+  AdminUserManagement,
+  AdminSignIn,
+} from "./pages/admin";
 import Messages from "./pages/Messages";
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
@@ -139,7 +149,9 @@ const App: React.FC = () => {
 
         <Route element={<ProtectedRoute><SidebarLayout /></ProtectedRoute>}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard/worker" element={<WorkerDashboard />} />
           <Route path="/find-jobs" element={<FindJobs />} />
+          <Route path="/dashboard/employer" element={<EmployerDashboard />} />
           <Route path="/job-details/:jobId" element={<JobDetails />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/e-wallet" element={<EWallet />} />
@@ -153,7 +165,17 @@ const App: React.FC = () => {
           <Route path="/employer/applications" element={<Applications />} />
           <Route path="/employer/job-posts" element={<JobPosts />} />
           <Route path="/messages" element={<Messages />} />
+
+          {/* Admin routes */}
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/analytics" element={<AdminAnalytics />} />
+          <Route path="/admin/reports" element={<AdminReports />} />
+          <Route path="/admin/e-wallet" element={<AdminEWalletMonitoring />} />
+          <Route path="/admin/jobs" element={<AdminJobMonitoring />} />
+          <Route path="/admin/security" element={<AdminSecurity />} />
+          <Route path="/admin/users" element={<AdminUserManagement />} />
         </Route>
+        <Route path="/admin/signin" element={<AdminSignIn />} />
       </Routes>
     </Router>
   );

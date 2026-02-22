@@ -65,7 +65,14 @@ const EWallet: React.FC = () => {
   const loadTransactions = async () => {
     try {
       const res = await getTransactions();
-      setTransactions(res.transactions || []);
+      const r: any = res;
+      if (Array.isArray(r.transactions)) {
+        setTransactions(r.transactions);
+      } else if (Array.isArray(r)) {
+        setTransactions(r as any[]);
+      } else {
+        setTransactions([]);
+      }
     } catch (err) {
       console.error('Failed to load transactions', err);
     }
@@ -96,7 +103,8 @@ const EWallet: React.FC = () => {
             if (res.checkoutId) {
               try {
                 const confirmRes = await confirmTopUp({ checkoutId: res.checkoutId });
-                if (confirmRes?.message?.toLowerCase().includes('top-up') || confirmRes?.transaction || confirmRes?.transactions) {
+                const cr: any = confirmRes;
+                if ((typeof cr?.message === 'string' && cr.message.toLowerCase().includes('top-up')) || cr?.transaction) {
                   // success: stop both intervals
                   if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
                   // refresh profile and transactions
@@ -109,7 +117,7 @@ const EWallet: React.FC = () => {
                   window.dispatchEvent(new CustomEvent('app:toast', { detail: { message: 'Top-up successful — your balance has been updated.', type: 'success' } }));
                   return;
                 }
-              } catch (e) {
+              } catch (e: any) {
                 // ignore errors from confirm attempts and continue with profile polling
                 console.debug('confirmTopUp attempt failed', e?.message || e);
               }
@@ -144,7 +152,7 @@ const EWallet: React.FC = () => {
             if (Date.now() - start > 60_000) {
               if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
             }
-          } catch (e) {
+          } catch (e: any) {
             console.error('Polling error', e);
           }
         }, 3000);

@@ -33,7 +33,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("sidebar_collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [roleSelectorOpen, setRoleSelectorOpen] = useState(false);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
@@ -191,7 +197,12 @@ const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => {
+            const next = !isCollapsed;
+            setIsCollapsed(next);
+            try { localStorage.setItem("sidebar_collapsed", next ? "1" : "0"); } catch {}
+            window.dispatchEvent(new CustomEvent("sidebar_toggled", { detail: { collapsed: next } }));
+          }}
           className="text-gray-600 hover:text-gray-900 transition text-lg"
           title={isCollapsed ? "Expand" : "Collapse"}
         >
@@ -249,21 +260,27 @@ const Sidebar: React.FC<SidebarProps> = ({
               )}
             </div>
           )}
-          {/* Dashboard Button (hide for employer) */}
-          {effectiveRole !== "hire" && (
-            <button
-              onClick={() => navigate("/dashboard")}
-              className={`w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold transition relative ${
-                location.pathname === "/dashboard"
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-700 hover:bg-gray-100"
-              } ${isCollapsed ? "px-2" : ""}`}
-              title={isCollapsed ? "Dashboard" : ""}
-            >
-              {renderIcon("dashboard")}
-              {!isCollapsed && <span>Dashboard</span>}
-            </button>
-          )}
+          {/* Dashboard Button: routes to worker or employer view based on role */}
+          {(() => {
+            const dashboardPath = effectiveRole === "hire" ? "/dashboard/employer" : "/dashboard/worker";
+            const isActive = effectiveRole === "hire"
+              ? location.pathname.startsWith("/dashboard/employer") || location.pathname.startsWith("/employer")
+              : location.pathname === "/dashboard" || location.pathname === "/dashboard/worker";
+            return (
+              <button
+                onClick={() => navigate(dashboardPath)}
+                className={`w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold transition relative ${
+                  isActive
+                    ? "text-blue-600 bg-blue-50"
+                    : "text-gray-700 hover:bg-gray-100"
+                } ${isCollapsed ? "px-2" : ""}`}
+                title={isCollapsed ? "Dashboard" : ""}
+              >
+                {renderIcon("dashboard")}
+                {!isCollapsed && <span>Dashboard</span>}
+              </button>
+            );
+          })()}
 
           {/* Menu Items based on role */}
           {menuItems.map((item) => (
