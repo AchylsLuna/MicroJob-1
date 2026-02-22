@@ -83,7 +83,7 @@ function AdminSecurityContent() {
 
 export function AdminSecurity() {
   return (
-    <AdminGate>
+    <AdminGate allowedRoles={["superadmin", "admin"]}>
       <AdminSecurityContent />
     </AdminGate>
   );

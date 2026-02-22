@@ -7,11 +7,24 @@ import Session from '../models/Session.js';
 import User from '../models/User.js';
 import verifyToken from '../middleware/auth.js';
 import { sendOtp, verifyOtp, updateMe } from '../controllers/UserController.js';
+import {
+  isValidPhone,
+  normalizeEmail,
+  normalizePhone,
+  PHONE_VALIDATION_MESSAGE,
+} from '../lib/authValidation.js';
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
 const router = express.Router();
+const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
+const cookieSecurityOptions = {
+  sameSite: 'strict',
+  secure: process.env.NODE_ENV === 'production',
+};
+
+const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ');
 
 const createAccessToken = (user, sessionId) =>
   jwt.sign(
@@ -21,11 +34,13 @@ const createAccessToken = (user, sessionId) =>
   );
 
 const createSessionWithTokens = async (req, user) => {
+  const forwardedFor = String(req.headers['x-forwarded-for'] || '');
+  const requestIp = forwardedFor.split(',')[0]?.trim() || req.socket.remoteAddress || '';
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const session = await Session.create({
     user: user._id,
     userAgent: req.get('User-Agent') || '',
-    ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
+    ip: requestIp,
     active: true,
     expiresAt,
   });
@@ -50,22 +65,19 @@ const setSessionCookies = (res, { refreshToken, sessionId, expiresAt, csrfToken 
   if (csrfToken) {
     res.cookie('csrfToken', csrfToken, {
       httpOnly: false,
-      sameSite: 'strict',
-      secure: process.env.NODE_ENV === 'production',
+      ...cookieSecurityOptions,
       expires: expiresAt,
     });
   }
 
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    ...cookieSecurityOptions,
     expires: expiresAt,
   });
   res.cookie('sessionId', sessionId, {
     httpOnly: true,
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    ...cookieSecurityOptions,
     expires: expiresAt,
   });
 };
@@ -83,78 +95,60 @@ const buildLoginPayload = (user, includePhone = false) => ({
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password, phoneNumber, firstName, lastName, role } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = normalizePhone(phoneNumber || '');
+    const normalizedUsername = normalizeUsername(username);
+    const providedFirstName = String(firstName || '').trim();
+    const providedLastName = String(lastName || '').trim();
+    const userRole = SELF_SERVICE_ROLES.has(role) ? role : 'work';
 
-    // Validate role
-    const validRoles = ['hire', 'work', 'both', 'admin', 'superadmin'];
-    const userRole = role && validRoles.includes(role) ? role : 'work';
-    console.log('Register - User role being set to:', userRole);
+    if (!normalizedEmail) {
+      return sendError(res, 400, 'Email is required');
+    }
 
-    // Flexible validation - support both email-based and phone-based registration
     if (!password) {
       return sendError(res, 400, 'Password is required');
     }
     if (!isStrongPassword(password)) {
       return sendError(res, 400, PASSWORD_POLICY_MESSAGE);
     }
+    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+      return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
+    }
 
-    // Phone-based registration (primary)
-    if (phoneNumber && firstName && lastName) {
-      if (!/^\d{10,15}$/.test(phoneNumber)) {
-        return sendError(res, 400, 'Phone number must be 10-15 digits');
+    let userFirstName = providedFirstName;
+    let userLastName = providedLastName;
+    if (!userFirstName || !userLastName) {
+      if (!normalizedUsername) {
+        return sendError(res, 400, 'Username or full name is required');
       }
+      const nameParts = normalizedUsername.split(' ').filter(Boolean);
+      userFirstName = nameParts[0] || normalizedUsername;
+      userLastName = nameParts.slice(1).join(' ') || userFirstName;
+    }
 
-      const existingUser = await User.findOne({ phoneNumber });
-      if (existingUser) {
+    const duplicateQuery = [
+      { email: normalizedEmail },
+      ...(normalizedPhone ? [{ phoneNumber: normalizedPhone }] : []),
+      ...(normalizedUsername ? [{ username: normalizedUsername }] : []),
+    ];
+    const existingUser = await User.findOne({ $or: duplicateQuery });
+    if (existingUser) {
+      if (existingUser.email === normalizedEmail) {
+        return sendError(res, 409, 'Email is already registered');
+      }
+      if (normalizedPhone && existingUser.phoneNumber === normalizedPhone) {
         return sendError(res, 409, 'Phone number is already registered');
       }
-
-      const user = new User({
-        phoneNumber,
-        firstName,
-        lastName,
-        email: email?.toLowerCase() || null,
-        role: userRole,
-        status: 'pending',
-      });
-      await user.setPassword(password);
-      await user.save();
-
-      const userPayload = {
-        id: user._id,
-        phoneNumber: user.phoneNumber,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-      };
-      return sendSuccess(
-        res,
-        201,
-        'User registered successfully',
-        { user: userPayload },
-        { user: userPayload }
-      );
+      return sendError(res, 409, 'Username is already taken');
     }
-
-    // Email/username-based registration (fallback)
-    if (!username || !email) {
-      return sendError(res, 400, 'Username, email, or phone number with firstName and lastName are required');
-    }
-
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) {
-      return sendError(res, 409, 'User already exists');
-    }
-
-    // Split username into firstName and lastName
-    const nameParts = username.trim().split(' ');
-    const userFirstName = nameParts[0] || username;
-    const userLastName = nameParts.slice(1).join(' ') || nameParts[0];
 
     const user = new User({
+      username: normalizedUsername || undefined,
       firstName: userFirstName,
       lastName: userLastName,
-      email: email.toLowerCase(),
+      email: normalizedEmail,
+      phoneNumber: normalizedPhone || undefined,
       role: userRole,
       status: 'pending',
     });
@@ -163,8 +157,10 @@ router.post('/register', async (req, res) => {
 
     const userPayload = {
       id: user._id,
+      username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
       email: user.email,
       role: user.role,
     };
@@ -207,19 +203,24 @@ router.post('/login', loginLimiter, async (req, res) => {
     let user;
     let includePhone = false;
     let invalidMessage = 'Invalid credentials';
+    const normalizedPhone = normalizePhone(phoneNumber || '');
 
-    if (phoneNumber) {
+    if (normalizedPhone) {
+      if (!isValidPhone(normalizedPhone)) {
+        return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
+      }
       includePhone = true;
       invalidMessage = 'Invalid phone number or password';
-      user = await User.findOne({ phoneNumber });
+      user = await User.findOne({ phoneNumber: normalizedPhone });
     } else {
-      if (!emailOrUsername) {
+      const loginInput = String(emailOrUsername || '').trim();
+      if (!loginInput) {
         return sendError(res, 400, 'Email/username and password are required');
       }
       user = await User.findOne({
         $or: [
-          { email: emailOrUsername.toLowerCase() },
-          { username: emailOrUsername },
+          { email: normalizeEmail(loginInput) },
+          { username: loginInput },
         ],
       });
     }
@@ -228,7 +229,10 @@ router.post('/login', loginLimiter, async (req, res) => {
       return sendError(res, 401, invalidMessage);
     }
 
-    if (user.status && user.status !== 'active') {
+    if (user.status === 'pending') {
+      return sendError(res, 401, 'Please verify your email before signing in.');
+    }
+    if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
     }
 
@@ -304,7 +308,7 @@ router.post('/refresh', csrfProtection, async (req, res) => {
 // List active sessions for current user
 router.get('/sessions', verifyToken, async (req, res) => {
   try {
-    const sessions = await Session.find({ user: req.user.userId }).select('-refreshTokenHash -token');
+    const sessions = await Session.find({ user: req.user.id }).select('-refreshTokenHash -token');
     return res.status(200).json({ sessions });
   } catch (err) {
     console.error('Sessions list error', err);
@@ -317,7 +321,7 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
   try {
     const s = await Session.findById(req.params.id);
     if (!s) return res.status(404).json({ message: 'Session not found' });
-    if (s.user.toString() !== req.user.userId) return res.status(403).json({ message: 'Not authorized' });
+    if (s.user.toString() !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized' });
     s.active = false;
     s.endedAt = new Date();
     await s.save();
@@ -331,11 +335,12 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
 // Revoke all sessions for current user (sign out everywhere)
 router.delete('/sessions', verifyToken, async (req, res) => {
   try {
-    await Session.updateMany({ user: req.user.userId, active: true }, { active: false, endedAt: new Date() });
+    await Session.updateMany({ user: req.user.id, active: true }, { active: false, endedAt: new Date() });
     // clear cookies
-    res.clearCookie('refreshToken');
-    res.clearCookie('sessionId');
-    res.clearCookie('csrfToken');
+    res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
+    res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
+    res.clearCookie('csrfToken', { ...cookieSecurityOptions, httpOnly: false });
+    res.clearCookie('token', { ...cookieSecurityOptions, httpOnly: true });
     return res.status(200).json({ message: 'All sessions revoked' });
   } catch (err) {
     console.error('Revoke all sessions error', err);
@@ -358,12 +363,12 @@ router.get('/admin/sessions/:userId', verifyToken, async (req, res) => {
 
 // Logout
 router.post('/logout', verifyToken, async (req, res) => {
-  // mark session as ended if sessionId cookie or body present
-  const sessionId = req.cookies?.sessionId || req.body?.sessionId;
+  // mark current session as ended
+  const sessionId = req.user?.sessionId || req.cookies?.sessionId || req.body?.sessionId;
   if (sessionId) {
     try {
       const s = await Session.findById(sessionId);
-      if (s) {
+      if (s && s.user.toString() === String(req.user?.id)) {
         s.endedAt = new Date();
         s.active = false;
         await s.save();
@@ -374,16 +379,17 @@ router.post('/logout', verifyToken, async (req, res) => {
   }
 
   // clear cookies related to auth
-  res.clearCookie('sessionId', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
-  res.clearCookie('token', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+  res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
+  res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
+  res.clearCookie('csrfToken', { ...cookieSecurityOptions, httpOnly: false });
+  res.clearCookie('token', { ...cookieSecurityOptions, httpOnly: true });
   res.status(200).json({ message: 'Logout successful' });
 });
 
 // Get user profile (requires authentication)
-router.get('/profile', verifyToken, async (req, res) => {
+const getProfile = async (req, res) => {
   try {
-    const userId = req.user?.userId || req.user?.id;
-    const user = await User.findById(userId).select('-passwordHashed');
+    const user = await User.findById(req.user?.id).select('-passwordHashed');
     if (!user) {
       return sendError(res, 404, 'User not found');
     }
@@ -392,8 +398,9 @@ router.get('/profile', verifyToken, async (req, res) => {
     console.error('Get profile error:', error);
     return sendError(res, 500, 'Server error');
   }
-});
+};
 
-router.patch('/profile', verifyToken, updateMe);
+router.get(['/profile', '/me'], verifyToken, getProfile);
+router.patch(['/profile', '/me'], verifyToken, updateMe);
 
 export default router;

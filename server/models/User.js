@@ -1,16 +1,25 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
+import { PHONE_DIGITS } from "../lib/authValidation.js";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 
 const UserSchema = new mongoose.Schema(
     {   
+        username: {
+            type: String,
+            required: false,
+            unique: true,
+            sparse: true,
+            trim: true,
+            maxlength: 80,
+        },
         phoneNumber: {
             type: String,
             required: false, // Changed to optional - can be added in settings later
             unique: true,
             sparse: true, // Allows multiple null values for unique field
-            minlength: 11,
-            maxlength: 11,
+            minlength: PHONE_DIGITS,
+            maxlength: PHONE_DIGITS,
         },
         email: {
             type: String,

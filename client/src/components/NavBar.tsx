@@ -335,33 +335,25 @@ export function NavBar() {
   return (
     <div className={webUi.navbar.root}>
       <div className={webUi.navbar.container}>
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-3 lg:gap-4">
-            {pageMeta.title && (
+        <div className="min-w-0 shrink-0">
+          {pageMeta.title && (
+            <div className="flex items-center gap-3">
+              {pageMeta.icon && (
+                <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#E8F2F8]">
+                  {pageMeta.icon}
+                </span>
+              )}
               <div className="min-w-0">
-                <div className="flex items-center gap-3">
-                  {pageMeta.icon && (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#E8F2F8]">
-                      {pageMeta.icon}
-                    </span>
-                  )}
-                  <div className="min-w-0">
-                    <h1 className={webUi.navbar.title}>
-                      {pageMeta.title}
-                    </h1>
-                    {pageMeta.subtitle && (
-                      <p className={webUi.navbar.subtitle}>{pageMeta.subtitle}</p>
-                    )}
-                  </div>
-                </div>
+                <h1 className={webUi.navbar.title}>{pageMeta.title}</h1>
+                {pageMeta.subtitle && <p className={webUi.navbar.subtitle}>{pageMeta.subtitle}</p>}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
-        {pageMeta.search && (
-          <div className="order-3 w-full lg:order-none lg:flex lg:flex-1 lg:justify-center">
-            <div className="relative h-10 w-full lg:max-w-[500px]">
+        <div className="flex-1 flex items-center justify-center">
+          {pageMeta.search && (
+            <div className="relative w-full max-w-[460px] min-w-[220px] h-10">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9CA3AF]" />
               <input
                 type="text"
@@ -372,10 +364,10 @@ export function NavBar() {
                 className={webUi.navbar.searchInput}
               />
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
-        <div className="order-2 flex shrink-0 items-center justify-end gap-3 lg:gap-4">
+        <div className="flex items-center justify-end gap-4 shrink-0">
           <div className="relative" ref={notificationsRef}>
             <button
               onClick={() => {

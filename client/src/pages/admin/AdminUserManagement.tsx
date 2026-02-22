@@ -410,7 +410,7 @@ function AdminUserManagementContent() {
 
 export function AdminUserManagement() {
   return (
-    <AdminGate>
+    <AdminGate allowedRoles={["superadmin", "admin"]}>
       <AdminUserManagementContent />
     </AdminGate>
   );

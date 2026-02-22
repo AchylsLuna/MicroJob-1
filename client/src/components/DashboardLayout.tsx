@@ -11,9 +11,7 @@ export function DashboardLayout() {
       <div className={webUi.layout.content}>
         <NavBar />
         <main className={webUi.layout.main}>
-          <div className={webUi.layout.maxContainer}>
-            <Outlet />
-          </div>
+          <Outlet />
         </main>
       </div>
       <Toaster position="top-right" />

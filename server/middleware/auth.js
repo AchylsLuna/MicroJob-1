@@ -19,20 +19,18 @@ const verifyToken = async (req, res, next) => {
 
     try {
         const decoded = jwt.verify(token, getJwtSecret());
+        const tokenUserId = decoded?.userId || decoded?.id || decoded?._id;
+
+        if (!tokenUserId) {
+            return res.status(401).json({ message: "Invalid token payload." });
+        }
+
+        let sessionId = decoded?.sessionId;
         // verify there's an active session for this sessionId and it's not expired
         try {
-            let sessionId = decoded.sessionId;
-            // Determine user id from token (support legacy tokens that used `id`)
-            const tokenUserId = decoded.userId || decoded.id || decoded._id;
-
             // If token lacks sessionId (legacy token), create a session automatically
             if (!sessionId) {
                 try {
-                    if (!tokenUserId) {
-                        // cannot create session without a user id
-                        console.warn('Legacy token missing user id, cannot create session');
-                        return res.status(401).json({ message: 'Session creation failed. Please login again.' });
-                    }
                     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
                     const newSess = await Session.create({
                         user: tokenUserId,
@@ -56,6 +54,9 @@ const verifyToken = async (req, res, next) => {
             if (!sess || !sess.active) {
                 return res.status(401).json({ message: 'Session invalid or ended. Please login again.' });
             }
+            if (String(sess.user) !== String(tokenUserId)) {
+                return res.status(401).json({ message: 'Session does not match token user.' });
+            }
             if (sess.expiresAt && sess.expiresAt.getTime() < Date.now()) {
                 // mark session ended
                 sess.active = false;
@@ -68,7 +69,12 @@ const verifyToken = async (req, res, next) => {
             return res.status(401).json({ message: 'Session validation failed.' });
         }
 
-        req.user = decoded;
+        req.user = {
+            ...decoded,
+            id: tokenUserId,
+            userId: tokenUserId,
+            sessionId,
+        };
         next();
     } catch (error) {
         res.status(401).json({ message: "Invalid or expired token." });
