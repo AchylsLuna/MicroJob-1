@@ -19,6 +19,7 @@ import {
   sanitizeFullNameInput,
 } from "../lib/authValidation";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { MicroJobsLogo } from "./MicroJobsLogo";
 
 export function SignUp() {
   const navigate = useNavigate();
@@ -134,11 +135,8 @@ export function SignUp() {
         {/* Left Side - Branding */}
         <div className="text-white space-y-8 flex flex-col justify-center">
           <div className="space-y-4">
-            <div className="grid grid-cols-[48px_1fr] gap-4 items-center pl-4 mb-6">
-              <div className="w-12 h-12 rounded-[12px] bg-white/20 backdrop-blur-sm flex items-center justify-center border-2 border-white/40">
-                <Briefcase className="w-7 h-7 text-white" />
-              </div>
-              <h1 className="text-[32px] font-bold">Micro - Jobs</h1>
+            <div className="pl-4 mb-6">
+              <MicroJobsLogo variant="light" className="[&>span]:text-[32px] [&>span]:font-bold" />
             </div>
             
             <div className="grid grid-cols-[48px_1fr] gap-4 pl-4">

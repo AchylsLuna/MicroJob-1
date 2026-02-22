@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, Briefcase, Award, Users, TrendingUp, ArrowLeft } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Award, Users, TrendingUp, ArrowLeft } from "lucide-react";
 import { toast } from "../lib/toast";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { MicroJobsLogo } from "./MicroJobsLogo";
 
 export function SignIn() {
   const navigate = useNavigate();
@@ -63,10 +64,7 @@ export function SignIn() {
         <div className="text-white space-y-8 flex flex-col justify-center">
           <div className="space-y-4">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-14 h-14 rounded-[16px] bg-white/20 backdrop-blur-sm flex items-center justify-center border-2 border-white/40">
-                <Briefcase className="w-8 h-8 text-white" />
-              </div>
-              <h1 className="text-[32px] font-bold">Micro - Jobs</h1>
+              <MicroJobsLogo variant="light" className="[&>span]:text-[32px] [&>span]:font-bold" />
             </div>
             
             <h2 className="text-[28px] font-bold leading-tight">

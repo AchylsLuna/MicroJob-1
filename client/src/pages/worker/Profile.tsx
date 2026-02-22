@@ -20,6 +20,7 @@ import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { getProfile } from "../../services/api";
+import { ROUTES } from "../../utils/routes";
 
 interface WorkExperience {
   id: string;
@@ -209,7 +210,7 @@ export function Profile() {
   ];
 
   const handleEditProfile = () => {
-    navigate("/dashboard/settings");
+    navigate(ROUTES.settings);
   };
 
   const handleDownloadResume = () => {
@@ -411,7 +412,7 @@ export function Profile() {
                         <FileText className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
                         <p className="text-[14px] text-[#64748b] mb-3">No resume uploaded</p>
                         <button
-                          onClick={() => navigate("/dashboard/settings")}
+                          onClick={() => navigate(ROUTES.settings)}
                           className="bg-[#2563eb] text-white font-semibold py-2 px-4 rounded-[10px] hover:bg-[#1d4ed8] transition-all text-[13px]"
                         >
                           Upload Resume
@@ -453,7 +454,7 @@ export function Profile() {
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-[20px] font-semibold text-[#1e293b]">Work Experience</h2>
                 <button
-                  onClick={() => navigate("/dashboard/settings")}
+                  onClick={() => navigate(ROUTES.settings)}
                   className="text-[14px] text-[#2563eb] hover:text-[#1d4ed8] font-medium"
                 >
                   Add Experience

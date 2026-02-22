@@ -4,6 +4,7 @@ import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../utils/routes";
 
 function AdminUserManagementContent() {
   const navigate = useNavigate();
@@ -237,7 +238,7 @@ function AdminUserManagementContent() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigate("/dashboard/messages", {
+                                  navigate(ROUTES.worker.messages, {
                                     state: { userId: user._id, name: getUserName(user) },
                                   });
                                   setOpenMenuId(null);

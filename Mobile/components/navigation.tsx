@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../theme/tokens';
 
 type WorkerTab = 'Home' | 'Jobs' | 'EWallet' | 'Messages' | 'Profile';
 
@@ -59,7 +60,7 @@ export default function Navigation({
                 <Ionicons
                   name={(isActive ? item.iconActive : item.iconInactive) as any}
                   size={24}
-                  color={isActive ? '#102a56' : '#6b7280'}
+                  color={isActive ? tokens.colors.brand : tokens.colors.textMuted}
                 />
               )}
 
@@ -80,12 +81,17 @@ export default function Navigation({
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#f9fafb',
+    backgroundColor: tokens.colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#d1d5db',
+    borderTopColor: tokens.colors.border,
     paddingTop: 10,
     paddingBottom: 10,
     minHeight: 78,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 8,
   },
   tabItem: {
     flex: 1,
@@ -102,37 +108,37 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    color: '#6b7280',
+    color: tokens.colors.textMuted,
     fontWeight: '500',
   },
   tabLabelActive: {
-    color: '#102a56',
+    color: tokens.colors.brand,
     fontWeight: '700',
   },
   profileChip: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#d1d5db',
+    backgroundColor: '#dbe5f3',
     alignItems: 'center',
     justifyContent: 'center',
   },
   profileChipActive: {
-    backgroundColor: '#102a56',
+    backgroundColor: tokens.colors.brand,
   },
   profileChipText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#4b5563',
+    color: '#475569',
   },
   profileChipTextActive: {
-    color: '#ffffff',
+    color: tokens.colors.white,
   },
   badge: {
     position: 'absolute',
     top: -3,
     right: -8,
-    backgroundColor: '#ef4444',
+    backgroundColor: tokens.colors.danger,
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -143,7 +149,7 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   badgeText: {
-    color: '#fff',
+    color: tokens.colors.white,
     fontSize: 10,
     fontWeight: '700',
   },

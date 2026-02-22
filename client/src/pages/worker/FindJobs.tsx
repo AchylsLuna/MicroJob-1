@@ -3,6 +3,7 @@ import { Heart, Clock, SlidersHorizontal, CheckCircle2, Star } from "lucide-reac
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getJobs } from "../../services/api";
+import { ROUTES } from "../../utils/routes";
 
 interface CompanyInfo {
   founded: string;
@@ -402,7 +403,7 @@ export function FindJobs() {
 
               <div>
                 <button
-                  onClick={() => navigate(`/dashboard/job-details/${selectedJob.id}`)}
+                  onClick={() => navigate(ROUTES.worker.jobDetails(selectedJob.id))}
                   className="px-5 py-3 bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white text-[14px] font-semibold rounded-[12px] hover:shadow-lg transition-all"
                 >
                   View Full Details

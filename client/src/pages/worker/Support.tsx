@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { MessageSquare, Mail, Phone, HelpCircle, Book, Video, Send, Search, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ROUTES } from "../../utils/routes";
 
 interface FAQ {
   id: string;
@@ -140,7 +141,7 @@ export function Support() {
             Chat with our support team in real-time
           </p>
           <button
-            onClick={() => navigate("/dashboard/messages?contact=support")}
+            onClick={() => navigate(`${ROUTES.worker.messages}?contact=support`)}
             className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:bg-[#0F2954] transition-all text-[14px]"
           >
             Start Chat

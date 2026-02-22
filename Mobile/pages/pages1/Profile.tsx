@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Navigation from '../../components/navigation';
+import AppHeader from '../../components/AppHeader';
 import AddExperience from './AddExperience';
 import AddEducation from './AddEducation';
 import AddCV from './AddCV';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
+import { tokens } from '../../theme/tokens';
 
 type ProfileProps = {
   activeTab?: string;
@@ -41,6 +43,7 @@ export default function Profile({
     if (role === currentRole) return;
     onSwitchRole?.(role);
   };
+  const nextRole: 'worker' | 'employer' = currentRole === 'worker' ? 'employer' : 'worker';
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -83,13 +86,12 @@ export default function Profile({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Details</Text>
-        <TouchableOpacity onPress={onOpenSettings}>
-          <Text style={styles.settingsIcon}>⚙️</Text>
-        </TouchableOpacity>
-      </View>
+      <AppHeader
+        title="Details"
+        rightLabel={nextRole === 'employer' ? 'Switch to Employer' : 'Switch to Worker'}
+        rightIconName="swap-horizontal"
+        onRightPress={() => handleRoleSwitch(nextRole)}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
@@ -106,25 +108,9 @@ export default function Profile({
 
           {/* Name */}
           <Text style={styles.name}>{displayName}</Text>
-
-          <View style={styles.roleSwitchRow}>
-            <TouchableOpacity
-              style={[styles.roleChip, currentRole === 'worker' && styles.roleChipActive]}
-              onPress={() => handleRoleSwitch('worker')}
-            >
-              <Text style={[styles.roleChipText, currentRole === 'worker' && styles.roleChipTextActive]}>
-                Worker
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.roleChip, currentRole === 'employer' && styles.roleChipActive]}
-              onPress={() => handleRoleSwitch('employer')}
-            >
-              <Text style={[styles.roleChipText, currentRole === 'employer' && styles.roleChipTextActive]}>
-                Employer
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={onOpenSettings} style={styles.settingsChip}>
+            <Text style={styles.settingsChipText}>Open Settings</Text>
+          </TouchableOpacity>
 
           {/* Stats */}
           <View style={styles.statsRow}>
@@ -253,18 +239,7 @@ export default function Profile({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fa' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#1e3a5f',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerTitle: { fontSize: 24, fontWeight: '700', color: '#fff' },
-  settingsIcon: { fontSize: 24 },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
   scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 },
   profileCard: {
     backgroundColor: '#1e3a5f',
@@ -306,6 +281,15 @@ const styles = StyleSheet.create({
   },
   cameraIcon: { fontSize: 16 },
   name: { fontSize: 24, fontWeight: '700', color: '#fff' },
+  settingsChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.32)',
+  },
+  settingsChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   statsRow: {
     flexDirection: 'row',
     width: '100%',
@@ -324,25 +308,6 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: '#3b5a85',
   },
-  roleSwitchRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  roleChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    backgroundColor: '#ffffff',
-  },
-  roleChipActive: {
-    backgroundColor: '#0a2847',
-    borderColor: '#0a2847',
-  },
-  roleChipText: { fontSize: 12, fontWeight: '700', color: '#334155' },
-  roleChipTextActive: { color: '#ffffff' },
   section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: 'row',

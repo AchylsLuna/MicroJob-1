@@ -350,12 +350,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const switchAccountType = (nextType: "employer" | "worker") => {
     if (!user) return;
-    const accountOptions = user.accountOptions.includes(nextType)
-      ? user.accountOptions
-      : [...user.accountOptions, nextType];
-    const updatedUser = { ...user, accountType: nextType, accountOptions };
+    if (!user.accountOptions.includes(nextType)) return;
+    const updatedUser = { ...user, accountType: nextType, accountOptions: [...user.accountOptions] };
     setUser(updatedUser);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
+    window.dispatchEvent(new Event("auth_user_updated"));
     toast.success(`Switched to ${nextType === "employer" ? "Employer" : "Worker"} account`);
   };
 

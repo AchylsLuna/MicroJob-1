@@ -3,6 +3,7 @@ import { Search, Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLin
 import { toast } from "../../lib/toast";
 import { getEmployerApplications, updateApplicationStatus } from "../../services/api";
 import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../utils/routes";
 
 type ApplicationStatus = "all" | "under-review" | "pending" | "reviewing" | "interviewed" | "accepted" | "rejected";
 
@@ -303,7 +304,7 @@ export function ApplicationsManagement() {
 
   const handleMessageApplicant = (application: Application) => {
     if (!application.applicantId) return;
-    navigate("/dashboard/messages", {
+    navigate(ROUTES.worker.messages, {
       state: {
         userId: application.applicantId,
         name: application.name,

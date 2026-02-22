@@ -15,6 +15,7 @@ import {
 import { toast } from "../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { createJob, getCategories } from "../services/api";
+import { ROUTES } from "../utils/routes";
 
 interface Responsibility {
   id: string;
@@ -189,7 +190,7 @@ export function JobPosting() {
         category: categoryId || undefined,
       });
       toast.success("Job posting created successfully!");
-      navigate("/dashboard/employer/jobs");
+      navigate(ROUTES.employer.jobs);
     } catch (error: any) {
       toast.error(error?.message || "Failed to create job.");
     } finally {

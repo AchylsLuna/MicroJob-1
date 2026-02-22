@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import "./global.css";
 import { API_URL, SOCKET_URL } from './config';
 import { apiRequest, asObject } from './lib/api';
+import { tokens } from './theme/tokens';
 import Screen1 from './pages/Screen1';
 import Screen2 from './pages/Screen2';
 import Screen3 from './pages/Screen3';
@@ -27,6 +28,12 @@ import NotificationsInbox from './pages/pages1/NotificationsInbox';
 import WorkerInbox from './pages/pages1/WorkerInbox';
 import EWallet from './pages/pages1/EWallet';
 import Settings from './pages/pages1/Settings';
+import LocationServices from './pages/pages1/LocationServices';
+import MFA from './pages/pages1/MFA';
+import About from './pages/pages1/About';
+import DeleteAccount from './pages/pages1/DeleteAccount';
+import ChangePassword from './pages/pages1/ChangePassword';
+import ContactSupport from './pages/pages1/ContactSupport';
 import EmployerJobPosts from './pages/employer/EmployerJobPosts';
 import EmployerPostJob from './pages/employer/EmployerPostJob';
 import EmployerApplications from './pages/employer/EmployerApplications';
@@ -52,6 +59,7 @@ export default function App() {
   const [employerNotifications, setEmployerNotifications] = useState([]);
   const [messageEvents, setMessageEvents] = useState([]);
   const [workerUnreadMessageCount, setWorkerUnreadMessageCount] = useState(0);
+  const [workerInboxInitialChatTarget, setWorkerInboxInitialChatTarget] = useState(null);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const transition = useRef(new Animated.Value(0)).current;
   const screenWidth = Dimensions.get('window').width;
@@ -93,6 +101,12 @@ export default function App() {
     EmployerProfile: 24,
     EmployerNotifications: 25,
     EmployerMessages: 26, // EmployerInbox / EmployerMessages
+    SettingsLocationServices: 27,
+    SettingsMfa: 28,
+    SettingsAbout: 29,
+    SettingsDeleteAccount: 30,
+    SettingsChangePassword: 31,
+    SettingsSupport: 32,
   };
 
   const isSessionActive = currentScreen >= SCREEN.Dashboard;
@@ -410,6 +424,20 @@ export default function App() {
     setCurrentScreen(SCREEN.EmployerMessages);
   };
 
+  const handleMessageEmployer = ({ userId, userName, jobId }) => {
+    if (!userId) {
+      Alert.alert('Unable to open chat', 'Missing employer information.');
+      return;
+    }
+    setSelectedJobId(jobId || null);
+    setActiveTab('Messages');
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setWorkerUnreadMessageCount(0);
+    setWorkerInboxInitialChatTarget({ id: String(userId), name: userName || 'Employer' });
+    setCurrentScreen(SCREEN.Messages);
+  };
+
   const handleGoToEmployerProfile = () => {
     setActiveEmployerTab('Profile');
     setCurrentScreen(SCREEN.EmployerProfile);
@@ -454,6 +482,7 @@ export default function App() {
     setViewMode('worker');
     setExplicitEmployerView(false);
     setWorkerUnreadMessageCount(0);
+    setWorkerInboxInitialChatTarget(null);
     setCurrentScreen(SCREEN.Messages);
   };
 
@@ -513,6 +542,39 @@ export default function App() {
   const handleBackFromSettings = () => {
     setActiveTab('Profile');
     setCurrentScreen(SCREEN.Profile);
+  };
+
+  const handleBackToSettings = () => {
+    setCurrentScreen(SCREEN.Settings);
+  };
+
+  const handleGoToSettingsPersonalDetails = () => {
+    setActiveTab('Profile');
+    setCurrentScreen(SCREEN.Profile);
+  };
+
+  const handleGoToSettingsChangePassword = () => {
+    setCurrentScreen(SCREEN.SettingsChangePassword);
+  };
+
+  const handleGoToSettingsLocation = () => {
+    setCurrentScreen(SCREEN.SettingsLocationServices);
+  };
+
+  const handleGoToSettingsMfa = () => {
+    setCurrentScreen(SCREEN.SettingsMfa);
+  };
+
+  const handleGoToSettingsAbout = () => {
+    setCurrentScreen(SCREEN.SettingsAbout);
+  };
+
+  const handleGoToSettingsDeleteAccount = () => {
+    setCurrentScreen(SCREEN.SettingsDeleteAccount);
+  };
+
+  const handleGoToSettingsSupport = () => {
+    setCurrentScreen(SCREEN.SettingsSupport);
   };
 
   const handleTabPress = (tab) => {
@@ -667,6 +729,7 @@ export default function App() {
       onBack={handleGoToDashboard}
       onViewDetails={handleGoToJobDetails}
       onToggleSave={handleToggleSaveJob}
+      onMessageEmployer={handleMessageEmployer}
       savedJobIds={savedJobIds}
       onOpenSavedJobs={handleGoToSaved}
       onOpenAppliedJobs={handleGoToApplied}
@@ -702,6 +765,7 @@ export default function App() {
       onTabPress={handleTabPress}
       onViewDetails={handleGoToJobDetails}
       onViewSavedJobs={handleGoToSaved}
+      onMessageEmployer={handleMessageEmployer}
       messageBadgeCount={workerUnreadMessageCount}
     />,
     <WorkerInbox
@@ -709,6 +773,7 @@ export default function App() {
       onTabPress={handleTabPress}
       liveMessages={messageEvents}
       messageBadgeCount={workerUnreadMessageCount}
+      initialChatTarget={workerInboxInitialChatTarget}
     />,
     <NotificationsInbox
       activeTab={activeTab}
@@ -720,15 +785,22 @@ export default function App() {
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onOpenSettings={handleGoToSettings}
-      currentRole={isEmployerRole ? 'employer' : 'worker'}
+      currentRole={explicitEmployerView ? 'employer' : 'worker'}
       onSwitchRole={handleSwitchRole}
       messageBadgeCount={workerUnreadMessageCount}
     />,
     <Settings
       onBack={handleBackFromSettings}
       onLogout={handleLogoutConfirm}
+      onNavigatePersonalDetails={handleGoToSettingsPersonalDetails}
+      onNavigateChangePassword={handleGoToSettingsChangePassword}
       onNavigateNotifications={handleGoToNotifications}
       onNavigateEWallet={handleGoToEWallet}
+      onNavigateLocation={handleGoToSettingsLocation}
+      onNavigateMfa={handleGoToSettingsMfa}
+      onNavigateAbout={handleGoToSettingsAbout}
+      onNavigateDeleteAccount={handleGoToSettingsDeleteAccount}
+      onNavigateSupport={handleGoToSettingsSupport}
     />,
     <EmployerJobPosts
       onOpenPostJob={handleGoToEmployerPostJob}
@@ -757,7 +829,7 @@ export default function App() {
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
       onLogout={handleLogoutConfirm}
-      currentRole={isEmployerRole ? 'employer' : 'worker'}
+      currentRole={explicitEmployerView ? 'employer' : 'worker'}
       onSwitchRole={handleSwitchRole}
     />,
     <EmployerNotifications
@@ -766,6 +838,12 @@ export default function App() {
       liveNotifications={employerNotifications}
     />,
     <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} liveMessages={messageEvents} />,
+    <LocationServices onBack={handleBackToSettings} />,
+    <MFA onBack={handleBackToSettings} />,
+    <About onBack={handleBackToSettings} />,
+    <DeleteAccount onBack={handleBackToSettings} />,
+    <ChangePassword onBack={handleBackToSettings} />,
+    <ContactSupport onBack={handleBackToSettings} />,
   ];
   const currentView = screens[currentScreen] ?? screens[SCREEN.SignIn] ?? null;
 
@@ -780,12 +858,12 @@ export default function App() {
   });
 
   if (!isReady) {
-    return <View style={{ flex: 1, backgroundColor: '#0a2847' }} />;
+    return <View style={{ flex: 1, backgroundColor: tokens.colors.brand }} />;
   }
 
   return (
     <View
-      style={{ flex: 1, overflow: 'hidden', backgroundColor: '#0a2847' }}
+      style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.brand }}
       onStartShouldSetResponder={() => true}
       onResponderGrant={handleActivity}
       onTouchStart={handleActivity}

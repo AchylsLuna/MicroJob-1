@@ -21,6 +21,7 @@ import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
 import { AnalyticsOverview } from "./AnalyticsOverview";
+import { ROUTES } from "../../utils/routes";
 
 function AdminDashboardContent() {
   const {
@@ -70,6 +71,53 @@ function AdminDashboardContent() {
     });
     return ids.size;
   }, [jobs]);
+  const pendingReviewLabel = stats.pendingUsers > 0 ? "Awaiting action" : "All clear";
+
+  const topSummaryCards = [
+    {
+      id: "total-jobs",
+      label: "Total Jobs",
+      value: isLoading ? "—" : stats.totalJobs,
+      icon: <Briefcase className="w-6 h-6 text-white" />,
+      gradient: "from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]",
+    },
+    {
+      id: "active-jobs",
+      label: "Active Jobs",
+      value: isLoading ? "—" : activeJobs,
+      icon: <TrendingUp className="w-6 h-6 text-white" />,
+      gradient: "from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]",
+    },
+    {
+      id: "applications",
+      label: "Total Applications",
+      value: isLoading ? "—" : totalApplicants,
+      icon: <ClipboardList className="w-6 h-6 text-white" />,
+      gradient: "from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]",
+    },
+    {
+      id: "users",
+      label: "Total Users",
+      value: isLoading ? "—" : stats.totalUsers,
+      icon: <Users className="w-6 h-6 text-white" />,
+      gradient: "from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]",
+    },
+    {
+      id: "budget",
+      label: "Total Budget",
+      value: isLoading ? "—" : formatCurrency(totalBudget),
+      icon: <DollarSign className="w-6 h-6 text-white" />,
+      gradient: "from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]",
+    },
+    {
+      id: "pending",
+      label: "Pending Review",
+      value: isLoading ? "—" : stats.pendingUsers,
+      icon: <Clock className="w-6 h-6 text-white" />,
+      gradient: "from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]",
+      note: pendingReviewLabel,
+    },
+  ];
 
   const reportCards = [
     {
@@ -168,7 +216,8 @@ function AdminDashboardContent() {
     });
   }, [filteredJobs]);
 
-  const pendingReviewLabel = stats.pendingUsers > 0 ? "Awaiting action" : "All clear";
+  const panelClass =
+    "rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]";
   const getCompanyName = (job: (typeof jobs)[number]) => {
     const poster = job.jobPoster;
     if (!poster || typeof poster === "string") return "—";
@@ -189,7 +238,7 @@ function AdminDashboardContent() {
   }, [openMenuId]);
 
   return (
-    <div className="max-w-[1341px] mx-auto space-y-6">
+    <div className="space-y-6">
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}
@@ -197,71 +246,27 @@ function AdminDashboardContent() {
       )}
 
       <section id="dashboard" className="space-y-4 scroll-mt-24">
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-12 h-12 rounded-[14px] bg-[#E8F2FF] flex items-center justify-center">
-                <Briefcase className="w-6 h-6 text-[#2563EB]" />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {topSummaryCards.map((card) => (
+            <div
+              key={card.id}
+              className={`relative min-h-[188px] overflow-hidden rounded-[24px] bg-gradient-to-br ${card.gradient} p-6 text-white shadow-[0_12px_30px_rgba(28,77,141,0.25)]`}
+            >
+              <div className="absolute -right-14 -top-14 h-36 w-36 rounded-full bg-white/10" />
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="mb-5 flex items-start justify-between">
+                  <div className="rounded-[16px] bg-white/20 p-4">{card.icon}</div>
+                  {card.note && (
+                    <span className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold">
+                      {card.note}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[14px] text-white/90">{card.label}</p>
+                <p className="mt-2 text-[40px] font-bold leading-none">{card.value}</p>
               </div>
             </div>
-            <p className="text-[13px] text-[#6B7280] mb-1">Total Jobs</p>
-            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.totalJobs}</p>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-12 h-12 rounded-[14px] bg-[#E6F7EE] flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-[#059669]" />
-              </div>
-            </div>
-            <p className="text-[13px] text-[#6B7280] mb-1">Active Jobs</p>
-            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : activeJobs}</p>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-12 h-12 rounded-[14px] bg-[#F1E7FF] flex items-center justify-center">
-                <ClipboardList className="w-6 h-6 text-[#7C3AED]" />
-              </div>
-            </div>
-            <p className="text-[13px] text-[#6B7280] mb-1">Total Applications</p>
-            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : totalApplicants}</p>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-12 h-12 rounded-[14px] bg-[#FFF1E6] flex items-center justify-center">
-                <Users className="w-6 h-6 text-[#EA580C]" />
-              </div>
-            </div>
-            <p className="text-[13px] text-[#6B7280] mb-1">Total Users</p>
-            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.totalUsers}</p>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-12 h-12 rounded-[14px] bg-[#FCE7F3] flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-[#DB2777]" />
-              </div>
-            </div>
-            <p className="text-[13px] text-[#6B7280] mb-1">Total Budget</p>
-            <p className="text-[28px] font-bold text-[#111827]">
-              {isLoading ? "—" : formatCurrency(totalBudget)}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between mb-6">
-              <div className="w-12 h-12 rounded-[14px] bg-[#E8F2FF] flex items-center justify-center">
-                <Clock className="w-6 h-6 text-[#2563EB]" />
-              </div>
-            </div>
-            <p className="text-[13px] text-[#6B7280] mb-1">Pending Review</p>
-            <p className="text-[28px] font-bold text-[#111827]">{isLoading ? "—" : stats.pendingUsers}</p>
-            <span className="inline-flex items-center mt-3 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#DBEAFE] text-[#1D4ED8]">
-              {pendingReviewLabel}
-            </span>
-          </div>
+          ))}
         </div>
       </section>
 
@@ -274,8 +279,8 @@ function AdminDashboardContent() {
             </p>
           </div>
           <Link
-            to="/dashboard/admin-dashboard/reports"
-            className="inline-flex items-center gap-2 rounded-[12px] border border-[#E5E7EB] px-4 py-2 text-[13px] text-[#111827] hover:bg-[#F9FAFB]"
+            to={ROUTES.admin.reports}
+            className="inline-flex items-center gap-2 rounded-[12px] border border-[#D5DCE8] bg-white px-4 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
           >
             <FileText className="w-4 h-4 text-[#64748B]" />
             Open Reports
@@ -283,7 +288,7 @@ function AdminDashboardContent() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
           {reportCards.map((card) => (
-            <div key={card.id} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <div key={card.id} className={panelClass}>
               <div className={`w-12 h-12 rounded-[12px] ${card.accent} flex items-center justify-center mb-4`}>
                 {card.icon}
               </div>
@@ -319,7 +324,7 @@ function AdminDashboardContent() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {walletCards.map((card) => (
-            <div key={card.label} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <div key={card.label} className={panelClass}>
               <div className="flex items-center justify-between mb-4">
                 <div
                   className={`w-12 h-12 rounded-[12px] bg-gradient-to-br ${card.accent} flex items-center justify-center`}
@@ -333,7 +338,7 @@ function AdminDashboardContent() {
           ))}
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <div className={panelClass}>
           <div>
             <h3 className="text-[18px] font-semibold text-[#111827]">Recent Completed Payouts</h3>
             <p className="text-[13px] text-[#6B7280] mt-1">Latest jobs marked as completed.</p>
@@ -402,7 +407,7 @@ function AdminDashboardContent() {
           <p className="text-[13px] text-[#6B7280] mt-1">Track recent job postings and application activity.</p>
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <div className={panelClass}>
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
             <h3 className="text-[18px] font-semibold text-[#111827]">Job Postings</h3>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -517,7 +522,7 @@ function AdminDashboardContent() {
                                 onClick={(event) => event.stopPropagation()}
                               >
                                 <Link
-                                  to={`/dashboard/job-details/${job._id}`}
+                                  to={ROUTES.worker.jobDetails(job._id)}
                                   onClick={() => setOpenMenuId(null)}
                                   className="flex items-center gap-2 px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                                 >

@@ -3,6 +3,7 @@ import { Mail, Lock, Eye, EyeOff, Shield, ArrowLeft } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { ROUTES } from "../../utils/routes";
 
 export function AdminSignIn() {
   const navigate = useNavigate();
@@ -13,11 +14,11 @@ export function AdminSignIn() {
   const [isLoading, setIsLoading] = useState(false);
 
   if (!isLoading && isAuthenticated && user?.role === "superadmin") {
-    return <Navigate to="/dashboard/admin-dashboard" replace />;
+    return <Navigate to={ROUTES.admin.dashboard} replace />;
   }
 
   if (!isLoading && isAuthenticated && user?.role === "admin") {
-    return <Navigate to="/dashboard/admin-dashboard" replace />;
+    return <Navigate to={ROUTES.admin.dashboard} replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -59,7 +60,7 @@ export function AdminSignIn() {
     <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
       <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(ROUTES.home)}
           className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#1C4D8D] font-medium mb-6 transition-colors group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />

@@ -2,6 +2,7 @@ import { MapPin, Building2, Briefcase, Clock, Users, Bookmark, Trash2, ExternalL
 import { toast } from "../../lib/toast";
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { ROUTES } from "../../utils/routes";
 
 interface Job {
   id: string;
@@ -126,11 +127,11 @@ export function SavedJobs() {
 
   const handleApply = (jobId: string, jobTitle: string) => {
     toast.info(`Starting application for: ${jobTitle}`);
-    navigate(`/dashboard/job-details-new/${jobId}`);
+    navigate(ROUTES.worker.jobDetails(jobId));
   };
 
   const handleViewDetails = (jobId: string) => {
-    navigate(`/dashboard/job-details-new/${jobId}`);
+    navigate(ROUTES.worker.jobDetails(jobId));
   };
 
   const filteredJobs = jobs.filter(job => {

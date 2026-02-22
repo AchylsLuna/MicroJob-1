@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
   Briefcase,
@@ -16,32 +16,39 @@ import {
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { jobsAPI } from "../services/jobs";
+import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
+import { MicroJobsLogo } from "./MicroJobsLogo";
+import { webUi } from "../styles/webUi";
 
 interface SidebarProps {
   userName?: string;
   userEmail?: string;
   balance?: string;
   messageCount?: number;
-  userRole?: "hire" | "work" | "both" | "admin" | "superadmin"; // Optional override
+  userRole?: "hire" | "work" | "both" | "admin" | "superadmin";
 }
+
+type RoleType = "work" | "hire" | "both" | "admin" | "superadmin";
+
+type MenuItem = {
+  icon: string;
+  label: string;
+  path: string;
+  notification?: boolean;
+};
 
 const Sidebar: React.FC<SidebarProps> = ({
   userName = "Jonas Enriquez",
   userEmail = "joserizal@gmail.com",
   balance = "$67.67",
   messageCount = 2,
-  userRole = "work", // Default to work, NOT both
+  userRole = "work",
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [roleSelectorOpen, setRoleSelectorOpen] = useState(false);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
-  const [activeRole, setActiveRole] = useState<"work" | "hire">(() => {
-    const stored = localStorage.getItem("sidebar_active_role");
-    return stored === "hire" ? "hire" : "work";
-  });
   const { user: authUser } = useAuth();
 
   const loadProfilePhoto = () => {
@@ -61,64 +68,46 @@ const Sidebar: React.FC<SidebarProps> = ({
     window.addEventListener("profile_settings_updated", handleProfileUpdate);
     return () => window.removeEventListener("profile_settings_updated", handleProfileUpdate);
   }, []);
-  
-  // Get role from auth user (backend source of truth)
-  const userRoleFromAuth = authUser?.role || "work";
-  
-  // Debug logging
-  console.log("[Sidebar] Full authUser object:", authUser);
-  console.log("[Sidebar] Role from authUser:", userRoleFromAuth);
-  console.log("[Sidebar] localStorage auth_user:", localStorage.getItem("auth_user"));
 
-  // Menu items based on user role
-  const workerMenuItems = [
-    { icon: "find-jobs", label: "Apply Jobs", path: "/find-jobs" },
-    { icon: "applied-jobs", label: "Applied Jobs", path: "/worker/applied-jobs" },
+  const userRoleFromAuth = (authUser?.role || userRole) as RoleType;
+  const effectiveRole: RoleType =
+    userRoleFromAuth === "admin" || userRoleFromAuth === "superadmin"
+      ? userRoleFromAuth
+      : authUser?.accountType === "employer" || userRoleFromAuth === "hire"
+      ? "hire"
+      : "work";
+
+  const workerMenuItems: MenuItem[] = [
+    { icon: "find-jobs", label: "Apply Jobs", path: ROUTES.worker.findJobs },
+    { icon: "applied-jobs", label: "Applied Jobs", path: ROUTES.worker.appliedJobs },
   ];
 
-  const employerMenuItems = [
-    { icon: "➕", label: "Post a Job", path: "/employer/post-job" },
-    { icon: "📋", label: "My Job Posts", path: "/employer/job-posts" },
-    { icon: "applied-jobs", label: "Applications", path: "/employer/applications" },
+  const employerMenuItems: MenuItem[] = [
+    { icon: "post-job", label: "Post a Job", path: ROUTES.employer.postJob },
+    { icon: "job-posts", label: "My Job Posts", path: ROUTES.employer.jobPosts },
+    { icon: "applications", label: "Applications", path: ROUTES.employer.applications },
   ];
 
-  const commonMenuItems = [
-    { icon: "messages", label: "Messages", path: "/messages", notification: true },
-    { icon: "e-wallet", label: "E-Wallet", path: "/e-wallet" },
+  const commonMenuItems: MenuItem[] = [
+    { icon: "messages", label: "Messages", path: ROUTES.worker.messages, notification: true },
+    { icon: "e-wallet", label: "E-Wallet", path: ROUTES.worker.eWallet },
   ];
 
-  const effectiveRole = userRoleFromAuth === "both" ? activeRole : userRoleFromAuth;
-
-
-  // Build menu items array based on role
-  let menuItems: any[] = [];
-  
-  console.log("[Sidebar] Building menu for role:", effectiveRole);
-  
+  let menuItems: MenuItem[] = [];
   if (effectiveRole === "work") {
-    // Worker: Only Apply Jobs + Applied Jobs
     menuItems = [...workerMenuItems, ...commonMenuItems];
-    console.log("[Sidebar] Using WORKER menu items");
   } else if (effectiveRole === "hire") {
-    // Employer: Only Post Jobs + My Job Posts
     menuItems = [...employerMenuItems, ...commonMenuItems];
-    console.log("[Sidebar] Using EMPLOYER menu items");
   } else if (effectiveRole === "admin" || effectiveRole === "superadmin") {
-    // Admin: All items
     menuItems = [...workerMenuItems, ...employerMenuItems, ...commonMenuItems];
-    console.log("[Sidebar] Using ADMIN menu items");
   } else {
-    // Unknown: Default to worker
     menuItems = [...workerMenuItems, ...commonMenuItems];
-    console.log("[Sidebar] Using DEFAULT (worker) menu items");
   }
-  
-  console.log("[Sidebar] Final menu items:", menuItems.map(i => i.label));
 
-  const bottomMenuItems = [
-    { icon: "notifications", label: "Notifications", path: "/notifications", notification: true },
-    { icon: "settings", label: "Settings", path: "/settings" },
-    { icon: "support", label: "Support", path: "/support" },
+  const bottomMenuItems: MenuItem[] = [
+    { icon: "notifications", label: "Notifications", path: ROUTES.notifications, notification: true },
+    { icon: "settings", label: "Settings", path: ROUTES.settings },
+    { icon: "support", label: "Support", path: ROUTES.support },
   ];
 
   const iconMap: Record<string, React.ReactNode> = {
@@ -140,7 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const loadNotifCount = async () => {
     try {
-      if (userRoleFromAuth === 'hire') {
+      if (effectiveRole === "hire") {
         const res = await jobsAPI.getEmployerApplications();
         const apps = res.data || [];
         const unread = apps.filter((a: any) => !a.employerReadAt).length;
@@ -148,21 +137,21 @@ const Sidebar: React.FC<SidebarProps> = ({
       } else {
         const res = await jobsAPI.getUserApplications();
         const apps = res.data || [];
-        const allowed = new Set(['Shortlisted','Terms','Hired']);
+        const allowed = new Set(["Shortlisted", "Terms", "Hired"]);
         const unread = apps.filter((a: any) => allowed.has(a.status) && !a.applicantReadAt).length;
         setNotifCount(unread);
       }
-    } catch (err) {
-      // ignore
+    } catch {
+      // ignore notification count errors
     }
   };
 
   useEffect(() => {
     loadNotifCount();
     const handler = () => loadNotifCount();
-    window.addEventListener('auth_user_updated', handler);
-    return () => window.removeEventListener('auth_user_updated', handler);
-  }, [userRoleFromAuth]);
+    window.addEventListener("auth_user_updated", handler);
+    return () => window.removeEventListener("auth_user_updated", handler);
+  }, [effectiveRole]);
 
   const renderIcon = (iconKey: string) => (
     <span aria-hidden="true" className="text-current">
@@ -170,171 +159,164 @@ const Sidebar: React.FC<SidebarProps> = ({
     </span>
   );
 
+  const isPathActive = (path: string) => {
+    if (path === ROUTES.notifications) {
+      return matchesPath(location.pathname, ROUTES.notifications) || matchesPath(location.pathname, ROUTES.worker.notifications);
+    }
+    if (path === ROUTES.support) {
+      return matchesPath(location.pathname, ROUTES.support) || matchesPath(location.pathname, ROUTES.worker.support);
+    }
+    return startsWithPath(location.pathname, path);
+  };
+
+  const dashboardPath =
+    effectiveRole === "admin" || effectiveRole === "superadmin"
+      ? ROUTES.admin.dashboard
+      : effectiveRole === "hire"
+      ? ROUTES.employer.dashboard
+      : ROUTES.worker.dashboard;
+
+  const roleLabel =
+    effectiveRole === "hire"
+      ? "Employer"
+      : effectiveRole === "admin" || effectiveRole === "superadmin"
+      ? "Admin"
+      : "Worker";
+
+  const getNavButtonClass = (active: boolean) =>
+    `${webUi.sidebar.navButton} ${
+      isCollapsed ? "justify-center px-2 py-3" : "justify-start px-4 py-3"
+    } ${
+      active ? webUi.sidebar.navButtonActive : webUi.sidebar.navButtonIdle
+    }`;
+
   return (
-    <div
-      className={`bg-white text-gray-800 shadow-lg fixed h-screen overflow-y-auto flex flex-col transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-64"
+    <aside
+      className={`${webUi.sidebar.root} flex flex-col transition-all duration-300 ${
+        isCollapsed ? "w-[92px]" : "w-[264px]"
       }`}
-      style={{ padding: isCollapsed ? "12px" : "24px" }}
+      style={{ padding: isCollapsed ? "14px 12px" : "20px 16px" }}
     >
-      {/* Logo Section */}
-      <div className="flex items-center justify-between mb-8">
-        <div
-          className="flex items-center gap-2 cursor-pointer"
-          onClick={() => navigate("/")}
-        >
-          <div className="h-8 w-8 rounded-lg bg-blue-100 text-blue-700 font-bold flex items-center justify-center">
-            M
-          </div>
-          {!isCollapsed && (
-            <span className="text-xl font-bold text-black">MicroJobs</span>
-          )}
-        </div>
+      <div className="mb-6 flex items-center justify-between gap-2">
         <button
+          type="button"
+          onClick={() => navigate(ROUTES.home)}
+          className={`min-w-0 flex-1 rounded-xl transition hover:opacity-90 ${
+            isCollapsed ? "flex items-center justify-center p-1.5" : "p-1"
+          }`}
+          aria-label="Go to homepage"
+        >
+          <MicroJobsLogo
+            className={`w-full ${
+              isCollapsed
+                ? "justify-center [&>span]:hidden"
+                : "justify-start [&>span]:text-[22px] [&>span]:md:text-[22px]"
+            }`}
+          />
+        </button>
+        <button
+          type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-gray-600 hover:text-gray-900 transition text-lg"
+          className="h-8 w-8 rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition"
           title={isCollapsed ? "Expand" : "Collapse"}
         >
           {isCollapsed ? "›" : "‹"}
         </button>
       </div>
 
-      {/* Navigation Menu */}
       <nav className="space-y-1 flex-1 flex flex-col">
-        {/* Main Section */}
-        <div className="space-y-1 pb-4 border-b border-gray-200">
-          {/* Role Selector */}
+        <div className={`space-y-1 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
           {!isCollapsed && (
             <div className="mb-3">
-              {userRoleFromAuth === "both" ? (
-                <>
-                  <button
-                    onClick={() => setRoleSelectorOpen(!roleSelectorOpen)}
-                    className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold border border-sky-100"
-                  >
-                    <span>{activeRole === "hire" ? "Employer" : "Worker"}</span>
-                    <span className="text-sky-500">▾</span>
-                  </button>
-                  {roleSelectorOpen && (
-                    <div className="mt-2 rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                      <button
-                        onClick={() => {
-                          setRoleSelectorOpen(false);
-                          setActiveRole("work");
-                          localStorage.setItem("sidebar_active_role", "work");
-                          navigate("/find-jobs");
-                        }}
-                        className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50"
-                      >
-                        Worker
-                      </button>
-                      <button
-                        onClick={() => {
-                          setRoleSelectorOpen(false);
-                          setActiveRole("hire");
-                          localStorage.setItem("sidebar_active_role", "hire");
-                          navigate("/employer/applications");
-                        }}
-                        className="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-50"
-                      >
-                        Employer
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold border border-sky-100">
-                  <span>{userRoleFromAuth === "hire" ? "Employer" : "Worker"}</span>
-                </div>
-              )}
+              <div className="w-full flex items-center gap-3 rounded-xl border border-[#D6E7FF] bg-[#EAF4FF] px-4 py-3 font-semibold text-[#1D4ED8]">
+                <span>{roleLabel}</span>
+              </div>
             </div>
           )}
-          {/* Dashboard Button (hide for employer) */}
-          {effectiveRole !== "hire" && (
-            <button
-              onClick={() => navigate("/dashboard")}
-              className={`w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold transition relative ${
-                location.pathname === "/dashboard"
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-700 hover:bg-gray-100"
-              } ${isCollapsed ? "px-2" : ""}`}
-              title={isCollapsed ? "Dashboard" : ""}
-            >
-              {renderIcon("dashboard")}
-              {!isCollapsed && <span>Dashboard</span>}
-            </button>
-          )}
 
-          {/* Menu Items based on role */}
+          <button
+            onClick={() => navigate(dashboardPath)}
+            className={getNavButtonClass(isPathActive(dashboardPath))}
+            title={isCollapsed ? "Dashboard" : ""}
+          >
+            {renderIcon("dashboard")}
+            {!isCollapsed && <span>Dashboard</span>}
+          </button>
+
           {menuItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold transition relative ${
-                location.pathname === item.path
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-700 hover:bg-gray-100"
-              } ${isCollapsed ? "px-2" : ""}`}
+              className={getNavButtonClass(isPathActive(item.path))}
               title={isCollapsed ? item.label : ""}
             >
               {renderIcon(item.icon)}
               {!isCollapsed && <span>{item.label}</span>}
-              {item.notification && (
-                item.path === '/notifications' ? (
-                  <span className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${isCollapsed ? 'absolute right-2 top-2' : ''}`}>
-                    {notifCount > 0 ? notifCount : ''}
+              {item.notification &&
+                (item.path === ROUTES.notifications ? (
+                  <span
+                    className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
+                      isCollapsed ? "absolute right-2 top-2" : ""
+                    }`}
+                  >
+                    {notifCount > 0 ? notifCount : ""}
                   </span>
                 ) : (
-                  <span className={`w-2 h-2 bg-blue-600 rounded-full ${isCollapsed ? "absolute right-2 top-2" : ""}`}></span>
-                )
-              )}
+                  <span
+                    className={`w-2 h-2 bg-blue-600 rounded-full ${
+                      isCollapsed ? "absolute right-2 top-2" : ""
+                    }`}
+                  ></span>
+                ))}
             </button>
           ))}
         </div>
 
-        {/* Bottom Section */}
-        <div className="space-y-1 py-4 border-b border-gray-200">
+        <div className={`space-y-1 py-4 border-b ${webUi.sidebar.sectionDivider}`}>
           {bottomMenuItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold transition relative ${
-                location.pathname === item.path
-                  ? "text-blue-600 bg-blue-50"
-                  : "text-gray-700 hover:bg-gray-100"
-              } ${isCollapsed ? "px-2" : ""}`}
+              className={getNavButtonClass(isPathActive(item.path))}
               title={isCollapsed ? item.label : ""}
             >
               {renderIcon(item.icon)}
               {!isCollapsed && <span>{item.label}</span>}
-              {item.notification && (
-                item.path === '/notifications' ? (
-                  <span className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${isCollapsed ? 'absolute right-2 top-2' : ''}`}>
-                    {notifCount > 0 ? notifCount : ''}
+              {item.notification &&
+                (item.path === ROUTES.notifications ? (
+                  <span
+                    className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
+                      isCollapsed ? "absolute right-2 top-2" : ""
+                    }`}
+                  >
+                    {notifCount > 0 ? notifCount : ""}
                   </span>
                 ) : (
-                  <span className={`w-2 h-2 bg-blue-600 rounded-full ${isCollapsed ? "absolute right-2 top-2" : ""}`}></span>
-                )
-              )}
+                  <span
+                    className={`w-2 h-2 bg-blue-600 rounded-full ${
+                      isCollapsed ? "absolute right-2 top-2" : ""
+                    }`}
+                  ></span>
+                ))}
             </button>
           ))}
 
-          {/* Logout Button */}
           <button
             onClick={() => {
               setShowLogoutConfirm(true);
             }}
-            className="w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold text-red-600 hover:bg-red-50 transition relative"
+            className={`w-full flex items-center gap-3 rounded-xl py-3 font-semibold text-[#DC2626] transition hover:bg-[#FEF2F2] ${
+              isCollapsed ? "justify-center px-2" : "justify-start px-4"
+            }`}
             title={isCollapsed ? "Logout" : ""}
           >
             {renderIcon("logout")}
             {!isCollapsed && <span>Logout</span>}
           </button>
 
-          {/* Logout Confirmation - Inside Sidebar */}
           {showLogoutConfirm && !isCollapsed && (
-            <div className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3">
-              <p className="text-sm text-red-800 font-semibold mb-3">Confirm logout?</p>
+            <div className="mt-3 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3">
+              <p className="mb-3 text-sm font-semibold text-[#991B1B]">Confirm logout?</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -342,27 +324,25 @@ const Sidebar: React.FC<SidebarProps> = ({
                     localStorage.removeItem("auth_token");
                     window.dispatchEvent(new Event("auth_user_updated"));
                     setShowLogoutConfirm(false);
-                    navigate("/signin", { replace: true });
+                    navigate(ROUTES.signInLegacy, { replace: true });
                   }}
-                  className="flex-1 bg-red-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-red-700 transition"
+                  className="flex-1 rounded-lg bg-[#DC2626] py-2 text-sm font-semibold text-white transition hover:bg-[#B91C1C]"
                 >
                   Logout
                 </button>
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 bg-white text-red-700 text-sm font-semibold py-2 rounded-lg border border-red-300 hover:bg-red-100 transition"
+                  className="flex-1 rounded-lg border border-[#FCA5A5] bg-white py-2 text-sm font-semibold text-[#B91C1C] transition hover:bg-[#FEE2E2]"
                 >
                   Cancel
                 </button>
               </div>
             </div>
           )}
-
         </div>
       </nav>
 
-      {/* User Profile */}
-      <div className="border-t border-gray-200 pt-6">
+      <div className={`border-t pt-5 ${webUi.sidebar.sectionDivider}`}>
         <button className="w-full flex items-center justify-between lg:justify-start gap-3 hover:opacity-80 transition">
           <div className="flex items-center gap-3">
             {profilePhotoPreview ? (
@@ -378,17 +358,15 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
             {!isCollapsed && (
               <div className="text-left">
-                <p className="text-gray-600 text-xs">Welcome back 👋</p>
-                <p className="font-bold text-gray-900 text-sm">{userName}</p>
+                <p className="text-[#64748B] text-xs">Welcome back</p>
+                <p className="font-bold text-[#0F172A] text-sm">{userName}</p>
               </div>
             )}
           </div>
-          {!isCollapsed && (
-            <span className="text-gray-400">›</span>
-          )}
+          {!isCollapsed && <span className="text-[#94A3B8]">›</span>}
         </button>
       </div>
-    </div>
+    </aside>
   );
 };
 

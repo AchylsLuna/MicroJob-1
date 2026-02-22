@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import AppHeader from '../../components/AppHeader';
+import { tokens } from '../../theme/tokens';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -12,9 +14,22 @@ type SettingsProps = {
   onNavigateMfa?: () => void;
   onNavigateAbout?: () => void;
   onNavigateDeleteAccount?: () => void;
+  onNavigateSupport?: () => void;
 };
 
-export default function Settings({ onBack, onLogout, onNavigatePersonalDetails, onNavigateChangePassword, onNavigateNotifications, onNavigateEWallet, onNavigateLocation, onNavigateMfa, onNavigateAbout, onNavigateDeleteAccount }: SettingsProps) {
+export default function Settings({
+  onBack,
+  onLogout,
+  onNavigatePersonalDetails,
+  onNavigateChangePassword,
+  onNavigateNotifications,
+  onNavigateEWallet,
+  onNavigateLocation,
+  onNavigateMfa,
+  onNavigateAbout,
+  onNavigateDeleteAccount,
+  onNavigateSupport,
+}: SettingsProps) {
   const handleLogout = () => {
     Alert.alert(
       'Log out',
@@ -33,21 +48,18 @@ export default function Settings({ onBack, onLogout, onNavigatePersonalDetails, 
     { title: 'E-Wallet & Payments', onPress: onNavigateEWallet },
     { title: 'Location Services', onPress: onNavigateLocation },
     { title: 'Two-Factor Authentication', onPress: onNavigateMfa },
-    { title: 'Contact Support', onPress: () => {} },
+    { title: 'Contact Support', onPress: onNavigateSupport },
     { title: 'About', onPress: onNavigateAbout },
     { title: 'Delete Account', onPress: onNavigateDeleteAccount },
   ];
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Account Settings</Text>
-        <View style={styles.placeholder} />
-      </View>
+      <AppHeader
+        title="Account Settings"
+        subtitle="Manage profile, security, and support"
+        onBack={onBack}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Settings Menu Card */}
@@ -76,30 +88,13 @@ export default function Settings({ onBack, onLogout, onNavigatePersonalDetails, 
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fa' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#1e3a5f',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backIcon: { fontSize: 32, color: '#fff', fontWeight: '300' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff', flex: 1, textAlign: 'center' },
-  placeholder: { width: 40 },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
   scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 },
   menuCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.lg,
     overflow: 'hidden',
+    ...tokens.shadow.card,
   },
   menuItem: {
     flexDirection: 'row',
@@ -109,15 +104,15 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   menuTitle: { fontSize: 16, fontWeight: '600', color: '#1f2937' },
-  arrowIcon: { fontSize: 20, color: '#9ca3af' },
+  arrowIcon: { fontSize: 20, color: tokens.colors.textSubtle },
   divider: {
     height: 1,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: tokens.colors.border,
   },
   logoutItem: {
     paddingHorizontal: 16,
     paddingVertical: 16,
     alignItems: 'center',
   },
-  logoutText: { fontSize: 16, fontWeight: '600', color: '#ef4444' },
+  logoutText: { fontSize: 16, fontWeight: '600', color: tokens.colors.danger },
 });

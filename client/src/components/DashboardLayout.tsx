@@ -2,16 +2,19 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { Toaster } from "../lib/toast";
 import { NavBar } from "./NavBar";
+import { webUi } from "../styles/webUi";
 
 export function DashboardLayout() {
   return (
-    <div className="bg-[#f8f8f8] flex h-screen w-full overflow-hidden">
+    <div className={webUi.layout.shell}>
       <Sidebar />
-      <div className="flex-1 flex flex-col overflow-y-auto">
+      <div className={webUi.layout.content}>
         <NavBar />
-        <div className="flex-1 p-6">
-          <Outlet />
-        </div>
+        <main className={webUi.layout.main}>
+          <div className={webUi.layout.maxContainer}>
+            <Outlet />
+          </div>
+        </main>
       </div>
       <Toaster position="top-right" />
     </div>

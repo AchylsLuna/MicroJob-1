@@ -19,9 +19,9 @@ type AppliedJob = {
 type AppliedJobsProps = {
   onViewSavedJobs?: () => void;
   onViewDetails?: (job: { _id: string }) => void;
+  onMessageEmployer?: (payload: { userId?: string; userName?: string; jobId?: string }) => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
-  navigation?: any;
   messageBadgeCount?: number;
 };
 
@@ -29,9 +29,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   const {
     onViewSavedJobs,
     onViewDetails,
+    onMessageEmployer,
     activeTab: externalActiveTab,
     onTabPress: externalOnTabPress,
-    navigation,
     messageBadgeCount = 0,
   } = props;
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
@@ -184,13 +184,11 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                       Alert.alert('Error', 'Could not find employer user ID.');
                       return;
                     }
-                    if (typeof navigation !== 'undefined' && navigation?.navigate) {
-                      navigation.navigate('ChatScreen', {
-                        userId: employerId,
-                        jobId: job.jobId,
-                        employerName: job.company,
-                      });
-                    }
+                    onMessageEmployer?.({
+                      userId: employerId,
+                      userName: job.company,
+                      jobId: job.jobId,
+                    });
                   }}
                 >
                   <Text style={{color: '#fff', fontWeight: '700'}}>Message Employer</Text>

@@ -26,10 +26,10 @@ type JobsProps = {
   onToggleSave?: (job: Job) => void;
   onOpenSavedJobs?: () => void;
   onOpenAppliedJobs?: () => void;
+  onMessageEmployer?: (payload: { userId?: string; userName?: string; jobId?: string }) => void;
   savedJobIds?: string[];
   activeTab?: string;
   onTabPress?: (tab: string) => void;
-  navigation?: any;
   messageBadgeCount?: number;
 };
 
@@ -39,10 +39,10 @@ export default function Jobs(props: JobsProps) {
     onToggleSave,
     onOpenSavedJobs,
     onOpenAppliedJobs,
+    onMessageEmployer,
     savedJobIds = [],
     activeTab: externalActiveTab,
     onTabPress: externalOnTabPress,
-    navigation,
     messageBadgeCount = 0,
   } = props;
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
@@ -136,7 +136,7 @@ export default function Jobs(props: JobsProps) {
       <View style={styles.header}>
         <View>
           <Text style={styles.greeting}>Good morning, Jonas!</Text>
-          <Text style={styles.headerTitle}>Find your drea.</Text>
+          <Text style={styles.headerTitle}>Find your dream job</Text>
         </View>
       </View>
 
@@ -325,13 +325,11 @@ export default function Jobs(props: JobsProps) {
                       // ignore send errors; we'll still navigate to chat
                       console.warn('Initial message send failed', e);
                     } finally {
-                      if (navigation && navigation.navigate) {
-                        navigation.navigate('ChatScreen', {
-                          recipientId,
-                          recipientName,
-                          jobId: job._id,
-                        });
-                      }
+                      onMessageEmployer?.({
+                        userId: recipientId,
+                        userName: recipientName,
+                        jobId: job._id,
+                      });
                     }
                   }}
                 >

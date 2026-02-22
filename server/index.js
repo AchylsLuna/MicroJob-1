@@ -1,6 +1,8 @@
-import 'dotenv/config';
 import express from 'express';
 import http from 'http';
+import dotenv from 'dotenv';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
@@ -8,6 +10,16 @@ import cors from 'cors';
 import { initSocket } from './lib/socket.js';
 import { getJwtSecret } from './lib/jwtSecret.js';
 import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load `server/.env` by default when running from monorepo root, while still
+// allowing real environment variables to override values in production.
+const serverEnv = dotenv.config({ path: resolve(__dirname, '.env') });
+if (serverEnv.error) {
+    dotenv.config();
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -20,7 +32,7 @@ const mongoUri = process.env.MONGO_URI?.trim() || (isProduction ? '' : defaultMo
 const config = {
     PORT: process.env.PORT || 5000,
     MONGO_URI: mongoUri,
-    ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    ORIGIN: process.env.CLIENT_ORIGIN || process.env.ORIGIN || 'http://localhost:5173',
     DB_NAME: 'MicroJob',
 };
 

@@ -1,10 +1,23 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { BrowserRouter as Router, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+import { CookiePolicy } from "./components/CookiePolicy";
+import { ForgotPassword } from "./components/ForgotPassword";
 import { JobDetails } from "./components/JobDetails";
 import { LandingPage } from "./components/LandingPage";
+import { PrivacyPolicy } from "./components/PrivacyPolicy";
+import { ResetPassword } from "./components/ResetPassword";
 import { Settings } from "./components/Settings";
 import { SignIn } from "./components/SignIn";
 import { SignUp } from "./components/SignUp";
+import { TermsAndConditions } from "./components/TermsAndConditions";
 import SidebarLayout from "./components/layout/SidebarLayout";
 import { useAuth } from "./hooks/useAuth";
 import EmailVerification from "./pages/emailVerification";
@@ -18,7 +31,13 @@ import {
   AdminSignIn,
   AdminUserManagement,
 } from "./pages/admin";
-import { Applications, EmployerDashboard, JobPosts, JobsManagement, PostJob } from "./pages/employer";
+import {
+  Applications,
+  EmployerDashboard,
+  JobPosts,
+  JobsManagement,
+  PostJob,
+} from "./pages/employer";
 import NotificationsRouter from "./pages/NotificationsRouter";
 import {
   AppliedJobs,
@@ -37,6 +56,7 @@ import {
   EMPLOYER_DASHBOARD_PATH,
   getDefaultDashboardPath,
 } from "./utils/dashboardRoutes";
+import { ROUTES } from "./utils/routes";
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
 const WARNING_DURATION_MS = 30 * 1000;
@@ -68,7 +88,7 @@ const InactivityHandler: React.FC = () => {
     localStorage.removeItem("pending_verification_email");
     window.dispatchEvent(new Event("auth_user_updated"));
     setShowWarning(false);
-    navigate("/signin", { replace: true });
+    navigate(ROUTES.signInLegacy, { replace: true });
   }, [navigate]);
 
   const scheduleTimers = useCallback(() => {
@@ -105,7 +125,9 @@ const InactivityHandler: React.FC = () => {
     const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
     const handleEvent = () => handleActivity();
 
-    events.forEach((eventName) => window.addEventListener(eventName, handleEvent, { passive: true }));
+    events.forEach((eventName) =>
+      window.addEventListener(eventName, handleEvent, { passive: true })
+    );
     window.addEventListener(ACTIVITY_EVENT, handleEvent);
     window.addEventListener("auth_user_updated", handleEvent);
 
@@ -154,13 +176,45 @@ const DashboardHomeRoute: React.FC = () => {
   return <Navigate to={destination} replace />;
 };
 
+const PreserveRedirect: React.FC<{ to: string }> = ({ to }) => {
+  const location = useLocation();
+  return (
+    <Navigate
+      to={{ pathname: to, search: location.search, hash: location.hash }}
+      state={location.state}
+      replace
+    />
+  );
+};
+
 const LegacyJobDetailsRedirect: React.FC = () => {
+  const location = useLocation();
   const { jobId } = useParams();
   if (!jobId) {
-    return <Navigate to="/worker/find-jobs" replace />;
+    return (
+      <Navigate
+        to={{
+          pathname: ROUTES.worker.findJobs,
+          search: location.search,
+          hash: location.hash,
+        }}
+        state={location.state}
+        replace
+      />
+    );
   }
 
-  return <Navigate to={`/worker/job-details/${jobId}`} replace />;
+  return (
+    <Navigate
+      to={{
+        pathname: ROUTES.worker.jobDetails(jobId),
+        search: location.search,
+        hash: location.hash,
+      }}
+      state={location.state}
+      replace
+    />
+  );
 };
 
 const App: React.FC = () => {
@@ -168,84 +222,170 @@ const App: React.FC = () => {
     <Router>
       <InactivityHandler />
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/signin" element={<SignIn />} />
-        <Route path="/sign-in" element={<SignIn />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/sign-up" element={<SignUp />} />
-        <Route path="/admin-sign-in" element={<AdminSignIn />} />
-        <Route path="/email-verification" element={<EmailVerification />} />
+        <Route path={ROUTES.home} element={<LandingPage />} />
+        <Route path={ROUTES.signInLegacy} element={<SignIn />} />
+        <Route path={ROUTES.signIn} element={<SignIn />} />
+        <Route path={ROUTES.signUpLegacy} element={<SignUp />} />
+        <Route path={ROUTES.signUp} element={<SignUp />} />
+        <Route path={ROUTES.adminSignIn} element={<AdminSignIn />} />
+        <Route path={ROUTES.emailVerification} element={<EmailVerification />} />
+        <Route path={ROUTES.forgotPassword} element={<ForgotPassword />} />
+        <Route path={ROUTES.resetPassword} element={<ResetPassword />} />
+        <Route path={ROUTES.terms} element={<TermsAndConditions />} />
+        <Route path={ROUTES.privacy} element={<PrivacyPolicy />} />
+        <Route path={ROUTES.cookiePolicy} element={<CookiePolicy />} />
 
         <Route element={<SidebarLayout />}>
-          <Route path="/worker/dashboard" element={<WorkerDashboard />} />
-          <Route path="/worker/find-jobs" element={<FindJobs />} />
-          <Route path="/worker/applied-jobs" element={<AppliedJobs />} />
-          <Route path="/worker/saved-jobs" element={<SavedJobs />} />
-          <Route path="/worker/job-details/:jobId" element={<JobDetails />} />
-          <Route path="/worker/notifications" element={<WorkerNotifications />} />
-          <Route path="/worker/profile" element={<WorkerProfile />} />
-          <Route path="/worker/support" element={<WorkerSupport />} />
-          <Route path="/worker/messages" element={<WorkerMessages />} />
-          <Route path="/worker/e-wallet" element={<WorkerEWallet />} />
+          <Route path={ROUTES.worker.dashboard} element={<WorkerDashboard />} />
+          <Route path={ROUTES.worker.findJobs} element={<FindJobs />} />
+          <Route path={ROUTES.worker.appliedJobs} element={<AppliedJobs />} />
+          <Route path={ROUTES.worker.savedJobs} element={<SavedJobs />} />
+          <Route path={ROUTES.worker.jobDetailsPattern} element={<JobDetails />} />
+          <Route path={ROUTES.worker.notifications} element={<WorkerNotifications />} />
+          <Route path={ROUTES.worker.profile} element={<WorkerProfile />} />
+          <Route path={ROUTES.worker.support} element={<WorkerSupport />} />
+          <Route path={ROUTES.worker.messages} element={<WorkerMessages />} />
+          <Route path={ROUTES.worker.eWallet} element={<WorkerEWallet />} />
 
-          <Route path="/employer/dashboard" element={<EmployerDashboard />} />
-          <Route path="/employer/post-job" element={<PostJob />} />
-          <Route path="/employer/job-posts" element={<JobPosts />} />
-          <Route path="/employer/applications" element={<Applications />} />
-          <Route path="/employer/jobs" element={<JobsManagement />} />
+          <Route path={ROUTES.employer.dashboard} element={<EmployerDashboard />} />
+          <Route path={ROUTES.employer.postJob} element={<PostJob />} />
+          <Route path={ROUTES.employer.jobPosts} element={<JobPosts />} />
+          <Route path={ROUTES.employer.applications} element={<Applications />} />
+          <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
 
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
-          <Route path="/admin/analytics" element={<AdminAnalytics />} />
-          <Route path="/admin/reports" element={<AdminReports />} />
-          <Route path="/admin/e-wallet" element={<AdminEWalletMonitoring />} />
-          <Route path="/admin/jobs" element={<AdminJobMonitoring />} />
-          <Route path="/admin/security" element={<AdminSecurity />} />
-          <Route path="/admin/user-management" element={<AdminUserManagement />} />
+          <Route path={ROUTES.admin.dashboard} element={<AdminDashboard />} />
+          <Route path={ROUTES.admin.analytics} element={<AdminAnalytics />} />
+          <Route path={ROUTES.admin.reports} element={<AdminReports />} />
+          <Route path={ROUTES.admin.eWallet} element={<AdminEWalletMonitoring />} />
+          <Route path={ROUTES.admin.jobs} element={<AdminJobMonitoring />} />
+          <Route path={ROUTES.admin.security} element={<AdminSecurity />} />
+          <Route path={ROUTES.admin.userManagement} element={<AdminUserManagement />} />
 
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/notifications" element={<NotificationsRouter />} />
-          <Route path="/support" element={<Navigate to="/worker/support" replace />} />
+          <Route path={ROUTES.settings} element={<Settings />} />
+          <Route path={ROUTES.notifications} element={<NotificationsRouter />} />
+          <Route path={ROUTES.support} element={<PreserveRedirect to={ROUTES.worker.support} />} />
 
-          <Route path="/dashboard" element={<DashboardHomeRoute />} />
-          <Route path="/dashboard/find-jobs" element={<Navigate to="/worker/find-jobs" replace />} />
-          <Route path="/dashboard/job-details/:jobId" element={<LegacyJobDetailsRedirect />} />
-          <Route path="/dashboard/job-details-new/:jobId" element={<LegacyJobDetailsRedirect />} />
-          <Route path="/dashboard/e-wallet" element={<Navigate to="/worker/e-wallet" replace />} />
-          <Route path="/dashboard/messages" element={<Navigate to="/worker/messages" replace />} />
-          <Route path="/dashboard/applied-jobs" element={<Navigate to="/worker/applied-jobs" replace />} />
-          <Route path="/dashboard/saved-jobs" element={<Navigate to="/worker/saved-jobs" replace />} />
-          <Route path="/dashboard/notifications" element={<Navigate to="/worker/notifications" replace />} />
-          <Route path="/dashboard/support" element={<Navigate to="/worker/support" replace />} />
-          <Route path="/dashboard/profile" element={<Navigate to="/worker/profile" replace />} />
-          <Route path="/dashboard/settings" element={<Navigate to="/settings" replace />} />
+          <Route path={ROUTES.legacyDashboard.root} element={<DashboardHomeRoute />} />
+          <Route
+            path={ROUTES.legacyDashboard.findJobs}
+            element={<PreserveRedirect to={ROUTES.worker.findJobs} />}
+          />
+          <Route path={ROUTES.legacyDashboard.jobDetailsPattern} element={<LegacyJobDetailsRedirect />} />
+          <Route path={ROUTES.legacyDashboard.jobDetailsNewPattern} element={<LegacyJobDetailsRedirect />} />
+          <Route
+            path={ROUTES.legacyDashboard.eWallet}
+            element={<PreserveRedirect to={ROUTES.worker.eWallet} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.messages}
+            element={<PreserveRedirect to={ROUTES.worker.messages} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.appliedJobs}
+            element={<PreserveRedirect to={ROUTES.worker.appliedJobs} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.savedJobs}
+            element={<PreserveRedirect to={ROUTES.worker.savedJobs} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.notifications}
+            element={<PreserveRedirect to={ROUTES.worker.notifications} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.support}
+            element={<PreserveRedirect to={ROUTES.worker.support} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.profile}
+            element={<PreserveRedirect to={ROUTES.worker.profile} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.settings}
+            element={<PreserveRedirect to={ROUTES.settings} />}
+          />
 
-          <Route path="/dashboard/employer" element={<Navigate to="/employer/dashboard" replace />} />
-          <Route path="/dashboard/employer/applications" element={<Navigate to="/employer/applications" replace />} />
-          <Route path="/dashboard/employer/post-job" element={<Navigate to="/employer/post-job" replace />} />
-          <Route path="/dashboard/employer/job-posts" element={<Navigate to="/employer/job-posts" replace />} />
-          <Route path="/dashboard/employer/jobs" element={<Navigate to="/employer/jobs" replace />} />
+          <Route
+            path={ROUTES.legacyDashboard.employer.root}
+            element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.applications}
+            element={<PreserveRedirect to={ROUTES.employer.applications} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.postJob}
+            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.jobPosts}
+            element={<PreserveRedirect to={ROUTES.employer.jobPosts} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.jobs}
+            element={<PreserveRedirect to={ROUTES.employer.jobs} />}
+          />
 
-          <Route path="/dashboard/admin-dashboard" element={<Navigate to="/admin/dashboard" replace />} />
-          <Route path="/dashboard/admin-dashboard/analytics" element={<Navigate to="/admin/analytics" replace />} />
-          <Route path="/dashboard/admin-dashboard/reports" element={<Navigate to="/admin/reports" replace />} />
-          <Route path="/dashboard/admin-dashboard/e-wallet" element={<Navigate to="/admin/e-wallet" replace />} />
-          <Route path="/dashboard/admin-dashboard/jobs" element={<Navigate to="/admin/jobs" replace />} />
-          <Route path="/dashboard/admin-dashboard/security" element={<Navigate to="/admin/security" replace />} />
-          <Route path="/dashboard/admin-dashboard/user-management" element={<Navigate to="/admin/user-management" replace />} />
+          <Route
+            path={ROUTES.legacyDashboard.admin.root}
+            element={<PreserveRedirect to={ROUTES.admin.dashboard} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.analytics}
+            element={<PreserveRedirect to={ROUTES.admin.analytics} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.reports}
+            element={<PreserveRedirect to={ROUTES.admin.reports} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.eWallet}
+            element={<PreserveRedirect to={ROUTES.admin.eWallet} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.jobs}
+            element={<PreserveRedirect to={ROUTES.admin.jobs} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.security}
+            element={<PreserveRedirect to={ROUTES.admin.security} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.userManagement}
+            element={<PreserveRedirect to={ROUTES.admin.userManagement} />}
+          />
 
-          <Route path="/find-jobs" element={<Navigate to="/worker/find-jobs" replace />} />
-          <Route path="/job-details/:jobId" element={<LegacyJobDetailsRedirect />} />
-          <Route path="/e-wallet" element={<Navigate to="/worker/e-wallet" replace />} />
-          <Route path="/messages" element={<Navigate to="/worker/messages" replace />} />
-          <Route path="/applied-jobs" element={<Navigate to="/worker/applied-jobs" replace />} />
-          <Route path="/saved-jobs" element={<Navigate to="/worker/saved-jobs" replace />} />
-          <Route path="/profile" element={<Navigate to="/worker/profile" replace />} />
+          <Route
+            path={ROUTES.legacyShortcuts.findJobs}
+            element={<PreserveRedirect to={ROUTES.worker.findJobs} />}
+          />
+          <Route path={ROUTES.legacyShortcuts.jobDetailsPattern} element={<LegacyJobDetailsRedirect />} />
+          <Route
+            path={ROUTES.legacyShortcuts.eWallet}
+            element={<PreserveRedirect to={ROUTES.worker.eWallet} />}
+          />
+          <Route
+            path={ROUTES.legacyShortcuts.messages}
+            element={<PreserveRedirect to={ROUTES.worker.messages} />}
+          />
+          <Route
+            path={ROUTES.legacyShortcuts.appliedJobs}
+            element={<PreserveRedirect to={ROUTES.worker.appliedJobs} />}
+          />
+          <Route
+            path={ROUTES.legacyShortcuts.savedJobs}
+            element={<PreserveRedirect to={ROUTES.worker.savedJobs} />}
+          />
+          <Route
+            path={ROUTES.legacyShortcuts.profile}
+            element={<PreserveRedirect to={ROUTES.worker.profile} />}
+          />
 
-          <Route path="/employer" element={<Navigate to={EMPLOYER_DASHBOARD_PATH} replace />} />
-          <Route path="/admin" element={<Navigate to={ADMIN_DASHBOARD_PATH} replace />} />
+          <Route path={ROUTES.employer.root} element={<PreserveRedirect to={EMPLOYER_DASHBOARD_PATH} />} />
+          <Route path={ROUTES.admin.root} element={<PreserveRedirect to={ADMIN_DASHBOARD_PATH} />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
       </Routes>
     </Router>
   );

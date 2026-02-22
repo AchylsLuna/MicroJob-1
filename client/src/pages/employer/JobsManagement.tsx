@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { getMyJobs } from "../../services/api";
 import { toast } from "../../lib/toast";
+import { ROUTES } from "../../utils/routes";
 
 interface JobPosting {
   id: string;
@@ -158,14 +159,14 @@ export function JobsManagement() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => navigate("/dashboard/employer/applications")}
+            onClick={() => navigate(ROUTES.employer.applications)}
             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E5E7EB] text-[#1F2937] font-medium text-[13px] rounded-[10px] hover:bg-gray-50 transition-all"
           >
             <Users className="w-4 h-4" />
             View Applications
           </button>
           <button
-            onClick={() => navigate("/dashboard/employer/post-job")}
+            onClick={() => navigate(ROUTES.employer.postJob)}
             className="flex items-center gap-2 px-5 py-2.5 bg-[#1C4D8D] text-white font-semibold text-[13px] rounded-[10px] hover:bg-[#0F2954] transition-all shadow-sm"
           >
             <ChevronRight className="w-4 h-4" />
@@ -309,7 +310,7 @@ export function JobsManagement() {
                     Created by <span className="font-semibold text-gray-900">{job.createdBy}</span>
                   </span>
                   <button
-                    onClick={() => navigate("/dashboard/employer/applications")}
+                    onClick={() => navigate(ROUTES.employer.applications)}
                     className="text-[13px] text-[#1C4D8D] hover:text-[#0F2954] font-semibold inline-flex items-center gap-1"
                   >
                     View details

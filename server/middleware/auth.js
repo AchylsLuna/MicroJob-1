@@ -2,8 +2,6 @@ import jwt from "jsonwebtoken";
 import Session from '../models/Session.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
-const jwtSecret = getJwtSecret();
-
 const verifyToken = async (req, res, next) => {
     // Check for token in Authorization header or cookies
     let token = req.cookies?.token;
@@ -20,7 +18,7 @@ const verifyToken = async (req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, jwtSecret);
+        const decoded = jwt.verify(token, getJwtSecret());
         // verify there's an active session for this sessionId and it's not expired
         try {
             let sessionId = decoded.sessionId;

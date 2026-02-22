@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform } from "motion/react";
 import { useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { ROUTES } from "../utils/routes";
 
 // Animated Counter Component
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -75,7 +76,7 @@ export function LandingPageBlue() {
     {
       title: "Sneaker Designer",
       company: "Nike Cooperation",
-      location: "United State",
+      location: "United States",
       salary: "$1000/m",
       color: "bg-gradient-to-br from-[#E8F4FF] to-[#D0E8FF]",
       icon: "👟",
@@ -99,7 +100,7 @@ export function LandingPageBlue() {
     {
       title: "Senior Artvizlog",
       company: "Google",
-      location: "United State",
+      location: "United States",
       salary: "$2000/m",
       color: "bg-gradient-to-br from-[#E8FFE8] to-[#CFEFCF]",
       icon: "📊",
@@ -115,7 +116,7 @@ export function LandingPageBlue() {
     {
       title: "Cleaning Service",
       company: "Airbnb",
-      location: "NewYork",
+      location: "New York",
       salary: "$621/m",
       color: "bg-gradient-to-br from-[#E8F9FF] to-[#D0EFFF]",
       icon: "🧹",
@@ -140,6 +141,59 @@ export function LandingPageBlue() {
     },
   ];
 
+  const heroTeamCards = [
+    {
+      name: "Ashriel Mejia",
+      role: "Project Manager",
+      avatarClass: "from-[#4988C4] to-[#1C4D8D]",
+      positionClass: "top-6 left-4 sm:left-8 md:left-10",
+      delay: 0.2,
+      hoverRotate: 5,
+      spinRotate: 360,
+      spinDuration: 20,
+    },
+    {
+      name: "Jonas Enriquez",
+      role: "Full Stack Developer",
+      avatarClass: "from-[#6BCF7F] to-[#4CAF50]",
+      positionClass: "top-1/4 right-4 sm:right-8 md:right-10",
+      delay: 0.35,
+      hoverRotate: -5,
+      spinRotate: -360,
+      spinDuration: 15,
+    },
+    {
+      name: "Nicholas Gonzales",
+      role: "Backend Developer",
+      avatarClass: "from-[#FFD93D] to-[#FFA500]",
+      positionClass: "bottom-10 left-6 sm:left-12 md:left-14",
+      delay: 0.5,
+      hoverRotate: 5,
+      spinRotate: 360,
+      spinDuration: 10,
+    },
+    {
+      name: "Elijah Vinluan",
+      role: "Front-end Developer",
+      avatarClass: "from-[#A78BFA] to-[#7C3AED]",
+      positionClass: "bottom-16 right-5 sm:right-10 md:right-14",
+      delay: 0.65,
+      hoverRotate: -5,
+      spinRotate: -360,
+      spinDuration: 18,
+    },
+    {
+      name: "Winona Gamba",
+      role: "Documentator",
+      avatarClass: "from-[#FB7185] to-[#E11D48]",
+      positionClass: "top-4 left-1/2 -translate-x-1/2 sm:top-6 md:top-8",
+      delay: 0.8,
+      hoverRotate: 5,
+      spinRotate: 360,
+      spinDuration: 12,
+    },
+  ] as const;
+
   return (
     <div className="min-h-screen bg-white overflow-hidden">
       {/* Navigation */}
@@ -157,7 +211,7 @@ export function LandingPageBlue() {
             >
               <MicroJobsLogo
                 className="cursor-pointer"
-                onClick={() => navigate("/")}
+                onClick={() => navigate(ROUTES.home)}
               />
             </motion.div>
 
@@ -181,7 +235,7 @@ export function LandingPageBlue() {
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: "0 10px 30px rgba(73, 136, 196, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/sign-up")}
+                onClick={() => navigate(ROUTES.signUp)}
                 className="text-[14px] font-semibold text-white px-6 py-2.5 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] hover:shadow-lg transition-all"
               >
                 Get Started
@@ -238,7 +292,7 @@ export function LandingPageBlue() {
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] via-[#3570A8] to-[#1C4D8D] animate-gradient bg-[length:200%_auto]">
                     Career Potential
                   </span><br />
-                  with Mirco Jobs
+                  with Micro Jobs
                 </h1>
               </motion.div>
               
@@ -274,7 +328,7 @@ export function LandingPageBlue() {
                 <motion.button
                   whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.4)" }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate("/sign-up")}
+                  onClick={() => navigate(ROUTES.signUp)}
                   className="w-full inline-flex items-center justify-center gap-2 text-[16px] font-semibold text-white px-8 py-4 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] hover:shadow-xl transition-all relative overflow-hidden group"
                 >
                   <span className="relative z-10">Create Free Account</span>
@@ -327,68 +381,24 @@ export function LandingPageBlue() {
             >
               <div className="w-full aspect-square rounded-[32px] bg-gradient-to-br from-[#E8F4FF] via-[#F0F8FF] to-[#E8F9FF] p-12 relative overflow-hidden backdrop-blur-sm border border-white/50 shadow-2xl">
                 {/* Floating Cards */}
-                <motion.div 
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  transition={{ delay: 0.2 }}
-                  className="absolute top-8 left-8 bg-white/90 backdrop-blur-md rounded-[16px] p-4 shadow-xl cursor-pointer"
-                >
-                  <motion.div 
-                    className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] mb-2"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  />
-                  <p className="text-[12px] font-semibold text-gray-900">Sarah K.</p>
-                  <p className="text-[10px] text-gray-500">Designer</p>
-                </motion.div>
-
-                <motion.div 
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ scale: 1.1, rotate: -5 }}
-                  transition={{ delay: 0.4 }}
-                  className="absolute top-1/4 right-8 bg-white/90 backdrop-blur-md rounded-[16px] p-4 shadow-xl cursor-pointer"
-                >
-                  <motion.div 
-                    className="w-12 h-12 rounded-full bg-gradient-to-br from-[#6BCF7F] to-[#4CAF50] mb-2"
-                    animate={{ rotate: -360 }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                  />
-                  <p className="text-[12px] font-semibold text-gray-900">Alex M.</p>
-                  <p className="text-[10px] text-gray-500">Developer</p>
-                </motion.div>
-
-                <motion.div 
-                  initial={{ opacity: 0, y: 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  transition={{ delay: 0.6 }}
-                  className="absolute bottom-12 left-12 bg-white/90 backdrop-blur-md rounded-[16px] p-4 shadow-xl cursor-pointer"
-                >
-                  <motion.div 
-                    className="w-12 h-12 rounded-full bg-gradient-to-br from-[#FFD93D] to-[#FFA500] mb-2"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                  />
-                  <p className="text-[12px] font-semibold text-gray-900">Mike L.</p>
-                  <p className="text-[10px] text-gray-500">Manager</p>
-                </motion.div>
-
-                {/* Center Text */}
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.8, type: "spring", stiffness: 200 }}
-                  whileHover={{ scale: 1.1 }}
-                  className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center"
-                >
-                  <div className="bg-white/90 backdrop-blur-md rounded-[20px] p-6 shadow-2xl border border-white/50">
-                    <Sparkles className="w-8 h-8 text-[#4988C4] mx-auto mb-2" />
-                    <p className="text-[24px] font-bold text-gray-900">Over 10,000</p>
-                    <p className="text-[14px] text-gray-600">Active Jobs</p>
-                  </div>
-                </motion.div>
+                {heroTeamCards.map((member) => (
+                  <motion.div
+                    key={member.name}
+                    initial={{ opacity: 0, y: 50 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    whileHover={{ scale: 1.08, rotate: member.hoverRotate }}
+                    transition={{ delay: member.delay }}
+                    className={`absolute ${member.positionClass} w-[140px] sm:w-[150px] bg-white/90 backdrop-blur-md rounded-[16px] p-4 shadow-xl cursor-pointer`}
+                  >
+                    <motion.div
+                      className={`w-12 h-12 rounded-full bg-gradient-to-br ${member.avatarClass} mb-2`}
+                      animate={{ rotate: member.spinRotate }}
+                      transition={{ duration: member.spinDuration, repeat: Infinity, ease: "linear" }}
+                    />
+                    <p className="text-[13px] font-semibold text-gray-900 leading-tight">{member.name}</p>
+                    <p className="text-[11px] text-gray-500 leading-snug mt-1">{member.role}</p>
+                  </motion.div>
+                ))}
 
                 {/* Floating Particles */}
                 <FloatingParticles />
@@ -413,7 +423,7 @@ export function LandingPageBlue() {
             viewport={{ once: true }}
             className="text-[36px] font-bold text-gray-900 mb-3"
           >
-            Join Mirco Jobs Today and Experience
+            Join Micro Jobs Today and Experience
           </motion.h2>
           <motion.p 
             initial={{ opacity: 0, y: 30 }}
@@ -427,7 +437,7 @@ export function LandingPageBlue() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { value: 95, label: "Users were hired through Mirco Jobs in the past year" },
+              { value: 95, label: "Users were hired through Micro Jobs in the past year" },
               { value: 98, label: "Users were the placement among trusted Employers" },
               { value: 90, label: "Users were job placement with top companies" },
             ].map((stat, index) => (
@@ -456,7 +466,7 @@ export function LandingPageBlue() {
         </div>
       </section>
 
-      {/* Why Mirco Jobs Section with 3D Effect */}
+      {/* Why Micro Jobs Section with 3D Effect */}
       <section className="py-20 px-6 relative scroll-mt-24" id="features">
         <div className="max-w-7xl mx-auto">
           <motion.div 
@@ -466,7 +476,7 @@ export function LandingPageBlue() {
             className="text-center mb-16"
           >
             <h2 className="text-[36px] font-bold text-gray-900 mb-2">
-              Why <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D]">Mirco Jobs?</span>
+              Why <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D]">Micro Jobs?</span>
             </h2>
           </motion.div>
 
@@ -609,7 +619,7 @@ export function LandingPageBlue() {
             className="text-center mb-16"
           >
             <h2 className="text-[36px] font-bold text-white mb-2">
-              Your Mirco Jobs Journey in
+              Your Micro Jobs Journey in
             </h2>
             <p className="text-[36px] font-bold text-white">Three Simple Steps</p>
           </motion.div>
@@ -650,7 +660,7 @@ export function LandingPageBlue() {
             <motion.button
               whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => navigate("/sign-up")}
+              onClick={() => navigate(ROUTES.signUp)}
               className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#4988C4] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
             >
               Start Your Journey
@@ -714,7 +724,7 @@ export function LandingPageBlue() {
                   <motion.button
                     whileHover={{ scale: 1.2, rotate: 90 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => navigate("/dashboard/find-jobs")}
+                    onClick={() => navigate(ROUTES.worker.findJobs)}
                     className="w-10 h-10 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white group-hover:shadow-lg transition-all"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -732,7 +742,7 @@ export function LandingPageBlue() {
           >
             <motion.button
               whileHover={{ scale: 1.1 }}
-              onClick={() => navigate("/dashboard/find-jobs")}
+              onClick={() => navigate(ROUTES.worker.findJobs)}
               className="text-[14px] font-semibold text-[#4988C4] hover:text-[#1C4D8D] transition-colors"
             >
               Show More →
@@ -752,7 +762,7 @@ export function LandingPageBlue() {
           >
             <h2 className="text-[36px] font-bold text-gray-900 mb-2">What Our Users</h2>
             <p className="text-[36px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D]">
-              Say About Mirco Jobs
+              Say About Micro Jobs
             </p>
           </motion.div>
 
@@ -762,13 +772,13 @@ export function LandingPageBlue() {
                 name: "Aisha M.",
                 role: "HR Professional",
                 gradient: "from-[#4988C4] to-[#1C4D8D]",
-                text: '"Mirco Jobs transformed my job search experience. Within weeks, I connected with amazing employers and found my dream role. The platform\'s matching algorithm is incredibly accurate!"'
+                text: '"Micro Jobs transformed my job search experience. Within weeks, I connected with amazing employers and found my dream role. The platform\'s matching algorithm is incredibly accurate!"'
               },
               {
                 name: "David K.",
                 role: "Software Engineer",
                 gradient: "from-[#6BCF7F] to-[#4CAF50]",
-                text: '"As a hiring manager, Mirco Jobs has been a game-changer. The quality of candidates is exceptional, and the streamlined process saves us so much time. Highly recommended!"'
+                text: '"As a hiring manager, Micro Jobs has been a game-changer. The quality of candidates is exceptional, and the streamlined process saves us so much time. Highly recommended!"'
               }
             ].map((testimonial, index) => (
               <motion.div 
@@ -849,7 +859,7 @@ export function LandingPageBlue() {
                 transition={{ delay: 0.2 }}
                 className="text-[16px] text-white/90 mb-8"
               >
-                Join thousands of professionals who have already found their perfect match on Mirco Jobs
+                Join thousands of professionals who have already found their perfect match on Micro Jobs
               </motion.p>
               <motion.button
                 initial={{ opacity: 0, y: 30 }}
@@ -858,7 +868,7 @@ export function LandingPageBlue() {
                 transition={{ delay: 0.4 }}
                 whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate("/sign-up")}
+                onClick={() => navigate(ROUTES.signUp)}
                 className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#4988C4] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
               >
                 Get Started for Free
@@ -882,7 +892,7 @@ export function LandingPageBlue() {
                 <MicroJobsLogo
                   variant="light"
                   className="cursor-pointer mb-4"
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate(ROUTES.home)}
                 />
               </motion.div>
               <p className="text-[13px] text-gray-400">
@@ -918,7 +928,7 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate(isSuperAdmin ? "/dashboard/admin-dashboard" : "/admin-sign-in")}
+                    onClick={() => navigate(isSuperAdmin ? ROUTES.admin.dashboard : ROUTES.adminSignIn)}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Admin Dashboard
@@ -938,7 +948,7 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate("/terms")}
+                    onClick={() => navigate(ROUTES.terms)}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Terms of Service
@@ -947,7 +957,7 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate("/privacy")}
+                    onClick={() => navigate(ROUTES.privacy)}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Privacy Policy
@@ -956,7 +966,7 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate("/cookie-policy")}
+                    onClick={() => navigate(ROUTES.cookiePolicy)}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Cookie Policy

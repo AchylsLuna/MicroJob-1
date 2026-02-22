@@ -1,12 +1,14 @@
+import { ROUTES } from "./routes";
+
 export interface DashboardRouteUser {
   role?: string | null;
   user_type?: string | null;
   accountType?: string | null;
 }
 
-export const WORKER_DASHBOARD_PATH = "/worker/dashboard";
-export const EMPLOYER_DASHBOARD_PATH = "/employer/dashboard";
-export const ADMIN_DASHBOARD_PATH = "/admin/dashboard";
+export const WORKER_DASHBOARD_PATH = ROUTES.worker.dashboard;
+export const EMPLOYER_DASHBOARD_PATH = ROUTES.employer.dashboard;
+export const ADMIN_DASHBOARD_PATH = ROUTES.admin.dashboard;
 
 const getRole = (user?: DashboardRouteUser | null) =>
   (user?.role || user?.user_type || "").toLowerCase();

@@ -12,12 +12,11 @@ import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
 const router = express.Router();
-const jwtSecret = getJwtSecret();
 
 const createAccessToken = (user, sessionId) =>
   jwt.sign(
     { userId: user._id, role: user.role || 'user', sessionId },
-    jwtSecret,
+    getJwtSecret(),
     { expiresIn: '15m' }
   );
 

@@ -36,16 +36,21 @@ async function request<T>(
   options: RequestInitInput & { body?: unknown; method?: string } = {}
 ): Promise<T> {
   const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
-  
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: options.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+  } catch {
+    throw new Error('Unable to reach the server. Make sure the backend is running.');
+  }
 
   const data = (await res.json().catch(() => ({}))) as any;
   if (!res.ok) {

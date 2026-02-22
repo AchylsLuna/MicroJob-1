@@ -4,8 +4,6 @@ import JobApplication from '../models/JobApplication.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
-const jwtSecret = getJwtSecret();
-
 export async function getJobList(req, res) {
     try {
         const { category, jobType, search, excludeOwn } = req.query;
@@ -37,7 +35,7 @@ export async function getJobList(req, res) {
             if (authHeader.startsWith('Bearer ')) {
                 const token = authHeader.substring(7);
                 try {
-                    const decoded = jwt.verify(token, jwtSecret);
+                    const decoded = jwt.verify(token, getJwtSecret());
                     const tokenUserId = decoded?.userId || decoded?.id;
                     if (tokenUserId) {
                         filter.jobPoster = { $ne: tokenUserId };

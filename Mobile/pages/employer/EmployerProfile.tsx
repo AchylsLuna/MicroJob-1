@@ -3,7 +3,9 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Activi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import AppHeader from '../../components/AppHeader';
 import { apiRequest, asObject } from '../../lib/api';
+import { tokens } from '../../theme/tokens';
 
 type EmployerProfileProps = {
   employer?: {
@@ -128,34 +130,24 @@ export default function EmployerProfile({
     if (role === currentRole) return;
     onSwitchRole?.(role);
   };
+  const nextRole: 'worker' | 'employer' = currentRole === 'worker' ? 'employer' : 'worker';
 
   return (
     <View style={styles.container}>
+      <AppHeader
+        title="Employer Profile"
+        subtitle="Manage your account details"
+        rightLabel={nextRole === 'employer' ? 'Switch to Employer' : 'Switch to Worker'}
+        rightIconName="swap-horizontal"
+        onRightPress={() => handleRoleSwitch(nextRole)}
+      />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{initials}</Text>
           </View>
           <Text style={styles.name}>{employerName}</Text>
-          <Text style={styles.subtitle}>Employer</Text>
-          <View style={styles.roleSwitchRow}>
-            <TouchableOpacity
-              style={[styles.roleChip, currentRole === 'worker' && styles.roleChipActive]}
-              onPress={() => handleRoleSwitch('worker')}
-            >
-              <Text style={[styles.roleChipText, currentRole === 'worker' && styles.roleChipTextActive]}>
-                Worker
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.roleChip, currentRole === 'employer' && styles.roleChipActive]}
-              onPress={() => handleRoleSwitch('employer')}
-            >
-              <Text style={[styles.roleChipText, currentRole === 'employer' && styles.roleChipTextActive]}>
-                Employer
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <Text style={styles.subtitle}>Employer account</Text>
         </View>
 
         <View style={styles.section}>
@@ -226,18 +218,14 @@ export default function EmployerProfile({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
-  scroll: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 90 },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
+  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 90 },
   profileCard: {
-    backgroundColor: '#f7f8fb',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3,
+    ...tokens.shadow.card,
     marginBottom: 20,
   },
   avatar: {
@@ -261,25 +249,6 @@ const styles = StyleSheet.create({
   statItem: { alignItems: 'center' },
   statValue: { fontSize: 16, fontWeight: '700', color: '#1e3a5f' },
   statLabel: { fontSize: 12, color: '#6b7280' },
-  roleSwitchRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  roleChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    backgroundColor: '#ffffff',
-  },
-  roleChipActive: {
-    backgroundColor: '#1e3a5f',
-    borderColor: '#1e3a5f',
-  },
-  roleChipText: { fontSize: 12, fontWeight: '700', color: '#334155' },
-  roleChipTextActive: { color: '#ffffff' },
   section: {
     marginBottom: 16,
   },

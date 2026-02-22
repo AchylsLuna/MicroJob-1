@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import AppHeader from '../../components/AppHeader';
+import { tokens } from '../../theme/tokens';
 
 const backupCodesSeed = ['A7X9-B2Q1', 'F5K3-9L1P', 'D4M8-7R2T', 'H9J2-0W4Z'];
 
@@ -21,13 +23,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Text style={styles.backIcon}>‹</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Two-Factor Auth</Text>
-        <View style={styles.placeholder} />
-      </View>
+      <AppHeader title="Two-Factor Auth" subtitle="Extra account protection" onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
@@ -83,33 +79,26 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fa' },
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#1e3a5f',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  backIcon: { fontSize: 32, color: '#fff', fontWeight: '300' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff', flex: 1, textAlign: 'center' },
-  placeholder: { width: 40 },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
   scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 },
-  card: { backgroundColor: '#fff', borderRadius: 16, padding: 16, marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#111827', marginBottom: 4 },
-  sectionSubtitle: { fontSize: 12, color: '#6b7280', marginBottom: 12 },
+  card: {
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.lg,
+    padding: 16,
+    marginBottom: 16,
+    ...tokens.shadow.card,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: tokens.colors.text, marginBottom: 4 },
+  sectionSubtitle: { fontSize: 12, color: tokens.colors.textMuted, marginBottom: 12 },
   toggle: {
     backgroundColor: '#f3f4f6',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
-  toggleActive: { backgroundColor: '#1c4d8d' },
-  toggleText: { color: '#6b7280', fontWeight: '600' },
-  toggleTextActive: { color: '#fff' },
+  toggleActive: { backgroundColor: tokens.colors.brand },
+  toggleText: { color: tokens.colors.textMuted, fontWeight: '600' },
+  toggleTextActive: { color: tokens.colors.white },
   methodRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   methodChip: {
     paddingHorizontal: 12,
@@ -117,9 +106,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#f3f4f6',
   },
-  methodChipActive: { backgroundColor: '#1c4d8d' },
-  methodText: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
-  methodTextActive: { color: '#fff' },
+  methodChipActive: { backgroundColor: tokens.colors.brand },
+  methodText: { fontSize: 12, color: tokens.colors.textMuted, fontWeight: '600' },
+  methodTextActive: { color: tokens.colors.white },
   infoBox: {
     backgroundColor: '#eef2ff',
     borderRadius: 12,
@@ -128,12 +117,12 @@ const styles = StyleSheet.create({
   },
   infoText: { fontSize: 12, color: '#1e3a8a' },
   primaryButton: {
-    backgroundColor: '#1c4d8d',
+    backgroundColor: tokens.colors.brand,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
   },
-  primaryButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  primaryButtonText: { color: tokens.colors.white, fontSize: 14, fontWeight: '600' },
   codesBox: {
     marginTop: 12,
     padding: 12,

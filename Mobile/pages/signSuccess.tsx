@@ -15,7 +15,7 @@ export default function SignSuccess({ onBackToLogin }: { onBackToLogin: () => vo
 
       {/* Message */}
       <Text style={styles.message}>
-        Welcome to the MicroJob! Your account has been successfully created. Enjoy exploring our
+        Welcome to the Micro Jobs! Your account has been successfully created. Enjoy exploring our
         collection.
       </Text>
 

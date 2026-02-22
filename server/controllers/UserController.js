@@ -19,7 +19,6 @@ const otpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
 const MAX_OTP_ATTEMPTS = 5;
 const OTP_SENT_GENERIC_MESSAGE = "If an account exists for this email, an OTP has been sent.";
-const jwtSecret = getJwtSecret();
 
 function getEmailTransporter() {
     const host = process.env.SMTP_HOST;
@@ -316,7 +315,7 @@ export async function verifyOtp(req, res) {
 
         const token = jwt.sign(
             { id: user._id, role: user.role },
-            jwtSecret,
+            getJwtSecret(),
             { expiresIn: "7d" }
         );
 
