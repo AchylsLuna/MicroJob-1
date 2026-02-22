@@ -195,7 +195,7 @@ export function AnalyticsOverview({
   let donutOffset = 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 text-[16px] mt-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         {cardItems.map((card) => (
           <div key={card.label} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">

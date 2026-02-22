@@ -34,7 +34,11 @@ function AdminJobMonitoringContent() {
   };
 
   return (
-    <div className="max-w-[1341px] mx-auto space-y-4">
+    <div className="max-w-full ml-6 md:ml-12 space-y-6 text-[16px] mt-8 md:mt-12">
+      <header className="mb-8 text-left">
+        <h1 className="text-4xl md:text-5xl font-semibold text-[#111827]">Job Posting Monitoring</h1>
+        <p className="text-base text-[#6B7280] mt-2">Track recent job postings and application activity</p>
+      </header>
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}

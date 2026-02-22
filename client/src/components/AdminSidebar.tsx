@@ -58,7 +58,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
     { icon: "e-wallet", label: "E-Wallet", path: "/admin/e-wallet" },
     { icon: "jobs", label: "Jobs", path: "/admin/jobs" },
     { icon: "security", label: "Security", path: "/admin/security" },
-    { icon: "users", label: "Users", path: "/admin/users" },
+    { icon: "users", label: "User Management", path: "/admin/users" },
   ];
 
   const bottomMenuItems: any[] = [];
@@ -98,7 +98,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
           onClick={() => navigate("/")}
         >
           <img src={logo} alt="MicroJobs Logo" className="h-8 w-8" />
-          {!isCollapsed && <span className="text-xl font-bold text-black">MicroJobs Admin</span>}
+          {!isCollapsed && <span className="text-xl font-bold text-black">MicroJobs</span>}
         </div>
         <button
           onClick={() => {
