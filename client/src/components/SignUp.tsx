@@ -131,10 +131,10 @@ export function SignUp() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
-      <div className="w-full max-w-[1200px] grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-start justify-center px-6 py-8 lg:py-10">
+      <div className="w-full max-w-[1200px] grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Left Side - Branding */}
-        <div className="text-white space-y-8 flex flex-col justify-center">
+        <div className="text-white space-y-8 flex flex-col justify-start">
           <div className="space-y-4">
             <div className="pl-4 mb-6">
               <MicroJobsLogo variant="light" className="[&>span]:text-[32px] [&>span]:font-bold" />
@@ -187,7 +187,7 @@ export function SignUp() {
         </div>
 
         {/* Right Side - Sign Up Form */}
-        <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
+        <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10 self-start">
           {/* Back Button */}
           <button
             onClick={() => navigate(ROUTES.home)}

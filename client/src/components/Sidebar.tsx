@@ -7,7 +7,6 @@ import {
   CircleHelp,
   ClipboardList,
   FileText,
-  LogOut,
   Mail,
   MessageSquare,
   Plus,
@@ -51,7 +50,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const { user: authUser } = useAuth();
 
@@ -143,7 +141,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     notifications: <Bell className="h-5 w-5" />,
     settings: <SettingsIcon className="h-5 w-5" />,
     support: <CircleHelp className="h-5 w-5" />,
-    logout: <LogOut className="h-5 w-5" />,
   };
 
   const [notifCount, setNotifCount] = useState<number>(0);
@@ -325,43 +322,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                 ))}
             </button>
           ))}
-
-          <button
-            onClick={() => {
-              setShowLogoutConfirm(true);
-            }}
-            className="w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold text-red-600 hover:bg-red-50 transition relative"
-            title={isCollapsed ? "Logout" : ""}
-          >
-            {renderIcon("logout")}
-            {!isCollapsed && <span>Logout</span>}
-          </button>
-
-          {showLogoutConfirm && !isCollapsed && (
-            <div className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3">
-              <p className="text-sm text-red-800 font-semibold mb-3">Confirm logout?</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("auth_user");
-                    localStorage.removeItem("auth_token");
-                    window.dispatchEvent(new Event("auth_user_updated"));
-                    setShowLogoutConfirm(false);
-                    navigate(ROUTES.signInLegacy, { replace: true });
-                  }}
-                  className="flex-1 bg-red-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-red-700 transition"
-                >
-                  Logout
-                </button>
-                <button
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 bg-white text-red-700 text-sm font-semibold py-2 rounded-lg border border-red-300 hover:bg-red-100 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </nav>
 
