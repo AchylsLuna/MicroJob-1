@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { jobsAPI } from "../services/jobs";
 import { useAuth } from "../hooks/useAuth";
+import { ROUTES } from "../utils/routes";
 
 const JobDetails: React.FC = () => {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ const JobDetails: React.FC = () => {
       setShowApplyModal(false);
       setResumeFile(null);
       setCoverLetter("");
-      navigate("/worker/applied-jobs", { replace: true });
+      navigate(ROUTES.worker.appliedJobs, { replace: true });
     } catch (err: any) {
       setError(err?.response?.data?.message || "Failed to apply.");
     }
@@ -168,7 +169,7 @@ const JobDetails: React.FC = () => {
                             className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 mb-4"
                             onClick={() => {
                               const employerName = `${jobData.jobPoster.firstName || ''} ${jobData.jobPoster.lastName || ''}`.trim();
-                              navigate('/messages', {
+                              navigate(ROUTES.legacyShortcuts.messages, {
                                 state: {
                                   userId: jobData.jobPoster._id,
                                   name: employerName || 'Employer',

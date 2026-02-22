@@ -39,6 +39,7 @@ import {
   PostJob,
 } from "./pages/employer";
 import NotificationsRouter from "./pages/NotificationsRouter";
+import SupportRouter from "./pages/SupportRouter";
 import {
   AppliedJobs,
   FindJobs,
@@ -171,7 +172,20 @@ const InactivityHandler: React.FC = () => {
 
 const DashboardHomeRoute: React.FC = () => {
   const { user } = useAuth();
-  const destination = getDefaultDashboardPath(user);
+  const storedUserRaw = localStorage.getItem("auth_user") || localStorage.getItem("current_user");
+  let storedUser: unknown = null;
+  if (storedUserRaw) {
+    try {
+      storedUser = JSON.parse(storedUserRaw);
+    } catch {
+      storedUser = null;
+    }
+  }
+  const fallbackUser =
+    storedUser && typeof storedUser === "object"
+      ? (storedUser as { role?: string | null; user_type?: string | null; accountType?: string | null })
+      : null;
+  const destination = getDefaultDashboardPath(user || fallbackUser);
 
   return <Navigate to={destination} replace />;
 };
@@ -263,7 +277,7 @@ const App: React.FC = () => {
 
           <Route path={ROUTES.settings} element={<Settings />} />
           <Route path={ROUTES.notifications} element={<NotificationsRouter />} />
-          <Route path={ROUTES.support} element={<PreserveRedirect to={ROUTES.worker.support} />} />
+          <Route path={ROUTES.support} element={<SupportRouter />} />
 
           <Route path={ROUTES.legacyDashboard.root} element={<DashboardHomeRoute />} />
           <Route

@@ -35,20 +35,20 @@ export function AdminSignIn() {
       const stored =
         localStorage.getItem("auth_user") || localStorage.getItem("current_user");
       const storedUser = stored ? JSON.parse(stored) : null;
+      const storedRole = storedUser?.role || storedUser?.user_type || "";
 
-      if (!storedUser || (storedUser.role !== "superadmin" && storedUser.role !== "admin")) {
+      if (!storedUser || (storedRole !== "superadmin" && storedRole !== "admin")) {
         toast.error("Admin access required. Please use an admin account.");
         logout({ silent: true });
         return;
       }
 
-      if (storedUser.role === "superadmin") {
+      if (storedRole === "superadmin") {
         toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
         return;
       }
 
       toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
-      toast.info("Admin access is limited to Dashboard, Analytics, Job Posting, and E-Wallet.");
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {

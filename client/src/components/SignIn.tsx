@@ -4,11 +4,12 @@ import { toast } from "../lib/toast";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 
 export function SignIn() {
   const navigate = useNavigate();
-  const { login, isAuthenticated, logout, user } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const dashboardPath = getDefaultDashboardPath(user);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,7 +17,7 @@ export function SignIn() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!isLoading && isAuthenticated && user?.role && user.role !== "admin" && user.role !== "superadmin") {
+  if (!isLoading && isAuthenticated && user?.role) {
     return <Navigate to={dashboardPath} replace />;
   }
 
@@ -34,13 +35,6 @@ export function SignIn() {
       const stored =
         localStorage.getItem("auth_user") || localStorage.getItem("current_user");
       const storedUser = stored ? JSON.parse(stored) : null;
-
-      if (storedUser?.role === "admin" || storedUser?.role === "superadmin") {
-        toast.error("Please use the Admin Login for admin accounts.");
-        logout({ silent: true });
-        return;
-      }
-
       toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
@@ -50,7 +44,7 @@ export function SignIn() {
   };
 
   const handleForgotPassword = () => {
-    navigate("/forgot-password");
+    navigate(ROUTES.forgotPassword);
   };
 
   const handleGoogleSignIn = () => {
@@ -112,7 +106,7 @@ export function SignIn() {
         <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
           {/* Back Button */}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(ROUTES.home)}
             className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#1C4D8D] font-medium mb-6 transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -225,7 +219,7 @@ export function SignIn() {
             <p className="text-[14px] text-[#6B7280]">
               Don't have an account?{" "}
               <button
-                onClick={() => navigate("/sign-up")}
+                onClick={() => navigate(ROUTES.signUp)}
                 className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
               >
                 Sign Up

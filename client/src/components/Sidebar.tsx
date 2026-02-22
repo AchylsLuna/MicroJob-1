@@ -1,24 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  BarChart3,
   Bell,
   Briefcase,
   CircleHelp,
   ClipboardList,
+  FileText,
   LogOut,
   Mail,
   MessageSquare,
   Plus,
   Search,
   Settings as SettingsIcon,
+  ShieldCheck,
   Star,
+  Users,
   Wallet,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { jobsAPI } from "../services/jobs";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
-import { MicroJobsLogo } from "./MicroJobsLogo";
 import { webUi } from "../styles/webUi";
+import { MicroJobsLogo } from "./MicroJobsLogo";
 
 interface SidebarProps {
   userName?: string;
@@ -93,22 +97,34 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: "e-wallet", label: "E-Wallet", path: ROUTES.worker.eWallet },
   ];
 
+  const adminMenuItems: MenuItem[] = [
+    { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics },
+    { icon: "reports", label: "Reports", path: ROUTES.admin.reports },
+    { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet },
+    { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs },
+    { icon: "security", label: "Security", path: ROUTES.admin.security },
+    { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement },
+  ];
+
   let menuItems: MenuItem[] = [];
   if (effectiveRole === "work") {
     menuItems = [...workerMenuItems, ...commonMenuItems];
   } else if (effectiveRole === "hire") {
     menuItems = [...employerMenuItems, ...commonMenuItems];
   } else if (effectiveRole === "admin" || effectiveRole === "superadmin") {
-    menuItems = [...workerMenuItems, ...employerMenuItems, ...commonMenuItems];
+    menuItems = adminMenuItems;
   } else {
     menuItems = [...workerMenuItems, ...commonMenuItems];
   }
 
-  const bottomMenuItems: MenuItem[] = [
-    { icon: "notifications", label: "Notifications", path: ROUTES.notifications, notification: true },
-    { icon: "settings", label: "Settings", path: ROUTES.settings },
-    { icon: "support", label: "Support", path: ROUTES.support },
-  ];
+  const bottomMenuItems: MenuItem[] =
+    effectiveRole === "admin" || effectiveRole === "superadmin"
+      ? [{ icon: "settings", label: "Settings", path: ROUTES.settings }]
+      : [
+          { icon: "notifications", label: "Notifications", path: ROUTES.notifications, notification: true },
+          { icon: "settings", label: "Settings", path: ROUTES.settings },
+          { icon: "support", label: "Support", path: ROUTES.support },
+        ];
 
   const iconMap: Record<string, React.ReactNode> = {
     dashboard: <Star className="h-5 w-5" />,
@@ -117,6 +133,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     "post-job": <Plus className="h-5 w-5" />,
     "job-posts": <Briefcase className="h-5 w-5" />,
     applications: <ClipboardList className="h-5 w-5" />,
+    analytics: <BarChart3 className="h-5 w-5" />,
+    reports: <FileText className="h-5 w-5" />,
+    "jobs-monitoring": <Briefcase className="h-5 w-5" />,
+    security: <ShieldCheck className="h-5 w-5" />,
+    "user-management": <Users className="h-5 w-5" />,
     messages: <MessageSquare className="h-5 w-5" />,
     "e-wallet": <Wallet className="h-5 w-5" />,
     notifications: <Bell className="h-5 w-5" />,
@@ -129,6 +150,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const loadNotifCount = async () => {
     try {
+      if (effectiveRole === "admin" || effectiveRole === "superadmin") {
+        setNotifCount(0);
+        return;
+      }
+
       if (effectiveRole === "hire") {
         const res = await jobsAPI.getEmployerApplications();
         const apps = res.data || [];
@@ -161,10 +187,16 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const isPathActive = (path: string) => {
     if (path === ROUTES.notifications) {
-      return matchesPath(location.pathname, ROUTES.notifications) || matchesPath(location.pathname, ROUTES.worker.notifications);
+      return (
+        matchesPath(location.pathname, ROUTES.notifications) ||
+        matchesPath(location.pathname, ROUTES.worker.notifications)
+      );
     }
     if (path === ROUTES.support) {
-      return matchesPath(location.pathname, ROUTES.support) || matchesPath(location.pathname, ROUTES.worker.support);
+      return (
+        matchesPath(location.pathname, ROUTES.support) ||
+        matchesPath(location.pathname, ROUTES.worker.support)
+      );
     }
     return startsWithPath(location.pathname, path);
   };
@@ -184,40 +216,33 @@ const Sidebar: React.FC<SidebarProps> = ({
       : "Worker";
 
   const getNavButtonClass = (active: boolean) =>
-    `${webUi.sidebar.navButton} ${
-      isCollapsed ? "justify-center px-2 py-3" : "justify-start px-4 py-3"
-    } ${
+    `${webUi.sidebar.navButton} ${isCollapsed ? "px-2" : "px-4"} ${
       active ? webUi.sidebar.navButtonActive : webUi.sidebar.navButtonIdle
     }`;
 
+  const displayUserName = authUser
+    ? `${authUser.firstName || ""} ${authUser.lastName || ""}`.trim() || userName
+    : userName;
+
   return (
     <aside
-      className={`${webUi.sidebar.root} flex flex-col transition-all duration-300 ${
-        isCollapsed ? "w-[92px]" : "w-[264px]"
+      className={`${webUi.sidebar.root} transition-all duration-300 ${
+        isCollapsed ? "w-20" : "w-64"
       }`}
-      style={{ padding: isCollapsed ? "14px 12px" : "20px 16px" }}
+      style={{ padding: isCollapsed ? "12px" : "24px" }}
     >
-      <div className="mb-6 flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between mb-8">
         <button
           type="button"
+          className="flex items-center gap-2 cursor-pointer min-w-0"
           onClick={() => navigate(ROUTES.home)}
-          className={`min-w-0 flex-1 rounded-xl transition hover:opacity-90 ${
-            isCollapsed ? "flex items-center justify-center p-1.5" : "p-1"
-          }`}
-          aria-label="Go to homepage"
         >
-          <MicroJobsLogo
-            className={`w-full ${
-              isCollapsed
-                ? "justify-center [&>span]:hidden"
-                : "justify-start [&>span]:text-[22px] [&>span]:md:text-[22px]"
-            }`}
-          />
+          <MicroJobsLogo className={isCollapsed ? "[&>span]:hidden" : ""} />
         </button>
         <button
           type="button"
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="h-8 w-8 rounded-lg text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition"
+          className="text-gray-600 hover:text-gray-900 transition text-lg"
           title={isCollapsed ? "Expand" : "Collapse"}
         >
           {isCollapsed ? "›" : "‹"}
@@ -226,9 +251,9 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="space-y-1 flex-1 flex flex-col">
         <div className={`space-y-1 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
-          {!isCollapsed && (
+          {!isCollapsed && effectiveRole !== "admin" && effectiveRole !== "superadmin" && (
             <div className="mb-3">
-              <div className="w-full flex items-center gap-3 rounded-xl border border-[#D6E7FF] bg-[#EAF4FF] px-4 py-3 font-semibold text-[#1D4ED8]">
+              <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold border border-sky-100">
                 <span>{roleLabel}</span>
               </div>
             </div>
@@ -305,9 +330,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => {
               setShowLogoutConfirm(true);
             }}
-            className={`w-full flex items-center gap-3 rounded-xl py-3 font-semibold text-[#DC2626] transition hover:bg-[#FEF2F2] ${
-              isCollapsed ? "justify-center px-2" : "justify-start px-4"
-            }`}
+            className="w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold text-red-600 hover:bg-red-50 transition relative"
             title={isCollapsed ? "Logout" : ""}
           >
             {renderIcon("logout")}
@@ -315,8 +338,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           {showLogoutConfirm && !isCollapsed && (
-            <div className="mt-3 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3">
-              <p className="mb-3 text-sm font-semibold text-[#991B1B]">Confirm logout?</p>
+            <div className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3">
+              <p className="text-sm text-red-800 font-semibold mb-3">Confirm logout?</p>
               <div className="flex gap-2">
                 <button
                   onClick={() => {
@@ -326,13 +349,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                     setShowLogoutConfirm(false);
                     navigate(ROUTES.signInLegacy, { replace: true });
                   }}
-                  className="flex-1 rounded-lg bg-[#DC2626] py-2 text-sm font-semibold text-white transition hover:bg-[#B91C1C]"
+                  className="flex-1 bg-red-600 text-white text-sm font-semibold py-2 rounded-lg hover:bg-red-700 transition"
                 >
                   Logout
                 </button>
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="flex-1 rounded-lg border border-[#FCA5A5] bg-white py-2 text-sm font-semibold text-[#B91C1C] transition hover:bg-[#FEE2E2]"
+                  className="flex-1 bg-white text-red-700 text-sm font-semibold py-2 rounded-lg border border-red-300 hover:bg-red-100 transition"
                 >
                   Cancel
                 </button>
@@ -342,7 +365,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </nav>
 
-      <div className={`border-t pt-5 ${webUi.sidebar.sectionDivider}`}>
+      <div className={`border-t ${webUi.sidebar.sectionDivider} pt-6`}>
         <button className="w-full flex items-center justify-between lg:justify-start gap-3 hover:opacity-80 transition">
           <div className="flex items-center gap-3">
             {profilePhotoPreview ? (
@@ -358,12 +381,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
             {!isCollapsed && (
               <div className="text-left">
-                <p className="text-[#64748B] text-xs">Welcome back</p>
-                <p className="font-bold text-[#0F172A] text-sm">{userName}</p>
+                <p className="text-gray-600 text-xs">Welcome back 👋</p>
+                <p className="font-bold text-gray-900 text-sm">{displayUserName}</p>
               </div>
             )}
           </div>
-          {!isCollapsed && <span className="text-[#94A3B8]">›</span>}
+          {!isCollapsed && <span className="text-gray-400">›</span>}
         </button>
       </div>
     </aside>

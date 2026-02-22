@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { useAuth } from "../hooks/useAuth";
 import { jobsAPI } from "../services/jobs";
+import { ROUTES } from "../utils/routes";
 
 ChartJS.register(
   CategoryScale,
@@ -193,7 +194,7 @@ const Dashboard: React.FC = () => {
   }, [applications]);
 
   if (authUser?.role === "hire") {
-    return <Navigate to="/employer/applications" replace />;
+    return <Navigate to={ROUTES.employer.applications} replace />;
   }
 
   const appliedJobIds = useMemo(

@@ -58,6 +58,29 @@ const LEGACY_TOKEN_KEY = "token";
 const PENDING_VERIFICATION_EMAIL_KEY = "pending_verification_email";
 const PENDING_VERIFICATION_NAME_KEY = "pending_verification_name";
 
+const normalizeRole = (role?: string | null): User["role"] => {
+  const value = String(role || "").toLowerCase();
+  if (value === "admin" || value === "superadmin" || value === "hire" || value === "work" || value === "both") {
+    return value as User["role"];
+  }
+  if (value === "employer") {
+    return "hire";
+  }
+  if (value === "worker") {
+    return "work";
+  }
+  return "work";
+};
+
+const getRoleCandidate = (value: unknown): string | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const user = value as { role?: string | null; user_type?: string | null; userType?: string | null };
+  return user.role ?? user.user_type ?? user.userType ?? null;
+};
+
 const normalizeAccount = (
   role: User["role"],
   preferred?: "employer" | "worker" | "both",
@@ -102,10 +125,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentUser) {
       try {
         const parsed = JSON.parse(currentUser) as User;
+        const normalizedRole = normalizeRole(getRoleCandidate(parsed));
+        const { accountType, accountOptions } = normalizeAccount(normalizedRole, parsed.accountType);
         const normalizedUser = {
           ...parsed,
-          accountType: parsed.accountType ?? "worker",
-          accountOptions: parsed.accountOptions ?? [parsed.accountType ?? "worker"],
+          role: normalizedRole,
+          accountType,
+          accountOptions: parsed.accountOptions ?? [...accountOptions],
         };
         setUser(normalizedUser);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
@@ -219,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await verifyOtp({ email: verificationEmail, code: otp });
       const apiUser = response.user;
-      const role = (apiUser.role || "work") as User["role"];
+      const role = normalizeRole(getRoleCandidate(apiUser));
       const { accountType, accountOptions } = normalizeAccount(role, accountPreference);
 
       const newUser: User = {
@@ -289,7 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await loginUser({ emailOrUsername: normalizedEmail, password });
       const apiUser = response.user;
-      const role = (apiUser.role || "work") as User["role"];
+      const role = normalizeRole(getRoleCandidate(apiUser));
       const { accountType, accountOptions } = normalizeAccount(role);
 
       const loggedInUser: User = {
@@ -375,7 +401,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await new Promise(resolve => setTimeout(resolve, 500));
     localStorage.setItem("pending_reset_email", email);
     const mockResetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    console.log("🔑 Your password reset code is:", mockResetCode);
     localStorage.setItem("pending_reset_code", mockResetCode);
     setIsLoading(false);
     toast.success("Password reset link sent to your email!");

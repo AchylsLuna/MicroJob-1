@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Mail, ArrowLeft, Shield, CheckCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../lib/toast";
+import { ROUTES } from "../utils/routes";
 
 export function ForgotPassword() {
   const navigate = useNavigate();
@@ -12,11 +13,11 @@ export function ForgotPassword() {
   const [emailSent, setEmailSent] = useState(false);
 
   const openResetPasswordTab = () => {
-    const url = `${window.location.origin}/reset-password`;
+    const url = `${window.location.origin}${ROUTES.resetPassword}`;
     const newTab = window.open(url, "_blank", "noopener,noreferrer");
     if (!newTab) {
       // Fallback if the browser blocks popups.
-      navigate("/reset-password");
+      navigate(ROUTES.resetPassword);
     }
   };
 
@@ -94,7 +95,7 @@ export function ForgotPassword() {
             </button>
             
             <button
-              onClick={() => navigate("/sign-in")}
+              onClick={() => navigate(ROUTES.signIn)}
               className="w-full bg-white border border-[#E5E7EB] text-[#111827] font-semibold py-4 px-6 rounded-[12px] hover:bg-[#F9FAFB] transition-colors"
             >
               Back to Sign In
@@ -123,7 +124,7 @@ export function ForgotPassword() {
       <div className="w-full max-w-[480px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
         {/* Back Button */}
         <button
-          onClick={() => navigate("/sign-in")}
+          onClick={() => navigate(ROUTES.signIn)}
           className="flex items-center gap-2 text-[#6B7280] hover:text-[#111827] text-[14px] font-medium mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -176,7 +177,7 @@ export function ForgotPassword() {
           <p className="text-[12px] text-[#6B7280] text-center">
             Remember your password?{" "}
             <button
-              onClick={() => navigate("/sign-in")}
+              onClick={() => navigate(ROUTES.signIn)}
               className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
             >
               Sign In

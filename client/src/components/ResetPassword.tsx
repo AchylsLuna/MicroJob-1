@@ -4,6 +4,7 @@ import { Lock, Eye, EyeOff, ArrowLeft, CheckCircle2, XCircle } from "lucide-reac
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../lib/toast";
 import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
+import { ROUTES } from "../utils/routes";
 
 export function ResetPassword() {
   const navigate = useNavigate();
@@ -105,7 +106,7 @@ export function ResetPassword() {
       
       // Redirect to sign in after 2 seconds
       setTimeout(() => {
-        navigate("/sign-in");
+        navigate(ROUTES.signIn);
       }, 2000);
     } catch (error: any) {
       toast.error(error.message || "Failed to reset password");
@@ -149,7 +150,7 @@ export function ResetPassword() {
       <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
         {/* Back Button */}
         <button
-          onClick={() => navigate("/forgot-password")}
+          onClick={() => navigate(ROUTES.forgotPassword)}
           className="flex items-center gap-2 text-[#6B7280] hover:text-[#111827] text-[14px] font-medium mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -313,7 +314,7 @@ export function ResetPassword() {
           <p className="text-[13px] text-[#6B7280]">
             Didn't receive a code?{" "}
             <button
-              onClick={() => navigate("/forgot-password")}
+              onClick={() => navigate(ROUTES.forgotPassword)}
               className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
             >
               Request new code

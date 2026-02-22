@@ -1,10 +1,11 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { toast } from "../../../lib/toast";
 import { useAuth } from "../../../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../../../utils/dashboardRoutes";
+import { ROUTES } from "../../../utils/routes";
 
-const DEFAULT_ALLOWED_ROLES = ["superadmin"] as const;
+const DEFAULT_ALLOWED_ROLES = ["superadmin", "admin"] as const;
 
 type AllowedRole = "admin" | "superadmin";
 
@@ -18,28 +19,21 @@ export function AdminGate({
   fallbackPath?: string;
 }) {
   const { user } = useAuth();
-  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+  const role = (user?.role ?? "") as AllowedRole | "";
+  const hasAccess = Boolean(user) && allowedRoles.includes(role as AllowedRole);
+  const redirectPath = fallbackPath || (user ? getDefaultDashboardPath(user) : ROUTES.adminSignIn);
 
   useEffect(() => {
-    if (!user) return;
-    const role = user.role as AllowedRole;
-    if (!allowedRoles.includes(role)) {
+    if (user && !hasAccess) {
       toast.error("You don't have access to this admin section.");
-      if (fallbackPath) {
-        setRedirectPath(fallbackPath);
-      } else if (role === "admin" || role === "superadmin") {
-        setRedirectPath("/admin/dashboard");
-      } else {
-        setRedirectPath(getDefaultDashboardPath(user));
-      }
     }
-  }, [user, allowedRoles, fallbackPath]);
+  }, [user, hasAccess]);
 
   if (!user) {
-    return <Navigate to="/admin-sign-in" replace />;
+    return <Navigate to={ROUTES.adminSignIn} replace />;
   }
 
-  if (redirectPath) {
+  if (!hasAccess) {
     return <Navigate to={redirectPath} replace />;
   }
 

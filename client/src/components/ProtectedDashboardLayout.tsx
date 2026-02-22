@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { ROUTES } from "../utils/routes";
 import { DashboardLayout } from "./DashboardLayout";
 
 export function ProtectedDashboardLayout() {
@@ -19,7 +20,7 @@ export function ProtectedDashboardLayout() {
 
   // Redirect to landing page if not authenticated
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={ROUTES.home} replace />;
   }
 
   return <DashboardLayout />;

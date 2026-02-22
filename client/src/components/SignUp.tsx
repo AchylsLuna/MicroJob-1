@@ -19,6 +19,7 @@ import {
   sanitizeFullNameInput,
 } from "../lib/authValidation";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 
 export function SignUp() {
@@ -189,7 +190,7 @@ export function SignUp() {
         <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
           {/* Back Button */}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(ROUTES.home)}
             className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#1C4D8D] font-medium mb-6 transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
@@ -444,11 +445,11 @@ export function SignUp() {
               />
               <label className="text-[13px] text-[#6B7280]">
                 I agree to the{" "}
-                <Link to="/terms" className="text-[#1C4D8D] hover:text-[#0F2954] font-medium">
+                <Link to={ROUTES.terms} className="text-[#1C4D8D] hover:text-[#0F2954] font-medium">
                   Terms and Conditions
                 </Link>{" "}
                 and{" "}
-                <Link to="/privacy" className="text-[#1C4D8D] hover:text-[#0F2954] font-medium">
+                <Link to={ROUTES.privacy} className="text-[#1C4D8D] hover:text-[#0F2954] font-medium">
                   Privacy Policy
                 </Link>
               </label>
@@ -493,7 +494,7 @@ export function SignUp() {
             <p className="text-[14px] text-[#6B7280]">
               Already have an account?{" "}
               <button
-                onClick={() => navigate("/sign-in")}
+                onClick={() => navigate(ROUTES.signIn)}
                 className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
               >
                 Sign In
