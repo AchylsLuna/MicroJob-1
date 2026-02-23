@@ -36,6 +36,7 @@ type FormData = {
   salary: string;
   location: string;
   jobType: string;
+  positionsNeeded?: string;
 };
 
 export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabPress }: PostJobProps) {
@@ -49,6 +50,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
     salary: '',
     location: '',
     jobType: 'Fulltime',
+    positionsNeeded: '1',
   });
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
   const [deadlineTime, setDeadlineTime] = useState<Date | null>(null);
@@ -83,6 +85,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
       salary: salaryValue,
       location: jobToEdit.location || '',
       jobType: jobToEdit.jobType || 'Fulltime',
+      positionsNeeded: jobToEdit.positionsNeeded ? String(jobToEdit.positionsNeeded) : '1',
     });
     setCategoryQuery(categoryName || '');
     setDeadlineDate(deadline);
@@ -211,6 +214,13 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
         return;
       }
 
+      const positionsNeededNum = Number(formData.positionsNeeded || 1);
+      if (Number.isNaN(positionsNeededNum) || positionsNeededNum < 1) {
+        setErrorMessage('Please provide a valid number of workers needed (minimum 1).');
+        setSubmitting(false);
+        return;
+      }
+
       const payload = {
         title: trimmedTitle,
         category: formData.category || undefined,
@@ -229,6 +239,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),
         urgent: isUrgent,
+        positionsNeeded: Number(formData.positionsNeeded) || 1,
       };
 
       const token = await AsyncStorage.getItem('auth_token');
@@ -441,6 +452,16 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
             <Text style={styles.urgentLabel}>Mark as urgent</Text>
             <Switch value={isUrgent} onValueChange={setIsUrgent} />
           </View>
+
+          <Text style={styles.label}>Number of Workers Needed</Text>
+          <TextInput
+            style={styles.input}
+            value={String(formData.positionsNeeded || '1')}
+            onChangeText={(value) => setFormData((prev) => ({ ...prev, positionsNeeded: value }))}
+            placeholder="1"
+            placeholderTextColor="#9ca3af"
+            keyboardType="numeric"
+          />
 
           <TouchableOpacity
             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}

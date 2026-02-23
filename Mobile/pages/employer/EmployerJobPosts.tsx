@@ -21,6 +21,8 @@ type JobItem = {
   urgent?: boolean;
   applicants?: string[];
   category?: { name: string };
+  positionsNeeded?: number;
+  hiredCount?: number;
   createdAt?: string;
 };
 
@@ -171,6 +173,10 @@ export default function EmployerJobPosts({
             <View style={styles.metaRow}>
               <Text style={styles.jobType}>{job.jobType}</Text>
               <Text style={styles.salary}>{job.salary}</Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.jobType}>Needed: {job.positionsNeeded || 1}</Text>
+              <Text style={styles.salary}>Hired: {job.hiredCount || 0}</Text>
             </View>
 
             <View style={styles.footerRow}>

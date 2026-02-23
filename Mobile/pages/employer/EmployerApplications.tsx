@@ -91,6 +91,23 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
   const handleStatusChange = async (applicationId: string, status: ApplicationItem['status']) => {
     setUpdatingId(applicationId);
     try {
+      // Map mobile-friendly status labels to backend-accepted status values
+      const mapStatusToBackend = (s: ApplicationItem['status']) => {
+        switch (s) {
+          case 'Accepted':
+            return 'Hired';
+          case 'Reviewed':
+            return 'Shortlisted';
+          case 'Pending':
+            return 'Pending';
+          case 'Rejected':
+            return 'Rejected';
+          default:
+            return s;
+        }
+      };
+
+      const backendStatus = mapStatusToBackend(status);
       const token = await AsyncStorage.getItem('auth_token');
       const response = await fetch(`${API_URL}/applications/${applicationId}/status`, {
         method: 'PUT',
@@ -98,7 +115,7 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: backendStatus }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.message || 'Failed to update status.');
