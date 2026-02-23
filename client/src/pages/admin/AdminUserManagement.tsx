@@ -366,7 +366,7 @@ function AdminUserManagementContent() {
               </div>
               <div>
                 <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Role</p>
-                <p className="mt-1 text-[#111827] capitalize">{selectedUser.role || "worker"}</p>
+                <p className="mt-1 text-[#111827] capitalize">{selectedUser.role || "user"}</p>
               </div>
               <div>
                 <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Phone</p>
@@ -410,7 +410,7 @@ function AdminUserManagementContent() {
 
 export function AdminUserManagement() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminUserManagementContent />
     </AdminGate>
   );

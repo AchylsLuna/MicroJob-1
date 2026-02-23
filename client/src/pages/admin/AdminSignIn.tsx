@@ -13,10 +13,6 @@ export function AdminSignIn() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!isLoading && isAuthenticated && user?.role === "superadmin") {
-    return <Navigate to={ROUTES.admin.dashboard} replace />;
-  }
-
   if (!isLoading && isAuthenticated && user?.role === "admin") {
     return <Navigate to={ROUTES.admin.dashboard} replace />;
   }
@@ -37,14 +33,9 @@ export function AdminSignIn() {
       const storedUser = stored ? JSON.parse(stored) : null;
       const storedRole = storedUser?.role || storedUser?.user_type || "";
 
-      if (!storedUser || (storedRole !== "superadmin" && storedRole !== "admin")) {
+      if (!storedUser || storedRole !== "admin") {
         toast.error("Admin access required. Please use an admin account.");
         logout({ silent: true });
-        return;
-      }
-
-      if (storedRole === "superadmin") {
-        toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
         return;
       }
 

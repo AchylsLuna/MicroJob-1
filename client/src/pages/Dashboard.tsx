@@ -57,6 +57,7 @@ type ProfileSettings = {
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
+  const normalizedRole = String(authUser?.role || "").toLowerCase();
   const [userName, setUserName] = useState("Jonas Dick");
   const [userEmail, setUserEmail] = useState("you@example.com");
   const [activeVacancyTab, setActiveVacancyTab] = useState("Application Sent");
@@ -176,7 +177,7 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    if (authUser?.role === "work" || authUser?.role === "both") {
+    if (authUser?.role === "user") {
       fetchApplications();
       fetchJobs();
     }
@@ -193,7 +194,11 @@ const Dashboard: React.FC = () => {
     );
   }, [applications]);
 
-  if (authUser?.role === "hire") {
+  if (
+    authUser?.accountType === "employer" ||
+    authUser?.role === "employer" ||
+    normalizedRole === "doctor"
+  ) {
     return <Navigate to={ROUTES.employer.applications} replace />;
   }
 

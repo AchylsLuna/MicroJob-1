@@ -5,9 +5,9 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../../../utils/dashboardRoutes";
 import { ROUTES } from "../../../utils/routes";
 
-const DEFAULT_ALLOWED_ROLES = ["superadmin", "admin"] as const;
+const DEFAULT_ALLOWED_ROLES = ["admin"] as const;
 
-type AllowedRole = "admin" | "superadmin";
+type AllowedRole = "admin";
 
 export function AdminGate({
   children,

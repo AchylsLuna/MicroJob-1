@@ -116,7 +116,7 @@ function AdminJobMonitoringContent() {
 
 export function AdminJobMonitoring() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminJobMonitoringContent />
     </AdminGate>
   );

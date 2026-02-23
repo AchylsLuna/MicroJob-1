@@ -861,7 +861,7 @@ function AdminDashboardContent() {
 
 export function AdminDashboard() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminDashboardContent />
     </AdminGate>
   );

@@ -11,7 +11,7 @@ export default function SupportRouter() {
     return <Navigate to={ROUTES.signIn} replace />;
   }
 
-  if (user.role === "admin" || user.role === "superadmin") {
+  if (user.role === "admin") {
     return <Navigate to={ROUTES.admin.dashboard} replace />;
   }
 

@@ -147,7 +147,7 @@ function AdminEWalletMonitoringContent() {
 
 export function AdminEWalletMonitoring() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminEWalletMonitoringContent />
     </AdminGate>
   );

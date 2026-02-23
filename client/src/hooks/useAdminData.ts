@@ -8,7 +8,7 @@ export type AdminUser = {
   lastName?: string;
   email: string;
   phoneNumber?: string | null;
-  role?: "hire" | "work" | "both" | "admin" | "superadmin";
+  role?: "user" | "employer" | "admin" | "doctor" | "hire" | "work" | "both" | "superadmin";
   status?: "active" | "pending" | "disabled";
 };
 
@@ -218,8 +218,11 @@ export function useAdminData() {
       case "admin":
       case "superadmin":
         return "bg-[#E9D5FF] text-[#6B21A8]";
+      case "employer":
+      case "doctor":
       case "hire":
         return "bg-[#DBEAFE] text-[#1E40AF]";
+      case "user":
       case "both":
         return "bg-[#FDE68A] text-[#92400E]";
       default:

@@ -44,7 +44,6 @@ export function NavBar() {
   const canSwitchAccount =
     !!user &&
     user.role !== "admin" &&
-    user.role !== "superadmin" &&
     Array.isArray(user.accountOptions) &&
     user.accountOptions.includes("worker") &&
     user.accountOptions.includes("employer");
@@ -152,32 +151,69 @@ export function NavBar() {
       return { title: "Profile" };
     }
 
-    if (isPath(ROUTES.employer.dashboard, ROUTES.legacyDashboard.employer.root, ROUTES.employer.root)) {
+    if (
+      isPath(
+        ROUTES.doctor.dashboard,
+        ROUTES.doctor.root,
+        ROUTES.legacyDashboard.doctor.root,
+        ROUTES.employer.dashboard,
+        ROUTES.employer.root,
+        ROUTES.legacyDashboard.employer.root,
+      )
+    ) {
       return {
         title: "Employer Dashboard",
         search: { placeholder: "Search applicants, jobs, or companies...", mode: "query" as const },
       };
     }
 
-    if (isPath(ROUTES.employer.applications, ROUTES.legacyDashboard.employer.applications)) {
+    if (
+      isPath(
+        ROUTES.doctor.applications,
+        ROUTES.legacyDashboard.doctor.applications,
+        ROUTES.employer.applications,
+        ROUTES.legacyDashboard.employer.applications,
+      )
+    ) {
       return {
         title: "Applications",
         search: { placeholder: "Search applications...", mode: "query" as const },
       };
     }
 
-    if (isPath(ROUTES.employer.postJob, ROUTES.legacyDashboard.employer.postJob)) {
+    if (
+      isPath(
+        ROUTES.doctor.postJob,
+        ROUTES.legacyDashboard.doctor.postJob,
+        ROUTES.employer.postJob,
+        ROUTES.legacyDashboard.employer.postJob,
+      )
+    ) {
       return { title: "Post a Job" };
     }
 
-    if (isPath(ROUTES.employer.jobPosts, ROUTES.legacyDashboard.employer.jobPosts)) {
+    if (
+      isPath(
+        ROUTES.doctor.jobPosts,
+        ROUTES.legacyDashboard.doctor.jobPosts,
+        ROUTES.employer.jobPosts,
+        ROUTES.legacyDashboard.employer.jobPosts,
+      )
+    ) {
       return {
         title: "My Job Posts",
         search: { placeholder: "Search job posts...", mode: "query" as const },
       };
     }
 
-    if (isPath(ROUTES.employer.jobs, ROUTES.legacyDashboard.employer.jobs)) {
+    if (
+      isPath(
+        ROUTES.doctor.jobs,
+        ROUTES.legacyDashboard.doctor.jobs,
+        ROUTES.employer.jobs,
+        ROUTES.legacyDashboard.employer.jobs,
+      )
+    ) {
       return {
         title: "Jobs Management",
         search: { placeholder: "Search jobs...", mode: "query" as const },
@@ -240,7 +276,12 @@ export function NavBar() {
       return { title: "Job Details" };
     }
 
-    if (startsWithPath(path, ROUTES.employer.root) || startsWithPath(path, ROUTES.legacyDashboard.employer.root)) {
+    if (
+      startsWithPath(path, ROUTES.doctor.root) ||
+      startsWithPath(path, ROUTES.legacyDashboard.doctor.root) ||
+      startsWithPath(path, ROUTES.employer.root) ||
+      startsWithPath(path, ROUTES.legacyDashboard.employer.root)
+    ) {
       return { title: "Employer" };
     }
 
@@ -472,7 +513,7 @@ export function NavBar() {
                     {user ? `${user.firstName} ${user.lastName}` : "User"}
                   </p>
                   <p className="text-[14px] text-[#6B7280]">
-                    {user?.accountType === "employer" ? "Employer Account" : "Worker Account"}
+                    {user?.accountType === "employer" ? "Employer Account" : "User Account"}
                   </p>
                 </div>
 
@@ -482,7 +523,7 @@ export function NavBar() {
                       onClick={handleSwitchAccount}
                       className="w-full rounded-[12px] bg-[#1EC19A] text-white text-[15px] font-semibold py-3 hover:bg-[#18a882] transition-colors"
                     >
-                      {user?.accountType === "employer" ? "Switch to Worker" : "Switch to Employer"}
+                      {user?.accountType === "employer" ? "Switch to User" : "Switch to Employer"}
                     </button>
                   </div>
                 )}

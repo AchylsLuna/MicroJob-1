@@ -1,10 +1,11 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { ROUTES } from "../utils/routes";
+import { getSignInRouteForPath } from "../utils/authRedirects";
 import { DashboardLayout } from "./DashboardLayout";
 
 export function ProtectedDashboardLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
 
   // Show loading state while checking authentication
   if (isLoading) {
@@ -18,9 +19,9 @@ export function ProtectedDashboardLayout() {
     );
   }
 
-  // Redirect to landing page if not authenticated
+  // Redirect to role-aware sign-in page if not authenticated
   if (!isAuthenticated) {
-    return <Navigate to={ROUTES.home} replace />;
+    return <Navigate to={getSignInRouteForPath(location.pathname)} replace />;
   }
 
   return <DashboardLayout />;

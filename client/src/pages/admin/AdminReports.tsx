@@ -130,7 +130,7 @@ function AdminReportsContent() {
             id: user._id,
             name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
             email: user.email,
-            role: user.role || "worker",
+            role: user.role || "user",
             status: user.status || "active",
             joined: date ? date.toLocaleDateString() : "—",
             date,
@@ -435,7 +435,7 @@ function AdminReportsContent() {
 
 export function AdminReports() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminReportsContent />
     </AdminGate>
   );

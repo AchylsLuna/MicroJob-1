@@ -5,7 +5,7 @@ import { useAdminData } from "../../hooks/useAdminData";
 function AdminSecurityContent() {
   const { isLoading, loadError, stats, users, recentActivity } = useAdminData();
 
-  const adminCount = users.filter((user) => user.role === "admin" || user.role === "superadmin").length;
+  const adminCount = users.filter((user) => user.role === "admin").length;
   const recentUsers = recentActivity.filter((activity) => activity.type === "user");
 
   return (
@@ -83,7 +83,7 @@ function AdminSecurityContent() {
 
 export function AdminSecurity() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminSecurityContent />
     </AdminGate>
   );

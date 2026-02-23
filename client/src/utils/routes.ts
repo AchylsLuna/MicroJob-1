@@ -5,6 +5,8 @@ export const ROUTES = {
   signUp: "/sign-up",
   signUpLegacy: "/signup",
   adminSignIn: "/admin-sign-in",
+  // Legacy path kept for backward compatibility; redirects to generic sign-in.
+  doctorSignIn: "/doctor-sign-in",
   emailVerification: "/email-verification",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
@@ -37,6 +39,16 @@ export const ROUTES = {
     jobPosts: "/employer/job-posts",
     applications: "/employer/applications",
     jobs: "/employer/jobs",
+  },
+
+  doctor: {
+    // Legacy doctor namespace kept as redirects to employer routes.
+    root: "/doctor",
+    dashboard: "/doctor/dashboard",
+    postJob: "/doctor/post-job",
+    jobPosts: "/doctor/job-posts",
+    applications: "/doctor/applications",
+    jobs: "/doctor/jobs",
   },
 
   admin: {
@@ -72,6 +84,13 @@ export const ROUTES = {
       jobPosts: "/dashboard/employer/job-posts",
       jobs: "/dashboard/employer/jobs",
     },
+    doctor: {
+      root: "/dashboard/doctor",
+      applications: "/dashboard/doctor/applications",
+      postJob: "/dashboard/doctor/post-job",
+      jobPosts: "/dashboard/doctor/job-posts",
+      jobs: "/dashboard/doctor/jobs",
+    },
     admin: {
       root: "/dashboard/admin-dashboard",
       analytics: "/dashboard/admin-dashboard/analytics",
@@ -97,6 +116,7 @@ export const ROUTES = {
 
 export const WORKER_ROUTE_PREFIX = "/worker";
 export const EMPLOYER_ROUTE_PREFIX = "/employer";
+export const DOCTOR_ROUTE_PREFIX = "/doctor";
 export const ADMIN_ROUTE_PREFIX = "/admin";
 
 const stripTrailingSlash = (value: string) =>
@@ -118,4 +138,5 @@ export const matchesAnyPath = (pathname: string, targets: string[]) =>
 
 export const isWorkerPath = (pathname: string) => startsWithPath(pathname, WORKER_ROUTE_PREFIX);
 export const isEmployerPath = (pathname: string) => startsWithPath(pathname, EMPLOYER_ROUTE_PREFIX);
+export const isDoctorPath = (pathname: string) => startsWithPath(pathname, DOCTOR_ROUTE_PREFIX);
 export const isAdminPath = (pathname: string) => startsWithPath(pathname, ADMIN_ROUTE_PREFIX);

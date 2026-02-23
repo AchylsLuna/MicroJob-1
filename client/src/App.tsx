@@ -19,6 +19,7 @@ import { SignIn } from "./components/SignIn";
 import { SignUp } from "./components/SignUp";
 import { TermsAndConditions } from "./components/TermsAndConditions";
 import SidebarLayout from "./components/layout/SidebarLayout";
+import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
 import EmailVerification from "./pages/emailVerification";
 import {
@@ -52,11 +53,7 @@ import {
   WorkerSupport,
 } from "./pages/worker";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
-import {
-  ADMIN_DASHBOARD_PATH,
-  EMPLOYER_DASHBOARD_PATH,
-  getDefaultDashboardPath,
-} from "./utils/dashboardRoutes";
+import { getDefaultDashboardPath } from "./utils/dashboardRoutes";
 import { ROUTES } from "./utils/routes";
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
@@ -242,6 +239,7 @@ const App: React.FC = () => {
         <Route path={ROUTES.signUpLegacy} element={<SignUp />} />
         <Route path={ROUTES.signUp} element={<SignUp />} />
         <Route path={ROUTES.adminSignIn} element={<AdminSignIn />} />
+        <Route path={ROUTES.doctorSignIn} element={<PreserveRedirect to={ROUTES.signIn} />} />
         <Route path={ROUTES.emailVerification} element={<EmailVerification />} />
         <Route path={ROUTES.forgotPassword} element={<ForgotPassword />} />
         <Route path={ROUTES.resetPassword} element={<ResetPassword />} />
@@ -250,30 +248,69 @@ const App: React.FC = () => {
         <Route path={ROUTES.cookiePolicy} element={<CookiePolicy />} />
 
         <Route element={<SidebarLayout />}>
-          <Route path={ROUTES.worker.dashboard} element={<WorkerDashboard />} />
-          <Route path={ROUTES.worker.findJobs} element={<FindJobs />} />
-          <Route path={ROUTES.worker.appliedJobs} element={<AppliedJobs />} />
-          <Route path={ROUTES.worker.savedJobs} element={<SavedJobs />} />
-          <Route path={ROUTES.worker.jobDetailsPattern} element={<JobDetails />} />
-          <Route path={ROUTES.worker.notifications} element={<WorkerNotifications />} />
-          <Route path={ROUTES.worker.profile} element={<WorkerProfile />} />
-          <Route path={ROUTES.worker.support} element={<WorkerSupport />} />
-          <Route path={ROUTES.worker.messages} element={<WorkerMessages />} />
-          <Route path={ROUTES.worker.eWallet} element={<WorkerEWallet />} />
+          <Route element={<RoleRoute requiredRole="patient" />}>
+            <Route path={ROUTES.worker.dashboard} element={<WorkerDashboard />} />
+            <Route path={ROUTES.worker.findJobs} element={<FindJobs />} />
+            <Route path={ROUTES.worker.appliedJobs} element={<AppliedJobs />} />
+            <Route path={ROUTES.worker.savedJobs} element={<SavedJobs />} />
+            <Route path={ROUTES.worker.jobDetailsPattern} element={<JobDetails />} />
+            <Route path={ROUTES.worker.notifications} element={<WorkerNotifications />} />
+            <Route path={ROUTES.worker.profile} element={<WorkerProfile />} />
+            <Route path={ROUTES.worker.support} element={<WorkerSupport />} />
+            <Route path={ROUTES.worker.messages} element={<WorkerMessages />} />
+            <Route path={ROUTES.worker.eWallet} element={<WorkerEWallet />} />
+          </Route>
 
-          <Route path={ROUTES.employer.dashboard} element={<EmployerDashboard />} />
-          <Route path={ROUTES.employer.postJob} element={<PostJob />} />
-          <Route path={ROUTES.employer.jobPosts} element={<JobPosts />} />
-          <Route path={ROUTES.employer.applications} element={<Applications />} />
-          <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
+          <Route element={<RoleRoute requiredRole="employer" />}>
+            <Route
+              path={ROUTES.employer.root}
+              element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+            />
+            <Route path={ROUTES.employer.dashboard} element={<EmployerDashboard />} />
+            <Route path={ROUTES.employer.postJob} element={<PostJob />} />
+            <Route path={ROUTES.employer.jobPosts} element={<JobPosts />} />
+            <Route path={ROUTES.employer.applications} element={<Applications />} />
+            <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
 
-          <Route path={ROUTES.admin.dashboard} element={<AdminDashboard />} />
-          <Route path={ROUTES.admin.analytics} element={<AdminAnalytics />} />
-          <Route path={ROUTES.admin.reports} element={<AdminReports />} />
-          <Route path={ROUTES.admin.eWallet} element={<AdminEWalletMonitoring />} />
-          <Route path={ROUTES.admin.jobs} element={<AdminJobMonitoring />} />
-          <Route path={ROUTES.admin.security} element={<AdminSecurity />} />
-          <Route path={ROUTES.admin.userManagement} element={<AdminUserManagement />} />
+            <Route
+              path={ROUTES.doctor.root}
+              element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+            />
+            <Route
+              path={ROUTES.doctor.dashboard}
+              element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+            />
+            <Route
+              path={ROUTES.doctor.postJob}
+              element={<PreserveRedirect to={ROUTES.employer.postJob} />}
+            />
+            <Route
+              path={ROUTES.doctor.jobPosts}
+              element={<PreserveRedirect to={ROUTES.employer.jobPosts} />}
+            />
+            <Route
+              path={ROUTES.doctor.applications}
+              element={<PreserveRedirect to={ROUTES.employer.applications} />}
+            />
+            <Route
+              path={ROUTES.doctor.jobs}
+              element={<PreserveRedirect to={ROUTES.employer.jobs} />}
+            />
+          </Route>
+
+          <Route element={<RoleRoute requiredRole="admin" />}>
+            <Route
+              path={ROUTES.admin.root}
+              element={<PreserveRedirect to={ROUTES.admin.dashboard} />}
+            />
+            <Route path={ROUTES.admin.dashboard} element={<AdminDashboard />} />
+            <Route path={ROUTES.admin.analytics} element={<AdminAnalytics />} />
+            <Route path={ROUTES.admin.reports} element={<AdminReports />} />
+            <Route path={ROUTES.admin.eWallet} element={<AdminEWalletMonitoring />} />
+            <Route path={ROUTES.admin.jobs} element={<AdminJobMonitoring />} />
+            <Route path={ROUTES.admin.security} element={<AdminSecurity />} />
+            <Route path={ROUTES.admin.userManagement} element={<AdminUserManagement />} />
+          </Route>
 
           <Route path={ROUTES.settings} element={<Settings />} />
           <Route path={ROUTES.notifications} element={<NotificationsRouter />} />
@@ -317,6 +354,27 @@ const App: React.FC = () => {
           <Route
             path={ROUTES.legacyDashboard.settings}
             element={<PreserveRedirect to={ROUTES.settings} />}
+          />
+
+          <Route
+            path={ROUTES.legacyDashboard.doctor.root}
+            element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.applications}
+            element={<PreserveRedirect to={ROUTES.employer.applications} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.postJob}
+            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.jobPosts}
+            element={<PreserveRedirect to={ROUTES.employer.jobPosts} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.jobs}
+            element={<PreserveRedirect to={ROUTES.employer.jobs} />}
           />
 
           <Route
@@ -395,8 +453,6 @@ const App: React.FC = () => {
             element={<PreserveRedirect to={ROUTES.worker.profile} />}
           />
 
-          <Route path={ROUTES.employer.root} element={<PreserveRedirect to={EMPLOYER_DASHBOARD_PATH} />} />
-          <Route path={ROUTES.admin.root} element={<PreserveRedirect to={ADMIN_DASHBOARD_PATH} />} />
         </Route>
 
         <Route path="*" element={<Navigate to={ROUTES.home} replace />} />

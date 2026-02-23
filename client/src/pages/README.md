@@ -2,6 +2,11 @@
 
 This folder contains all the application pages organized by user type.
 
+Canonical roles used by the app:
+- `user`
+- `employer`
+- `admin`
+
 ## Folder Structure
 
 ### `/worker` - Worker-specific pages
@@ -12,6 +17,9 @@ Pages only accessible to users looking for work:
 ### `/employer` - Employer-specific pages  
 Pages only accessible to users hiring talent:
 - `PostJob.tsx` - Create and post new job listings
+
+Legacy route mapping:
+- Legacy Doctor routes are redirected to Employer routes (`/employer/*`).
 
 ### `/shared` - Shared pages
 Pages accessible to all user types (exports from parent):

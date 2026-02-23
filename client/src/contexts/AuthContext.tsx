@@ -19,9 +19,9 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: "hire" | "work" | "both" | "admin" | "superadmin";
-  accountType: "employer" | "worker";
-  accountOptions: ("employer" | "worker")[];
+  role: "user" | "employer" | "admin";
+  accountType: "worker" | "employer";
+  accountOptions: ("worker" | "employer")[];
   isVerified: boolean;
   avatar?: string;
   phoneNumber?: string;
@@ -30,6 +30,8 @@ interface User {
   linkedin?: string;
   avatarUrl?: string;
   createdAt?: string;
+  user_type?: string;
+  userType?: string;
 }
 
 interface AuthContextType {
@@ -38,7 +40,13 @@ interface AuthContextType {
   isLoading: boolean;
   devOtpCode: string | null;
   login: (email: string, password: string, options?: { suppressToast?: boolean }) => Promise<void>;
-  register: (email: string, password: string, name: string, accountPreference: "employer" | "worker" | "both", phoneNumber?: string) => Promise<void>;
+  register: (
+    email: string,
+    password: string,
+    name: string,
+    accountPreference: "employer" | "worker" | "both",
+    phoneNumber?: string,
+  ) => Promise<void>;
   logout: (options?: { silent?: boolean }) => void;
   switchAccountType: (nextType: "employer" | "worker") => void;
   verifyOTP: (otp: string) => Promise<boolean>;
@@ -58,18 +66,17 @@ const LEGACY_TOKEN_KEY = "token";
 const PENDING_VERIFICATION_EMAIL_KEY = "pending_verification_email";
 const PENDING_VERIFICATION_NAME_KEY = "pending_verification_name";
 
+type AccountPreference = "employer" | "worker" | "both";
+
 const normalizeRole = (role?: string | null): User["role"] => {
   const value = String(role || "").toLowerCase();
-  if (value === "admin" || value === "superadmin" || value === "hire" || value === "work" || value === "both") {
-    return value as User["role"];
+  if (value === "admin" || value === "superadmin") {
+    return "admin";
   }
-  if (value === "employer") {
-    return "hire";
+  if (value === "doctor" || value === "hire" || value === "employer") {
+    return "employer";
   }
-  if (value === "worker") {
-    return "work";
-  }
-  return "work";
+  return "user";
 };
 
 const getRoleCandidate = (value: unknown): string | null => {
@@ -81,24 +88,65 @@ const getRoleCandidate = (value: unknown): string | null => {
   return user.role ?? user.user_type ?? user.userType ?? null;
 };
 
+const normalizeAccountType = (value?: string | null): User["accountType"] | null => {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized === "doctor" || normalized === "employer" || normalized === "hire") {
+    return "employer";
+  }
+  if (
+    normalized === "patient" ||
+    normalized === "worker" ||
+    normalized === "work" ||
+    normalized === "user"
+  ) {
+    return "worker";
+  }
+  return null;
+};
+
+const normalizePreference = (value?: string | null): AccountPreference | undefined => {
+  const normalized = String(value || "").toLowerCase();
+  if (normalized === "doctor" || normalized === "employer" || normalized === "hire") {
+    return "employer";
+  }
+  if (normalized === "patient" || normalized === "worker" || normalized === "work" || normalized === "user") {
+    return "worker";
+  }
+  if (normalized === "both") {
+    return "both";
+  }
+  return undefined;
+};
+
+const normalizeAccountOptions = (value: unknown): User["accountOptions"] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const mapped = value
+    .map((item) => normalizeAccountType(typeof item === "string" ? item : null))
+    .filter((item): item is User["accountType"] => Boolean(item));
+  return Array.from(new Set(mapped));
+};
+
 const normalizeAccount = (
   role: User["role"],
-  preferred?: "employer" | "worker" | "both",
+  preferred?: string | null,
 ): { accountType: User["accountType"]; accountOptions: User["accountOptions"] } => {
-  if (preferred === "employer") {
+  const normalizedPreferred = normalizePreference(preferred);
+  if (normalizedPreferred === "employer") {
     return { accountType: "employer", accountOptions: ["employer"] };
   }
-  if (preferred === "worker") {
+  if (normalizedPreferred === "worker") {
     return { accountType: "worker", accountOptions: ["worker"] };
   }
-  if (preferred === "both") {
-    return { accountType: "worker", accountOptions: ["employer", "worker"] };
+  if (normalizedPreferred === "both") {
+    return {
+      accountType: role === "employer" ? "employer" : "worker",
+      accountOptions: ["employer", "worker"],
+    };
   }
-  if (role === "hire") {
+  if (role === "employer") {
     return { accountType: "employer", accountOptions: ["employer"] };
-  }
-  if (role === "both") {
-    return { accountType: "worker", accountOptions: ["employer", "worker"] };
   }
   return { accountType: "worker", accountOptions: ["worker"] };
 };
@@ -124,15 +172,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentUser = localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(CURRENT_USER_KEY);
     if (currentUser) {
       try {
-        const parsed = JSON.parse(currentUser) as User;
+        const parsed = JSON.parse(currentUser) as Partial<User> & {
+          role?: string | null;
+          user_type?: string | null;
+          accountType?: string | null;
+          accountOptions?: unknown;
+        };
         const normalizedRole = normalizeRole(getRoleCandidate(parsed));
         const { accountType, accountOptions } = normalizeAccount(normalizedRole, parsed.accountType);
+        const normalizedOptions = normalizeAccountOptions(parsed.accountOptions);
         const normalizedUser = {
           ...parsed,
           role: normalizedRole,
           accountType,
-          accountOptions: parsed.accountOptions ?? [...accountOptions],
-        };
+          accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
+        } as User;
         setUser(normalizedUser);
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
       } catch {
@@ -180,7 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
 
     const { firstName, lastName } = splitName(normalizedName);
-    const role = accountPreference === "employer" ? "hire" : accountPreference === "worker" ? "work" : "both";
+    // Keep API payload backward compatible while app role is normalized to user/employer/admin.
+    const role = accountPreference === "employer" ? "hire" : "work";
 
     // Store pending verification
     setPendingVerification({ email: normalizedEmail, name: normalizedName });
@@ -382,7 +437,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
     window.dispatchEvent(new Event("auth_user_updated"));
-    toast.success(`Switched to ${nextType === "employer" ? "Employer" : "Worker"} account`);
+    toast.success(`Switched to ${nextType === "employer" ? "Employer" : "User"} account`);
   };
 
   const updateProfile = (updates: Partial<User>) => {
@@ -434,7 +489,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: pendingEmail,
       firstName: "User",
       lastName: "User",
-      role: "work",
+      role: "user",
       accountType: "worker",
       accountOptions: ["worker"],
       isVerified: true,

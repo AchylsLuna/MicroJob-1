@@ -28,10 +28,10 @@ interface SidebarProps {
   userEmail?: string;
   balance?: string;
   messageCount?: number;
-  userRole?: "hire" | "work" | "both" | "admin" | "superadmin";
+  userRole?: "user" | "employer" | "admin" | "doctor";
 }
 
-type RoleType = "work" | "hire" | "both" | "admin" | "superadmin";
+type RoleType = "user" | "employer" | "admin";
 
 type MenuItem = {
   icon: string;
@@ -45,7 +45,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   userEmail = "joserizal@gmail.com",
   balance = "$67.67",
   messageCount = 2,
-  userRole = "work",
+  userRole = "user",
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,13 +71,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener("profile_settings_updated", handleProfileUpdate);
   }, []);
 
-  const userRoleFromAuth = (authUser?.role || userRole) as RoleType;
+  const userRoleFromAuth = String(authUser?.role || userRole || "user").toLowerCase();
   const effectiveRole: RoleType =
-    userRoleFromAuth === "admin" || userRoleFromAuth === "superadmin"
-      ? userRoleFromAuth
-      : authUser?.accountType === "employer" || userRoleFromAuth === "hire"
-      ? "hire"
-      : "work";
+    userRoleFromAuth === "admin"
+      ? "admin"
+      : authUser?.accountType === "employer" ||
+        userRoleFromAuth === "employer" ||
+        userRoleFromAuth === "doctor"
+      ? "employer"
+      : "user";
 
   const workerMenuItems: MenuItem[] = [
     { icon: "find-jobs", label: "Apply Jobs", path: ROUTES.worker.findJobs },
@@ -105,18 +107,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   let menuItems: MenuItem[] = [];
-  if (effectiveRole === "work") {
+  if (effectiveRole === "user") {
     menuItems = [...workerMenuItems, ...commonMenuItems];
-  } else if (effectiveRole === "hire") {
+  } else if (effectiveRole === "employer") {
     menuItems = [...employerMenuItems, ...commonMenuItems];
-  } else if (effectiveRole === "admin" || effectiveRole === "superadmin") {
+  } else if (effectiveRole === "admin") {
     menuItems = adminMenuItems;
   } else {
     menuItems = [...workerMenuItems, ...commonMenuItems];
   }
 
   const bottomMenuItems: MenuItem[] =
-    effectiveRole === "admin" || effectiveRole === "superadmin"
+    effectiveRole === "admin"
       ? [{ icon: "settings", label: "Settings", path: ROUTES.settings }]
       : [
           { icon: "notifications", label: "Notifications", path: ROUTES.notifications, notification: true },
@@ -147,12 +149,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const loadNotifCount = async () => {
     try {
-      if (effectiveRole === "admin" || effectiveRole === "superadmin") {
+      if (effectiveRole === "admin") {
         setNotifCount(0);
         return;
       }
 
-      if (effectiveRole === "hire") {
+      if (effectiveRole === "employer") {
         const res = await jobsAPI.getEmployerApplications();
         const apps = res.data || [];
         const unread = apps.filter((a: any) => !a.employerReadAt).length;
@@ -199,18 +201,18 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const dashboardPath =
-    effectiveRole === "admin" || effectiveRole === "superadmin"
+    effectiveRole === "admin"
       ? ROUTES.admin.dashboard
-      : effectiveRole === "hire"
+      : effectiveRole === "employer"
       ? ROUTES.employer.dashboard
       : ROUTES.worker.dashboard;
 
   const roleLabel =
-    effectiveRole === "hire"
+    effectiveRole === "employer"
       ? "Employer"
-      : effectiveRole === "admin" || effectiveRole === "superadmin"
+      : effectiveRole === "admin"
       ? "Admin"
-      : "Worker";
+      : "User";
 
   const getNavButtonClass = (active: boolean) =>
     `${webUi.sidebar.navButton} ${isCollapsed ? "px-2" : "px-4"} ${
@@ -248,7 +250,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="space-y-1 flex-1 flex flex-col">
         <div className={`space-y-1 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
-          {!isCollapsed && effectiveRole !== "admin" && effectiveRole !== "superadmin" && (
+          {!isCollapsed && effectiveRole !== "admin" && (
             <div className="mb-3">
               <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold border border-sky-100">
                 <span>{roleLabel}</span>

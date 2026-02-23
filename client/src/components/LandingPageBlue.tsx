@@ -65,8 +65,15 @@ function FloatingParticles() {
 export function LandingPageBlue() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const isSuperAdmin = user?.role === "superadmin";
+  const isAdmin = user?.role === "admin";
+  const normalizedRole = String(user?.role || user?.user_type || "").toLowerCase();
+  const isEmployer =
+    normalizedRole === "employer" ||
+    normalizedRole === "doctor" ||
+    normalizedRole === "hire" ||
+    user?.accountType === "employer";
   const dashboardPath = getDefaultDashboardPath(user);
+  const employerDestination = isEmployer ? ROUTES.employer.dashboard : ROUTES.signIn;
   const { scrollYProgress } = useScroll();
 
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
@@ -227,7 +234,7 @@ export function LandingPageBlue() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => navigate(isAuthenticated ? dashboardPath : "/sign-in")}
+                onClick={() => navigate(isAuthenticated ? dashboardPath : ROUTES.signIn)}
                 className="text-[14px] font-semibold text-gray-700 px-5 py-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 Sign In
@@ -928,7 +935,16 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate(isSuperAdmin ? ROUTES.admin.dashboard : ROUTES.adminSignIn)}
+                    onClick={() => navigate(employerDestination)}
+                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                  >
+                    Employer Dashboard
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => navigate(isAdmin ? ROUTES.admin.dashboard : ROUTES.adminSignIn)}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Admin Dashboard
