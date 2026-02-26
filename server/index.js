@@ -1,52 +1,43 @@
+import 'dotenv/config';
 import express from 'express';
 import http from 'http';
-import dotenv from 'dotenv';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
 import { initSocket } from './lib/socket.js';
-import { getJwtSecret } from './lib/jwtSecret.js';
-import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load `server/.env` by default when running from monorepo root, while still
-// allowing real environment variables to override values in production.
-const serverEnv = dotenv.config({ path: resolve(__dirname, '.env') });
-if (serverEnv.error) {
-    dotenv.config();
-}
 
 const app = express();
 const server = http.createServer(app);
 
-const isProduction = process.env.NODE_ENV === 'production';
-const defaultMongoUri = 'mongodb://127.0.0.1:27017';
-const mongoUri = process.env.MONGO_URI?.trim() || (isProduction ? '' : defaultMongoUri);
+// Security: trust proxy (for HTTPS enforcement behind a proxy)
+app.set('trust proxy', 1);
+
+// Enforce HTTPS and HSTS in production
+if (process.env.NODE_ENV === 'production') {
+    app.use((req, res, next) => {
+        const proto = req.headers['x-forwarded-proto'] || req.protocol;
+        if (proto && proto !== 'https') {
+            // Redirect to https
+            return res.redirect(`https://${req.headers.host}${req.url}`);
+        }
+        // Set HSTS header for browsers to enforce HTTPS
+        res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+        next();
+    });
+}
 
 //Connection Config
 const config = {
     PORT: process.env.PORT || 5000,
-    MONGO_URI: mongoUri,
-    ORIGIN: process.env.CLIENT_ORIGIN || process.env.ORIGIN || 'http://localhost:5173',
+    MONGO_URI: process.env.MONGO_URI,
+    ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
     DB_NAME: 'MicroJob',
 };
 
-const allowedOrigins = buildAllowedOrigins({
-    clientOrigin: config.ORIGIN,
-    extraOrigins: process.env.CORS_ORIGINS,
-});
-
 if (!config.MONGO_URI){
-    console.error('MONGO_URI is not defined. Set MONGO_URI in production environment.');
+    console.error('MONGO_URI is not defined');
     process.exit(1);
-}
-if (!process.env.MONGO_URI && !isProduction) {
-    console.warn(`MONGO_URI is not set; defaulting to ${defaultMongoUri} for local development.`);
 }
 app.use (morgan('dev'));
 
@@ -57,16 +48,10 @@ app.use(express.urlencoded({ extended: true}));
 
 // Allow CORS including PATCH and preflight for the client
 app.use(cors({
-    origin: (origin, callback) => {
-        if (isAllowedOrigin(origin, allowedOrigins)) {
-            callback(null, true);
-            return;
-        }
-        callback(new Error('Not allowed by CORS'));
-    },
+    origin: process.env.NODE_ENV === 'production' ? config.ORIGIN : '*',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     preflightContinue: false,
 }));
 
@@ -80,6 +65,8 @@ import UserRoute from './routes/UserRoute.js';
 import authRoutes from './routes/authRoutes.js';
 import JobApplicationRoute from './routes/JobApplicationRoute.js';
 import MessageRoute from './routes/MessageRoute.js';
+import paymentRoutes from './routes/PaymentRoute.js';
+
 
 app.get('/', (req, res) => {
     res.json({ message: 'Backend server is running' });
@@ -94,6 +81,7 @@ app.use('/api/jobs', JobRoute);
 app.use('/api/users', UserRoute);
 app.use('/api', JobApplicationRoute);
 app.use('/api/messages', MessageRoute);
+app.use('/api/payment', paymentRoutes);
 
 //Error handler
 app.use((err, req, res, next) => {
@@ -106,12 +94,11 @@ app.use((err, req, res, next) => {
 }) 
 const startServer = async () => {
     try {
-        getJwtSecret();
         await mongoose.connect(config.MONGO_URI, { dbName: config.DB_NAME});
         console.log('Connected to DB');
 
         // initialize socket.io
-        initSocket(server, { allowedOrigins });
+        initSocket(server);
 
         server.listen(config.PORT, '0.0.0.0', () => {
             console.log(`Server is running on http://localhost:${config.PORT}`);
