@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
+import { tokens } from '../../theme/tokens';
 
 type NotificationsInboxProps = {
   activeTab?: string;
@@ -59,20 +61,18 @@ export default function NotificationsInbox({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notifications</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Notifications */}
         {notifications.length > 0 ? (
           <View style={styles.notificationsList}>
             {notifications.map(notification => (
               <View key={notification.id} style={styles.notificationCard}>
                 <View style={styles.notificationContent}>
                   <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>A</Text>
+                    <Ionicons name="notifications-outline" size={18} color={tokens.colors.brand} />
                   </View>
                   <View style={styles.textContent}>
                     <Text style={styles.notificationTitle}>{notification.title}</Text>
@@ -85,14 +85,16 @@ export default function NotificationsInbox({
                   style={styles.clearButton}
                   onPress={() => handleClearNotification(notification.id)}
                 >
-                  <Text style={styles.clearButtonText}>Clear</Text>
+                  <Ionicons name="close-outline" size={16} color="#B91C1C" />
                 </TouchableOpacity>
               </View>
             ))}
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Text style={styles.emptyIcon}>🔔</Text>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="notifications-off-outline" size={40} color={tokens.colors.textSubtle} />
+            </View>
             <Text style={styles.emptyTitle}>No Notifications</Text>
             <Text style={styles.emptyText}>You're all caught up!</Text>
           </View>
@@ -107,39 +109,41 @@ export default function NotificationsInbox({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
+    backgroundColor: tokens.colors.background,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 16,
-    backgroundColor: '#1e3a5f',
     justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingTop: 54,
+    paddingBottom: 14,
+    backgroundColor: tokens.colors.background,
   },
   headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    textAlign: 'center',
+    fontSize: 24,
+    fontWeight: '800',
+    color: tokens.colors.text,
+    letterSpacing: -0.3,
   },
   scroll: {
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 8,
     paddingBottom: 90,
   },
   notificationsList: {
     gap: 12,
   },
   notificationCard: {
-    backgroundColor: '#3b5a85',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    ...tokens.shadow.card,
   },
   notificationContent: {
     flex: 1,
@@ -150,14 +154,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#c0c0c0',
+    backgroundColor: tokens.colors.brandSoft,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#6b7280',
   },
   textContent: {
     flex: 1,
@@ -165,50 +164,55 @@ const styles = StyleSheet.create({
   notificationTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: tokens.colors.text,
     marginBottom: 4,
   },
   notificationCompany: {
     fontSize: 13,
-    color: '#e5e7eb',
+    color: tokens.colors.textMuted,
     marginBottom: 2,
   },
   notificationDescription: {
     fontSize: 12,
-    color: '#d1dce6',
+    color: tokens.colors.textMuted,
     marginBottom: 6,
   },
   notificationTime: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: tokens.colors.textSubtle,
   },
   clearButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  clearButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#ef4444',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 60,
   },
-  emptyIcon: {
-    fontSize: 48,
+  emptyIconWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: tokens.colors.surface,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 16,
   },
   emptyTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1f2937',
+    color: tokens.colors.text,
     marginBottom: 8,
   },
   emptyText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: tokens.colors.textMuted,
   },
 });

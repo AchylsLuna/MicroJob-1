@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, StatusBar, Alert, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Alert, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
+import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../../theme/tokens';
 
 interface Message {
   _id: string;
@@ -19,9 +21,11 @@ interface ChatScreenProps {
   displayName?: string;
   onBack: () => void;
   liveMessages?: any[];
+  onOpenNotifications?: () => void;
+  notificationBadgeCount?: number;
 }
 
-export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [] }: ChatScreenProps) {
+export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [], onOpenNotifications, notificationBadgeCount = 0 }: ChatScreenProps) {
   const [displayName, setDisplayName] = useState<string | undefined>(initialDisplayName);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -142,15 +146,25 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   }, [messages]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#ffffff' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: tokens.colors.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack}><Text style={styles.backBtn}>{'< Back'}</Text></TouchableOpacity>
+          <TouchableOpacity onPress={onBack} style={styles.backTouch}>
+            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          </TouchableOpacity>
           <Text style={styles.headerText}>{displayName || 'Chat'}</Text>
+          <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications}>
+            <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
+            {notificationBadgeCount > 0 ? (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
         </View>
         <FlatList
           ref={flatListRef}
-          style={{ flex: 1, backgroundColor: '#ffffff' }}
+          style={{ flex: 1, backgroundColor: tokens.colors.background }}
           data={messages}
           keyExtractor={item => item._id}
           renderItem={({ item }) => {
@@ -170,9 +184,11 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           value={input}
           onChangeText={setInput}
           placeholder="Type a message..."
+          placeholderTextColor={tokens.colors.textSubtle}
         />
         <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
-          <Text style={{ color: '#fff', fontWeight: '700' }}>Send</Text>
+          <Ionicons name="send" size={15} color={tokens.colors.onBrand} />
+          <Text style={styles.sendBtnText}>Send</Text>
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
@@ -181,9 +197,57 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
-  backBtn: { color: '#0a2847', fontWeight: '700', fontSize: 16, marginRight: 12 },
-  headerText: { fontSize: 18, fontWeight: '700', color: '#0a2847' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: tokens.colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
+  },
+  backTouch: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
+  },
+  headerText: { flex: 1, fontSize: 18, fontWeight: '800', color: tokens.colors.text },
+  notificationIcon: {
+    position: 'relative',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: tokens.colors.danger,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: tokens.colors.white,
+  },
+  badgeText: {
+    color: tokens.colors.onBrand,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   msgBubble: {
     maxWidth: '80%',
     borderRadius: 16,
@@ -191,18 +255,47 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   myMsg: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: tokens.colors.brand,
     alignSelf: 'flex-end',
   },
   theirMsg: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: tokens.colors.surface,
     alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
   },
   msgText: { fontSize: 15 },
-  myMsgText: { color: '#ffffff' },
-  theirMsgText: { color: '#0a2847' },
-  msgTime: { color: '#64748b', fontSize: 11, marginTop: 4, textAlign: 'right' },
-  inputRow: { flexDirection: 'row', padding: 12, backgroundColor: '#fff', alignItems: 'center' },
-  input: { flex: 1, borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 20, padding: 10, marginRight: 8 },
-  sendBtn: { backgroundColor: '#0ea5e9', borderRadius: 20, paddingVertical: 10, paddingHorizontal: 18 },
+  myMsgText: { color: tokens.colors.onBrand },
+  theirMsgText: { color: tokens.colors.text },
+  msgTime: { color: tokens.colors.textSubtle, fontSize: 11, marginTop: 4, textAlign: 'right' },
+  inputRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: tokens.colors.background,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: tokens.colors.border,
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginRight: 8,
+    color: tokens.colors.text,
+  },
+  sendBtn: {
+    backgroundColor: tokens.colors.brand,
+    borderRadius: 22,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sendBtnText: { color: tokens.colors.onBrand, fontWeight: '700', fontSize: 12 },
 });

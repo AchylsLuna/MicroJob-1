@@ -58,8 +58,6 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user: authUser } = useAuth();
   const normalizedRole = String(authUser?.role || "").toLowerCase();
-  const [userName, setUserName] = useState("Jonas Dick");
-  const [userEmail, setUserEmail] = useState("you@example.com");
   const [activeVacancyTab, setActiveVacancyTab] = useState("Application Sent");
   const [showNotifications, setShowNotifications] = useState(false);
   const [applications, setApplications] = useState<Array<{
@@ -83,8 +81,6 @@ const Dashboard: React.FC = () => {
         const parsed = JSON.parse(stored);
         console.log("Dashboard - Parsed auth_user:", parsed);
         console.log("Dashboard - User role:", parsed?.role);
-        if (parsed?.firstName && parsed?.lastName) setUserName(`${parsed.firstName} ${parsed.lastName}`);
-        if (parsed?.email) setUserEmail(parsed.email);
       } catch (err) {
         console.warn("Failed to parse auth_user", err);
       }

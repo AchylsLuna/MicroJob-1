@@ -28,6 +28,16 @@ const removeToast = (id: string) => {
 };
 
 const addToast = (type: ToastType, title: string, options?: ToastOptions) => {
+  const existing = toastQueue.find(
+    (toast) =>
+      toast.type === type &&
+      toast.title === title &&
+      (toast.description || "") === (options?.description || ""),
+  );
+  if (existing) {
+    return existing.id;
+  }
+
   const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const toast: ToastItem = {
     id,

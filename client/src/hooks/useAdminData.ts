@@ -16,7 +16,7 @@ export type AdminJob = {
   _id: string;
   title: string;
   status?: "Available" | "In Progress" | "Completed" | "Cancelled";
-  salary?: string;
+  salary?: string | number;
   location?: string;
   createdAt?: string;
   applicants?: string[];
@@ -121,8 +121,11 @@ export function useAdminData() {
       .slice(0, 6);
   }, [categories, jobsByCategory]);
 
-  const parseSalary = (value?: string) => {
-    if (!value) return 0;
+  const parseSalary = (value?: string | number) => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
     const cleaned = value.replace(/[^0-9.]/g, "");
     const amount = Number.parseFloat(cleaned);
     return Number.isFinite(amount) ? amount : 0;
@@ -131,7 +134,7 @@ export function useAdminData() {
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(value);
 
-  const formatSalary = (salary?: string) => {
+  const formatSalary = (salary?: string | number) => {
     const amount = parseSalary(salary);
     if (amount > 0) return formatCurrency(amount);
     return salary || "—";

@@ -1,6 +1,7 @@
-import { ROUTES, startsWithPath } from "./routes";
+import { ROUTES, matchesPath, startsWithPath } from "./routes";
 
 export const isAdminNamespacePath = (pathname: string) =>
+  matchesPath(pathname, ROUTES.adminSignIn) ||
   startsWithPath(pathname, ROUTES.admin.root) ||
   startsWithPath(pathname, ROUTES.legacyDashboard.admin.root);
 

@@ -1,7 +1,13 @@
 // routes/PaymentRoute.js
 import express from 'express';
-import { createTopUpSession, handleWebhook, getUserTransactions, getAllTransactions, confirmTopUp } from '../controllers/PaymentController.js';
-import { simulateWebhook } from '../controllers/PaymentController.js';
+import {
+  createTopUpSession,
+  handleWebhook,
+  getUserTransactions,
+  getAllTransactions,
+  confirmTopUp,
+  simulateWebhook,
+} from '../controllers/PaymentController.js';
 import verifyToken from '../middleware/auth.js';
 
 const router = express.Router();

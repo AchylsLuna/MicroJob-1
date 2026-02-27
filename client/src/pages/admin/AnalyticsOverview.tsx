@@ -26,8 +26,11 @@ export function AnalyticsOverview({
   topCategories,
   formatCurrency,
 }: AnalyticsOverviewProps) {
-  const parseSalary = (value?: string) => {
-    if (!value) return 0;
+  const parseSalary = (value?: string | number) => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
     const cleaned = value.replace(/[^0-9.]/g, "");
     const amount = Number.parseFloat(cleaned);
     return Number.isFinite(amount) ? amount : 0;

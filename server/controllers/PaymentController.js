@@ -7,6 +7,69 @@ import monitor from '../lib/monitor.js';
 import AuditLog from '../models/AuditLog.js';
 
 const PAYMONGO_BASE = 'https://api.paymongo.com/v1';
+const TOPUP_TARGET = {
+    EMPLOYER: 'EMPLOYER',
+    WORKER: 'WORKER',
+    BOTH: 'BOTH',
+};
+
+const normalizeTarget = (value) => {
+    const normalized = String(value || TOPUP_TARGET.EMPLOYER).toUpperCase();
+    if (normalized === TOPUP_TARGET.WORKER || normalized === TOPUP_TARGET.BOTH) return normalized;
+    return TOPUP_TARGET.EMPLOYER;
+};
+
+const buildTopUpLabel = (target) => {
+    if (target === TOPUP_TARGET.WORKER) return 'Top-up (Worker)';
+    if (target === TOPUP_TARGET.BOTH) return 'Top-up (Both)';
+    return 'Top-up (Employer)';
+};
+
+async function applyTopUpToUser({
+    user,
+    amount,
+    target,
+    reference,
+    source,
+    checkoutId = null,
+    actor = null,
+}) {
+    const normalizedTarget = normalizeTarget(target);
+    const numericAmount = Number(amount);
+
+    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
+        throw new Error('Invalid top-up amount');
+    }
+
+    if (normalizedTarget === TOPUP_TARGET.WORKER || normalizedTarget === TOPUP_TARGET.BOTH) {
+        user.workerBalance = (user.workerBalance || 0) + numericAmount;
+    }
+    if (normalizedTarget === TOPUP_TARGET.EMPLOYER || normalizedTarget === TOPUP_TARGET.BOTH) {
+        user.employerBalance = (user.employerBalance || 0) + numericAmount;
+    }
+    await user.save();
+
+    const transaction = await Transaction.create({
+        sender: null,
+        receiver: user._id,
+        amount: numericAmount,
+        type: 'TOP_UP',
+        reference,
+        label: buildTopUpLabel(normalizedTarget),
+        meta: {
+            source,
+            checkout_id: checkoutId || null,
+            target: normalizedTarget,
+        },
+        actor: actor || null,
+    });
+
+    return {
+        target: normalizedTarget,
+        transaction,
+        transactions: [transaction],
+    };
+}
 
 export async function getUserTransactions(req, res) {
     try {
@@ -50,16 +113,17 @@ export async function createTopUpSession(req, res) {
             return res.status(400).json({ message: `Invalid amount; must be between ${minAmount} and ${maxAmount}` });
         }
 
-        const allowedTargets = ['EMPLOYER', 'WORKER', 'BOTH'];
-        let effectiveTarget = target;
-        if (effectiveTarget) effectiveTarget = String(effectiveTarget).toUpperCase();
-        if (effectiveTarget && !allowedTargets.includes(effectiveTarget)) {
+        const allowedTargets = new Set(Object.values(TOPUP_TARGET));
+        let effectiveTarget = target ? String(target).toUpperCase() : '';
+        if (effectiveTarget && !allowedTargets.has(effectiveTarget)) {
             return res.status(400).json({ message: 'Invalid target' });
         }
 
         const requestingUser = await User.findById(userId).select('role');
         if (!effectiveTarget) {
-            effectiveTarget = (requestingUser && requestingUser.role === 'both') ? 'BOTH' : 'EMPLOYER';
+            effectiveTarget = (requestingUser && requestingUser.role === 'both')
+                ? TOPUP_TARGET.BOTH
+                : TOPUP_TARGET.EMPLOYER;
         }
 
         const amountInCentavos = Math.round(parsedAmount * 100);
@@ -161,7 +225,7 @@ export async function handleWebhook(req, res) {
             if (referenceNumber && referenceNumber.startsWith('TOPUP')) {
                 const partsRef = referenceNumber.split('-');
                 const userId = partsRef[1];
-                const target = (partsRef[2] || 'EMPLOYER').toUpperCase();
+                const target = normalizeTarget(partsRef[2] || TOPUP_TARGET.EMPLOYER);
 
                 let amountAdded = 0;
                 if (checkoutAttrs.payments && checkoutAttrs.payments.length > 0) {
@@ -185,25 +249,14 @@ export async function handleWebhook(req, res) {
                     return res.status(200).send('Already processed');
                 }
 
-                if (target === 'BOTH') {
-                    user.workerBalance = (user.workerBalance || 0) + amountAdded;
-                    user.employerBalance = (user.employerBalance || 0) + amountAdded;
-                    await user.save();
-
-                    const label = `Top-up (Both)`;
-                    await Transaction.create({ sender: null, receiver: user._id, amount: amountAdded, type: 'TOP_UP', reference: referenceNumber, label, meta: { source: 'paymongo', checkout_id: checkoutId } });
-                    await Transaction.create({ sender: null, receiver: user._id, amount: amountAdded, type: 'TOP_UP', reference: referenceNumber, label, meta: { source: 'paymongo', checkout_id: checkoutId } });
-                } else {
-                    if (target === 'WORKER') {
-                        user.workerBalance = (user.workerBalance || 0) + amountAdded;
-                    } else {
-                        user.employerBalance = (user.employerBalance || 0) + amountAdded;
-                    }
-                    await user.save();
-
-                    const label = `Top-up (${target === 'WORKER' ? 'Worker' : 'Employer'})`;
-                    await Transaction.create({ sender: null, receiver: user._id, amount: amountAdded, type: 'TOP_UP', reference: referenceNumber, label, meta: { source: 'paymongo', checkout_id: checkoutId } });
-                }
+                await applyTopUpToUser({
+                    user,
+                    amount: amountAdded,
+                    target,
+                    reference: referenceNumber,
+                    source: 'paymongo',
+                    checkoutId,
+                });
 
                 console.log(`Webhook: topped up ${amountAdded} for ${userId} (${target})`);
             }
@@ -275,32 +328,35 @@ export async function confirmTopUp(req, res) {
 
         const parts = (ref || '').split('-');
         const userId = parts[1];
-        const target = (parts[2] || 'EMPLOYER').toUpperCase();
+        const target = normalizeTarget(parts[2] || TOPUP_TARGET.EMPLOYER);
 
         const user = await User.findById(userId);
         if (!user) return res.status(404).json({ message: 'User not found' });
 
-        if (target === 'BOTH') {
-            user.workerBalance = (user.workerBalance || 0) + amountAdded;
-            user.employerBalance = (user.employerBalance || 0) + amountAdded;
-            await user.save();
-            const label = `Top-up (Both)`;
-            const tx1 = await Transaction.create({ sender: null, receiver: user._id, amount: amountAdded, type: 'TOP_UP', reference: ref, label, meta: { source: 'paymongo', checkout_id: checkout.id }, actor: user._id });
-            const tx2 = await Transaction.create({ sender: null, receiver: user._id, amount: amountAdded, type: 'TOP_UP', reference: ref, label, meta: { source: 'paymongo', checkout_id: checkout.id }, actor: user._id });
-            await monitor.audit({ actor: user._id, action: 'confirm_topup', ip: req.ip || null, userAgent: req.get('user-agent'), amount: amountAdded, status: 'success', meta: { target: 'BOTH', ref } });
-            await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
-            return res.status(200).json({ message: 'Top-up applied', transactions: [tx1, tx2] });
-        }
+        const topUpResult = await applyTopUpToUser({
+            user,
+            amount: amountAdded,
+            target,
+            reference: ref,
+            source: 'paymongo',
+            checkoutId: checkout.id,
+            actor: user._id,
+        });
 
-        if (target === 'WORKER') user.workerBalance = (user.workerBalance || 0) + amountAdded;
-        else user.employerBalance = (user.employerBalance || 0) + amountAdded;
-        await user.save();
-
-        const labelSingle = `Top-up (${target === 'WORKER' ? 'Worker' : 'Employer'})`;
-        const tx = await Transaction.create({ sender: null, receiver: user._id, amount: amountAdded, type: 'TOP_UP', reference: ref, label: labelSingle, meta: { source: 'paymongo', checkout_id: checkout.id }, actor: user._id });
-        await monitor.audit({ actor: user._id, action: 'confirm_topup', ip: req.ip || null, userAgent: req.get('user-agent'), amount: amountAdded, status: 'success', meta: { target, ref } });
+        await monitor.audit({
+            actor: user._id,
+            action: 'confirm_topup',
+            ip: req.ip || null,
+            userAgent: req.get('user-agent'),
+            amount: amountAdded,
+            status: 'success',
+            meta: { target: topUpResult.target, ref },
+        });
         await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
-        return res.status(200).json({ message: 'Top-up applied', transaction: tx });
+        if (topUpResult.target === TOPUP_TARGET.BOTH) {
+            return res.status(200).json({ message: 'Top-up applied', transactions: topUpResult.transactions });
+        }
+        return res.status(200).json({ message: 'Top-up applied', transaction: topUpResult.transaction });
 
     } catch (error) {
         console.error('Confirm top-up error', error.response?.data || error.message || error);
@@ -324,7 +380,7 @@ export async function simulateWebhook(req, res) {
         const parts = referenceNumber.split('-');
         if (!parts[0] || parts[0] !== 'TOPUP') return res.status(400).json({ message: 'Invalid reference format' });
         const userId = parts[1];
-        const target = (parts[2] || 'EMPLOYER').toUpperCase();
+        const target = normalizeTarget(parts[2] || TOPUP_TARGET.EMPLOYER);
         const { Types } = await import('mongoose');
         if (!Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'Invalid reference user id' });
 
@@ -334,27 +390,30 @@ export async function simulateWebhook(req, res) {
         const amountNum = Number(amount);
         if (Number.isNaN(amountNum) || amountNum <= 0) return res.status(400).json({ message: 'Invalid amount' });
 
-        if (target === 'BOTH') {
-            user.workerBalance = (user.workerBalance || 0) + amountNum;
-            user.employerBalance = (user.employerBalance || 0) + amountNum;
-            await user.save();
-            const label = `Top-up (Both)`;
-            const tx1 = await Transaction.create({ sender: null, receiver: user._id, amount: amountNum, type: 'TOP_UP', reference: referenceNumber, label, meta: { source: 'dev-webhook', checkout_id: checkoutId || null } });
-            const tx2 = await Transaction.create({ sender: null, receiver: user._id, amount: amountNum, type: 'TOP_UP', reference: referenceNumber, label, meta: { source: 'dev-webhook', checkout_id: checkoutId || null } });
-            await monitor.audit({ actor: user._id, action: 'dev_webhook_topup', ip: req.ip || null, userAgent: req.get('user-agent'), amount: amountNum, status: 'success', meta: { target: 'BOTH', referenceNumber } });
-            await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
-            return res.status(200).json({ message: 'Simulated top-up applied', transactions: [tx1, tx2] });
-        }
+        const topUpResult = await applyTopUpToUser({
+            user,
+            amount: amountNum,
+            target,
+            reference: referenceNumber,
+            source: 'dev-webhook',
+            checkoutId: checkoutId || null,
+            actor: user._id,
+        });
 
-        if (target === 'WORKER') user.workerBalance = (user.workerBalance || 0) + amountNum;
-        else user.employerBalance = (user.employerBalance || 0) + amountNum;
-        await user.save();
-
-        const label = `Top-up (${target === 'WORKER' ? 'Worker' : 'Employer'})`;
-        const tx = await Transaction.create({ sender: null, receiver: user._id, amount: amountNum, type: 'TOP_UP', reference: referenceNumber, label, meta: { source: 'dev-webhook', checkout_id: checkoutId || null } });
-        await monitor.audit({ actor: user._id, action: 'dev_webhook_topup', ip: req.ip || null, userAgent: req.get('user-agent'), amount: amountNum, status: 'success', meta: { target, referenceNumber } });
+        await monitor.audit({
+            actor: user._id,
+            action: 'dev_webhook_topup',
+            ip: req.ip || null,
+            userAgent: req.get('user-agent'),
+            amount: amountNum,
+            status: 'success',
+            meta: { target: topUpResult.target, referenceNumber },
+        });
         await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
-        return res.status(200).json({ message: 'Simulated top-up applied', transaction: tx });
+        if (topUpResult.target === TOPUP_TARGET.BOTH) {
+            return res.status(200).json({ message: 'Simulated top-up applied', transactions: topUpResult.transactions });
+        }
+        return res.status(200).json({ message: 'Simulated top-up applied', transaction: topUpResult.transaction });
     } catch (error) {
         console.error('Simulate webhook error', error);
         return res.status(500).json({ message: 'Simulate failed' });
@@ -367,7 +426,10 @@ export async function getAllTransactions(req, res) {
         if (!requesterId) return res.status(401).json({ message: 'Authentication required' });
 
         const requester = await User.findById(requesterId).select('role');
-        if (!requester || requester.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+        const role = requester?.role || '';
+        if (!requester || (role !== 'admin' && role !== 'superadmin')) {
+            return res.status(403).json({ message: 'Forbidden' });
+        }
 
         const txs = await Transaction.find()
             .populate('sender', 'name email')

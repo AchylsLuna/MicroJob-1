@@ -49,7 +49,7 @@ export default function Navigation({
             onPress={() => onTabPress?.(item.screen)}
             activeOpacity={0.85}
           >
-            <View style={styles.iconContainer}>
+            <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
               {item.screen === 'Profile' ? (
                 <View style={[styles.profileChip, isActive && styles.profileChipActive]}>
                   <Text style={[styles.profileChipText, isActive && styles.profileChipTextActive]}>
@@ -84,9 +84,12 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
     borderTopWidth: 1,
     borderTopColor: tokens.colors.border,
-    paddingTop: 10,
-    paddingBottom: 10,
-    minHeight: 78,
+    paddingTop: 8,
+    paddingBottom: 12,
+    minHeight: 80,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 4,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.06,
@@ -98,18 +101,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingVertical: 2,
   },
   iconContainer: {
     position: 'relative',
-    width: 34,
+    width: 38,
     height: 34,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconContainerActive: {
+    backgroundColor: tokens.colors.brandSoft,
+  },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: tokens.colors.textMuted,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   tabLabelActive: {
     color: tokens.colors.brand,

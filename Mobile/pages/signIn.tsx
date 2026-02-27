@@ -8,22 +8,41 @@ export default function SignIn({
   onBack,
   onNavigateToSignUp,
   onNavigateToForgot,
+  onNavigateToVerify,
   onLogin,
 }: {
   onBack: () => void;
   onNavigateToSignUp?: () => void;
   onNavigateToForgot?: () => void;
+  onNavigateToVerify?: () => void;
   onLogin?: () => void;
 }) {
-  const [email, setEmail] = useState(''); // Changed from phoneNumber to email
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaToken, setMfaToken] = useState('');
+  const [requiresMfa, setRequiresMfa] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  const completeLogin = async (token: string, user: any) => {
+    await AsyncStorage.setItem('auth_token', token);
+    if (user) {
+      await AsyncStorage.setItem('auth_user', JSON.stringify(user));
+    }
+    await AsyncStorage.setItem('has_onboarded', 'true');
+    setRequiresMfa(false);
+    setMfaToken('');
+    setMfaCode('');
+    Alert.alert('Success', 'Login successful!');
+    onLogin?.();
+  };
+
   const handleSignIn = async () => {
     // Validation
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email');
+    const loginInput = email.trim();
+    if (!loginInput) {
+      Alert.alert('Error', 'Please enter your email, username, or phone number');
       return;
     }
 
@@ -35,16 +54,94 @@ export default function SignIn({
     setIsLoading(true);
 
     try {
+      const phoneDigits = loginInput.replace(/\D/g, '');
+      const normalizedPhone = phoneDigits.startsWith('63') && phoneDigits.length === 12
+        ? `0${phoneDigits.slice(2)}`
+        : phoneDigits;
+      const isPhoneLogin = /^\d{11}$/.test(normalizedPhone);
+      const requestBody: Record<string, string> = { password };
+
+      if (isPhoneLogin) {
+        requestBody.phoneNumber = normalizedPhone;
+      } else {
+        requestBody.emailOrUsername = loginInput.includes('@')
+          ? loginInput.toLowerCase()
+          : loginInput;
+      }
+
       const result = await apiRequest(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          emailOrUsername: email.toLowerCase().trim(),
-          password,
-        }),
+        body: JSON.stringify(requestBody),
       }, 'Unable to sign in.');
+
+      const responseData = asObject<any>(result.data) || {};
+      const responseRaw = asObject<any>(result.raw) || {};
+      const token = responseData?.token || responseRaw?.token;
+      const user = responseData?.user || responseRaw?.user;
+      const nextMfaRequired = Boolean(responseData?.mfaRequired || responseRaw?.mfaRequired);
+      const nextMfaToken = responseData?.mfaToken || responseRaw?.mfaToken;
+
+      if (result.ok && nextMfaRequired && nextMfaToken) {
+        setRequiresMfa(true);
+        setMfaToken(nextMfaToken);
+        setMfaCode('');
+        Alert.alert('MFA Required', 'Enter your authenticator or backup code to continue.');
+      } else if (result.ok && token) {
+        await completeLogin(token, user);
+      } else {
+        const serverMessage = result.message || 'Unable to sign in.';
+        if (result.status === 401 && /verify your email/i.test(serverMessage)) {
+          const normalizedEmail = loginInput.includes('@') ? loginInput.toLowerCase() : '';
+          if (normalizedEmail) {
+            await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
+          }
+          Alert.alert(
+            'Email verification required',
+            serverMessage,
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Verify now', onPress: () => onNavigateToVerify?.() },
+            ]
+          );
+        } else if (result.status === 401 && /invalid credentials/i.test(serverMessage)) {
+          Alert.alert('Error', 'Invalid credentials. Check your email/phone/username and password.');
+        } else {
+          Alert.alert('Error', `${serverMessage} (HTTP ${result.status})`);
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Error', 'Network error. Please check your connection and server status.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyMfa = async () => {
+    if (!requiresMfa || !mfaToken) {
+      Alert.alert('Error', 'Start sign in first.');
+      return;
+    }
+    if (!mfaCode.trim()) {
+      Alert.alert('Error', 'Enter your MFA code.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await apiRequest(`${API_URL}/auth/login/mfa`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mfaToken,
+          code: mfaCode.trim(),
+        }),
+      }, 'Unable to verify MFA.');
 
       const responseData = asObject<any>(result.data) || {};
       const responseRaw = asObject<any>(result.raw) || {};
@@ -52,21 +149,13 @@ export default function SignIn({
       const user = responseData?.user || responseRaw?.user;
 
       if (result.ok && token) {
-        // Store token and user info
-        await AsyncStorage.setItem('auth_token', token);
-        if (user) {
-          await AsyncStorage.setItem('auth_user', JSON.stringify(user));
-        }
-        await AsyncStorage.setItem('has_onboarded', 'true');
-        
-        Alert.alert('Success', 'Login successful!');
-        if (onLogin) onLogin();
-      } else {
-        Alert.alert('Error', `${result.message || 'Invalid credentials'} (HTTP ${result.status})`);
+        await completeLogin(token, user);
+        return;
       }
+
+      Alert.alert('Error', `${result.message || 'Invalid MFA code.'} (HTTP ${result.status})`);
     } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Error', 'Network error. Please check your connection and server status.');
+      Alert.alert('Error', 'Network error while verifying MFA.');
     } finally {
       setIsLoading(false);
     }
@@ -92,17 +181,18 @@ export default function SignIn({
         <Text style={styles.title}>Welcome Back</Text>
         <Text style={styles.subtitle}>Sign in to your account</Text>
 
-        {/* Email Input - Changed from Phone Number (phone is now optional) */}
+        {/* Login Input */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputIcon}>📧</Text>
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="Email, Username, or Phone"
             placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
+            keyboardType="default"
             autoCapitalize="none"
+            autoCorrect={false}
           />
         </View>
 
@@ -116,27 +206,49 @@ export default function SignIn({
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="password"
+            autoComplete="password"
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
             <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️'}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Forgot Password Link */}
-        <TouchableOpacity style={styles.forgotContainer} onPress={onNavigateToForgot}>
-          <Text style={styles.forgotText}>Forgot password?</Text>
-        </TouchableOpacity>
+        {requiresMfa ? (
+          <>
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputIcon}>🔐</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Authenticator / Backup Code"
+                placeholderTextColor="#999"
+                value={mfaCode}
+                onChangeText={setMfaCode}
+                autoCapitalize="characters"
+              />
+            </View>
+            <Text style={styles.mfaHelpText}>
+              MFA is enabled for this account. Enter a valid code to continue.
+            </Text>
+          </>
+        ) : (
+          <TouchableOpacity style={styles.forgotContainer} onPress={onNavigateToForgot}>
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Sign In Button */}
         <TouchableOpacity 
           style={[styles.signInButton, isLoading && styles.signInButtonDisabled]} 
-          onPress={handleSignIn}
+          onPress={requiresMfa ? handleVerifyMfa : handleSignIn}
           disabled={isLoading}
         >
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.signInButtonText}>Sign in</Text>
+            <Text style={styles.signInButtonText}>{requiresMfa ? 'Verify MFA' : 'Sign in'}</Text>
           )}
         </TouchableOpacity>
 
@@ -249,6 +361,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#0066cc',
     fontWeight: '600',
+  },
+  mfaHelpText: {
+    width: '100%',
+    fontSize: 12,
+    color: '#475569',
+    marginBottom: 16,
   },
   signInButton: {
     backgroundColor: '#0a2847',

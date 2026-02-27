@@ -8,13 +8,21 @@ const UserSchema = new mongoose.Schema(
             required: false, // Changed to optional - can be added in settings later
             unique: true,
             sparse: true, // Allows multiple null values for unique field
-            minlength: 10,
-            maxlength: 10,
+            minlength: 11,
+            maxlength: 11,
         },
         email: {
             type: String,
             required: true, // Changed to required since we use it for login
             unique: true,
+            lowercase: true,
+            trim: true,
+        },
+        username: {
+            type: String,
+            required: false,
+            unique: true,
+            sparse: true,
             lowercase: true,
             trim: true,
         },
@@ -41,6 +49,30 @@ const UserSchema = new mongoose.Schema(
             type: String,
             enum: ["pending", "active", "disabled"],
             default: "pending",
+        },
+        mfaEnabled: {
+            type: Boolean,
+            default: false,
+        },
+        mfaMethod: {
+            type: String,
+            default: null,
+            trim: true,
+        },
+        mfaSecret: {
+            type: String,
+            default: null,
+            select: false,
+        },
+        mfaPendingSecret: {
+            type: String,
+            default: null,
+            select: false,
+        },
+        mfaBackupCodes: {
+            type: [String],
+            default: [],
+            select: false,
         },
         // Separate balances for employer (funds used to post jobs / escrow)
         // and worker (funds received from completed jobs / payouts)

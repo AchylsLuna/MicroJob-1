@@ -106,10 +106,10 @@ export function TermsAndConditions() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Link
-                to={ROUTES.home}
+                to={ROUTES.signUp}
                 className="rounded-lg border border-[#D1D5DB] px-4 py-2 text-[13px] font-semibold text-[#374151] hover:bg-[#F9FAFB]"
               >
-                Back to Home
+                Back to Sign Up
               </Link>
               <Link
                 to={ROUTES.privacy}

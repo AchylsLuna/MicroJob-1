@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
+import { tokens } from '../../theme/tokens';
 
 type Category = { _id: string; name: string };
 type Job = {
@@ -19,7 +21,28 @@ type Job = {
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 };
 
-export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails, onSaveJob, savedJobIds = [], activeTab: externalActiveTab, onTabPress: externalOnTabPress, onOpenNotifications, messageBadgeCount = 0 }: { onLogout?: () => void; onNavigateToJobs?: () => void; onViewJobDetails?: (job: any) => void; onSaveJob?: (job: any) => void; savedJobIds?: string[]; activeTab?: string; onTabPress?: (tab: string) => void; onOpenNotifications?: () => void; messageBadgeCount?: number }) {
+export default function Dashboard({
+  onNavigateToJobs,
+  onViewJobDetails,
+  onSaveJob,
+  savedJobIds = [],
+  activeTab: externalActiveTab,
+  onTabPress: externalOnTabPress,
+  onOpenNotifications,
+  notificationBadgeCount = 0,
+  messageBadgeCount = 0,
+}: {
+  onLogout?: () => void;
+  onNavigateToJobs?: () => void;
+  onViewJobDetails?: (job: any) => void;
+  onSaveJob?: (job: any) => void;
+  savedJobIds?: string[];
+  activeTab?: string;
+  onTabPress?: (tab: string) => void;
+  onOpenNotifications?: () => void;
+  notificationBadgeCount?: number;
+  messageBadgeCount?: number;
+}) {
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Home');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -27,6 +50,15 @@ export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails
   const [errorMessage, setErrorMessage] = useState('');
 
   const recentJobs = useMemo(() => jobs.slice(0, 5), [jobs]);
+  const jobsByCategory = useMemo(() => {
+    const counts: Record<string, number> = {};
+    jobs.forEach((job) => {
+      const categoryId = typeof job.category === 'string' ? job.category : job.category?._id;
+      if (!categoryId) return;
+      counts[categoryId] = (counts[categoryId] || 0) + 1;
+    });
+    return counts;
+  }, [jobs]);
 
   const fetchCategories = async () => {
     try {
@@ -47,7 +79,7 @@ export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails
       const result = await apiRequest<Job[]>(
         `${API_URL}/jobs?excludeOwn=true`,
         {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         },
         'Failed to load jobs.'
       );
@@ -77,106 +109,128 @@ export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.greeting}>Good morning, Jonas!</Text>
-          <Text style={styles.headerTitle}>Find your Dream job</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.greeting}>Good morning, Jonas</Text>
+          <Text style={styles.headerTitle}>Find your next role</Text>
         </View>
-        <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications}>
-          <Text style={styles.bellIcon}>🔔</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>3</Text>
-          </View>
+        <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} activeOpacity={0.85}>
+          <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
+          {notificationBadgeCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
+            </View>
+          ) : null}
         </TouchableOpacity>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <Text style={styles.searchPlaceholder}>Search Job</Text>
+          <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
+          <Text style={styles.searchPlaceholder}>Search jobs, skills, or companies</Text>
         </View>
 
-        {/* Upload Resume Card */}
         <View style={styles.uploadCard}>
-          <Text style={styles.uploadTitle}>Upload your resume</Text>
-          <Text style={styles.uploadSubtitle}>Get matched with top companies automatically</Text>
-          <TouchableOpacity style={styles.checkButton}>
+          <View style={styles.uploadTopRow}>
+            <View style={styles.uploadIconWrap}>
+              <Ionicons name="document-text-outline" size={18} color={tokens.colors.onBrand} />
+            </View>
+            <Text style={styles.uploadTitle}>Upload your resume</Text>
+          </View>
+          <Text style={styles.uploadSubtitle}>Get matched with top companies automatically.</Text>
+          <TouchableOpacity style={styles.checkButton} activeOpacity={0.9}>
             <Text style={styles.checkButtonText}>Check Applied</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Job Category */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Job Category</Text>
-          <TouchableOpacity><Text style={styles.seeAll}>See all</Text></TouchableOpacity>
+          <Text style={styles.sectionTitle}>Job Categories</Text>
+          <TouchableOpacity onPress={onNavigateToJobs}>
+            <Text style={styles.seeAll}>Browse all</Text>
+          </TouchableOpacity>
         </View>
+
         <View style={styles.categoryRow}>
           {categories.map((category, index) => {
-            const colors = ['#1e3a5f', '#2563eb', '#0a1929'];
+            const colors = [tokens.colors.brandDark, tokens.colors.brand, tokens.colors.brandAccent];
+            const openingCount = jobsByCategory[category._id] || 0;
             return (
               <View key={category._id} style={[styles.categoryCard, { backgroundColor: colors[index % colors.length] }]}>
-                <Text style={styles.categoryIcon}>💼</Text>
-                <Text style={styles.categoryCount}>{category.name.length}</Text>
-                <Text style={styles.categoryLabel}>{category.name}</Text>
+                <View style={styles.categoryIconWrap}>
+                  <Ionicons name="briefcase-outline" size={16} color={tokens.colors.onBrand} />
+                </View>
+                <Text style={styles.categoryCount}>{openingCount}</Text>
+                <Text style={styles.categoryLabel} numberOfLines={2}>
+                  {category.name}
+                </Text>
               </View>
             );
           })}
         </View>
 
-        {/* Recent Jobs */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Jobs</Text>
-          <TouchableOpacity onPress={() => {
-            console.log('See all clicked');
-            onNavigateToJobs?.();
-          }}>
+          <TouchableOpacity onPress={onNavigateToJobs}>
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
         </View>
+
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         {isLoading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#1e3a5f" />
+            <ActivityIndicator color={tokens.colors.brand} />
           </View>
         ) : null}
+
         <View style={styles.jobsList}>
-          {recentJobs.map(job => (
-            <TouchableOpacity 
-              key={job._id} 
-              style={styles.jobCard}
-              onPress={() => onViewJobDetails?.(job)}
-            >
+          {recentJobs.map((job) => (
+            <TouchableOpacity key={job._id} style={styles.jobCard} onPress={() => onViewJobDetails?.(job)} activeOpacity={0.88}>
               <View style={styles.jobCardHeader}>
                 <View style={styles.jobLogo}>
-                  <Text style={styles.jobLogoText}>{job.title?.slice(0, 1) || 'J'}</Text>
+                  <Text style={styles.jobLogoText}>{job.title?.slice(0, 1)?.toUpperCase() || 'J'}</Text>
                 </View>
                 <View style={styles.jobInfo}>
-                  <Text style={styles.jobTitle}>{job.title}</Text>
-                  <Text style={styles.jobCompany}>
+                  <Text style={styles.jobTitle} numberOfLines={1}>
+                    {job.title}
+                  </Text>
+                  <Text style={styles.jobCompany} numberOfLines={1}>
                     {job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ''}`.trim() : 'Job Poster'}
                   </Text>
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.bookmarkBtn}
-                  onPress={() => onSaveJob?.(job)}
+                  onPress={(event: any) => {
+                    event?.stopPropagation?.();
+                    onSaveJob?.(job);
+                  }}
                 >
-                  <Text style={styles.bookmarkIcon}>
-                    {savedJobIds.includes(job._id) ? '🔖' : '📄'}
-                  </Text>
+                  <Ionicons
+                    name={savedJobIds.includes(job._id) ? 'bookmark' : 'bookmark-outline'}
+                    size={18}
+                    color={savedJobIds.includes(job._id) ? tokens.colors.brand : tokens.colors.textMuted}
+                  />
                 </TouchableOpacity>
               </View>
+
               <View style={styles.jobTags}>
                 {(job.skills || []).slice(0, 3).map((skill, index) => (
-                  <View key={index} style={styles.tag}><Text style={styles.tagText}>{skill}</Text></View>
+                  <View key={index} style={styles.tag}>
+                    <Text style={styles.tagText}>{skill}</Text>
+                  </View>
                 ))}
               </View>
+
               <View style={styles.jobFooter}>
                 <View style={styles.jobMetaRow}>
-                  <Text style={styles.jobMetaText}>{job.jobType}</Text>
+                  <View style={styles.metaPill}>
+                    <Ionicons name="time-outline" size={12} color={tokens.colors.textMuted} />
+                    <Text style={styles.jobMetaText}>{job.jobType}</Text>
+                  </View>
                   {job.category && typeof job.category !== 'string' ? (
-                    <Text style={styles.jobMetaText}>{job.category.name}</Text>
+                    <View style={styles.metaPill}>
+                      <Ionicons name="grid-outline" size={12} color={tokens.colors.textMuted} />
+                      <Text style={styles.jobMetaText}>{job.category.name}</Text>
+                    </View>
                   ) : null}
                 </View>
                 <Text style={styles.jobSalary}>{job.salary}</Text>
@@ -186,151 +240,191 @@ export default function Dashboard({ onLogout, onNavigateToJobs, onViewJobDetails
         </View>
       </ScrollView>
 
-      {/* Bottom nav */}
       <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }
 
-const CARD = '#f5f7fb';
-const BLUE = '#0a3c7d';
-const LIGHT = '#eef1f6';
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fa' },
-  header: { 
-    paddingHorizontal: 20, 
-    paddingTop: 50, 
-    paddingBottom: 20, 
-    backgroundColor: '#1e3a5f',
+  container: { flex: 1, backgroundColor: tokens.colors.background },
+  header: {
+    paddingHorizontal: 18,
+    paddingTop: 52,
+    paddingBottom: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: tokens.colors.background,
   },
-  greeting: { fontSize: 14, color: '#b0c4de', marginBottom: 4 },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
+  headerContent: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  greeting: { fontSize: 13, color: tokens.colors.textMuted, marginBottom: 4, fontWeight: '600' },
+  headerTitle: { fontSize: 26, fontWeight: '800', color: tokens.colors.text, letterSpacing: -0.4 },
   notificationIcon: {
     position: 'relative',
     width: 40,
     height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: tokens.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  bellIcon: {
-    fontSize: 24,
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#ef4444',
+    backgroundColor: tokens.colors.danger,
     borderRadius: 10,
-    width: 20,
+    minWidth: 20,
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: tokens.colors.surface,
   },
   badgeText: {
-    color: '#fff',
-    fontSize: 12,
+    color: tokens.colors.onBrand,
+    fontSize: 11,
     fontWeight: '700',
   },
-  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 90, gap: 16 },
-  searchContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#fff', 
-    borderRadius: 12, 
-    paddingHorizontal: 16, 
-    paddingVertical: 14,
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 90, gap: 16 },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 50,
     gap: 10,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
   },
-  searchIcon: { fontSize: 18 },
-  searchPlaceholder: { fontSize: 14, color: '#9ca3af' },
-  uploadCard: { 
-    backgroundColor: '#3b5a85', 
-    borderRadius: 16, 
-    padding: 20, 
+  searchPlaceholder: { fontSize: 14, color: tokens.colors.textSubtle },
+  uploadCard: {
+    backgroundColor: tokens.colors.brandDark,
+    borderRadius: 18,
+    padding: 18,
+    gap: 10,
+    ...tokens.shadow.card,
+  },
+  uploadTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  uploadTitle: { fontSize: 18, fontWeight: '700', color: '#fff' },
-  uploadSubtitle: { fontSize: 13, color: '#d1dce6', lineHeight: 18 },
-  checkButton: { 
-    backgroundColor: '#1e3a5f', 
-    paddingVertical: 10, 
-    paddingHorizontal: 20, 
-    borderRadius: 8, 
-    alignSelf: 'flex-start',
-    marginTop: 8,
+  uploadIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  checkButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  sectionHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  uploadTitle: { fontSize: 17, fontWeight: '700', color: tokens.colors.onBrand },
+  uploadSubtitle: { fontSize: 13, color: tokens.colors.onBrandMuted, lineHeight: 18 },
+  checkButton: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  checkButtonText: { color: tokens.colors.onBrand, fontSize: 12, fontWeight: '700' },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937' },
-  seeAll: { fontSize: 14, color: '#6b7280', fontWeight: '500' },
-  categoryRow: { flexDirection: 'row', gap: 12 },
-  categoryCard: { 
-    flex: 1, 
-    borderRadius: 14, 
-    padding: 16, 
-    gap: 8,
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.text },
+  seeAll: { fontSize: 13, color: tokens.colors.brand, fontWeight: '600' },
+  categoryRow: { flexDirection: 'row', gap: 10 },
+  categoryCard: {
+    flex: 1,
+    borderRadius: 14,
+    padding: 12,
+    gap: 6,
+    minHeight: 104,
   },
-  categoryIcon: { fontSize: 24 },
-  categoryCount: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  categoryLabel: { fontSize: 13, color: '#e5e7eb', fontWeight: '500' },
-  jobsList: { gap: 14 },
+  categoryIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryCount: { fontSize: 22, fontWeight: '800', color: tokens.colors.onBrand },
+  categoryLabel: { fontSize: 12, color: tokens.colors.onBrandMuted, fontWeight: '600', lineHeight: 16 },
+  jobsList: { gap: 12 },
   loadingRow: { paddingVertical: 8 },
   errorText: {
-    color: '#b91c1c',
+    color: tokens.colors.danger,
     fontSize: 12,
   },
-  jobCard: { 
-    backgroundColor: '#fff', 
-    borderRadius: 14, 
-    padding: 16, 
-    gap: 12,
+  jobCard: {
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    ...tokens.shadow.card,
   },
-  jobCardHeader: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 12,
+  jobCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  jobLogo: { 
-    width: 48, 
-    height: 48, 
-    borderRadius: 10, 
-    backgroundColor: '#f3f4f6', 
-    alignItems: 'center', 
+  jobLogo: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: tokens.colors.brandSoft,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  jobLogoText: { fontSize: 11, color: '#9ca3af', fontWeight: '600' },
+  jobLogoText: { fontSize: 14, color: tokens.colors.brand, fontWeight: '700' },
   jobInfo: { flex: 1 },
-  jobTitle: { fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
-  jobCompany: { fontSize: 13, color: '#6b7280' },
+  jobTitle: { fontSize: 15, fontWeight: '700', color: tokens.colors.text, marginBottom: 2 },
+  jobCompany: { fontSize: 12, color: tokens.colors.textMuted },
   bookmarkBtn: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bookmarkIcon: { fontSize: 18 },
   jobTags: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  tag: { 
-    backgroundColor: '#f3f4f6', 
-    paddingHorizontal: 12, 
-    paddingVertical: 6, 
-    borderRadius: 6,
+  tag: {
+    backgroundColor: tokens.colors.surfaceMuted,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
   },
-  tagText: { fontSize: 12, color: '#4b5563', fontWeight: '500' },
-  jobFooter: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
+  tagText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
+  jobFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 10,
   },
-  jobMetaRow: { flexDirection: 'row', gap: 12 },
-  jobMetaText: { fontSize: 13, color: '#6b7280' },
-  jobSalary: { fontSize: 13, fontWeight: '700', color: '#1f2937' },
+  jobMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, flex: 1 },
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#F8FAFC',
+  },
+  jobMetaText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
+  jobSalary: { fontSize: 13, fontWeight: '700', color: tokens.colors.text },
 });

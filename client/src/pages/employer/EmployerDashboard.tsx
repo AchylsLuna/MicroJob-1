@@ -110,11 +110,7 @@ export function EmployerDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-[24px] font-semibold text-[#111827]">Overview</h2>
-          <p className="mt-1 text-[14px] text-[#6B7280]">Manage your job postings and candidate applications</p>
-        </div>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={() => navigate(ROUTES.employer.postJob)}

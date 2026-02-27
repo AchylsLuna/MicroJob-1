@@ -97,8 +97,11 @@ function AdminReportsContent() {
     return new Date(timestamp);
   };
 
-  const parseSalary = (value?: string) => {
-    if (!value) return 0;
+  const parseSalary = (value?: string | number) => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
     const matches = value.match(/[\d,.]+/g);
     if (!matches) return 0;
     const numbers = matches

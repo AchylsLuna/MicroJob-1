@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { sendOtp, verifyOtp } from '../api/auth';
+import { sendOtp, verifyOtp } from '../services/api';
 import { ROUTES } from '../utils/routes';
 
 const EmailVerification: React.FC = () => {
@@ -11,7 +11,7 @@ const EmailVerification: React.FC = () => {
   const [hasSent, setHasSent] = useState(false);
   const [verified, setVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [email, setEmail] = useState(() => localStorage.getItem('pending_verification_email') || '');
+  const [email] = useState(() => localStorage.getItem('pending_verification_email') || '');
 
   useEffect(() => {
     if (!email || hasSent) {

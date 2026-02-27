@@ -1,15 +1,65 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import * as Location from 'expo-location';
 import AppHeader from '../../components/AppHeader';
 import { tokens } from '../../theme/tokens';
 
 export default function LocationServices({ onBack }: { onBack?: () => void }) {
   const [enabled, setEnabled] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [city, setCity] = useState('Not available');
+  const [coordinates, setCoordinates] = useState('—');
 
-  const handleToggle = () => {
-    const next = !enabled;
-    setEnabled(next);
-    Alert.alert('Location Services', next ? 'Location enabled.' : 'Location disabled.');
+  const fetchCurrentLocation = async () => {
+    setIsLoading(true);
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== 'granted') {
+        setEnabled(false);
+        setCity('Permission denied');
+        setCoordinates('—');
+        Alert.alert('Location Services', 'Location permission was denied.');
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const { latitude, longitude } = position.coords;
+      setCoordinates(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+
+      try {
+        const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const first = geocode[0];
+        const resolvedCity = first?.city || first?.district || first?.region || 'Unknown location';
+        const resolvedCountry = first?.country ? `, ${first.country}` : '';
+        setCity(`${resolvedCity}${resolvedCountry}`);
+      } catch (error) {
+        setCity('Unknown location');
+      }
+
+      setEnabled(true);
+      Alert.alert('Location Services', 'Location enabled.');
+    } catch (error: any) {
+      setEnabled(false);
+      setCity('Not available');
+      setCoordinates('—');
+      Alert.alert('Location Services', error?.message || 'Failed to get location.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleToggle = async () => {
+    if (enabled) {
+      setEnabled(false);
+      setCity('Not available');
+      setCoordinates('—');
+      Alert.alert('Location Services', 'Location disabled.');
+      return;
+    }
+
+    await fetchCurrentLocation();
   };
 
   return (
@@ -23,9 +73,13 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
             Allow location access to show nearby jobs and enable location-based alerts.
           </Text>
           <TouchableOpacity style={[styles.toggle, enabled && styles.toggleActive]} onPress={handleToggle}>
-            <Text style={[styles.toggleText, enabled && styles.toggleTextActive]}>
-              {enabled ? 'Enabled' : 'Enable Location'}
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator color={enabled ? tokens.colors.white : tokens.colors.brand} />
+            ) : (
+              <Text style={[styles.toggleText, enabled && styles.toggleTextActive]}>
+                {enabled ? 'Enabled' : 'Enable Location'}
+              </Text>
+            )}
           </TouchableOpacity>
         </View>
 
@@ -33,14 +87,14 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
           <Text style={styles.sectionTitle}>Current Location</Text>
           <Text style={styles.sectionSubtitle}>Based on your device settings.</Text>
           <View style={styles.locationRow}>
-            <Text style={styles.locationLabel}>City</Text>
-            <Text style={styles.locationValue}>{enabled ? 'Manila, Philippines' : 'Not available'}</Text>
+              <Text style={styles.locationLabel}>City</Text>
+              <Text style={styles.locationValue}>{city}</Text>
+            </View>
+            <View style={styles.locationRow}>
+              <Text style={styles.locationLabel}>Coordinates</Text>
+              <Text style={styles.locationValue}>{coordinates}</Text>
+            </View>
           </View>
-          <View style={styles.locationRow}>
-            <Text style={styles.locationLabel}>Coordinates</Text>
-            <Text style={styles.locationValue}>{enabled ? '14.5995, 120.9842' : '—'}</Text>
-          </View>
-        </View>
 
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>Map Preview</Text>

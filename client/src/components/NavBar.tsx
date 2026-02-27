@@ -8,7 +8,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../services/api";
-import { ROUTES, matchesAnyPath, startsWithPath } from "../utils/routes";
+import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 
 interface Notification {
@@ -55,6 +55,7 @@ export function NavBar() {
   const path = location.pathname;
 
   const isPath = (...targets: string[]) => matchesAnyPath(path, targets);
+  const isExactPath = (...targets: string[]) => targets.some((target) => matchesPath(path, target));
 
   const loadNotifications = async () => {
     setNotificationsLoading(true);
@@ -152,7 +153,7 @@ export function NavBar() {
     }
 
     if (
-      isPath(
+      isExactPath(
         ROUTES.doctor.dashboard,
         ROUTES.doctor.root,
         ROUTES.legacyDashboard.doctor.root,
@@ -162,8 +163,8 @@ export function NavBar() {
       )
     ) {
       return {
-        title: "Employer Dashboard",
-        search: { placeholder: "Search applicants, jobs, or companies...", mode: "query" as const },
+        title: "Overview",
+        subtitle: "Manage your job postings and candidate applications",
       };
     }
 
@@ -202,7 +203,7 @@ export function NavBar() {
     ) {
       return {
         title: "My Job Posts",
-        search: { placeholder: "Search job posts...", mode: "query" as const },
+        subtitle: "Manage the jobs you have posted.",
       };
     }
 

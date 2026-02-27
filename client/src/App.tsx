@@ -22,6 +22,7 @@ import SidebarLayout from "./components/layout/SidebarLayout";
 import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
 import EmailVerification from "./pages/emailVerification";
+import { TopUpSuccess } from "./pages/TopUpSuccess";
 import {
   AdminAnalytics,
   AdminDashboard,
@@ -32,13 +33,11 @@ import {
   AdminSignIn,
   AdminUserManagement,
 } from "./pages/admin";
-import {
-  Applications,
-  EmployerDashboard,
-  JobPosts,
-  JobsManagement,
-  PostJob,
-} from "./pages/employer";
+import { ApplicationsManagement as Applications } from "./pages/employer/ApplicationsManagement";
+import { EmployerDashboard } from "./pages/employer/EmployerDashboard";
+import JobPosts from "./pages/employer/JobPosts";
+import { JobsManagement } from "./pages/employer/JobsManagement";
+import PostJob from "./pages/employer/PostJob";
 import NotificationsRouter from "./pages/NotificationsRouter";
 import SupportRouter from "./pages/SupportRouter";
 import {
@@ -52,6 +51,7 @@ import {
   WorkerProfile,
   WorkerSupport,
 } from "./pages/worker";
+import { Toaster } from "./lib/toast";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { getDefaultDashboardPath } from "./utils/dashboardRoutes";
 import { ROUTES } from "./utils/routes";
@@ -232,6 +232,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <InactivityHandler />
+      <Toaster position="top-right" />
       <Routes>
         <Route path={ROUTES.home} element={<LandingPage />} />
         <Route path={ROUTES.signInLegacy} element={<SignIn />} />
@@ -241,6 +242,7 @@ const App: React.FC = () => {
         <Route path={ROUTES.adminSignIn} element={<AdminSignIn />} />
         <Route path={ROUTES.doctorSignIn} element={<PreserveRedirect to={ROUTES.signIn} />} />
         <Route path={ROUTES.emailVerification} element={<EmailVerification />} />
+        <Route path={ROUTES.topUpSuccess} element={<TopUpSuccess />} />
         <Route path={ROUTES.forgotPassword} element={<ForgotPassword />} />
         <Route path={ROUTES.resetPassword} element={<ResetPassword />} />
         <Route path={ROUTES.terms} element={<TermsAndConditions />} />

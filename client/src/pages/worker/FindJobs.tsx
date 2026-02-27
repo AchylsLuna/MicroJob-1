@@ -37,7 +37,7 @@ interface ApiJob {
   title: string;
   description: string;
   location?: string;
-  salary?: string;
+  salary?: string | number;
   jobType?: string;
   createdAt?: string;
   category?: { name?: string } | string;
@@ -147,6 +147,10 @@ export function FindJobs() {
     const companyName = getCompanyName(job.jobPoster);
     const categoryName =
       typeof job.category === "string" ? job.category : job.category?.name || "General";
+    const salaryLabel =
+      typeof job.salary === "number"
+        ? `PHP ${job.salary.toLocaleString()}`
+        : (job.salary || "—");
     return {
       id: job._id,
       title: job.title,
@@ -158,7 +162,7 @@ export function FindJobs() {
       experienceLevel: "Entry Level",
       description: job.description,
       responsibilities: job.responsibilities?.length ? job.responsibilities : defaultResponsibilities,
-      salary: job.salary || "—",
+      salary: salaryLabel,
       postedDaysAgo: getPostedDays(job.createdAt),
       saved: false,
       category: categoryName,
@@ -214,7 +218,10 @@ export function FindJobs() {
     }
   };
 
-  const parseSalaryValue = (value: string) => {
+  const parseSalaryValue = (value: string | number) => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
     const cleaned = value.replace(/[^0-9.]/g, "");
     const amount = Number.parseFloat(cleaned);
     return Number.isFinite(amount) ? amount : 0;

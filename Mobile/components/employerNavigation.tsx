@@ -58,7 +58,7 @@ export default function EmployerNavigation({
             onPress={() => onTabPress?.(item.screen)}
             activeOpacity={0.85}
           >
-            <View style={styles.iconContainer}>
+            <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
               <Ionicons
                 name={isActive ? item.iconActive : item.iconInactive}
                 size={22}
@@ -84,9 +84,12 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
     borderTopWidth: 1,
     borderTopColor: tokens.colors.border,
-    paddingBottom: 8,
+    paddingBottom: 12,
     paddingTop: 8,
-    minHeight: 70,
+    minHeight: 78,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 2,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.06,
@@ -99,18 +102,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 2,
+    paddingVertical: 2,
   },
   iconContainer: {
     position: 'relative',
-    width: 28,
-    height: 28,
+    width: 36,
+    height: 34,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  iconContainerActive: {
+    backgroundColor: tokens.colors.brandSoft,
   },
   tabLabel: {
     fontSize: 10,
     color: tokens.colors.textMuted,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   tabLabelActive: {
     color: tokens.colors.brand,
@@ -136,4 +144,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

@@ -8,6 +8,7 @@ export const ROUTES = {
   // Legacy path kept for backward compatibility; redirects to generic sign-in.
   doctorSignIn: "/doctor-sign-in",
   emailVerification: "/email-verification",
+  topUpSuccess: "/topup-success",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   terms: "/terms",

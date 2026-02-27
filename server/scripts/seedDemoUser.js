@@ -7,6 +7,8 @@ import User from '../models/User.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Load repo root .env first; then allow server/.env for missing values.
+dotenv.config({ path: resolve(__dirname, '..', '..', '.env') });
 dotenv.config({ path: resolve(__dirname, '..', '.env') });
 
 const uri = process.env.MONGO_URI;

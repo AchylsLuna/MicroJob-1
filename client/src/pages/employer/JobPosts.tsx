@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jobsAPI } from "../../services/jobs";
+import { isInvalidTokenError } from "../../utils/authSession";
 import { ROUTES } from "../../utils/routes";
 
 interface JobItem {
@@ -32,7 +33,13 @@ const JobPosts: React.FC = () => {
         const response = await jobsAPI.getMyJobs();
         setJobs(response.data || []);
       } catch (err: any) {
-        setError(err?.response?.data?.message || "Failed to load job posts.");
+        const status = err?.response?.status;
+        const message = err?.response?.data?.message || err?.message;
+        const hasToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
+        if (isInvalidTokenError({ status, message, path: "/jobs/mine", hasToken })) {
+          return;
+        }
+        setError(message || "Failed to load job posts.");
       } finally {
         setLoading(false);
       }
@@ -43,11 +50,6 @@ const JobPosts: React.FC = () => {
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
-      <div>
-        <h2 className="font-semibold text-[20px] text-[#111827]">My Job Posts</h2>
-        <p className="text-[14px] text-[#6B7280] mt-1">Manage the jobs you have posted.</p>
-      </div>
-
       <div>
         {loading && (
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-gray-600">

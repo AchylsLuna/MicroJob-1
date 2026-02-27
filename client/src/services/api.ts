@@ -1,3 +1,5 @@
+import { handleInvalidSession, isInvalidTokenError } from "../utils/authSession";
+
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 
 export type AuthUser = {
@@ -14,6 +16,18 @@ export type AuthUser = {
   avatarUrl?: string;
 };
 export type AuthResponse = { token: string; user: AuthUser; message?: string };
+export type PaymentTarget = 'EMPLOYER' | 'WORKER' | 'BOTH';
+export type PaymentTransaction = {
+  _id: string;
+  sender?: { _id?: string; firstName?: string; lastName?: string; email?: string } | null;
+  receiver?: { _id?: string; firstName?: string; lastName?: string; email?: string } | null;
+  amount: number;
+  type: 'TOP_UP' | 'ESCROW' | 'PAYOUT' | 'REFUND';
+  reference?: string | null;
+  label?: string | null;
+  meta?: Record<string, unknown>;
+  createdAt?: string;
+};
 
 type RequestInitInput = Omit<RequestInit, 'body' | 'method'>;
 
@@ -55,6 +69,9 @@ async function request<T>(
   const data = (await res.json().catch(() => ({}))) as any;
   if (!res.ok) {
     const message = data?.message || 'Request failed';
+    if (isInvalidTokenError({ status: res.status, message, path, hasToken: Boolean(token) })) {
+      handleInvalidSession();
+    }
     throw new Error(message);
   }
   return data as T;
@@ -175,7 +192,9 @@ export function deleteUser(userId: string) {
 
 // Profile APIs
 export function getProfile() {
-  return request<any>('/auth/me', { method: 'GET' });
+  return request<any>('/auth/me', { method: 'GET' }).then((response: any) => {
+    return response?.profile ?? response?.user ?? response;
+  });
 }
 
 export function updateProfile(payload: {
@@ -188,7 +207,9 @@ export function updateProfile(payload: {
   linkedin?: string;
   avatarUrl?: string;
 }) {
-  return request<any>('/auth/me', { method: 'PATCH', body: payload });
+  return request<any>('/auth/me', { method: 'PATCH', body: payload }).then((response: any) => {
+    return response?.profile ?? response?.user ?? response;
+  });
 }
 
 // Notifications APIs
@@ -228,4 +249,28 @@ export function updateAlertStatus(alertId: string, status: 'open' | 'snoozed' | 
 
 export function deleteAlert(alertId: string) {
   return request(`/alerts/${alertId}`, { method: 'DELETE' });
+}
+
+// Payments APIs
+export function createTopUpSession(payload: { amount: number; target?: PaymentTarget }) {
+  return request<{ checkoutUrl: string; referenceNumber: string; checkoutId: string }>(
+    '/payment/topup',
+    { method: 'POST', body: payload },
+  );
+}
+
+export function confirmTopUp(payload: { referenceNumber?: string; checkoutId?: string }) {
+  return request<{
+    message: string;
+    transaction?: PaymentTransaction;
+    transactions?: PaymentTransaction[];
+  }>('/payment/topup/confirm', { method: 'POST', body: payload });
+}
+
+export function getPaymentTransactions() {
+  return request<{ transactions: PaymentTransaction[] }>('/payment/transactions', { method: 'GET' });
+}
+
+export function getPaymentAudit() {
+  return request<{ transactions: PaymentTransaction[] }>('/payment/audit', { method: 'GET' });
 }

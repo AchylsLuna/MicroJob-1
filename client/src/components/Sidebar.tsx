@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   Briefcase,
+  ChevronDown,
   CircleHelp,
   ClipboardList,
   FileText,
@@ -25,9 +26,6 @@ import { MicroJobsLogo } from "./MicroJobsLogo";
 
 interface SidebarProps {
   userName?: string;
-  userEmail?: string;
-  balance?: string;
-  messageCount?: number;
   userRole?: "user" | "employer" | "admin" | "doctor";
 }
 
@@ -40,11 +38,15 @@ type MenuItem = {
   notification?: boolean;
 };
 
+type EmployerMenuGroup = {
+  icon: string;
+  label: string;
+  path: string;
+  children: MenuItem[];
+};
+
 const Sidebar: React.FC<SidebarProps> = ({
   userName = "Jonas Enriquez",
-  userEmail = "joserizal@gmail.com",
-  balance = "$67.67",
-  messageCount = 2,
   userRole = "user",
 }) => {
   const navigate = useNavigate();
@@ -86,11 +88,15 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: "applied-jobs", label: "Applied Jobs", path: ROUTES.worker.appliedJobs },
   ];
 
-  const employerMenuItems: MenuItem[] = [
-    { icon: "post-job", label: "Post a Job", path: ROUTES.employer.postJob },
-    { icon: "job-posts", label: "My Job Posts", path: ROUTES.employer.jobPosts },
-    { icon: "applications", label: "Applications", path: ROUTES.employer.applications },
-  ];
+  const employerMenuGroup: EmployerMenuGroup = {
+    icon: "post-job",
+    label: "Post a Job",
+    path: ROUTES.employer.postJob,
+    children: [
+      { icon: "job-posts", label: "My Job Posts", path: ROUTES.employer.jobPosts },
+      { icon: "applications", label: "Applications", path: ROUTES.employer.applications },
+    ],
+  };
 
   const commonMenuItems: MenuItem[] = [
     { icon: "messages", label: "Messages", path: ROUTES.worker.messages, notification: true },
@@ -110,7 +116,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   if (effectiveRole === "user") {
     menuItems = [...workerMenuItems, ...commonMenuItems];
   } else if (effectiveRole === "employer") {
-    menuItems = [...employerMenuItems, ...commonMenuItems];
+    menuItems = [...commonMenuItems];
   } else if (effectiveRole === "admin") {
     menuItems = adminMenuItems;
   } else {
@@ -146,6 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const [notifCount, setNotifCount] = useState<number>(0);
+  const [isEmployerGroupOpen, setIsEmployerGroupOpen] = useState<boolean>(true);
 
   const loadNotifCount = async () => {
     try {
@@ -219,6 +226,14 @@ const Sidebar: React.FC<SidebarProps> = ({
       active ? webUi.sidebar.navButtonActive : webUi.sidebar.navButtonIdle
     }`;
 
+  const getChildNavButtonClass = (active: boolean) =>
+    `w-full flex items-center rounded-lg transition pl-14 pr-4 py-2.5 text-sm ${
+      active ? "text-blue-600 bg-blue-50 font-semibold" : "text-gray-600 hover:bg-gray-100 font-medium"
+    }`;
+
+  const isEmployerParentActive =
+    effectiveRole === "employer" && matchesPath(location.pathname, employerMenuGroup.path);
+
   const displayUserName = authUser
     ? `${authUser.firstName || ""} ${authUser.lastName || ""}`.trim() || userName
     : userName;
@@ -266,6 +281,53 @@ const Sidebar: React.FC<SidebarProps> = ({
             {renderIcon("dashboard")}
             {!isCollapsed && <span>Dashboard</span>}
           </button>
+
+          {effectiveRole === "employer" && (
+            <div>
+              <div className="relative">
+                <button
+                  onClick={() => navigate(employerMenuGroup.path)}
+                  className={`${getNavButtonClass(isEmployerParentActive)} ${!isCollapsed ? "pr-10" : ""}`}
+                  title={isCollapsed ? employerMenuGroup.label : ""}
+                >
+                  {renderIcon(employerMenuGroup.icon)}
+                  {!isCollapsed && <span>{employerMenuGroup.label}</span>}
+                </button>
+
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsEmployerGroupOpen((prev) => !prev);
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                    aria-label={isEmployerGroupOpen ? "Collapse Post a Job menu" : "Expand Post a Job menu"}
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${
+                        isEmployerGroupOpen ? "rotate-180" : "rotate-0"
+                      }`}
+                    />
+                  </button>
+                )}
+              </div>
+
+              {!isCollapsed && isEmployerGroupOpen && (
+                <div className="mt-1 space-y-1">
+                  {employerMenuGroup.children.map((child) => (
+                    <button
+                      key={child.path}
+                      onClick={() => navigate(child.path)}
+                      className={getChildNavButtonClass(isPathActive(child.path))}
+                    >
+                      <span>{child.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {menuItems.map((item) => (
             <button

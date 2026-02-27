@@ -64,7 +64,7 @@ export default function EmployerProfile({
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
-        const result = await apiRequest(`${API_URL}/auth/profile`, {
+        const result = await apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load profile.');
         if (!result.ok) return;
@@ -94,7 +94,7 @@ export default function EmployerProfile({
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/auth/profile`, {
+      const result = await apiRequest(`${API_URL}/auth/me`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

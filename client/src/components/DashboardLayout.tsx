@@ -1,6 +1,5 @@
 import { Outlet } from "react-router-dom";
 import Sidebar from "./Sidebar";
-import { Toaster } from "../lib/toast";
 import { NavBar } from "./NavBar";
 import { webUi } from "../styles/webUi";
 
@@ -14,7 +13,6 @@ export function DashboardLayout() {
           <Outlet />
         </main>
       </div>
-      <Toaster position="top-right" />
     </div>
   );
 }

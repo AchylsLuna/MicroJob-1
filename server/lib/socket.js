@@ -7,10 +7,13 @@ const userSocketMap = new Map(); // userId -> Set(socketId)
 export function initSocket(httpServer, opts = {}) {
   if (io) return io;
   const { allowedOrigins = new Set(), ...socketOptions } = opts;
+  const isProduction = process.env.NODE_ENV === 'production';
   io = new Server(httpServer, {
     cors: {
       origin: (origin, callback) => {
-        if (isAllowedOrigin(origin, allowedOrigins)) {
+        // React Native / Expo development clients can send varying origins.
+        // Keep production strict, but allow local development clients through.
+        if (!isProduction || isAllowedOrigin(origin, allowedOrigins)) {
           callback(null, true);
           return;
         }

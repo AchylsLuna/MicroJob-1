@@ -2,6 +2,8 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import speakeasy from 'speakeasy';
 import csrfProtection from '../middleware/csrf.js';
 import Session from '../models/Session.js';
 import User from '../models/User.js';
@@ -24,7 +26,12 @@ const cookieSecurityOptions = {
   secure: process.env.NODE_ENV === 'production',
 };
 
-const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ');
+const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ').toLowerCase();
+const normalizeDisplayName = (value = '') => String(value).trim().replace(/\s+/g, ' ');
+const MFA_LOGIN_PURPOSE = 'mfa-login';
+const MFA_METHOD = 'authenticator';
+const MFA_CHALLENGE_TTL = '5m';
+const MFA_BACKUP_CODES_COUNT = 8;
 
 const createAccessToken = (user, sessionId) =>
   jwt.sign(
@@ -91,6 +98,76 @@ const buildLoginPayload = (user, includePhone = false) => ({
   role: user.role || 'work',
 });
 
+const normalizeMfaCode = (value = '') =>
+  String(value).trim().replace(/\s+/g, '').replace(/-/g, '').toUpperCase();
+
+const createMfaChallengeToken = (userId, includePhone = false) =>
+  jwt.sign(
+    { userId, purpose: MFA_LOGIN_PURPOSE, includePhone: Boolean(includePhone) },
+    getJwtSecret(),
+    { expiresIn: MFA_CHALLENGE_TTL }
+  );
+
+const generateBackupCodes = (count = MFA_BACKUP_CODES_COUNT) =>
+  Array.from({ length: count }, () => {
+    const raw = crypto.randomBytes(4).toString('hex').toUpperCase();
+    return `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+  });
+
+const hashBackupCodes = async (codes = []) =>
+  Promise.all(codes.map((code) => bcrypt.hash(normalizeMfaCode(code), 10)));
+
+const verifyTotpCode = (secret, code) =>
+  Boolean(
+    secret &&
+      speakeasy.totp.verify({
+        secret,
+        encoding: 'base32',
+        token: normalizeMfaCode(code),
+        window: 1,
+      })
+  );
+
+const verifyAndMaybeConsumeBackupCode = async (user, code, consume = false) => {
+  const normalized = normalizeMfaCode(code);
+  if (!normalized || !Array.isArray(user?.mfaBackupCodes) || user.mfaBackupCodes.length === 0) {
+    return false;
+  }
+
+  for (let index = 0; index < user.mfaBackupCodes.length; index += 1) {
+    const hash = user.mfaBackupCodes[index];
+    const matches = await bcrypt.compare(normalized, hash);
+    if (!matches) continue;
+    if (consume) {
+      user.mfaBackupCodes.splice(index, 1);
+    }
+    return true;
+  }
+
+  return false;
+};
+
+const verifyMfaCodeForUser = async (user, code, consumeBackup = false) => {
+  const normalized = normalizeMfaCode(code);
+  if (!normalized) {
+    return { valid: false, usedBackup: false };
+  }
+
+  if (verifyTotpCode(user?.mfaSecret, normalized)) {
+    return { valid: true, usedBackup: false };
+  }
+
+  const usedBackup = await verifyAndMaybeConsumeBackupCode(user, normalized, consumeBackup);
+  return { valid: usedBackup, usedBackup };
+};
+
+const mfaStatusPayload = (user) => ({
+  enabled: Boolean(user?.mfaEnabled),
+  method: user?.mfaMethod || null,
+  backupCodesRemaining: Array.isArray(user?.mfaBackupCodes) ? user.mfaBackupCodes.length : 0,
+  hasPendingSetup: Boolean(user?.mfaPendingSecret),
+});
+
 // Register a new user (supports both email/username and phone-based registration)
 router.post('/register', async (req, res) => {
   try {
@@ -98,6 +175,7 @@ router.post('/register', async (req, res) => {
     const normalizedEmail = normalizeEmail(email);
     const normalizedPhone = normalizePhone(phoneNumber || '');
     const normalizedUsername = normalizeUsername(username);
+    const displayUsername = normalizeDisplayName(username);
     const providedFirstName = String(firstName || '').trim();
     const providedLastName = String(lastName || '').trim();
     const userRole = SELF_SERVICE_ROLES.has(role) ? role : 'work';
@@ -119,11 +197,11 @@ router.post('/register', async (req, res) => {
     let userFirstName = providedFirstName;
     let userLastName = providedLastName;
     if (!userFirstName || !userLastName) {
-      if (!normalizedUsername) {
+      if (!displayUsername) {
         return sendError(res, 400, 'Username or full name is required');
       }
-      const nameParts = normalizedUsername.split(' ').filter(Boolean);
-      userFirstName = nameParts[0] || normalizedUsername;
+      const nameParts = displayUsername.split(' ').filter(Boolean);
+      userFirstName = nameParts[0] || displayUsername;
       userLastName = nameParts.slice(1).join(' ') || userFirstName;
     }
 
@@ -168,12 +246,30 @@ router.post('/register', async (req, res) => {
       res,
       201,
       'User registered successfully',
-      { user: userPayload },
       { user: userPayload }
     );
   } catch (error) {
     if (error instanceof Error && error.message === PASSWORD_POLICY_MESSAGE) {
       return sendError(res, 400, PASSWORD_POLICY_MESSAGE);
+    }
+    if (error?.code === 11000) {
+      const duplicateField = Object.keys(error?.keyPattern || {})[0] || '';
+      if (duplicateField === 'email') {
+        return sendError(res, 409, 'Email is already registered');
+      }
+      if (duplicateField === 'phoneNumber') {
+        return sendError(res, 409, 'Phone number is already registered');
+      }
+      if (duplicateField === 'username') {
+        return sendError(res, 409, 'Username is already taken');
+      }
+      return sendError(res, 409, 'Account already exists');
+    }
+    if (error?.name === 'ValidationError' && error?.errors) {
+      const firstValidation = Object.values(error.errors)[0];
+      const validationMessage =
+        firstValidation?.message || 'Please check your inputs and try again.';
+      return sendError(res, 400, `Invalid input: ${validationMessage}`);
     }
     console.error('Register error:', error);
     return sendError(res, 500, 'Server error during registration');
@@ -220,7 +316,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       user = await User.findOne({
         $or: [
           { email: normalizeEmail(loginInput) },
-          { username: loginInput },
+          { username: normalizeUsername(loginInput) },
         ],
       });
     }
@@ -234,6 +330,19 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user.mfaEnabled) {
+      const mfaToken = createMfaChallengeToken(String(user._id), includePhone);
+      return sendSuccess(
+        res,
+        200,
+        'MFA verification required',
+        {
+          mfaRequired: true,
+          mfaToken,
+          method: user.mfaMethod || MFA_METHOD,
+        }
+      );
     }
 
     const authSession = await createSessionWithTokens(req, user);
@@ -251,12 +360,73 @@ router.post('/login', loginLimiter, async (req, res) => {
       res,
       200,
       'Login successful',
-      { token: authSession.accessToken, user: userPayload },
       { token: authSession.accessToken, user: userPayload }
     );
   } catch (error) {
     console.error('Login error:', error);
     return sendError(res, 500, 'Server error during login');
+  }
+});
+
+router.post('/login/mfa', loginLimiter, async (req, res) => {
+  try {
+    const { mfaToken, code } = req.body || {};
+    if (!mfaToken || !code) {
+      return sendError(res, 400, 'MFA token and code are required');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(String(mfaToken), getJwtSecret());
+    } catch (error) {
+      return sendError(res, 401, 'MFA challenge expired. Please sign in again.');
+    }
+
+    if (decoded?.purpose !== MFA_LOGIN_PURPOSE || !decoded?.userId) {
+      return sendError(res, 401, 'Invalid MFA challenge.');
+    }
+
+    const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 401, 'Account not found.');
+    }
+    if (!user.mfaEnabled) {
+      return sendError(res, 400, 'MFA is not enabled for this account.');
+    }
+    if (user.status === 'pending') {
+      return sendError(res, 401, 'Please verify your email before signing in.');
+    }
+    if (user.status === 'disabled') {
+      return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+
+    const verification = await verifyMfaCodeForUser(user, code, true);
+    if (!verification.valid) {
+      return sendError(res, 401, 'Invalid MFA code.');
+    }
+    if (verification.usedBackup) {
+      await user.save();
+    }
+
+    const authSession = await createSessionWithTokens(req, user);
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    setSessionCookies(res, {
+      refreshToken: authSession.refreshToken,
+      sessionId: authSession.sessionId,
+      expiresAt: authSession.expiresAt,
+      csrfToken,
+    });
+
+    const userPayload = buildLoginPayload(user, Boolean(decoded.includePhone));
+    return sendSuccess(
+      res,
+      200,
+      'Login successful',
+      { token: authSession.accessToken, user: userPayload }
+    );
+  } catch (error) {
+    console.error('Login MFA error:', error);
+    return sendError(res, 500, 'Server error during MFA verification');
   }
 });
 
@@ -361,6 +531,151 @@ router.get('/admin/sessions/:userId', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/mfa/status', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user?.id).select('+mfaBackupCodes +mfaPendingSecret');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    return sendSuccess(res, 200, 'MFA status retrieved', mfaStatusPayload(user));
+  } catch (error) {
+    console.error('MFA status error:', error);
+    return sendError(res, 500, 'Failed to get MFA status');
+  }
+});
+
+router.post('/mfa/setup', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user?.id).select('+mfaPendingSecret +mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    const secret = speakeasy.generateSecret({
+      name: `MicroJobs (${user.email})`,
+      issuer: 'MicroJobs',
+      length: 20,
+    });
+
+    user.mfaMethod = MFA_METHOD;
+    user.mfaPendingSecret = secret.base32;
+    await user.save();
+
+    return sendSuccess(res, 200, 'MFA setup created', {
+      method: MFA_METHOD,
+      secret: secret.base32,
+      otpauthUrl: secret.otpauth_url,
+    });
+  } catch (error) {
+    console.error('MFA setup error:', error);
+    return sendError(res, 500, 'Failed to initialize MFA setup');
+  }
+});
+
+router.post('/mfa/enable', verifyToken, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) {
+      return sendError(res, 400, 'Verification code is required');
+    }
+
+    const user = await User.findById(req.user?.id).select('+mfaPendingSecret +mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    if (!user.mfaPendingSecret) {
+      return sendError(res, 400, 'No MFA setup found. Start setup first.');
+    }
+    if (!verifyTotpCode(user.mfaPendingSecret, code)) {
+      return sendError(res, 400, 'Invalid verification code');
+    }
+
+    const backupCodes = generateBackupCodes();
+    user.mfaEnabled = true;
+    user.mfaMethod = MFA_METHOD;
+    user.mfaSecret = user.mfaPendingSecret;
+    user.mfaPendingSecret = null;
+    user.mfaBackupCodes = await hashBackupCodes(backupCodes);
+    await user.save();
+
+    return sendSuccess(res, 200, 'MFA enabled successfully', {
+      ...mfaStatusPayload(user),
+      backupCodes,
+    });
+  } catch (error) {
+    console.error('MFA enable error:', error);
+    return sendError(res, 500, 'Failed to enable MFA');
+  }
+});
+
+router.post('/mfa/disable', verifyToken, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) {
+      return sendError(res, 400, 'Verification code is required');
+    }
+
+    const user = await User.findById(req.user?.id).select('+mfaPendingSecret +mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    if (!user.mfaEnabled) {
+      return sendError(res, 400, 'MFA is not enabled');
+    }
+
+    const verification = await verifyMfaCodeForUser(user, code, true);
+    if (!verification.valid) {
+      return sendError(res, 401, 'Invalid MFA code');
+    }
+
+    user.mfaEnabled = false;
+    user.mfaMethod = null;
+    user.mfaSecret = null;
+    user.mfaPendingSecret = null;
+    user.mfaBackupCodes = [];
+    await user.save();
+
+    return sendSuccess(res, 200, 'MFA disabled successfully', mfaStatusPayload(user));
+  } catch (error) {
+    console.error('MFA disable error:', error);
+    return sendError(res, 500, 'Failed to disable MFA');
+  }
+});
+
+router.post('/mfa/backup-codes/regenerate', verifyToken, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) {
+      return sendError(res, 400, 'Verification code is required');
+    }
+
+    const user = await User.findById(req.user?.id).select('+mfaSecret +mfaBackupCodes +mfaPendingSecret');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    if (!user.mfaEnabled) {
+      return sendError(res, 400, 'MFA is not enabled');
+    }
+
+    const verification = await verifyMfaCodeForUser(user, code, true);
+    if (!verification.valid) {
+      return sendError(res, 401, 'Invalid MFA code');
+    }
+
+    const backupCodes = generateBackupCodes();
+    user.mfaBackupCodes = await hashBackupCodes(backupCodes);
+    await user.save();
+
+    return sendSuccess(res, 200, 'Backup codes regenerated', {
+      ...mfaStatusPayload(user),
+      backupCodes,
+    });
+  } catch (error) {
+    console.error('MFA backup regeneration error:', error);
+    return sendError(res, 500, 'Failed to regenerate backup codes');
+  }
+});
+
 // Logout
 router.post('/logout', verifyToken, async (req, res) => {
   // mark current session as ended
@@ -389,11 +704,13 @@ router.post('/logout', verifyToken, async (req, res) => {
 // Get user profile (requires authentication)
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user?.id).select('-passwordHashed');
+    const user = await User.findById(req.user?.id).select(
+      '-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes'
+    );
     if (!user) {
       return sendError(res, 404, 'User not found');
     }
-    return sendSuccess(res, 200, 'Profile retrieved', user, { user });
+    return sendSuccess(res, 200, 'Profile retrieved', user);
   } catch (error) {
     console.error('Get profile error:', error);
     return sendError(res, 500, 'Server error');

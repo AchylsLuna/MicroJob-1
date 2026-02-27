@@ -29,6 +29,8 @@ interface User {
   country?: string;
   linkedin?: string;
   avatarUrl?: string;
+  employerBalance?: number;
+  workerBalance?: number;
   createdAt?: string;
   user_type?: string;
   userType?: string;
@@ -168,41 +170,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   } | null>(null);
 
   useEffect(() => {
-    // Check for existing session
-    const currentUser = localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(CURRENT_USER_KEY);
-    if (currentUser) {
-      try {
-        const parsed = JSON.parse(currentUser) as Partial<User> & {
-          role?: string | null;
-          user_type?: string | null;
-          accountType?: string | null;
-          accountOptions?: unknown;
-        };
-        const normalizedRole = normalizeRole(getRoleCandidate(parsed));
-        const { accountType, accountOptions } = normalizeAccount(normalizedRole, parsed.accountType);
-        const normalizedOptions = normalizeAccountOptions(parsed.accountOptions);
-        const normalizedUser = {
-          ...parsed,
-          role: normalizedRole,
-          accountType,
-          accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
-        } as User;
-        setUser(normalizedUser);
-        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
-      } catch {
-        // Corrupted or legacy non-JSON values can break initial render.
-        localStorage.removeItem(AUTH_USER_KEY);
-        localStorage.removeItem(CURRENT_USER_KEY);
+    const syncSessionFromStorage = () => {
+      const currentUser = localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(CURRENT_USER_KEY);
+      if (!currentUser) {
+        setUser(null);
+      } else {
+        try {
+          const parsed = JSON.parse(currentUser) as Partial<User> & {
+            role?: string | null;
+            user_type?: string | null;
+            accountType?: string | null;
+            accountOptions?: unknown;
+          };
+          const normalizedRole = normalizeRole(getRoleCandidate(parsed));
+          const { accountType, accountOptions } = normalizeAccount(normalizedRole, parsed.accountType);
+          const normalizedOptions = normalizeAccountOptions(parsed.accountOptions);
+          const normalizedUser = {
+            ...parsed,
+            role: normalizedRole,
+            accountType,
+            accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
+          } as User;
+          setUser(normalizedUser);
+          localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
+        } catch {
+          localStorage.removeItem(AUTH_USER_KEY);
+          localStorage.removeItem(CURRENT_USER_KEY);
+          setUser(null);
+        }
       }
-    }
 
-    const pendingEmail = localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
-    if (pendingEmail) {
-      const pendingName = localStorage.getItem(PENDING_VERIFICATION_NAME_KEY) || "User";
-      setPendingVerification({ email: pendingEmail, name: pendingName });
-    }
+      const pendingEmail = localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
+      if (pendingEmail) {
+        const pendingName = localStorage.getItem(PENDING_VERIFICATION_NAME_KEY) || "User";
+        setPendingVerification({ email: pendingEmail, name: pendingName });
+      } else {
+        setPendingVerification(null);
+      }
+    };
 
+    syncSessionFromStorage();
+    const handleAuthUserUpdated = () => syncSessionFromStorage();
+    window.addEventListener("auth_user_updated", handleAuthUserUpdated);
     setIsLoading(false);
+    return () => window.removeEventListener("auth_user_updated", handleAuthUserUpdated);
   }, []);
 
   const register = async (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, User, Eye, EyeOff, Phone, Briefcase, Users, Award, TrendingUp, UserPlus, Handshake, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
@@ -36,6 +36,8 @@ export function SignUp() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [userType, setUserType] = useState<"employer" | "worker" | "both">("both");
   const showPasswordStrength = Boolean(formData.password || formData.confirmPassword);
   const normalizedFullName = normalizeFullName(formData.fullName);
@@ -82,34 +84,38 @@ export function SignUp() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isSubmitting || submitInFlightRef.current) {
+      return;
+    }
     
     if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
-      toast.error("Please fill in all required fields");
+      toast.error("Invalid input: Please fill in all required fields.");
       return;
     }
 
     if (!isValidFullName(normalizedFullName)) {
-      toast.error(FULL_NAME_VALIDATION_MESSAGE);
+      toast.error(`Invalid input: ${FULL_NAME_VALIDATION_MESSAGE}`);
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      toast.error(EMAIL_VALIDATION_MESSAGE);
+      toast.error(`Invalid input: ${EMAIL_VALIDATION_MESSAGE}`);
       return;
     }
 
     if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-      toast.error(PHONE_VALIDATION_MESSAGE);
+      toast.error(`Invalid input: ${PHONE_VALIDATION_MESSAGE}`);
       return;
     }
 
     if (!passwordStrength.isStrong) {
-      toast.error(STRONG_PASSWORD_ERROR);
+      toast.error(`Invalid input: ${STRONG_PASSWORD_ERROR}`);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error("Invalid input: Passwords do not match.");
       return;
     }
 
@@ -119,10 +125,22 @@ export function SignUp() {
     }
 
     try {
+      submitInFlightRef.current = true;
+      setIsSubmitting(true);
       await register(normalizedEmail, formData.password, normalizedFullName, userType, normalizedPhone);
       setShowOTP(true);
     } catch (error: any) {
-      toast.error(error.message || "Registration failed");
+      const message = error?.message || "Registration failed";
+      const invalidInputMessage = /(invalid|required|must|format|phone|email|password|name|taken|exists)/i.test(
+        String(message),
+      );
+      const normalizedMessage = /^invalid input:/i.test(String(message))
+        ? String(message)
+        : `Invalid input: ${message}`;
+      toast.error(invalidInputMessage ? normalizedMessage : message);
+    } finally {
+      submitInFlightRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -458,9 +476,10 @@ export function SignUp() {
             {/* Sign Up Button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300"
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Create Account
+              {isSubmitting ? "Creating Account..." : "Create Account"}
             </button>
 
             {/* Divider */}

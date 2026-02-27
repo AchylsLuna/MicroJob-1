@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import AppHeader from '../../components/AppHeader';
 import AddExperience from './AddExperience';
@@ -56,7 +57,7 @@ export default function Profile({
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
-        const result = await apiRequest(`${API_URL}/auth/profile`, {
+        const result = await apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load profile.');
         if (!result.ok) return;
@@ -102,7 +103,7 @@ export default function Profile({
               <Text style={styles.avatarText}>{initials}</Text>
             </View>
             <TouchableOpacity style={styles.cameraBtn}>
-              <Text style={styles.cameraIcon}>📷</Text>
+              <Ionicons name="camera-outline" size={16} color={tokens.colors.brandDark} />
             </TouchableOpacity>
           </View>
 
@@ -136,14 +137,14 @@ export default function Profile({
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Experience</Text>
             <TouchableOpacity onPress={() => setShowAddExperience(true)}>
-              <Text style={styles.editIcon}>✏️</Text>
+              <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
             </TouchableOpacity>
           </View>
 
           {[1, 2].map((item) => (
             <View key={item} style={styles.experienceItem}>
               <View style={styles.expLogo}>
-                <Text style={styles.expLogoText}>📦</Text>
+                <Ionicons name="briefcase-outline" size={20} color={tokens.colors.brand} />
               </View>
               <View style={styles.expInfo}>
                 <Text style={styles.expTitle}>Mobile Developer Designer</Text>
@@ -160,13 +161,13 @@ export default function Profile({
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Education</Text>
             <TouchableOpacity onPress={() => setShowAddEducation(true)}>
-              <Text style={styles.editIcon}>✏️</Text>
+              <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.educationItem}>
             <View style={styles.eduLogo}>
-              <Text style={styles.eduLogoText}>🎓</Text>
+              <Ionicons name="school-outline" size={20} color={tokens.colors.brand} />
             </View>
             <View style={styles.eduInfo}>
               <Text style={styles.eduTitle}>Information Technology</Text>
@@ -182,20 +183,20 @@ export default function Profile({
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>CV</Text>
             <TouchableOpacity onPress={() => setShowAddCV(true)}>
-              <Text style={styles.editIcon}>✏️</Text>
+              <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.cvFile}>
             <View style={styles.cvIcon}>
-              <Text style={styles.cvIconText}>📄</Text>
+              <Ionicons name="document-text-outline" size={20} color={tokens.colors.brand} />
             </View>
             <View style={styles.cvInfo}>
               <Text style={styles.cvFileName}>Enriquez, Jonas CV.PDF</Text>
               <Text style={styles.cvFileSize}>PDF • 2MB</Text>
             </View>
             <TouchableOpacity>
-              <Text style={styles.downloadIcon}>⬇️</Text>
+              <Ionicons name="download-outline" size={18} color={tokens.colors.textMuted} />
             </TouchableOpacity>
           </View>
         </View>
@@ -279,7 +280,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#1e3a5f',
   },
-  cameraIcon: { fontSize: 16 },
   name: { fontSize: 24, fontWeight: '700', color: '#fff' },
   settingsChip: {
     paddingHorizontal: 14,
@@ -316,7 +316,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937' },
-  editIcon: { fontSize: 18 },
   experienceItem: {
     flexDirection: 'row',
     backgroundColor: '#fff',
@@ -334,7 +333,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  expLogoText: { fontSize: 24 },
   expInfo: { flex: 1 },
   expTitle: { fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
   expCompany: { fontSize: 12, color: '#6b7280', marginBottom: 2 },
@@ -356,7 +354,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  eduLogoText: { fontSize: 24 },
   eduInfo: { flex: 1 },
   eduTitle: { fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
   eduSchool: { fontSize: 12, color: '#6b7280', marginBottom: 2 },
@@ -378,9 +375,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cvIconText: { fontSize: 24 },
   cvInfo: { flex: 1 },
   cvFileName: { fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
   cvFileSize: { fontSize: 12, color: '#6b7280' },
-  downloadIcon: { fontSize: 20 },
 });
