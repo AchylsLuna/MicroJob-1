@@ -10,6 +10,9 @@
     },
     "android": {
       "package": "com.bananas1.mobile"
-    }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

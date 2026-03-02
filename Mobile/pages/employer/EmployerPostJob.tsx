@@ -173,9 +173,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
       const trimmedLocation = formData.location.trim();
       const deadlineValue = deadlineDate;
       const rawSalary = formData.salary.replace(/[^0-9]/g, '');
-      const normalizedSalary = rawSalary
-        ? `PHP ${new Intl.NumberFormat('en-PH').format(Number(rawSalary))}`
-        : '';
+      const normalizedSalary = rawSalary ? Number(rawSalary) : 0;
 
       const missingFields: string[] = [];
       if (!trimmedTitle) missingFields.push('title');
