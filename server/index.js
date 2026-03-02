@@ -1,4 +1,8 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+dotenv.config({ path: resolve(dirname(fileURLToPath(import.meta.url)), '../.env') });
+
 import express from 'express';
 import http from 'http';
 import cookieParser from 'cookie-parser';
@@ -94,7 +98,11 @@ app.use((err, req, res, next) => {
 }) 
 const startServer = async () => {
     try {
-        await mongoose.connect(config.MONGO_URI, { dbName: config.DB_NAME});
+        await mongoose.connect(config.MONGO_URI, { 
+            dbName: config.DB_NAME,
+            serverSelectionTimeoutMS: 5000,
+            socketTimeoutMS: 45000,
+        });
         console.log('Connected to DB');
 
         // initialize socket.io
@@ -106,6 +114,11 @@ const startServer = async () => {
         });
     } catch (error) {
         console.error('Failed to connect to DB: ', error);
+        console.error('\nTroubleshooting tips:');
+        console.error('1. Check your internet connection');
+        console.error('2. Verify MongoDB Atlas cluster is running');
+        console.error('3. Check if your IP is whitelisted in MongoDB Atlas');
+        console.error('4. Verify the connection string in .env file');
         process.exit(1);
     }
 }

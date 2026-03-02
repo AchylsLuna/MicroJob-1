@@ -12,14 +12,15 @@ type NavItem = {
 type Props = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  messageBadgeCount?: number;
 };
 
-export default function Navigation({ activeTab = 'Home', onTabPress }: Props) {
+export default function Navigation({ activeTab = 'Home', onTabPress, messageBadgeCount = 0 }: Props) {
   const navItems: NavItem[] = [
     { label: 'Home', icon: '🏠', screen: 'Home' },
     { label: 'Jobs', icon: '💼', screen: 'Jobs' },
     { label: 'Saved', icon: '🔖', screen: 'Saved' },
-    { label: 'Messages', icon: '✉️', screen: 'Messages' },
+    { label: 'Messages', icon: '✉️', screen: 'Messages', badge: messageBadgeCount },
     { label: 'Notifications', icon: '🔔', screen: 'Notifications' },
     { label: 'Profile', icon: '👤', screen: 'Profile' },
   ];
