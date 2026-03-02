@@ -72,47 +72,58 @@ export function EWallet() {
     setTarget("WORKER");
   }, [accountOptions, accountType]);
 
+  const loadWallet = async (skipLoader = false) => {
+    if (!skipLoader) setIsLoading(true);
+    try {
+      const [profileResponse, txResponse] = await Promise.all([
+        getProfile(),
+        getPaymentTransactions().catch(() => ({ transactions: [] as PaymentTransaction[] })),
+      ]);
+
+      const profile = (profileResponse as any)?.profile ?? (profileResponse as any);
+      const nextEmployerBalance = toAmount((profile as any)?.employerBalance);
+      const nextWorkerBalance = toAmount((profile as any)?.workerBalance);
+
+      setEmployerBalance(nextEmployerBalance);
+      setWorkerBalance(nextWorkerBalance);
+
+      const txList = Array.isArray((txResponse as any)?.transactions)
+        ? ((txResponse as any).transactions as PaymentTransaction[])
+        : [];
+      setTransactions(txList);
+    } catch (error: any) {
+      console.error("Wallet load error:", error);
+      // Only show error if it's not a 304 (not modified) response
+      if (!error?.message?.includes("304")) {
+        toast.error(error?.message || "Failed to load wallet data.");
+      }
+    } finally {
+      if (!skipLoader) setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     let isActive = true;
 
-    const loadWallet = async () => {
-      setIsLoading(true);
-      try {
-        const [profileResponse, txResponse] = await Promise.all([
-          getProfile(),
-          getPaymentTransactions().catch(() => ({ transactions: [] as PaymentTransaction[] })),
-        ]);
-
-        if (!isActive) return;
-
-        const profile = (profileResponse as any)?.profile ?? (profileResponse as any);
-        const nextEmployerBalance = toAmount((profile as any)?.employerBalance);
-        const nextWorkerBalance = toAmount((profile as any)?.workerBalance);
-
-        setEmployerBalance(nextEmployerBalance);
-        setWorkerBalance(nextWorkerBalance);
-        updateProfile({
-          employerBalance: nextEmployerBalance,
-          workerBalance: nextWorkerBalance,
-        });
-
-        const txList = Array.isArray((txResponse as any)?.transactions)
-          ? ((txResponse as any).transactions as PaymentTransaction[])
-          : [];
-        setTransactions(txList);
-      } catch (error: any) {
-        toast.error(error?.message || "Failed to load wallet data.");
-      } finally {
-        if (isActive) setIsLoading(false);
-      }
+    const load = async () => {
+      if (!isActive) return;
+      await loadWallet();
     };
 
-    loadWallet();
+    load();
+
+    // Refresh balance every 5 seconds to catch top-up confirmations
+    const pollInterval = setInterval(() => {
+      if (isActive) {
+        loadWallet(true); // skip loader to avoid flickering
+      }
+    }, 5000);
 
     return () => {
       isActive = false;
+      clearInterval(pollInterval);
     };
-  }, [updateProfile]);
+  }, []);
 
   const activeBalance = accountType === "employer" ? employerBalance : workerBalance;
 
@@ -141,6 +152,11 @@ export function EWallet() {
       const response = await createTopUpSession({ amount, target });
       if (!response?.checkoutUrl) {
         throw new Error("Payment checkout URL was not returned.");
+      }
+
+      // Store checkout ID for confirmation after PayMongo redirects back
+      if (response?.checkoutId) {
+        sessionStorage.setItem('topup_checkout_id', response.checkoutId);
       }
 
       window.location.assign(response.checkoutUrl);

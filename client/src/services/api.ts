@@ -193,7 +193,7 @@ export function deleteUser(userId: string) {
 // Profile APIs
 export function getProfile() {
   return request<any>('/auth/me', { method: 'GET' }).then((response: any) => {
-    return response?.profile ?? response?.user ?? response;
+    return response?.data ?? response?.profile ?? response?.user ?? response;
   });
 }
 
@@ -208,7 +208,7 @@ export function updateProfile(payload: {
   avatarUrl?: string;
 }) {
   return request<any>('/auth/me', { method: 'PATCH', body: payload }).then((response: any) => {
-    return response?.profile ?? response?.user ?? response;
+    return response?.data ?? response?.profile ?? response?.user ?? response;
   });
 }
 

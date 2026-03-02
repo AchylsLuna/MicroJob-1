@@ -93,6 +93,8 @@ async function applyTopUpToUser({
         throw new Error('Invalid top-up amount');
     }
 
+    console.log(`[TopUp] Before: Worker=${user.workerBalance}, Employer=${user.employerBalance}, Target=${normalizedTarget}, Amount=${numericAmount}`);
+
     if (normalizedTarget === TOPUP_TARGET.WORKER) {
         user.workerBalance = (user.workerBalance || 0) + numericAmount;
     }
@@ -105,7 +107,16 @@ async function applyTopUpToUser({
         user.workerBalance = (user.workerBalance || 0) + workerShare;
         user.employerBalance = (user.employerBalance || 0) + employerShare;
     }
-    await user.save();
+    
+    console.log(`[TopUp] After: Worker=${user.workerBalance}, Employer=${user.employerBalance}`);
+    
+    try {
+        await user.save();
+        console.log(`[TopUp] Save successful for user ${user._id}`);
+    } catch (saveError) {
+        console.error(`[TopUp] Save failed for user ${user._id}:`, saveError);
+        throw saveError;
+    }
 
     const transaction = await Transaction.create({
         sender: null,
@@ -126,6 +137,11 @@ async function applyTopUpToUser({
         target: normalizedTarget,
         transaction,
         transactions: [transaction],
+        user: {
+            _id: user._id,
+            employerBalance: user.employerBalance,
+            workerBalance: user.workerBalance,
+        },
     };
 }
 
@@ -360,7 +376,7 @@ export async function confirmTopUp(req, res) {
                 return res.status(403).json({ message: 'CSRF token missing or invalid' });
             }
         }
-        const { referenceNumber, checkoutId, provider } = req.body;
+        const { referenceNumber, checkoutId, provider, paymentIntentId } = req.body;
         if (!referenceNumber && !checkoutId) return res.status(400).json({ message: 'referenceNumber or checkoutId required' });
 
         // avoid duplicates: check by reference or by checkout id
@@ -461,20 +477,29 @@ export async function confirmTopUp(req, res) {
             }
         }
 
+        // PayMongo path - only proceed if we have checkoutId or payment_intent_id
+        if (!checkoutId && !paymentIntentId) {
+            return res.status(400).json({ message: 'Unable to confirm payment. Missing checkout ID and payment intent ID. Please contact support.' });
+        }
+
         const authHeader = { headers: { authorization: `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY).toString('base64')}` } };
         let resp;
         if (checkoutId) {
-            resp = await axios.get(`${PAYMONGO_BASE}/checkout_sessions/${checkoutId}`, authHeader);
-        } else if (referenceNumber) {
-            // list and search for matching reference_number
-            resp = await axios.get(`${PAYMONGO_BASE}/checkout_sessions`, authHeader);
-            const found = (resp.data.data || []).find((c) => c.attributes?.reference_number === referenceNumber);
-            if (!found) return res.status(404).json({ message: 'Checkout session not found' });
-            resp.data.data = found;
+            try {
+                resp = await axios.get(`${PAYMONGO_BASE}/checkout_sessions/${checkoutId}`, authHeader);
+            } catch (error) {
+                console.warn('PayMongo checkout lookup by ID failed:', error.response?.data || error.message);
+                return res.status(400).json({ message: 'Payment session not found. Please try again.' });
+            }
         } else {
-            return res.status(400).json({ message: 'referenceNumber or checkoutId required' });
+            return res.status(400).json({ message: 'Checkout ID is required for PayMongo confirmation' });
         }
-        const checkout = resp.data.data;
+
+        const checkout = resp.data?.data;
+        if (!checkout) {
+            return res.status(404).json({ message: 'Checkout session not found' });
+        }
+
         const attrs = checkout.attributes || {};
         const ref = attrs.reference_number || referenceNumber;
 
@@ -521,7 +546,7 @@ export async function confirmTopUp(req, res) {
             userAgent: req.get('user-agent'),
             amount: amountAdded,
             status: 'success',
-            meta: { target: topUpResult.target, ref },
+            meta: { target: topUpResult.target, ref, provider: 'paymongo' },
         });
         await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
         if (topUpResult.target === TOPUP_TARGET.BOTH) {
@@ -530,8 +555,9 @@ export async function confirmTopUp(req, res) {
         return res.status(200).json({ message: 'Top-up applied', transaction: topUpResult.transaction });
 
     } catch (error) {
-        console.error('Confirm top-up error', error.response?.data || error.message || error);
-        return res.status(500).json({ message: 'Failed to confirm top-up' });
+        const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+        console.error('Confirm top-up error:', errorMsg, error.response?.data || error);
+        return res.status(500).json({ message: `Failed to confirm top-up: ${errorMsg}` });
     }
 }
 

@@ -11,6 +11,17 @@ export function TopUpSuccess() {
   const [message, setMessage] = useState("Confirming your top-up...");
 
   const referenceNumber = useMemo(() => searchParams.get("ref") || "", [searchParams]);
+  const checkoutId = useMemo(() => {
+    // Try to get from URL first, then from sessionStorage
+    const urlCheckoutId = searchParams.get("checkout_id") || "";
+    if (urlCheckoutId) return urlCheckoutId;
+    
+    try {
+      return sessionStorage.getItem('topup_checkout_id') || "";
+    } catch {
+      return "";
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let isActive = true;
@@ -24,10 +35,14 @@ export function TopUpSuccess() {
       }
 
       try {
-        const result = await confirmTopUp({ referenceNumber });
+        const result = await confirmTopUp({ referenceNumber, checkoutId });
         if (!isActive) return;
         setState("success");
         setMessage(result?.message || "Top-up confirmed successfully.");
+        // Clean up stored checkout ID
+        try {
+          sessionStorage.removeItem('topup_checkout_id');
+        } catch {}
       } catch (error: any) {
         if (!isActive) return;
         setState("error");
@@ -40,7 +55,7 @@ export function TopUpSuccess() {
     return () => {
       isActive = false;
     };
-  }, [referenceNumber]);
+  }, [referenceNumber, checkoutId]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
