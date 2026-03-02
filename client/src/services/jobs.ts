@@ -1,6 +1,7 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { handleInvalidSession, isInvalidTokenError } from '../utils/authSession';
 
-const API_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -19,6 +20,19 @@ api.interceptors.request.use(
     return config;
   },
   (error: AxiosError) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<{ message?: string }>) => {
+    const status = error.response?.status;
+    const message = error.response?.data?.message || error.message;
+    const hasToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
+    if (isInvalidTokenError({ status, message, path: error.config?.url, hasToken })) {
+      handleInvalidSession();
+    }
+    return Promise.reject(error);
+  }
 );
 
 // Jobs API

@@ -1,11 +1,28 @@
 import { Server } from 'socket.io';
+import { isAllowedOrigin } from './corsOrigins.js';
 
 let io = null;
 const userSocketMap = new Map(); // userId -> Set(socketId)
 
 export function initSocket(httpServer, opts = {}) {
   if (io) return io;
-  io = new Server(httpServer, { cors: { origin: '*' }, ...opts });
+  const { allowedOrigins = new Set(), ...socketOptions } = opts;
+  const isProduction = process.env.NODE_ENV === 'production';
+  io = new Server(httpServer, {
+    cors: {
+      origin: (origin, callback) => {
+        // React Native / Expo development clients can send varying origins.
+        // Keep production strict, but allow local development clients through.
+        if (!isProduction || isAllowedOrigin(origin, allowedOrigins)) {
+          callback(null, true);
+          return;
+        }
+        callback(new Error('Not allowed by CORS'));
+      },
+      credentials: true,
+    },
+    ...socketOptions,
+  });
 
   io.on('connection', (socket) => {
     // Clients should emit 'register' with their userId after connecting

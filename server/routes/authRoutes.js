@@ -1,97 +1,283 @@
 import express from 'express';
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
+import speakeasy from 'speakeasy';
 import csrfProtection from '../middleware/csrf.js';
 import Session from '../models/Session.js';
 import User from '../models/User.js';
 import verifyToken from '../middleware/auth.js';
+import { sendOtp, verifyOtp, updateMe } from '../controllers/UserController.js';
+import {
+  isValidPhone,
+  normalizeEmail,
+  normalizePhone,
+  PHONE_VALIDATION_MESSAGE,
+} from '../lib/authValidation.js';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
+import { sendError, sendSuccess } from '../lib/apiResponse.js';
+import { getJwtSecret } from '../lib/jwtSecret.js';
 
 const router = express.Router();
+const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
+const cookieSecurityOptions = {
+  sameSite: 'strict',
+  secure: process.env.NODE_ENV === 'production',
+};
+
+const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ').toLowerCase();
+const normalizeDisplayName = (value = '') => String(value).trim().replace(/\s+/g, ' ');
+const MFA_LOGIN_PURPOSE = 'mfa-login';
+const MFA_METHOD = 'authenticator';
+const MFA_CHALLENGE_TTL = '5m';
+const MFA_BACKUP_CODES_COUNT = 8;
+
+const createAccessToken = (user, sessionId) =>
+  jwt.sign(
+    { userId: user._id, role: user.role || 'user', sessionId },
+    getJwtSecret(),
+    { expiresIn: '15m' }
+  );
+
+const createSessionWithTokens = async (req, user) => {
+  const forwardedFor = String(req.headers['x-forwarded-for'] || '');
+  const requestIp = forwardedFor.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const session = await Session.create({
+    user: user._id,
+    userAgent: req.get('User-Agent') || '',
+    ip: requestIp,
+    active: true,
+    expiresAt,
+  });
+
+  const accessToken = createAccessToken(user, session._id.toString());
+  const refreshToken = crypto.randomBytes(64).toString('hex');
+  const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+  session.token = accessToken;
+  session.refreshTokenHash = refreshHash;
+  await session.save();
+
+  return {
+    accessToken,
+    refreshToken,
+    expiresAt,
+    sessionId: session._id.toString(),
+    session,
+  };
+};
+
+const setSessionCookies = (res, { refreshToken, sessionId, expiresAt, csrfToken }) => {
+  if (csrfToken) {
+    res.cookie('csrfToken', csrfToken, {
+      httpOnly: false,
+      ...cookieSecurityOptions,
+      expires: expiresAt,
+    });
+  }
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    ...cookieSecurityOptions,
+    expires: expiresAt,
+  });
+  res.cookie('sessionId', sessionId, {
+    httpOnly: true,
+    ...cookieSecurityOptions,
+    expires: expiresAt,
+  });
+};
+
+const buildLoginPayload = (user, includePhone = false) => ({
+  id: user._id,
+  ...(includePhone ? { phoneNumber: user.phoneNumber } : {}),
+  firstName: user.firstName,
+  lastName: user.lastName,
+  email: user.email,
+  role: user.role || 'work',
+});
+
+const normalizeMfaCode = (value = '') =>
+  String(value).trim().replace(/\s+/g, '').replace(/-/g, '').toUpperCase();
+
+const createMfaChallengeToken = (userId, includePhone = false) =>
+  jwt.sign(
+    { userId, purpose: MFA_LOGIN_PURPOSE, includePhone: Boolean(includePhone) },
+    getJwtSecret(),
+    { expiresIn: MFA_CHALLENGE_TTL }
+  );
+
+const generateBackupCodes = (count = MFA_BACKUP_CODES_COUNT) =>
+  Array.from({ length: count }, () => {
+    const raw = crypto.randomBytes(4).toString('hex').toUpperCase();
+    return `${raw.slice(0, 4)}-${raw.slice(4, 8)}`;
+  });
+
+const hashBackupCodes = async (codes = []) =>
+  Promise.all(codes.map((code) => bcrypt.hash(normalizeMfaCode(code), 10)));
+
+const verifyTotpCode = (secret, code) =>
+  Boolean(
+    secret &&
+      speakeasy.totp.verify({
+        secret,
+        encoding: 'base32',
+        token: normalizeMfaCode(code),
+        window: 1,
+      })
+  );
+
+const verifyAndMaybeConsumeBackupCode = async (user, code, consume = false) => {
+  const normalized = normalizeMfaCode(code);
+  if (!normalized || !Array.isArray(user?.mfaBackupCodes) || user.mfaBackupCodes.length === 0) {
+    return false;
+  }
+
+  for (let index = 0; index < user.mfaBackupCodes.length; index += 1) {
+    const hash = user.mfaBackupCodes[index];
+    const matches = await bcrypt.compare(normalized, hash);
+    if (!matches) continue;
+    if (consume) {
+      user.mfaBackupCodes.splice(index, 1);
+    }
+    return true;
+  }
+
+  return false;
+};
+
+const verifyMfaCodeForUser = async (user, code, consumeBackup = false) => {
+  const normalized = normalizeMfaCode(code);
+  if (!normalized) {
+    return { valid: false, usedBackup: false };
+  }
+
+  if (verifyTotpCode(user?.mfaSecret, normalized)) {
+    return { valid: true, usedBackup: false };
+  }
+
+  const usedBackup = await verifyAndMaybeConsumeBackupCode(user, normalized, consumeBackup);
+  return { valid: usedBackup, usedBackup };
+};
+
+const mfaStatusPayload = (user) => ({
+  enabled: Boolean(user?.mfaEnabled),
+  method: user?.mfaMethod || null,
+  backupCodesRemaining: Array.isArray(user?.mfaBackupCodes) ? user.mfaBackupCodes.length : 0,
+  hasPendingSetup: Boolean(user?.mfaPendingSecret),
+});
 
 // Register a new user (supports both email/username and phone-based registration)
 router.post('/register', async (req, res) => {
   try {
     const { username, email, password, phoneNumber, firstName, lastName, role } = req.body;
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedPhone = normalizePhone(phoneNumber || '');
+    const normalizedUsername = normalizeUsername(username);
+    const displayUsername = normalizeDisplayName(username);
+    const providedFirstName = String(firstName || '').trim();
+    const providedLastName = String(lastName || '').trim();
+    const userRole = SELF_SERVICE_ROLES.has(role) ? role : 'work';
 
-    // Validate role
-    const validRoles = ['hire', 'work', 'both', 'admin', 'superadmin'];
-    const userRole = role && validRoles.includes(role) ? role : 'work';
-    console.log('Register - User role being set to:', userRole);
+    if (!normalizedEmail) {
+      return sendError(res, 400, 'Email is required');
+    }
 
-    // Flexible validation - support both email-based and phone-based registration
     if (!password) {
-      return res.status(400).json({ message: 'Password is required' });
+      return sendError(res, 400, 'Password is required');
+    }
+    if (!isStrongPassword(password)) {
+      return sendError(res, 400, PASSWORD_POLICY_MESSAGE);
+    }
+    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+      return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
     }
 
-    // Phone-based registration (primary)
-    if (phoneNumber && firstName && lastName) {
-      if (!/^\d{10,15}$/.test(phoneNumber)) {
-        return res.status(400).json({ message: 'Phone number must be 10-15 digits' });
+    let userFirstName = providedFirstName;
+    let userLastName = providedLastName;
+    if (!userFirstName || !userLastName) {
+      if (!displayUsername) {
+        return sendError(res, 400, 'Username or full name is required');
       }
-
-      const existingUser = await User.findOne({ phoneNumber });
-      if (existingUser) {
-        return res.status(409).json({ message: 'Phone number is already registered' });
-      }
-
-      const user = await User.create({
-        phoneNumber,
-        firstName,
-        lastName,
-        password,
-        email: email?.toLowerCase() || null,
-        role: userRole,
-        status: 'pending',
-      });
-
-      return res.status(201).json({
-        message: 'User registered successfully',
-        user: {
-          id: user._id,
-          phoneNumber: user.phoneNumber,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role,
-        },
-      });
+      const nameParts = displayUsername.split(' ').filter(Boolean);
+      userFirstName = nameParts[0] || displayUsername;
+      userLastName = nameParts.slice(1).join(' ') || userFirstName;
     }
 
-    // Email/username-based registration (fallback)
-    if (!username || !email) {
-      return res.status(400).json({ message: 'Username, email, or phone number with firstName and lastName are required' });
-    }
-
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const duplicateQuery = [
+      { email: normalizedEmail },
+      ...(normalizedPhone ? [{ phoneNumber: normalizedPhone }] : []),
+      ...(normalizedUsername ? [{ username: normalizedUsername }] : []),
+    ];
+    const existingUser = await User.findOne({ $or: duplicateQuery });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      if (existingUser.email === normalizedEmail) {
+        return sendError(res, 409, 'Email is already registered');
+      }
+      if (normalizedPhone && existingUser.phoneNumber === normalizedPhone) {
+        return sendError(res, 409, 'Phone number is already registered');
+      }
+      return sendError(res, 409, 'Username is already taken');
     }
 
-    // Split username into firstName and lastName
-    const nameParts = username.trim().split(' ');
-    const userFirstName = nameParts[0] || username;
-    const userLastName = nameParts.slice(1).join(' ') || nameParts[0];
-
-    const user = await User.create({
+    const user = new User({
+      username: normalizedUsername || undefined,
       firstName: userFirstName,
       lastName: userLastName,
-      email: email.toLowerCase(),
-      password,
+      email: normalizedEmail,
+      phoneNumber: normalizedPhone || undefined,
       role: userRole,
       status: 'pending',
     });
+    await user.setPassword(password);
+    await user.save();
 
-    return res.status(201).json({
-      message: 'User registered successfully',
-      user: { id: user._id, firstName: user.firstName, lastName: user.lastName, email: user.email, role: user.role },
-    });
+    const userPayload = {
+      id: user._id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      phoneNumber: user.phoneNumber,
+      email: user.email,
+      role: user.role,
+    };
+    return sendSuccess(
+      res,
+      201,
+      'User registered successfully',
+      { user: userPayload }
+    );
   } catch (error) {
+    if (error instanceof Error && error.message === PASSWORD_POLICY_MESSAGE) {
+      return sendError(res, 400, PASSWORD_POLICY_MESSAGE);
+    }
+    if (error?.code === 11000) {
+      const duplicateField = Object.keys(error?.keyPattern || {})[0] || '';
+      if (duplicateField === 'email') {
+        return sendError(res, 409, 'Email is already registered');
+      }
+      if (duplicateField === 'phoneNumber') {
+        return sendError(res, 409, 'Phone number is already registered');
+      }
+      if (duplicateField === 'username') {
+        return sendError(res, 409, 'Username is already taken');
+      }
+      return sendError(res, 409, 'Account already exists');
+    }
+    if (error?.name === 'ValidationError' && error?.errors) {
+      const firstValidation = Object.values(error.errors)[0];
+      const validationMessage =
+        firstValidation?.message || 'Please check your inputs and try again.';
+      return sendError(res, 400, `Invalid input: ${validationMessage}`);
+    }
     console.error('Register error:', error);
-    return res.status(500).json({ message: 'Server error during registration' });
+    return sendError(res, 500, 'Server error during registration');
   }
 });
+
+router.post('/otp/send', sendOtp);
+router.post('/otp/verify', verifyOtp);
 
 // Login an existing user (supports email/username and phone)
 // Apply a login rate limiter to mitigate brute-force attacks
@@ -106,137 +292,141 @@ const loginLimiter = rateLimit({
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { emailOrUsername, password, phoneNumber } = req.body;
+    if (!password) {
+      return sendError(res, 400, 'Password is required');
+    }
 
-    // Phone-based login
-    if (phoneNumber) {
-      if (!password) {
-        return res.status(400).json({ message: 'Password is required' });
+    let user;
+    let includePhone = false;
+    let invalidMessage = 'Invalid credentials';
+    const normalizedPhone = normalizePhone(phoneNumber || '');
+
+    if (normalizedPhone) {
+      if (!isValidPhone(normalizedPhone)) {
+        return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
       }
-
-      const user = await User.findOne({ phoneNumber });
-
-      if (!user || !(await user.comparePassword(password))) {
-        return res.status(401).json({ message: 'Invalid phone number or password' });
+      includePhone = true;
+      invalidMessage = 'Invalid phone number or password';
+      user = await User.findOne({ phoneNumber: normalizedPhone });
+    } else {
+      const loginInput = String(emailOrUsername || '').trim();
+      if (!loginInput) {
+        return sendError(res, 400, 'Email/username and password are required');
       }
-
-      if (user.status && user.status !== 'active') {
-        return res.status(401).json({ message: 'Account is disabled. Contact an admin.' });
-      }
-
-      // create session first
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-      const session = await Session.create({
-        user: user._id,
-        userAgent: req.get('User-Agent') || '',
-        ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
-        active: true,
-        expiresAt,
+      user = await User.findOne({
+        $or: [
+          { email: normalizeEmail(loginInput) },
+          { username: normalizeUsername(loginInput) },
+        ],
       });
+    }
 
-      // short-lived access token (15 minutes) that includes sessionId
-      const accessToken = jwt.sign(
-        { userId: user._id, role: user.role || 'user', sessionId: session._id.toString() },
-        process.env.JWT_SECRET || 'dev-secret',
-        { expiresIn: '15m' }
+    if (!user || !(await user.validatePassword(password))) {
+      return sendError(res, 401, invalidMessage);
+    }
+
+    if (user.status === 'pending') {
+      return sendError(res, 401, 'Please verify your email before signing in.');
+    }
+    if (user.status === 'disabled') {
+      return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user.mfaEnabled) {
+      const mfaToken = createMfaChallengeToken(String(user._id), includePhone);
+      return sendSuccess(
+        res,
+        200,
+        'MFA verification required',
+        {
+          mfaRequired: true,
+          mfaToken,
+          method: user.mfaMethod || MFA_METHOD,
+        }
       );
-
-      // create a refresh token (random) and store its hash in DB
-      const refreshToken = crypto.randomBytes(64).toString('hex');
-      const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-      session.token = accessToken;
-      session.refreshTokenHash = refreshHash;
-      await session.save();
-
-      // set cookies
-      // `csrfToken` is intentionally NOT httpOnly so client JS can read it and include in `x-csrf-token` header
-      const csrfToken = crypto.randomBytes(24).toString('hex');
-      res.cookie('csrfToken', csrfToken, { httpOnly: false, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: expiresAt });
-      res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: expiresAt });
-      res.cookie('sessionId', session._id.toString(), { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: expiresAt });
-
-      return res.status(200).json({
-        message: 'Login successful',
-        token: accessToken,
-        user: {
-          id: user._id,
-          phoneNumber: user.phoneNumber,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          role: user.role || 'work',
-        },
-      });
     }
 
-    // Email/username-based login
-    if (!emailOrUsername || !password) {
-      return res.status(400).json({ message: 'Email/username and password are required' });
-    }
-
-    const user = await User.findOne({
-      $or: [
-        { email: emailOrUsername.toLowerCase() },
-        { username: emailOrUsername },
-      ],
-    });
-
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    if (user.status && user.status !== 'active') {
-      return res.status(401).json({ message: 'Account is disabled. Contact an admin.' });
-    }
-
-    // create session first
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-    const session = await Session.create({
-      user: user._id,
-      userAgent: req.get('User-Agent') || '',
-      ip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || '',
-      active: true,
-      expiresAt,
-    });
-
-    // short-lived access token (15 minutes) that includes sessionId
-    const accessToken = jwt.sign(
-      { userId: user._id, role: user.role || 'user', sessionId: session._id.toString() },
-      process.env.JWT_SECRET || 'dev-secret',
-      { expiresIn: '15m' }
-    );
-
-    // create a refresh token (random) and store its hash in DB
-    const refreshToken = crypto.randomBytes(64).toString('hex');
-    const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-    session.token = accessToken;
-    session.refreshTokenHash = refreshHash;
-    await session.save();
-
-    // set cookies
+    const authSession = await createSessionWithTokens(req, user);
     const csrfToken = crypto.randomBytes(24).toString('hex');
-    res.cookie('csrfToken', csrfToken, { httpOnly: false, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: expiresAt });
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: expiresAt });
-    res.cookie('sessionId', session._id.toString(), { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: expiresAt });
-
-    return res.status(200).json({
-      message: 'Login successful',
-      token: accessToken,
-      user: { 
-        id: user._id, 
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role || 'work',
-      },
+    // `csrfToken` is intentionally NOT httpOnly so client JS can read it and include in `x-csrf-token` header
+    setSessionCookies(res, {
+      refreshToken: authSession.refreshToken,
+      sessionId: authSession.sessionId,
+      expiresAt: authSession.expiresAt,
+      csrfToken,
     });
+
+    const userPayload = buildLoginPayload(user, includePhone);
+    return sendSuccess(
+      res,
+      200,
+      'Login successful',
+      { token: authSession.accessToken, user: userPayload }
+    );
   } catch (error) {
     console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server error during login' });
+    return sendError(res, 500, 'Server error during login');
+  }
+});
+
+router.post('/login/mfa', loginLimiter, async (req, res) => {
+  try {
+    const { mfaToken, code } = req.body || {};
+    if (!mfaToken || !code) {
+      return sendError(res, 400, 'MFA token and code are required');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(String(mfaToken), getJwtSecret());
+    } catch (error) {
+      return sendError(res, 401, 'MFA challenge expired. Please sign in again.');
+    }
+
+    if (decoded?.purpose !== MFA_LOGIN_PURPOSE || !decoded?.userId) {
+      return sendError(res, 401, 'Invalid MFA challenge.');
+    }
+
+    const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 401, 'Account not found.');
+    }
+    if (!user.mfaEnabled) {
+      return sendError(res, 400, 'MFA is not enabled for this account.');
+    }
+    if (user.status === 'pending') {
+      return sendError(res, 401, 'Please verify your email before signing in.');
+    }
+    if (user.status === 'disabled') {
+      return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+
+    const verification = await verifyMfaCodeForUser(user, code, true);
+    if (!verification.valid) {
+      return sendError(res, 401, 'Invalid MFA code.');
+    }
+    if (verification.usedBackup) {
+      await user.save();
+    }
+
+    const authSession = await createSessionWithTokens(req, user);
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    setSessionCookies(res, {
+      refreshToken: authSession.refreshToken,
+      sessionId: authSession.sessionId,
+      expiresAt: authSession.expiresAt,
+      csrfToken,
+    });
+
+    const userPayload = buildLoginPayload(user, Boolean(decoded.includePhone));
+    return sendSuccess(
+      res,
+      200,
+      'Login successful',
+      { token: authSession.accessToken, user: userPayload }
+    );
+  } catch (error) {
+    console.error('Login MFA error:', error);
+    return sendError(res, 500, 'Server error during MFA verification');
   }
 });
 
@@ -260,7 +450,7 @@ router.post('/refresh', csrfProtection, async (req, res) => {
     if (!user) return res.status(401).json({ message: 'Invalid session user' });
 
     // issue new access token (15m)
-    const newAccess = jwt.sign({ userId: user._id, role: user.role || 'user', sessionId: session._id.toString() }, process.env.JWT_SECRET || 'dev-secret', { expiresIn: '15m' });
+    const newAccess = createAccessToken(user, session._id.toString());
 
     // rotate refresh token
     const newRefresh = crypto.randomBytes(64).toString('hex');
@@ -272,8 +462,11 @@ router.post('/refresh', csrfProtection, async (req, res) => {
     await session.save();
 
     // set cookies
-    res.cookie('refreshToken', newRefresh, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: session.expiresAt });
-    res.cookie('sessionId', session._id.toString(), { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production', expires: session.expiresAt });
+    setSessionCookies(res, {
+      refreshToken: newRefresh,
+      sessionId: session._id.toString(),
+      expiresAt: session.expiresAt,
+    });
 
     return res.status(200).json({ token: newAccess });
   } catch (err) {
@@ -285,7 +478,7 @@ router.post('/refresh', csrfProtection, async (req, res) => {
 // List active sessions for current user
 router.get('/sessions', verifyToken, async (req, res) => {
   try {
-    const sessions = await Session.find({ user: req.user.userId }).select('-refreshTokenHash -token');
+    const sessions = await Session.find({ user: req.user.id }).select('-refreshTokenHash -token');
     return res.status(200).json({ sessions });
   } catch (err) {
     console.error('Sessions list error', err);
@@ -298,7 +491,7 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
   try {
     const s = await Session.findById(req.params.id);
     if (!s) return res.status(404).json({ message: 'Session not found' });
-    if (s.user.toString() !== req.user.userId) return res.status(403).json({ message: 'Not authorized' });
+    if (s.user.toString() !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized' });
     s.active = false;
     s.endedAt = new Date();
     await s.save();
@@ -312,11 +505,12 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
 // Revoke all sessions for current user (sign out everywhere)
 router.delete('/sessions', verifyToken, async (req, res) => {
   try {
-    await Session.updateMany({ user: req.user.userId, active: true }, { active: false, endedAt: new Date() });
+    await Session.updateMany({ user: req.user.id, active: true }, { active: false, endedAt: new Date() });
     // clear cookies
-    res.clearCookie('refreshToken');
-    res.clearCookie('sessionId');
-    res.clearCookie('csrfToken');
+    res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
+    res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
+    res.clearCookie('csrfToken', { ...cookieSecurityOptions, httpOnly: false });
+    res.clearCookie('token', { ...cookieSecurityOptions, httpOnly: true });
     return res.status(200).json({ message: 'All sessions revoked' });
   } catch (err) {
     console.error('Revoke all sessions error', err);
@@ -337,14 +531,159 @@ router.get('/admin/sessions/:userId', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/mfa/status', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user?.id).select('+mfaBackupCodes +mfaPendingSecret');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    return sendSuccess(res, 200, 'MFA status retrieved', mfaStatusPayload(user));
+  } catch (error) {
+    console.error('MFA status error:', error);
+    return sendError(res, 500, 'Failed to get MFA status');
+  }
+});
+
+router.post('/mfa/setup', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user?.id).select('+mfaPendingSecret +mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    const secret = speakeasy.generateSecret({
+      name: `MicroJobs (${user.email})`,
+      issuer: 'MicroJobs',
+      length: 20,
+    });
+
+    user.mfaMethod = MFA_METHOD;
+    user.mfaPendingSecret = secret.base32;
+    await user.save();
+
+    return sendSuccess(res, 200, 'MFA setup created', {
+      method: MFA_METHOD,
+      secret: secret.base32,
+      otpauthUrl: secret.otpauth_url,
+    });
+  } catch (error) {
+    console.error('MFA setup error:', error);
+    return sendError(res, 500, 'Failed to initialize MFA setup');
+  }
+});
+
+router.post('/mfa/enable', verifyToken, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) {
+      return sendError(res, 400, 'Verification code is required');
+    }
+
+    const user = await User.findById(req.user?.id).select('+mfaPendingSecret +mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    if (!user.mfaPendingSecret) {
+      return sendError(res, 400, 'No MFA setup found. Start setup first.');
+    }
+    if (!verifyTotpCode(user.mfaPendingSecret, code)) {
+      return sendError(res, 400, 'Invalid verification code');
+    }
+
+    const backupCodes = generateBackupCodes();
+    user.mfaEnabled = true;
+    user.mfaMethod = MFA_METHOD;
+    user.mfaSecret = user.mfaPendingSecret;
+    user.mfaPendingSecret = null;
+    user.mfaBackupCodes = await hashBackupCodes(backupCodes);
+    await user.save();
+
+    return sendSuccess(res, 200, 'MFA enabled successfully', {
+      ...mfaStatusPayload(user),
+      backupCodes,
+    });
+  } catch (error) {
+    console.error('MFA enable error:', error);
+    return sendError(res, 500, 'Failed to enable MFA');
+  }
+});
+
+router.post('/mfa/disable', verifyToken, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) {
+      return sendError(res, 400, 'Verification code is required');
+    }
+
+    const user = await User.findById(req.user?.id).select('+mfaPendingSecret +mfaSecret +mfaBackupCodes');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    if (!user.mfaEnabled) {
+      return sendError(res, 400, 'MFA is not enabled');
+    }
+
+    const verification = await verifyMfaCodeForUser(user, code, true);
+    if (!verification.valid) {
+      return sendError(res, 401, 'Invalid MFA code');
+    }
+
+    user.mfaEnabled = false;
+    user.mfaMethod = null;
+    user.mfaSecret = null;
+    user.mfaPendingSecret = null;
+    user.mfaBackupCodes = [];
+    await user.save();
+
+    return sendSuccess(res, 200, 'MFA disabled successfully', mfaStatusPayload(user));
+  } catch (error) {
+    console.error('MFA disable error:', error);
+    return sendError(res, 500, 'Failed to disable MFA');
+  }
+});
+
+router.post('/mfa/backup-codes/regenerate', verifyToken, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) {
+      return sendError(res, 400, 'Verification code is required');
+    }
+
+    const user = await User.findById(req.user?.id).select('+mfaSecret +mfaBackupCodes +mfaPendingSecret');
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+    if (!user.mfaEnabled) {
+      return sendError(res, 400, 'MFA is not enabled');
+    }
+
+    const verification = await verifyMfaCodeForUser(user, code, true);
+    if (!verification.valid) {
+      return sendError(res, 401, 'Invalid MFA code');
+    }
+
+    const backupCodes = generateBackupCodes();
+    user.mfaBackupCodes = await hashBackupCodes(backupCodes);
+    await user.save();
+
+    return sendSuccess(res, 200, 'Backup codes regenerated', {
+      ...mfaStatusPayload(user),
+      backupCodes,
+    });
+  } catch (error) {
+    console.error('MFA backup regeneration error:', error);
+    return sendError(res, 500, 'Failed to regenerate backup codes');
+  }
+});
+
 // Logout
 router.post('/logout', verifyToken, async (req, res) => {
-  // mark session as ended if sessionId cookie or body present
-  const sessionId = req.cookies?.sessionId || req.body?.sessionId;
+  // mark current session as ended
+  const sessionId = req.user?.sessionId || req.cookies?.sessionId || req.body?.sessionId;
   if (sessionId) {
     try {
       const s = await Session.findById(sessionId);
-      if (s) {
+      if (s && s.user.toString() === String(req.user?.id)) {
         s.endedAt = new Date();
         s.active = false;
         await s.save();
@@ -355,23 +694,30 @@ router.post('/logout', verifyToken, async (req, res) => {
   }
 
   // clear cookies related to auth
-  res.clearCookie('sessionId', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
-  res.clearCookie('token', { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+  res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
+  res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
+  res.clearCookie('csrfToken', { ...cookieSecurityOptions, httpOnly: false });
+  res.clearCookie('token', { ...cookieSecurityOptions, httpOnly: true });
   res.status(200).json({ message: 'Logout successful' });
 });
 
 // Get user profile (requires authentication)
-router.get('/profile', verifyToken, async (req, res) => {
+const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select('-password');
+    const user = await User.findById(req.user?.id).select(
+      '-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes'
+    );
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return sendError(res, 404, 'User not found');
     }
-    res.status(200).json({ user });
+    return sendSuccess(res, 200, 'Profile retrieved', user);
   } catch (error) {
     console.error('Get profile error:', error);
-    res.status(500).json({ message: 'Server error' });
+    return sendError(res, 500, 'Server error');
   }
-});
+};
+
+router.get(['/profile', '/me'], verifyToken, getProfile);
+router.patch(['/profile', '/me'], verifyToken, updateMe);
 
 export default router;

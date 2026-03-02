@@ -1,5 +1,5 @@
 import { BarChart3, Clock, DollarSign, TrendingUp, Wallet } from "lucide-react";
-import { AdminGate } from "./AdminGate/AdminGate";
+import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminEWalletMonitoringContent() {
@@ -54,11 +54,7 @@ function AdminEWalletMonitoringContent() {
   };
 
   return (
-    <div className="max-w-full ml-6 md:ml-12 space-y-6 text-[16px] mt-8 md:mt-12">
-      <header className="mb-8 text-left">
-        <h1 className="text-4xl md:text-5xl font-semibold text-[#111827]">E-Wallet Monitoring</h1>
-        <p className="text-base text-[#6B7280] mt-2">Track payouts, pending balances, and recent completions</p>
-      </header>
+    <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}
@@ -151,7 +147,7 @@ function AdminEWalletMonitoringContent() {
 
 export function AdminEWalletMonitoring() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminEWalletMonitoringContent />
     </AdminGate>
   );

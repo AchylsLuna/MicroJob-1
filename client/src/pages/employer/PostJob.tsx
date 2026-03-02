@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
+import { ROUTES } from "../../utils/routes";
 
 type JobEdit = {
   _id: string;
@@ -21,7 +21,6 @@ type JobEdit = {
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const authUser = useAuth();
   const jobToEdit = (location.state as { job?: JobEdit } | undefined)?.job;
   const isEditing = Boolean(jobToEdit?._id);
   const [formData, setFormData] = useState({
@@ -171,7 +170,7 @@ const PostJob: React.FC = () => {
       } else {
         await jobsAPI.createJob(payload);
       }
-      navigate("/employer/job-posts");
+      navigate(ROUTES.employer.jobPosts);
     } catch (err: any) {
       setError(err?.response?.data?.message || (isEditing ? "Failed to update job." : "Failed to post job."));
     } finally {
@@ -180,14 +179,14 @@ const PostJob: React.FC = () => {
   };
 
   return (
-    <div>
-      <div className="bg-gradient-to-r from-sky-600 to-sky-400 text-white p-8 mb-8">
-        <h1 className="text-4xl font-extrabold mb-2">{isEditing ? "Edit Job" : "Post a Job"}</h1>
-        <p className="text-sky-100 text-lg">Find the perfect talent for your project</p>
+    <div className="max-w-[1341px] mx-auto space-y-6">
+      <div>
+        <h2 className="font-semibold text-[20px] text-[#111827]">{isEditing ? "Edit Job" : "Post a Job"}</h2>
+        <p className="text-[14px] text-[#6B7280] mt-1">Find the right talent for your project.</p>
       </div>
 
-      <div className="px-8 pb-20">
-        <div className="bg-white rounded-2xl p-8 shadow-sm max-w-4xl border border-sky-100">
+      <div className="pb-20">
+        <div className="bg-white rounded-2xl p-8 shadow-sm max-w-4xl border border-gray-200">
             {error && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 mb-6">
                 {error}

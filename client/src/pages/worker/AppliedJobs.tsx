@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jobsAPI } from "../../services/jobs";
+import { ROUTES } from "../../utils/routes";
 
 interface JobData {
   _id: string;
@@ -83,82 +84,65 @@ const AppliedJobs: React.FC = () => {
   })();
 
   return (
-    <div>
-      {/* Top Bar */}
-      <div className="bg-white px-8 py-6 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-          
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Applied Jobs</h1>
-              <p className="text-gray-500 text-sm">You have {applications.length} job applications</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search applications..."
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setShowSuggestions(true);
-                }}
-                onFocus={() => setShowSuggestions(true)}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
-                className="w-72 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
-              {showSuggestions && suggestions.length > 0 && (
-                <div className="absolute z-10 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg">
-                  {suggestions.map((item) => (
-                    <button
-                      key={item}
-                      type="button"
-                      onMouseDown={() => {
-                        setSearchQuery(item);
-                        setShowSuggestions(false);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            <button className="relative h-9 w-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600">
-              🔔
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                3
-              </span>
-            </button>
-            <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold">
-              JD
-            </div>
-          </div>
+    <div className="max-w-[1341px] mx-auto space-y-6">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-[20px] text-[#111827]">Applied Jobs</h2>
+          <p className="text-[14px] text-[#6B7280] mt-1">
+            You have {applications.length} job application{applications.length === 1 ? "" : "s"}.
+          </p>
         </div>
-
-        <div className="flex items-center gap-2 mt-6">
-          {filterOptions.map((filter) => (
-            <button
-              key={filter}
-              onClick={() => setSelectedFilter(filter)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-                selectedFilter === filter
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {filter}
-            </button>
-          ))}
+        <div className="relative w-full max-w-sm">
+          <input
+            type="text"
+            placeholder="Search applications..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSuggestions(true);
+            }}
+            onFocus={() => setShowSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          />
+          <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-10 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg">
+              {suggestions.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  onMouseDown={() => {
+                    setSearchQuery(item);
+                    setShowSuggestions(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Content */}
-      <div className="px-8 py-6">
+      <div className="flex flex-wrap items-center gap-2">
+        {filterOptions.map((filter) => (
+          <button
+            key={filter}
+            onClick={() => setSelectedFilter(filter)}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
+              selectedFilter === filter
+                ? "bg-blue-600 text-white"
+                : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
+            }`}
+          >
+            {filter}
+          </button>
+        ))}
+      </div>
+
+      <div>
           {/* Job Cards */}
           {loading && (
             <div className="bg-white rounded-2xl p-8 shadow-sm text-center text-gray-600">
@@ -177,7 +161,7 @@ const AppliedJobs: React.FC = () => {
               <div
                 key={application._id}
                 className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition cursor-pointer border border-gray-200"
-                onClick={() => navigate(`/job-details/${application.job?._id}`, { 
+                onClick={() => navigate(ROUTES.worker.jobDetails(application.job?._id), { 
                   state: { isApplied: true, status: application.status }
                 })}
               >
@@ -235,7 +219,7 @@ const AppliedJobs: React.FC = () => {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/job-details/${application.job?._id}`, { 
+                          navigate(ROUTES.worker.jobDetails(application.job?._id), { 
                             state: { isApplied: true, status: application.status }
                           });
                         }}
@@ -261,7 +245,7 @@ const AppliedJobs: React.FC = () => {
                   : "You haven't applied to any jobs with this status yet."}
               </p>
               <button
-                onClick={() => navigate("/find-jobs")}
+                onClick={() => navigate(ROUTES.worker.findJobs)}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition"
               >
                 Browse Jobs

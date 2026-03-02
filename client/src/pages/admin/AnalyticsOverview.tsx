@@ -26,8 +26,11 @@ export function AnalyticsOverview({
   topCategories,
   formatCurrency,
 }: AnalyticsOverviewProps) {
-  const parseSalary = (value?: string) => {
-    if (!value) return 0;
+  const parseSalary = (value?: string | number) => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
     const cleaned = value.replace(/[^0-9.]/g, "");
     const amount = Number.parseFloat(cleaned);
     return Number.isFinite(amount) ? amount : 0;
@@ -195,8 +198,8 @@ export function AnalyticsOverview({
   let donutOffset = 0;
 
   return (
-    <div className="space-y-4 text-[16px] mt-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {cardItems.map((card) => (
           <div key={card.label} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
             <div className="flex items-center justify-between">
@@ -220,10 +223,10 @@ export function AnalyticsOverview({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <h3 className="text-[18px] font-semibold text-[#111827]">Monthly Activity</h3>
-          <div className="mt-4 flex items-end gap-3 h-[180px]">
+          <div className="mt-6 flex items-end gap-4 h-[220px]">
             {monthBuckets.map((bucket, index) => {
               const jobHeight = (monthlyJobs[index] / maxMonthly) * 100;
               const userHeight = (monthlyUsers[index] / maxMonthly) * 100;
@@ -246,10 +249,10 @@ export function AnalyticsOverview({
           </div>
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-4">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <h3 className="text-[18px] font-semibold text-[#111827]">Revenue Trend</h3>
-          <div className="mt-4 flex gap-3">
-            <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[160px]">
+          <div className="mt-6 flex gap-4">
+            <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
               {revenueTicks.map((tick) => (
                 <span key={tick}>{formatCurrency(tick)}</span>
               ))}
@@ -269,10 +272,10 @@ export function AnalyticsOverview({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <h3 className="text-[18px] font-semibold text-[#111827]">Jobs by Category</h3>
-          <div className="mt-4 flex flex-col items-center gap-4">
+          <div className="mt-6 flex flex-col items-center gap-6">
             <svg width="200" height="200" viewBox="0 0 200 200">
               <g transform="translate(100 100) rotate(-90)">
                 {categorySegments.map((segment) => {
@@ -310,10 +313,10 @@ export function AnalyticsOverview({
           </div>
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-4">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <h3 className="text-[18px] font-semibold text-[#111827]">User Growth</h3>
-          <div className="mt-4 flex gap-3">
-            <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[160px]">
+          <div className="mt-6 flex gap-4">
+            <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
               {userGrowthTicks.map((tick) => (
                 <span key={tick}>{tick}</span>
               ))}

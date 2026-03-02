@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import EmployerNavigation from '../../components/employerNavigation';
-import MessageList from './MessageList.tsx';
+import MessageList from './MessageList';
 import ChatScreen from './ChatScreen';
 
 export default function EmployerInbox({ activeTab = 'Messages', onTabPress, liveMessages = [] }: { activeTab?: string, onTabPress?: (tab: string) => void, liveMessages?: any[] }) {

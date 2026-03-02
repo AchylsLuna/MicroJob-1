@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import { getJwtSecret } from "../lib/jwtSecret.js";
 
 const otpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
@@ -33,153 +34,50 @@ export async function getUserList(req, res) {
     }
 }
 
-export async function register(req, res) {
+export async function getAdminUsers(req, res) {
     try {
-        const { phoneNumber, email, firstName, lastName, username, password, role } = req.body;
-
-        let finalFirstName = firstName;
-        let finalLastName = lastName;
-
-        if (username && !firstName && !lastName) {
-            const nameParts = username.trim().split(" ");
-            finalFirstName = nameParts[0] || "";
-            finalLastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
-        }
-
-        if (!finalFirstName || !password || !email) {
-            return res.status(400).json({ message: "Missing Fields." });
-        }
-
-        if (!finalLastName) {
-            finalLastName = finalFirstName;
-        }
-
-        if (phoneNumber) {
-            const phoneExists = await User.findOne({ phoneNumber });
-            if (phoneExists) {
-                return res.status(409).json({ message: "Phone Number is already registered." });
-            }
-        }
-
-        const emailExists = await User.findOne({ email });
-        if (emailExists) {
-            return res.status(409).json({ message: "Email is already registered." });
-        }
-
-        const validRoles = ["hire", "work", "both", "admin", "superadmin"];
-        const userRole = role && validRoles.includes(role) ? role : "work";
-        console.log("Register - User role being set to:", userRole);
-
-        const user = new User({
-            phoneNumber,
-            email,
-            firstName: finalFirstName,
-            lastName: finalLastName,
-            role: userRole,
-            status: "pending",
-        });
-        await user.setPassword(password);
-        await user.save();
-
-        return res.status(201).json({ message: "Successfully registered." });
+        const users = await User.find({ role: { $in: ["admin", "superadmin"] } });
+        res.status(200).json(users);
     } catch (error) {
-        console.error("Registration Failed.");
-        return res.status(500).json({ message: "Registration Failed." });
+        res.status(500).json({ message: "Failed to retrieve admin users." });
     }
 }
 
-export async function login(req, res) {
-    try{
-        console.log("Login request body:", req.body);
-        const {phonenumber, password, phoneNumber, email, emailOrUsername} = req.body;
-        // Support both web (emailOrUsername) and mobile (email) formats
-        const phone = phonenumber || phoneNumber;
-        const identifier = emailOrUsername || email || phone;
-        const normalizedIdentifier = identifier && identifier.includes('@')
-            ? identifier.toLowerCase().trim()
-            : identifier?.trim();
-        
-        console.log("Identifier:", identifier, "Password present:", !!password);
-        
-        if(!normalizedIdentifier || !password) {
-            console.log("Missing fields - identifier:", normalizedIdentifier, "password:", !!password);
-            return res.status(400).json({message: "Missing Fields."});
-        }
-        
-        // Search by phoneNumber or email
-        const user = await User.findOne({
-            $or: [
-                {phoneNumber: normalizedIdentifier}, 
-                {phonenumber: normalizedIdentifier},
-                {email: normalizedIdentifier}
-            ]
-        });
-        if(!user || !(await user.validatePassword(password))) {
-            return res.status(401).json({message: "Invalid credentials."});
-        }
-        if(user.status !== "active") {
-            return res.status(401).json({message: "Account is disabled. Contact an Admin."});
-        }
-        
-        const token = jwt.sign(
-            {id: user._id, role: user.role},
-            process.env.JWT_SECRET,
-            {expiresIn: "7d"}
-        );
-
-        res.cookie("token", token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            maxAge: 7* 24 * 60 * 60 * 1000,
-        });
-        
-        return res.status(200).json({
-            message: "Login successful.",
-            token,
-            user: {
-                id: user._id,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                phoneNumber: user.phoneNumber,
-                email: user.email,
-                role: user.role // hire, work, both, admin, superadmin
-            }
-        });
-    } catch (error){
-        console.error("Login error:", error);
-        res.status(500).json({message: "Login failed."});
-    }
-}
-
-export async function logout(req, res) {
-    res.clearCookie("token", {
-        httpOnly: true,
-        sameSite: "strict",
-        secure: process.env.NODE_ENV === 'production'
-    });
-    return res.status(200).json({message: "Logout successful."});
-}
-
-export async function getProfile(req, res) {
+export async function updateUserStatus(req, res) {
     try {
-        const userId = req.user?.id || req.user?.userId;
-        if (!userId) {
-            return res.status(401).json({ message: "Authentication required." });
+        const { userId } = req.params;
+        const { status } = req.body || {};
+        const allowedStatus = ["active", "pending", "disabled"];
+        if (!allowedStatus.includes(status)) {
+            return res.status(400).json({ message: "Invalid status value." });
         }
 
-        const user = await User.findById(userId).select(
-            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName employerBalance workerBalance"
+        const updated = await User.findByIdAndUpdate(
+            userId,
+            { status },
+            { new: true, runValidators: true }
         );
-
-        if (!user) {
+        if (!updated) {
             return res.status(404).json({ message: "User not found." });
         }
-
-        return res.status(200).json({ profile: user });
+        return res.status(200).json({ message: "User status updated.", user: updated });
     } catch (error) {
-        console.error("Get profile error:", error);
-        return res.status(500).json({ message: "Failed to load profile." });
+        console.error("Update user status error:", error);
+        return res.status(500).json({ message: "Failed to update user status." });
+    }
+}
+
+export async function deleteUser(req, res) {
+    try {
+        const { userId } = req.params;
+        const deleted = await User.findByIdAndDelete(userId);
+        if (!deleted) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        return res.status(200).json({ message: "User deleted successfully." });
+    } catch (error) {
+        console.error("Delete user error:", error);
+        return res.status(500).json({ message: "Failed to delete user." });
     }
 }
 
@@ -259,29 +157,39 @@ export async function updateProfile(req, res) {
     }
 }
 
+// Keep compatibility with authRoutes expecting updateMe.
+export const updateMe = updateProfile;
+
 export async function sendOtp(req, res) {
     try {
         const { email } = req.body;
-
-        if (!email) {
+        const normalizedEmail = String(email || "").toLowerCase().trim();
+        if (!normalizedEmail) {
             return res.status(400).json({ message: "Email is required." });
         }
 
-        const transporter = getEmailTransporter();
-        if (!transporter) {
-            return res.status(500).json({ message: "Email service is not configured." });
-        }
-
-        const user = await User.findOne({ email: email.toLowerCase().trim() });
+        const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        otpStore.set(email.toLowerCase().trim(), {
+        otpStore.set(normalizedEmail, {
             code,
             expiresAt: Date.now() + OTP_TTL_MS,
         });
+
+        const transporter = getEmailTransporter();
+        if (!transporter) {
+            if (process.env.NODE_ENV === "production") {
+                return res.status(500).json({ message: "Email service is not configured." });
+            }
+            console.warn(`SMTP is not configured. Development OTP for ${normalizedEmail}: ${code}`);
+            return res.status(200).json({
+                message: "OTP generated for development.",
+                code,
+            });
+        }
 
         const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
         const displayName = user.firstName || "there";
@@ -296,13 +204,16 @@ export async function sendOtp(req, res) {
 
         await transporter.sendMail({
             from: `MicroJobs <${fromAddress}>`,
-            to: email,
+            to: normalizedEmail,
             subject,
             text,
             html,
         });
 
-        return res.status(200).json({ message: "OTP sent." });
+        if (process.env.NODE_ENV === "production") {
+            return res.status(200).json({ message: "OTP sent." });
+        }
+        return res.status(200).json({ message: "OTP sent.", code });
     } catch (error) {
         console.error("Send OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
@@ -343,7 +254,7 @@ export async function verifyOtp(req, res) {
 
         const token = jwt.sign(
             { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
+            getJwtSecret(),
             { expiresIn: "7d" }
         );
 

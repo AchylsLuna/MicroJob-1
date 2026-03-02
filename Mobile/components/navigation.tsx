@@ -1,53 +1,76 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../theme/tokens';
 
-type NavItem = { 
-  label: string; 
-  icon: string; 
-  badge?: number; 
-  active?: boolean;
-  screen?: string;
+type WorkerTab = 'Home' | 'Jobs' | 'EWallet' | 'Messages' | 'Profile';
+
+type NavItem = {
+  label: string;
+  screen: WorkerTab;
+  iconInactive?: string;
+  iconActive?: string;
 };
 
 type Props = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   messageBadgeCount?: number;
+  profileInitials?: string;
 };
 
-export default function Navigation({ activeTab = 'Home', onTabPress, messageBadgeCount = 0 }: Props) {
-  const navItems: NavItem[] = [
-    { label: 'Home', icon: '🏠', screen: 'Home' },
-    { label: 'Jobs', icon: '💼', screen: 'Jobs' },
-    { label: 'Saved', icon: '🔖', screen: 'Saved' },
-    { label: 'Messages', icon: '✉️', screen: 'Messages', badge: messageBadgeCount },
-    { label: 'Notifications', icon: '🔔', screen: 'Notifications' },
-    { label: 'Profile', icon: '👤', screen: 'Profile' },
-  ];
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Home', screen: 'Home', iconInactive: 'home-outline', iconActive: 'home' },
+  { label: 'Jobs', screen: 'Jobs', iconInactive: 'briefcase-outline', iconActive: 'briefcase' },
+  { label: 'E-Wallet', screen: 'EWallet', iconInactive: 'wallet-outline', iconActive: 'wallet' },
+  { label: 'Messages', screen: 'Messages', iconInactive: 'chatbubble-outline', iconActive: 'chatbubble' },
+  { label: 'Profile', screen: 'Profile' },
+];
 
+const formatBadgeCount = (count: number) => (count > 99 ? '99+' : String(count));
+
+export default function Navigation({
+  activeTab = 'Home',
+  onTabPress,
+  messageBadgeCount = 0,
+  profileInitials = 'JD',
+}: Props) {
   return (
     <View style={styles.tabBar}>
-      {navItems.map((item) => {
-        const isActive = activeTab === item.screen;
+      {NAV_ITEMS.map((item) => {
+        const isEWalletSelected = item.screen === 'EWallet' && (activeTab === 'EWallet' || activeTab === 'E-Wallet');
+        const isActive = activeTab === item.screen || isEWalletSelected;
+        const hasMessageBadge = item.screen === 'Messages' && messageBadgeCount > 0;
+
         return (
           <TouchableOpacity
-            key={item.label}
+            key={item.screen}
             style={styles.tabItem}
-            onPress={() => onTabPress?.(item.screen || item.label)}
+            onPress={() => onTabPress?.(item.screen)}
+            activeOpacity={0.85}
           >
-            <View style={styles.iconContainer}>
-              <Text style={[styles.tabIcon, isActive && styles.tabIconActive]}>
-                {item.icon}
-              </Text>
-              {item.badge !== undefined && item.badge > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badge}</Text>
+            <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
+              {item.screen === 'Profile' ? (
+                <View style={[styles.profileChip, isActive && styles.profileChipActive]}>
+                  <Text style={[styles.profileChipText, isActive && styles.profileChipTextActive]}>
+                    {profileInitials.slice(0, 2).toUpperCase()}
+                  </Text>
                 </View>
+              ) : (
+                <Ionicons
+                  name={(isActive ? item.iconActive : item.iconInactive) as any}
+                  size={24}
+                  color={isActive ? tokens.colors.brand : tokens.colors.textMuted}
+                />
               )}
+
+              {hasMessageBadge ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{formatBadgeCount(messageBadgeCount)}</Text>
+                </View>
+              ) : null}
             </View>
-            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-              {item.label}
-            </Text>
+            <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{item.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -58,16 +81,19 @@ export default function Navigation({ activeTab = 'Home', onTabPress, messageBadg
 const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-    paddingBottom: 8,
+    borderTopColor: tokens.colors.border,
     paddingTop: 8,
-    height: 65,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    paddingBottom: 12,
+    minHeight: 80,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 4,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: -6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
     elevation: 8,
   },
   tabItem: {
@@ -75,44 +101,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
+    paddingVertical: 2,
   },
   iconContainer: {
     position: 'relative',
-    width: 28,
-    height: 28,
+    width: 38,
+    height: 34,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabIcon: {
-    fontSize: 22,
-    color: '#9ca3af',
-  },
-  tabIconActive: {
-    color: '#1f2937',
+  iconContainerActive: {
+    backgroundColor: tokens.colors.brandSoft,
   },
   tabLabel: {
-    fontSize: 11,
-    color: '#9ca3af',
-    fontWeight: '500',
+    fontSize: 10,
+    color: tokens.colors.textMuted,
+    fontWeight: '600',
   },
   tabLabelActive: {
-    color: '#1f2937',
-    fontWeight: '600',
+    color: tokens.colors.brand,
+    fontWeight: '700',
+  },
+  profileChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#dbe5f3',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileChipActive: {
+    backgroundColor: tokens.colors.brand,
+  },
+  profileChipText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  profileChipTextActive: {
+    color: tokens.colors.white,
   },
   badge: {
     position: 'absolute',
-    top: -2,
-    right: -4,
-    backgroundColor: '#ef4444',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    top: -3,
+    right: -8,
+    backgroundColor: tokens.colors.danger,
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#fff',
   },
   badgeText: {
-    color: '#fff',
+    color: tokens.colors.white,
     fontSize: 10,
     fontWeight: '700',
   },

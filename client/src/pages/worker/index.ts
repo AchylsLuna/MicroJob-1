@@ -1,5 +1,9 @@
-// Worker-specific pages
-export { default as AppliedJobs } from './AppliedJobs';
-export { default as SavedJobs } from './SavedJobs';
-export { default as Notifications } from './Notifications';
-export { default as WorkerDashboard } from './WorkerDashboard';
+export { default as AppliedJobs } from "./AppliedJobs";
+export { SavedJobs } from "./SavedJobs";
+export { Dashboard as WorkerDashboard } from "./Dashboard";
+export { FindJobs } from "./FindJobs";
+export { EWallet as WorkerEWallet } from "./EWallet";
+export { Messages as WorkerMessages } from "./Messages";
+export { default as WorkerNotifications } from "./Notifications";
+export { Support as WorkerSupport } from "./Support";
+export { Profile as WorkerProfile } from "./Profile";

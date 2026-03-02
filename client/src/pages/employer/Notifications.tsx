@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI } from '../../services/jobs';
+import { ROUTES } from '../../utils/routes';
 
 type EmployerNotif = {
   id: string;
@@ -81,7 +82,7 @@ export default function EmployerNotifications() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <div className="flex gap-2">
-                  <button onClick={() => navigate('/employer/applications')} className="text-sm text-blue-600 font-semibold">View</button>
+                  <button onClick={() => navigate(ROUTES.employer.applications)} className="text-sm text-blue-600 font-semibold">View</button>
                   <button onClick={() => markRead(it.applicationId)} className="text-sm text-gray-600">Mark read</button>
                 </div>
               </div>

@@ -1,3 +1,8 @@
+<<<<<<< HEAD
 node_modules/
 .expo/
 *.log
+=======
+.expo/
+node_modules/
+>>>>>>> origin/frontend-elijah-branch

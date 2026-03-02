@@ -1,19 +1,15 @@
 import { Shield, ShieldCheck, UserCog, UserMinus } from "lucide-react";
-import { AdminGate } from "./AdminGate/AdminGate";
+import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminSecurityContent() {
   const { isLoading, loadError, stats, users, recentActivity } = useAdminData();
 
-  const adminCount = users.filter((user) => user.role === "admin" || user.role === "superadmin").length;
+  const adminCount = users.filter((user) => user.role === "admin").length;
   const recentUsers = recentActivity.filter((activity) => activity.type === "user");
 
   return (
-    <div className="max-w-full ml-6 md:ml-12 space-y-6 text-[16px] mt-8 md:mt-12">
-      <header className="mb-8 text-left">
-        <h1 className="text-4xl md:text-5xl font-semibold text-[#111827]">Security & Activity</h1>
-        <p className="text-base text-[#6B7280] mt-2">Monitor security metrics and recent user activity</p>
-      </header>
+    <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}
@@ -87,7 +83,7 @@ function AdminSecurityContent() {
 
 export function AdminSecurity() {
   return (
-    <AdminGate>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminSecurityContent />
     </AdminGate>
   );

@@ -1,8 +1,6 @@
-export const ACTIVITY_EVENT = "app-activity";
+export const ACTIVITY_EVENT = "app_user_activity";
 
-export function markActivity(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
+export const markActivity = () => {
+  if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(ACTIVITY_EVENT));
-}
+};

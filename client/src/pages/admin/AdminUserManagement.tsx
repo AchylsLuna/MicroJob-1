@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { MoreHorizontal, Search, UserPlus } from "lucide-react";
-import { AdminGate } from "./AdminGate/AdminGate";
+import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
+import { ROUTES } from "../../utils/routes";
 
 function AdminUserManagementContent() {
   const navigate = useNavigate();
@@ -93,18 +94,14 @@ function AdminUserManagementContent() {
   }, [currentPage, safePage]);
 
   return (
-    <div className="max-w-full ml-6 md:ml-12 space-y-6 text-[16px] mt-8 md:mt-12">
-      <header className="mb-8 text-left">
-        <h1 className="text-4xl md:text-5xl font-semibold text-[#111827]">User Management</h1>
-        <p className="text-base text-[#6B7280] mt-2">Manage users, approvals, and account status</p>
-      </header>
+    <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}
         </div>
       )}
 
-      <section className="space-y-4">
+      <section className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-5">
             <p className="text-[13px] text-[#6B7280]">Total Users</p>
@@ -122,7 +119,7 @@ function AdminUserManagementContent() {
           </div>
         </div>
 
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-4 space-y-4">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <h4 className="text-[18px] font-semibold text-[#111827]">All Users</h4>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -241,7 +238,7 @@ function AdminUserManagementContent() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigate("/dashboard/messages", {
+                                  navigate(ROUTES.worker.messages, {
                                     state: { userId: user._id, name: getUserName(user) },
                                   });
                                   setOpenMenuId(null);
@@ -369,7 +366,7 @@ function AdminUserManagementContent() {
               </div>
               <div>
                 <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Role</p>
-                <p className="mt-1 text-[#111827] capitalize">{selectedUser.role || "worker"}</p>
+                <p className="mt-1 text-[#111827] capitalize">{selectedUser.role || "user"}</p>
               </div>
               <div>
                 <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Phone</p>
@@ -413,7 +410,7 @@ function AdminUserManagementContent() {
 
 export function AdminUserManagement() {
   return (
-    <AdminGate>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminUserManagementContent />
     </AdminGate>
   );

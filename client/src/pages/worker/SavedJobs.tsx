@@ -1,214 +1,328 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import { MapPin, Building2, Briefcase, Clock, Users, Bookmark, Trash2, ExternalLink, DollarSign, Calendar } from "lucide-react";
+import { toast } from "../../lib/toast";
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ROUTES } from "../../utils/routes";
 
 interface Job {
-  id: number;
+  id: string;
   title: string;
-  location: string;
+  company: string;
   salary: string;
-  type: string[];
-  savedDate: string;
-  workMode: "Remote" | "Hybrid" | "On-site";
   description: string;
-  applicants: string;
+  location: string;
+  type: "Remote" | "Hybrid" | "On-site";
+  posted: string;
+  applicants: number;
+  logo: string;
+  saved: boolean;
   deadline: string;
+  requirements: string[];
 }
 
-const SavedJobs: React.FC = () => {
-  const navigate = useNavigate();
+const initialJobs: Job[] = [
+  {
+    id: "1",
+    title: "Senior React Developer",
+    company: "Tech Solutions Inc.",
+    salary: "₱80,000 - ₱120,000",
+    description: "We're looking for an experienced React developer to join our growing team. Work on cutting-edge projects with modern tech stack including React, TypeScript, and GraphQL.",
+    location: "Manila, PH",
+    type: "Remote",
+    posted: "2 days ago",
+    applicants: 24,
+    logo: "TS",
+    saved: true,
+    deadline: "Feb 15, 2026",
+    requirements: ["React", "TypeScript", "GraphQL"]
+  },
+  {
+    id: "2",
+    title: "Full Stack Developer",
+    company: "Innovation Labs",
+    salary: "₱70,000 - ₱100,000",
+    description: "Join our dynamic team building next-generation SaaS products. Experience with React, Node.js, and AWS required. Great benefits and work-life balance.",
+    location: "Cebu, PH",
+    type: "Hybrid",
+    posted: "5 days ago",
+    applicants: 18,
+    logo: "IL",
+    saved: true,
+    deadline: "Feb 20, 2026",
+    requirements: ["React", "Node.js", "AWS"]
+  },
+  {
+    id: "3",
+    title: "Mobile Developer",
+    company: "Digital Ventures",
+    salary: "₱75,000 - ₱110,000",
+    description: "Build amazing mobile experiences with React Native. Competitive salary and benefits package included. Work with a talented team on innovative projects.",
+    location: "Makati, PH",
+    type: "On-site",
+    posted: "1 week ago",
+    applicants: 31,
+    logo: "DV",
+    saved: true,
+    deadline: "Feb 18, 2026",
+    requirements: ["React Native", "iOS", "Android"]
+  },
+  {
+    id: "4",
+    title: "Frontend Engineer",
+    company: "Cloud Systems Corp",
+    salary: "₱65,000 - ₱95,000",
+    description: "Looking for a passionate frontend engineer to build beautiful and responsive user interfaces. Work with modern frameworks and tools.",
+    location: "BGC, PH",
+    type: "Hybrid",
+    posted: "3 days ago",
+    applicants: 42,
+    logo: "CS",
+    saved: true,
+    deadline: "Feb 25, 2026",
+    requirements: ["HTML/CSS", "JavaScript", "React"]
+  },
+  {
+    id: "5",
+    title: "UI/UX Developer",
+    company: "Design Studio Pro",
+    salary: "₱60,000 - ₱90,000",
+    description: "Combine your design and development skills to create exceptional user experiences. Must have strong portfolio and experience with Figma.",
+    location: "Quezon City, PH",
+    type: "Remote",
+    posted: "4 days ago",
+    applicants: 27,
+    logo: "DS",
+    saved: true,
+    deadline: "Feb 22, 2026",
+    requirements: ["Figma", "React", "CSS"]
+  },
+  {
+    id: "6",
+    title: "Backend Developer",
+    company: "DataTech Solutions",
+    salary: "₱70,000 - ₱105,000",
+    description: "Build scalable backend systems and APIs. Experience with Node.js, PostgreSQL, and microservices architecture required.",
+    location: "Pasig, PH",
+    type: "On-site",
+    posted: "6 days ago",
+    applicants: 19,
+    logo: "DT",
+    saved: true,
+    deadline: "Feb 28, 2026",
+    requirements: ["Node.js", "PostgreSQL", "Docker"]
+  },
+];
 
-  const savedJobs: Job[] = [
-    {
-      id: 1,
-      title: "Senior React Developer",
-      location: "Pangasinan, PH",
-      salary: "₱80,000 - ₱120,000",
-      type: ["React", "TypeScript", "GraphQL"],
-      savedDate: "2 days ago",
-      workMode: "Remote",
-      description:
-        "We're looking for an experienced React developer to join our growing team. Work on cutting-edge projects with modern tech stack including React, TypeScript, and GraphQL.",
-      applicants: "24 applicants",
-      deadline: "Feb 15, 2026",
-    },
-    {
-      id: 2,
-      title: "Full Stack Developer",
-      location: "Cebu, PH",
-      salary: "₱70,000 - ₱100,000",
-      type: ["React", "Node.js", "AWS"],
-      savedDate: "5 days ago",
-      workMode: "Hybrid",
-      description:
-        "Join our dynamic team building next-generation SaaS products. Experience with React, Node.js, and AWS required. Great benefits and work-life balance.",
-      applicants: "18 applicants",
-      deadline: "Feb 20, 2026",
-    },
-    {
-      id: 3,
-      title: "Mobile Developer",
-      location: "Makati, PH",
-      salary: "₱75,000 - ₱110,000",
-      type: ["React Native", "TypeScript", "Mobile"],
-      savedDate: "1 week ago",
-      workMode: "On-site",
-      description:
-        "Build modern mobile experiences using React Native. Collaborate with product and design teams to deliver high quality features.",
-      applicants: "12 applicants",
-      deadline: "Feb 28, 2026",
-    },
-  ];
+export function SavedJobs() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
+  const [jobs, setJobs] = useState<Job[]>(initialJobs);
+  const [filter, setFilter] = useState<"all" | "Remote" | "Hybrid" | "On-site">("all");
+
+  const handleUnsave = (jobId: string) => {
+    setJobs(jobs.filter(job => job.id !== jobId));
+    toast.success("Job removed from saved list");
+  };
+
+  const handleApply = (jobId: string, jobTitle: string) => {
+    toast.info(`Starting application for: ${jobTitle}`);
+    navigate(ROUTES.worker.jobDetails(jobId));
+  };
+
+  const handleViewDetails = (jobId: string) => {
+    navigate(ROUTES.worker.jobDetails(jobId));
+  };
+
+  const filteredJobs = jobs.filter(job => {
+    if (filter !== "all" && job.type !== filter) {
+      return false;
+    }
+    if (!searchQuery) {
+      return true;
+    }
+    const combined = `${job.title} ${job.company} ${job.location} ${job.requirements.join(" ")}`.toLowerCase();
+    return combined.includes(searchQuery);
+  });
 
   return (
-    <div>
-      <div className="bg-white px-8 py-6 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate(-1)}
-              className="h-9 w-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-50"
-            >
-              ←
-            </button>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Saved Jobs</h1>
-              <p className="text-gray-500 text-sm">You have {savedJobs.length} saved jobs</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search saved jobs..."
-                className="w-72 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
-            </div>
-            <button className="relative h-9 w-9 rounded-full border border-gray-200 flex items-center justify-center text-gray-600">
-              🔔
-              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                3
-              </span>
-            </button>
-            <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-semibold">
-              JD
-            </div>
-          </div>
+    <div className="max-w-[1341px] mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-[14px] text-[#6B7280]">
+            You have {jobs.length} saved job{jobs.length !== 1 ? 's' : ''}
+          </p>
         </div>
-
-        <div className="flex items-center gap-2 mt-6">
-          {[
-            { label: "All Jobs", active: true },
-            { label: "Remote" },
-            { label: "Hybrid" },
-            { label: "On-site" },
-          ].map((pill) => (
-            <button
-              key={pill.label}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-                pill.active
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {pill.label}
-            </button>
-          ))}
+        
+        {/* Filters */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-4 py-2 rounded-[10px] text-[14px] font-medium transition-all ${
+              filter === "all"
+                ? "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white shadow-md"
+                : "bg-white text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB]"
+            }`}
+          >
+            All Jobs
+          </button>
+          <button
+            onClick={() => setFilter("Remote")}
+            className={`px-4 py-2 rounded-[10px] text-[14px] font-medium transition-all ${
+              filter === "Remote"
+                ? "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white shadow-md"
+                : "bg-white text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB]"
+            }`}
+          >
+            Remote
+          </button>
+          <button
+            onClick={() => setFilter("Hybrid")}
+            className={`px-4 py-2 rounded-[10px] text-[14px] font-medium transition-all ${
+              filter === "Hybrid"
+                ? "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white shadow-md"
+                : "bg-white text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB]"
+            }`}
+          >
+            Hybrid
+          </button>
+          <button
+            onClick={() => setFilter("On-site")}
+            className={`px-4 py-2 rounded-[10px] text-[14px] font-medium transition-all ${
+              filter === "On-site"
+                ? "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white shadow-md"
+                : "bg-white text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB]"
+            }`}
+          >
+            On-site
+          </button>
         </div>
       </div>
 
-      <div className="px-8 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {savedJobs.map((job) => (
-              <div
-                key={job.id}
-                className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition cursor-pointer border border-gray-200"
-                onClick={() => navigate(`/job-details/${job.id}`)}
-              >
-                <div className="flex items-start gap-4">
-                  <div className="h-14 w-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold">
-                    {job.title.charAt(0)}
-                  </div>
-
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">{job.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span>{job.location}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        className="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-3 mt-3">
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                        {job.workMode}
-                      </span>
-                      <span className="text-green-600 font-semibold text-sm">{job.salary}</span>
-                      <span className="text-gray-500 text-sm">/ month</span>
-                    </div>
-
-                    <p className="text-sm text-gray-600 mt-3 line-clamp-3">
-                      {job.description}
-                    </p>
-
-                    <div className="mt-4">
-                      <p className="text-xs text-gray-500 mb-2">Required Skills:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {job.type.map((tag) => (
-                          <span
-                            key={tag}
-                            className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200">
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>🕒 {job.savedDate}</span>
-                        <span>👥 {job.applicants}</span>
-                        <span>📅 Deadline: {job.deadline}</span>
-                      </div>
-                      <button className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700">
-                        Apply Now
-                      </button>
+      {/* Jobs Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {filteredJobs.map((job) => (
+          <div
+            key={job.id}
+            className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-lg hover:border-[#1C4D8D] transition-all duration-300 group"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="w-14 h-14 rounded-[14px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
+                  {job.logo}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-[18px] font-bold text-[#111827] mb-1 group-hover:text-[#1C4D8D] transition-colors">
+                    {job.title}
+                  </h3>
+                  <p className="text-[13px] text-[#6B7280] flex items-center gap-1 mb-2">
+                    <Building2 className="w-3.5 h-3.5" />
+                    {job.company}
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-3 py-1.5 rounded-[8px] text-[11px] font-semibold ${
+                      job.type === 'Remote' ? 'bg-[#DBEAFE] text-[#1E40AF]' :
+                      job.type === 'Hybrid' ? 'bg-[#FEF3C7] text-[#92400E]' :
+                      'bg-[#D1FAE5] text-[#065F46]'
+                    }`}>
+                      {job.type}
+                    </span>
+                    <div className="flex items-center gap-1 text-[12px] text-[#6B7280]">
+                      <MapPin className="w-3.5 h-3.5" />
+                      {job.location}
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          {savedJobs.length === 0 && (
-            <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-              <div className="text-6xl mb-4">🔖</div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Saved Jobs</h3>
-              <p className="text-gray-600 mb-6">
-                You haven't saved any jobs yet. Start browsing and save jobs you're interested in!
-              </p>
               <button
-                onClick={() => navigate("/find-jobs")}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition"
+                onClick={() => handleUnsave(job.id)}
+                className="p-2 hover:bg-[#FEE2E2] rounded-lg transition-colors group/delete"
+                title="Remove from saved"
               >
-                Browse Jobs
+                <Trash2 className="w-5 h-5 text-[#6B7280] group-hover/delete:text-[#EF4444]" />
               </button>
             </div>
-          )}
+
+            {/* Salary */}
+            <div className="flex items-center gap-2 mb-3">
+              <DollarSign className="w-4 h-4 text-[#10B981]" />
+              <p className="text-[16px] font-bold text-[#10B981]">{job.salary}</p>
+              <span className="text-[12px] text-[#6B7280]">/ month</span>
+            </div>
+
+            {/* Description */}
+            <p className="text-[13px] text-[#6B7280] leading-relaxed mb-4 line-clamp-2">
+              {job.description}
+            </p>
+
+            {/* Requirements */}
+            <div className="mb-4">
+              <p className="text-[12px] text-[#6B7280] mb-2">Required Skills:</p>
+              <div className="flex flex-wrap gap-2">
+                {job.requirements.map((req, index) => (
+                  <span
+                    key={index}
+                    className="px-3 py-1.5 bg-[#F3F4F6] text-[#111827] rounded-[8px] text-[11px] font-medium"
+                  >
+                    {req}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-4 border-t border-[#E5E7EB]">
+              <div className="flex items-center gap-4 text-[12px] text-[#6B7280]">
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  {job.posted}
+                </div>
+                <div className="flex items-center gap-1">
+                  <Users className="w-3.5 h-3.5" />
+                  {job.applicants} applicants
+                </div>
+                <div className="flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  Deadline: {job.deadline}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => handleApply(job.id, job.title)}
+                className="flex-1 bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-3 px-4 rounded-[10px] hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <Briefcase className="w-4 h-4" />
+                Apply Now
+              </button>
+              <button
+                onClick={() => handleViewDetails(job.id)}
+                className="px-4 py-3 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-[10px] hover:bg-[#F9FAFB] transition-colors"
+                title="View Details"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
       </div>
+
+      {/* Empty State */}
+      {filteredJobs.length === 0 && (
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-12 text-center">
+          <Bookmark className="w-16 h-16 text-[#D1D5DB] mx-auto mb-4" />
+          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">No saved jobs found</h3>
+          <p className="text-[14px] text-[#6B7280]">
+            {filter === "all" 
+              ? "Start saving jobs you're interested in!" 
+              : `No ${filter} jobs saved yet.`}
+          </p>
+        </div>
+      )}
     </div>
   );
-};
-
-export default SavedJobs;
+}

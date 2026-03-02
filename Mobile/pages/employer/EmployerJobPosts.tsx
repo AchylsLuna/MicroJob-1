@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import { apiRequest, asList, asObject } from '../../lib/api';
 
 type JobItem = {
   _id: string;
@@ -21,8 +22,6 @@ type JobItem = {
   urgent?: boolean;
   applicants?: string[];
   category?: { name: string };
-  positionsNeeded?: number;
-  hiredCount?: number;
   createdAt?: string;
 };
 
@@ -57,14 +56,13 @@ export default function EmployerJobPosts({
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/jobs/mine`, {
+      const result = await apiRequest<JobItem[]>(`${API_URL}/jobs/mine`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.message || 'Failed to load job posts.');
-      setJobs(data || []);
+      }, 'Failed to load job posts.');
+      if (!result.ok) throw new Error(result.message || 'Failed to load job posts.');
+      setJobs(asList<JobItem>(result.raw, ['jobs']));
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load job posts.');
     } finally {
@@ -90,12 +88,13 @@ export default function EmployerJobPosts({
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
-        const response = await fetch(`${API_URL}/users/profile`, {
+        const result = await apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) return;
-        const profile = data?.profile || data?.user;
+        }, 'Failed to load profile.');
+        if (!result.ok) return;
+        const payload = asObject<any>(result.raw) || {};
+        const dataPayload = asObject<any>(result.data) || {};
+        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
         const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
         if (name) setEmployerName(name);
       } catch (error) {
@@ -173,10 +172,6 @@ export default function EmployerJobPosts({
             <View style={styles.metaRow}>
               <Text style={styles.jobType}>{job.jobType}</Text>
               <Text style={styles.salary}>{job.salary}</Text>
-            </View>
-            <View style={styles.metaRow}>
-              <Text style={styles.jobType}>Needed: {job.positionsNeeded || 1}</Text>
-              <Text style={styles.salary}>Hired: {job.hiredCount || 0}</Text>
             </View>
 
             <View style={styles.footerRow}>

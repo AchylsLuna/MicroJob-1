@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jobsAPI } from "../../services/jobs";
+import { isInvalidTokenError } from "../../utils/authSession";
+import { ROUTES } from "../../utils/routes";
 
 interface JobItem {
   _id: string;
@@ -31,7 +33,13 @@ const JobPosts: React.FC = () => {
         const response = await jobsAPI.getMyJobs();
         setJobs(response.data || []);
       } catch (err: any) {
-        setError(err?.response?.data?.message || "Failed to load job posts.");
+        const status = err?.response?.status;
+        const message = err?.response?.data?.message || err?.message;
+        const hasToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
+        if (isInvalidTokenError({ status, message, path: "/jobs/mine", hasToken })) {
+          return;
+        }
+        setError(message || "Failed to load job posts.");
       } finally {
         setLoading(false);
       }
@@ -41,15 +49,10 @@ const JobPosts: React.FC = () => {
   }, []);
 
   return (
-    <div>
-      <div className="bg-gradient-to-r from-sky-600 to-sky-400 text-white p-8 mb-8">
-        <h1 className="text-4xl font-extrabold mb-2">My Job Posts</h1>
-        <p className="text-sky-100 text-lg">Manage the jobs you have posted</p>
-      </div>
-
-      <div className="px-8 pb-20">
+    <div className="max-w-[1341px] mx-auto space-y-6">
+      <div>
         {loading && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-sky-100 text-gray-600">
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200 text-gray-600">
             Loading your job posts...
           </div>
         )}
@@ -61,7 +64,7 @@ const JobPosts: React.FC = () => {
         )}
 
         {!loading && jobs.length === 0 && (
-          <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-sky-100">
+          <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-200">
             <div className="text-5xl mb-4">📌</div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">No Job Posts Yet</h3>
             <p className="text-gray-600">Create your first job post to start receiving applications.</p>
@@ -72,7 +75,7 @@ const JobPosts: React.FC = () => {
           {jobs.map((job) => {
             const categoryName = typeof job.category === "object" ? job.category?.name : "";
             return (
-            <div key={job._id} className="bg-white rounded-2xl p-6 shadow-sm border border-sky-100">
+            <div key={job._id} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-200">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-bold text-gray-900">{job.title}</h3>
@@ -141,7 +144,7 @@ const JobPosts: React.FC = () => {
                       <button
                         type="button"
                         className="px-3 py-1 rounded-lg bg-sky-500 text-sky-100 text-xs font-semibold hover:bg-sky-700"
-                        onClick={() => navigate('/employer/post-job', { state: { job } })}
+                        onClick={() => navigate(ROUTES.employer.postJob, { state: { job } })}
                       >
                         Edit
                       </button>

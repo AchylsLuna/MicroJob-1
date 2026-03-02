@@ -1,19 +1,20 @@
 import { useState } from "react";
-import { Mail, Lock, Eye, EyeOff, Shield, ArrowLeft } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Shield } from "lucide-react";
 import { toast } from "../../lib/toast";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { isAdmin } from "../../utils/dashboardRoutes";
+import { ROUTES } from "../../utils/routes";
 
 export function AdminSignIn() {
-  const navigate = useNavigate();
   const { login, isAuthenticated, user, logout } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  if (!isLoading && isAuthenticated && (user?.role === "superadmin" || user?.role === "admin")) {
-    return <Navigate to="/admin" replace />;
+  if (!isLoading && isAuthenticated && isAdmin(user)) {
+    return <Navigate to={ROUTES.admin.dashboard} replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -31,19 +32,13 @@ export function AdminSignIn() {
         localStorage.getItem("auth_user") || localStorage.getItem("current_user");
       const storedUser = stored ? JSON.parse(stored) : null;
 
-      if (!storedUser || (storedUser.role !== "superadmin" && storedUser.role !== "admin")) {
+      if (!storedUser || !isAdmin(storedUser)) {
         toast.error("Admin access required. Please use an admin account.");
         logout({ silent: true });
         return;
       }
 
-      if (storedUser.role === "superadmin") {
-        toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
-        return;
-      }
-
       toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
-      toast.info("Admin access is limited to Dashboard, Analytics, Job Posting, and E-Wallet.");
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {
@@ -54,14 +49,6 @@ export function AdminSignIn() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
       <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
-        <button
-          onClick={() => navigate("/")}
-          className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#1C4D8D] font-medium mb-6 transition-colors group"
-        >
-          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          Back to Home
-        </button>
-
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-[16px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-white" />

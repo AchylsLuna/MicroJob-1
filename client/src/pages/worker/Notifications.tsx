@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI } from '../../services/jobs';
+import { ROUTES } from '../../utils/routes';
 
 type NotificationItem = {
   id: string;
@@ -67,20 +68,20 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-[1341px] mx-auto space-y-6">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Notifications</h1>
-          <p className="text-sm text-gray-500">Recent updates about your applications</p>
+          <h2 className="font-semibold text-[20px] text-[#111827]">Notifications</h2>
+          <p className="text-[14px] text-[#6B7280] mt-1">Recent updates about your applications</p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={markAll} className="text-sm text-blue-600 font-semibold">Mark all as read</button>
-          <button onClick={() => navigate(-1)} className="text-sm text-gray-600">Close</button>
+          <button onClick={fetchNotifications} className="text-sm text-gray-600">Refresh</button>
         </div>
       </div>
 
       {loading && <div className="bg-white rounded-xl p-6 shadow-sm text-gray-600">Loading...</div>}
-      {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 mb-4">{error}</div>}
+      {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700">{error}</div>}
 
       <div className="space-y-4">
         {notifications.length === 0 && !loading && (
@@ -97,7 +98,12 @@ export default function NotificationsPage() {
               </div>
               <div className="flex flex-col items-end gap-2">
                 <div className="flex gap-2">
-                  <button onClick={() => n.jobId && navigate(`/job-details/${n.jobId}`)} className="text-sm text-blue-600 font-semibold">View Job</button>
+                  <button
+                    onClick={() => n.jobId && navigate(ROUTES.worker.jobDetails(n.jobId))}
+                    className="text-sm text-blue-600 font-semibold"
+                  >
+                    View Job
+                  </button>
                   <button onClick={() => markRead(n.applicationId)} className="text-sm text-gray-600">Mark read</button>
                 </div>
               </div>

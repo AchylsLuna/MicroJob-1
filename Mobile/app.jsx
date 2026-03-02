@@ -3,8 +3,11 @@ import { StyleSheet, Text, View, Animated, Dimensions, TouchableOpacity, Alert }
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import "./global.css";
-import { API_URL } from './config';
+import { API_URL, SOCKET_URL } from './config';
+import { apiRequest, asObject } from './lib/api';
+import { tokens } from './theme/tokens';
 import Screen1 from './pages/Screen1';
 import Screen2 from './pages/Screen2';
 import Screen3 from './pages/Screen3';
@@ -16,15 +19,22 @@ import ForgotPass from './pages/forgotPass';
 import VerifyEmail from './pages/verifyEmail';
 import PassChanged from './pages/passChanged';
 import CreatePass from './pages/createPass';
-import Dashboard from './pages/worker/dashboard';
-import Jobs from './pages/worker/Jobs';
-import JobDetails from './pages/worker/JobDetails';
-import SavedJobs from './pages/worker/SavedJobs';
-import AppliedJobs from './pages/worker/AppliedJobs';
-import Profile from './pages/worker/Profile';
-import NotificationsInbox from './pages/worker/NotificationsInbox';
-import WorkerInbox from './pages/worker/WorkerInbox';
-import Settings from './pages/worker/Settings';
+import Dashboard from './pages/pages1/dashboard';
+import Jobs from './pages/pages1/Jobs';
+import JobDetails from './pages/pages1/JobDetails';
+import SavedJobs from './pages/pages1/SavedJobs';
+import AppliedJobs from './pages/pages1/AppliedJobs';
+import Profile from './pages/pages1/Profile';
+import NotificationsInbox from './pages/pages1/NotificationsInbox';
+import WorkerInbox from './pages/pages1/WorkerInbox';
+import EWallet from './pages/pages1/EWallet';
+import Settings from './pages/pages1/Settings';
+import LocationServices from './pages/pages1/LocationServices';
+import MFA from './pages/pages1/MFA';
+import About from './pages/pages1/About';
+import DeleteAccount from './pages/pages1/DeleteAccount';
+import ChangePassword from './pages/pages1/ChangePassword';
+import ContactSupport from './pages/pages1/ContactSupport';
 import EmployerJobPosts from './pages/employer/EmployerJobPosts';
 import EmployerPostJob from './pages/employer/EmployerPostJob';
 import EmployerApplications from './pages/employer/EmployerApplications';
@@ -40,6 +50,8 @@ export default function App() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [savedJobs, setSavedJobs] = useState([]);
   const [selectedEmployerJob, setSelectedEmployerJob] = useState(null);
+  const [selectedWorkerId, setSelectedWorkerId] = useState(null);
+  const [selectedJobId, setSelectedJobId] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [viewMode, setViewMode] = useState('worker');
   const [explicitEmployerView, setExplicitEmployerView] = useState(false);
@@ -47,11 +59,17 @@ export default function App() {
   const [workerNotifications, setWorkerNotifications] = useState([]);
   const [employerNotifications, setEmployerNotifications] = useState([]);
   const [messageEvents, setMessageEvents] = useState([]);
+  const [workerUnreadMessageCount, setWorkerUnreadMessageCount] = useState(0);
+  const [workerInboxInitialChatTarget, setWorkerInboxInitialChatTarget] = useState(null);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const transition = useRef(new Animated.Value(0)).current;
   const screenWidth = Dimensions.get('window').width;
   const warningTimerRef = useRef(null);
   const logoutTimerRef = useRef(null);
+  const currentScreenRef = useRef(currentScreen);
+  const socketErrorLogRef = useRef({ message: '', at: 0 });
+  const socketFailureCountRef = useRef(0);
 
   const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
   const WARNING_DURATION_MS = 10 * 1000;
@@ -73,22 +91,33 @@ export default function App() {
     PassChanged: 10,
     Dashboard: 11,
     Jobs: 12,
-    JobDetails: 13,
-    Saved: 14,
-    Applied: 15,
-    Messages: 16, // WorkerInbox
-    Notifications: 17, // NotificationsInbox
-    Profile: 18,
-    Settings: 19,
-    EmployerJobPosts: 20,
-    EmployerPostJob: 21,
-    EmployerApplications: 22,
-    EmployerProfile: 23,
-    EmployerNotifications: 24,
-    EmployerMessages: 25, // EmployerInbox / EmployerMessages
+    EWallet: 13,
+    JobDetails: 14,
+    Saved: 15,
+    Applied: 16,
+    Messages: 17, // WorkerInbox
+    Notifications: 18, // NotificationsInbox
+    Profile: 19,
+    Settings: 20,
+    EmployerJobPosts: 21,
+    EmployerPostJob: 22,
+    EmployerApplications: 23,
+    EmployerProfile: 24,
+    EmployerNotifications: 25,
+    EmployerMessages: 26, // EmployerInbox / EmployerMessages
+    SettingsLocationServices: 27,
+    SettingsMfa: 28,
+    SettingsAbout: 29,
+    SettingsDeleteAccount: 30,
+    SettingsChangePassword: 31,
+    SettingsSupport: 32,
   };
 
   const isSessionActive = currentScreen >= SCREEN.Dashboard;
+  useEffect(() => {
+    currentScreenRef.current = currentScreen;
+  }, [currentScreen]);
+
   const normalizeRole = useCallback((role) => {
     if (!role) return null;
     if (role === 'hire') return 'employer';
@@ -102,13 +131,15 @@ export default function App() {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return null;
-      const response = await fetch(`${API_URL}/users/profile`, {
+      const result = await apiRequest(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (response.ok) {
-        const profile = data?.profile || data?.user;
-        const role = profile?.role || data?.role || data?.user?.role;
+      }, 'Failed to load profile.');
+
+      if (result.ok) {
+        const payload = asObject(result.raw) || {};
+        const dataPayload = asObject(result.data) || {};
+        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
+        const role = profile?.role || payload?.role || payload?.user?.role;
         if (profile) {
           await AsyncStorage.setItem('auth_user', JSON.stringify(profile));
         }
@@ -131,27 +162,78 @@ export default function App() {
     return null;
   }, [normalizeRole]);
 
-  // Initialize socket when ready and user is known
+  // Initialize socket only during authenticated sessions.
   useEffect(() => {
-    let mounted = true;
+    const disconnectSocket = () => {
+      if (socketRef.current) {
+        socketRef.current.removeAllListeners();
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      socketFailureCountRef.current = 0;
+      socketErrorLogRef.current = { message: '', at: 0 };
+    };
+
     const initSocket = async () => {
       try {
         const token = await AsyncStorage.getItem('auth_token');
         const storedUser = await AsyncStorage.getItem('auth_user');
-        if (!token || !storedUser) return;
+        if (!token || !storedUser) {
+          disconnectSocket();
+          return;
+        }
         const parsed = JSON.parse(storedUser);
         const userId = parsed?._id || parsed?.id || parsed?.userId;
-        if (!userId) return;
+        if (!userId) {
+          disconnectSocket();
+          return;
+        }
 
-        // avoid reconnecting
-        if (socketRef.current) return;
+        // avoid duplicate socket instances
+        if (socketRef.current) {
+          if (socketRef.current.connected || socketRef.current.active) return;
+          disconnectSocket();
+        }
 
-        const socket = io(API_URL, { transports: ['websocket'], auth: { token } });
+        const socket = io(SOCKET_URL, {
+          auth: { token },
+          transports: ['websocket', 'polling'],
+          timeout: 10000,
+          reconnection: true,
+          reconnectionAttempts: 3,
+          reconnectionDelay: 1500,
+          reconnectionDelayMax: 10000,
+        });
         socketRef.current = socket;
 
         socket.on('connect', () => {
           console.log('socket connected', socket.id);
+          socketFailureCountRef.current = 0;
+          socketErrorLogRef.current = { message: '', at: 0 };
           socket.emit('register', String(userId));
+        });
+        socket.on('connect_error', (err) => {
+          // Throttle noisy transport errors so the terminal is readable.
+          const message = String(err?.message || err || 'unknown');
+          const now = Date.now();
+          const shouldLog =
+            socketErrorLogRef.current.message !== message ||
+            now - socketErrorLogRef.current.at > 15000;
+
+          if (shouldLog) {
+            console.warn(`socket connect_error (${SOCKET_URL})`, message);
+            socketErrorLogRef.current = { message, at: now };
+          }
+
+          socketFailureCountRef.current += 1;
+          if (socketFailureCountRef.current >= 3) {
+            console.warn('socket disabled after repeated connection failures');
+            disconnectSocket();
+          }
+        });
+        socket.io.on('reconnect_failed', () => {
+          console.warn('socket reconnect_failed');
+          disconnectSocket();
         });
 
         socket.on('new_application', (payload) => {
@@ -168,6 +250,10 @@ export default function App() {
         socket.on('new_message', (payload) => {
           console.log('received new_message', payload);
           setMessageEvents((prev) => [payload, ...prev]);
+          const isViewingWorkerMessages = currentScreenRef.current === SCREEN.Messages;
+          if (!isViewingWorkerMessages) {
+            setWorkerUnreadMessageCount((prev) => prev + 1);
+          }
         });
 
         socket.on('new_message_echo', (payload) => {
@@ -175,20 +261,18 @@ export default function App() {
           setMessageEvents((prev) => [payload, ...prev]);
         });
       } catch (error) {
-        // ignore
+        disconnectSocket();
       }
     };
 
-    if (isReady) initSocket();
+    if (isReady && isSessionActive) {
+      initSocket();
+    } else {
+      disconnectSocket();
+    }
 
-    return () => {
-      mounted = false;
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, [isReady]);
+    return disconnectSocket;
+  }, [isReady, isSessionActive]);
 
   const savedJobIds = useMemo(() => savedJobs.map((job) => job._id).filter(Boolean), [savedJobs]);
 
@@ -355,17 +439,24 @@ export default function App() {
 
   const handleGoToDashboard = async () => {
     await AsyncStorage.setItem('has_onboarded', 'true');
-    setActiveTab('Home');
     const role = await fetchUserRole();
     setUserRole(role);
-    setViewMode('worker');
-    setExplicitEmployerView(false);
     if (role === 'employer') {
       setActiveEmployerTab('Home');
       setCurrentScreen(SCREEN.EmployerJobPosts);
     } else {
+      setActiveTab('Home');
+      setViewMode('worker');
+      setExplicitEmployerView(false);
       setCurrentScreen(SCREEN.Dashboard);
     }
+  };
+
+  const handleGoToWorkerDashboard = () => {
+    setActiveTab('Home');
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setCurrentScreen(SCREEN.Dashboard);
   };
 
   const handleGoToEmployerPosts = () => {
@@ -384,6 +475,26 @@ export default function App() {
     setCurrentScreen(SCREEN.EmployerApplications);
   };
 
+  const handleMessageWorker = (workerId, jobId) => {
+    setSelectedWorkerId(workerId);
+    setSelectedJobId(jobId);
+    setCurrentScreen(SCREEN.EmployerMessages);
+  };
+
+  const handleMessageEmployer = ({ userId, userName, jobId }) => {
+    if (!userId) {
+      Alert.alert('Unable to open chat', 'Missing employer information.');
+      return;
+    }
+    setSelectedJobId(jobId || null);
+    setActiveTab('Messages');
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setWorkerUnreadMessageCount(0);
+    setWorkerInboxInitialChatTarget({ id: String(userId), name: userName || 'Employer' });
+    setCurrentScreen(SCREEN.Messages);
+  };
+
   const handleGoToEmployerProfile = () => {
     setActiveEmployerTab('Profile');
     setCurrentScreen(SCREEN.EmployerProfile);
@@ -396,7 +507,16 @@ export default function App() {
 
   const handleGoToJobs = () => {
     setActiveTab('Jobs');
+    setViewMode('worker');
+    setExplicitEmployerView(false);
     setCurrentScreen(SCREEN.Jobs);
+  };
+
+  const handleGoToEWallet = () => {
+    setActiveTab('EWallet');
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setCurrentScreen(SCREEN.EWallet);
   };
 
   const handleGoToJobDetails = (job) => {
@@ -405,24 +525,34 @@ export default function App() {
   };
 
   const handleGoToSaved = () => {
-    setActiveTab('Saved');
+    setActiveTab('Jobs');
     setCurrentScreen(SCREEN.Saved);
   };
 
   const handleGoToApplied = () => {
-    setActiveTab('Saved');
+    setActiveTab('Jobs');
     setCurrentScreen(SCREEN.Applied);
   };
 
   const handleGoToMessages = () => {
     setActiveTab('Messages');
     setViewMode('worker');
+    setExplicitEmployerView(false);
+    setWorkerUnreadMessageCount(0);
+    setWorkerInboxInitialChatTarget(null);
     setCurrentScreen(SCREEN.Messages);
+  };
+
+  const handleGoToNotifications = () => {
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setCurrentScreen(SCREEN.Notifications);
   };
 
   const handleGoToProfile = () => {
     setActiveTab('Profile');
     setViewMode('worker');
+    setExplicitEmployerView(false);
     setCurrentScreen(SCREEN.Profile);
   };
 
@@ -471,6 +601,39 @@ export default function App() {
     setCurrentScreen(SCREEN.Profile);
   };
 
+  const handleBackToSettings = () => {
+    setCurrentScreen(SCREEN.Settings);
+  };
+
+  const handleGoToSettingsPersonalDetails = () => {
+    setActiveTab('Profile');
+    setCurrentScreen(SCREEN.Profile);
+  };
+
+  const handleGoToSettingsChangePassword = () => {
+    setCurrentScreen(SCREEN.SettingsChangePassword);
+  };
+
+  const handleGoToSettingsLocation = () => {
+    setCurrentScreen(SCREEN.SettingsLocationServices);
+  };
+
+  const handleGoToSettingsMfa = () => {
+    setCurrentScreen(SCREEN.SettingsMfa);
+  };
+
+  const handleGoToSettingsAbout = () => {
+    setCurrentScreen(SCREEN.SettingsAbout);
+  };
+
+  const handleGoToSettingsDeleteAccount = () => {
+    setCurrentScreen(SCREEN.SettingsDeleteAccount);
+  };
+
+  const handleGoToSettingsSupport = () => {
+    setCurrentScreen(SCREEN.SettingsSupport);
+  };
+
   const handleTabPress = (tab) => {
     switch (tab) {
       case 'Home':
@@ -480,33 +643,22 @@ export default function App() {
         if (isEmployerRole && explicitEmployerView) {
           handleGoToEmployerPosts();
         } else {
-          handleGoToDashboard();
+          handleGoToWorkerDashboard();
         }
         break;
       case 'Jobs':
         handleGoToJobs();
         break;
-      case 'Saved':
-        handleGoToSaved();
+      case 'EWallet':
+      case 'E-Wallet':
+        handleGoToEWallet();
         break;
       case 'Messages':
         if (isEmployerRole && explicitEmployerView) {
           setActiveEmployerTab('Messages');
           setCurrentScreen(SCREEN.EmployerMessages);
         } else {
-          setViewMode('worker');
-          setExplicitEmployerView(false);
-          setCurrentScreen(SCREEN.Messages);
-        }
-        break;
-      case 'Notifications':
-        if (isEmployerRole && explicitEmployerView) {
-          setActiveEmployerTab('Notifications');
-          setCurrentScreen(SCREEN.EmployerNotifications);
-        } else {
-          setViewMode('worker');
-          setExplicitEmployerView(false);
-          setCurrentScreen(SCREEN.Notifications);
+          handleGoToMessages();
         }
         break;
       case 'Profile':
@@ -547,18 +699,41 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.removeItem('auth_token');
-    await AsyncStorage.removeItem('auth_user');
-    await AsyncStorage.removeItem('pending_verification_email');
+    setShowLogoutModal(false);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (token) {
+        await apiRequest(`${API_URL}/auth/logout`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }, 'Failed to logout.');
+      }
+    } catch (error) {
+      // keep local logout behavior even if API logout fails
+    }
+
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
+    await AsyncStorage.multiRemove(['auth_token', 'auth_user', 'pending_verification_email']);
     setActiveTab('Home');
+    setActiveEmployerTab('Home');
+    setWorkerUnreadMessageCount(0);
+    setWorkerNotifications([]);
+    setEmployerNotifications([]);
+    setMessageEvents([]);
+    setWorkerInboxInitialChatTarget(null);
+    setViewMode('worker');
+    setExplicitEmployerView(false);
+    setUserRole(null);
     setCurrentScreen(SCREEN.SignIn); // Always go to login
   };
 
   const handleLogoutConfirm = () => {
-    Alert.alert('Log out', 'Are you sure you want to log out?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Log out', style: 'destructive', onPress: handleLogout },
-    ]);
+    setShowLogoutModal(true);
   };
 
   const scheduleIdleTimers = useCallback(() => {
@@ -607,13 +782,21 @@ export default function App() {
     };
   }, [handleActivity]);
 
+  const workerNotificationBadgeCount = workerNotifications.length;
+
   const screens = [
     <Screen1 onNext={handleNext} />,
     <Screen2 onNext={handleNext} />,
     <Screen3 onNext={handleNext} />,
     <Screen4 onNext={handleGoToSignUp} />,
     <SignUp onBack={handleBack} onNavigateToSignIn={handleGoToSignIn} onNavigateToVerify={handleGoToVerify} />,
-    <SignIn onBack={handleBack} onNavigateToSignUp={handleGoToSignUp} onNavigateToForgot={handleGoToForgot} onNavigateToVerify={handleGoToVerify} />,
+    <SignIn
+      onBack={handleBack}
+      onNavigateToSignUp={handleGoToSignUp}
+      onNavigateToForgot={handleGoToForgot}
+      onNavigateToVerify={handleGoToVerify}
+      onLogin={handleGoToDashboard}
+    />,
     <SignSuccess onBackToLogin={handleGoToSignIn} />,
     <ForgotPass onBack={handleGoToSignIn} onSendReset={handleGoToVerify} />,
     <VerifyEmail onVerified={handleGoToDashboard} onBack={handleGoToSignIn} />,
@@ -627,15 +810,31 @@ export default function App() {
       onViewJobDetails={handleGoToJobDetails}
       onSaveJob={handleToggleSaveJob}
       savedJobIds={savedJobIds}
-      onOpenNotifications={handleGoToMessages}
+      onOpenNotifications={handleGoToNotifications}
+      notificationBadgeCount={workerNotificationBadgeCount}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <Jobs
       onBack={handleGoToDashboard}
       onViewDetails={handleGoToJobDetails}
       onToggleSave={handleToggleSaveJob}
+      onMessageEmployer={handleMessageEmployer}
       savedJobIds={savedJobIds}
+      onOpenSavedJobs={handleGoToSaved}
+      onOpenAppliedJobs={handleGoToApplied}
+      onOpenNotifications={handleGoToNotifications}
+      notificationBadgeCount={workerNotificationBadgeCount}
       activeTab={activeTab}
       onTabPress={handleTabPress}
+      messageBadgeCount={workerUnreadMessageCount}
+    />,
+    <EWallet
+      onBack={handleGoToJobs}
+      onOpenNotifications={handleGoToNotifications}
+      notificationBadgeCount={workerNotificationBadgeCount}
+      activeTab={activeTab}
+      onTabPress={handleTabPress}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <JobDetails
       job={selectedJob}
@@ -643,6 +842,7 @@ export default function App() {
       isSaved={selectedJob ? savedJobIds.includes(selectedJob._id) : false}
       activeTab={activeTab}
       onTabPress={handleTabPress}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <SavedJobs
       savedJobs={savedJobs}
@@ -651,25 +851,51 @@ export default function App() {
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onViewAppliedJobs={handleGoToApplied}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <AppliedJobs
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onViewDetails={handleGoToJobDetails}
       onViewSavedJobs={handleGoToSaved}
+      onMessageEmployer={handleMessageEmployer}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
-    <WorkerInbox activeTab={activeTab} onTabPress={handleTabPress} liveMessages={messageEvents} />,
-    <NotificationsInbox activeTab={activeTab} onTabPress={handleTabPress} liveNotifications={workerNotifications} />,
+    <WorkerInbox
+      activeTab={activeTab}
+      onTabPress={handleTabPress}
+      liveMessages={messageEvents}
+      onOpenNotifications={handleGoToNotifications}
+      notificationBadgeCount={workerNotificationBadgeCount}
+      messageBadgeCount={workerUnreadMessageCount}
+      initialChatTarget={workerInboxInitialChatTarget}
+    />,
+    <NotificationsInbox
+      activeTab={activeTab}
+      onTabPress={handleTabPress}
+      liveNotifications={workerNotifications}
+      messageBadgeCount={workerUnreadMessageCount}
+    />,
     <Profile
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onOpenSettings={handleGoToSettings}
-      currentRole={isEmployerRole ? 'employer' : 'worker'}
+      currentRole={explicitEmployerView ? 'employer' : 'worker'}
       onSwitchRole={handleSwitchRole}
+      messageBadgeCount={workerUnreadMessageCount}
     />,
     <Settings
       onBack={handleBackFromSettings}
       onLogout={handleLogoutConfirm}
+      onNavigatePersonalDetails={handleGoToSettingsPersonalDetails}
+      onNavigateChangePassword={handleGoToSettingsChangePassword}
+      onNavigateNotifications={handleGoToNotifications}
+      onNavigateEWallet={handleGoToEWallet}
+      onNavigateLocation={handleGoToSettingsLocation}
+      onNavigateMfa={handleGoToSettingsMfa}
+      onNavigateAbout={handleGoToSettingsAbout}
+      onNavigateDeleteAccount={handleGoToSettingsDeleteAccount}
+      onNavigateSupport={handleGoToSettingsSupport}
     />,
     <EmployerJobPosts
       onOpenPostJob={handleGoToEmployerPostJob}
@@ -698,7 +924,7 @@ export default function App() {
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
       onLogout={handleLogoutConfirm}
-      currentRole={isEmployerRole ? 'employer' : 'worker'}
+      currentRole={explicitEmployerView ? 'employer' : 'worker'}
       onSwitchRole={handleSwitchRole}
     />,
     <EmployerNotifications
@@ -707,17 +933,14 @@ export default function App() {
       liveNotifications={employerNotifications}
     />,
     <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} liveMessages={messageEvents} />,
-    <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} />,
+    <LocationServices onBack={handleBackToSettings} />,
+    <MFA onBack={handleBackToSettings} />,
+    <About onBack={handleBackToSettings} />,
+    <DeleteAccount onBack={handleBackToSettings} />,
+    <ChangePassword onBack={handleBackToSettings} />,
+    <ContactSupport onBack={handleBackToSettings} />,
   ];
-
-  const [selectedWorkerId, setSelectedWorkerId] = useState(null);
-  const [selectedJobId, setSelectedJobId] = useState(null);
-
-  const handleMessageWorker = (workerId, jobId) => {
-    setSelectedWorkerId(workerId);
-    setSelectedJobId(jobId);
-    setCurrentScreen(SCREEN.EmployerMessages);
-  };
+  const currentView = screens[currentScreen] ?? screens[SCREEN.SignIn] ?? null;
 
   const translateX = transition.interpolate({
     inputRange: [0, 1],
@@ -730,12 +953,12 @@ export default function App() {
   });
 
   if (!isReady) {
-    return <View style={{ flex: 1, backgroundColor: '#0a2847' }} />;
+    return <View style={{ flex: 1, backgroundColor: tokens.colors.brand }} />;
   }
 
   return (
     <View
-      style={{ flex: 1, overflow: 'hidden', backgroundColor: '#0a2847' }}
+      style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.brand }}
       onStartShouldSetResponder={() => true}
       onResponderGrant={handleActivity}
       onTouchStart={handleActivity}
@@ -747,8 +970,33 @@ export default function App() {
           transform: [{ translateX }],
         }}
       >
-        {screens[currentScreen]}
+        {currentView}
       </Animated.View>
+      {showLogoutModal && (
+        <View style={styles.logoutOverlay}>
+          <View style={styles.logoutCard}>
+            <TouchableOpacity style={styles.logoutClose} onPress={() => setShowLogoutModal(false)}>
+              <Ionicons name="close" size={20} color="#6B7280" />
+            </TouchableOpacity>
+
+            <View style={styles.logoutIconWrap}>
+              <Ionicons name="log-out-outline" size={36} color="#6B7280" />
+            </View>
+
+            <Text style={styles.logoutTitle}>Sign Out?</Text>
+            <Text style={styles.logoutSubtitle}>Are you sure you want to exit?</Text>
+
+            <View style={styles.logoutActions}>
+              <TouchableOpacity style={styles.logoutSecondary} onPress={() => setShowLogoutModal(false)}>
+                <Text style={styles.logoutSecondaryText}>NO</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.logoutPrimary} onPress={handleLogout}>
+                <Text style={styles.logoutPrimaryText}>SIGN OUT</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
       {showIdleWarning && (
         <View style={styles.idleOverlay}>
           <View style={styles.idleCard}>
@@ -777,6 +1025,105 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  logoutOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  logoutCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 26,
+    paddingHorizontal: 20,
+    paddingTop: 22,
+    paddingBottom: 20,
+    alignItems: 'center',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  logoutClose: {
+    position: 'absolute',
+    right: 14,
+    top: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutIconWrap: {
+    width: 86,
+    height: 86,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  logoutTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+  },
+  logoutSubtitle: {
+    marginTop: 10,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+    textTransform: 'uppercase',
+    letterSpacing: 1.1,
+    textAlign: 'center',
+  },
+  logoutActions: {
+    marginTop: 22,
+    width: '100%',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  logoutSecondary: {
+    flex: 1,
+    height: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutSecondaryText: {
+    fontSize: 15,
+    color: '#0F172A',
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  logoutPrimary: {
+    flex: 1,
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: '#0B1C44',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutPrimaryText: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   idleOverlay: {
     position: 'absolute',

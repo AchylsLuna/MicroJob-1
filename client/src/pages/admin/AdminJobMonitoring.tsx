@@ -1,4 +1,4 @@
-import { AdminGate } from "./AdminGate/AdminGate";
+import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminJobMonitoringContent() {
@@ -34,18 +34,14 @@ function AdminJobMonitoringContent() {
   };
 
   return (
-    <div className="max-w-full ml-6 md:ml-12 space-y-6 text-[16px] mt-8 md:mt-12">
-      <header className="mb-8 text-left">
-        <h1 className="text-4xl md:text-5xl font-semibold text-[#111827]">Job Posting Monitoring</h1>
-        <p className="text-base text-[#6B7280] mt-2">Track recent job postings and application activity</p>
-      </header>
+    <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}
         </div>
       )}
 
-      <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-4">
+      <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
         <div>
           <h3 className="text-[18px] font-semibold text-[#111827]">Latest Job Posts</h3>
           <p className="text-[13px] text-[#6B7280] mt-1">
@@ -53,7 +49,7 @@ function AdminJobMonitoringContent() {
           </p>
         </div>
 
-        <div className="mt-4 overflow-x-auto">
+        <div className="mt-6 overflow-x-auto">
           <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
@@ -120,7 +116,7 @@ function AdminJobMonitoringContent() {
 
 export function AdminJobMonitoring() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminJobMonitoringContent />
     </AdminGate>
   );

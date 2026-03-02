@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { sendOtp, verifyOtp } from '../api/auth';
+import { sendOtp, verifyOtp } from '../services/api';
+import { ROUTES } from '../utils/routes';
 
 const EmailVerification: React.FC = () => {
   const navigate = useNavigate();
@@ -10,7 +11,7 @@ const EmailVerification: React.FC = () => {
   const [hasSent, setHasSent] = useState(false);
   const [verified, setVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [email, setEmail] = useState(() => localStorage.getItem('pending_verification_email') || '');
+  const [email] = useState(() => localStorage.getItem('pending_verification_email') || '');
 
   useEffect(() => {
     if (!email || hasSent) {
@@ -131,7 +132,7 @@ const EmailVerification: React.FC = () => {
   };
 
   const handleBackToLogin = () => {
-    navigate('/signin');
+    navigate(ROUTES.signInLegacy);
   };
 
   if (!email) {
@@ -167,7 +168,7 @@ const EmailVerification: React.FC = () => {
             <p className="text-gray-600 mb-6">Thank you — your email has been verified successfully.</p>
             <button
               type="button"
-              onClick={() => navigate('/dashboard', { replace: true })}
+              onClick={() => navigate(ROUTES.legacyDashboard.root, { replace: true })}
               className="w-full bg-[#1e3a5f] text-white py-3 rounded-xl font-semibold hover:bg-[#2d5080] transition-colors"
             >
               OK

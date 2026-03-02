@@ -1,53 +1,135 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, ActivityIndicator, Alert, Platform, AppState, AppStateStatus } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  AppState,
+  AppStateStatus,
+  TextInput,
+  Image,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { apiRequest, asList } from '../../lib/api';
+import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../../theme/tokens';
 
-// Conversation summary type
 interface ConversationSummary {
   conversationId: string;
   userId: string;
   name: string;
   lastMessage: string;
-  lastTime: string;
+  lastMessageAt?: string;
+  unreadCount: number;
+  isOnline: boolean;
+  avatarUrl: string;
 }
 
 interface MessageListProps {
   onOpenChat: (userId: string, name?: string) => void;
   isEmployer?: boolean;
   liveMessages?: any[];
+  onOpenNotifications?: () => void;
+  notificationBadgeCount?: number;
 }
 
-export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] }: MessageListProps) {
+const buildAvatarUrl = (name: string, avatarUrl?: string) => {
+  if (avatarUrl && avatarUrl.trim()) return avatarUrl;
+  const safe = encodeURIComponent(name || 'User');
+  return `https://ui-avatars.com/api/?name=${safe}&background=E5E7EB&color=111827&size=128`;
+};
+
+const formatConversationTime = (input?: string) => {
+  if (!input) return '';
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const startOfNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDiff = Math.floor((startOfNow.getTime() - startOfDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (dayDiff <= 0) {
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toUpperCase();
+  }
+  if (dayDiff === 1) {
+    return 'YESTERDAY';
+  }
+  if (dayDiff < 7) {
+    return `${dayDiff} DAYS AGO`;
+  }
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' }).toUpperCase();
+};
+
+export default function MessageList({
+  onOpenChat,
+  liveMessages = [],
+  onOpenNotifications,
+  notificationBadgeCount = 0,
+}: MessageListProps) {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredConversations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return conversations;
+    return conversations.filter((item) => {
+      return item.name.toLowerCase().includes(query) || item.lastMessage.toLowerCase().includes(query);
+    });
+  }, [conversations, searchQuery]);
 
   const fetchConversations = async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const res = await fetch(`${API_URL}/messages/conversations`, {
+      const result = await apiRequest(`${API_URL}/messages/conversations`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      // Server returns an array of conversation objects with otherUserId, otherUserName, lastMessage, lastMessageAt
-      const convs: ConversationSummary[] = Array.isArray(data.conversations)
-        ? data.conversations
+      }, 'Failed to fetch conversations');
+      const items = asList<any>(result.raw, ['conversations']);
+
+      const convs: ConversationSummary[] = Array.isArray(items)
+        ? items
             .map((c: any) => {
               const otherId = c.otherUserId || c.otherUser || c.userId || '';
               const convId = c.conversationId || `${otherId}::${c.jobId || 'general'}`;
               if (!otherId) return null;
+
+              const otherUser = c.otherUser && typeof c.otherUser === 'object' ? c.otherUser : null;
+              const displayName =
+                c.otherUserName ||
+                (otherUser?.firstName
+                  ? `${otherUser.firstName} ${otherUser.lastName || ''}`.trim()
+                  : undefined) ||
+                'User';
+
               return {
                 conversationId: convId,
-                userId: otherId,
-                name: c.otherUserName || (c.otherUser && (c.otherUser.firstName ? `${c.otherUser.firstName} ${c.otherUser.lastName || ''}`.trim() : undefined)) || 'User',
-                lastMessage: c.lastMessage || '',
-                lastTime: c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString() : '',
+                userId: String(otherId),
+                name: displayName,
+                lastMessage: c.lastMessage || 'Start a conversation',
+                lastMessageAt: c.lastMessageAt || c.updatedAt || c.createdAt || '',
+                unreadCount: Number(c.unreadCount || c.unread || 0),
+                isOnline: Boolean(c.otherUserOnline || otherUser?.isOnline || c.isOnline),
+                avatarUrl: buildAvatarUrl(
+                  displayName,
+                  c.otherUserAvatar ||
+                    otherUser?.avatarUrl ||
+                    otherUser?.avatar ||
+                    otherUser?.profileImage ||
+                    otherUser?.photo,
+                ),
               } as ConversationSummary;
             })
             .filter(Boolean) as ConversationSummary[]
         : [];
+
       setConversations(convs);
     } catch (err) {
       console.warn('Failed to fetch conversations', err);
@@ -56,23 +138,16 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     }
   };
 
-  const confirmAndDelete = (userId: string) => {
-    Alert.alert('Delete conversation', 'Are you sure you want to delete this conversation?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => handleDelete(userId) },
-    ]);
-  };
-
   const handleDelete = async (userId: string) => {
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const res = await fetch(`${API_URL}/messages/conversation`, {
+      const result = await apiRequest(`${API_URL}/messages/conversation`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId }),
-      });
-      if (!res.ok) throw new Error('Delete failed');
+      }, 'Delete failed');
+      if (!result.ok) throw new Error(result.message || 'Delete failed');
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to delete conversation', err);
@@ -86,11 +161,12 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      await fetch(`${API_URL}/messages/archive`, {
+      const result = await apiRequest(`${API_URL}/messages/archive`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId, archive: true }),
-      });
+      }, 'Unable to archive conversation');
+      if (!result.ok) throw new Error(result.message || 'Unable to archive conversation');
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to archive conversation', err);
@@ -104,11 +180,12 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      await fetch(`${API_URL}/messages/block`, {
+      const result = await apiRequest(`${API_URL}/messages/block`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId }),
-      });
+      }, 'Unable to block user');
+      if (!result.ok) throw new Error(result.message || 'Unable to block user');
       Alert.alert('Blocked', 'User has been blocked');
       await fetchConversations();
     } catch (err) {
@@ -123,11 +200,12 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      await fetch(`${API_URL}/messages/read`, {
+      const result = await apiRequest(`${API_URL}/messages/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ otherUserId: userId, read: markRead }),
-      });
+      }, 'Unable to update read status');
+      if (!result.ok) throw new Error(result.message || 'Unable to update read status');
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to mark read/unread', err);
@@ -147,22 +225,21 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     ];
 
     if (Platform.OS === 'ios') {
-      // use Alert as simple fallback (ActionSheet could be used for nicer UI)
       Alert.alert('Conversation options', undefined, options as any);
     } else {
       Alert.alert('Conversation options', undefined, options as any);
     }
   };
 
-  useEffect(() => { fetchConversations(); }, []);
+  useEffect(() => {
+    fetchConversations();
+  }, []);
 
-  // refresh when live messages arrive
   useEffect(() => {
     if (!liveMessages || liveMessages.length === 0) return;
     fetchConversations();
   }, [liveMessages]);
 
-  // Poll for updates every 15 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       fetchConversations();
@@ -170,7 +247,6 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     return () => clearInterval(interval);
   }, []);
 
-  // Refresh when app comes to foreground
   const appState = useRef<AppStateStatus>(AppState.currentState as AppStateStatus);
   useEffect(() => {
     const handle = (nextAppState: AppStateStatus) => {
@@ -183,58 +259,274 @@ export default function MessageList({ onOpenChat, isEmployer, liveMessages = [] 
     return () => sub.remove();
   }, []);
 
-  if (loading) return <ActivityIndicator style={{ marginTop: 40 }} />;
+  if (loading) {
+    return (
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator color={tokens.colors.brand} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Messages</Text>
-      <FlatList
-        data={conversations}
-        keyExtractor={item => item.conversationId}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.item}
-            onPress={() => (item.userId ? onOpenChat(item.userId, item.name) : Alert.alert('No user', 'Cannot open this conversation'))}
-            onLongPress={() => (item.userId ? showOptions(item.userId) : null)}
-            delayLongPress={400}
-          >
-            <View style={styles.itemRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.lastMessage}>{item.lastMessage}</Text>
-                <Text style={styles.time}>{item.lastTime}</Text>
-              </View>
-              <TouchableOpacity onPress={() => confirmAndDelete(item.userId)} style={styles.deleteBtn}>
-                <Text style={styles.deleteText}>{processingId === item.userId ? '...' : 'Delete'}</Text>
-              </TouchableOpacity>
+      <View style={styles.headerRow}>
+        <View style={styles.headerTitleRow}>
+          <Text style={styles.headerTitle}>Inboxes</Text>
+          <Ionicons name="sparkles" size={16} color="#F59E0B" />
+        </View>
+        <TouchableOpacity
+          style={styles.composeButton}
+          onPress={onOpenNotifications || (() => Alert.alert('Compose', 'New chat composer is coming soon.'))}
+        >
+          <Ionicons name="create-outline" size={20} color="#64748B" />
+          {notificationBadgeCount > 0 ? (
+            <View style={styles.notifyDot}>
+              <Text style={styles.notifyDotText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
             </View>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={<Text style={styles.empty}>No conversations yet.</Text>}
+          ) : null}
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.searchWrap}>
+        <Ionicons style={styles.searchIcon} name="search-outline" size={18} color="#94A3B8" />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search conversations..."
+          placeholderTextColor="#94A3B8"
+        />
+      </View>
+
+      <FlatList
+        data={filteredConversations}
+        keyExtractor={(item) => item.conversationId}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => {
+          const timeLabel = formatConversationTime(item.lastMessageAt);
+          const unread = item.unreadCount > 0 ? item.unreadCount : 0;
+
+          return (
+            <TouchableOpacity
+              style={styles.row}
+              onPress={() => (item.userId ? onOpenChat(item.userId, item.name) : Alert.alert('No user', 'Cannot open this conversation'))}
+              onLongPress={() => (item.userId ? showOptions(item.userId) : null)}
+              delayLongPress={400}
+            >
+              <View style={styles.avatarWrap}>
+                <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
+                {item.isOnline ? <View style={styles.onlineDot} /> : null}
+              </View>
+
+              <View style={styles.rowBody}>
+                <View style={styles.rowTop}>
+                  <Text style={styles.nameText} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={styles.timeText}>{timeLabel}</Text>
+                </View>
+
+                <View style={styles.rowBottom}>
+                  <Text style={[styles.previewText, unread > 0 && styles.previewTextUnread]} numberOfLines={1}>
+                    {item.lastMessage}
+                  </Text>
+                  {unread > 0 ? (
+                    <View style={styles.unreadBadge}>
+                      <Text style={styles.unreadBadgeText}>{unread > 9 ? '9+' : String(unread)}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+
+              {processingId === item.userId ? <Text style={styles.processingText}>...</Text> : null}
+            </TouchableOpacity>
+          );
+        }}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={<Text style={styles.emptyText}>No conversations found.</Text>}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff', padding: 16 },
-  header: { fontSize: 20, fontWeight: '700', marginBottom: 16, color: '#0a2847' },
-  item: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+  container: {
+    flex: 1,
+    backgroundColor: tokens.colors.background,
+    paddingTop: 12,
   },
-  itemRow: { flexDirection: 'row', alignItems: 'center' },
-  name: { fontSize: 16, fontWeight: '700', color: '#0a2847' },
-  lastMessage: { fontSize: 13, color: '#64748b', marginTop: 4 },
-  time: { fontSize: 11, color: '#9ca3af', marginTop: 2 },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 40 },
-  deleteBtn: { paddingHorizontal: 12, paddingVertical: 6 },
-  deleteText: { color: '#ef4444', fontWeight: '700' },
+  loadingWrap: {
+    flex: 1,
+    backgroundColor: tokens.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerRow: {
+    paddingHorizontal: 20,
+    paddingTop: 6,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -1,
+  },
+  composeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EEF2F7',
+    borderWidth: 1,
+    borderColor: '#DEE5EF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notifyDot: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: tokens.colors.danger,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: tokens.colors.white,
+  },
+  notifyDotText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  searchWrap: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    height: 50,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#DCE1E9',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#334155',
+  },
+  listContent: {
+    paddingTop: 2,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  avatarWrap: {
+    width: 56,
+    height: 56,
+    marginRight: 12,
+    position: 'relative',
+  },
+  avatar: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#D1D5DB',
+  },
+  onlineDot: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#10B981',
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+  },
+  rowBody: {
+    flex: 1,
+  },
+  rowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 8,
+  },
+  nameText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  timeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B8BFCC',
+    letterSpacing: 0.7,
+  },
+  rowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  previewText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#94A3B8',
+  },
+  previewTextUnread: {
+    color: '#111827',
+    fontWeight: '600',
+  },
+  unreadBadge: {
+    minWidth: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#8A8F9C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  unreadBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  separator: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginLeft: 68,
+  },
+  processingText: {
+    marginLeft: 8,
+    color: '#94A3B8',
+    fontWeight: '700',
+  },
+  emptyText: {
+    marginTop: 40,
+    textAlign: 'center',
+    color: '#94A3B8',
+    fontSize: 14,
+  },
 });

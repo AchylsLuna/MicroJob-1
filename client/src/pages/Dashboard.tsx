@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { useAuth } from "../hooks/useAuth";
 import { jobsAPI } from "../services/jobs";
+import { ROUTES } from "../utils/routes";
 
 ChartJS.register(
   CategoryScale,
@@ -55,9 +56,8 @@ type ProfileSettings = {
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const authUser = useAuth();
-  const [userName, setUserName] = useState("Jonas Dick");
-  const [userEmail, setUserEmail] = useState("you@example.com");
+  const { user: authUser } = useAuth();
+  const normalizedRole = String(authUser?.role || "").toLowerCase();
   const [activeVacancyTab, setActiveVacancyTab] = useState("Application Sent");
   const [showNotifications, setShowNotifications] = useState(false);
   const [applications, setApplications] = useState<Array<{
@@ -81,8 +81,6 @@ const Dashboard: React.FC = () => {
         const parsed = JSON.parse(stored);
         console.log("Dashboard - Parsed auth_user:", parsed);
         console.log("Dashboard - User role:", parsed?.role);
-        if (parsed?.firstName && parsed?.lastName) setUserName(`${parsed.firstName} ${parsed.lastName}`);
-        if (parsed?.email) setUserEmail(parsed.email);
       } catch (err) {
         console.warn("Failed to parse auth_user", err);
       }
@@ -175,7 +173,7 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    if (authUser?.role === "work" || authUser?.role === "both") {
+    if (authUser?.role === "user") {
       fetchApplications();
       fetchJobs();
     }
@@ -192,8 +190,12 @@ const Dashboard: React.FC = () => {
     );
   }, [applications]);
 
-  if (authUser?.role === "hire") {
-    return <Navigate to="/employer/applications" replace />;
+  if (
+    authUser?.accountType === "employer" ||
+    authUser?.role === "employer" ||
+    normalizedRole === "doctor"
+  ) {
+    return <Navigate to={ROUTES.employer.applications} replace />;
   }
 
   const appliedJobIds = useMemo(
@@ -480,7 +482,8 @@ const Dashboard: React.FC = () => {
                         activeVacancyTab === tab
                           ? "text-blue-600 border-b-2 border-blue-600"
                           : "text-gray-600 hover:text-gray-900"
-                      }`}>
+                      }`}
+                    >
                       {tab}
                     </button>
                   ))}

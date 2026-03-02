@@ -10,7 +10,7 @@ import {
   Check,
   ChevronDown,
 } from "lucide-react";
-import { AdminGate } from "./AdminGate/AdminGate";
+import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
 
@@ -97,8 +97,11 @@ function AdminReportsContent() {
     return new Date(timestamp);
   };
 
-  const parseSalary = (value?: string) => {
-    if (!value) return 0;
+  const parseSalary = (value?: string | number) => {
+    if (value === undefined || value === null) return 0;
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
     const matches = value.match(/[\d,.]+/g);
     if (!matches) return 0;
     const numbers = matches
@@ -130,7 +133,7 @@ function AdminReportsContent() {
             id: user._id,
             name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
             email: user.email,
-            role: user.role || "worker",
+            role: user.role || "user",
             status: user.status || "active",
             joined: date ? date.toLocaleDateString() : "—",
             date,
@@ -261,18 +264,14 @@ function AdminReportsContent() {
   };
 
   return (
-    <div className="max-w-full ml-6 md:ml-12 space-y-6 text-[16px] mt-8 md:mt-12">
-      <header className="mb-8 text-left">
-        <h1 className="text-4xl md:text-5xl font-semibold text-[#111827]">Reports</h1>
-        <p className="text-base text-[#6B7280] mt-2">Generate and download platform reports</p>
-      </header>
+    <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
         <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
           {loadError}
         </div>
       )}
 
-      <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-4 space-y-4">
+      <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-6 space-y-6">
         <div>
           <h3 className="text-[20px] font-semibold text-[#111827]">Generate Report</h3>
           <p className="text-[13px] text-[#6B7280] mt-1">
@@ -439,7 +438,7 @@ function AdminReportsContent() {
 
 export function AdminReports() {
   return (
-    <AdminGate allowedRoles={["superadmin", "admin"]}>
+    <AdminGate allowedRoles={["admin"]}>
       <AdminReportsContent />
     </AdminGate>
   );
