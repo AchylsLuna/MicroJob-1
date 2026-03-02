@@ -1,0 +1,10 @@
+# Dependencies
+node_modules
+
+# Expo
+.expo
+
+# IDE / OS
+.vscode/
+.idea/
+*.log
