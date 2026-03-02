@@ -10,6 +10,7 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "allowJs": true,
+    "checkJs": false,
     "noEmit": true,
     "isolatedModules": true,
     "strict": true,
@@ -20,10 +21,19 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "*.ts",
+    "*.tsx",
+    "*.js",
+    "*.jsx",
+    "pages/**/*",
+    "components/**/*",
+    "lib/**/*",
+    "theme/**/*",
+    "assets/**/*"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules/**/*",
+    ".expo/**/*",
+    "dist/**/*"
   ]
 }

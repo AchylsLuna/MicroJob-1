@@ -35,7 +35,7 @@ export default function VerifyForgotOtp({ email, onVerified, onBack }: Props) {
   useEffect(() => {
     if (!canResend && timer > 0) {
       const interval = setInterval(() => {
-        setTimer((prev) => {
+        setTimer((prev: number) => {
           if (prev <= 1) {
             setCanResend(true);
             return 0;
@@ -133,7 +133,7 @@ export default function VerifyForgotOtp({ email, onVerified, onBack }: Props) {
         ) : null}
 
         <View style={styles.codeRow}>
-          {code.map((c, i) => (
+          {code.map((c: string, i: number) => (
             <View key={i} style={{ width: 44 }}>
               <TextInput
                 ref={(r: TextInput | null) => {
@@ -141,7 +141,7 @@ export default function VerifyForgotOtp({ email, onVerified, onBack }: Props) {
                 }}
                 style={styles.codeBox}
                 value={c}
-                onChangeText={v => handleChange(v, i)}
+                onChangeText={(v: string) => handleChange(v, i)}
                 keyboardType="number-pad"
                 maxLength={1}
                 returnKeyType="next"

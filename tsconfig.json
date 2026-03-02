@@ -5,5 +5,10 @@
     "moduleResolution": "Bundler",
     "jsx": "preserve",
     "skipLibCheck": true
-  }
+  },
+  "references": [
+    { "path": "./client" },
+    { "path": "./mobile" }
+  ],
+  "files": []
 }
