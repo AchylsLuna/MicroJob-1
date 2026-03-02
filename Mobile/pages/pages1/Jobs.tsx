@@ -19,7 +19,7 @@ export type Job = {
   skills?: string[];
   createdAt?: string;
   category?: { _id: string; name: string } | string;
-  jobPoster?: { firstName?: string; lastName?: string; email?: string };
+  jobPoster?: { _id?: string; id?: string; firstName?: string; lastName?: string; email?: string };
 };
 
 type JobsProps = {
@@ -59,6 +59,7 @@ export default function Jobs(props: JobsProps) {
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const jobTypes = ['All', 'Remote', 'Fulltime', 'Part-time', 'Freelance'];
 
@@ -98,6 +99,7 @@ export default function Jobs(props: JobsProps) {
       if (searchQuery.trim()) {
         params.append('search', searchQuery.trim());
       }
+      // Always exclude own jobs for all users
       params.append('excludeOwn', 'true');
 
       const result = await apiRequest<Job[]>(
@@ -118,6 +120,19 @@ export default function Jobs(props: JobsProps) {
 
   useEffect(() => {
     fetchCategories();
+    // Load current user ID to prevent messaging self
+    const loadCurrentUserId = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('auth_user');
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          setCurrentUserId(parsed?._id || parsed?.id || null);
+        }
+      } catch (error) {
+        console.log('Failed to load current user ID', error);
+      }
+    };
+    loadCurrentUserId();
   }, []);
 
   useEffect(() => {
@@ -317,7 +332,7 @@ export default function Jobs(props: JobsProps) {
                 <Text style={styles.salary}>{job.salary}</Text>
               </View>
 
-              {job.jobPoster ? (
+              {job.jobPoster && currentUserId && !((typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) || (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))) ? (
                 <TouchableOpacity
                   style={styles.messageEmployerButton}
                   onPress={async () => {

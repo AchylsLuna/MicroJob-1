@@ -55,6 +55,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
+  const [positionsNeeded, setPositionsNeeded] = useState('1');
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryQuery, setCategoryQuery] = useState('');
   const [showCategoryOptions, setShowCategoryOptions] = useState(false);
@@ -88,6 +89,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
     setDeadlineDate(deadline);
     setDeadlineTime(deadline);
     setIsUrgent(Boolean(jobToEdit.urgent));
+    setPositionsNeeded(String(jobToEdit.positionsNeeded || 1));
   }, [jobToEdit]);
 
   useEffect(() => {
@@ -227,6 +229,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),
         urgent: isUrgent,
+        positionsNeeded: Number(positionsNeeded) || 1,
       };
 
       const token = await AsyncStorage.getItem('auth_token');
@@ -404,6 +407,17 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
             placeholderTextColor="#9ca3af"
           />
 
+          <Text style={styles.label}>Positions Needed</Text>
+          <TextInput
+            style={styles.input}
+            value={positionsNeeded}
+            onChangeText={setPositionsNeeded}
+            placeholder="1"
+            placeholderTextColor="#9ca3af"
+            keyboardType="number-pad"
+          />
+          <Text style={styles.helperText}>How many workers do you need? Job will auto-close when all positions are filled.</Text>
+
           <Text style={styles.label}>Job Type</Text>
           <View style={styles.chipRow}>
             {['Fulltime', 'Part-time', 'Contract'].map((type) => (
@@ -521,6 +535,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
   },
+  helperText: { fontSize: 12, color: '#6b7280', marginTop: 6 },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   categoryRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   categoryInputWrapper: { flex: 1 },

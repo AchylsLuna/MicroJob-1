@@ -22,6 +22,7 @@ type EmployerProfileProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   onLogout?: () => void;
+  onOpenWallet?: () => void;
   currentRole?: 'worker' | 'employer';
   onSwitchRole?: (role: 'worker' | 'employer') => void;
 };
@@ -31,6 +32,7 @@ export default function EmployerProfile({
   activeTab,
   onTabPress,
   onLogout,
+  onOpenWallet,
   currentRole = 'employer',
   onSwitchRole,
 }: EmployerProfileProps) {
@@ -204,6 +206,14 @@ export default function EmployerProfile({
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={styles.walletButton}
+          onPress={onOpenWallet}
+          disabled={!onOpenWallet}
+        >
+          <Text style={styles.walletButtonText}>💼 View E-Wallet</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={styles.logoutButton}
           onPress={onLogout}
           disabled={!onLogout}
@@ -272,6 +282,14 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  walletButton: {
+    marginTop: 12,
+    backgroundColor: '#1e5a3f',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  walletButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
   logoutButton: {
     marginTop: 12,
     backgroundColor: '#fee2e2',

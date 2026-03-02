@@ -13,21 +13,18 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import Navigation from '../../components/navigation';
+import EmployerNavigation from '../../components/employerNavigation';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 
-type EWalletProps = {
+type EmployerEWalletProps = {
   onBack?: () => void;
-  onOpenNotifications?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
-  notificationBadgeCount?: number;
-  messageBadgeCount?: number;
 };
 
-const PENDING_TOPUP_KEY = 'pending_topup_checkout';
+const PENDING_TOPUP_KEY = 'pending_topup_checkout_employer';
 
 type WalletTransaction = {
   id: string;
@@ -40,35 +37,32 @@ type WalletTransaction = {
 const fallbackTransactions: WalletTransaction[] = [
   {
     id: '1',
-    title: 'Job Payment - Tech Solutions',
+    title: 'Job Posted - Tech Solutions',
     date: 'Feb 10, 2026',
     amount: 25000,
     status: 'Completed',
   },
   {
     id: '2',
-    title: 'Job Payment - Innovation Labs',
+    title: 'Job Posted - Innovation Labs',
     date: 'Feb 06, 2026',
     amount: 18000,
     status: 'Completed',
   },
   {
     id: '3',
-    title: 'Job Payment - Digital Ventures',
+    title: 'Job Posted - Digital Ventures',
     date: 'Feb 02, 2026',
     amount: 32000,
     status: 'Pending',
   },
 ];
 
-export default function EWallet({
+export default function EmployerEWallet({
   onBack,
-  onOpenNotifications,
   activeTab = 'EWallet',
   onTabPress,
-  notificationBadgeCount = 0,
-  messageBadgeCount = 0,
-}: EWalletProps) {
+}: EmployerEWalletProps) {
   const [topupAmount, setTopupAmount] = useState('');
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
@@ -136,11 +130,10 @@ export default function EWallet({
         setWorkerBalance(Number.isFinite(nextWorker) ? nextWorker : 0);
         setWalletTarget(effectiveTarget);
 
+        // For employer view, show employer balance or combined if both role
         const nextBalance = effectiveTarget === 'BOTH'
-          ? (Number.isFinite(nextEmployer) ? nextEmployer : 0) + (Number.isFinite(nextWorker) ? nextWorker : 0)
-          : effectiveTarget === 'WORKER'
-            ? (Number.isFinite(nextWorker) ? nextWorker : 0)
-            : (Number.isFinite(nextEmployer) ? nextEmployer : 0);
+          ? (Number.isFinite(nextEmployer) ? nextEmployer : 0)
+          : (Number.isFinite(nextEmployer) ? nextEmployer : 0);
 
         setLiveBalance(Number.isFinite(nextBalance) ? nextBalance : 0);
       }
@@ -301,19 +294,12 @@ export default function EWallet({
           <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>E-Wallet</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={onOpenNotifications}>
-          <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
-          {notificationBadgeCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
+        <View style={styles.headerButton} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Live Balance</Text>
+          <Text style={styles.balanceLabel}>Employer Balance</Text>
           <Text style={styles.balanceValue}>PHP {liveBalance.toLocaleString()}</Text>
           {isRefreshingWallet ? <Text style={styles.balanceRefreshing}>Refreshing wallet…</Text> : null}
           <View style={styles.balanceActionsRow}>
@@ -402,7 +388,7 @@ export default function EWallet({
                 <Text style={styles.transactionDate}>{txn.date}</Text>
               </View>
               <View style={styles.transactionRight}>
-                <Text style={styles.transactionAmount}>+PHP {txn.amount.toLocaleString()}</Text>
+                <Text style={styles.transactionAmount}>±PHP {txn.amount.toLocaleString()}</Text>
                 <Text style={txn.status === 'Completed' ? styles.transactionStatusComplete : styles.transactionStatusPending}>
                   {txn.status}
                 </Text>
@@ -412,7 +398,7 @@ export default function EWallet({
         </View>
       </ScrollView>
 
-      <Navigation activeTab={activeTab} onTabPress={onTabPress} messageBadgeCount={messageBadgeCount} />
+      <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
     </View>
   );
 }
@@ -447,25 +433,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: tokens.colors.text,
     letterSpacing: -0.3,
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    backgroundColor: tokens.colors.danger,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: tokens.colors.white,
-  },
-  badgeText: {
-    color: tokens.colors.onBrand,
-    fontSize: 11,
-    fontWeight: '700',
   },
   scroll: {
     paddingHorizontal: 16,

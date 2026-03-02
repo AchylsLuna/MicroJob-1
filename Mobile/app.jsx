@@ -39,6 +39,7 @@ import EmployerJobPosts from './pages/employer/EmployerJobPosts';
 import EmployerPostJob from './pages/employer/EmployerPostJob';
 import EmployerApplications from './pages/employer/EmployerApplications';
 import EmployerProfile from './pages/employer/EmployerProfile';
+import EmployerEWallet from './pages/employer/EmployerEWallet';
 import EmployerNotifications from './pages/employer/EmployerNotifications';
 import EmployerInbox from './pages/employer/EmployerInbox';
 
@@ -105,12 +106,13 @@ export default function App() {
     EmployerProfile: 24,
     EmployerNotifications: 25,
     EmployerMessages: 26, // EmployerInbox / EmployerMessages
-    SettingsLocationServices: 27,
-    SettingsMfa: 28,
-    SettingsAbout: 29,
-    SettingsDeleteAccount: 30,
-    SettingsChangePassword: 31,
-    SettingsSupport: 32,
+    EmployerEWallet: 27,
+    SettingsLocationServices: 28,
+    SettingsMfa: 29,
+    SettingsAbout: 30,
+    SettingsDeleteAccount: 31,
+    SettingsChangePassword: 32,
+    SettingsSupport: 33,
   };
 
   const isSessionActive = currentScreen >= SCREEN.Dashboard;
@@ -519,6 +521,11 @@ export default function App() {
     setCurrentScreen(SCREEN.EWallet);
   };
 
+  const handleGoToEmployerEWallet = () => {
+    setActiveEmployerTab('EWallet');
+    setCurrentScreen(SCREEN.EmployerEWallet);
+  };
+
   const handleGoToJobDetails = (job) => {
     setSelectedJob(job);
     setCurrentScreen(SCREEN.JobDetails);
@@ -924,6 +931,7 @@ export default function App() {
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
       onLogout={handleLogoutConfirm}
+      onOpenWallet={handleGoToEmployerEWallet}
       currentRole={explicitEmployerView ? 'employer' : 'worker'}
       onSwitchRole={handleSwitchRole}
     />,
@@ -933,6 +941,11 @@ export default function App() {
       liveNotifications={employerNotifications}
     />,
     <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} liveMessages={messageEvents} />,
+    <EmployerEWallet
+      onBack={handleGoToEmployerProfile}
+      activeTab={activeEmployerTab}
+      onTabPress={handleEmployerTabPress}
+    />,
     <LocationServices onBack={handleBackToSettings} />,
     <MFA onBack={handleBackToSettings} />,
     <About onBack={handleBackToSettings} />,

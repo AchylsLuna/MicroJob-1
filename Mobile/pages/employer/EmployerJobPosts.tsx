@@ -21,6 +21,8 @@ type JobItem = {
   status?: string;
   urgent?: boolean;
   applicants?: string[];
+  positionsNeeded?: number;
+  hiredCount?: number;
   category?: { name: string };
   createdAt?: string;
 };
@@ -175,7 +177,9 @@ export default function EmployerJobPosts({
             </View>
 
             <View style={styles.footerRow}>
-              <Text style={styles.footerText}>Applicants: {job.applicants?.length || 0}</Text>
+              <Text style={styles.footerText}>
+                Positions: {job.hiredCount || 0}/{job.positionsNeeded || 1}
+              </Text>
               <View style={styles.footerActions}>
                 <Text style={styles.footerText}>
                   {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}

@@ -70,6 +70,11 @@ const MessageController = {
         return sendError(res, 400, 'Receiver and content are required.');
       }
 
+      // Prevent self-messaging
+      if (String(senderId) === String(receiverId)) {
+        return sendError(res, 400, 'You cannot message yourself.');
+      }
+
       const receiver = await User.findById(receiverId).select('blockedUsers');
       if (!receiver) {
         return sendError(res, 404, 'Receiver not found.');

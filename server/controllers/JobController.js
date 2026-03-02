@@ -3,6 +3,7 @@ import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
+import { getJwtSecret } from '../lib/jwtSecret.js';
 
 export async function getJobList(req, res) {
     try {
@@ -35,11 +36,13 @@ export async function getJobList(req, res) {
             if (authHeader.startsWith('Bearer ')) {
                 const token = authHeader.substring(7);
                 try {
-                    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret');
-                    if (decoded?.id) {
-                        filter.jobPoster = { $ne: decoded.id };
+                    const decoded = jwt.verify(token, getJwtSecret());
+                    const tokenUserId = decoded?.userId || decoded?.id || decoded?._id;
+                    if (tokenUserId) {
+                        filter.jobPoster = { $ne: tokenUserId };
                     }
                 } catch (error) {
+                    console.warn('Token verification failed for excludeOwn:', error.message);
                     // Ignore invalid token; return unfiltered results
                 }
             }
@@ -145,12 +148,26 @@ export async function createJob(req, res){
         // 1. Check if user has enough balance
         const poster = await User.findById(jobPosterId);
         if (!poster) return res.status(404).json({ message: 'Job poster not found.' });
-        if ((poster.employerBalance || 0) < totalEscrow) {
-            return res.status(400).json({ message: 'Insufficient employer wallet balance. Please top up.' });
+        
+        // For "both" role users, allow using combined balance; otherwise only use employer balance
+        const availableBalance = poster.role === 'both' 
+            ? (poster.employerBalance || 0) + (poster.workerBalance || 0)
+            : (poster.employerBalance || 0);
+        
+        if (availableBalance < totalEscrow) {
+            return res.status(400).json({ message: 'Insufficient balance. Please top up your wallet.' });
         }
 
         // 2. Deduct the balance (move to escrow)
-        poster.employerBalance = (poster.employerBalance || 0) - totalEscrow;
+        // For "both" role users, deduct from employer balance first, then worker balance
+        if (poster.role === 'both') {
+            const employerPortion = Math.min(poster.employerBalance || 0, totalEscrow);
+            const workerPortion = totalEscrow - employerPortion;
+            poster.employerBalance = (poster.employerBalance || 0) - employerPortion;
+            poster.workerBalance = (poster.workerBalance || 0) - workerPortion;
+        } else {
+            poster.employerBalance = (poster.employerBalance || 0) - totalEscrow;
+        }
         await poster.save();
 
         // 3. Create the job (funds are now effectively in "escrow")
@@ -247,6 +264,7 @@ export async function changeJobStatus(req, res){
 
                 const refundAmount = Math.max(0, totalEscrow - totalPaid);
                 if (refundAmount > 0) {
+                    // Always refund to employer balance since escrow is job-posting related
                     poster.employerBalance = (poster.employerBalance || 0) + refundAmount;
                     await poster.save();
 
@@ -277,7 +295,7 @@ export async function applyForJob(req, res){
         const {jobId} = req.params;
         const userId = req.user.id;
 
-        const job = await Job.findById(jobId);
+        const job = await Job.findById(jobId).populate('jobPoster');
 
         if(!job) {
             return res.status(404).json({message: "Job not found."});
@@ -289,9 +307,12 @@ export async function applyForJob(req, res){
         if(job.applicants.includes(userId)) {
             return res.status(400).json({message: "You have already applied for this job."});
         }
+        
+        // Prevent applying to own job regardless of role
         if(job.jobPoster.toString() === userId) {
             return res.status(400).json({message: "You cannot apply for your own job."});
         }
+        
         job.applicants.push(userId);
 
         await job.save();

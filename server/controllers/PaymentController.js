@@ -25,6 +25,58 @@ const buildTopUpLabel = (target) => {
     return 'Top-up (Employer)';
 };
 
+const XENDIT_BASE = 'https://api.xendit.co';
+
+const createXenditCheckout = async ({ amount, referenceNumber, target, user }) => {
+    const xenditSecret = process.env.XENDIT_SECRET_KEY;
+    const directLink = process.env.XENDIT_PAYMENT_LINK_URL;
+
+    if (!xenditSecret && directLink) {
+        return {
+            checkoutUrl: directLink,
+            checkoutId: referenceNumber,
+            provider: 'xendit-link',
+        };
+    }
+
+    if (!xenditSecret) {
+        return null;
+    }
+
+    const payload = {
+        external_id: referenceNumber,
+        amount: Number(amount),
+        description: `MicroJobs wallet top-up (${target})`,
+        success_redirect_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
+        failure_redirect_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/wallet`,
+        currency: 'PHP',
+        customer: {
+            given_names: user?.firstName || 'MicroJobs',
+            surname: user?.lastName || 'User',
+            email: user?.email || undefined,
+        },
+    };
+
+    const options = {
+        method: 'POST',
+        url: `${XENDIT_BASE}/v2/invoices`,
+        headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Basic ${Buffer.from(`${xenditSecret}:`).toString('base64')}`,
+        },
+        data: payload,
+    };
+
+    const response = await axios.request(options);
+    const invoice = response?.data || {};
+
+    return {
+        checkoutUrl: invoice.invoice_url,
+        checkoutId: invoice.id || referenceNumber,
+        provider: 'xendit',
+    };
+};
+
 async function applyTopUpToUser({
     user,
     amount,
@@ -41,11 +93,17 @@ async function applyTopUpToUser({
         throw new Error('Invalid top-up amount');
     }
 
-    if (normalizedTarget === TOPUP_TARGET.WORKER || normalizedTarget === TOPUP_TARGET.BOTH) {
+    if (normalizedTarget === TOPUP_TARGET.WORKER) {
         user.workerBalance = (user.workerBalance || 0) + numericAmount;
     }
-    if (normalizedTarget === TOPUP_TARGET.EMPLOYER || normalizedTarget === TOPUP_TARGET.BOTH) {
+    if (normalizedTarget === TOPUP_TARGET.EMPLOYER) {
         user.employerBalance = (user.employerBalance || 0) + numericAmount;
+    }
+    if (normalizedTarget === TOPUP_TARGET.BOTH) {
+        const workerShare = Number((numericAmount / 2).toFixed(2));
+        const employerShare = Number((numericAmount - workerShare).toFixed(2));
+        user.workerBalance = (user.workerBalance || 0) + workerShare;
+        user.employerBalance = (user.employerBalance || 0) + employerShare;
     }
     await user.save();
 
@@ -126,8 +184,6 @@ export async function createTopUpSession(req, res) {
                 : TOPUP_TARGET.EMPLOYER;
         }
 
-        const amountInCentavos = Math.round(parsedAmount * 100);
-
         // audit initiation after reading inputs
         await monitor.audit({ actor: req.user?.id || null, action: 'topup_initiated', ip, userAgent: ua, amount: parsedAmount, status: 'initiated', meta: { target: effectiveTarget } });
 
@@ -136,6 +192,30 @@ export async function createTopUpSession(req, res) {
         if (!Types.ObjectId.isValid(userId)) return res.status(400).json({ message: 'Invalid user id' });
 
         const referenceNumber = `TOPUP-${userId}-${effectiveTarget}-${Date.now()}`;
+
+        const topupUser = await User.findById(userId).select('firstName lastName email');
+
+        try {
+            const xenditCheckout = await createXenditCheckout({
+                amount: parsedAmount,
+                referenceNumber,
+                target: effectiveTarget,
+                user: topupUser,
+            });
+
+            if (xenditCheckout?.checkoutUrl) {
+                return res.status(200).json({
+                    checkoutUrl: xenditCheckout.checkoutUrl,
+                    referenceNumber,
+                    checkoutId: xenditCheckout.checkoutId,
+                    provider: xenditCheckout.provider,
+                });
+            }
+        } catch (xenditError) {
+            console.warn('Xendit top-up init failed, falling back to PayMongo:', xenditError?.response?.data || xenditError?.message || xenditError);
+        }
+
+        const amountInCentavos = Math.round(parsedAmount * 100);
 
         // ensure PAYMONGO secret exists
         if (!process.env.PAYMONGO_SECRET_KEY) {
@@ -167,7 +247,7 @@ export async function createTopUpSession(req, res) {
         const response = await axios.request(options);
         const checkout = response.data.data;
 
-        return res.status(200).json({ checkoutUrl: checkout.attributes.checkout_url, referenceNumber, checkoutId: checkout.id });
+        return res.status(200).json({ checkoutUrl: checkout.attributes.checkout_url, referenceNumber, checkoutId: checkout.id, provider: 'paymongo' });
 
     } catch (error) {
         console.error('PayMongo Error:', error.response?.data || error.message || error);
@@ -280,7 +360,7 @@ export async function confirmTopUp(req, res) {
                 return res.status(403).json({ message: 'CSRF token missing or invalid' });
             }
         }
-        const { referenceNumber, checkoutId } = req.body;
+        const { referenceNumber, checkoutId, provider } = req.body;
         if (!referenceNumber && !checkoutId) return res.status(400).json({ message: 'referenceNumber or checkoutId required' });
 
         // avoid duplicates: check by reference or by checkout id
@@ -288,6 +368,98 @@ export async function confirmTopUp(req, res) {
         if (referenceNumber) existing = await Transaction.findOne({ reference: referenceNumber });
         if (!existing && checkoutId) existing = await Transaction.findOne({ 'meta.checkout_id': checkoutId });
         if (existing) return res.status(200).json({ message: 'Already processed', transaction: existing });
+
+        const { Types } = await import('mongoose');
+
+        const maybeXenditCheckoutId = String(checkoutId || '');
+        const providerHint = String(provider || '').toLowerCase();
+        const canTryXendit = Boolean(process.env.XENDIT_SECRET_KEY);
+        const shouldTryXendit = canTryXendit && (
+            providerHint.startsWith('xendit') ||
+            maybeXenditCheckoutId.startsWith('inv-') ||
+            Boolean(referenceNumber)
+        );
+
+        if (shouldTryXendit) {
+            const xHeaders = {
+                headers: {
+                    Authorization: `Basic ${Buffer.from(`${process.env.XENDIT_SECRET_KEY}:`).toString('base64')}`,
+                },
+            };
+
+            let invoice = null;
+            if (maybeXenditCheckoutId.startsWith('inv-')) {
+                try {
+                    const xResp = await axios.get(`${XENDIT_BASE}/v2/invoices/${maybeXenditCheckoutId}`, xHeaders);
+                    invoice = xResp?.data || null;
+                } catch (invoiceByIdError) {
+                    console.warn('Xendit invoice lookup by ID failed:', invoiceByIdError?.response?.data || invoiceByIdError?.message || invoiceByIdError);
+                }
+            }
+
+            if (!invoice && referenceNumber) {
+                try {
+                    const listResp = await axios.get(`${XENDIT_BASE}/v2/invoices?external_id=${encodeURIComponent(referenceNumber)}`, xHeaders);
+                    const list = Array.isArray(listResp?.data) ? listResp.data : [];
+                    invoice = list.find((item) => item?.external_id === referenceNumber) || list[0] || null;
+                } catch (invoiceByRefError) {
+                    console.warn('Xendit invoice lookup by reference failed:', invoiceByRefError?.response?.data || invoiceByRefError?.message || invoiceByRefError);
+                }
+            }
+
+            if (invoice) {
+                const ref = invoice.external_id || referenceNumber;
+
+                const refParts = (ref || '').split('-');
+                if (refParts.length < 4 || refParts[0] !== 'TOPUP') {
+                    return res.status(400).json({ message: 'Invalid reference format' });
+                }
+
+                const refUserId = refParts[1];
+                if (!Types.ObjectId.isValid(refUserId)) return res.status(400).json({ message: 'Invalid reference user id' });
+                if (refUserId !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized to confirm this top-up' });
+
+                if (String(invoice.status || '').toUpperCase() !== 'PAID') {
+                    return res.status(400).json({ message: 'Payment not completed yet' });
+                }
+
+                const amountAdded = Number(invoice.paid_amount || invoice.amount || 0);
+                if (!Number.isFinite(amountAdded) || amountAdded <= 0) {
+                    return res.status(400).json({ message: 'No payment found for this checkout' });
+                }
+
+                const userId = refParts[1];
+                const target = normalizeTarget(refParts[2] || TOPUP_TARGET.EMPLOYER);
+                const user = await User.findById(userId);
+                if (!user) return res.status(404).json({ message: 'User not found' });
+
+                const topUpResult = await applyTopUpToUser({
+                    user,
+                    amount: amountAdded,
+                    target,
+                    reference: ref,
+                    source: 'xendit',
+                    checkoutId: invoice.id || maybeXenditCheckoutId,
+                    actor: user._id,
+                });
+
+                await monitor.audit({
+                    actor: user._id,
+                    action: 'confirm_topup',
+                    ip: req.ip || null,
+                    userAgent: req.get('user-agent'),
+                    amount: amountAdded,
+                    status: 'success',
+                    meta: { target: topUpResult.target, ref, provider: 'xendit' },
+                });
+                await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
+
+                if (topUpResult.target === TOPUP_TARGET.BOTH) {
+                    return res.status(200).json({ message: 'Top-up applied', transactions: topUpResult.transactions });
+                }
+                return res.status(200).json({ message: 'Top-up applied', transaction: topUpResult.transaction });
+            }
+        }
 
         const authHeader = { headers: { authorization: `Basic ${Buffer.from(process.env.PAYMONGO_SECRET_KEY).toString('base64')}` } };
         let resp;
@@ -312,7 +484,6 @@ export async function confirmTopUp(req, res) {
             return res.status(400).json({ message: 'Invalid reference format' });
         }
         const refUserId = refParts[1];
-        const { Types } = await import('mongoose');
         if (!Types.ObjectId.isValid(refUserId)) return res.status(400).json({ message: 'Invalid reference user id' });
         if (refUserId !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized to confirm this top-up' });
 
