@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
+import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle, Download } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
-import { getProfile, updateProfile } from "../services/api";
+import { getProfile, updateProfile, uploadResume, deleteResume, uploadAvatar, deleteAvatar } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 
 type TabType = "account" | "privacy" | "payments";
@@ -136,13 +136,22 @@ export function Settings() {
     phone: "+63 912 345 6789",
     email: "jonas.delacruz@email.com",
     linkedin: "linkedin.com/in/jonasdelacruz",
+    about: "",
     photo: null as File | null,
   });
 
   const [skills, setSkills] = useState<SkillItem[]>([]);
 
+  const [experienceStats, setExperienceStats] = useState({
+    totalExperience: "",
+    projectsCompleted: 0,
+    jobsApplied: 0,
+    successRate: "",
+  });
+
   const [newSkillName, setNewSkillName] = useState("");
-  const [newSkillLevel, setNewSkillLevel] = useState<"Beginner" | "Intermediate" | "Advanced" | "Expert">("Intermediate");
+  const [skillSelectionMode, setSkillSelectionMode] = useState<"predefined" | "custom">("predefined");
+  const [selectedPredefinedSkill, setSelectedPredefinedSkill] = useState("");
 
   const [securityData, setSecurityData] = useState({
     currentPassword: "",
@@ -151,6 +160,8 @@ export function Settings() {
   });
 
   const [resume, setResume] = useState<File | null>(null);
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     { id: "visa-1", brand: "Visa", last4: "1234", expiry: "01/26", status: "default" },
@@ -226,11 +237,33 @@ export function Settings() {
     setPersonalInfo({ ...personalInfo, [field]: value });
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPersonalInfo({ ...personalInfo, photo: file });
-      toast.success("Photo uploaded successfully!");
+    if (!file) return;
+
+    try {
+      const response = await uploadAvatar(file);
+      const newAvatarUrl = response?.data?.avatarUrl || null;
+      setAvatarUrl(newAvatarUrl);
+      updateAuthProfile({ avatarUrl: newAvatarUrl });
+      toast.success("Profile photo uploaded successfully!");
+      // Trigger sidebar update
+      window.dispatchEvent(new Event('auth_user_updated'));
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upload profile photo");
+    }
+  };
+
+  const handleDeletePhoto = async () => {
+    try {
+      await deleteAvatar();
+      setAvatarUrl(null);
+      updateAuthProfile({ avatarUrl: undefined });
+      toast.success("Profile photo removed successfully!");
+      // Trigger sidebar update
+      window.dispatchEvent(new Event('auth_user_updated'));
+    } catch (error: any) {
+      toast.error(error.message || "Failed to remove profile photo");
     }
   };
 
@@ -245,7 +278,14 @@ export function Settings() {
       city: user.city || prev.city,
       country: user.country || prev.country,
       linkedin: user.linkedin || prev.linkedin,
+      about: user.about || prev.about,
     }));
+    setExperienceStats({
+      totalExperience: user.totalExperience || "",
+      projectsCompleted: user.projectsCompleted || 0,
+      jobsApplied: user.jobsApplied || 0,
+      successRate: user.successRate || "",
+    });
     if (user.skills && Array.isArray(user.skills)) {
       const mappedSkills = user.skills.map((skill: any) => ({
         ...skill,
@@ -272,6 +312,7 @@ export function Settings() {
           city: profile.city || prev.city,
           country: profile.country || prev.country,
           linkedin: profile.linkedin || prev.linkedin,
+          about: profile.about || prev.about,
         }));
         if (profile.skills && Array.isArray(profile.skills)) {
           const mappedSkills = profile.skills.map((skill: any) => ({
@@ -279,6 +320,18 @@ export function Settings() {
             id: skill.id || skill._id || '',
           })) as SkillItem[];
           setSkills(mappedSkills);
+        }
+        setExperienceStats({
+          totalExperience: profile.totalExperience || "",
+          projectsCompleted: profile.projectsCompleted || 0,
+          jobsApplied: profile.jobsApplied || 0,
+          successRate: profile.successRate || "",
+        });
+        if (profile.resumeUrl) {
+          setResumeUrl(profile.resumeUrl);
+        }
+        if (profile.avatarUrl) {
+          setAvatarUrl(profile.avatarUrl);
         }
         updateAuthProfile({
           firstName: profile.firstName,
@@ -288,6 +341,11 @@ export function Settings() {
           city: profile.city,
           country: profile.country,
           linkedin: profile.linkedin,
+          about: profile.about,
+          totalExperience: profile.totalExperience,
+          projectsCompleted: profile.projectsCompleted,
+          jobsApplied: profile.jobsApplied,
+          successRate: profile.successRate,
           avatarUrl: profile.avatarUrl,
         });
       } catch (error: any) {
@@ -313,8 +371,20 @@ export function Settings() {
         city: personalInfo.city,
         country: personalInfo.country,
         linkedin: personalInfo.linkedin,
+        about: personalInfo.about,
+        totalExperience: experienceStats.totalExperience,
+        // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated by backend
       });
       const updated = (response as any)?.user ?? response;
+      
+      // Update local state with auto-calculated values from backend
+      setExperienceStats({
+        totalExperience: updated.totalExperience || experienceStats.totalExperience,
+        projectsCompleted: updated.projectsCompleted || 0,
+        jobsApplied: updated.jobsApplied || 0,
+        successRate: updated.successRate || '0%',
+      });
+      
       updateAuthProfile({
         firstName: updated.firstName,
         lastName: updated.lastName,
@@ -323,6 +393,11 @@ export function Settings() {
         city: updated.city,
         country: updated.country,
         linkedin: updated.linkedin,
+        about: updated.about || personalInfo.about,
+        totalExperience: updated.totalExperience || experienceStats.totalExperience,
+        projectsCompleted: updated.projectsCompleted || 0,
+        jobsApplied: updated.jobsApplied || 0,
+        successRate: updated.successRate || '0%',
         avatarUrl: updated.avatarUrl,
       });
       toast.success("Personal information saved successfully!");
@@ -334,8 +409,10 @@ export function Settings() {
   };
 
   const handleAddSkill = async () => {
-    if (!newSkillName.trim()) {
-      toast.error("Please enter a skill name");
+    const skillName = skillSelectionMode === "predefined" ? selectedPredefinedSkill : newSkillName.trim();
+    
+    if (!skillName) {
+      toast.error("Please select or enter a skill name");
       return;
     }
     try {
@@ -343,19 +420,24 @@ export function Settings() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token") || localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
-          name: newSkillName,
-          level: newSkillLevel,
+          name: skillName,
         }),
       });
       if (!response.ok) throw new Error("Failed to add skill");
       const data = await response.json();
-      setSkills(data.data?.skills || []);
+      const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
+        ...skill,
+        id: skill.id || skill._id || "",
+      })) as SkillItem[];
+      setSkills(mappedSkills);
+      updateAuthProfile({ skills: mappedSkills });
       setNewSkillName("");
-      setNewSkillLevel("Intermediate");
-      toast.success(`${newSkillName} added to your skills!`);
+      setSelectedPredefinedSkill("");
+      setSkillSelectionMode("predefined");
+      toast.success(`${skillName} added to your skills!`);
     } catch (error: any) {
       toast.error(error.message || "Failed to add skill");
     }
@@ -366,29 +448,46 @@ export function Settings() {
       const response = await fetch(`/api/auth/profile/skills/${id}`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token") || localStorage.getItem("token")}`,
         },
       });
       if (!response.ok) throw new Error("Failed to delete skill");
       const data = await response.json();
-      setSkills(data.data?.skills || []);
+      const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
+        ...skill,
+        id: skill.id || skill._id || "",
+      })) as SkillItem[];
+      setSkills(mappedSkills);
+      updateAuthProfile({ skills: mappedSkills });
       toast.success("Skill removed successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to remove skill");
     }
   };
 
-  const handleResumeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    try {
+      const response = await uploadResume(file);
+      setResumeUrl(response?.data?.resumeUrl || null);
       setResume(file);
       toast.success("Resume uploaded successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to upload resume");
     }
   };
 
-  const handleDeleteResume = () => {
-    setResume(null);
-    toast.success("Resume deleted");
+  const handleDeleteResume = async () => {
+    try {
+      await deleteResume();
+      setResume(null);
+      setResumeUrl(null);
+      toast.success("Resume deleted successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete resume");
+    }
   };
 
   const handleChangePassword = () => {
@@ -616,20 +715,81 @@ export function Settings() {
                       </div>
 
                       <div>
+                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
+                        <textarea
+                          value={personalInfo.about}
+                          onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
+                          placeholder="Tell us about yourself, your experience, and what you're passionate about..."
+                          className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
+                          rows={4}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">Total Experience</label>
+                        <select
+                          value={experienceStats.totalExperience}
+                          onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
+                          className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                        >
+                          <option value="">Select experience</option>
+                          <option value="Less than 1 Year">Less than 1 Year</option>
+                          <option value="1 Year">1 Year</option>
+                          <option value="2 Years">2 Years</option>
+                          <option value="3 Years">3 Years</option>
+                          <option value="4 Years">4 Years</option>
+                          <option value="5 Years">5 Years</option>
+                          <option value="6 Years">6 Years</option>
+                          <option value="7 Years">7 Years</option>
+                          <option value="8 Years">8 Years</option>
+                          <option value="9 Years">9 Years</option>
+                          <option value="10+ Years">10+ Years</option>
+                        </select>
+                      </div>
+
+                      <div>
                         <label className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</label>
-                        <div className="flex flex-wrap items-center gap-4">
-                          <label className="bg-[#2563EB] text-white font-semibold px-6 py-3 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2">
-                            <Upload className="w-4 h-4" />
-                            Upload your photo
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handlePhotoUpload}
-                              className="hidden"
+                        {avatarUrl ? (
+                          <div className="flex items-center gap-4">
+                            <img
+                              src={avatarUrl}
+                              alt="Profile"
+                              className="w-24 h-24 rounded-[12px] object-cover border-2 border-[#E5E7EB]"
                             />
-                          </label>
-                          <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
-                        </div>
+                            <div className="flex flex-col gap-2">
+                              <label className="bg-[#2563EB] text-white font-semibold px-6 py-2 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2 text-[14px]">
+                                <Upload className="w-4 h-4" />
+                                Change photo
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handlePhotoUpload}
+                                  className="hidden"
+                                />
+                              </label>
+                              <button
+                                onClick={handleDeletePhoto}
+                                className="text-[#EF4444] hover:bg-[#FEE2E2] px-6 py-2 rounded-[10px] transition-all text-[14px] font-medium border border-[#FCA5A5]"
+                              >
+                                Remove photo
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-4">
+                            <label className="bg-[#2563EB] text-white font-semibold px-6 py-3 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2">
+                              <Upload className="w-4 h-4" />
+                              Upload your photo
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhotoUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
+                          </div>
+                        )}
                       </div>
 
                       <button
@@ -651,32 +811,194 @@ export function Settings() {
                         <p className="text-[13px] text-[#6B7280]">Add and manage your skills and expertise.</p>
                       </div>
 
+                      {/* Experience Stats Section - Read Only Display */}
+                      <div className="bg-gradient-to-br from-[#f0fdf4] to-[#dcfce7] border border-[#86efac] rounded-[16px] p-6">
+                        <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">📊 Experience Statistics</h3>
+                        <p className="text-[13px] text-[#64748b] mb-4">These stats are automatically calculated from your job applications. Set your Total Experience in Personal Information.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <div className="flex items-center gap-3 bg-white rounded-[10px] px-4 py-3 border border-[#86efac]">
+                              <div className="w-10 h-10 rounded-[10px] bg-[#dcfce7] flex items-center justify-center">
+                                <span className="text-[20px]">✅</span>
+                              </div>
+                              <div>
+                                <p className="text-[12px] text-[#64748b]">Jobs Completed</p>
+                                <p className="text-[20px] font-bold text-[#16a34a]">{experienceStats.projectsCompleted}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-3 bg-white rounded-[10px] px-4 py-3 border border-[#86efac]">
+                              <div className="w-10 h-10 rounded-[10px] bg-[#dbeafe] flex items-center justify-center">
+                                <span className="text-[20px]">📝</span>
+                              </div>
+                              <div>
+                                <p className="text-[12px] text-[#64748b]">Jobs Applied</p>
+                                <p className="text-[20px] font-bold text-[#2563eb]">{experienceStats.jobsApplied}</p>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-3 bg-white rounded-[10px] px-4 py-3 border border-[#86efac]">
+                              <div className="w-10 h-10 rounded-[10px] bg-[#fef3c7] flex items-center justify-center">
+                                <span className="text-[20px]">📈</span>
+                              </div>
+                              <div>
+                                <p className="text-[12px] text-[#64748b]">Success Rate</p>
+                                <p className="text-[20px] font-bold text-[#f59e0b]">{experienceStats.successRate}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
                       <div className="bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#bfdbfe] rounded-[16px] p-6">
                         <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">Add New Skill</h3>
                         <div className="space-y-4">
+                          {/* Skill Selection Mode */}
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Choose Option</label>
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="skillMode"
+                                  checked={skillSelectionMode === "predefined"}
+                                  onChange={() => setSkillSelectionMode("predefined")}
+                                  className="w-4 h-4 text-[#2563EB]"
+                                />
+                                <span className="text-[14px] text-[#475569]">Select from list</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="skillMode"
+                                  checked={skillSelectionMode === "custom"}
+                                  onChange={() => setSkillSelectionMode("custom")}
+                                  className="w-4 h-4 text-[#2563EB]"
+                                />
+                                <span className="text-[14px] text-[#475569]">Custom skill</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {/* Skill Name Input */}
                           <div>
                             <label className="text-[14px] font-medium text-[#475569] mb-2 block">Skill Name</label>
-                            <input
-                              type="text"
-                              value={newSkillName}
-                              onChange={(e) => setNewSkillName(e.target.value)}
-                              placeholder="e.g., React, Project Management, Communication"
-                              className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                              onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
-                            />
-                          </div>
-                          <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Proficiency Level</label>
-                            <select
-                              value={newSkillLevel}
-                              onChange={(e) => setNewSkillLevel(e.target.value as any)}
-                              className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                            >
-                              <option value="Beginner">Beginner</option>
-                              <option value="Intermediate">Intermediate</option>
-                              <option value="Advanced">Advanced</option>
-                              <option value="Expert">Expert</option>
-                            </select>
+                            {skillSelectionMode === "predefined" ? (
+                              <select
+                                value={selectedPredefinedSkill}
+                                onChange={(e) => setSelectedPredefinedSkill(e.target.value)}
+                                className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              >
+                                <option value="">Select a skill</option>
+                                <optgroup label="Household & Cleaning">
+                                  <option value="House Cleaning">House Cleaning</option>
+                                  <option value="Window Cleaning">Window Cleaning</option>
+                                  <option value="Laundry Service">Laundry Service</option>
+                                  <option value="Ironing">Ironing</option>
+                                  <option value="Kitchen Cleaning">Kitchen Cleaning</option>
+                                  <option value="Bathroom Cleaning">Bathroom Cleaning</option>
+                                </optgroup>
+                                <optgroup label="Gardening & Landscaping">
+                                  <option value="Gardening">Gardening</option>
+                                  <option value="Lawn Mowing">Lawn Mowing</option>
+                                  <option value="Landscaping">Landscaping</option>
+                                  <option value="Plant Care">Plant Care</option>
+                                  <option value="Weeding">Weeding</option>
+                                  <option value="Hedge Trimming">Hedge Trimming</option>
+                                </optgroup>
+                                <optgroup label="Shopping & Delivery">
+                                  <option value="Shopping">Shopping</option>
+                                  <option value="Grocery Shopping">Grocery Shopping</option>
+                                  <option value="Delivery Service">Delivery Service</option>
+                                  <option value="Errand Running">Errand Running</option>
+                                  <option value="Package Pickup">Package Pickup</option>
+                                </optgroup>
+                                <optgroup label="Academic & Tutoring">
+                                  <option value="Tutoring">Tutoring</option>
+                                  <option value="Math Tutoring">Math Tutoring</option>
+                                  <option value="English Tutoring">English Tutoring</option>
+                                  <option value="Language Tutoring">Language Tutoring</option>
+                                  <option value="Science Tutoring">Science Tutoring</option>
+                                  <option value="Homework Help">Homework Help</option>
+                                  <option value="Test Preparation">Test Preparation</option>
+                                </optgroup>
+                                <optgroup label="Languages & Translation">
+                                  <option value="English Speaking">English Speaking</option>
+                                  <option value="Translation Service">Translation Service</option>
+                                  <option value="Language Coaching">Language Coaching</option>
+                                  <option value="Pronunciation Training">Pronunciation Training</option>
+                                </optgroup>
+                                <optgroup label="Fitness & Wellness">
+                                  <option value="Personal Training">Personal Training</option>
+                                  <option value="Yoga Instruction">Yoga Instruction</option>
+                                  <option value="Fitness Coaching">Fitness Coaching</option>
+                                  <option value="Walking Companion">Walking Companion</option>
+                                </optgroup>
+                                <optgroup label="Pet Care">
+                                  <option value="Dog Walking">Dog Walking</option>
+                                  <option value="Pet Sitting">Pet Sitting</option>
+                                  <option value="Pet Grooming">Pet Grooming</option>
+                                  <option value="Pet Training">Pet Training</option>
+                                </optgroup>
+                                <optgroup label="Handyman & Repairs">
+                                  <option value="Handyman Services">Handyman Services</option>
+                                  <option value="Painting">Painting</option>
+                                  <option value="Carpentry">Carpentry</option>
+                                  <option value="Plumbing Assistance">Plumbing Assistance</option>
+                                  <option value="Furniture Assembly">Furniture Assembly</option>
+                                  <option value="Electrical Assistance">Electrical Assistance</option>
+                                </optgroup>
+                                <optgroup label="Cooking & Food">
+                                  <option value="Meal Preparation">Meal Preparation</option>
+                                  <option value="Cooking">Cooking</option>
+                                  <option value="Baking">Baking</option>
+                                  <option value="Food Delivery">Food Delivery</option>
+                                  <option value="Kitchen Help">Kitchen Help</option>
+                                </optgroup>
+                                <optgroup label="Childcare & Babysitting">
+                                  <option value="Babysitting">Babysitting</option>
+                                  <option value="Childcare">Childcare</option>
+                                  <option value="After-School Care">After-School Care</option>
+                                  <option value="Tutoring Kids">Tutoring Kids</option>
+                                </optgroup>
+                                <optgroup label="Administrative & Technical">
+                                  <option value="Data Entry">Data Entry</option>
+                                  <option value="Virtual Assistant">Virtual Assistant</option>
+                                  <option value="Typing Services">Typing Services</option>
+                                  <option value="Transcription">Transcription</option>
+                                  <option value="Email Management">Email Management</option>
+                                </optgroup>
+                                <optgroup label="Creative Services">
+                                  <option value="Social Media Management">Social Media Management</option>
+                                  <option value="Photography">Photography</option>
+                                  <option value="Graphic Design">Graphic Design</option>
+                                  <option value="Content Writing">Content Writing</option>
+                                  <option value="Video Editing">Video Editing</option>
+                                </optgroup>
+                                <optgroup label="Moving & Heavy Lifting">
+                                  <option value="Moving Help">Moving Help</option>
+                                  <option value="Heavy Lifting">Heavy Lifting</option>
+                                  <option value="Packing Service">Packing Service</option>
+                                </optgroup>
+                                <optgroup label="Event Services">
+                                  <option value="Event Setup">Event Setup</option>
+                                  <option value="Event Planning">Event Planning</option>
+                                  <option value="Party Hosting Assistance">Party Hosting Assistance</option>
+                                  <option value="Decoration">Decoration</option>
+                                </optgroup>
+                              </select>
+                            ) : (
+                              <input
+                                type="text"
+                                value={newSkillName}
+                                onChange={(e) => setNewSkillName(e.target.value)}
+                                placeholder="e.g., Flutter, Blockchain, Video Editing"
+                                className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
+                              />
+                            )}
                           </div>
                           <button
                             onClick={handleAddSkill}
@@ -742,18 +1064,32 @@ export function Settings() {
                         <h2 className="text-[18px] font-semibold text-[#111827]">CV/Resume</h2>
                         <p className="text-[13px] text-[#6B7280]">Upload your latest resume.</p>
                       </div>
-                      {resume ? (
+                      {resumeUrl ? (
                         <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] p-4 flex items-center justify-between">
                           <div>
-                            <p className="text-[14px] font-semibold text-[#111827]">{resume.name}</p>
-                            <p className="text-[12px] text-[#64748B]">{(resume.size / 1024).toFixed(2)} KB</p>
+                            <p className="text-[14px] font-semibold text-[#111827]">{resume?.name || "Resume uploaded"}</p>
+                            <p className="text-[12px] text-[#64748B]">
+                              {resume ? (resume.size / 1024).toFixed(2) + " KB" : "View your uploaded resume"}
+                            </p>
                           </div>
-                          <button
-                            onClick={handleDeleteResume}
-                            className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px]"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={resumeUrl}
+                              download
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#2563EB] hover:bg-[#EFF6FF] p-2 rounded-[8px]"
+                              title="Download resume"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={handleDeleteResume}
+                              className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px]"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="border-2 border-dashed border-[#CBD5E1] rounded-[12px] p-8 text-center">

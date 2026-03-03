@@ -43,16 +43,21 @@ interface AcceptedWork {
 
 export function Profile() {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"overview" | "skills" | "portfolio">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "skills" | "accepted">("overview");
   const { user, updateProfile: updateAuthProfile } = useAuth();
   const [profileUser, setProfileUser] = useState(user);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [newSkillName, setNewSkillName] = useState("");
   const [newSkillLevel, setNewSkillLevel] = useState<"Beginner" | "Intermediate" | "Advanced" | "Expert">("Intermediate");
+  const [totalExperience, setTotalExperience] = useState("5+ Years");
+  const [projectsCompleted, setProjectsCompleted] = useState(0);
+  const [jobsApplied, setJobsApplied] = useState(0);
+  const [successRate, setSuccessRate] = useState("0%");
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
-      setProfileUser(user);
+      setProfileUser({ ...user });
       if (user.skills && Array.isArray(user.skills)) {
         const mappedSkills = user.skills.map(skill => ({
           ...skill,
@@ -60,6 +65,11 @@ export function Profile() {
         })) as Skill[];
         setSkills(mappedSkills);
       }
+      if (user.totalExperience) setTotalExperience(user.totalExperience);
+      if (user.projectsCompleted !== undefined) setProjectsCompleted(user.projectsCompleted);
+      if (user.jobsApplied !== undefined) setJobsApplied(user.jobsApplied);
+      if (user.successRate) setSuccessRate(user.successRate);
+      if (user.resumeUrl) setResumeUrl(user.resumeUrl);
     }
   }, [user]);
 
@@ -86,8 +96,18 @@ export function Profile() {
           city: profile.city,
           country: profile.country,
           linkedin: profile.linkedin,
+          about: profile.about,
+          totalExperience: profile.totalExperience,
+          projectsCompleted: profile.projectsCompleted,
+          jobsApplied: profile.jobsApplied,
+          successRate: profile.successRate,
           avatarUrl: profile.avatarUrl,
         });
+        if (profile.totalExperience) setTotalExperience(profile.totalExperience);
+        if (profile.projectsCompleted !== undefined) setProjectsCompleted(profile.projectsCompleted);
+        if (profile.jobsApplied !== undefined) setJobsApplied(profile.jobsApplied);
+        if (profile.successRate) setSuccessRate(profile.successRate);
+        if (profile.resumeUrl) setResumeUrl(profile.resumeUrl);
       } catch (error) {
         // keep fallback to auth context
       }
@@ -111,15 +131,14 @@ export function Profile() {
 
   const profileData = {
     name: displayName || fallbackName,
-    title: "Senior Frontend Developer",
-    avatar: null, // Will use initials
+    title: "",
+    avatar: null,
     email: profileUser?.email || "jonas.delacruz@email.com",
     phone: profileUser?.phoneNumber || "+63 912 345 6789",
     location,
     linkedin: profileUser?.linkedin || "linkedin.com/in/jonasdelacruz",
-    website: "jonasdelacruz.dev",
-    about: "Passionate Frontend Developer with 5+ years of experience building scalable web applications. Specialized in React, TypeScript, and modern web technologies. Strong focus on creating intuitive user experiences and clean, maintainable code.",
-    skills: ["React", "TypeScript", "Node.js", "Next.js", "Tailwind CSS", "GraphQL", "Redux", "Jest", "Git", "Figma"],
+    website: "Not set",
+    about: profileUser?.about || "Passionate Frontend Developer focused on building scalable and user-friendly applications.",
     resumeUploaded: true,
     resumeName: "Jonas_Dela_Cruz_Resume_2026.pdf",
     resumeSize: "245 KB",
@@ -136,7 +155,7 @@ export function Profile() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token") || localStorage.getItem("token")}`,
         },
         body: JSON.stringify({
           name: newSkillName,
@@ -145,7 +164,12 @@ export function Profile() {
       });
       if (!response.ok) throw new Error("Failed to add skill");
       const data = await response.json();
-      setSkills(data.data?.skills || []);
+      const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
+        ...skill,
+        id: skill.id || skill._id || "",
+      })) as Skill[];
+      setSkills(mappedSkills);
+      updateAuthProfile({ skills: mappedSkills });
       setNewSkillName("");
       setNewSkillLevel("Intermediate");
       toast.success(`${newSkillName} added to your skills!`);
@@ -159,12 +183,17 @@ export function Profile() {
       const response = await fetch(`/api/auth/profile/skills/${skillId}`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          Authorization: `Bearer ${localStorage.getItem("auth_token") || localStorage.getItem("token")}`,
         },
       });
       if (!response.ok) throw new Error("Failed to delete skill");
       const data = await response.json();
-      setSkills(data.data?.skills || []);
+      const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
+        ...skill,
+        id: skill.id || skill._id || "",
+      })) as Skill[];
+      setSkills(mappedSkills);
+      updateAuthProfile({ skills: mappedSkills });
       toast.success("Skill removed successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to remove skill");
@@ -222,31 +251,35 @@ export function Profile() {
     navigate(ROUTES.settings);
   };
 
-  const handleDownloadResume = () => {
-    toast.success("Resume downloaded successfully!");
-  };
-
   return (
     <div className="max-w-[1100px] mx-auto space-y-6">
       {/* Header Card */}
       <div className="bg-white rounded-[20px] border border-[#e2e8f0] shadow-sm overflow-hidden">
         {/* Cover Photo */}
-        <div className="h-[140px] bg-gradient-to-r from-[#3b82f6] via-[#2563eb] to-[#1d4ed8]"></div>
+        <div className="h-[100px] bg-gradient-to-r from-[#3b82f6] via-[#2563eb] to-[#1d4ed8]"></div>
         
         {/* Profile Info */}
         <div className="px-8 pb-6">
           <div className="flex items-end justify-between -mt-16">
             <div className="flex items-end gap-6">
               {/* Avatar */}
-              <div className="w-32 h-32 rounded-[20px] bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] border-4 border-white shadow-lg flex items-center justify-center">
-                <span className="text-white font-bold text-[48px]">{initials}</span>
-              </div>
+              {profileUser?.avatarUrl ? (
+                <img
+                  src={profileUser.avatarUrl}
+                  alt={displayName}
+                  className="w-32 h-32 rounded-[20px] border-4 border-white shadow-lg object-cover"
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-[20px] bg-gradient-to-br from-[#fbbf24] to-[#f59e0b] border-4 border-white shadow-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-[48px]">{initials}</span>
+                </div>
+              )}
               
               {/* Name and Title */}
               <div className="pb-2">
                 <div className="flex items-center gap-3 mb-1">
                   <h1 className="text-[28px] font-bold text-[#1e293b]">
-                    Welcome back 👋 {profileData.name.split(' ')[0]}
+                    Welcome back, {profileData.name.split(' ')[0]}
                   </h1>
                 </div>
                 <p className="text-[16px] text-[#64748b] mb-2">{profileData.title}</p>
@@ -300,15 +333,15 @@ export function Profile() {
             Skills & Experience
           </button>
           <button
-            onClick={() => setActiveTab("portfolio")}
+            onClick={() => setActiveTab("accepted")}
             className={`flex items-center gap-2 px-6 py-4 text-[15px] font-medium transition-all ${
-              activeTab === "portfolio"
+              activeTab === "accepted"
                 ? "text-[#2563eb] border-b-2 border-[#2563eb]"
                 : "text-[#64748b] hover:text-[#1e293b]"
             }`}
           >
             <Award className="w-4 h-4" />
-            Portfolio & Accepted Work
+            Accepted Work
           </button>
         </div>
 
@@ -375,14 +408,18 @@ export function Profile() {
                   <div>
                     <h2 className="text-[20px] font-semibold text-[#1e293b] mb-4">Skills</h2>
                     <div className="flex flex-wrap gap-2">
-                      {profileData.skills.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="px-4 py-2 bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] text-[#2563eb] rounded-[10px] text-[13px] font-semibold border border-[#bfdbfe]"
-                        >
-                          {skill}
-                        </span>
-                      ))}
+                      {skills.length > 0 ? (
+                        skills.map((skill) => (
+                          <span
+                            key={skill.id}
+                            className="px-4 py-2 bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] text-[#2563eb] rounded-[10px] text-[13px] font-semibold border border-[#bfdbfe]"
+                          >
+                            {skill.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-[13px] text-[#94a3b8]">No skills added yet</span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -392,7 +429,7 @@ export function Profile() {
                   {/* CV/Resume Card */}
                   <div className="bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#bfdbfe] rounded-[16px] p-6">
                     <h3 className="text-[18px] font-semibold text-[#1e293b] mb-4">CV/Resume</h3>
-                    {profileData.resumeUploaded ? (
+                    {resumeUrl ? (
                       <div className="space-y-4">
                         <div className="bg-white rounded-[12px] p-4 border border-[#bfdbfe]">
                           <div className="flex items-center gap-3 mb-3">
@@ -400,20 +437,23 @@ export function Profile() {
                               <FileText className="w-6 h-6 text-white" />
                             </div>
                             <div className="flex-1">
-                              <h4 className="text-[14px] font-semibold text-[#1e293b]">{profileData.resumeName}</h4>
-                              <p className="text-[12px] text-[#64748b]">{profileData.resumeSize}</p>
+                              <h4 className="text-[14px] font-semibold text-[#1e293b]">{profileData.name}'s Resume</h4>
+                              <p className="text-[12px] text-[#64748b]">Resume uploaded</p>
                             </div>
                           </div>
-                          <button
-                            onClick={handleDownloadResume}
-                            className="w-full bg-[#2563eb] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:bg-[#1d4ed8] transition-all flex items-center justify-center gap-2"
+                          <a
+                            href={resumeUrl}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full bg-[#2563eb] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:bg-[#1d4ed8] transition-all flex items-center justify-center gap-2 block text-center no-underline"
                           >
                             <Download className="w-4 h-4" />
-                            Download
-                          </button>
+                            Download Resume
+                          </a>
                         </div>
                         <p className="text-[12px] text-[#475569] text-center">
-                          Last updated: Jan 15, 2026
+                          View your uploaded professional resume
                         </p>
                       </div>
                     ) : (
@@ -436,19 +476,19 @@ export function Profile() {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <span className="text-[14px] text-[#64748b]">Total Experience</span>
-                        <span className="text-[16px] font-bold text-[#1e293b]">5+ Years</span>
+                        <span className="text-[16px] font-bold text-[#1e293b]">{totalExperience}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[14px] text-[#64748b]">Projects Completed</span>
-                        <span className="text-[16px] font-bold text-[#10b981]">12</span>
+                        <span className="text-[14px] text-[#64748b]">Jobs Completed</span>
+                        <span className="text-[16px] font-bold text-[#10b981]">{projectsCompleted}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[14px] text-[#64748b]">Jobs Applied</span>
-                        <span className="text-[16px] font-bold text-[#2563eb]">6</span>
+                        <span className="text-[16px] font-bold text-[#2563eb]">{jobsApplied}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[14px] text-[#64748b]">Success Rate</span>
-                        <span className="text-[16px] font-bold text-[#10b981]">85%</span>
+                        <span className="text-[16px] font-bold text-[#10b981]">{successRate}</span>
                       </div>
                     </div>
                   </div>
@@ -465,43 +505,6 @@ export function Profile() {
                 <span className="text-[13px] text-[#64748b]">{skills.length} Skills</span>
               </div>
 
-              {/* Add New Skill */}
-              <div className="bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#bfdbfe] rounded-[16px] p-6">
-                <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">Add New Skill</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-[13px] font-medium text-[#1e293b] block mb-2">Skill Name</label>
-                    <input
-                      type="text"
-                      value={newSkillName}
-                      onChange={(e) => setNewSkillName(e.target.value)}
-                      placeholder="e.g., React, Project Management, Communication"
-                      className="w-full px-4 py-2.5 rounded-[10px] border border-[#bfdbfe] bg-white text-[14px] text-[#1e293b] placeholder-[#94a3b8] focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                      onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[13px] font-medium text-[#1e293b] block mb-2">Proficiency Level</label>
-                    <select
-                      value={newSkillLevel}
-                      onChange={(e) => setNewSkillLevel(e.target.value as any)}
-                      className="w-full px-4 py-2.5 rounded-[10px] border border-[#bfdbfe] bg-white text-[14px] text-[#1e293b] focus:outline-none focus:ring-2 focus:ring-[#2563eb]"
-                    >
-                      <option value="Beginner">Beginner</option>
-                      <option value="Intermediate">Intermediate</option>
-                      <option value="Advanced">Advanced</option>
-                      <option value="Expert">Expert</option>
-                    </select>
-                  </div>
-                  <button
-                    onClick={handleAddSkill}
-                    className="w-full bg-[#2563eb] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:bg-[#1d4ed8] transition-all"
-                  >
-                    Add Skill
-                  </button>
-                </div>
-              </div>
-
               {/* Skills List */}
               {skills.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -510,37 +513,29 @@ export function Profile() {
                       key={skill.id}
                       className="bg-white border border-[#e2e8f0] rounded-[16px] p-5 hover:shadow-md transition-all"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="text-[16px] font-bold text-[#1e293b] mb-1">{skill.name}</h3>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold ${
-                                skill.level === "Expert"
-                                  ? "bg-[#dbeafe] text-[#0c4a6e]"
-                                  : skill.level === "Advanced"
-                                  ? "bg-[#dcfce7] text-[#065f46]"
-                                  : skill.level === "Intermediate"
-                                  ? "bg-[#fef3c7] text-[#92400e]"
-                                  : "bg-[#f3f4f6] text-[#4b5563]"
-                              }`}
-                            >
-                              {skill.level}
+                      <div>
+                        <h3 className="text-[16px] font-bold text-[#1e293b] mb-1">{skill.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold ${
+                              skill.level === "Expert"
+                                ? "bg-[#dbeafe] text-[#0c4a6e]"
+                                : skill.level === "Advanced"
+                                ? "bg-[#dcfce7] text-[#065f46]"
+                                : skill.level === "Intermediate"
+                                ? "bg-[#fef3c7] text-[#92400e]"
+                                : "bg-[#f3f4f6] text-[#4b5563]"
+                            }`}
+                          >
+                            {skill.level}
+                          </span>
+                          {skill.endorsements ? (
+                            <span className="text-[12px] text-[#64748b] flex items-center gap-1">
+                              <Award className="w-3 h-3" />
+                              {skill.endorsements} endorsements
                             </span>
-                            {skill.endorsements ? (
-                              <span className="text-[12px] text-[#64748b] flex items-center gap-1">
-                                <Award className="w-3 h-3" />
-                                {skill.endorsements} endorsements
-                              </span>
-                            ) : null}
-                          </div>
+                          ) : null}
                         </div>
-                        <button
-                          onClick={() => handleRemoveSkill(skill.id)}
-                          className="text-[#ef4444] hover:text-[#dc2626] text-[12px] font-medium"
-                        >
-                          Remove
-                        </button>
                       </div>
                     </div>
                   ))}
@@ -549,25 +544,21 @@ export function Profile() {
                 <div className="text-center py-12 bg-[#f8fafc] rounded-[16px] border border-[#e2e8f0]">
                   <Award className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
                   <p className="text-[14px] text-[#64748b] mb-4">No skills added yet</p>
-                  <p className="text-[12px] text-[#94a3b8]">Add your skills above to showcase your expertise</p>
+                  <p className="text-[12px] text-[#94a3b8]">Go to Settings to add and manage your skills</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* Portfolio & Accepted Work Tab */}
-          {activeTab === "portfolio" && (
+          {/* Accepted Work Tab */}
+          {activeTab === "accepted" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-[20px] font-semibold text-[#1e293b]">Accepted Work & Projects</h2>
-                <div className="flex items-center gap-2 text-[14px] text-[#64748b]">
-                  <Award className="w-4 h-4 text-[#10b981]" />
-                  <span className="font-semibold text-[#1e293b]">{acceptedWorks.filter(w => w.status === "Completed").length}</span> Completed Projects
-                </div>
+                <h2 className="text-[20px] font-semibold text-[#1e293b]">Accepted Work</h2>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {acceptedWorks.map((work) => (
+                {acceptedWorks.filter(w => w.status === "In Progress").map((work) => (
                   <div key={work.id} className="bg-white border border-[#e2e8f0] rounded-[16px] p-6 hover:shadow-lg transition-all">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-3">
@@ -614,22 +605,13 @@ export function Profile() {
                     </div>
                   </div>
                 ))}
-              </div>
-
-              {/* Total Earnings */}
-              <div className="bg-gradient-to-br from-[#dcfce7] to-[#bbf7d0] border border-[#86efac] rounded-[16px] p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[14px] text-[#166534] mb-1">Total Earnings from Accepted Work</p>
-                    <h3 className="text-[32px] font-bold text-[#15803d]">₱550,000</h3>
-                    <p className="text-[13px] text-[#166534] mt-1">
-                      From {acceptedWorks.filter(w => w.status === "Completed").length} completed projects
-                    </p>
+                {acceptedWorks.filter(w => w.status === "In Progress").length === 0 && (
+                  <div className="col-span-1 md:col-span-2 text-center py-12 bg-[#f8fafc] rounded-[16px] border border-[#e2e8f0]">
+                    <Award className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
+                    <p className="text-[14px] text-[#64748b] mb-2">No accepted work yet</p>
+                    <p className="text-[12px] text-[#94a3b8]">Once you accept a job, it will appear here</p>
                   </div>
-                  <div className="w-16 h-16 rounded-[16px] bg-[#16a34a] flex items-center justify-center">
-                    <Award className="w-8 h-8 text-white" />
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           )}

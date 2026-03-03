@@ -36,12 +36,18 @@ interface User {
   city?: string;
   country?: string;
   linkedin?: string;
+  about?: string;
   avatarUrl?: string;
+  resumeUrl?: string;
   employerBalance?: number;
   workerBalance?: number;
   createdAt?: string;
   user_type?: string;
   userType?: string;
+  totalExperience?: string;
+  projectsCompleted?: number;
+  jobsApplied?: number;
+  successRate?: string;
   skills?: Array<{
     _id?: string;
     id?: string;

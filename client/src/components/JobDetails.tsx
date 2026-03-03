@@ -114,6 +114,7 @@ export function JobDetails() {
       startUser: employerId,
       jobId: job._id,
       startName: employerName,
+      source: "job-details",
       draft: initialMessage,
     });
     navigate(`/worker/messages?${params.toString()}`);

@@ -14,6 +14,8 @@ router.get('/', auth, MessageController.getMessages);
 router.get('/conversation/:otherUserId', auth, MessageController.getConversationWithUser);
 // Mark messages as read
 router.patch('/read', auth, MessageController.markAsRead);
+// Edit a sent message (30-second window)
+router.patch('/edit/:messageId', auth, MessageController.editMessage);
 
 // Block a user (current user blocks otherUserId)
 router.post('/block', auth, MessageController.blockUser);

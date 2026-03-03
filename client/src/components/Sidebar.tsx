@@ -52,25 +52,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const { user: authUser } = useAuth();
 
-  const loadProfilePhoto = () => {
-    try {
-      const storedRaw = localStorage.getItem("profile_settings");
-      const stored = storedRaw ? JSON.parse(storedRaw) : {};
-      const preview = stored.personal?.profilePhotoPreview || "";
-      setProfilePhotoPreview(preview);
-    } catch {
-      setProfilePhotoPreview("");
-    }
-  };
-
   useEffect(() => {
-    loadProfilePhoto();
-    const handleProfileUpdate = () => loadProfilePhoto();
-    window.addEventListener("profile_settings_updated", handleProfileUpdate);
-    return () => window.removeEventListener("profile_settings_updated", handleProfileUpdate);
+    const handleProfileUpdate = () => {
+      // Component will re-render when authUser changes
+    };
+    window.addEventListener("auth_user_updated", handleProfileUpdate);
+    return () => window.removeEventListener("auth_user_updated", handleProfileUpdate);
   }, []);
 
   const userRoleFromAuth = String(authUser?.role || userRole || "user").toLowerCase();
@@ -392,9 +381,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className={`border-t ${webUi.sidebar.sectionDivider} pt-6`}>
         <button className="w-full flex items-center justify-between lg:justify-start gap-3 hover:opacity-80 transition">
           <div className="flex items-center gap-3">
-            {profilePhotoPreview ? (
+            {authUser?.avatarUrl ? (
               <img
-                src={profilePhotoPreview}
+                src={authUser.avatarUrl}
                 alt="Profile"
                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
               />

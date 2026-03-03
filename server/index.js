@@ -68,6 +68,9 @@ app.use(cors({
 // Ensure OPTIONS preflight is handled for all routes
 // No explicit app.options needed because CORS middleware is applied globally
 
+// Static file serving for uploads
+app.use('/uploads', express.static('uploads'));
+
 // Routes
 import CategoryRoute from './routes/CategoryRoute.js';
 import JobRoute from './routes/JobRoute.js';

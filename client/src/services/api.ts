@@ -213,7 +213,10 @@ export function updateProfile(payload: {
   city?: string;
   country?: string;
   linkedin?: string;
+  about?: string;
   avatarUrl?: string;
+  totalExperience?: string;
+  // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated by backend
 }) {
   return request<any>('/auth/me', { method: 'PATCH', body: payload }).then((response: any) => {
     return response?.data ?? response?.profile ?? response?.user ?? response;
@@ -322,4 +325,59 @@ export function getArchivedConversations() {
 
 export function markMessagesAsRead(otherUserId: string, jobId?: string) {
   return request<any>('/messages/read', { method: 'PATCH', body: { otherUserId, jobId: jobId || null, read: true } });
+}
+
+export function editMessage(messageId: string, content: string) {
+  return request<any>(`/messages/edit/${messageId}`, { method: 'PATCH', body: { content } });
+}
+// Resume APIs
+export async function uploadResume(file: File) {
+  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+  const formData = new FormData();
+  formData.append('resume', file);
+
+  const res = await fetch(`${API_BASE}/auth/profile/resume`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const message = data?.message || 'Failed to upload resume';
+    throw new Error(message);
+  }
+  return data;
+}
+
+export function deleteResume() {
+  return request<any>('/auth/profile/resume', { method: 'DELETE' });
+}
+
+// Avatar APIs
+export async function uploadAvatar(file: File) {
+  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+  const formData = new FormData();
+  formData.append('avatar', file);
+
+  const res = await fetch(`${API_BASE}/auth/profile/avatar`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    body: formData,
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const message = data?.message || 'Failed to upload avatar';
+    throw new Error(message);
+  }
+  return data;
+}
+
+export function deleteAvatar() {
+  return request<any>('/auth/profile/avatar', { method: 'DELETE' });
 }

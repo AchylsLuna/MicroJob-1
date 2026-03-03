@@ -128,6 +128,38 @@ const UserSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
+        resumeUrl: {
+            type: String,
+            trim: true,
+        },
+        avatarUrl: {
+            type: String,
+            trim: true,
+        },
+        about: {
+            type: String,
+            trim: true,
+        },
+        linkedin: {
+            type: String,
+            trim: true,
+        },
+        totalExperience: {
+            type: String,
+            trim: true,
+        },
+        projectsCompleted: {
+            type: Number,
+            default: 0,
+        },
+        jobsApplied: {
+            type: Number,
+            default: 0,
+        },
+        successRate: {
+            type: String,
+            trim: true,
+        },
         skills: [
             {
                 name: {

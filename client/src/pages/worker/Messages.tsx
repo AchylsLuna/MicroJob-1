@@ -2,10 +2,13 @@ import { useEffect, useState, useRef } from "react";
 import { Search, Send, Paperclip, MoreVertical, Phone, Video, Star, Archive, Trash2, Ban } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useSearchParams } from "react-router-dom";
+import { io, Socket } from "socket.io-client";
 import { 
   getConversations, 
+  getArchivedConversations,
   getConversationWithUser, 
   sendMessage, 
+  editMessage,
   blockUser, 
   archiveConversation, 
   deleteConversation,
@@ -18,6 +21,8 @@ interface Message {
   receiver: { _id: string; firstName?: string; lastName?: string };
   content: string;
   createdAt: string;
+  isEdited?: boolean;
+  editedAt?: string;
   job?: { _id: string; title: string };
 }
 
@@ -68,12 +73,35 @@ const pickArray = <T,>(...candidates: any[]): T[] => {
   return [];
 };
 
+const getStoredAuthUser = () => {
+  const raw =
+    localStorage.getItem("auth_user") ||
+    localStorage.getItem("current_user") ||
+    localStorage.getItem("user");
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const getCurrentUserIdFromStorage = () => {
+  const parsed = getStoredAuthUser();
+  return parsed?.id || parsed?._id || "";
+};
+
 export function Messages() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [archivedContacts, setArchivedContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [isEditingSaving, setIsEditingSaving] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -83,20 +111,159 @@ export function Messages() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const startChatHandledRef = useRef(false);
   const prefilledDraftHandledRef = useRef(false);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    // Get current user ID from localStorage
-    const user = localStorage.getItem('user');
-    if (user) {
-      try {
-        const parsed = JSON.parse(user);
-        setCurrentUserId(parsed.id || parsed._id || '');
-      } catch (e) {
-        console.error('Failed to parse user from localStorage');
-      }
-    }
+    setCurrentUserId(getCurrentUserIdFromStorage());
 
+    const handleAuthUserUpdated = () => {
+      setCurrentUserId(getCurrentUserIdFromStorage());
+    };
+    window.addEventListener("auth_user_updated", handleAuthUserUpdated);
+
+    loadArchivedConversations();
     loadConversations();
+
+    return () => {
+      window.removeEventListener("auth_user_updated", handleAuthUserUpdated);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    const apiBase = import.meta.env.VITE_API_BASE as string | undefined;
+    const proxyTarget = import.meta.env.VITE_API_PROXY_TARGET as string | undefined;
+    const explicitSocketUrl = import.meta.env.VITE_SOCKET_URL as string | undefined;
+    const derivedFromApiBase = apiBase && /^https?:\/\//.test(apiBase)
+      ? apiBase.replace(/\/api\/?$/, "")
+      : undefined;
+    const socketUrl = explicitSocketUrl || proxyTarget || derivedFromApiBase || window.location.origin;
+
+    const socket = io(socketUrl, { withCredentials: true });
+    socketRef.current = socket;
+    socket.emit("register", currentUserId);
+
+    const handleIncomingMessage = (incoming: any) => {
+      const message = incoming?.data || incoming;
+      const senderId = String(message?.sender?._id || message?.sender || "");
+      const receiverId = String(message?.receiver?._id || message?.receiver || "");
+      const otherUserId = senderId === currentUserId ? receiverId : senderId;
+      const messageJobId = message?.job?._id || message?.job || null;
+      const conversationId = `${otherUserId}::${messageJobId || "general"}`;
+
+      setContacts((prev) => {
+        const existing = prev.find((item) => item.conversationId === conversationId);
+        const updated: Contact = {
+          conversationId,
+          otherUserId,
+          otherUserName:
+            existing?.otherUserName ||
+            [message?.sender?.firstName, message?.sender?.lastName].filter(Boolean).join(" ") ||
+            [message?.receiver?.firstName, message?.receiver?.lastName].filter(Boolean).join(" ") ||
+            "User",
+          jobId: messageJobId,
+          jobTitle: message?.job?.title || existing?.jobTitle || null,
+          lastMessage: message?.content || existing?.lastMessage || "",
+          lastMessageAt: message?.createdAt || new Date().toISOString(),
+        };
+        const filtered = prev.filter((item) => item.conversationId !== conversationId);
+        return [updated, ...filtered];
+      });
+      setArchivedContacts((prev) => prev.filter((item) => item.conversationId !== conversationId));
+
+      const isCurrentConversation =
+        selectedContact &&
+        selectedContact.otherUserId === otherUserId &&
+        (selectedContact.jobId || "") === (messageJobId || "");
+
+      if (isCurrentConversation) {
+        setMessages((prev) => {
+          const normalizedId = String(message?._id || "");
+          if (normalizedId && prev.some((item) => item._id === normalizedId)) return prev;
+          return [...prev, message as Message];
+        });
+      }
+    };
+
+    const handleMessageEdited = (incoming: any) => {
+      const message = (incoming?.data || incoming) as Message;
+      if (!message?._id) return;
+
+      setMessages((prev) =>
+        prev.map((item) =>
+          item._id === message._id
+            ? {
+                ...item,
+                content: message.content,
+                isEdited: true,
+                editedAt: message.editedAt || new Date().toISOString(),
+              }
+            : item
+        )
+      );
+
+      const senderId = String((message as any)?.sender?._id || (message as any)?.sender || "");
+      const receiverId = String((message as any)?.receiver?._id || (message as any)?.receiver || "");
+      const otherUserId = senderId === currentUserId ? receiverId : senderId;
+      const messageJobId = (message as any)?.job?._id || (message as any)?.job || null;
+      const conversationId = `${otherUserId}::${messageJobId || "general"}`;
+
+      const patchPreview = (prev: Contact[]) =>
+        prev.map((contact) =>
+          contact.conversationId === conversationId
+            ? {
+                ...contact,
+                lastMessage: message.content,
+                lastMessageAt: message.editedAt || message.createdAt || new Date().toISOString(),
+              }
+            : contact
+        );
+
+      setContacts((prev) => patchPreview(prev));
+      setArchivedContacts((prev) => patchPreview(prev));
+    };
+
+    socket.on("new_message", handleIncomingMessage);
+    socket.on("new_message_echo", handleIncomingMessage);
+    socket.on("message_edited", handleMessageEdited);
+
+    return () => {
+      socket.off("new_message", handleIncomingMessage);
+      socket.off("new_message_echo", handleIncomingMessage);
+      socket.off("message_edited", handleMessageEdited);
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [currentUserId, selectedContact]);
+
+  useEffect(() => {
+    if (!selectedContact) return;
+    const interval = window.setInterval(() => {
+      getConversationWithUser(selectedContact.otherUserId, selectedContact.jobId || undefined)
+        .then((response: any) => {
+          const messagesArray = pickArray<Message>(
+            response?.messages,
+            response?.data?.messages,
+            response?.meta?.messages,
+            response?.data,
+            response
+          );
+          setMessages(messagesArray);
+        })
+        .catch(() => {
+          // polling fallback only; ignore transient errors
+        });
+    }, 5000);
+    return () => window.clearInterval(interval);
+  }, [selectedContact]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      loadConversations();
+      loadArchivedConversations();
+    }, 10000);
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -106,7 +273,11 @@ export function Messages() {
     const startUserId = searchParams.get("startUser");
     const startJobId = searchParams.get("jobId");
     const startName = searchParams.get("startName") || "Employer";
+    const source = searchParams.get("source") || "";
     const draft = searchParams.get("draft") || "";
+    const isFromJobDetails =
+      source === "job-details" ||
+      (Boolean(draft) && Boolean(startUserId) && Boolean(startJobId));
 
     if (contactId && contacts.length > 0) {
       const match = contacts.find((contact) => contact.conversationId === contactId);
@@ -139,9 +310,14 @@ export function Messages() {
       }
     }
 
-    if (!prefilledDraftHandledRef.current && draft) {
+    if (!prefilledDraftHandledRef.current && draft && isFromJobDetails) {
       setMessageText(draft);
       prefilledDraftHandledRef.current = true;
+
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("draft");
+      nextParams.delete("source");
+      setSearchParams(nextParams, { replace: true });
     }
   }, [searchParams, contacts]);
 
@@ -172,11 +348,13 @@ export function Messages() {
         response?.data,
         response
       );
-      setContacts(conversationsArray);
+      const archivedSet = new Set(archivedContacts.map((contact) => contact.conversationId));
+      const inboxOnly = conversationsArray.filter((contact) => !archivedSet.has(contact.conversationId));
+      setContacts(inboxOnly);
       
       // Select first contact by default if none selected
-      if (conversationsArray.length > 0 && !selectedContact) {
-        handleSelectContact(conversationsArray[0]);
+      if (inboxOnly.length > 0 && !selectedContact) {
+        handleSelectContact(inboxOnly[0]);
       }
     } catch (error: any) {
       console.error('Failed to load conversations:', error);
@@ -184,6 +362,79 @@ export function Messages() {
       setContacts([]); // Ensure contacts is set to empty array on error
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadArchivedConversations = async () => {
+    try {
+      const response: any = await getArchivedConversations();
+      const archivedArray = pickArray<Contact>(
+        response?.archived,
+        response?.data?.archived,
+        response?.meta?.archived,
+        response?.data,
+        response
+      );
+      setArchivedContacts(archivedArray);
+    } catch {
+      setArchivedContacts([]);
+    }
+  };
+
+  const canEditMessage = (message: Message) => {
+    if (!currentUserId || message.sender._id !== currentUserId) return false;
+    const created = new Date(message.createdAt).getTime();
+    if (Number.isNaN(created)) return false;
+    return Date.now() - created <= 30 * 1000;
+  };
+
+  const beginEditMessage = (message: Message) => {
+    if (!canEditMessage(message)) {
+      toast.error("You can only edit a message within 30 seconds.");
+      return;
+    }
+    setEditingMessageId(message._id);
+    setEditingText(message.content);
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessageId(null);
+    setEditingText("");
+  };
+
+  const saveEditMessage = async () => {
+    if (!editingMessageId) return;
+    const nextContent = editingText.trim();
+    if (!nextContent) {
+      toast.error("Message cannot be empty.");
+      return;
+    }
+
+    try {
+      setIsEditingSaving(true);
+      const response: any = await editMessage(editingMessageId, nextContent);
+      const updated = response?.data || response?.message || response;
+
+      setMessages((prev) =>
+        prev.map((item) =>
+          item._id === editingMessageId
+            ? {
+                ...item,
+                content: updated?.content || nextContent,
+                isEdited: true,
+                editedAt: updated?.editedAt || new Date().toISOString(),
+              }
+            : item
+        )
+      );
+
+      setEditingMessageId(null);
+      setEditingText("");
+      toast.success("Message updated");
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to edit message");
+    } finally {
+      setIsEditingSaving(false);
     }
   };
 
@@ -280,6 +531,11 @@ export function Messages() {
       await archiveConversation(selectedContact.otherUserId, selectedContact.jobId || undefined);
       toast.success("Conversation archived");
       setShowMoreMenu(false);
+
+      const archivedConversationId = `${selectedContact.otherUserId}::${selectedContact.jobId || "general"}`;
+      setContacts((prev) => prev.filter((contact) => contact.conversationId !== archivedConversationId));
+
+      await loadArchivedConversations();
       
       // Remove from contacts list and reload
       await loadConversations();
@@ -287,6 +543,24 @@ export function Messages() {
       setMessages([]);
     } catch (error: any) {
       toast.error(error.message || 'Failed to archive conversation');
+    }
+  };
+
+  const handleUnarchiveConversation = async () => {
+    if (!selectedContact) return;
+
+    try {
+      await archiveConversation(selectedContact.otherUserId, selectedContact.jobId || undefined, false);
+      toast.success("Conversation moved to inbox");
+      setShowMoreMenu(false);
+
+      const conversationId = `${selectedContact.otherUserId}::${selectedContact.jobId || "general"}`;
+      setArchivedContacts((prev) => prev.filter((contact) => contact.conversationId !== conversationId));
+      await loadConversations();
+      await loadArchivedConversations();
+      setShowArchived(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to unarchive conversation');
     }
   };
 
@@ -332,10 +606,15 @@ export function Messages() {
   };
 
   // Ensure contacts is always an array before filtering
-  const contactsArray = Array.isArray(contacts) ? contacts : [];
-  const effectiveContacts = selectedContact && !contactsArray.some((contact) => contact.conversationId === selectedContact.conversationId)
-    ? [selectedContact, ...contactsArray]
-    : contactsArray;
+  const archivedSet = new Set(archivedContacts.map((contact) => contact.conversationId));
+  const contactsArray = Array.isArray(showArchived ? archivedContacts : contacts)
+    ? (showArchived ? archivedContacts : contacts.filter((contact) => !archivedSet.has(contact.conversationId)))
+    : [];
+  const canInjectSelectedContact =
+    selectedContact &&
+    !contactsArray.some((contact) => contact.conversationId === selectedContact.conversationId) &&
+    (showArchived ? archivedSet.has(selectedContact.conversationId) : !archivedSet.has(selectedContact.conversationId));
+  const effectiveContacts = canInjectSelectedContact ? [selectedContact as Contact, ...contactsArray] : contactsArray;
 
   const filteredContacts = effectiveContacts.filter(contact =>
     contact.otherUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -355,6 +634,23 @@ export function Messages() {
 
   return (
     <div className="max-w-[1341px] mx-auto h-[calc(100vh-160px)] min-h-[640px]">
+      <div className="flex justify-end mb-3">
+        <button
+          type="button"
+          onClick={async () => {
+            const next = !showArchived;
+            setShowArchived(next);
+            if (next) {
+              await loadArchivedConversations();
+            }
+            setSelectedContact(null);
+            setMessages([]);
+          }}
+          className="px-3 py-2 text-[13px] font-medium rounded-[10px] border border-[#E5E7EB] bg-white text-[#1C4D8D] hover:bg-[#F9FAFB]"
+        >
+          {showArchived ? "Back to Inbox" : "View Archived Messages"}
+        </button>
+      </div>
       <div className="bg-white rounded-[16px] border border-[#E5E7EB] overflow-hidden shadow-sm h-full flex">
         {/* Contacts Sidebar */}
         <div className="w-[340px] border-r border-[#E5E7EB] flex flex-col min-h-0">
@@ -364,7 +660,7 @@ export function Messages() {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
               <input
                 type="text"
-                placeholder="Search messages..."
+                placeholder={showArchived ? "Search archived messages..." : "Search messages..."}
                 value={searchQuery}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -481,13 +777,23 @@ export function Messages() {
                     </button>
                     {showMoreMenu && (
                       <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-2 z-50">
-                        <button
-                          onClick={handleArchiveConversation}
-                          className="w-full px-4 py-2 text-left text-[14px] text-[#111827] hover:bg-[#F9FAFB] flex items-center gap-3"
-                        >
-                          <Archive className="w-4 h-4 text-[#6B7280]" />
-                          Archive Conversation
-                        </button>
+                        {showArchived ? (
+                          <button
+                            onClick={handleUnarchiveConversation}
+                            className="w-full px-4 py-2 text-left text-[14px] text-[#111827] hover:bg-[#F9FAFB] flex items-center gap-3"
+                          >
+                            <Archive className="w-4 h-4 text-[#6B7280]" />
+                            Unarchive Conversation
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleArchiveConversation}
+                            className="w-full px-4 py-2 text-left text-[14px] text-[#111827] hover:bg-[#F9FAFB] flex items-center gap-3"
+                          >
+                            <Archive className="w-4 h-4 text-[#6B7280]" />
+                            Archive Conversation
+                          </button>
+                        )}
                         <button
                           onClick={handleBlockUser}
                           className="w-full px-4 py-2 text-left text-[14px] text-[#DC2626] hover:bg-[#FEF2F2] flex items-center gap-3"
@@ -518,6 +824,7 @@ export function Messages() {
                   <>
                     {messages.map((message) => {
                       const isOwn = currentUserId && message.sender._id === currentUserId;
+                      const isEditing = editingMessageId === message._id;
                       return (
                         <div
                           key={message._id}
@@ -531,11 +838,51 @@ export function Messages() {
                                   : "bg-white text-[#111827] border border-[#E5E7EB]"
                               }`}
                             >
-                              <p className="text-[14px] leading-relaxed">{message.content}</p>
+                              {isEditing ? (
+                                <div className="space-y-2">
+                                  <input
+                                    type="text"
+                                    value={editingText}
+                                    onChange={(e) => setEditingText(e.target.value)}
+                                    className="w-full rounded-[8px] px-3 py-2 text-[14px] border border-[#D1D5DB] text-[#111827]"
+                                    disabled={isEditingSaving}
+                                  />
+                                  <div className="flex justify-end gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={cancelEditMessage}
+                                      className="px-2 py-1 text-[12px] rounded bg-[#E5E7EB] text-[#374151]"
+                                      disabled={isEditingSaving}
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={saveEditMessage}
+                                      className="px-2 py-1 text-[12px] rounded bg-[#1C4D8D] text-white"
+                                      disabled={isEditingSaving}
+                                    >
+                                      Save
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-[14px] leading-relaxed">{message.content}</p>
+                              )}
                             </div>
-                            <p className={`text-[11px] text-[#9CA3AF] mt-1 ${isOwn ? "text-right" : "text-left"}`}>
-                              {formatMessageTime(message.createdAt)}
-                            </p>
+                            <div className={`flex items-center gap-2 text-[11px] text-[#9CA3AF] mt-1 ${isOwn ? "justify-end" : "justify-start"}`}>
+                              <span>{formatMessageTime(message.createdAt)}</span>
+                              {message.isEdited && <span>(edited)</span>}
+                              {isOwn && !isEditing && canEditMessage(message) && (
+                                <button
+                                  type="button"
+                                  onClick={() => beginEditMessage(message)}
+                                  className="text-[#1C4D8D] hover:underline"
+                                >
+                                  Edit
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );

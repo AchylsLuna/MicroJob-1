@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import JobApplication from "../models/JobApplication.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
@@ -106,6 +107,10 @@ export async function updateProfile(req, res) {
             "endDate",
             "logoName",
             "resumeFileName",
+            "about",
+            "linkedin",
+            "totalExperience",
+            // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated
         ];
 
         const updates = {};
@@ -130,6 +135,21 @@ export async function updateProfile(req, res) {
             updates.email = updates.email.toLowerCase();
         }
 
+        // Auto-calculate job statistics from JobApplication collection
+        const jobsApplied = await JobApplication.countDocuments({ applicant: userId });
+        const jobsCompleted = await JobApplication.countDocuments({ 
+            applicant: userId, 
+            status: 'Hired' 
+        });
+        const successRate = jobsApplied > 0 
+            ? `${Math.round((jobsCompleted / jobsApplied) * 100)}%` 
+            : '0%';
+
+        // Add calculated stats to updates
+        updates.jobsApplied = jobsApplied;
+        updates.projectsCompleted = jobsCompleted;
+        updates.successRate = successRate;
+
         const updateOps = { $set: updates };
         if (Object.keys(unset).length) {
             updateOps.$unset = unset;
@@ -139,14 +159,14 @@ export async function updateProfile(req, res) {
             new: true,
             runValidators: true,
         }).select(
-            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName"
+            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName about linkedin totalExperience projectsCompleted jobsApplied successRate"
         );
 
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
 
-        return res.status(200).json({ profile: user });
+        return res.status(200).json({ user });
     } catch (error) {
         console.error("Update profile error:", error);
         if (error?.name === "ValidationError") {

@@ -4,9 +4,14 @@ import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import speakeasy from 'speakeasy';
+import multer from 'multer';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import fs from 'fs';
 import csrfProtection from '../middleware/csrf.js';
 import Session from '../models/Session.js';
 import User from '../models/User.js';
+import JobApplication from '../models/JobApplication.js';
 import verifyToken from '../middleware/auth.js';
 import {
   sendOtp,
@@ -26,6 +31,73 @@ import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
 const router = express.Router();
+
+// Setup multer for file uploads
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const uploadsDir = join(__dirname, '..', 'uploads');
+
+// Create uploads directory if it doesn't exist
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer storage for resume files
+const resumeStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const userId = req.user?.id;
+    const timestamp = Date.now();
+    const ext = file.originalname.split('.').pop();
+    cb(null, `resume_${userId}_${timestamp}.${ext}`);
+  },
+});
+
+// Multer storage for avatar images
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const userId = req.user?.id;
+    const timestamp = Date.now();
+    const ext = file.originalname.split('.').pop();
+    cb(null, `avatar_${userId}_${timestamp}.${ext}`);
+  },
+});
+
+// Multer for resume uploads (PDF, DOC, DOCX)
+const multerResume = multer({
+  storage: resumeStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.doc', '.docx'];
+    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and DOC files are allowed for resumes'));
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
+
+// Multer for avatar uploads (JPG, PNG, GIF, WEBP)
+const multerAvatar = multer({
+  storage: avatarStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
+    if (allowed.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPG, PNG, GIF, and WEBP images are allowed'));
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
+
 const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
 const cookieSecurityOptions = {
   sameSite: 'strict',
@@ -713,11 +785,30 @@ router.post('/logout', verifyToken, async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      '-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes'
+      'firstName lastName email phoneNumber role city country province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills'
     );
     if (!user) {
       return sendError(res, 404, 'User not found');
     }
+
+    // Auto-calculate job statistics from JobApplication collection
+    const jobsApplied = await JobApplication.countDocuments({ applicant: req.user?.id });
+    const jobsCompleted = await JobApplication.countDocuments({ 
+      applicant: req.user?.id, 
+      status: 'Hired' 
+    });
+    const successRate = jobsApplied > 0 
+      ? `${Math.round((jobsCompleted / jobsApplied) * 100)}%` 
+      : '0%';
+
+    // Update user with calculated stats
+    user.jobsApplied = jobsApplied;
+    user.projectsCompleted = jobsCompleted;
+    user.successRate = successRate;
+    
+    // Save the updated stats to database
+    await user.save();
+
     return sendSuccess(res, 200, 'Profile retrieved', user);
   } catch (error) {
     console.error('Get profile error:', error);
@@ -761,7 +852,7 @@ const addSkill = async (req, res) => {
     user.skills.push(newSkill);
     await user.save();
 
-    return sendSuccess(res, 201, 'Skill added successfully', { skills: user.skills });
+    return sendSuccess(res, 201, 'Skill added successfully', { data: { skills: user.skills } });
   } catch (error) {
     console.error('Add skill error:', error);
     return sendError(res, 500, 'Failed to add skill');
@@ -790,7 +881,7 @@ const deleteSkill = async (req, res) => {
     user.skills.splice(skillIndex, 1);
     await user.save();
 
-    return sendSuccess(res, 200, 'Skill deleted successfully', { skills: user.skills });
+    return sendSuccess(res, 200, 'Skill deleted successfully', { data: { skills: user.skills } });
   } catch (error) {
     console.error('Delete skill error:', error);
     return sendError(res, 500, 'Failed to delete skill');
@@ -832,8 +923,158 @@ const updateSkillLevel = async (req, res) => {
   }
 };
 
+// Resume upload handler
+const uploadResume = async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'No file uploaded');
+    }
+
+    const userId = req.user?.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    // Delete old resume file if exists
+    if (user.resumeFileName) {
+      const oldFile = join(uploadsDir, user.resumeFileName);
+      if (fs.existsSync(oldFile)) {
+        fs.unlinkSync(oldFile);
+      }
+    }
+
+    // Update user with new resume info
+    user.resumeFileName = req.file.filename;
+    user.resumeUrl = `/uploads/${req.file.filename}`;
+    await user.save();
+
+    return sendSuccess(res, 200, 'Resume uploaded successfully', {
+      data: {
+        resumeUrl: user.resumeUrl,
+        resumeFileName: user.resumeFileName,
+      },
+    });
+  } catch (error) {
+    console.error('Resume upload error:', error);
+    return sendError(res, 500, 'Failed to upload resume');
+  }
+};
+
+// Resume delete handler
+const deleteResume = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    if (!user.resumeFileName) {
+      return sendError(res, 400, 'No resume found');
+    }
+
+    // Delete resume file
+    const filePath = join(uploadsDir, user.resumeFileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Update user
+    user.resumeFileName = null;
+    user.resumeUrl = null;
+    await user.save();
+
+    return sendSuccess(res, 200, 'Resume deleted successfully', {
+      data: {
+        resumeUrl: null,
+        resumeFileName: null,
+      },
+    });
+  } catch (error) {
+    console.error('Resume delete error:', error);
+    return sendError(res, 500, 'Failed to delete resume');
+  }
+};
+
+// Avatar upload handler
+const uploadAvatar = async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'No file uploaded');
+    }
+
+    const userId = req.user?.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    // Delete old avatar file if exists
+    if (user.avatarUrl) {
+      const oldFileName = user.avatarUrl.split('/').pop();
+      const oldFile = join(uploadsDir, oldFileName);
+      if (fs.existsSync(oldFile)) {
+        fs.unlinkSync(oldFile);
+      }
+    }
+
+    // Update user with new avatar
+    user.avatarUrl = `/uploads/${req.file.filename}`;
+    await user.save();
+
+    return sendSuccess(res, 200, 'Avatar uploaded successfully', {
+      data: {
+        avatarUrl: user.avatarUrl,
+      },
+    });
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    return sendError(res, 500, 'Failed to upload avatar');
+  }
+};
+
+// Avatar delete handler
+const deleteAvatar = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    if (!user.avatarUrl) {
+      return sendError(res, 400, 'No avatar found');
+    }
+
+    // Delete avatar file
+    const fileName = user.avatarUrl.split('/').pop();
+    const filePath = join(uploadsDir, fileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    // Update user
+    user.avatarUrl = null;
+    await user.save();
+
+    return sendSuccess(res, 200, 'Avatar deleted successfully', {
+      data: {
+        avatarUrl: null,
+      },
+    });
+  } catch (error) {
+    console.error('Avatar delete error:', error);
+    return sendError(res, 500, 'Failed to delete avatar');
+  }
+};
+
 router.get(['/profile', '/me'], verifyToken, getProfile);
 router.patch(['/profile', '/me'], verifyToken, updateMe);
+router.post('/profile/avatar', verifyToken, multerAvatar.single('avatar'), uploadAvatar);
+router.delete('/profile/avatar', verifyToken, deleteAvatar);
+router.post('/profile/resume', verifyToken, multerResume.single('resume'), uploadResume);
+router.delete('/profile/resume', verifyToken, deleteResume);
 router.post('/profile/skills', verifyToken, addSkill);
 router.delete('/profile/skills/:skillId', verifyToken, deleteSkill);
 router.patch('/profile/skills/:skillId', verifyToken, updateSkillLevel);

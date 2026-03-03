@@ -25,6 +25,8 @@ const normalizeOptionalJobId = (jobId) => {
   return jobId;
 };
 
+const EDIT_WINDOW_MS = 30 * 1000;
+
 const withMessagePopulate = (query) =>
   query
     .populate('sender', 'firstName lastName')
@@ -93,6 +95,13 @@ const MessageController = {
         content: trimmedContent,
       });
 
+      const conversationKey = `${receiverId}::${normalizedJobId || 'general'}`;
+      const reverseConversationKey = `${senderId}::${normalizedJobId || 'general'}`;
+      await Promise.all([
+        User.updateOne({ _id: senderId }, { $pull: { archivedConversations: conversationKey } }),
+        User.updateOne({ _id: receiverId }, { $pull: { archivedConversations: reverseConversationKey } }),
+      ]);
+
       const hydratedMessage = await withMessagePopulate(Message.findById(message._id));
       // Emit real-time event to the receiver (and optionally to the sender)
       try {
@@ -110,11 +119,64 @@ const MessageController = {
     }
   },
 
+  editMessage: async (req, res) => {
+    try {
+      const userId = getAuthUserId(req);
+      const { messageId } = req.params;
+      const { content } = req.body || {};
+      const trimmedContent = typeof content === 'string' ? content.trim() : '';
+
+      if (!userId) return sendError(res, 401, 'Authentication required.');
+      if (!messageId) return sendError(res, 400, 'messageId required');
+      if (!trimmedContent) return sendError(res, 400, 'Message content is required.');
+
+      const message = await Message.findById(messageId);
+      if (!message) return sendError(res, 404, 'Message not found.');
+
+      if (String(message.sender) !== String(userId)) {
+        return sendError(res, 403, 'You can only edit your own messages.');
+      }
+
+      const createdAtMs = new Date(message.createdAt).getTime();
+      const nowMs = Date.now();
+      if (Number.isNaN(createdAtMs) || nowMs - createdAtMs > EDIT_WINDOW_MS) {
+        return sendError(res, 400, 'Editing window expired. Messages can be edited within 30 seconds.');
+      }
+
+      message.content = trimmedContent;
+      message.isEdited = true;
+      message.editedAt = new Date();
+      await message.save();
+
+      const hydratedMessage = await withMessagePopulate(Message.findById(message._id));
+      const payload = hydratedMessage || message;
+
+      try {
+        const receiverId = toIdString(payload.receiver || message.receiver);
+        emitToUser(receiverId, 'message_edited', payload);
+        emitToUser(userId, 'message_edited', payload);
+      } catch (e) {
+        // ignore emit errors
+      }
+
+      return sendSuccess(res, 200, 'Message updated', payload, { data: payload });
+    } catch (error) {
+      return sendError(res, 500, 'Server error', { error: error.message });
+    }
+  },
+
   // Get all conversations for the logged-in user
   getConversations: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
       if (!userId) return sendError(res, 401, 'Authentication required.');
+
+      const currentUser = await User.findById(userId).select('archivedConversations');
+      const archivedSet = new Set(
+        Array.isArray(currentUser?.archivedConversations)
+          ? currentUser.archivedConversations.map((id) => String(id))
+          : []
+      );
 
       // Most recent first so the first hit per conversation key is the preview we need.
       const messages = await withMessagePopulate(
@@ -134,6 +196,7 @@ const MessageController = {
 
         const jobId = msg.job ? toIdString(msg.job) : null;
         const conversationId = `${otherUserId}::${jobId || 'general'}`;
+        if (archivedSet.has(conversationId)) return;
         if (conversationMap.has(conversationId)) return;
 
         conversationMap.set(conversationId, {
