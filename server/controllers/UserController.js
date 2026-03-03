@@ -2,8 +2,10 @@ import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 
 const otpStore = new Map();
+const passwordResetOtpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
 
 function getEmailTransporter() {
@@ -275,5 +277,102 @@ export async function verifyOtp(req, res) {
     } catch (error) {
         console.error("Verify OTP error:", error);
         return res.status(500).json({ message: "Failed to verify OTP." });
+    }
+}
+
+export async function requestPasswordResetOtp(req, res) {
+    try {
+        const { email } = req.body || {};
+        const normalizedEmail = String(email || "").toLowerCase().trim();
+
+        if (!normalizedEmail) {
+            return res.status(400).json({ message: "Email is required." });
+        }
+
+        const user = await User.findOne({ email: normalizedEmail });
+        if (!user) {
+            return res.status(404).json({ message: "Email is not registered or not found." });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        passwordResetOtpStore.set(normalizedEmail, {
+            code,
+            expiresAt: Date.now() + OTP_TTL_MS,
+        });
+
+        const transporter = getEmailTransporter();
+        if (!transporter) {
+            return res.status(500).json({ message: "Email service is not configured." });
+        }
+
+        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const displayName = user.firstName || "there";
+        const subject = "MicroJobs password reset code";
+        const text = `Hi ${displayName},\n\nUse this code to reset your MicroJobs password: ${code}\n\nThis code expires in 5 minutes. If you did not request this, you can ignore this message.`;
+        const html = `
+            <p>Hi ${displayName},</p>
+            <p>Use this code to reset your MicroJobs password:</p>
+            <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
+            <p>This code expires in 5 minutes.</p>
+            <p>If you did not request this, you can ignore this message.</p>
+        `;
+
+        await transporter.sendMail({
+            from: `MicroJobs <${fromAddress}>`,
+            to: normalizedEmail,
+            subject,
+            text,
+            html,
+        });
+
+        return res.status(200).json({ message: "Password reset OTP sent." });
+    } catch (error) {
+        console.error("Request password reset OTP error:", error);
+        const detail = error?.message ? ` ${error.message}` : "";
+        return res.status(500).json({ message: `Failed to send password reset OTP.${detail}`.trim() });
+    }
+}
+
+export async function resetPasswordWithOtp(req, res) {
+    try {
+        const { email, code, newPassword } = req.body || {};
+        const normalizedEmail = String(email || "").toLowerCase().trim();
+        const normalizedCode = String(code || "").trim();
+
+        if (!normalizedEmail || !normalizedCode || !newPassword) {
+            return res.status(400).json({ message: "Email, code, and new password are required." });
+        }
+
+        if (!isStrongPassword(newPassword)) {
+            return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+        }
+
+        const record = passwordResetOtpStore.get(normalizedEmail);
+        if (!record) {
+            return res.status(400).json({ message: "Reset code not found or expired." });
+        }
+
+        if (record.expiresAt < Date.now()) {
+            passwordResetOtpStore.delete(normalizedEmail);
+            return res.status(400).json({ message: "Reset code expired." });
+        }
+
+        if (record.code !== normalizedCode) {
+            return res.status(400).json({ message: "Invalid reset code." });
+        }
+
+        const user = await User.findOne({ email: normalizedEmail });
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        await user.setPassword(newPassword);
+        await user.save();
+        passwordResetOtpStore.delete(normalizedEmail);
+
+        return res.status(200).json({ message: "Password reset successful." });
+    } catch (error) {
+        console.error("Reset password with OTP error:", error);
+        return res.status(500).json({ message: "Failed to reset password." });
     }
 }

@@ -38,8 +38,13 @@ api.interceptors.response.use(
 // Jobs API
 export const jobsAPI = {
   // Get all jobs with optional filters
-  getJobs: (params?: { category?: string; jobType?: string; search?: string; excludeOwn?: boolean }) =>
-    api.get('/jobs', { params }),
+  getJobs: async (params?: { category?: string; jobType?: string; search?: string; excludeOwn?: boolean }) => {
+    const response = await api.get('/jobs', { params });
+    // Extract data from wrapped response: { data: { success, message, data: [...] } }
+    return {
+      data: Array.isArray(response.data) ? response.data : response.data?.data || []
+    };
+  },
 
   // Get job by ID
   getJobById: (jobId: string) => api.get(`/jobs/${jobId}`),
@@ -54,7 +59,12 @@ export const jobsAPI = {
   changeJobStatus: (jobId: string, status: string) => api.patch(`/jobs/${jobId}/status`, { status }),
 
   // Get jobs posted by logged-in employer
-  getMyJobs: () => api.get('/jobs/mine'),
+  getMyJobs: async () => {
+    const response = await api.get('/jobs/mine');
+    return {
+      data: Array.isArray(response.data) ? response.data : response.data?.data || []
+    };
+  },
 
   // Delete job
   deleteJob: (jobId: string) => api.delete(`/jobs/${jobId}`),
@@ -64,12 +74,20 @@ export const jobsAPI = {
     api.post(`/jobs/${jobId}/apply`, applicationData),
 
   // Get user applications
-  getUserApplications: (status?: string) =>
-    api.get('/applications', { params: { status } }),
+  getUserApplications: async (status?: string) => {
+    const response = await api.get('/applications', { params: { status } });
+    return {
+      data: Array.isArray(response.data) ? response.data : response.data?.data || []
+    };
+  },
 
   // Get applications for employer jobs
-  getEmployerApplications: (params?: { status?: string; jobId?: string; search?: string }) =>
-    api.get('/applications/employer', { params }),
+  getEmployerApplications: async (params?: { status?: string; jobId?: string; search?: string }) => {
+    const response = await api.get('/applications/employer', { params });
+    return {
+      data: Array.isArray(response.data) ? response.data : response.data?.data || []
+    };
+  },
 
   // Withdraw application
   withdrawApplication: (applicationId: string) =>
@@ -93,7 +111,12 @@ export const jobsAPI = {
 // Categories API
 export const categoriesAPI = {
   // Get all categories
-  getCategories: () => api.get('/categories'),
+  getCategories: async () => {
+    const response = await api.get('/categories');
+    return {
+      data: Array.isArray(response.data) ? response.data : response.data?.data || []
+    };
+  },
 
   // Create category
   createCategory: (name: string) => api.post('/categories', { name }),

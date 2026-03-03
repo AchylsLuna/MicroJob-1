@@ -128,6 +128,28 @@ const UserSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
+        skills: [
+            {
+                name: {
+                    type: String,
+                    trim: true,
+                    required: true,
+                },
+                level: {
+                    type: String,
+                    enum: ["Beginner", "Intermediate", "Advanced", "Expert"],
+                    default: "Intermediate",
+                },
+                endorsements: {
+                    type: Number,
+                    default: 0,
+                },
+                createdAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+            },
+        ],
         passwordHashed: {
             type: String,
             required: true,

@@ -25,7 +25,8 @@ import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmployerDashboard } from "../employer/EmployerDashboard";
-import { getUserApplications } from "../../services/api";
+import { getUserApplications, getProfile } from "../../services/api";
+import { jobsAPI } from "../../services/jobs";
 import { ROUTES } from "../../utils/routes";
 
 const vacancyData = [
@@ -39,56 +40,6 @@ const vacancyData = [
   { month: "Week 08", accepted: 27, interviews: 20, rejected: 6 },
   { month: "Week 09", accepted: 31, interviews: 24, rejected: 8 },
   { month: "Week 10", accepted: 36, interviews: 28, rejected: 9 },
-];
-
-const recentActivities = [
-  {
-    text: "Your application has been accepted for Senior Frontend Developer",
-    time: "1m ago",
-    type: "success",
-  },
-  { text: "Interview scheduled with Tech Corp on Friday at 2:00 PM", time: "15m ago", type: "info" },
-  { text: "New message from HR Manager at Innovation Labs", time: "1h ago", type: "message" },
-  { text: "Application viewed by Google Inc.", time: "2h ago", type: "view" },
-];
-
-const recommendedJobs = [
-  {
-    id: "rj-1",
-    title: "Senior React Developer",
-    company: "Tech Solutions Inc.",
-    salary: "₱80,000 - ₱120,000",
-    location: "Manila, PH",
-    type: "Remote",
-    posted: "2 days ago",
-    logo: "TS",
-  },
-  {
-    id: "rj-2",
-    title: "Full Stack Developer",
-    company: "Innovation Labs",
-    salary: "₱70,000 - ₱100,000",
-    location: "Cebu, PH",
-    type: "Hybrid",
-    posted: "5 days ago",
-    logo: "IL",
-  },
-  {
-    id: "rj-3",
-    title: "Mobile Developer",
-    company: "Digital Ventures",
-    salary: "₱75,000 - ₱110,000",
-    location: "Makati, PH",
-    type: "On-site",
-    posted: "1 week ago",
-    logo: "DV",
-  },
-];
-
-const skillCards = [
-  { id: "react", label: "React", short: "R", bg: "from-[#EEF2FF]", border: "border-[#E0E7FF]", chip: "bg-[#4F46E5]" },
-  { id: "node", label: "Node.js", short: "N", bg: "from-[#D1FAE5]", border: "border-[#A7F3D0]", chip: "bg-[#10B981]" },
-  { id: "ts", label: "TypeScript", short: "TS", bg: "from-[#FEF3C7]", border: "border-[#FDE68A]", chip: "bg-[#F59E0B]" },
 ];
 
 interface StatCardProps {
@@ -136,32 +87,151 @@ export function Dashboard() {
   const [applicationCount, setApplicationCount] = useState(0);
   const [interviewCount, setInterviewCount] = useState(0);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState<"accepted" | "interviews" | "rejected">("accepted");
   const [selectedPeriod, setSelectedPeriod] = useState("This Month");
+  const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
+  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [profileCompletion, setProfileCompletion] = useState(0);
+  const [isProfileVerified, setIsProfileVerified] = useState(false);
   const latestVacancy = vacancyData[vacancyData.length - 1];
 
+  // Fetch profile data
   useEffect(() => {
     let isMounted = true;
+    const loadProfile = async () => {
+      setProfileLoading(true);
+      try {
+        console.log("Dashboard: Fetching profile...");
+        const profile = await getProfile();
+        if (!isMounted) return;
+        
+        // Calculate profile completion
+        const hasPersonal = Boolean(
+          profile?.firstName?.trim() &&
+          profile?.lastName?.trim() &&
+          profile?.city?.trim() &&
+          profile?.province?.trim() &&
+          profile?.address?.trim() &&
+          profile?.phoneNumber?.trim() &&
+          profile?.email?.trim() &&
+          profile?.facebook?.trim()
+        );
+        const hasPhoto = Boolean(profile?.profilePhotoName);
+        const hasExperience = Boolean(
+          profile?.jobPosition?.trim() &&
+          profile?.companyName?.trim() &&
+          profile?.startDate?.trim() &&
+          profile?.endDate?.trim()
+        );
+        const hasResume = Boolean(profile?.resumeFileName);
+
+        const total = 4;
+        const completed = [hasPersonal, hasPhoto, hasExperience, hasResume].filter(Boolean).length;
+        const completionPercent = Math.round((completed / total) * 100);
+        
+        setProfileCompletion(completionPercent);
+        setIsProfileVerified(completed === total);
+      } catch (error: any) {
+        if (!isMounted) return;
+        console.error("Failed to load profile:", error);
+        setProfileCompletion(0);
+        setIsProfileVerified(false);
+      } finally {
+        if (isMounted) setProfileLoading(false);
+      }
+    };
+
+    loadProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch jobs and applications
+  useEffect(() => {
+    let isMounted = true;
+    
     const loadStats = async () => {
       setIsStatsLoading(true);
       try {
-        const applications = await getUserApplications();
+        console.log("Dashboard: Fetching applications...");
+        const applicationsResponse = await getUserApplications();
         if (!isMounted) return;
-        const total = Array.isArray(applications) ? applications.length : 0;
-        const interviews = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Reviewed").length
-          : 0;
+        
+        const applications = Array.isArray(applicationsResponse) ? applicationsResponse : (applicationsResponse as any)?.data || [];
+        const total = applications.length;
+        const interviews = applications.filter((app: any) => app.status === "Reviewed" || app.status === "Shortlisted").length;
+        
         setApplicationCount(total);
         setInterviewCount(interviews);
+
+        // Build recent activities from applications
+        const activities = applications.slice(0, 4).map((app: any) => {
+          const status = app.status || "Pending";
+          const statusMap: Record<string, { text: string; type: string }> = {
+            "Pending": { text: "Application submitted", type: "info" },
+            "Reviewed": { text: "Application reviewed", type: "info" },
+            "Shortlisted": { text: "Application shortlisted", type: "success" },
+            "Terms": { text: "Offered position", type: "success" },
+            "Hired": { text: "Application accepted", type: "success" },
+            "Rejected": { text: "Application rejected", type: "view" },
+          };
+          const statusInfo = statusMap[status] || { text: "Application updated", type: "info" };
+          return {
+            text: `${statusInfo.text} for ${app.job?.title || "a job"}`,
+            time: app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "Just now",
+            type: statusInfo.type,
+            activity: app,
+          };
+        });
+        setRecentActivities(activities);
       } catch (error: any) {
         if (!isMounted) return;
+        console.error("Failed to load applications:", error);
         toast.error(error?.message || "Failed to load dashboard stats.");
       } finally {
         if (isMounted) setIsStatsLoading(false);
       }
     };
 
+    const loadJobs = async () => {
+      setJobsLoading(true);
+      try {
+        console.log("Dashboard: Fetching recommended jobs...");
+        const jobsResponse = await jobsAPI.getJobs({ excludeOwn: true });
+        if (!isMounted) return;
+        
+        const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data?.data || [];
+        console.log("Dashboard: Jobs loaded:", jobs.length);
+        
+        // Transform jobs for display
+        const transformedJobs = jobs.slice(0, 3).map((job: any) => ({
+          id: job._id,
+          title: job.title,
+          company: job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ""}` : "Company",
+          salary: job.salary ? `₱${job.salary}` : "Negotiable",
+          location: job.location || "Remote",
+          type: job.jobType || "Full-time",
+          posted: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "Recently",
+          logo: (job.title && job.title[0]) || "J",
+        }));
+        
+        setRecommendedJobs(transformedJobs);
+      } catch (error: any) {
+        if (!isMounted) return;
+        console.error("Failed to load jobs:", error);
+        toast.error(error?.message || "Failed to load recommended jobs.");
+        setRecommendedJobs([]);
+      } finally {
+        if (isMounted) setJobsLoading(false);
+      }
+    };
+
     loadStats();
+    loadJobs();
+    
     return () => {
       isMounted = false;
     };
@@ -254,7 +324,7 @@ export function Dashboard() {
                   stroke="url(#profileProgressGradient)"
                   strokeWidth="8"
                   fill="none"
-                  strokeDasharray="339.292"
+                  strokeDasharray={`${(profileCompletion / 100) * 339.292} ${339.292}`}
                   strokeDashoffset="0"
                   strokeLinecap="round"
                 />
@@ -267,43 +337,23 @@ export function Dashboard() {
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <p className="text-[40px] font-bold leading-none text-[#4F46E5]">100</p>
+                  <p className="text-[40px] font-bold leading-none text-[#4F46E5]">{profileLoading ? 0 : profileCompletion}</p>
                   <p className="mt-1 text-[16px] text-[#6B7280]">%</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center justify-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-[#10B981]" />
-              <p className="text-[18px] font-semibold text-[#111827]">Profile Verified</p>
+              {isProfileVerified && <CheckCircle2 className="h-5 w-5 text-[#10B981]" />}
+              <p className="text-[18px] font-semibold text-[#111827]">{isProfileVerified ? "Profile Verified" : "Profile Incomplete"}</p>
             </div>
-            <p className="mt-2 text-[13px] text-[#6B7280]">All requirements completed</p>
+            <p className="mt-2 text-[13px] text-[#6B7280]">{isProfileVerified ? "All requirements completed" : "Complete your profile to increase visibility"}</p>
             <button
               type="button"
-              onClick={() => navigate(`?tab=verification`)}
+              onClick={() => navigate(ROUTES.worker.profile)}
               className="mt-4 text-[13px] font-semibold text-[#4F46E5] hover:text-[#4338CA]"
             >
-              View verification steps
+              {isProfileVerified ? "View profile" : "Complete profile"}
             </button>
-          </div>
-
-          <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[18px] font-semibold text-[#111827]">Tech Stack</h3>
-              <span className="rounded-full bg-[#F1F5F9] px-2.5 py-1 text-[12px] text-[#475569]">3 Skills</span>
-            </div>
-            <div className="space-y-3">
-              {skillCards.map((skill) => (
-                <div
-                  key={skill.id}
-                  className={`flex items-center gap-3 rounded-[12px] border ${skill.border} bg-gradient-to-r ${skill.bg} to-transparent p-3`}
-                >
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${skill.chip}`}>
-                    <span className="text-[12px] font-bold text-white">{skill.short}</span>
-                  </div>
-                  <span className="text-[14px] font-medium text-[#111827]">{skill.label}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
           <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
@@ -456,8 +506,23 @@ export function Dashboard() {
                 <ArrowUpRight className="h-4 w-4" />
               </button>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {recommendedJobs.map((job) => (
+            {jobsLoading ? (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="rounded-[14px] border border-[#E5E7EB] bg-white p-4 animate-pulse">
+                    <div className="mb-3 h-10 w-10 rounded-[10px] bg-[#E5E7EB]" />
+                    <div className="h-5 w-3/4 rounded bg-[#E5E7EB]" />
+                    <div className="mt-2 h-4 w-1/2 rounded bg-[#E5E7EB]" />
+                  </div>
+                ))}
+              </div>
+            ) : recommendedJobs.length === 0 ? (
+              <div className="rounded-[14px] border border-[#E5E7EB] bg-[#F8FAFC] p-6 text-center">
+                <p className="text-[14px] text-[#6B7280]">No jobs available at the moment. Check back later!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {recommendedJobs.map((job) => (
                 <button
                   key={job.id}
                   type="button"
@@ -498,7 +563,8 @@ export function Dashboard() {
                   </div>
                 </button>
               ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

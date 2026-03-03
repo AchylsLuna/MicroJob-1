@@ -41,7 +41,12 @@ export function ForgotPassword() {
       await requestPasswordReset(email);
       setEmailSent(true);
     } catch (error: any) {
-      toast.error(error.message || "Failed to send reset link");
+      const message = String(error?.message || "Failed to send reset link");
+      if (/not registered|not found|user not found/i.test(message)) {
+        toast.error("Email is not registered or not found.");
+      } else {
+        toast.error(message);
+      }
     } finally {
       setIsLoading(false);
     }

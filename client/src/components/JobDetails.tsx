@@ -1,4 +1,4 @@
-import { ArrowLeft, MapPin, Briefcase, DollarSign, Clock, Building2, Users, Calendar, Share2, Bookmark, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MapPin, Briefcase, DollarSign, Clock, Building2, Users, Calendar, Share2, Bookmark, CheckCircle2, MessageCircle } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -17,7 +17,7 @@ type ApiJob = {
   requirements?: string[];
   skills?: string[];
   applicants?: string[];
-  jobPoster?: { firstName?: string; lastName?: string; email?: string };
+  jobPoster?: { _id?: string; firstName?: string; lastName?: string; email?: string };
 };
 
 export function JobDetails() {
@@ -89,6 +89,34 @@ export function JobDetails() {
 
   const handleShare = () => {
     toast.success("Job link copied to clipboard!");
+  };
+
+  const handleMessageEmployer = async () => {
+    if (!job?._id) {
+      toast.error("Job information not available");
+      return;
+    }
+    
+    const employerId = typeof job.jobPoster === 'object' && job.jobPoster?._id 
+      ? job.jobPoster._id 
+      : null;
+    
+    if (!employerId) {
+      toast.error("Employer information not available");
+      return;
+    }
+
+    const employerName = `${job.jobPoster?.firstName || ""} ${job.jobPoster?.lastName || ""}`.trim() || "Employer";
+
+    const initialMessage = `Hi ${employerName}, I'm interested in the ${job.title} position. I would like to discuss this opportunity further.`;
+    const params = new URLSearchParams({
+      contact: `${employerId}::${job._id}`,
+      startUser: employerId,
+      jobId: job._id,
+      startName: employerName,
+      draft: initialMessage,
+    });
+    navigate(`/worker/messages?${params.toString()}`);
   };
 
   const handleCompanyProfile = () => {
@@ -201,6 +229,13 @@ export function JobDetails() {
                   Apply Now
                 </button>
               )}
+              <button
+                onClick={handleMessageEmployer}
+                className="p-4 rounded-[12px] transition-all bg-gradient-to-br from-[#10B981] to-[#059669] text-white hover:shadow-lg"
+                title="Message employer"
+              >
+                <MessageCircle className="w-6 h-6" />
+              </button>
               <button
                 onClick={handleSave}
                 className={`p-4 rounded-[12px] transition-all ${

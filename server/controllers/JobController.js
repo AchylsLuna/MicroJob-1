@@ -50,7 +50,7 @@ export async function getJobList(req, res) {
         
         const jobs = await Job.find(filter)
             .populate('category', 'name')
-            .populate('jobPoster', 'firstName lastName email')
+            .populate('jobPoster', '_id firstName lastName email')
             .sort({ createdAt: -1 });
         res.status(200).json(jobs);
     } catch (error) {
@@ -83,7 +83,7 @@ export async function getJobByCategory(req, res) {
 export async function getJobDetails(req, res){
     try {
         const {id} = req.params;
-        const job = await Job.findById(id).populate('category', 'name').populate('jobPoster', 'firstName lastName email');
+        const job = await Job.findById(id).populate('category', 'name').populate('jobPoster', '_id firstName lastName email');
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }

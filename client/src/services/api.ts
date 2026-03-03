@@ -98,6 +98,14 @@ export function logoutUser() {
   return request('/auth/logout', { method: 'POST' });
 }
 
+export function requestPasswordResetOtp(payload: { email: string }) {
+  return request<{ message: string }>('/auth/password-reset/request', { method: 'POST', body: payload });
+}
+
+export function resetPasswordWithOtp(payload: { email: string; code: string; newPassword: string }) {
+  return request<{ message: string }>('/auth/password-reset/confirm', { method: 'POST', body: payload });
+}
+
 // Category APIs
 export function getCategories() {
   return request<any[]>('/categories', { method: 'GET' });
@@ -273,4 +281,45 @@ export function getPaymentTransactions() {
 
 export function getPaymentAudit() {
   return request<{ transactions: PaymentTransaction[] }>('/payment/audit', { method: 'GET' });
+}
+
+// Message APIs
+export function sendMessage(payload: { receiverId: string; content: string; jobId?: string }) {
+  return request<any>('/messages/send', { method: 'POST', body: payload });
+}
+
+export function getConversations() {
+  return request<any[]>('/messages/conversations', { method: 'GET' });
+}
+
+export function getConversationWithUser(otherUserId: string, jobId?: string) {
+  return request<any[]>(`/messages/conversation/${otherUserId}${buildQuery(jobId ? { jobId } : undefined)}`, { method: 'GET' });
+}
+
+export function blockUser(otherUserId: string) {
+  return request<any>('/messages/block', { method: 'POST', body: { otherUserId } });
+}
+
+export function unblockUser(otherUserId: string) {
+  return request<any>('/messages/unblock', { method: 'POST', body: { otherUserId } });
+}
+
+export function archiveConversation(otherUserId: string, jobId?: string, archive: boolean = true) {
+  return request<any>('/messages/archive', { method: 'POST', body: { otherUserId, jobId: jobId || null, archive } });
+}
+
+export function deleteConversation(otherUserId: string, jobId?: string) {
+  return request<any>('/messages/conversation', { method: 'DELETE', body: { otherUserId, jobId: jobId || null } });
+}
+
+export function getBlockedUsers() {
+  return request<any[]>('/messages/blocked', { method: 'GET' });
+}
+
+export function getArchivedConversations() {
+  return request<any[]>('/messages/archived', { method: 'GET' });
+}
+
+export function markMessagesAsRead(otherUserId: string, jobId?: string) {
+  return request<any>('/messages/read', { method: 'PATCH', body: { otherUserId, jobId: jobId || null, read: true } });
 }

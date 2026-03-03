@@ -6,16 +6,18 @@ import { useAuth } from "../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
+import { OTPVerification } from "./OTPVerification";
 
 export function SignIn() {
   const navigate = useNavigate();
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, user, pendingVerification } = useAuth();
   const dashboardPath = getDefaultDashboardPath(user);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showOTP, setShowOTP] = useState(false);
 
   if (!isLoading && isAuthenticated && user?.role) {
     return <Navigate to={dashboardPath} replace />;
@@ -23,7 +25,7 @@ export function SignIn() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
       toast.error("Please fill in all fields");
       return;
@@ -31,11 +33,9 @@ export function SignIn() {
 
     setIsLoading(true);
     try {
-      await login(email, password, { suppressToast: true });
-      const stored =
-        localStorage.getItem("auth_user") || localStorage.getItem("current_user");
-      const storedUser = stored ? JSON.parse(stored) : null;
-      toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
+      await login(email, password, { suppressToast: true, requireOtp: true });
+      setShowOTP(true);
+      toast.success("OTP sent to your email. Please verify to continue.");
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {
@@ -228,6 +228,13 @@ export function SignIn() {
           </div>
         </div>
       </div>
+
+      {showOTP && pendingVerification?.email && (
+        <OTPVerification
+          email={pendingVerification.email}
+          onClose={() => setShowOTP(false)}
+        />
+      )}
     </div>
   );
 }

@@ -8,7 +8,13 @@ import csrfProtection from '../middleware/csrf.js';
 import Session from '../models/Session.js';
 import User from '../models/User.js';
 import verifyToken from '../middleware/auth.js';
-import { sendOtp, verifyOtp, updateMe } from '../controllers/UserController.js';
+import {
+  sendOtp,
+  verifyOtp,
+  updateMe,
+  requestPasswordResetOtp,
+  resetPasswordWithOtp,
+} from '../controllers/UserController.js';
 import {
   isValidPhone,
   normalizeEmail,
@@ -278,6 +284,8 @@ router.post('/register', async (req, res) => {
 
 router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
+router.post('/password-reset/request', requestPasswordResetOtp);
+router.post('/password-reset/confirm', resetPasswordWithOtp);
 
 // Login an existing user (supports email/username and phone)
 // Apply a login rate limiter to mitigate brute-force attacks
@@ -717,7 +725,117 @@ const getProfile = async (req, res) => {
   }
 };
 
+const addSkill = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { name, level } = req.body || {};
+
+    if (!name || !name.trim()) {
+      return sendError(res, 400, 'Skill name is required');
+    }
+
+    const validLevels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+    const skillLevel = level && validLevels.includes(level) ? level : 'Intermediate';
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    // Check if skill already exists
+    const existingSkill = user.skills?.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    if (existingSkill) {
+      return sendError(res, 400, 'Skill already exists');
+    }
+
+    const newSkill = {
+      name: name.trim(),
+      level: skillLevel,
+      endorsements: 0,
+      createdAt: new Date(),
+    };
+
+    if (!user.skills) {
+      user.skills = [];
+    }
+    user.skills.push(newSkill);
+    await user.save();
+
+    return sendSuccess(res, 201, 'Skill added successfully', { skills: user.skills });
+  } catch (error) {
+    console.error('Add skill error:', error);
+    return sendError(res, 500, 'Failed to add skill');
+  }
+};
+
+const deleteSkill = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { skillId } = req.params;
+
+    if (!skillId) {
+      return sendError(res, 400, 'Skill ID is required');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    const skillIndex = user.skills?.findIndex((s) => s._id?.toString() === skillId);
+    if (skillIndex === undefined || skillIndex === -1) {
+      return sendError(res, 404, 'Skill not found');
+    }
+
+    user.skills.splice(skillIndex, 1);
+    await user.save();
+
+    return sendSuccess(res, 200, 'Skill deleted successfully', { skills: user.skills });
+  } catch (error) {
+    console.error('Delete skill error:', error);
+    return sendError(res, 500, 'Failed to delete skill');
+  }
+};
+
+const updateSkillLevel = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    const { skillId } = req.params;
+    const { level } = req.body || {};
+
+    if (!skillId) {
+      return sendError(res, 400, 'Skill ID is required');
+    }
+
+    const validLevels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+    if (!level || !validLevels.includes(level)) {
+      return sendError(res, 400, 'Invalid proficiency level');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found');
+    }
+
+    const skill = user.skills?.find((s) => s._id?.toString() === skillId);
+    if (!skill) {
+      return sendError(res, 404, 'Skill not found');
+    }
+
+    skill.level = level;
+    await user.save();
+
+    return sendSuccess(res, 200, 'Skill level updated successfully', { skills: user.skills });
+  } catch (error) {
+    console.error('Update skill level error:', error);
+    return sendError(res, 500, 'Failed to update skill level');
+  }
+};
+
 router.get(['/profile', '/me'], verifyToken, getProfile);
 router.patch(['/profile', '/me'], verifyToken, updateMe);
+router.post('/profile/skills', verifyToken, addSkill);
+router.delete('/profile/skills/:skillId', verifyToken, deleteSkill);
+router.patch('/profile/skills/:skillId', verifyToken, updateSkillLevel);
 
 export default router;

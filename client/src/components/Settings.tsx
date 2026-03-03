@@ -81,14 +81,11 @@ const verificationStatusLabels: Record<VerificationStatus, string> = {
   pending: "Pending",
 };
 
-interface Experience {
+interface SkillItem {
   id: string;
-  position: string;
-  company: string;
-  startDate: string;
-  endDate: string;
-  current: boolean;
-  description: string;
+  name: string;
+  level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
+  endorsements?: number;
 }
 
 interface PaymentMethod {
@@ -142,27 +139,10 @@ export function Settings() {
     photo: null as File | null,
   });
 
-  const [experiences, setExperiences] = useState<Experience[]>([
-    {
-      id: "1",
-      position: "Senior Frontend Developer",
-      company: "Tech Solutions Inc.",
-      startDate: "2022-01",
-      endDate: "2024-01",
-      current: false,
-      description: "Led development of React-based applications",
-    },
-  ]);
+  const [skills, setSkills] = useState<SkillItem[]>([]);
 
-  const [newExperience, setNewExperience] = useState({
-    position: "",
-    company: "",
-    startDate: "",
-    endDate: "",
-    current: false,
-    description: "",
-  });
-  const [experienceLogo, setExperienceLogo] = useState<File | null>(null);
+  const [newSkillName, setNewSkillName] = useState("");
+  const [newSkillLevel, setNewSkillLevel] = useState<"Beginner" | "Intermediate" | "Advanced" | "Expert">("Intermediate");
 
   const [securityData, setSecurityData] = useState({
     currentPassword: "",
@@ -266,6 +246,13 @@ export function Settings() {
       country: user.country || prev.country,
       linkedin: user.linkedin || prev.linkedin,
     }));
+    if (user.skills && Array.isArray(user.skills)) {
+      const mappedSkills = user.skills.map((skill: any) => ({
+        ...skill,
+        id: skill.id || skill._id || '',
+      })) as SkillItem[];
+      setSkills(mappedSkills);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -286,6 +273,13 @@ export function Settings() {
           country: profile.country || prev.country,
           linkedin: profile.linkedin || prev.linkedin,
         }));
+        if (profile.skills && Array.isArray(profile.skills)) {
+          const mappedSkills = profile.skills.map((skill: any) => ({
+            ...skill,
+            id: skill.id || skill._id || '',
+          })) as SkillItem[];
+          setSkills(mappedSkills);
+        }
         updateAuthProfile({
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -339,40 +333,48 @@ export function Settings() {
     }
   };
 
-  const handleAddExperience = () => {
-    if (!newExperience.position || !newExperience.company || !newExperience.startDate) {
-      toast.error("Please fill in all required fields");
+  const handleAddSkill = async () => {
+    if (!newSkillName.trim()) {
+      toast.error("Please enter a skill name");
       return;
     }
-
-    const experience: Experience = {
-      id: Date.now().toString(),
-      ...newExperience,
-    };
-
-    setExperiences([...experiences, experience]);
-    setNewExperience({
-      position: "",
-      company: "",
-      startDate: "",
-      endDate: "",
-      current: false,
-      description: "",
-    });
-    setExperienceLogo(null);
-    toast.success("Experience added successfully!");
+    try {
+      const response = await fetch("/api/auth/profile/skills", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({
+          name: newSkillName,
+          level: newSkillLevel,
+        }),
+      });
+      if (!response.ok) throw new Error("Failed to add skill");
+      const data = await response.json();
+      setSkills(data.data?.skills || []);
+      setNewSkillName("");
+      setNewSkillLevel("Intermediate");
+      toast.success(`${newSkillName} added to your skills!`);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to add skill");
+    }
   };
 
-  const handleDeleteExperience = (id: string) => {
-    setExperiences(experiences.filter((exp) => exp.id !== id));
-    toast.success("Experience deleted");
-  };
-
-  const handleExperienceLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setExperienceLogo(file);
-      toast.success("Logo uploaded successfully!");
+  const handleDeleteSkill = async (id: string) => {
+    try {
+      const response = await fetch(`/api/auth/profile/skills/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to delete skill");
+      const data = await response.json();
+      setSkills(data.data?.skills || []);
+      toast.success("Skill removed successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to remove skill");
     }
   };
 
@@ -645,102 +647,90 @@ export function Settings() {
                   {accountTab === "experience" && (
                     <div className="space-y-6">
                       <div>
-                        <h2 className="text-[18px] font-semibold text-[#111827]">Experience</h2>
+                        <h2 className="text-[18px] font-semibold text-[#111827]">Skills & Experience</h2>
+                        <p className="text-[13px] text-[#6B7280]">Add and manage your skills and expertise.</p>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Job position</label>
-                          <input
-                            type="text"
-                            value={newExperience.position}
-                            onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })}
-                            placeholder="Job position"
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Company name</label>
-                          <input
-                            type="text"
-                            value={newExperience.company}
-                            onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })}
-                            placeholder="Company name"
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Start date</label>
-                          <input
-                            type="month"
-                            value={newExperience.startDate}
-                            onChange={(e) => setNewExperience({ ...newExperience, startDate: e.target.value })}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">End date</label>
-                          <input
-                            type="month"
-                            value={newExperience.endDate}
-                            onChange={(e) => setNewExperience({ ...newExperience, endDate: e.target.value })}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <label className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] border border-[#C7D2FE] text-[#1D4ED8] text-[13px] font-semibold cursor-pointer hover:bg-[#EEF2FF] transition-colors">
-                            <Upload className="w-4 h-4" />
-                            Upload your logo
+                      <div className="bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#bfdbfe] rounded-[16px] p-6">
+                        <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">Add New Skill</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Skill Name</label>
                             <input
-                              type="file"
-                              accept="image/*"
-                              onChange={handleExperienceLogoUpload}
-                              className="hidden"
+                              type="text"
+                              value={newSkillName}
+                              onChange={(e) => setNewSkillName(e.target.value)}
+                              placeholder="e.g., React, Project Management, Communication"
+                              className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
                             />
-                          </label>
-                          <span className="text-[12px] text-[#94A3B8]">(jpg/png format/optional)</span>
-                          {experienceLogo && (
-                            <span className="text-[12px] text-[#64748B]">{experienceLogo.name}</span>
-                          )}
+                          </div>
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Proficiency Level</label>
+                            <select
+                              value={newSkillLevel}
+                              onChange={(e) => setNewSkillLevel(e.target.value as any)}
+                              className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            >
+                              <option value="Beginner">Beginner</option>
+                              <option value="Intermediate">Intermediate</option>
+                              <option value="Advanced">Advanced</option>
+                              <option value="Expert">Expert</option>
+                            </select>
+                          </div>
+                          <button
+                            onClick={handleAddSkill}
+                            className="w-full bg-[#2563EB] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:bg-[#1D4ED8] transition-all"
+                          >
+                            Add Skill
+                          </button>
                         </div>
-                        <button
-                          onClick={handleAddExperience}
-                          className="bg-[#3B82F6] text-white font-semibold px-6 py-2.5 rounded-[10px] hover:bg-[#2563EB] transition-all"
-                        >
-                          Add Experience
-                        </button>
                       </div>
 
-                      {experiences.length > 0 && (
-                        <div className="pt-6 border-t border-[#E5E7EB]">
-                          <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Saved experience</h3>
-                          <div className="space-y-3">
-                            {experiences.map((exp) => (
+                      {skills.length > 0 ? (
+                        <div>
+                          <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Your Skills</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {skills.map((skill) => (
                               <div
-                                key={exp.id}
-                                className="flex items-center justify-between bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-4 py-3"
+                                key={skill.id}
+                                className="bg-white border border-[#E5E7EB] rounded-[10px] p-4 flex items-start justify-between hover:shadow-md transition-all"
                               >
-                                <div>
-                                  <p className="text-[14px] font-semibold text-[#111827]">{exp.position}</p>
-                                  <p className="text-[12px] text-[#64748B]">
-                                    {exp.company} • {exp.startDate} - {exp.current ? "Present" : exp.endDate || "Present"}
-                                  </p>
+                                <div className="flex-1">
+                                  <p className="text-[14px] font-semibold text-[#111827]">{skill.name}</p>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <span
+                                      className={`px-3 py-1 rounded-[6px] text-[12px] font-semibold ${
+                                        skill.level === "Expert"
+                                          ? "bg-[#dbeafe] text-[#0c4a6e]"
+                                          : skill.level === "Advanced"
+                                          ? "bg-[#dcfce7] text-[#065f46]"
+                                          : skill.level === "Intermediate"
+                                          ? "bg-[#fef3c7] text-[#92400e]"
+                                          : "bg-[#f3f4f6] text-[#4b5563]"
+                                      }`}
+                                    >
+                                      {skill.level}
+                                    </span>
+                                    {skill.endorsements ? (
+                                      <span className="text-[12px] text-[#64748B]">{skill.endorsements} endorsements</span>
+                                    ) : null}
+                                  </div>
                                 </div>
                                 <button
-                                  onClick={() => handleDeleteExperience(exp.id)}
-                                  className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px] transition-colors"
+                                  onClick={() => handleDeleteSkill(skill.id)}
+                                  className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px] transition-colors flex-shrink-0"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
                               </div>
                             ))}
                           </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-12 bg-[#f8fafc] rounded-[16px] border border-[#E5E7EB]">
+                          <p className="text-[14px] text-[#64748B] mb-2">No skills added yet</p>
+                          <p className="text-[12px] text-[#94A3B8]">Add your skills above to showcase your expertise</p>
                         </div>
                       )}
                     </div>

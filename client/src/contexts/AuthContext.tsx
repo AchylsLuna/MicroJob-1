@@ -1,6 +1,14 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { toast } from "../lib/toast";
-import { loginUser, registerUser, sendOtp, verifyOtp, logoutUser } from "../services/api";
+import {
+  loginUser,
+  registerUser,
+  sendOtp,
+  verifyOtp,
+  logoutUser,
+  requestPasswordResetOtp,
+  resetPasswordWithOtp,
+} from "../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import {
   EMAIL_VALIDATION_MESSAGE,
@@ -34,14 +42,21 @@ interface User {
   createdAt?: string;
   user_type?: string;
   userType?: string;
+  skills?: Array<{
+    _id?: string;
+    id?: string;
+    name: string;
+    level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
+    endorsements?: number;
+    createdAt?: string;
+  }>;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  devOtpCode: string | null;
-  login: (email: string, password: string, options?: { suppressToast?: boolean }) => Promise<void>;
+  login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean }) => Promise<void>;
   register: (
     email: string,
     password: string,
@@ -160,6 +175,19 @@ const splitName = (fullName: string) => {
   return { firstName, lastName };
 };
 
+const getAuthPayload = (response: any) => {
+  const container = response?.data && typeof response.data === "object" ? response.data : response;
+  return {
+    user: container?.user ?? response?.user ?? null,
+    token: container?.token ?? response?.token ?? null,
+  };
+};
+
+const getUserId = (apiUser: any): string => {
+  if (!apiUser) return "";
+  return String(apiUser.id || apiUser._id || apiUser.userId || "");
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -274,14 +302,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const otpResponse = await sendOtp({ email: normalizedEmail });
-      setDevOtpCode(otpResponse?.code ?? null);
       toast.success("OTP sent to your email!");
     } catch (error: any) {
       setPendingVerification(null);
       localStorage.removeItem("pending_account_preference");
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
-      setDevOtpCode(null);
       setIsLoading(false);
       throw new Error(error?.message || "Registration failed");
     }
@@ -303,19 +329,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    const accountPreference = (localStorage.getItem("pending_account_preference") ?? "worker") as
-      | "employer"
-      | "worker"
-      | "both";
+    const storedPreference = localStorage.getItem("pending_account_preference");
+    const accountPreference: "employer" | "worker" | "both" | undefined =
+      storedPreference === "employer" || storedPreference === "worker" || storedPreference === "both"
+        ? storedPreference
+        : undefined;
 
     try {
       const response = await verifyOtp({ email: verificationEmail, code: otp });
-      const apiUser = response.user;
+      const { user: apiUser, token } = getAuthPayload(response);
+      if (!apiUser) {
+        throw new Error("Invalid verification response from server.");
+      }
       const role = normalizeRole(getRoleCandidate(apiUser));
       const { accountType, accountOptions } = normalizeAccount(role, accountPreference);
 
+      const apiUserId = getUserId(apiUser);
+      if (!apiUserId) {
+        throw new Error("Invalid user id in verification response.");
+      }
+
       const newUser: User = {
-        id: apiUser.id,
+        id: apiUserId,
         email: apiUser.email,
         firstName: apiUser.firstName || splitName(verificationName).firstName,
         lastName: apiUser.lastName || splitName(verificationName).lastName,
@@ -334,9 +369,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newUser);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
-      if (response.token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, response.token);
-        localStorage.setItem(LEGACY_TOKEN_KEY, response.token);
+      if (token) {
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
+        localStorage.setItem(LEGACY_TOKEN_KEY, token);
       }
       window.dispatchEvent(new Event("auth_user_updated"));
 
@@ -347,7 +382,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setDevOtpCode(null);
 
       setIsLoading(false);
-      toast.success("Registration successful!");
+      toast.success("Verification successful!");
       return true;
     } catch (error: any) {
       setIsLoading(false);
@@ -367,25 +402,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const otpResponse = await sendOtp({ email: verificationEmail });
-      setDevOtpCode(otpResponse?.code ?? null);
       toast.success("New OTP sent!");
     } catch (error: any) {
       toast.error(error?.message || "Failed to resend OTP");
     }
   };
 
-  const login = async (email: string, password: string, options?: { suppressToast?: boolean }) => {
+  const login = async (
+    email: string,
+    password: string,
+    options?: { suppressToast?: boolean; requireOtp?: boolean }
+  ) => {
     setIsLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
       const response = await loginUser({ emailOrUsername: normalizedEmail, password });
-      const apiUser = response.user;
+      const { user: apiUser, token } = getAuthPayload(response);
+      if (!apiUser) {
+        throw new Error("Invalid login response from server.");
+      }
       const role = normalizeRole(getRoleCandidate(apiUser));
       const { accountType, accountOptions } = normalizeAccount(role);
 
+      const apiUserId = getUserId(apiUser);
+      if (!apiUserId) {
+        throw new Error("Invalid user id in login response.");
+      }
+
       const loggedInUser: User = {
-        id: apiUser.id,
+        id: apiUserId,
         email: apiUser.email,
         firstName: apiUser.firstName || "User",
         lastName: apiUser.lastName || "User",
@@ -401,12 +447,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
+      if (options?.requireOtp) {
+        const verificationEmail = String(apiUser.email || normalizedEmail).toLowerCase().trim();
+        const verificationName = `${apiUser.firstName || ""} ${apiUser.lastName || ""}`.trim() || "User";
+
+        const otpResponse = await sendOtp({ email: verificationEmail });
+        setPendingVerification({ email: verificationEmail, name: verificationName });
+        localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, verificationEmail);
+        localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, verificationName);
+
+        setIsLoading(false);
+        if (!options?.suppressToast) {
+          toast.success("OTP sent to your email!");
+        }
+        return;
+      }
+
       setUser(loggedInUser);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedInUser));
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(loggedInUser));
-      if (response.token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, response.token);
-        localStorage.setItem(LEGACY_TOKEN_KEY, response.token);
+      if (token) {
+        localStorage.setItem(AUTH_TOKEN_KEY, token);
+        localStorage.setItem(LEGACY_TOKEN_KEY, token);
       }
       window.dispatchEvent(new Event("auth_user_updated"));
 
@@ -427,7 +489,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ignore logout errors
     }
     setUser(null);
-    setDevOtpCode(null);
     setPendingVerification(null);
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
@@ -462,14 +523,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const requestPasswordReset = async (email: string) => {
     setIsLoading(true);
-    
-    // TODO: wire to backend password reset when available.
-    await new Promise(resolve => setTimeout(resolve, 500));
-    localStorage.setItem("pending_reset_email", email);
-    const mockResetCode = Math.floor(100000 + Math.random() * 900000).toString();
-    localStorage.setItem("pending_reset_code", mockResetCode);
-    setIsLoading(false);
-    toast.success("Password reset link sent to your email!");
+
+    try {
+      const normalizedEmail = normalizeEmail(email);
+      if (!isValidEmail(normalizedEmail)) {
+        throw new Error(EMAIL_VALIDATION_MESSAGE);
+      }
+
+      await requestPasswordResetOtp({ email: normalizedEmail });
+      localStorage.setItem("pending_reset_email", normalizedEmail);
+      toast.success("Reset code sent to your email.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetPassword = async (code: string, newPassword: string) => {
@@ -478,43 +544,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setIsLoading(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const storedCode = localStorage.getItem("pending_reset_code");
-    
-    if (code !== storedCode) {
+    try {
+      const pendingEmail = localStorage.getItem("pending_reset_email");
+      if (!pendingEmail) {
+        throw new Error("Reset session expired. Please request a new code.");
+      }
+
+      await resetPasswordWithOtp({
+        email: pendingEmail,
+        code,
+        newPassword,
+      });
+
+      localStorage.removeItem("pending_reset_email");
+      toast.success("Password reset successful!");
+    } finally {
       setIsLoading(false);
-      toast.error("Invalid reset code");
-      return;
     }
-
-    const pendingEmail = localStorage.getItem("pending_reset_email");
-    if (!pendingEmail) {
-      setIsLoading(false);
-      throw new Error("User not found");
-    }
-    const resetUser: User = user ?? {
-      id: `user-${Date.now()}`,
-      email: pendingEmail,
-      firstName: "User",
-      lastName: "User",
-      role: "user",
-      accountType: "worker",
-      accountOptions: ["worker"],
-      isVerified: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    setUser(resetUser);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(resetUser));
-    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(resetUser));
-    localStorage.removeItem("pending_reset_code");
-    localStorage.removeItem("pending_reset_email");
-
-    setIsLoading(false);
-    toast.success("Password reset successful!");
   };
 
   return (
@@ -523,7 +570,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: !!user,
         isLoading,
-        devOtpCode,
         login,
         register,
         logout,
