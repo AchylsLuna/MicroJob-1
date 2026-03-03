@@ -28,6 +28,7 @@ import { EmployerDashboard } from "../employer/EmployerDashboard";
 import { getUserApplications, getProfile } from "../../services/api";
 import { jobsAPI } from "../../services/jobs";
 import { ROUTES } from "../../utils/routes";
+import { calculateProfileCompletion, getCompletionColor } from "../../lib/profileCompletion";
 
 const vacancyData = [
   { month: "Week 01", accepted: 4, interviews: 3, rejected: 1 },
@@ -107,32 +108,33 @@ export function Dashboard() {
         const profile = await getProfile();
         if (!isMounted) return;
         
-        // Calculate profile completion
-        const hasPersonal = Boolean(
-          profile?.firstName?.trim() &&
-          profile?.lastName?.trim() &&
-          profile?.city?.trim() &&
-          profile?.province?.trim() &&
-          profile?.address?.trim() &&
-          profile?.phoneNumber?.trim() &&
-          profile?.email?.trim() &&
-          profile?.facebook?.trim()
-        );
-        const hasPhoto = Boolean(profile?.profilePhotoName);
-        const hasExperience = Boolean(
-          profile?.jobPosition?.trim() &&
-          profile?.companyName?.trim() &&
-          profile?.startDate?.trim() &&
-          profile?.endDate?.trim()
-        );
-        const hasResume = Boolean(profile?.resumeFileName);
+        // Use the new profile completion calculator
+        const completionStatus = calculateProfileCompletion({
+          firstName: profile?.firstName,
+          lastName: profile?.lastName,
+          avatarUrl: profile?.avatarUrl,
+          profilePhotoName: profile?.profilePhotoName,
+          about: profile?.about,
+          city: profile?.city,
+          country: profile?.country,
+          province: profile?.province,
+          address: profile?.address,
+          phoneNumber: profile?.phoneNumber,
+          linkedin: profile?.linkedin,
+          email: profile?.email,
+          jobPosition: profile?.jobPosition,
+          companyName: profile?.companyName,
+          startDate: profile?.startDate,
+          endDate: profile?.endDate,
+          experience: profile?.experience,
+          education: profile?.education,
+          resumeUrl: profile?.resumeUrl,
+          resumeFileName: profile?.resumeFileName,
+          skills: profile?.skills,
+        });
 
-        const total = 4;
-        const completed = [hasPersonal, hasPhoto, hasExperience, hasResume].filter(Boolean).length;
-        const completionPercent = Math.round((completed / total) * 100);
-        
-        setProfileCompletion(completionPercent);
-        setIsProfileVerified(completed === total);
+        setProfileCompletion(completionStatus.percentage);
+        setIsProfileVerified(completionStatus.percentage === 100);
       } catch (error: any) {
         if (!isMounted) return;
         console.error("Failed to load profile:", error);
@@ -321,24 +323,19 @@ export function Dashboard() {
                   cx="60"
                   cy="60"
                   r="54"
-                  stroke="url(#profileProgressGradient)"
+                  stroke={getCompletionColor(profileCompletion)}
                   strokeWidth="8"
                   fill="none"
                   strokeDasharray={`${(profileCompletion / 100) * 339.292} ${339.292}`}
                   strokeDashoffset="0"
                   strokeLinecap="round"
+                  style={{ transition: 'stroke 0.3s ease, stroke-dasharray 0.3s ease' }}
                 />
-                <defs>
-                  <linearGradient id="profileProgressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#4F46E5" />
-                    <stop offset="100%" stopColor="#7C3AED" />
-                  </linearGradient>
-                </defs>
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <p className="text-[40px] font-bold leading-none text-[#4F46E5]">{profileLoading ? 0 : profileCompletion}</p>
-                  <p className="mt-1 text-[16px] text-[#6B7280]">%</p>
+                  <p className="text-[40px] font-bold leading-none" style={{ color: getCompletionColor(profileCompletion) }}>{profileLoading ? 0 : profileCompletion}</p>
+                  <p className="mt-1 text-[16px]" style={{ color: getCompletionColor(profileCompletion) }}>%</p>
                 </div>
               </div>
             </div>
@@ -346,7 +343,9 @@ export function Dashboard() {
               {isProfileVerified && <CheckCircle2 className="h-5 w-5 text-[#10B981]" />}
               <p className="text-[18px] font-semibold text-[#111827]">{isProfileVerified ? "Profile Verified" : "Profile Incomplete"}</p>
             </div>
-            <p className="mt-2 text-[13px] text-[#6B7280]">{isProfileVerified ? "All requirements completed" : "Complete your profile to increase visibility"}</p>
+            <p className="mt-2 text-[13px]" style={{ color: getCompletionColor(profileCompletion) }}>
+              {isProfileVerified ? "All requirements completed" : "Complete your profile to increase visibility"}
+            </p>
             <button
               type="button"
               onClick={() => navigate(ROUTES.worker.profile)}

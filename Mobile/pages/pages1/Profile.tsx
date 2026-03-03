@@ -10,6 +10,7 @@ import AddCV from './AddCV';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { calculateProfileCompletion, getCompletionColor, getCompletionMessage, type ProfileData } from '../../lib/profileCompletion';
 
 type ProfileProps = {
   activeTab?: string;
@@ -34,6 +35,8 @@ export default function Profile({
   const [showAddCV, setShowAddCV] = useState(false);
   const [firstName, setFirstName] = useState('Jonas');
   const [lastName, setLastName] = useState('');
+  const [profileData, setProfileData] = useState<ProfileData>({});
+  const [completion, setCompletion] = useState({ percentage: 0, completedCount: 0, totalFields: 0 });
 
   const handleTabPress = (tab: string) => {
     setProfileTab(tab);
@@ -59,14 +62,55 @@ export default function Profile({
         if (!token) return;
         const result = await apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to load profile.');
+        }, 'Failed to load profile.') as any;
+        
         if (!result.ok) return;
-        const payload = asObject<any>(result.raw) || {};
-        const dataPayload = asObject<any>(result.data) || {};
-        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
+        
+        // Extract profile from various possible response structures
+        let profile: any = null;
+        
+        // Try different response structures
+        if (result.raw?.data?.user) {
+          profile = result.raw.data.user;
+        } else if (result.raw?.user) {
+          profile = result.raw.user;
+        } else if (result.data?.user) {
+          profile = result.data.user;
+        } else if (result.raw) {
+          profile = result.raw;
+        }
+        
+        console.log('Loaded profile:', profile);
+        
         if (profile) {
           setFirstName(profile.firstName || 'Jonas');
           setLastName(profile.lastName || '');
+          
+          // Set profile data for completion calculation
+          // Make sure to capture all relevant fields
+          const profileDataToCalculate: ProfileData = {
+            firstName: profile.firstName?.trim() || '',
+            lastName: profile.lastName?.trim() || '',
+            avatarUrl: profile.avatarUrl?.trim() || '',
+            about: profile.about?.trim() || '',
+            city: profile.city?.trim() || '',
+            country: profile.country?.trim() || '',
+            phoneNumber: profile.phoneNumber?.trim() || '',
+            linkedin: profile.linkedin?.trim() || '',
+            experience: Array.isArray(profile.experience) ? profile.experience : [],
+            education: Array.isArray(profile.education) ? profile.education : [],
+            cvUrl: (profile.resumeUrl || profile.cvUrl)?.trim() || '',
+            skills: Array.isArray(profile.skills) ? profile.skills : [],
+          };
+          
+          console.log('Profile data for calculation:', profileDataToCalculate);
+          
+          setProfileData(profileDataToCalculate);
+          
+          // Calculate completion percentage
+          const completionStatus = calculateProfileCompletion(profileDataToCalculate);
+          console.log('Completion status:', completionStatus);
+          setCompletion(completionStatus);
         }
       } catch (error) {
         console.log('Failed to load profile', error);
@@ -109,8 +153,40 @@ export default function Profile({
 
           {/* Name */}
           <Text style={styles.name}>{displayName}</Text>
+          
+          {/* Profile Completion Section */}
+          <View style={styles.completionContainer}>
+            <View style={styles.completionHeader}>
+              <Text style={styles.completionLabel}>Profile Completion</Text>
+              <Text style={[styles.completionPercentage, { color: getCompletionColor(completion.percentage) }]}>
+                {completion.percentage}%
+              </Text>
+            </View>
+            
+            {/* Progress Bar */}
+            <View style={styles.progressBarBackground}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${completion.percentage}%`,
+                    backgroundColor: getCompletionColor(completion.percentage),
+                  },
+                ]}
+              />
+            </View>
+            
+            <Text style={styles.completionMessage}>
+              {getCompletionMessage(completion.percentage)}
+            </Text>
+            
+            <Text style={styles.completionSubtext}>
+              {completion.completedCount} of {completion.totalFields} fields completed
+            </Text>
+          </View>
+          
           <TouchableOpacity onPress={onOpenSettings} style={styles.settingsChip}>
-            <Text style={styles.settingsChipText}>Open Settings</Text>
+            <Text style={styles.settingsChipText}>Complete Your Profile →</Text>
           </TouchableOpacity>
 
           {/* Stats */}
@@ -281,6 +357,47 @@ const styles = StyleSheet.create({
     borderColor: '#1e3a5f',
   },
   name: { fontSize: 24, fontWeight: '700', color: '#fff' },
+  completionContainer: {
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12,
+    padding: 14,
+    gap: 8,
+  },
+  completionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  completionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.8)',
+  },
+  completionPercentage: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  completionMessage: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+    marginTop: 4,
+  },
+  completionSubtext: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+  },
   settingsChip: {
     paddingHorizontal: 14,
     paddingVertical: 7,

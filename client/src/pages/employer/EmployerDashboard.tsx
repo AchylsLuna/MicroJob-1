@@ -11,6 +11,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
 import { getEmployerApplications } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
@@ -70,6 +71,28 @@ export function EmployerDashboard() {
     rejected: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
+
+  // Watch for account type changes and redirect if needed
+  useEffect(() => {
+    const handleAuthUpdate = () => {
+      const stored = localStorage.getItem("auth_user");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          console.log("EmployerDashboard - accountType from localStorage:", parsed.accountType);
+          if (parsed.accountType === "worker") {
+            console.log("EmployerDashboard - User switched to worker, redirecting...");
+            navigate(ROUTES.worker.dashboard, { replace: true });
+          }
+        } catch (e) {
+          console.error("Failed to parse auth_user:", e);
+        }
+      }
+    };
+
+    window.addEventListener("auth_user_updated", handleAuthUpdate);
+    return () => window.removeEventListener("auth_user_updated", handleAuthUpdate);
+  }, [navigate]);
 
   useEffect(() => {
     let isMounted = true;

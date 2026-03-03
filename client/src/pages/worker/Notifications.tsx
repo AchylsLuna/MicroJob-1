@@ -2,15 +2,24 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI } from '../../services/jobs';
 import { ROUTES } from '../../utils/routes';
+import { MessageSquare, DollarSign, CheckCircle, Clock } from 'lucide-react';
+import { toast } from '../../lib/toast';
+
+type NotificationType = 'application' | 'message' | 'payment';
 
 type NotificationItem = {
   id: string;
   applicationId?: string;
+  messageId?: string;
+  transactionId?: string;
+  type: NotificationType;
   title: string;
   description?: string;
   time?: string;
   jobId?: string;
   isNew?: boolean;
+  icon?: any;
+  color?: string;
 };
 
 export default function NotificationsPage() {
@@ -18,30 +27,70 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<'all' | NotificationType>('all');
 
   const fetchNotifications = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await jobsAPI.getUserApplications();
-      const apps = res.data || [];
-      const allowed = new Set(['Shortlisted', 'Terms', 'Hired']);
-      const notifs: NotificationItem[] = apps
-        .filter((a: any) => allowed.has(a.status) )
-        .map((a: any) => ({
-          id: a._id || `${a.job?._id || 'app'}-${Math.random()}`,
-          applicationId: a._id,
-          title: `Application ${a.status}`,
-          description: `Your application for ${a.job?.title || 'a job'} is now ${a.status.toLowerCase()}.`,
-          time: a.createdAt ? new Date(a.createdAt).toLocaleString() : undefined,
-          jobId: a.job?._id,
-          isNew: !a.applicantReadAt,
-        }))
-        .sort((x: NotificationItem, y: NotificationItem) => (y.time || '').localeCompare(x.time || ''));
+      const allNotifications: NotificationItem[] = [];
 
-      setNotifications(notifs);
+      // Fetch application notifications
+      try {
+        const res = await jobsAPI.getUserApplications();
+        const apps = res.data || [];
+        const appNotifs = apps
+          .filter((a: any) => ['Shortlisted', 'Terms', 'Hired', 'Accepted'].includes(a.status))
+          .map((a: any) => {
+            let title = `Application ${a.status}`;
+            let description = `Your application for "${a.job?.title || 'a job'}" is now ${a.status.toLowerCase()}.`;
+            let color = 'bg-blue-50 border-blue-100';
+            
+            if (a.status === 'Hired' || a.status === 'Accepted') {
+              title = '🎉 Application Accepted!';
+              description = `Great news! You've been accepted for the position: ${a.job?.title || 'a job'}`;
+              color = 'bg-green-50 border-green-100';
+            } else if (a.status === 'Shortlisted') {
+              title = '⭐ Application Shortlisted';
+              description = `Your application for "${a.job?.title || 'a job'}" has been shortlisted!`;
+              color = 'bg-yellow-50 border-yellow-100';
+            } else if (a.status === 'Terms') {
+              title = '💼 Terms Offered';
+              description = `Terms have been offered for ${a.job?.title || 'a job'}`;
+              color = 'bg-purple-50 border-purple-100';
+            }
+
+            return {
+              id: a._id || `${a.job?._id || 'app'}-${Math.random()}`,
+              applicationId: a._id,
+              type: 'application' as NotificationType,
+              title,
+              description,
+              time: a.updatedAt ? new Date(a.updatedAt).toLocaleString() : a.createdAt ? new Date(a.createdAt).toLocaleString() : undefined,
+              jobId: a.job?._id,
+              isNew: !a.applicantReadAt,
+              color,
+            };
+          });
+        allNotifications.push(...appNotifs);
+      } catch (err) {
+        console.warn('Failed to fetch applications:', err);
+      }
+
+
+      // TODO: Add message notifications when API endpoint is available
+      // TODO: Add payment notifications when API endpoint is available
+      // Sort by time (newest first)
+      allNotifications.sort((x, y) => {
+        const timeX = new Date(x.time || 0).getTime();
+        const timeY = new Date(y.time || 0).getTime();
+        return timeY - timeX;
+      });
+
+      setNotifications(allNotifications);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Failed to load notifications');
+      console.error('Notification fetch error:', err);
     } finally {
       setLoading(false);
     }
@@ -55,16 +104,24 @@ export default function NotificationsPage() {
     if (!applicationId) return;
     try {
       await jobsAPI.markApplicantRead(applicationId);
-      setNotifications((prev) => prev.map((n) => (n.applicationId === applicationId ? { ...n, isNew: false } : n)));
+      setNotifications((prev) => 
+        prev.map((n) => (n.applicationId === applicationId ? { ...n, isNew: false } : n))
+      );
     } catch (err) {
       console.warn('Failed to mark read', err);
+      toast.error('Failed to mark as read');
     }
   };
 
   const markAll = async () => {
     const unread = notifications.filter((n) => n.applicationId && n.isNew);
-    await Promise.all(unread.map((n) => jobsAPI.markApplicantRead(n.applicationId!).catch(() => null)));
+    await Promise.all(
+      unread.map((n) => 
+        jobsAPI.markApplicantRead(n.applicationId!).catch(() => null)
+      )
+    );
     setNotifications((prev) => prev.map((n) => ({ ...n, isNew: false })));
+    toast.success('All notifications marked as read');
   };
 
   return (
@@ -72,12 +129,59 @@ export default function NotificationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-semibold text-[20px] text-[#111827]">Notifications</h2>
-          <p className="text-[14px] text-[#6B7280] mt-1">Recent updates about your applications</p>
+          <p className="text-[14px] text-[#6B7280] mt-1">Application updates, messages, and payments</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={markAll} className="text-sm text-blue-600 font-semibold">Mark all as read</button>
-          <button onClick={fetchNotifications} className="text-sm text-gray-600">Refresh</button>
+          <button onClick={markAll} className="text-sm text-blue-600 font-semibold hover:text-blue-700">Mark all as read</button>
+          <button onClick={fetchNotifications} className="text-sm text-gray-600 hover:text-gray-700">Refresh</button>
         </div>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => setFilterType('all')}
+          className={`px-4 py-2 border-b-2 font-medium text-sm ${
+            filterType === 'all'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setFilterType('application')}
+          className={`px-4 py-2 border-b-2 font-medium text-sm flex items-center gap-1 ${
+            filterType === 'application'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <CheckCircle className="w-4 h-4" />
+          Applications
+        </button>
+        <button
+          onClick={() => setFilterType('message')}
+          className={`px-4 py-2 border-b-2 font-medium text-sm flex items-center gap-1 ${
+            filterType === 'message'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4" />
+          Messages
+        </button>
+        <button
+          onClick={() => setFilterType('payment')}
+          className={`px-4 py-2 border-b-2 font-medium text-sm flex items-center gap-1 ${
+            filterType === 'payment'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          <DollarSign className="w-4 h-4" />
+          Payments
+        </button>
       </div>
 
       {loading && <div className="bg-white rounded-xl p-6 shadow-sm text-gray-600">Loading...</div>}
@@ -88,23 +192,73 @@ export default function NotificationsPage() {
           <div className="bg-white rounded-xl p-6 shadow-sm text-center text-gray-600">No notifications.</div>
         )}
 
-        {notifications.map((n) => (
-          <div key={n.id} className={`bg-white rounded-xl p-4 shadow-sm border ${n.isNew ? 'border-blue-100' : 'border-gray-100'}`}>
+        {notifications
+          .filter((n) => filterType === 'all' || n.type === filterType)
+          .map((n) => (
+          <div key={n.id} className={`rounded-xl p-4 shadow-sm border ${n.color || 'bg-white border-gray-100'}`}>
             <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900">{n.title} {n.isNew && <span className="ml-2 inline-block w-2 h-2 bg-blue-600 rounded-full" />}</h3>
-                <p className="text-xs text-gray-600 mt-1">{n.description}</p>
-                <p className="text-xs text-gray-400 mt-1">{n.time}</p>
+              <div className="flex items-start gap-3 flex-1">
+                {/* Icon based on notification type */}
+                <div className={`mt-1 p-2 rounded-lg ${
+                  n.type === 'application' ? 'bg-blue-100 text-blue-600' :
+                  n.type === 'message' ? 'bg-indigo-100 text-indigo-600' :
+                  n.type === 'payment' ? 'bg-emerald-100 text-emerald-600' :
+                  'bg-gray-100 text-gray-600'
+                }`}>
+                  {n.type === 'application' && <CheckCircle className="w-5 h-5" />}
+                  {n.type === 'message' && <MessageSquare className="w-5 h-5" />}
+                  {n.type === 'payment' && <DollarSign className="w-5 h-5" />}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-gray-900">{n.title}</h3>
+                    {n.isNew && <span className="inline-block w-2 h-2 bg-blue-600 rounded-full" />}
+                  </div>
+                  <p className="text-sm text-gray-600 mt-1">{n.description}</p>
+                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {n.time}
+                  </p>
+                </div>
               </div>
-              <div className="flex flex-col items-end gap-2">
+
+              {/* Actions */}
+              <div className="flex flex-col items-end gap-2 ml-4">
                 <div className="flex gap-2">
-                  <button
-                    onClick={() => n.jobId && navigate(ROUTES.worker.jobDetails(n.jobId))}
-                    className="text-sm text-blue-600 font-semibold"
-                  >
-                    View Job
-                  </button>
-                  <button onClick={() => markRead(n.applicationId)} className="text-sm text-gray-600">Mark read</button>
+                  {n.type === 'application' && n.jobId && (
+                    <button
+                      onClick={() => n.jobId && navigate(ROUTES.worker.jobDetails(n.jobId))}
+                      className="text-sm text-blue-600 font-semibold hover:text-blue-700"
+                    >
+                      View Job
+                    </button>
+                  )}
+                  {n.type === 'message' && (
+                    <button
+                      onClick={() => navigate(ROUTES.worker.messages)}
+                      className="text-sm text-blue-600 font-semibold hover:text-blue-700"
+                    >
+                      View Message
+                    </button>
+                  )}
+                  {n.type === 'payment' && (
+                    <button
+                      onClick={() => navigate(ROUTES.worker.eWallet)}
+                      className="text-sm text-blue-600 font-semibold hover:text-blue-700"
+                    >
+                      View Payment
+                    </button>
+                  )}
+                  {n.isNew && (
+                    <button 
+                      onClick={() => markRead(n.applicationId)} 
+                      className="text-sm text-gray-600 hover:text-gray-700"
+                    >
+                      Mark read
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

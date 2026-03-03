@@ -46,20 +46,43 @@ type EmployerMenuGroup = {
 };
 
 const Sidebar: React.FC<SidebarProps> = ({
-  userName = "Jonas Enriquez",
+  userName = "User",
   userRole = "user",
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
+  const [, setAuthUpdateTrigger] = useState(0); // Force re-render on auth updates
   const { user: authUser } = useAuth();
 
+  const loadProfilePhoto = () => {
+    try {
+      const storedRaw = localStorage.getItem("profile_settings");
+      const stored = storedRaw ? JSON.parse(storedRaw) : {};
+      const preview = stored.personal?.profilePhotoPreview || "";
+      setProfilePhotoPreview(preview);
+    } catch {
+      setProfilePhotoPreview("");
+    }
+  };
+
   useEffect(() => {
-    const handleProfileUpdate = () => {
-      // Component will re-render when authUser changes
+    loadProfilePhoto();
+    const handleProfileUpdate = () => loadProfilePhoto();
+    window.addEventListener("profile_settings_updated", handleProfileUpdate);
+    return () => window.removeEventListener("profile_settings_updated", handleProfileUpdate);
+  }, []);
+
+  // Listen for auth updates to force sidebar re-render on role switch
+  useEffect(() => {
+    const handleAuthUpdate = () => {
+      console.log("Sidebar - Auth update detected, forcing re-render");
+      setAuthUpdateTrigger((prev) => prev + 1);
     };
-    window.addEventListener("auth_user_updated", handleProfileUpdate);
-    return () => window.removeEventListener("auth_user_updated", handleProfileUpdate);
+
+    window.addEventListener("auth_user_updated", handleAuthUpdate);
+    return () => window.removeEventListener("auth_user_updated", handleAuthUpdate);
   }, []);
 
   const userRoleFromAuth = String(authUser?.role || userRole || "user").toLowerCase();
@@ -208,7 +231,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       ? "Employer"
       : effectiveRole === "admin"
       ? "Admin"
-      : "User";
+      : "Worker";
 
   const getNavButtonClass = (active: boolean) =>
     `${webUi.sidebar.navButton} ${isCollapsed ? "px-2" : "px-4"} ${
@@ -223,9 +246,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isEmployerParentActive =
     effectiveRole === "employer" && matchesPath(location.pathname, employerMenuGroup.path);
 
-  const displayUserName = authUser
-    ? `${authUser.firstName || ""} ${authUser.lastName || ""}`.trim() || userName
-    : userName;
+  const displayUserName = (() => {
+    if (authUser) {
+      const fullName = `${authUser.firstName || ""} ${authUser.lastName || ""}`.trim();
+      if (fullName) return fullName;
+      if (authUser.email) return authUser.email.split("@")[0];
+    }
+    return userName;
+  })();
 
   return (
     <aside
@@ -254,7 +282,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="space-y-1 flex-1 flex flex-col">
         <div className={`space-y-1 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
-          {!isCollapsed && effectiveRole !== "admin" && (
+          {!isCollapsed && (
             <div className="mb-3">
               <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold border border-sky-100">
                 <span>{roleLabel}</span>
@@ -381,9 +409,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className={`border-t ${webUi.sidebar.sectionDivider} pt-6`}>
         <button className="w-full flex items-center justify-between lg:justify-start gap-3 hover:opacity-80 transition">
           <div className="flex items-center gap-3">
-            {authUser?.avatarUrl ? (
+            {profilePhotoPreview ? (
               <img
-                src={authUser.avatarUrl}
+                src={profilePhotoPreview}
                 alt="Profile"
                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
               />

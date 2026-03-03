@@ -25,6 +25,12 @@ export function isAdmin(user?: DashboardRouteUser | null) {
 export function isEmployer(user?: DashboardRouteUser | null) {
   const role = getRole(user);
   const accountType = getAccountType(user);
+  
+  // For users with "both" role, check their current accountType
+  if (role === "both") {
+    return accountType === "employer";
+  }
+  
   return (
     accountType === "doctor" ||
     accountType === "employer" ||
@@ -37,14 +43,19 @@ export function isEmployer(user?: DashboardRouteUser | null) {
 export function isPatient(user?: DashboardRouteUser | null) {
   const role = getRole(user);
   const accountType = getAccountType(user);
+  
+  // For users with "both" role, check their current accountType
+  if (role === "both") {
+    return accountType === "worker";
+  }
+  
   if (
     accountType === "patient" ||
     accountType === "worker" ||
     role === "patient" ||
     role === "user" ||
     role === "work" ||
-    role === "worker" ||
-    role === "both"
+    role === "worker"
   ) {
     return true;
   }

@@ -41,12 +41,32 @@ export function NavBar() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
-  const canSwitchAccount =
-    !!user &&
-    user.role !== "admin" &&
-    Array.isArray(user.accountOptions) &&
+  
+  const hasBothOptions =
+    Array.isArray(user?.accountOptions) &&
     user.accountOptions.includes("worker") &&
     user.accountOptions.includes("employer");
+  const isBothRole =
+    !!user &&
+    user.role !== "admin" &&
+    (user.role === "both" || (user as any)?.accountPreference === "both" || hasBothOptions);
+  const canSwitchAccount = isBothRole;
+
+  // Log for debugging
+  useEffect(() => {
+    console.log("NavBar - User:", user);
+    console.log("NavBar - hasBothOptions:", hasBothOptions);
+    console.log("NavBar - isBothRole:", isBothRole);
+    console.log("NavBar - canSwitchAccount:", canSwitchAccount);
+  }, [user, hasBothOptions, isBothRole, canSwitchAccount]);
+
+  // Log when menu opens
+  useEffect(() => {
+    if (showUserMenu) {
+      console.log("NavBar - User menu opened, canSwitchAccount:", canSwitchAccount);
+      console.log("NavBar - User object:", user);
+    }
+  }, [showUserMenu, canSwitchAccount, user]);
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -366,12 +386,22 @@ export function NavBar() {
     navigate(ROUTES.home);
   };
 
-  const handleSwitchAccount = () => {
-    if (!user) return;
-    const nextType = user.accountType === "employer" ? "worker" : "employer";
+  const handleSwitchTo = (nextType: "worker" | "employer") => {
+    console.log("NavBar - handleSwitchTo called with nextType:", nextType);
+    console.log("NavBar - Current user.accountType:", user?.accountType);
+    
+    if (!user || user.accountType === nextType) {
+      console.log("NavBar - Switch aborted: user missing or already on this type");
+      return;
+    }
+    
+    console.log("NavBar - Calling switchAccountType...");
     switchAccountType(nextType);
     setShowUserMenu(false);
-    navigate(nextType === "employer" ? ROUTES.employer.dashboard : ROUTES.worker.dashboard);
+    
+    const targetRoute = nextType === "employer" ? ROUTES.employer.dashboard : ROUTES.worker.dashboard;
+    console.log("NavBar - Navigating to:", targetRoute);
+    navigate(targetRoute);
   };
 
   return (
@@ -494,6 +524,8 @@ export function NavBar() {
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => {
+                console.log("NavBar - Profile button clicked. Current canSwitchAccount:", canSwitchAccount);
+                console.log("NavBar - Current user:", user);
                 setShowUserMenu(!showUserMenu);
                 setShowNotifications(false);
               }}
@@ -514,17 +546,21 @@ export function NavBar() {
                     {user ? `${user.firstName} ${user.lastName}` : "User"}
                   </p>
                   <p className="text-[14px] text-[#6B7280]">
-                    {user?.accountType === "employer" ? "Employer Account" : "User Account"}
+                    {user?.role === "admin"
+                      ? "Admin Account"
+                      : user?.accountType === "employer"
+                      ? "Employer Account"
+                      : "Worker Account"}
                   </p>
                 </div>
 
                 {canSwitchAccount && (
                   <div className="p-4 border-b border-[#E5E7EB]">
                     <button
-                      onClick={handleSwitchAccount}
-                      className="w-full rounded-[12px] bg-[#1EC19A] text-white text-[15px] font-semibold py-3 hover:bg-[#18a882] transition-colors"
+                      onClick={() => handleSwitchTo(user?.accountType === "worker" ? "employer" : "worker")}
+                      className="w-full rounded-[12px] text-[15px] font-semibold py-3 bg-[#1EC19A] text-white hover:bg-[#18a882] transition-colors"
                     >
-                      {user?.accountType === "employer" ? "Switch to User" : "Switch to Employer"}
+                      Switch to {user?.accountType === "worker" ? "Employer" : "Worker"}
                     </button>
                   </div>
                 )}

@@ -27,9 +27,10 @@ interface User {
   email: string;
   firstName: string;
   lastName: string;
-  role: "user" | "employer" | "admin";
+  role: "user" | "employer" | "admin" | "both";
   accountType: "worker" | "employer";
   accountOptions: ("worker" | "employer")[];
+  accountPreference?: "worker" | "employer" | "both";
   isVerified: boolean;
   avatar?: string;
   phoneNumber?: string;
@@ -96,6 +97,9 @@ const normalizeRole = (role?: string | null): User["role"] => {
   if (value === "admin" || value === "superadmin") {
     return "admin";
   }
+  if (value === "both") {
+    return "both";
+  }
   if (value === "doctor" || value === "hire" || value === "employer") {
     return "employer";
   }
@@ -141,6 +145,31 @@ const normalizePreference = (value?: string | null): AccountPreference | undefin
   return undefined;
 };
 
+const getPreferenceCandidate = (value: unknown): string | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const user = value as {
+    accountPreference?: string | null;
+    accountType?: string | null;
+    preferredAccount?: string | null;
+    role?: string | null;
+    user_type?: string | null;
+    userType?: string | null;
+  };
+
+  return (
+    user.accountPreference ??
+    user.accountType ??
+    user.preferredAccount ??
+    user.role ??
+    user.user_type ??
+    user.userType ??
+    null
+  );
+};
+
 const normalizeAccountOptions = (value: unknown): User["accountOptions"] => {
   if (!Array.isArray(value)) {
     return [];
@@ -162,7 +191,7 @@ const normalizeAccount = (
   if (normalizedPreferred === "worker") {
     return { accountType: "worker", accountOptions: ["worker"] };
   }
-  if (normalizedPreferred === "both") {
+  if (normalizedPreferred === "both" || role === "both") {
     return {
       accountType: role === "employer" ? "employer" : "worker",
       accountOptions: ["employer", "worker"],
@@ -214,17 +243,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role?: string | null;
             user_type?: string | null;
             accountType?: string | null;
+            accountPreference?: string | null;
             accountOptions?: unknown;
           };
           const normalizedRole = normalizeRole(getRoleCandidate(parsed));
-          const { accountType, accountOptions } = normalizeAccount(normalizedRole, parsed.accountType);
+          const preferredAccount = getPreferenceCandidate(parsed);
+          const parsedAccountType = normalizeAccountType(parsed.accountType);
+          const { accountType: derivedAccountType, accountOptions } = normalizeAccount(normalizedRole, preferredAccount);
           const normalizedOptions = normalizeAccountOptions(parsed.accountOptions);
           const normalizedUser = {
             ...parsed,
             role: normalizedRole,
-            accountType,
+            accountType: parsedAccountType || derivedAccountType,
+            accountPreference: normalizePreference(preferredAccount) || undefined,
             accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
           } as User;
+          console.log("AuthProvider - Setting user from localStorage:", normalizedUser);
           setUser(normalizedUser);
           localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
         } catch {
@@ -244,7 +278,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     syncSessionFromStorage();
-    const handleAuthUserUpdated = () => syncSessionFromStorage();
+    const handleAuthUserUpdated = () => {
+      console.log("AuthProvider - auth_user_updated event received, re-syncing from storage");
+      syncSessionFromStorage();
+    };
     window.addEventListener("auth_user_updated", handleAuthUserUpdated);
     setIsLoading(false);
     return () => window.removeEventListener("auth_user_updated", handleAuthUserUpdated);
@@ -429,7 +466,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Invalid login response from server.");
       }
       const role = normalizeRole(getRoleCandidate(apiUser));
-      const { accountType, accountOptions } = normalizeAccount(role);
+      const preferredAccount = getPreferenceCandidate(apiUser);
+      const { accountType, accountOptions } = normalizeAccount(role, preferredAccount);
+      const normalizedOptions = normalizeAccountOptions(apiUser.accountOptions);
 
       const apiUserId = getUserId(apiUser);
       if (!apiUserId) {
@@ -443,7 +482,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: apiUser.lastName || "User",
         role,
         accountType,
-        accountOptions: [...accountOptions],
+        accountPreference: normalizePreference(preferredAccount) || undefined,
+        accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
         isVerified: true,
         phoneNumber: apiUser.phoneNumber,
         city: apiUser.city,
@@ -508,14 +548,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const switchAccountType = (nextType: "employer" | "worker") => {
-    if (!user) return;
-    if (!user.accountOptions.includes(nextType)) return;
-    const updatedUser = { ...user, accountType: nextType, accountOptions: [...user.accountOptions] };
+    console.log("AuthContext - switchAccountType called with:", nextType);
+    console.log("AuthContext - Current user:", user?.accountType);
+    
+    if (!user) {
+      console.log("AuthContext - Switch aborted: no user");
+      return;
+    }
+    
+    const canSwitchByPreference = user.accountPreference === "both";
+    const hasBothOptions =
+      user.accountOptions.includes("worker") && user.accountOptions.includes("employer");
+    const canSwitch = canSwitchByPreference || hasBothOptions;
+    
+    console.log("AuthContext - canSwitchByPreference:", canSwitchByPreference);
+    console.log("AuthContext - hasBothOptions:", hasBothOptions);
+    console.log("AuthContext - canSwitch:", canSwitch);
+    
+    if (!canSwitch) {
+      console.log("AuthContext - Switch aborted: cannot switch");
+      return;
+    }
+
+    const nextOptions: User["accountOptions"] =
+      hasBothOptions || canSwitchByPreference ? ["worker", "employer"] : [...user.accountOptions];
+    const updatedUser = { ...user, accountType: nextType, accountOptions: nextOptions };
+    
+    console.log("AuthContext - Setting user to:", updatedUser);
     setUser(updatedUser);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
+    console.log("AuthContext - localStorage updated");
     window.dispatchEvent(new Event("auth_user_updated"));
-    toast.success(`Switched to ${nextType === "employer" ? "Employer" : "User"} account`);
+    console.log("AuthContext - Event dispatched");
+    toast.success(`Switched to ${nextType === "employer" ? "Employer" : "Worker"} account`);
   };
 
   const updateProfile = (updates: Partial<User>) => {

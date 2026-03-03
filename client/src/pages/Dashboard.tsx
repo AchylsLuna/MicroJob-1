@@ -73,19 +73,21 @@ const Dashboard: React.FC = () => {
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [isProfileVerified, setIsProfileVerified] = useState(false);
 
+  // Watch for account type changes and redirect if needed
   useEffect(() => {
-    const stored = localStorage.getItem("auth_user");
-    console.log("Dashboard - Auth user from localStorage:", stored);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        console.log("Dashboard - Parsed auth_user:", parsed);
-        console.log("Dashboard - User role:", parsed?.role);
-      } catch (err) {
-        console.warn("Failed to parse auth_user", err);
-      }
+    if (!authUser) {
+      console.log("Dashboard - authUser is null, skipping redirect check");
+      return;
     }
-  }, []);
+    
+    console.log("Dashboard - Checking authUser, accountType:", authUser.accountType);
+    console.log("Dashboard - Full authUser object:", authUser);
+    
+    if (authUser.accountType === "employer") {
+      console.log("Dashboard - User switched to employer, redirecting...");
+      navigate(ROUTES.employer.dashboard, { replace: true });
+    }
+  }, [authUser?.accountType, navigate]);
 
   useEffect(() => {
     console.log("Dashboard - authUser from useAuth hook:", authUser);
@@ -173,11 +175,11 @@ const Dashboard: React.FC = () => {
       }
     };
 
-    if (authUser?.role === "user") {
+    if (authUser?.role === "user" || (authUser?.role === "both" && authUser?.accountType === "worker")) {
       fetchApplications();
       fetchJobs();
     }
-  }, [authUser?.role]);
+  }, [authUser?.role, authUser?.accountType]);
 
   const statusCounts = useMemo(() => {
     return applications.reduce(

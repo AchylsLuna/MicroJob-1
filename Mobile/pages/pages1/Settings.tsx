@@ -1,7 +1,11 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { tokens } from '../../theme/tokens';
+import { API_URL } from '../../config';
+import { apiRequest, asObject } from '../../lib/api';
+import { calculateProfileCompletion, getCompletionColor, type ProfileData } from '../../lib/profileCompletion';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -30,6 +34,70 @@ export default function Settings({
   onNavigateDeleteAccount,
   onNavigateSupport,
 }: SettingsProps) {
+  const [completion, setCompletion] = useState({ percentage: 0, incompleteFields: [] as string[], completedFields: [] as string[] });
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProfileCompletion = async () => {
+      try {
+        const token = await AsyncStorage.getItem('auth_token');
+        if (!token) {
+          setIsLoading(false);
+          return;
+        }
+
+        const result = await apiRequest(`${API_URL}/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }, 'Failed to load profile.') as any;
+
+        if (result.ok) {
+          // Extract profile from various possible response structures
+          let profile: any = null;
+          
+          if (result.raw?.data?.user) {
+            profile = result.raw.data.user;
+          } else if (result.raw?.user) {
+            profile = result.raw.user;
+          } else if (result.data?.user) {
+            profile = result.data.user;
+          } else if (result.raw) {
+            profile = result.raw;
+          }
+
+          if (profile) {
+            const profileDataToCalculate: ProfileData = {
+              firstName: profile.firstName?.trim() || '',
+              lastName: profile.lastName?.trim() || '',
+              avatarUrl: profile.avatarUrl?.trim() || '',
+              about: profile.about?.trim() || '',
+              city: profile.city?.trim() || '',
+              country: profile.country?.trim() || '',
+              phoneNumber: profile.phoneNumber?.trim() || '',
+              linkedin: profile.linkedin?.trim() || '',
+              experience: Array.isArray(profile.experience) ? profile.experience : [],
+              education: Array.isArray(profile.education) ? profile.education : [],
+              cvUrl: (profile.resumeUrl || profile.cvUrl)?.trim() || '',
+              skills: Array.isArray(profile.skills) ? profile.skills : [],
+            };
+
+            const completionStatus = calculateProfileCompletion(profileDataToCalculate);
+            setCompletion({
+              percentage: completionStatus.percentage,
+              incompleteFields: completionStatus.incompleteFields,
+              completedFields: completionStatus.completedFields,
+            });
+          }
+        }
+      } catch (error) {
+        console.log('Failed to load profile completion', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadProfileCompletion();
+  }, []);
+
   const handleLogout = () => {
     onLogout?.();
   };
@@ -56,6 +124,63 @@ export default function Settings({
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Profile Completion Section */}
+        {!isLoading && (
+          <View style={[styles.completionCard, { borderColor: getCompletionColor(completion.percentage) }]}>
+            <View style={styles.completionTop}>
+              <View style={styles.completionInfo}>
+                <Text style={styles.completionTitle}>Profile Strength</Text>
+                <Text style={styles.completionSubtitle}>Complete your profile to get better matches</Text>
+              </View>
+              <View
+                style={[
+                  styles.completionCircle,
+                  { borderColor: getCompletionColor(completion.percentage) },
+                ]}
+              >
+                <Text style={[styles.completionPercent, { color: getCompletionColor(completion.percentage) }]}>
+                  {completion.percentage}%
+                </Text>
+              </View>
+            </View>
+
+            {/* Progress Bar */}
+            <View style={styles.progressBarBackground}>
+              <View
+                style={[
+                  styles.progressBarFill,
+                  {
+                    width: `${completion.percentage}%`,
+                    backgroundColor: getCompletionColor(completion.percentage),
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Incomplete Fields */}
+            {completion.incompleteFields.length > 0 && (
+              <View style={styles.incompleteSectionContainer}>
+                <Text style={styles.incompleteTitle}>Missing: {completion.incompleteFields.length}</Text>
+                <View style={styles.fieldsList}>
+                  {completion.incompleteFields.slice(0, 3).map((field, index) => (
+                    <View key={index} style={styles.fieldItem}>
+                      <Ionicons name="checkbox-outline" size={16} color="#EF4444" />
+                      <Text style={styles.fieldText}>{field}</Text>
+                    </View>
+                  ))}
+                  {completion.incompleteFields.length > 3 && (
+                    <Text style={styles.moreText}>+{completion.incompleteFields.length - 3} more</Text>
+                  )}
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+        {isLoading && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color={tokens.colors.brand} size="large" />
+          </View>
+        )}
         <View style={styles.menuCard}>
           {settingsMenus.map((menu, index) => (
             <View key={menu.title}>
@@ -122,6 +247,95 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   scroll: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 100 },
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  completionCard: {
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 16,
+    borderWidth: 2,
+    padding: 16,
+    marginBottom: 20,
+    ...tokens.shadow.card,
+  },
+  completionTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  completionInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  completionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  completionSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  completionCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  completionPercent: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  progressBarBackground: {
+    height: 8,
+    backgroundColor: '#E5EAF0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  incompleteSectionContainer: {
+    marginTop: 8,
+  },
+  incompleteTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 8,
+  },
+  fieldsList: {
+    gap: 6,
+  },
+  fieldItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+  },
+  fieldText: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    fontWeight: '500',
+  },
+  moreText: {
+    fontSize: 11,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
   menuCard: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 20,

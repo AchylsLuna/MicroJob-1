@@ -167,14 +167,35 @@ const setSessionCookies = (res, { refreshToken, sessionId, expiresAt, csrfToken 
   });
 };
 
-const buildLoginPayload = (user, includePhone = false) => ({
-  id: user._id,
-  ...(includePhone ? { phoneNumber: user.phoneNumber } : {}),
-  firstName: user.firstName,
-  lastName: user.lastName,
-  email: user.email,
-  role: user.role || 'work',
-});
+const buildLoginPayload = (user, includePhone = false) => {
+  // Compute account options based on role
+  let accountOptions = [];
+  const role = user.role || 'work';
+  
+  if (role === 'hire') {
+    accountOptions = ['hire'];
+  } else if (role === 'work') {
+    accountOptions = ['work'];
+  } else if (role === 'both') {
+    accountOptions = ['hire', 'work'];
+  } else if (role === 'admin' || role === 'superadmin') {
+    accountOptions = [];
+  }
+
+  return {
+    id: user._id,
+    ...(includePhone ? { phoneNumber: user.phoneNumber } : {}),
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    role: role,
+    accountOptions,
+    avatarUrl: user.avatarUrl,
+    city: user.city,
+    country: user.country,
+    linkedin: user.linkedin,
+  };
+};
 
 const normalizeMfaCode = (value = '') =>
   String(value).trim().replace(/\s+/g, '').replace(/-/g, '').toUpperCase();
