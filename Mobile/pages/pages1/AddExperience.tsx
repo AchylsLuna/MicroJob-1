@@ -1,34 +1,41 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
+
+const YEAR_OPTIONS = [
+  '1 year',
+  '2 years',
+  '3 years',
+  '4 years',
+  '5 years',
+  '6 years',
+  '7 years',
+  '8 years',
+  '9 years',
+  '10+ years',
+];
 
 type AddExperienceProps = {
   visible: boolean;
   onClose?: () => void;
-  onAdd?: (data: any) => void;
+  onAdd?: (data: { totalExperience: string }) => void;
+  initialTotalExperience?: string;
 };
 
-export default function AddExperience({ visible, onClose, onAdd }: AddExperienceProps) {
-  const [jobPosition, setJobPosition] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [stillWorking, setStillWorking] = useState(false);
+export default function AddExperience({ visible, onClose, onAdd, initialTotalExperience = '' }: AddExperienceProps) {
+  const [selectedYears, setSelectedYears] = useState(initialTotalExperience);
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedYears(initialTotalExperience || '');
+    }
+  }, [visible, initialTotalExperience]);
 
   const handleAddExperience = () => {
+    if (!selectedYears) return;
     const data = {
-      jobPosition,
-      companyName,
-      startDate,
-      endDate,
-      stillWorking,
+      totalExperience: selectedYears,
     };
     onAdd?.(data);
-    // Reset form
-    setJobPosition('');
-    setCompanyName('');
-    setStartDate('');
-    setEndDate('');
-    setStillWorking(false);
     onClose?.();
   };
 
@@ -45,77 +52,37 @@ export default function AddExperience({ visible, onClose, onAdd }: AddExperience
           <Text style={styles.modalTitle}>Add Experience</Text>
 
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-            {/* Add Logo */}
             <View style={styles.section}>
-              <Text style={styles.label}>Add logo</Text>
-              <TouchableOpacity style={styles.logoPlaceholder}>
-                <Text style={styles.logoText}>Add logo</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Job Position */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Job position</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g UI/UX Designer"
-                placeholderTextColor="#9ca3af"
-                value={jobPosition}
-                onChangeText={setJobPosition}
-              />
-            </View>
-
-            {/* Company Name */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Company name</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="e.g Google"
-                placeholderTextColor="#9ca3af"
-                value={companyName}
-                onChangeText={setCompanyName}
-              />
-            </View>
-
-            {/* Dates Row */}
-            <View style={styles.datesRow}>
-              <View style={[styles.section, { flex: 1 }]}>
-                <Text style={styles.label}>Start date</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="mm/dd/yyyy"
-                  placeholderTextColor="#9ca3af"
-                  value={startDate}
-                  onChangeText={setStartDate}
-                />
-              </View>
-              <View style={[styles.section, { flex: 1 }]}>
-                <Text style={styles.label}>End date</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="mm/dd/yyyy"
-                  placeholderTextColor="#9ca3af"
-                  value={endDate}
-                  onChangeText={setEndDate}
-                  editable={!stillWorking}
-                />
+              <Text style={styles.label}>Select your experience</Text>
+              <View style={styles.optionsGrid}>
+                {YEAR_OPTIONS.map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    style={[
+                      styles.optionButton,
+                      selectedYears === option && styles.optionButtonSelected,
+                    ]}
+                    onPress={() => setSelectedYears(option)}
+                  >
+                    <Text
+                      style={[
+                        styles.optionText,
+                        selectedYears === option && styles.optionTextSelected,
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
-            {/* Checkbox */}
-            <View style={styles.checkboxRow}>
-              <TouchableOpacity 
-                style={[styles.checkbox, stillWorking && styles.checkboxActive]}
-                onPress={() => setStillWorking(!stillWorking)}
-              >
-                {stillWorking && <Text style={styles.checkmark}>✓</Text>}
-              </TouchableOpacity>
-              <Text style={styles.checkboxText}>I am still working in this role</Text>
-            </View>
-
-            {/* Add Button */}
-            <TouchableOpacity style={styles.addButton} onPress={handleAddExperience}>
-              <Text style={styles.addButtonText}>Add Experience</Text>
+            <TouchableOpacity 
+              style={[styles.addButton, !selectedYears && styles.addButtonDisabled]} 
+              onPress={handleAddExperience}
+              disabled={!selectedYears}
+            >
+              <Text style={styles.addButtonText}>Save Experience</Text>
             </TouchableOpacity>
 
             {/* Cancel Button */}
@@ -157,67 +124,39 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   section: {
-    gap: 8,
+    gap: 12,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1f2937',
   },
-  input: {
+  optionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  optionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1f2937',
-  },
-  logoPlaceholder: {
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#d1d5db',
-    borderRadius: 8,
-    paddingVertical: 40,
+    backgroundColor: '#fff',
+    minWidth: '30%',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f9fafb',
   },
-  logoText: {
-    fontSize: 14,
-    color: '#9ca3af',
-  },
-  datesRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  checkboxRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginVertical: 8,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#d1d5db',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxActive: {
+  optionButtonSelected: {
     backgroundColor: '#1e3a5f',
     borderColor: '#1e3a5f',
   },
-  checkmark: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '700',
+  optionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6b7280',
   },
-  checkboxText: {
-    fontSize: 14,
-    color: '#1f2937',
+  optionTextSelected: {
+    color: '#fff',
   },
   addButton: {
     backgroundColor: '#1e3a5f',
@@ -225,6 +164,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 16,
+  },
+  addButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
   addButtonText: {
     color: '#fff',

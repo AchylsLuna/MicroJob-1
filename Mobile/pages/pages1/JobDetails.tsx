@@ -129,25 +129,27 @@ export default function JobDetails({
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Job Title */}
-        <Text style={styles.jobTitle}>{jobDetails?.title || 'Job Details'}</Text>
-        <Text style={styles.jobMeta}>{jobDetails?.jobType || ''} {jobDetails?.location ? `• ${jobDetails.location}` : ''}</Text>
-        {jobDetails?.urgent ? (
-          <View style={styles.urgentBadge}>
-            <Text style={styles.urgentText}>Urgent</Text>
-          </View>
-        ) : null}
+        {/* Header Container with Light Blue Background */}
+        <View style={styles.headerContainer}>
+          {/* Job Title */}
+          <Text style={styles.jobTitle}>{jobDetails?.title || 'Job Details'}</Text>
+          <Text style={styles.jobMeta}>{jobDetails?.jobType || ''} {jobDetails?.location ? `• ${jobDetails.location}` : ''}</Text>
+          {jobDetails?.urgent ? (
+            <View style={styles.urgentBadge}>
+              <Text style={styles.urgentText}>Urgent</Text>
+            </View>
+          ) : null}
 
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
-        {isLoading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color="#1e3a5f" />
-          </View>
-        ) : null}
+          {isLoading ? (
+            <View style={styles.loadingRow}>
+              <ActivityIndicator color="#eef0f1" />
+            </View>
+          ) : null}
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
+          {/* Stats */}
+          <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statIcon}>📍</Text>
             <Text style={styles.statLabel}>LOCATION</Text>
@@ -163,6 +165,7 @@ export default function JobDetails({
             <Text style={styles.statLabel}>SALARY</Text>
             <Text style={styles.statValue}>{jobDetails?.salary || 'N/A'}</Text>
           </View>
+        </View>
         </View>
 
         {/* Posted Info */}
@@ -224,20 +227,26 @@ export default function JobDetails({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1e3a5f' },
-  scroll: { paddingHorizontal: 20, paddingTop: 40, paddingBottom: 100 },
+  container: { flex: 1, backgroundColor: '#fff' },
+  scroll: { paddingHorizontal: 20, paddingTop: 80, paddingBottom: 100 },
+  headerContainer: {
+    backgroundColor: '#c8d4d8',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 24,
+  },
   jobTitle: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: '#1f2937',
     textAlign: 'center',
     marginBottom: 8,
   },
   jobMeta: {
     fontSize: 14,
-    color: '#b0c4de',
+    color: '#6b7280',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 10,
   },
   urgentBadge: {
     alignSelf: 'center',
@@ -245,15 +254,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   urgentText: { color: '#b91c1c', fontSize: 12, fontWeight: '700' },
   statsRow: {
     flexDirection: 'row',
     backgroundColor: '#fff',
     borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
+    padding: 12,
+    marginTop: 8,
     justifyContent: 'space-around',
   },
   statItem: {
@@ -265,15 +274,15 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 12, color: '#1f2937', fontWeight: '700', textAlign: 'center' },
   postedInfo: {
     fontSize: 12,
-    color: '#d1dce6',
+    color: '#6b7280',
     marginBottom: 24,
     lineHeight: 18,
   },
-  highlight: { fontWeight: '700', color: '#fff' },
+  highlight: { fontWeight: '700', color: '#1f2937' },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#fff',
+    color: '#1f2937',
     marginBottom: 12,
     marginTop: 8,
   },
@@ -292,7 +301,7 @@ const styles = StyleSheet.create({
   skillText: { fontSize: 13, color: '#1f2937', fontWeight: '600' },
   description: {
     fontSize: 14,
-    color: '#d1dce6',
+    color: '#6b7280',
     lineHeight: 22,
     marginBottom: 24,
   },
@@ -310,7 +319,7 @@ const styles = StyleSheet.create({
   },
   requirementItem: {
     fontSize: 14,
-    color: '#d1dce6',
+    color: '#6b7280',
     lineHeight: 24,
   },
   actionButtons: {
@@ -327,7 +336,7 @@ const styles = StyleSheet.create({
   saveBtn: {
     backgroundColor: 'transparent',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: '#1f2937',
   },
   savedBtn: {
     backgroundColor: '#22c55e',
@@ -341,7 +350,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   saveBtnText: {
-    color: '#fff',
+    color: '#1f2937',
   },
   savedBtnText: {
     color: '#fff',

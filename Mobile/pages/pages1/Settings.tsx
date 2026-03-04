@@ -6,6 +6,7 @@ import { tokens } from '../../theme/tokens';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { calculateProfileCompletion, getCompletionColor, type ProfileData } from '../../lib/profileCompletion';
+import PersonalInformation from './PersonalInformation';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -19,6 +20,7 @@ type SettingsProps = {
   onNavigateAbout?: () => void;
   onNavigateDeleteAccount?: () => void;
   onNavigateSupport?: () => void;
+  currentRole?: 'worker' | 'employer' | 'both';
 };
 
 export default function Settings({
@@ -33,9 +35,17 @@ export default function Settings({
   onNavigateAbout,
   onNavigateDeleteAccount,
   onNavigateSupport,
+  currentRole = 'worker',
 }: SettingsProps) {
   const [completion, setCompletion] = useState({ percentage: 0, incompleteFields: [] as string[], completedFields: [] as string[] });
+  const [profileSummary, setProfileSummary] = useState({
+    totalExperience: '',
+    projectsCompleted: 0,
+    jobsApplied: 0,
+    successRate: '0%',
+  });
   const [isLoading, setIsLoading] = useState(true);
+  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
 
   useEffect(() => {
     const loadProfileCompletion = async () => {
@@ -74,9 +84,8 @@ export default function Settings({
               country: profile.country?.trim() || '',
               phoneNumber: profile.phoneNumber?.trim() || '',
               linkedin: profile.linkedin?.trim() || '',
-              experience: Array.isArray(profile.experience) ? profile.experience : [],
-              education: Array.isArray(profile.education) ? profile.education : [],
-              cvUrl: (profile.resumeUrl || profile.cvUrl)?.trim() || '',
+              totalExperience: profile.totalExperience?.trim() || '',
+              resumeUrl: (profile.resumeUrl || profile.cvUrl)?.trim() || '',
               skills: Array.isArray(profile.skills) ? profile.skills : [],
             };
 
@@ -85,6 +94,13 @@ export default function Settings({
               percentage: completionStatus.percentage,
               incompleteFields: completionStatus.incompleteFields,
               completedFields: completionStatus.completedFields,
+            });
+
+            setProfileSummary({
+              totalExperience: profile.totalExperience || '',
+              projectsCompleted: profile.projectsCompleted || 0,
+              jobsApplied: profile.jobsApplied || 0,
+              successRate: profile.successRate || '0%',
             });
           }
         }
@@ -102,8 +118,14 @@ export default function Settings({
     onLogout?.();
   };
 
+  if (showPersonalInfo) {
+    return <PersonalInformation key="personal-info" onBack={() => setShowPersonalInfo(false)} currentRole={currentRole} />;
+  }
+
   const settingsMenus = [
-    { title: 'Personal Information', onPress: onNavigatePersonalDetails, icon: 'person-outline' as const },
+    { title: 'Personal Information', onPress: () => setShowPersonalInfo(true), icon: 'person-outline' as const },
+    { title: 'Experience', onPress: onNavigatePersonalDetails, icon: 'briefcase-outline' as const },
+    { title: 'CV/Resume', onPress: onNavigatePersonalDetails, icon: 'document-text-outline' as const },
     { title: 'Change Password', onPress: onNavigateChangePassword, icon: 'lock-closed-outline' as const },
     { title: 'Notifications', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
     { title: 'E-Wallet & Payments', onPress: onNavigateEWallet, icon: 'wallet-outline' as const },
@@ -156,6 +178,27 @@ export default function Settings({
                 ]}
               />
             </View>
+
+            <View style={styles.quickStatsRow}>
+              <View style={styles.quickStatItem}>
+                <Text style={styles.quickStatValue}>{profileSummary.jobsApplied}</Text>
+                <Text style={styles.quickStatLabel}>Applied</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStatItem}>
+                <Text style={styles.quickStatValue}>{profileSummary.projectsCompleted}</Text>
+                <Text style={styles.quickStatLabel}>Completed</Text>
+              </View>
+              <View style={styles.quickStatDivider} />
+              <View style={styles.quickStatItem}>
+                <Text style={styles.quickStatValue}>{profileSummary.successRate}</Text>
+                <Text style={styles.quickStatLabel}>Success</Text>
+              </View>
+            </View>
+
+            {profileSummary.totalExperience ? (
+              <Text style={styles.totalExperienceText}>Total Experience: {profileSummary.totalExperience}</Text>
+            ) : null}
 
             {/* Incomplete Fields */}
             {completion.incompleteFields.length > 0 && (
@@ -303,6 +346,36 @@ const styles = StyleSheet.create({
   progressBarFill: {
     height: '100%',
     borderRadius: 4,
+  },
+  quickStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  quickStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  quickStatValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  quickStatLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  quickStatDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#E5EAF0',
+  },
+  totalExperienceText: {
+    fontSize: 12,
+    color: '#475569',
+    marginBottom: 8,
   },
   incompleteSectionContainer: {
     marginTop: 8,

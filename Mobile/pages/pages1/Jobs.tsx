@@ -60,18 +60,22 @@ export default function Jobs(props: JobsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
 
   const jobTypes = ['All', 'Remote', 'Fulltime', 'Part-time', 'Freelance'];
 
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return jobs.filter((job) => {
+      // Exclude jobs already applied to
+      if (appliedJobIds.includes(job._id)) return false;
+      
       if (!query) return true;
       return [job.title, job.description, job.location]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query));
     });
-  }, [jobs, searchQuery]);
+  }, [jobs, searchQuery, appliedJobIds]);
 
   const fetchCategories = async () => {
     try {
@@ -81,6 +85,23 @@ export default function Jobs(props: JobsProps) {
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
+    }
+  };
+
+  const fetchAppliedJobs = async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) return;
+      const result = await apiRequest(`${API_URL}/applications`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }, 'Failed to load applications.');
+      if (result.ok) {
+        const applications = asList<any>(result.raw, ['applications']);
+        const jobIds = applications.map((app: any) => app.job?._id).filter(Boolean);
+        setAppliedJobIds(jobIds);
+      }
+    } catch (error) {
+      console.error('Failed to load applied jobs:', error);
     }
   };
 
@@ -120,6 +141,7 @@ export default function Jobs(props: JobsProps) {
 
   useEffect(() => {
     fetchCategories();
+    fetchAppliedJobs();
     // Load current user ID to prevent messaging self
     const loadCurrentUserId = async () => {
       try {

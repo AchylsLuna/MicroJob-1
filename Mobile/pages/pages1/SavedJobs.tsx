@@ -38,25 +38,24 @@ export default function SavedJobs({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => {
+            if (onViewAppliedJobs) {
+              onViewAppliedJobs();
+              return;
+            }
+            handleTabPress('Jobs');
+          }}
+        >
+          <Text style={styles.backBtnText}>Back</Text>
+        </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Saved jobs</Text>
           <Text style={styles.headerSubtitle}>{savedJobs.length} jobs saved for later</Text>
         </View>
-      </View>
-
-      {/* Toggle Buttons */}
-      <View style={styles.toggleContainer}>
-        <TouchableOpacity 
-          style={[styles.toggleBtn, styles.toggleBtnInactive]}
-          onPress={onViewAppliedJobs}
-        >
-          <Text style={styles.toggleBtnTextInactive}>Applied Job details</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.toggleBtn, styles.toggleBtnActive]}>
-          <Text style={styles.toggleBtnTextActive}>Save job</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRightSpacer} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -69,34 +68,38 @@ export default function SavedJobs({
         ) : (
           <View style={styles.jobsList}>
             {savedJobs.map((job) => (
-              <TouchableOpacity 
-                key={job._id} 
+              <TouchableOpacity
+                key={job._id}
                 style={styles.jobCard}
                 onPress={() => onViewDetails?.(job)}
               >
+                <View style={styles.waveOne} />
+                <View style={styles.waveTwo} />
+                <View style={styles.waveThree} />
+
                 <View style={styles.jobCardHeader}>
                   <View style={styles.jobInfo}>
                     <Text style={styles.jobTitle}>{job.title}</Text>
                     <Text style={styles.jobCompany}>{job.company}</Text>
                     <Text style={styles.jobLocation}>{job.location}</Text>
                   </View>
-                  <TouchableOpacity 
+
+                  <TouchableOpacity
                     style={styles.deleteBtn}
                     onPress={() => onRemoveJob?.(job._id)}
                   >
-                    <Text style={styles.deleteIcon}>🗑️</Text>
+                    <Text style={styles.deleteText}>Remove</Text>
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.jobTags}>
-                  {job.tags.map((tag, index) => (
+                <View style={styles.jobFooter}>
+                  <View style={styles.jobTags}>
+                    {job.tags.slice(0, 3).map((tag, index) => (
                     <View key={index} style={styles.tag}>
                       <Text style={styles.tagText}>{tag}</Text>
                     </View>
-                  ))}
-                </View>
-
-                <View style={styles.jobFooter}>
+                    ))}
+                  </View>
                   <Text style={styles.jobSalary}>{job.salary}</Text>
                 </View>
               </TouchableOpacity>
@@ -112,52 +115,28 @@ export default function SavedJobs({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fa' },
+  container: { flex: 1, backgroundColor: '#f3f4f6' },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 20,
-    backgroundColor: '#1e3a5f',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  headerSubtitle: { fontSize: 12, color: '#b0c4de', marginTop: 2 },
-  toggleContainer: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    backgroundColor: '#fff',
-  },
-  toggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1.5,
-  },
-  toggleBtnActive: {
+    paddingTop: 48,
+    paddingBottom: 14,
     backgroundColor: '#1e3a5f',
-    borderColor: '#1e3a5f',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  toggleBtnInactive: {
-    backgroundColor: '#f5f7fa',
-    borderColor: '#d1d5db',
+  backBtn: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  toggleBtnTextActive: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  toggleBtnTextInactive: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 90 },
+  backBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerRightSpacer: { width: 32 },
+  headerTitle: { fontSize: 46, fontWeight: '700', color: '#fff', lineHeight: 50 },
+  headerSubtitle: { fontSize: 16, color: '#9ca3af', marginTop: 2, fontWeight: '600' },
+  scroll: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 90 },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -169,37 +148,75 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#6b7280' },
   jobsList: { gap: 14 },
   jobCard: {
-    backgroundColor: '#3b5a85',
+    backgroundColor: '#1b3c72',
     borderRadius: 16,
-    padding: 16,
+    padding: 14,
     gap: 12,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  waveOne: {
+    position: 'absolute',
+    width: 260,
+    height: 160,
+    borderRadius: 130,
+    backgroundColor: 'rgba(94,165,224,0.16)',
+    top: -50,
+    right: -40,
+  },
+  waveTwo: {
+    position: 'absolute',
+    width: 280,
+    height: 120,
+    borderRadius: 120,
+    backgroundColor: 'rgba(66,137,206,0.16)',
+    bottom: -40,
+    left: -80,
+  },
+  waveThree: {
+    position: 'absolute',
+    width: 260,
+    height: 120,
+    borderRadius: 120,
+    backgroundColor: 'rgba(35,90,162,0.25)',
+    bottom: -55,
+    right: -70,
   },
   jobCardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 2,
   },
-  jobInfo: { flex: 1 },
-  jobTitle: { fontSize: 16, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  jobCompany: { fontSize: 13, color: '#d1dce6', marginBottom: 2 },
-  jobLocation: { fontSize: 13, color: '#d1dce6' },
+  jobInfo: { flex: 1, paddingLeft: 2 },
+  jobTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  jobCompany: { fontSize: 15, color: '#d1dce6', marginBottom: 4 },
+  jobLocation: { fontSize: 14, color: '#d1dce6' },
   deleteBtn: {
-    width: 32,
+    minWidth: 48,
     height: 32,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
-  deleteIcon: { fontSize: 18 },
-  jobTags: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  deleteText: { color: '#9ca3af', fontSize: 12, fontWeight: '700' },
+  jobTags: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', flex: 1 },
   tag: {
-    backgroundColor: '#4a6f9a',
+    backgroundColor: '#9bb6cc',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 8,
   },
-  tagText: { fontSize: 12, color: '#fff', fontWeight: '500' },
+  tagText: { fontSize: 14, color: '#111827', fontWeight: '700' },
   jobFooter: {
-    paddingTop: 8,
+    paddingTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    zIndex: 2,
   },
-  jobSalary: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  jobSalary: { fontSize: 28, fontWeight: '700', color: '#fff' },
 });

@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
-import { apiRequest, asList, asObject } from '../../lib/api';
+import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, getApplicationStatusColor, normalizeApplicationStatus } from '../../lib/status';
 
 type AppliedJob = {
@@ -28,7 +28,6 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   const {
     onViewSavedJobs,
     onViewDetails,
-    onMessageEmployer,
     activeTab: externalActiveTab,
     onTabPress: externalOnTabPress,
     messageBadgeCount = 0,
@@ -87,6 +86,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')}>
+          <Text style={styles.backBtnText}>‹</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Applied jobs</Text>
       </View>
 
@@ -102,7 +104,12 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         </TouchableOpacity>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterContainer}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterContainer}
+      >
         {filters.map((filter) => {
           const isActive = selectedFilter === filter;
           const color = filter === 'All' ? '#1f2937' : getApplicationStatusColor(filter as ApplicationStatus);
@@ -112,13 +119,13 @@ export default function AppliedJobs(props: AppliedJobsProps) {
               style={[styles.filterPill, isActive && styles.filterPillActive, { borderColor: color }]}
               onPress={() => setSelectedFilter(filter)}
             >
-              <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive, { color }]}> {filter} </Text>
+              <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive, { color }]}>{filter}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         {isLoading ? (
           <View style={styles.loadingRow}>
@@ -138,59 +145,22 @@ export default function AppliedJobs(props: AppliedJobsProps) {
             {filteredJobs.map((job) => (
               <View key={job.id} style={styles.jobCard}>
                 <View style={styles.jobCardHeader}>
+                  <View style={styles.logoWrap}>
+                    <Text style={styles.logoText}>logo</Text>
+                  </View>
                   <View style={styles.jobInfo}>
                     <Text style={styles.jobTitle}>{job.title}</Text>
                     <Text style={styles.jobCompany}>{job.company}</Text>
                   </View>
                 </View>
 
-                <View style={styles.jobDetails}>
-                  <View style={[styles.statusBadge, { backgroundColor: getApplicationStatusColor(job.status) }]}
-                  >
-                    <Text style={styles.statusText}>{job.status}</Text>
-                  </View>
-                  {job.hasDetails && job.jobId ? (
-                    <TouchableOpacity
-                      style={styles.detailsLink}
-                      onPress={() => onViewDetails?.({ _id: job.jobId })}
-                    >
-                      <Text style={styles.detailsText}>Application Details</Text>
-                      <Text style={styles.detailsArrow}>›</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-
-                {/* Message Button */}
                 <TouchableOpacity
-                  style={{marginTop: 8, backgroundColor: '#3b82f6', borderRadius: 8, padding: 10, alignItems: 'center'}}
-                  onPress={async () => {
-                    // Find the employer userId from the application/job data
-                    const token = await AsyncStorage.getItem('auth_token');
-                    // Fetch the full application to get employer userId if not present
-                    let employerId = null;
-                    try {
-                      const result = await apiRequest(`${API_URL}/applications/${job.id}`, {
-                        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-                      }, 'Failed to load application details.');
-                      if (result.ok) {
-                        const rawObject = asObject<any>(result.raw);
-                        const payload = asObject<any>(result.data);
-                        const application = rawObject?.application || payload?.application || payload;
-                        employerId = application?.job?.jobPoster?._id;
-                      }
-                    } catch {}
-                    if (!employerId) {
-                      Alert.alert('Error', 'Could not find employer user ID.');
-                      return;
-                    }
-                    onMessageEmployer?.({
-                      userId: employerId,
-                      userName: job.company,
-                      jobId: job.jobId,
-                    });
-                  }}
+                  style={styles.detailsLink}
+                  disabled={!job.hasDetails || !job.jobId}
+                  onPress={() => onViewDetails?.({ _id: job.jobId })}
                 >
-                  <Text style={{color: '#fff', fontWeight: '700'}}>Message Employer</Text>
+                  <Text style={[styles.statusInline, { color: getApplicationStatusColor(job.status) }]}>{job.status}</Text>
+                  <Text style={styles.viewDetailsText}>View details ›</Text>
                 </TouchableOpacity>
               </View>
             ))}
@@ -204,37 +174,49 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fa' },
+  container: { flex: 1, backgroundColor: '#e5e7eb' },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 4,
+    paddingTop: 48,
+    paddingBottom: 12,
     backgroundColor: '#1e3a5f',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
   },
+  backBtn: {
+    position: 'absolute',
+    left: 12,
+    top: 46,
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backBtnText: { color: '#fff', fontSize: 24, lineHeight: 24 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
   toggleContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingVertical: 4,
-    gap: 12,
-    backgroundColor: '#fff',
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 10,
+    backgroundColor: '#e5e7eb',
   },
   toggleBtn: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 14,
     alignItems: 'center',
-    borderWidth: 1.5,
+    borderWidth: 1,
   },
   toggleBtnActive: {
     backgroundColor: '#1e3a5f',
     borderColor: '#1e3a5f',
   },
   toggleBtnInactive: {
-    backgroundColor: '#f5f7fa',
+    backgroundColor: '#eef0f1',
     borderColor: '#d1d5db',
   },
   toggleBtnTextActive: {
@@ -249,29 +231,34 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 0,
-    gap: 4,
-    backgroundColor: '#fff',
-    alignItems: 'flex-start',
+    paddingVertical: 6,
+    gap: 8,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  filterScroll: {
+    maxHeight: 42,
+    backgroundColor: '#e5e7eb',
   },
   filterPill: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 999,
     borderWidth: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f3f4f6',
   },
   filterPillActive: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
   },
   filterPillText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
   },
   filterPillTextActive: {
     fontWeight: '700',
   },
-  scroll: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 90 },
+  mainScroll: { flex: 1 },
+  scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 90 },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -283,50 +270,46 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#6b7280' },
   loadingRow: { paddingVertical: 8 },
   errorText: { color: '#b91c1c', fontSize: 12, marginBottom: 8 },
-  jobsList: { gap: 10, marginTop: 6 },
+  jobsList: { gap: 12, marginTop: 2 },
   jobCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    gap: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3b82f6',
+    borderRadius: 14,
+    padding: 12,
+    gap: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   jobCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
+  logoWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoText: { color: '#111827', fontSize: 10, fontWeight: '700' },
   jobInfo: { flex: 1 },
-  jobTitle: { fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
+  jobTitle: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 0 },
   jobCompany: { fontSize: 13, color: '#6b7280' },
-  jobDetails: {
-    gap: 8,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#fff',
-  },
   detailsLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+    paddingTop: 8,
   },
-  detailsText: {
+  statusInline: {
     fontSize: 13,
-    color: '#3b82f6',
     fontWeight: '600',
   },
-  detailsArrow: {
-    fontSize: 16,
-    color: '#3b82f6',
-    fontWeight: '700',
-  },
+  viewDetailsText: { fontSize: 12, color: '#111827', fontWeight: '600' },
 });

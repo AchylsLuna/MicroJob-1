@@ -8,9 +8,8 @@ export interface ProfileData {
   about?: string;
   city?: string;
   country?: string;
-  experience?: any[];
-  education?: any[];
-  cvUrl?: string;
+  totalExperience?: string;
+  resumeUrl?: string;
   skills?: any[];
   phoneNumber?: string;
   linkedin?: string;
@@ -33,9 +32,8 @@ const PROFILE_FIELDS = [
   { key: 'country', label: 'Country', weight: 1 },
   { key: 'about', label: 'Bio/About', weight: 1 },
   { key: 'linkedin', label: 'LinkedIn Profile', weight: 1 },
-  { key: 'experience', label: 'Work Experience', weight: 1.5 },
-  { key: 'education', label: 'Education', weight: 1.5 },
-  { key: 'cvUrl', label: 'CV/Resume', weight: 1.5 },
+  { key: 'totalExperience', label: 'Work Experience', weight: 1.5 },
+  { key: 'resumeUrl', label: 'CV/Resume', weight: 1.5 },
   { key: 'skills', label: 'Skills', weight: 1 },
 ];
 

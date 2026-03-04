@@ -7,8 +7,9 @@ import AppHeader from '../../components/AppHeader';
 import AddExperience from './AddExperience';
 import AddEducation from './AddEducation';
 import AddCV from './AddCV';
+import AddSkills from './AddSkills';
 import { API_URL } from '../../config';
-import { apiRequest, asObject } from '../../lib/api';
+import { apiRequest } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { calculateProfileCompletion, getCompletionColor, getCompletionMessage, type ProfileData } from '../../lib/profileCompletion';
 
@@ -33,8 +34,10 @@ export default function Profile({
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [showAddEducation, setShowAddEducation] = useState(false);
   const [showAddCV, setShowAddCV] = useState(false);
+  const [showAddSkills, setShowAddSkills] = useState(false);
   const [firstName, setFirstName] = useState('Jonas');
   const [lastName, setLastName] = useState('');
+  const [profile, setProfile] = useState<any>(null);
   const [profileData, setProfileData] = useState<ProfileData>({});
   const [completion, setCompletion] = useState({ percentage: 0, completedCount: 0, totalFields: 0 });
 
@@ -49,78 +52,89 @@ export default function Profile({
   };
   const nextRole: 'worker' | 'employer' = currentRole === 'worker' ? 'employer' : 'worker';
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem('auth_user');
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          setFirstName(parsed?.firstName || 'Jonas');
-          setLastName(parsed?.lastName || '');
-        }
-        const token = await AsyncStorage.getItem('auth_token');
-        if (!token) return;
-        const result = await apiRequest(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to load profile.') as any;
-        
-        if (!result.ok) return;
-        
-        // Extract profile from various possible response structures
-        let profile: any = null;
-        
-        // Try different response structures
-        if (result.raw?.data?.user) {
-          profile = result.raw.data.user;
-        } else if (result.raw?.user) {
-          profile = result.raw.user;
-        } else if (result.data?.user) {
-          profile = result.data.user;
-        } else if (result.raw) {
-          profile = result.raw;
-        }
-        
-        console.log('Loaded profile:', profile);
-        
-        if (profile) {
-          setFirstName(profile.firstName || 'Jonas');
-          setLastName(profile.lastName || '');
-          
-          // Set profile data for completion calculation
-          // Make sure to capture all relevant fields
-          const profileDataToCalculate: ProfileData = {
-            firstName: profile.firstName?.trim() || '',
-            lastName: profile.lastName?.trim() || '',
-            avatarUrl: profile.avatarUrl?.trim() || '',
-            about: profile.about?.trim() || '',
-            city: profile.city?.trim() || '',
-            country: profile.country?.trim() || '',
-            phoneNumber: profile.phoneNumber?.trim() || '',
-            linkedin: profile.linkedin?.trim() || '',
-            experience: Array.isArray(profile.experience) ? profile.experience : [],
-            education: Array.isArray(profile.education) ? profile.education : [],
-            cvUrl: (profile.resumeUrl || profile.cvUrl)?.trim() || '',
-            skills: Array.isArray(profile.skills) ? profile.skills : [],
-          };
-          
-          console.log('Profile data for calculation:', profileDataToCalculate);
-          
-          setProfileData(profileDataToCalculate);
-          
-          // Calculate completion percentage
-          const completionStatus = calculateProfileCompletion(profileDataToCalculate);
-          console.log('Completion status:', completionStatus);
-          setCompletion(completionStatus);
-        }
-      } catch (error) {
-        console.log('Failed to load profile', error);
+  const loadProfile = async () => {
+    try {
+      const storedUser = await AsyncStorage.getItem('auth_user');
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        setFirstName(parsed?.firstName || 'Jonas');
+        setLastName(parsed?.lastName || '');
       }
-    };
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) return;
+      const result = await apiRequest(`${API_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }, 'Failed to load profile.') as any;
 
+      if (!result.ok) return;
+
+      let profile: any = null;
+      if (result.raw?.data?.user) {
+        profile = result.raw.data.user;
+      } else if (result.raw?.user) {
+        profile = result.raw.user;
+      } else if (result.data?.user) {
+        profile = result.data.user;
+      } else if (result.raw) {
+        profile = result.raw;
+      }
+
+      if (profile) {
+        console.log('📊 Profile loaded from server:', {
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          city: profile.city,
+          province: profile.province,
+          phoneNumber: profile.phoneNumber,
+        });
+        
+        setFirstName(profile.firstName || 'Jonas');
+        setLastName(profile.lastName || '');
+        setProfile(profile);
+
+        const profileDataToCalculate: ProfileData = {
+          firstName: profile.firstName?.trim() || '',
+          lastName: profile.lastName?.trim() || '',
+          avatarUrl: profile.avatarUrl?.trim() || '',
+          about: profile.about?.trim() || '',
+          city: profile.city?.trim() || '',
+          country: profile.province?.trim() || '', // Server uses 'province' field
+          phoneNumber: profile.phoneNumber?.trim() || '',
+          linkedin: profile.linkedin?.trim() || '',
+          totalExperience: profile.totalExperience?.trim() || '',
+          resumeUrl: profile.resumeUrl?.trim() || '',
+          skills: Array.isArray(profile.skills) ? profile.skills : [],
+        };
+
+        setProfileData(profileDataToCalculate);
+        const completionStatus = calculateProfileCompletion(profileDataToCalculate);
+        setCompletion(completionStatus);
+      }
+    } catch (error) {
+      console.log('Failed to load profile', error);
+    }
+  };
+
+  useEffect(() => {
     loadProfile();
   }, []);
+  
+  // Reload profile when screen becomes focused
+  useEffect(() => {
+    if (activeTab === 'Profile') {
+      loadProfile();
+    }
+  }, [activeTab]);
 
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || 'Jonas';
+  const skills = Array.isArray(profile?.skills) ? profile.skills : [];
+  const totalExperience = profile?.totalExperience || '';
+  const jobsApplied = typeof profile?.jobsApplied === 'number' ? profile.jobsApplied : 0;
+  const jobsCompleted = typeof profile?.projectsCompleted === 'number' ? profile.projectsCompleted : 0;
+  const successRate = profile?.successRate || '0%';
+  const resumeUrl = profile?.resumeUrl || profile?.cvUrl || '';
+  const resumeName = profile?.resumeFileName || 'No resume uploaded';
+  const aboutText = profile?.about || '';
   const initials = displayName
     .split(' ')
     .filter(Boolean)
@@ -138,7 +152,13 @@ export default function Profile({
         onRightPress={() => handleRoleSwitch(nextRole)}
       />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scroll} 
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+        alwaysBounceVertical={true}
+      >
         {/* Profile Card */}
         <View style={styles.profileCard}>
           {/* Avatar */}
@@ -192,18 +212,38 @@ export default function Profile({
           {/* Stats */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statCount}>5</Text>
+              <Text style={styles.statCount}>{jobsApplied}</Text>
               <Text style={styles.statLabel}>Applied</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statCount}>5</Text>
-              <Text style={styles.statLabel}>Shortlisted</Text>
+              <Text style={styles.statCount}>{jobsCompleted}</Text>
+              <Text style={styles.statLabel}>Completed</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statCount}>5</Text>
-              <Text style={styles.statLabel}>Terms</Text>
+              <Text style={styles.statCount}>{successRate}</Text>
+              <Text style={styles.statLabel}>Success</Text>
+            </View>
+          </View>
+
+          <View style={styles.skillsBlock}>
+            <View style={styles.skillsHeader}>
+              <Text style={styles.skillsLabel}>Skills</Text>
+              <TouchableOpacity onPress={() => setShowAddSkills(true)}>
+                <Ionicons name="add-circle-outline" size={18} color="#fff" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.skillsWrap}>
+              {skills.length ? (
+                skills.slice(0, 8).map((skill: any) => (
+                  <View key={skill?._id || skill?.id || skill?.name} style={styles.skillPill}>
+                    <Text style={styles.skillPillText}>{skill?.name || 'Skill'}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.emptyInlineText}>No skills added yet</Text>
+              )}
             </View>
           </View>
         </View>
@@ -217,41 +257,37 @@ export default function Profile({
             </TouchableOpacity>
           </View>
 
-          {[1, 2].map((item) => (
-            <View key={item} style={styles.experienceItem}>
-              <View style={styles.expLogo}>
+          {totalExperience ? (
+            <View style={styles.infoCard}>
+              <View style={styles.infoIcon}>
                 <Ionicons name="briefcase-outline" size={20} color={tokens.colors.brand} />
               </View>
-              <View style={styles.expInfo}>
-                <Text style={styles.expTitle}>Mobile Developer Designer</Text>
-                <Text style={styles.expCompany}>Company Name</Text>
-                <Text style={styles.expDate}>Jan 22 - Feb 23</Text>
-              </View>
-              <Text style={styles.expLocation}>Pangasinan, PH</Text>
+              <Text style={styles.infoText}>{totalExperience}</Text>
             </View>
-          ))}
+          ) : (
+            <Text style={styles.emptySectionText}>No experience added yet</Text>
+          )}
         </View>
 
         {/* Education Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Education</Text>
+            <Text style={styles.sectionTitle}>About / Education</Text>
             <TouchableOpacity onPress={() => setShowAddEducation(true)}>
               <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.educationItem}>
-            <View style={styles.eduLogo}>
-              <Ionicons name="school-outline" size={20} color={tokens.colors.brand} />
+          {aboutText ? (
+            <View style={styles.infoCard}>
+              <View style={styles.infoIcon}>
+                <Ionicons name="school-outline" size={20} color={tokens.colors.brand} />
+              </View>
+              <Text style={styles.infoText}>{aboutText}</Text>
             </View>
-            <View style={styles.eduInfo}>
-              <Text style={styles.eduTitle}>Information Technology</Text>
-              <Text style={styles.eduSchool}>University's Name</Text>
-              <Text style={styles.eduDate}>Jan 22 - Feb 23</Text>
-            </View>
-            <Text style={styles.eduLocation}>Pangasinan, PH</Text>
-          </View>
+          ) : (
+            <Text style={styles.emptySectionText}>No education added yet</Text>
+          )}
         </View>
 
         {/* CV Section */}
@@ -268,12 +304,14 @@ export default function Profile({
               <Ionicons name="document-text-outline" size={20} color={tokens.colors.brand} />
             </View>
             <View style={styles.cvInfo}>
-              <Text style={styles.cvFileName}>Enriquez, Jonas CV.PDF</Text>
-              <Text style={styles.cvFileSize}>PDF • 2MB</Text>
+              <Text style={styles.cvFileName}>{resumeName}</Text>
+              <Text style={styles.cvFileSize}>{resumeUrl ? 'Uploaded from server' : 'No resume uploaded'}</Text>
             </View>
-            <TouchableOpacity>
-              <Ionicons name="download-outline" size={18} color={tokens.colors.textMuted} />
-            </TouchableOpacity>
+            {resumeUrl ? (
+              <TouchableOpacity>
+                <Ionicons name="download-outline" size={18} color={tokens.colors.textMuted} />
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </ScrollView>
@@ -287,20 +325,76 @@ export default function Profile({
       />
 
       {/* Modals */}
-      <AddExperience 
-        visible={showAddExperience} 
+      <AddExperience
+        visible={showAddExperience}
+        initialTotalExperience={profile?.totalExperience || ''}
         onClose={() => setShowAddExperience(false)}
-        onAdd={(data) => {
-          console.log('Add experience:', data);
-          setShowAddExperience(false);
+        onAdd={async (data) => {
+          try {
+            const token = await AsyncStorage.getItem('auth_token');
+            if (!token) return;
+            await apiRequest(`${API_URL}/auth/me`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ totalExperience: data.totalExperience }),
+            }, 'Failed to update experience.');
+            await loadProfile();
+          } catch (error) {
+            console.log('Failed to update experience', error);
+          } finally {
+            setShowAddExperience(false);
+          }
+        }}
+      />
+      <AddSkills
+        visible={showAddSkills}
+        onClose={() => setShowAddSkills(false)}
+        onAdd={async (data) => {
+          try {
+            const token = await AsyncStorage.getItem('auth_token');
+            if (!token) return;
+            await apiRequest(`${API_URL}/profile/skills`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ name: data.skillName, level: data.level }),
+            }, 'Failed to add skill.');
+            await loadProfile();
+          } catch (error) {
+            console.log('Failed to add skill', error);
+          } finally {
+            setShowAddSkills(false);
+          }
         }}
       />
       <AddEducation 
         visible={showAddEducation} 
         onClose={() => setShowAddEducation(false)}
-        onAdd={(data) => {
-          console.log('Add education:', data);
-          setShowAddEducation(false);
+        onAdd={async (data) => {
+          try {
+            const token = await AsyncStorage.getItem('auth_token');
+            if (!token) return;
+            await apiRequest(`${API_URL}/auth/me`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                about: data.schoolName ? `Studied ${data.degree} in ${data.fieldOfStudy} at ${data.schoolName}` : '',
+              }),
+            }, 'Failed to add education.');
+            await loadProfile();
+          } catch (error) {
+            console.log('Failed to add education:', error);
+          } finally {
+            setShowAddEducation(false);
+          }
         }}
       />
       <AddCV 
@@ -317,7 +411,13 @@ export default function Profile({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 },
+  scrollView: { flex: 1 },
+  scroll: { 
+    flexGrow: 1,
+    paddingHorizontal: 20, 
+    paddingTop: 24, 
+    paddingBottom: 120,
+  },
   profileCard: {
     backgroundColor: '#1e3a5f',
     borderRadius: 16,
@@ -425,6 +525,45 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: '#3b5a85',
   },
+  skillsBlock: {
+    width: '100%',
+    gap: 8,
+  },
+  skillsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  skillsLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#d1dce6',
+  },
+  skillsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  skillPill: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  skillPillText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  emptyInlineText: {
+    color: '#d1dce6',
+    fontSize: 12,
+  },
+  emptySectionText: {
+    color: '#6b7280',
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
   section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: 'row',
@@ -449,6 +588,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  infoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    lineHeight: 20,
   },
   expInfo: { flex: 1 },
   expTitle: { fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 2 },

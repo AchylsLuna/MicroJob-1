@@ -91,6 +91,9 @@ export async function updateProfile(req, res) {
             return res.status(401).json({ message: "Authentication required." });
         }
 
+        console.log('📥 Update profile request from user:', userId);
+        console.log('📥 Request body:', req.body);
+
         const allowed = [
             "firstName",
             "lastName",
@@ -155,6 +158,9 @@ export async function updateProfile(req, res) {
             updateOps.$unset = unset;
         }
 
+        console.log('💾 Saving to database, userId:', userId);
+        console.log('💾 Update operations:', JSON.stringify(updateOps, null, 2));
+
         const user = await User.findByIdAndUpdate(userId, updateOps, {
             new: true,
             runValidators: true,
@@ -166,6 +172,15 @@ export async function updateProfile(req, res) {
             return res.status(404).json({ message: "User not found." });
         }
 
+        console.log('✅ Successfully saved user data:', {
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            city: user.city,
+            province: user.province,
+        });
+
         return res.status(200).json({ user });
     } catch (error) {
         console.error("Update profile error:", error);
@@ -173,7 +188,14 @@ export async function updateProfile(req, res) {
             return res.status(400).json({ message: error.message || "Invalid profile data." });
         }
         if (error?.code === 11000) {
-            return res.status(409).json({ message: "Email or phone number is already in use." });
+            const field = Object.keys(error.keyValue)[0];
+            let message = `${field} is already in use.`;
+            if (field === 'phoneNumber') {
+                message = "This phone number is already in use. Try a different number.";
+            } else if (field === 'email') {
+                message = "This email is already in use. Try a different email.";
+            }
+            return res.status(409).json({ message });
         }
         return res.status(500).json({ message: "Failed to update profile." });
     }

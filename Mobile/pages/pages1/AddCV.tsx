@@ -16,10 +16,9 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
     setCvFileName('Resume.pdf');
   };
 
-  const handleAddCV = () => {
+  const handleAddCV = async () => {
     if (cvFileName) {
       onAdd?.({ cvFileName });
-      setCvFileName('');
       onClose?.();
     }
   };
