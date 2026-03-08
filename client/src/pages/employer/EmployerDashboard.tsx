@@ -65,9 +65,9 @@ export function EmployerDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     total: 0,
-    pending: 0,
-    inProgress: 0,
-    accepted: 0,
+    shortlisted: 0,
+    interviewed: 0,
+    hired: 0,
     rejected: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -103,20 +103,20 @@ export function EmployerDashboard() {
         if (!isMounted) return;
 
         const total = Array.isArray(applications) ? applications.length : 0;
-        const pending = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Pending").length
+        const shortlisted = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Shortlisted").length
           : 0;
-        const inProgress = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Reviewed").length
+        const interviewed = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Interviewed").length
           : 0;
-        const accepted = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Accepted").length
+        const hired = Array.isArray(applications)
+          ? applications.filter((app: any) => app.status === "Hired").length
           : 0;
         const rejected = Array.isArray(applications)
           ? applications.filter((app: any) => app.status === "Rejected").length
           : 0;
 
-        setStats({ total, pending, inProgress, accepted, rejected });
+        setStats({ total, shortlisted, interviewed, hired, rejected });
       } catch (error: any) {
         if (!isMounted) return;
         toast.error(error?.message || "Failed to load applications.");
@@ -154,22 +154,22 @@ export function EmployerDashboard() {
         />
         <StatCard
           icon={<Clock className="h-6 w-6" />}
-          title="Pending Review"
-          value={isLoading ? "—" : stats.pending}
+          title="Shortlisted"
+          value={isLoading ? "—" : stats.shortlisted}
           change="+6%"
           gradient="bg-gradient-to-br from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]"
         />
         <StatCard
           icon={<MessageSquare className="h-6 w-6" />}
-          title="In Progress"
-          value={isLoading ? "—" : stats.inProgress}
+          title="To Be Interview"
+          value={isLoading ? "—" : stats.interviewed}
           change="+9%"
           gradient="bg-gradient-to-br from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]"
         />
         <StatCard
           icon={<CheckCircle className="h-6 w-6" />}
-          title="Accepted"
-          value={isLoading ? "—" : stats.accepted}
+          title="Hired"
+          value={isLoading ? "—" : stats.hired}
           change="+4%"
           gradient="bg-gradient-to-br from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]"
         />
@@ -184,9 +184,9 @@ export function EmployerDashboard() {
             </span>
           </div>
           <div className="space-y-5">
-            <PipelineRow label="Pending Review" count={isLoading ? 0 : stats.pending} colorClass="bg-[#F59E0B]" />
-            <PipelineRow label="In Progress" count={isLoading ? 0 : stats.inProgress} colorClass="bg-[#3B82F6]" />
-            <PipelineRow label="Accepted" count={isLoading ? 0 : stats.accepted} colorClass="bg-[#10B981]" />
+            <PipelineRow label="Shortlisted" count={isLoading ? 0 : stats.shortlisted} colorClass="bg-[#F59E0B]" />
+            <PipelineRow label="To Be Interview" count={isLoading ? 0 : stats.interviewed} colorClass="bg-[#3B82F6]" />
+            <PipelineRow label="Hired" count={isLoading ? 0 : stats.hired} colorClass="bg-[#10B981]" />
             <PipelineRow label="Rejected" count={isLoading ? 0 : stats.rejected} colorClass="bg-[#EF4444]" />
           </div>
 
@@ -215,8 +215,8 @@ export function EmployerDashboard() {
           <h3 className="mb-5 text-[18px] font-semibold text-[#111827]">Quick Totals</h3>
           <div className="space-y-3">
             <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-              <p className="text-[13px] text-[#64748B]">Accepted</p>
-              <p className="mt-1 text-[24px] font-semibold text-[#10B981]">{isLoading ? "—" : stats.accepted}</p>
+              <p className="text-[13px] text-[#64748B]">Hired</p>
+              <p className="mt-1 text-[24px] font-semibold text-[#10B981]">{isLoading ? "—" : stats.hired}</p>
             </div>
             <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-3">
               <p className="text-[13px] text-[#64748B]">Rejected</p>

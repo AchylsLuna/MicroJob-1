@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { jobsAPI } from '../../services/jobs';
+import { markAllNotificationsRead, deleteNotification } from '../../services/api';
 import { ROUTES } from '../../utils/routes';
-import { MessageSquare, DollarSign, CheckCircle, Clock } from 'lucide-react';
+import { MessageSquare, DollarSign, CheckCircle, Clock, X } from 'lucide-react';
 import { toast } from '../../lib/toast';
 
 type NotificationType = 'application' | 'message' | 'payment';
@@ -98,6 +99,8 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     fetchNotifications();
+    // Also refresh the global notification count in NavBar
+    window.dispatchEvent(new Event('notification-refresh'));
   }, []);
 
   const markRead = async (applicationId?: string) => {
@@ -107,6 +110,8 @@ export default function NotificationsPage() {
       setNotifications((prev) => 
         prev.map((n) => (n.applicationId === applicationId ? { ...n, isNew: false } : n))
       );
+      // Refresh NavBar notification count
+      window.dispatchEvent(new Event('notification-refresh'));
     } catch (err) {
       console.warn('Failed to mark read', err);
       toast.error('Failed to mark as read');
@@ -115,13 +120,32 @@ export default function NotificationsPage() {
 
   const markAll = async () => {
     const unread = notifications.filter((n) => n.applicationId && n.isNew);
-    await Promise.all(
-      unread.map((n) => 
+    await Promise.all([
+      ...unread.map((n) => 
         jobsAPI.markApplicantRead(n.applicationId!).catch(() => null)
-      )
-    );
+      ),
+      // Also mark all global notifications as read
+      markAllNotificationsRead().catch(() => null)
+    ]);
     setNotifications((prev) => prev.map((n) => ({ ...n, isNew: false })));
     toast.success('All notifications marked as read');
+    // Refresh NavBar notification count
+    window.dispatchEvent(new Event('notification-refresh'));
+  };
+
+  const removeNotification = async (id: string) => {
+    try {
+      // Remove from UI immediately
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      // Try to delete from server (if it's a global notification)
+      await deleteNotification(id).catch(() => null);
+      // Refresh NavBar notification count
+      window.dispatchEvent(new Event('notification-refresh'));
+      toast.success('Notification removed');
+    } catch (err) {
+      console.warn('Failed to remove notification', err);
+      toast.error('Failed to remove notification');
+    }
   };
 
   return (
@@ -226,6 +250,13 @@ export default function NotificationsPage() {
 
               {/* Actions */}
               <div className="flex flex-col items-end gap-2 ml-4">
+                <button
+                  onClick={() => removeNotification(n.id)}
+                  className="text-gray-400 hover:text-red-600 transition-colors"
+                  title="Remove notification"
+                >
+                  <X className="w-5 h-5" />
+                </button>
                 <div className="flex gap-2">
                   {n.type === 'application' && n.jobId && (
                     <button

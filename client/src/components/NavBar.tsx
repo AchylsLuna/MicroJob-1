@@ -340,6 +340,22 @@ export function NavBar() {
     loadNotifications();
   }, []);
 
+  // Reload notifications when location changes (e.g., user marks notifications as read on a different page)
+  useEffect(() => {
+    loadNotifications();
+  }, [location.pathname]);
+
+  // Listen for custom notification refresh events from notification pages
+  useEffect(() => {
+    const handleNotificationRefresh = () => {
+      loadNotifications();
+    };
+    window.addEventListener('notification-refresh', handleNotificationRefresh);
+    return () => {
+      window.removeEventListener('notification-refresh', handleNotificationRefresh);
+    };
+  }, []);
+
   useEffect(() => {
     if (showNotifications) {
       loadNotifications();

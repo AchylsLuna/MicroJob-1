@@ -1,4 +1,4 @@
-export type ApplicationStatus = 'Shortlisted' | 'To Be Interview' | 'Hired';
+export type ApplicationStatus = 'Shortlisted' | 'To Be Interview' | 'Hired' | 'Rejected';
 
 const LEGACY_STATUS_MAP: Record<string, ApplicationStatus> = {
   Pending: 'Shortlisted',
@@ -6,13 +6,13 @@ const LEGACY_STATUS_MAP: Record<string, ApplicationStatus> = {
   Terms: 'To Be Interview',
   Interviewed: 'To Be Interview',
   Accepted: 'Hired',
-  Rejected: 'Shortlisted',
 };
 
 export const APPLICATION_STATUSES: ApplicationStatus[] = [
   'Shortlisted',
   'To Be Interview',
   'Hired',
+  'Rejected',
 ];
 
 export function normalizeApplicationStatus(value: unknown): ApplicationStatus {
@@ -31,6 +31,8 @@ export function getApplicationStatusColor(status: ApplicationStatus): string {
       return '#a855f7';
     case 'Hired':
       return '#10b981';
+    case 'Rejected':
+      return '#ef4444';
     default:
       return '#6b7280';
   }

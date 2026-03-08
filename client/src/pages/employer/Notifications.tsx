@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { X } from 'lucide-react';
 import { jobsAPI } from '../../services/jobs';
+import { markAllNotificationsRead, deleteNotification } from '../../services/api';
 import { ROUTES } from '../../utils/routes';
+import { toast } from '../../lib/toast';
 
 type EmployerNotif = {
   id: string;
@@ -44,15 +47,36 @@ export default function EmployerNotifications() {
     }
   };
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { 
+    fetch();
+    // Also refresh the global notification count in NavBar 
+    window.dispatchEvent(new Event('notification-refresh'));
+  }, []);
 
   const markRead = async (applicationId?: string) => {
     if (!applicationId) return;
     try {
       await jobsAPI.markEmployerRead(applicationId);
       setItems((prev) => prev.map((i) => (i.applicationId === applicationId ? { ...i, isNew: false } : i)));
+      // Refresh NavBar notification count
+      window.dispatchEvent(new Event('notification-refresh'));
     } catch (err) {
       console.warn('mark employer read failed', err);
+    }
+  };
+
+  const removeNotification = async (id: string) => {
+    try {
+      // Remove from UI immediately
+      setItems((prev) => prev.filter((i) => i.id !== id));
+      // Try to delete from server (if it's a global notification)
+      await deleteNotification(id).catch(() => null);
+      // Refresh NavBar notification count
+      window.dispatchEvent(new Event('notification-refresh'));
+      toast.success('Notification removed');
+    } catch (err) {
+      console.warn('Failed to remove notification', err);
+      toast.error('Failed to remove notification');
     }
   };
 
@@ -64,7 +88,12 @@ export default function EmployerNotifications() {
           <p className="text-sm text-gray-500">Recent applications to your job posts</p>
         </div>
         <div>
-          <button onClick={() => setItems((prev) => prev.map((i) => ({ ...i, isNew: false })))} className="text-sm text-blue-600 font-semibold">Mark all as read</button>
+          <button onClick={async () => {
+            await markAllNotificationsRead().catch(() => null);
+            setItems((prev) => prev.map((i) => ({ ...i, isNew: false })));
+            // Refresh NavBar notification count
+            window.dispatchEvent(new Event('notification-refresh'));
+          }} className="text-sm text-blue-600 font-semibold">Mark all as read</button>
         </div>
       </div>
 
@@ -81,6 +110,13 @@ export default function EmployerNotifications() {
                 <p className="text-xs text-gray-400 mt-1">{it.time}</p>
               </div>
               <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={() => removeNotification(it.id)}
+                  className="text-gray-400 hover:text-red-600 transition-colors mb-2"
+                  title="Remove notification"
+                >
+                  <X className="w-5 h-5" />
+                </button>
                 <div className="flex gap-2">
                   <button onClick={() => navigate(ROUTES.employer.applications)} className="text-sm text-blue-600 font-semibold">View</button>
                   <button onClick={() => markRead(it.applicationId)} className="text-sm text-gray-600">Mark read</button>

@@ -4,13 +4,12 @@ import User from '../models/User.js';
 import { emitToUser } from '../lib/socket.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 
-const CANONICAL_STATUSES = ['Shortlisted', 'Interviewed', 'Hired'];
+const CANONICAL_STATUSES = ['Shortlisted', 'Interviewed', 'Hired', 'Rejected'];
 const LEGACY_STATUS_MAP = {
     Pending: 'Shortlisted',
     Reviewed: 'Shortlisted',
     Terms: 'Interviewed',
     Accepted: 'Hired',
-    Rejected: 'Shortlisted',
 };
 
 const toCanonicalStatus = (status) => {

@@ -5,7 +5,7 @@ import { getEmployerApplications, updateApplicationStatus } from "../../services
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 
-type ApplicationStatus = "all" | "shortlisted" | "interviewed" | "hired";
+type ApplicationStatus = "all" | "shortlisted" | "interviewed" | "hired" | "rejected";
 
 interface Application {
   id: string;
@@ -92,6 +92,12 @@ function StatusBadge({ status }: StatusBadgeProps) {
           bg: "bg-[#D1FAE5]",
           text: "text-[#065F46]",
           label: "Hired",
+        };
+      case "rejected":
+        return {
+          bg: "bg-[#FEE2E2]",
+          text: "text-[#991B1B]",
+          label: "Rejected",
         };
     }
   };
@@ -200,6 +206,7 @@ function ApplicationCard({ application, onStatusChange, onMessage, isExpanded, o
               <option value="shortlisted">Shortlisted</option>
               <option value="interviewed">To Be Interview</option>
               <option value="hired">Hired</option>
+              <option value="rejected">Rejected</option>
             </select>
           </div>
 
@@ -282,6 +289,7 @@ export function ApplicationsManagement() {
       "shortlisted": "Shortlisted",
       "interviewed": "To Be Interview",
       "hired": "Hired",
+      "rejected": "Rejected",
     };
 
     const backendStatus =
@@ -289,6 +297,8 @@ export function ApplicationsManagement() {
         ? "Hired"
         : newStatus === "interviewed"
         ? "Interviewed"
+        : newStatus === "rejected"
+        ? "Rejected"
         : "Shortlisted";
 
     try {
@@ -327,7 +337,6 @@ export function ApplicationsManagement() {
     switch (status) {
       case "Pending":
       case "Reviewed":
-      case "Rejected":
       case "Shortlisted":
         return "shortlisted";
       case "Terms":
@@ -336,6 +345,8 @@ export function ApplicationsManagement() {
       case "Accepted":
       case "Hired":
         return "hired";
+      case "Rejected":
+        return "rejected";
       default:
         return "shortlisted";
     }
@@ -477,6 +488,7 @@ export function ApplicationsManagement() {
               <option value="shortlisted">Shortlisted</option>
               <option value="interviewed">To Be Interview</option>
               <option value="hired">Hired</option>
+              <option value="rejected">Rejected</option>
             </select>
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
               <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
