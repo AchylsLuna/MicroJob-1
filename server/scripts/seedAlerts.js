@@ -79,7 +79,7 @@ const run = async () => {
     created += 1;
   }
 
-  console.log(`✅ Seeded alerts for ${user.email}. Created: ${created}`);
+  console.log(`Seeded alerts for ${user.email}. Created: ${created}`);
   await mongoose.disconnect();
 };
 

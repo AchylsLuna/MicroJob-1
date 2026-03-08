@@ -56,18 +56,11 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
       }, 'Failed to load profile.') as any;
 
       if (result.ok) {
-        let profile: any = null;
-        if (result.raw?.data?.user) {
-          profile = result.raw.data.user;
-        } else if (result.raw?.user) {
-          profile = result.raw.user;
-        } else if (result.data?.user) {
-          profile = result.data.user;
-        } else if (result.raw) {
-          profile = result.raw;
-        }
+        // The API returns user data directly in result.data
+        const profile = result.data as any;
 
         if (profile) {
+          console.log('📥 Loaded profile data:', profile);
           setFirstName(profile.firstName || '');
           setLastName(profile.lastName || '');
           setEmail(profile.email || '');

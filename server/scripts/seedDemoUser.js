@@ -70,9 +70,9 @@ const run = async () => {
     }
     if (changed) {
       await user.save();
-      console.log('✅ Demo user updated');
+      console.log('Demo user updated');
     } else {
-      console.log('✅ Demo user already exists');
+      console.log('Demo user already exists');
     }
     console.log(`Email: ${email}`);
     if (resetPassword && verbose) {

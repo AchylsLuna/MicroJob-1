@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../../config';
 
 type AddCVProps = {
   visible: boolean;
@@ -7,20 +11,121 @@ type AddCVProps = {
   onAdd?: (data: any) => void;
 };
 
-export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
-  const [cvFileName, setCvFileName] = useState('');
+type SelectedFile = {
+  uri: string;
+  name: string;
+  mimeType: string;
+  size: number;
+};
 
-  const handlePickFile = () => {
-    // In a real app, this would open file picker
-    // For now, just trigger the upload
-    setCvFileName('Resume.pdf');
+export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
+  const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const getFileExtension = (filename: string): string => {
+    const parts = filename.split('.');
+    return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : 'FILE';
+  };
+
+  const handlePickFile = async () => {
+    try {
+      // expo-document-picker handles permissions automatically
+      const result = await DocumentPicker.getDocumentAsync({
+        type: [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        
+        // Check file size (max 5MB)
+        if (file.size && file.size > 5 * 1024 * 1024) {
+          Alert.alert('File Too Large', 'Please select a file smaller than 5MB.');
+          return;
+        }
+
+        setSelectedFile({
+          uri: file.uri,
+          name: file.name,
+          mimeType: file.mimeType || 'application/pdf',
+          size: file.size || 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error picking file:', error);
+      Alert.alert('Error', 'Failed to pick file. Please try again.');
+    }
   };
 
   const handleAddCV = async () => {
-    if (cvFileName) {
-      onAdd?.({ cvFileName });
-      onClose?.();
+    if (!selectedFile) return;
+
+    setIsUploading(true);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        Alert.alert('Error', 'Authentication token not found. Please log in again.');
+        return;
+      }
+
+      // Create FormData
+      const formData = new FormData();
+      
+      // For React Native, we need to format the file properly
+      const fileToUpload = {
+        uri: selectedFile.uri,
+        type: selectedFile.mimeType,
+        name: selectedFile.name,
+      } as any;
+
+      formData.append('resume', fileToUpload);
+
+      // Upload to server
+      const response = await fetch(`${API_URL}/auth/profile/resume`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // Don't set Content-Type header - fetch will set it automatically with boundary
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        Alert.alert('Success', 'Resume uploaded successfully');
+        onAdd?.({ 
+          resumeFileName: result.data?.resumeFileName || selectedFile.name,
+          resumeUrl: result.data?.resumeUrl 
+        });
+        setSelectedFile(null);
+        onClose?.();
+      } else {
+        Alert.alert('Error', result.message || 'Failed to upload resume');
+      }
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      Alert.alert('Error', 'Failed to upload resume. Please check your connection and try again.');
+    } finally {
+      setIsUploading(false);
     }
+  };
+
+  const handleClose = () => {
+    setSelectedFile(null);
+    onClose?.();
   };
 
   return (
@@ -38,10 +143,14 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
           <View style={styles.content}>
             {/* File Picker */}
             <Text style={styles.label}>Select your CV file</Text>
-            <TouchableOpacity style={styles.filePicker} onPress={handlePickFile}>
+            <TouchableOpacity 
+              style={styles.filePicker} 
+              onPress={handlePickFile}
+              disabled={isUploading}
+            >
               <Text style={styles.filePickerIcon}>📁</Text>
               <Text style={styles.filePickerText}>
-                {cvFileName || 'Choose file'}
+                {selectedFile ? 'Change file' : 'Choose file'}
               </Text>
             </TouchableOpacity>
 
@@ -51,16 +160,21 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
             </Text>
 
             {/* Current File Display */}
-            {cvFileName && (
+            {selectedFile && (
               <View style={styles.selectedFile}>
                 <View style={styles.fileIcon}>
                   <Text style={styles.fileIconText}>📄</Text>
                 </View>
                 <View style={styles.fileInfo}>
-                  <Text style={styles.fileName}>{cvFileName}</Text>
-                  <Text style={styles.fileSize}>PDF • 2MB</Text>
+                  <Text style={styles.fileName}>{selectedFile.name}</Text>
+                  <Text style={styles.fileSize}>
+                    {getFileExtension(selectedFile.name)} • {formatFileSize(selectedFile.size)}
+                  </Text>
                 </View>
-                <TouchableOpacity onPress={() => setCvFileName('')}>
+                <TouchableOpacity 
+                  onPress={() => setSelectedFile(null)}
+                  disabled={isUploading}
+                >
                   <Text style={styles.removeIcon}>✕</Text>
                 </TouchableOpacity>
               </View>
@@ -68,15 +182,26 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
 
             {/* Upload Button */}
             <TouchableOpacity 
-              style={[styles.uploadButton, !cvFileName && styles.uploadButtonDisabled]} 
+              style={[
+                styles.uploadButton, 
+                (!selectedFile || isUploading) && styles.uploadButtonDisabled
+              ]} 
               onPress={handleAddCV}
-              disabled={!cvFileName}
+              disabled={!selectedFile || isUploading}
             >
-              <Text style={styles.uploadButtonText}>Upload CV</Text>
+              {isUploading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.uploadButtonText}>Upload CV</Text>
+              )}
             </TouchableOpacity>
 
             {/* Cancel Button */}
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+            <TouchableOpacity 
+              style={styles.cancelButton} 
+              onPress={handleClose}
+              disabled={isUploading}
+            >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
           </View>

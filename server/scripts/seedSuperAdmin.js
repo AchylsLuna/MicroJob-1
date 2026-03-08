@@ -46,7 +46,7 @@ const run = async () => {
     });
     await user.setPassword(password);
     await user.save();
-    console.log('✅ Super admin created');
+    console.log('Super admin created');
     console.log(`Email: ${email}`);
     if (verbose) {
       console.log(`Password: ${password}`);
@@ -69,9 +69,9 @@ const run = async () => {
     }
     if (changed) {
       await user.save();
-      console.log('✅ Super admin updated');
+      console.log('Super admin updated');
     } else {
-      console.log('✅ Super admin already exists');
+      console.log('Super admin already exists');
     }
     console.log(`Email: ${email}`);
     if (resetPassword && verbose) {

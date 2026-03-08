@@ -20,10 +20,10 @@ const deleteUser = async (email) => {
         const user = await User.findOneAndDelete({ email: email.toLowerCase() });
         
         if (user) {
-            console.log(`✅ User deleted successfully: ${user.email}`);
+            console.log(`User deleted successfully: ${user.email}`);
             console.log(`   Name: ${user.firstName} ${user.lastName}`);
         } else {
-            console.log(`❌ No user found with email: ${email}`);
+            console.log(`No user found with email: ${email}`);
         }
 
         await mongoose.disconnect();

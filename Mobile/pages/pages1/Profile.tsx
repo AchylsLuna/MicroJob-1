@@ -68,16 +68,8 @@ export default function Profile({
 
       if (!result.ok) return;
 
-      let profile: any = null;
-      if (result.raw?.data?.user) {
-        profile = result.raw.data.user;
-      } else if (result.raw?.user) {
-        profile = result.raw.user;
-      } else if (result.data?.user) {
-        profile = result.data.user;
-      } else if (result.raw) {
-        profile = result.raw;
-      }
+      // The API returns user data directly in result.data
+      const profile = result.data as any;
 
       if (profile) {
         console.log('📊 Profile loaded from server:', {
@@ -86,6 +78,9 @@ export default function Profile({
           city: profile.city,
           province: profile.province,
           phoneNumber: profile.phoneNumber,
+          skills: profile.skills,
+          totalExperience: profile.totalExperience,
+          about: profile.about,
         });
         
         setFirstName(profile.firstName || 'Jonas');
@@ -400,8 +395,10 @@ export default function Profile({
       <AddCV 
         visible={showAddCV} 
         onClose={() => setShowAddCV(false)}
-        onAdd={(data) => {
-          console.log('Add CV:', data);
+        onAdd={async (data) => {
+          console.log('Resume uploaded successfully:', data);
+          // Reload profile to show the new resume
+          await loadProfile();
           setShowAddCV(false);
         }}
       />
