@@ -71,7 +71,6 @@ export default function Settings({
               avatarUrl: profile.avatarUrl?.trim() || '',
               about: profile.about?.trim() || '',
               city: profile.city?.trim() || '',
-              country: profile.country?.trim() || '',
               phoneNumber: profile.phoneNumber?.trim() || '',
               linkedin: profile.linkedin?.trim() || '',
               totalExperience: profile.totalExperience?.trim() || '',

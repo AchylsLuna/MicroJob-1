@@ -8,6 +8,8 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,7 +28,6 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [city, setCity] = useState('');
-  const [country, setCountry] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [logoName, setLogoName] = useState('');
@@ -66,7 +67,6 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
           setEmail(profile.email || '');
           setPhoneNumber(profile.phoneNumber || '');
           setCity(profile.city || '');
-          setCountry(profile.province || profile.country || '');
           setLinkedin(profile.linkedin || '');
           setCompanyName(profile.companyName || '');
           setLogoName(profile.logoName || '');
@@ -119,7 +119,6 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         city: city.trim(),
-        province: country.trim(), // Server uses 'province' field
         linkedin: linkedin.trim(),
       };
       
@@ -197,7 +196,11 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+      >
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
             <Ionicons name="chevron-back" size={24} color="#6B7280" />
@@ -208,12 +211,16 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={tokens.colors.brand} size="large" />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
+    >
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={onBack}>
           <Ionicons name="chevron-back" size={24} color="#6B7280" />
@@ -298,20 +305,6 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
           {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
         </View>
 
-        {/* Country */}
-        <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Province</Text>
-          <TextInput
-            style={[styles.input, errors.country && styles.inputError]}
-            placeholder="Enter country"
-            value={country}
-            onChangeText={setCountry}
-            editable={!isSaving}
-            placeholderTextColor="#9CA3AF"
-          />
-          {errors.country && <Text style={styles.errorText}>{errors.country}</Text>}
-        </View>
-
         {/* LinkedIn */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>LinkedIn Profile</Text>
@@ -369,7 +362,7 @@ export default function PersonalInformation({ onBack, currentRole = 'worker' }: 
           )}
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 

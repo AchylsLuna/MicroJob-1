@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 
 const YEAR_OPTIONS = [
   '1 year',
@@ -46,7 +46,11 @@ export default function AddExperience({ visible, onClose, onAdd, initialTotalExp
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
         <View style={styles.overlay} />
         <View style={styles.modal}>
           <Text style={styles.modalTitle}>Add Experience</Text>
@@ -91,7 +95,7 @@ export default function AddExperience({ visible, onClose, onAdd, initialTotalExp
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

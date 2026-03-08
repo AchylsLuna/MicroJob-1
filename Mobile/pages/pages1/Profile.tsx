@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import Constants from 'expo-constants';
 import Navigation from '../../components/navigation';
 import AppHeader from '../../components/AppHeader';
 import AddExperience from './AddExperience';
@@ -40,6 +43,35 @@ export default function Profile({
   const [profile, setProfile] = useState<any>(null);
   const [profileData, setProfileData] = useState<ProfileData>({});
   const [completion, setCompletion] = useState({ percentage: 0, completedCount: 0, totalFields: 0 });
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const API_ORIGIN = API_URL.replace(/\/api$/, '');
+
+  const buildApiCandidates = () => {
+    const candidates = new Set<string>([API_URL]);
+
+    const extractHost = (value: unknown): string => {
+      if (typeof value !== 'string' || !value.trim()) return '';
+      return value.replace(/^https?:\/\//, '').split('/')[0].split(':')[0].trim();
+    };
+
+    const hostCandidates = [
+      Constants.expoConfig?.hostUri,
+      (Constants as any).expoGoConfig?.debuggerHost,
+      (Constants.manifest as any)?.debuggerHost,
+      (Constants.manifest2 as any)?.extra?.expoClient?.debuggerHost,
+    ];
+    const detectedHost = hostCandidates.map(extractHost).find(Boolean);
+
+    if (detectedHost) {
+      candidates.add(`http://${detectedHost}:5000/api`);
+    }
+
+    if (Platform.OS === 'android' && /localhost|127\.0\.0\.1/.test(API_URL)) {
+      candidates.add(API_URL.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2'));
+    }
+
+    return Array.from(candidates);
+  };
 
   const handleTabPress = (tab: string) => {
     setProfileTab(tab);
@@ -52,6 +84,116 @@ export default function Profile({
   };
   const nextRole: 'worker' | 'employer' = currentRole === 'worker' ? 'employer' : 'worker';
 
+  const handlePickProfilePicture = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'We need access to your photo library to upload a profile picture.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        const pickedImage = result.assets[0];
+        await handleUploadProfilePicture(pickedImage);
+      }
+    } catch (error) {
+      console.log('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image');
+    }
+  };
+
+  const handleUploadProfilePicture = async (image: ImagePicker.ImagePickerAsset) => {
+    try {
+      setIsUploadingAvatar(true);
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        Alert.alert('Error', 'Authentication token not found');
+        return;
+      }
+
+      let uploadUri = image.uri;
+      const extensionFromName = image.fileName?.includes('.')
+        ? image.fileName.split('.').pop()?.toLowerCase()
+        : undefined;
+      const extensionFromMime = image.mimeType?.split('/').pop()?.toLowerCase();
+      const extension = extensionFromName || extensionFromMime || 'jpg';
+
+      // Normalize non-file URI schemes (content://, ph://, assets-library://) before multipart upload.
+      if (!uploadUri.startsWith('file://') && FileSystem.cacheDirectory) {
+        const cachePath = `${FileSystem.cacheDirectory}avatar_upload_${Date.now()}.${extension}`;
+        await FileSystem.copyAsync({ from: uploadUri, to: cachePath });
+        uploadUri = cachePath;
+      }
+
+      const fileInfo = await FileSystem.getInfoAsync(uploadUri);
+      if (!fileInfo.exists) {
+        throw new Error('Selected image file is not accessible on this device.');
+      }
+
+      const formData = new FormData();
+      const fileName = image.fileName || `profile_${Date.now()}.${extension}`;
+      
+      formData.append('avatar', {
+        uri: uploadUri,
+        type: image.mimeType || `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+        name: fileName,
+      } as any);
+
+      const apiCandidates = buildApiCandidates();
+      let uploadSuccess = false;
+      let lastError = 'Network request failed';
+
+      for (const apiBase of apiCandidates) {
+        try {
+          const response = await fetch(`${apiBase}/auth/profile/avatar`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          });
+
+          const raw = await response.text();
+          let parsed: any = null;
+          try {
+            parsed = raw ? JSON.parse(raw) : null;
+          } catch {
+            parsed = null;
+          }
+
+          if (response.ok) {
+            uploadSuccess = true;
+            break;
+          }
+
+          lastError = parsed?.message || `Failed to upload image (${response.status})`;
+        } catch (err) {
+          lastError = err instanceof Error ? err.message : String(err);
+          console.log(`Avatar upload failed for ${apiBase}:`, err);
+        }
+      }
+
+      if (!uploadSuccess) {
+        throw new Error(lastError);
+      }
+
+      await loadProfile();
+      Alert.alert('Success', 'Profile picture updated successfully');
+    } catch (error) {
+      console.log('Error uploading profile picture:', error);
+      Alert.alert('Upload Failed', 'Could not upload profile picture. Please ensure your phone and backend are on the same network and try again.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
+
   const loadProfile = async () => {
     try {
       const storedUser = await AsyncStorage.getItem('auth_user');
@@ -61,26 +203,32 @@ export default function Profile({
         setLastName(parsed?.lastName || '');
       }
       const token = await AsyncStorage.getItem('auth_token');
-      if (!token) return;
+      if (!token) {
+        console.log('❌ No auth token found');
+        return;
+      }
       const result = await apiRequest(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
       }, 'Failed to load profile.') as any;
 
-      if (!result.ok) return;
+      if (!result.ok) {
+        console.log('❌ Profile API failed:', result);
+        return;
+      }
 
       // The API returns user data directly in result.data
       const profile = result.data as any;
 
       if (profile) {
-        console.log('📊 Profile loaded from server:', {
+        console.log('✅ Profile loaded successfully:', {
           firstName: profile.firstName,
           lastName: profile.lastName,
           city: profile.city,
-          province: profile.province,
           phoneNumber: profile.phoneNumber,
-          skills: profile.skills,
+          skills: profile.skills?.length || 0,
           totalExperience: profile.totalExperience,
           about: profile.about,
+          avatarUrl: profile.avatarUrl,
         });
         
         setFirstName(profile.firstName || 'Jonas');
@@ -93,7 +241,6 @@ export default function Profile({
           avatarUrl: profile.avatarUrl?.trim() || '',
           about: profile.about?.trim() || '',
           city: profile.city?.trim() || '',
-          country: profile.province?.trim() || '', // Server uses 'province' field
           phoneNumber: profile.phoneNumber?.trim() || '',
           linkedin: profile.linkedin?.trim() || '',
           totalExperience: profile.totalExperience?.trim() || '',
@@ -104,9 +251,11 @@ export default function Profile({
         setProfileData(profileDataToCalculate);
         const completionStatus = calculateProfileCompletion(profileDataToCalculate);
         setCompletion(completionStatus);
+      } else {
+        console.log('⚠️ Profile is null or empty');
       }
     } catch (error) {
-      console.log('Failed to load profile', error);
+      console.log('❌ Failed to load profile:', error);
     }
   };
 
@@ -130,6 +279,11 @@ export default function Profile({
   const resumeUrl = profile?.resumeUrl || profile?.cvUrl || '';
   const resumeName = profile?.resumeFileName || 'No resume uploaded';
   const aboutText = profile?.about || '';
+  const avatarUrl = profile?.avatarUrl
+    ? String(profile.avatarUrl).startsWith('http')
+      ? profile.avatarUrl
+      : `${API_ORIGIN}${profile.avatarUrl}`
+    : '';
   const initials = displayName
     .split(' ')
     .filter(Boolean)
@@ -158,10 +312,30 @@ export default function Profile({
         <View style={styles.profileCard}>
           {/* Avatar */}
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </View>
-            <TouchableOpacity style={styles.cameraBtn}>
+            <TouchableOpacity 
+              style={styles.avatar}
+              onPress={handlePickProfilePicture}
+              disabled={isUploadingAvatar}
+            >
+              {avatarUrl ? (
+                <Image 
+                  source={{ uri: avatarUrl }} 
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <Text style={styles.avatarText}>{initials}</Text>
+              )}
+              {isUploadingAvatar && (
+                <View style={styles.avatarUploadingOverlay}>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.cameraBtn}
+              onPress={handlePickProfilePicture}
+              disabled={isUploadingAvatar}
+            >
               <Ionicons name="camera-outline" size={16} color={tokens.colors.brandDark} />
             </TouchableOpacity>
           </View>
@@ -351,15 +525,21 @@ export default function Profile({
           try {
             const token = await AsyncStorage.getItem('auth_token');
             if (!token) return;
-            await apiRequest(`${API_URL}/profile/skills`, {
+            const result = await apiRequest(`${API_URL}/auth/profile/skills`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
                 Authorization: `Bearer ${token}`,
               },
               body: JSON.stringify({ name: data.skillName, level: data.level }),
-            }, 'Failed to add skill.');
-            await loadProfile();
+            }, 'Failed to add skill.') as any;
+            
+            if (result.ok) {
+              console.log('✅ Skill added successfully');
+              await loadProfile();
+            } else {
+              console.error('❌ Failed to add skill:', result.raw);
+            }
           } catch (error) {
             console.log('Failed to add skill', error);
           } finally {
@@ -438,6 +618,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#4a7ba7',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  avatarUploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarText: { fontSize: 40, fontWeight: '700', color: '#fff' },
   cameraBtn: {

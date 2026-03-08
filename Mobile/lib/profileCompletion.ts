@@ -7,7 +7,6 @@ export interface ProfileData {
   avatarUrl?: string;
   about?: string;
   city?: string;
-  country?: string;
   totalExperience?: string;
   resumeUrl?: string;
   skills?: any[];
@@ -29,7 +28,6 @@ const PROFILE_FIELDS = [
   { key: 'avatarUrl', label: 'Profile Picture', weight: 1 },
   { key: 'phoneNumber', label: 'Phone Number', weight: 1 },
   { key: 'city', label: 'City', weight: 1 },
-  { key: 'country', label: 'Country', weight: 1 },
   { key: 'about', label: 'Bio/About', weight: 1 },
   { key: 'linkedin', label: 'LinkedIn Profile', weight: 1 },
   { key: 'totalExperience', label: 'Work Experience', weight: 1.5 },

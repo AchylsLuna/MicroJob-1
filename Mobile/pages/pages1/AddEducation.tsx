@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 
 type AddEducationProps = {
   visible: boolean;
@@ -42,7 +42,11 @@ export default function AddEducation({ visible, onClose, onAdd }: AddEducationPr
       animationType="slide"
       onRequestClose={onClose}
     >
-      <View style={styles.container}>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
         <View style={styles.overlay} />
         <View style={styles.modal}>
           <Text style={styles.modalTitle}>Add Education</Text>
@@ -131,7 +135,7 @@ export default function AddEducation({ visible, onClose, onAdd }: AddEducationPr
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
