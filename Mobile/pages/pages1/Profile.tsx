@@ -44,6 +44,7 @@ export default function Profile({
   const [profileData, setProfileData] = useState<ProfileData>({});
   const [completion, setCompletion] = useState({ percentage: 0, completedCount: 0, totalFields: 0 });
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
   const API_ORIGIN = API_URL.replace(/\/api$/, '');
 
   const buildApiCandidates = () => {
@@ -193,6 +194,131 @@ export default function Profile({
       setIsUploadingAvatar(false);
     }
   }
+
+  const handleDeleteSkill = (skill: any) => {
+    const skillId = skill?._id || skill?.id;
+    if (!skillId) {
+      Alert.alert('Unable to remove', 'This skill cannot be removed because its ID is missing.');
+      return;
+    }
+
+    Alert.alert('Remove Skill', `Remove ${skill?.name || 'this skill'} from your profile?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setIsDeletingItem(true);
+            const token = await AsyncStorage.getItem('auth_token');
+            if (!token) {
+              Alert.alert('Error', 'Authentication token not found');
+              return;
+            }
+
+            const result = await apiRequest(`${API_URL}/auth/profile/skills/${skillId}`, {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }, 'Failed to remove skill.');
+
+            if (!result.ok) {
+              Alert.alert('Error', result.message || 'Failed to remove skill');
+              return;
+            }
+
+            await loadProfile();
+          } catch (error) {
+            console.log('Failed to remove skill:', error);
+            Alert.alert('Error', 'Failed to remove skill');
+          } finally {
+            setIsDeletingItem(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteEducation = () => {
+    Alert.alert('Remove Education', 'This will clear your About / Education section. Continue?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setIsDeletingItem(true);
+            const token = await AsyncStorage.getItem('auth_token');
+            if (!token) {
+              Alert.alert('Error', 'Authentication token not found');
+              return;
+            }
+
+            const result = await apiRequest(`${API_URL}/auth/me`, {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ about: '' }),
+            }, 'Failed to remove education.');
+
+            if (!result.ok) {
+              Alert.alert('Error', result.message || 'Failed to remove education');
+              return;
+            }
+
+            await loadProfile();
+          } catch (error) {
+            console.log('Failed to remove education:', error);
+            Alert.alert('Error', 'Failed to remove education');
+          } finally {
+            setIsDeletingItem(false);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteResume = () => {
+    Alert.alert('Remove CV', 'Delete your uploaded CV from profile?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setIsDeletingItem(true);
+            const token = await AsyncStorage.getItem('auth_token');
+            if (!token) {
+              Alert.alert('Error', 'Authentication token not found');
+              return;
+            }
+
+            const result = await apiRequest(`${API_URL}/auth/profile/resume`, {
+              method: 'DELETE',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }, 'Failed to remove CV.');
+
+            if (!result.ok) {
+              Alert.alert('Error', result.message || 'Failed to remove CV');
+              return;
+            }
+
+            await loadProfile();
+          } catch (error) {
+            console.log('Failed to remove CV:', error);
+            Alert.alert('Error', 'Failed to remove CV');
+          } finally {
+            setIsDeletingItem(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const loadProfile = async () => {
     try {
@@ -375,7 +501,9 @@ export default function Profile({
           </View>
           
           <TouchableOpacity onPress={onOpenSettings} style={styles.settingsChip}>
-            <Text style={styles.settingsChipText}>Complete Your Profile →</Text>
+            <Text style={styles.settingsChipText}>
+              {completion.percentage >= 100 ? 'Settings' : 'Complete Your Profile →'}
+            </Text>
           </TouchableOpacity>
 
           {/* Stats */}
@@ -408,6 +536,13 @@ export default function Profile({
                 skills.slice(0, 8).map((skill: any) => (
                   <View key={skill?._id || skill?.id || skill?.name} style={styles.skillPill}>
                     <Text style={styles.skillPillText}>{skill?.name || 'Skill'}</Text>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteSkill(skill)}
+                      style={styles.skillDeleteBtn}
+                      disabled={isDeletingItem}
+                    >
+                      <Ionicons name="close" size={12} color="#fff" />
+                    </TouchableOpacity>
                   </View>
                 ))
               ) : (
@@ -442,9 +577,16 @@ export default function Profile({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>About / Education</Text>
-            <TouchableOpacity onPress={() => setShowAddEducation(true)}>
-              <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
-            </TouchableOpacity>
+            <View style={styles.sectionActions}>
+              {aboutText ? (
+                <TouchableOpacity onPress={handleDeleteEducation} disabled={isDeletingItem}>
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity onPress={() => setShowAddEducation(true)} disabled={isDeletingItem}>
+                <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {aboutText ? (
@@ -463,9 +605,16 @@ export default function Profile({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>CV</Text>
-            <TouchableOpacity onPress={() => setShowAddCV(true)}>
-              <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
-            </TouchableOpacity>
+            <View style={styles.sectionActions}>
+              {resumeUrl ? (
+                <TouchableOpacity onPress={handleDeleteResume} disabled={isDeletingItem}>
+                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                </TouchableOpacity>
+              ) : null}
+              <TouchableOpacity onPress={() => setShowAddCV(true)} disabled={isDeletingItem}>
+                <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.cvFile}>
@@ -738,15 +887,26 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   skillPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 5,
+    gap: 6,
   },
   skillPillText: {
     color: '#fff',
     fontSize: 11,
     fontWeight: '600',
+  },
+  skillDeleteBtn: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   emptyInlineText: {
     color: '#d1dce6',
@@ -763,6 +923,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+  },
+  sectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937' },
   experienceItem: {
