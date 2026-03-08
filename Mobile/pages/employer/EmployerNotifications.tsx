@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -33,6 +33,18 @@ export default function EmployerNotifications({
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const removedIdsRef = useRef<Set<string>>(new Set());
+
+  const normalizeNotification = (raw: any): NotificationItem => {
+    const id = String(raw?._id || raw?.id || raw?.applicationId || `${raw?.jobId || 'job'}-${raw?.createdAt || Date.now()}`);
+    return {
+      id,
+      applicantName: raw?.applicantName || [raw?.applicant?.firstName, raw?.applicant?.lastName].filter(Boolean).join(' ') || 'Applicant',
+      jobTitle: raw?.jobTitle || raw?.job?.title || 'Job post',
+      createdAt: raw?.createdAt,
+      isRead: Boolean(raw?.employerReadAt || raw?.isRead),
+    };
+  };
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -44,13 +56,9 @@ export default function EmployerNotifications({
       });
       const data = await response.json().catch(() => []);
       if (!response.ok) throw new Error(data?.message || 'Failed to load notifications.');
-      const mapped = (Array.isArray(data) ? data : []).map((app: any) => ({
-        id: app._id,
-        applicantName: [app.applicant?.firstName, app.applicant?.lastName].filter(Boolean).join(' ') || 'Applicant',
-        jobTitle: app.job?.title || 'Job post',
-        createdAt: app.createdAt,
-        isRead: Boolean(app.employerReadAt),
-      }));
+      const mapped = (Array.isArray(data) ? data : [])
+        .map((app: any) => normalizeNotification(app))
+        .filter((item) => !removedIdsRef.current.has(item.id));
       setNotifications(mapped);
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load notifications.');
@@ -66,46 +74,54 @@ export default function EmployerNotifications({
   // merge live notifications from socket
   useEffect(() => {
     if (!liveNotifications || liveNotifications.length === 0) return;
-    const mapped = liveNotifications.map((n: any) => ({
-      id: n.id || `${n.jobId}-${Date.now()}`,
-      applicantName: n.applicantName || 'Applicant',
-      jobTitle: n.jobTitle || 'Job post',
-      createdAt: n.createdAt,
-      isRead: false,
-    }));
-    setNotifications((prev) => [...mapped, ...prev]);
+    setNotifications((prev) => {
+      const existingIds = new Set(prev.map((item) => item.id));
+      const incoming = (Array.isArray(liveNotifications) ? liveNotifications : [])
+        .map((item: any) => normalizeNotification(item))
+        .filter((item) => !removedIdsRef.current.has(item.id) && !existingIds.has(item.id))
+        .map((item) => ({ ...item, isRead: false }));
+
+      if (incoming.length === 0) return prev;
+      return [...incoming, ...prev];
+    });
   }, [liveNotifications]);
 
-  const handleRemoveNotification = (notificationId: string) => {
+  const handleRemoveNotification = async (notificationId: string) => {
     setErrorMessage('');
-    AsyncStorage.getItem('auth_token')
-      .then((token) =>
-        fetch(`${API_URL}/applications/${notificationId}/employer/remove`, {
-          method: 'PATCH',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        })
-      )
-      .catch((error) => {
-        setErrorMessage(error?.message || 'Failed to remove notification.');
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await fetch(`${API_URL}/applications/${notificationId}/employer/remove`, {
+        method: 'PATCH',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-    setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.message || 'Failed to remove notification.');
+      }
+
+      removedIdsRef.current.add(notificationId);
+      setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Failed to remove notification.');
+    }
   };
 
-  const handleMarkRead = (notificationId: string) => {
+  const handleMarkRead = async (notificationId: string) => {
     setErrorMessage('');
-    AsyncStorage.getItem('auth_token')
-      .then((token) =>
-        fetch(`${API_URL}/applications/${notificationId}/employer/read`, {
-          method: 'PATCH',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        })
-      )
-      .catch((error) => {
-        setErrorMessage(error?.message || 'Failed to mark as read.');
+    setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item)));
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const response = await fetch(`${API_URL}/applications/${notificationId}/employer/read`, {
+        method: 'PATCH',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-    setNotifications((prev) =>
-      prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item))
-    );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error((data as any)?.message || 'Failed to mark as read.');
+      }
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Failed to mark as read.');
+    }
   };
 
   return (

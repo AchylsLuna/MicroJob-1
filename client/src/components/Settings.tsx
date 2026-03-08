@@ -132,7 +132,6 @@ export function Settings() {
     firstName: "Jonas",
     lastName: "Dela Cruz",
     city: "Manila",
-    country: "Philippines",
     phone: "+63 912 345 6789",
     email: "jonas.delacruz@email.com",
     linkedin: "linkedin.com/in/jonasdelacruz",
@@ -276,7 +275,6 @@ export function Settings() {
       email: user.email || prev.email,
       phone: user.phoneNumber || prev.phone,
       city: user.city || prev.city,
-      country: user.country || prev.country,
       linkedin: user.linkedin || prev.linkedin,
       about: user.about || prev.about,
     }));
@@ -310,7 +308,6 @@ export function Settings() {
           email: profile.email || prev.email,
           phone: profile.phoneNumber || prev.phone,
           city: profile.city || prev.city,
-          country: profile.country || prev.country,
           linkedin: profile.linkedin || prev.linkedin,
           about: profile.about || prev.about,
         }));
@@ -339,7 +336,6 @@ export function Settings() {
           email: profile.email,
           phoneNumber: profile.phoneNumber,
           city: profile.city,
-          country: profile.country,
           linkedin: profile.linkedin,
           about: profile.about,
           totalExperience: profile.totalExperience,
@@ -369,7 +365,6 @@ export function Settings() {
         lastName: personalInfo.lastName,
         phoneNumber: personalInfo.phone,
         city: personalInfo.city,
-        country: personalInfo.country,
         linkedin: personalInfo.linkedin,
         about: personalInfo.about,
         totalExperience: experienceStats.totalExperience,
@@ -391,7 +386,6 @@ export function Settings() {
         email: updated.email,
         phoneNumber: updated.phoneNumber,
         city: updated.city,
-        country: updated.country,
         linkedin: updated.linkedin,
         about: updated.about || personalInfo.about,
         totalExperience: updated.totalExperience || experienceStats.totalExperience,
@@ -662,25 +656,14 @@ export function Settings() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
-                          <input
-                            type="text"
-                            value={personalInfo.city}
-                            onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Country</label>
-                          <input
-                            type="text"
-                            value={personalInfo.country}
-                            onChange={(e) => handlePersonalInfoChange("country", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                          />
-                        </div>
+                      <div>
+                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
+                        <input
+                          type="text"
+                          value={personalInfo.city}
+                          onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
+                          className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                        />
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

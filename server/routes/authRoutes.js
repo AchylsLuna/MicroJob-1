@@ -806,7 +806,7 @@ router.post('/logout', verifyToken, async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      'firstName lastName email phoneNumber role city country province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills'
+      'firstName lastName email phoneNumber role city country province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance'
     );
     if (!user) {
       return sendError(res, 404, 'User not found');

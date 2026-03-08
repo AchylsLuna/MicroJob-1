@@ -37,30 +37,6 @@ type WalletTransaction = {
   status: 'Completed' | 'Pending';
 };
 
-const fallbackTransactions: WalletTransaction[] = [
-  {
-    id: '1',
-    title: 'Job Payment - Tech Solutions',
-    date: 'Feb 10, 2026',
-    amount: 25000,
-    status: 'Completed',
-  },
-  {
-    id: '2',
-    title: 'Job Payment - Innovation Labs',
-    date: 'Feb 06, 2026',
-    amount: 18000,
-    status: 'Completed',
-  },
-  {
-    id: '3',
-    title: 'Job Payment - Digital Ventures',
-    date: 'Feb 02, 2026',
-    amount: 32000,
-    status: 'Pending',
-  },
-];
-
 export default function EWallet({
   onBack,
   onOpenNotifications,
@@ -76,7 +52,7 @@ export default function EWallet({
   const [employerBalance, setEmployerBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
   const [walletTarget, setWalletTarget] = useState<'EMPLOYER' | 'WORKER' | 'BOTH'>('EMPLOYER');
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(fallbackTransactions);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const appStateRef = useRef(AppState.currentState);
   const refreshAfterBrowserRef = useRef(false);
   const pendingTopupRef = useRef<{ referenceNumber?: string; checkoutId?: string; provider?: string } | null>(null);
@@ -149,7 +125,12 @@ export default function EWallet({
         const txPayload = asObject<any>(txResult.data) || asObject<any>(txResult.raw) || {};
         const list = Array.isArray(txPayload?.transactions) ? txPayload.transactions : [];
         if (list.length > 0) {
-          setTransactions(list.map(mapTxToUi));
+          // Filter out ESCROW transactions (pending money for job postings)
+          const visibleTransactions = list.filter((tx: any) => {
+            const type = String(tx?.type || '').toUpperCase();
+            return type !== 'ESCROW';
+          });
+          setTransactions(visibleTransactions.map(mapTxToUi));
         }
       }
     } catch {
@@ -165,6 +146,8 @@ export default function EWallet({
       const pending = pendingTopupRef.current;
       if (!token || !pending?.referenceNumber) return false;
 
+      console.log('[TopUp] Confirming pending topup:', pending.referenceNumber);
+
       const confirmResult = await apiRequest(`${API_URL}/payment/topup/confirm`, {
         method: 'POST',
         headers: {
@@ -179,13 +162,18 @@ export default function EWallet({
       }, 'Failed to confirm top-up.');
 
       if (confirmResult.ok) {
+        console.log('[TopUp] Confirmation successful');
         pendingTopupRef.current = null;
         await AsyncStorage.removeItem(PENDING_TOPUP_KEY);
+        Alert.alert('Top-up Successful', 'Your wallet has been topped up successfully!');
         return true;
       }
 
+      console.warn('[TopUp] Confirmation failed:', confirmResult.message);
+      Alert.alert('Top-up Pending', confirmResult.message || 'Payment may still be processing. Please check back in a few minutes.');
       return false;
-    } catch {
+    } catch (error: any) {
+      console.error('[TopUp] Confirmation error:', error);
       return false;
     }
   }, []);
@@ -201,8 +189,15 @@ export default function EWallet({
         }
       }
 
-      await confirmPendingTopup();
+      const confirmed = await confirmPendingTopup();
       await refreshWalletData();
+      
+      // Force another refresh after confirmation to ensure balance is updated
+      if (confirmed) {
+        setTimeout(() => {
+          refreshWalletData();
+        }, 1000);
+      }
     })();
   }, [confirmPendingTopup, refreshWalletData]);
 
@@ -212,15 +207,24 @@ export default function EWallet({
       const isActiveNow = nextState === 'active';
 
       if (wasBackgrounded && isActiveNow) {
+        console.log('[TopUp] App returned to foreground, checking for pending top-up');
         (async () => {
           const shouldTryConfirm = refreshAfterBrowserRef.current || Boolean(pendingTopupRef.current?.referenceNumber);
           refreshAfterBrowserRef.current = false;
 
           if (shouldTryConfirm) {
-            await confirmPendingTopup();
+            const confirmed = await confirmPendingTopup();
+            // Force refresh immediately
+            await refreshWalletData();
+            // Force another refresh after a delay to ensure backend has updated
+            if (confirmed) {
+              setTimeout(() => {
+                refreshWalletData();
+              }, 2000);
+            }
+          } else {
+            await refreshWalletData();
           }
-
-          await refreshWalletData();
         })();
       }
 
@@ -313,8 +317,32 @@ export default function EWallet({
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Live Balance</Text>
+          <View style={styles.balanceHeader}>
+            <Text style={styles.balanceLabel}>Available Balance</Text>
+            <TouchableOpacity
+              style={styles.refreshButton}
+              onPress={refreshWalletData}
+              disabled={isRefreshingWallet}
+            >
+              <Ionicons
+                name="refresh-outline"
+                size={16}
+                color={tokens.colors.onBrandMuted}
+              />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.balanceValue}>PHP {liveBalance.toLocaleString()}</Text>
+          {walletTarget === 'BOTH' && (
+            <View style={styles.balanceBreakdown}>
+              <Text style={styles.balanceBreakdownItem}>
+                Employer: PHP {employerBalance.toLocaleString()}
+              </Text>
+              <Text style={styles.balanceBreakdownItem}>
+                Worker: PHP {workerBalance.toLocaleString()}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.balanceNote}>Excludes funds in escrow for active jobs</Text>
           {isRefreshingWallet ? <Text style={styles.balanceRefreshing}>Refreshing wallet…</Text> : null}
           <View style={styles.balanceActionsRow}>
             <TouchableOpacity style={styles.balanceAction} onPress={handleTestPayment} disabled={isCreatingPayment}>
@@ -385,30 +413,37 @@ export default function EWallet({
           </View>
           <Text style={styles.cardSubtitle}>Latest wallet activity.</Text>
 
-          {transactions.map((txn, index) => (
-            <View
-              key={txn.id}
-              style={[styles.transactionRow, index === transactions.length - 1 ? styles.transactionRowLast : undefined]}
-            >
-              <View style={styles.transactionIcon}>
-                <Ionicons
-                  name={txn.status === 'Completed' ? 'arrow-down-outline' : 'time-outline'}
-                  size={18}
-                  color={txn.status === 'Completed' ? tokens.colors.success : tokens.colors.warning}
-                />
-              </View>
-              <View style={styles.transactionLeft}>
-                <Text style={styles.transactionTitle}>{txn.title}</Text>
-                <Text style={styles.transactionDate}>{txn.date}</Text>
-              </View>
-              <View style={styles.transactionRight}>
-                <Text style={styles.transactionAmount}>+PHP {txn.amount.toLocaleString()}</Text>
-                <Text style={txn.status === 'Completed' ? styles.transactionStatusComplete : styles.transactionStatusPending}>
-                  {txn.status}
-                </Text>
-              </View>
+          {transactions.length === 0 ? (
+            <View style={styles.emptyTransactions}>
+              <Ionicons name="receipt-outline" size={40} color={tokens.colors.textMuted} />
+              <Text style={styles.emptyTransactionsText}>No transactions yet</Text>
             </View>
-          ))}
+          ) : (
+            transactions.map((txn, index) => (
+              <View
+                key={txn.id}
+                style={[styles.transactionRow, index === transactions.length - 1 ? styles.transactionRowLast : undefined]}
+              >
+                <View style={styles.transactionIcon}>
+                  <Ionicons
+                    name={txn.status === 'Completed' ? 'arrow-down-outline' : 'time-outline'}
+                    size={18}
+                    color={txn.status === 'Completed' ? tokens.colors.success : tokens.colors.warning}
+                  />
+                </View>
+                <View style={styles.transactionLeft}>
+                  <Text style={styles.transactionTitle}>{txn.title}</Text>
+                  <Text style={styles.transactionDate}>{txn.date}</Text>
+                </View>
+                <View style={styles.transactionRight}>
+                  <Text style={styles.transactionAmount}>+PHP {txn.amount.toLocaleString()}</Text>
+                  <Text style={txn.status === 'Completed' ? styles.transactionStatusComplete : styles.transactionStatusPending}>
+                    {txn.status}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -478,6 +513,11 @@ const styles = StyleSheet.create({
     padding: 18,
     ...tokens.shadow.card,
   },
+  balanceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   balanceLabel: {
     color: tokens.colors.onBrandMuted,
     fontSize: 12,
@@ -485,11 +525,35 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.2,
   },
+  refreshButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
   balanceValue: {
     marginTop: 8,
     color: tokens.colors.onBrand,
     fontSize: 34,
     fontWeight: '800',
+  },
+  balanceBreakdown: {
+    marginTop: 8,
+    gap: 4,
+  },
+  balanceBreakdownItem: {
+    color: tokens.colors.onBrandMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  balanceNote: {
+    marginTop: 8,
+    color: tokens.colors.onBrandMuted,
+    fontSize: 11,
+    fontWeight: '500',
+    fontStyle: 'italic',
   },
   balanceRefreshing: {
     marginTop: 6,
@@ -571,6 +635,19 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: tokens.colors.textMuted,
     fontSize: 12,
+  },
+  emptyTransactions: {
+    marginTop: 20,
+    marginBottom: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  emptyTransactionsText: {
+    marginTop: 8,
+    color: tokens.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   formField: {
     marginTop: 12,

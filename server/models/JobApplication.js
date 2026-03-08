@@ -22,9 +22,9 @@ const JobApplicationSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            // New workflow: Pending -> Shortlisted -> Terms -> Hired
-            enum: ['Pending', 'Shortlisted', 'Terms', 'Hired'],
-            default: 'Pending'
+            // Workflow: Shortlisted -> Interviewed -> Hired
+            enum: ['Shortlisted', 'Interviewed', 'Hired'],
+            default: 'Shortlisted'
         },
         applicantReadAt: {
             type: Date,

@@ -108,9 +108,7 @@ const PostJob: React.FC = () => {
       const trimmedLocation = formData.location.trim();
       const deadlineValue = formData.deadline;
       const rawSalary = formData.salary.replace(/[^0-9]/g, "");
-      const normalizedSalary = rawSalary
-        ? `₱${new Intl.NumberFormat("en-PH").format(Number(rawSalary))}`
-        : "";
+      const salaryAmount = rawSalary ? Number(rawSalary) : 0;
       const missingFields: string[] = [];
 
       if (!trimmedTitle) missingFields.push("title");
@@ -158,7 +156,7 @@ const PostJob: React.FC = () => {
         skills: formData.skills
           ? formData.skills.split(",").map((item) => item.trim()).filter(Boolean)
           : [],
-        salary: normalizedSalary,
+        salary: salaryAmount,
         location: trimmedLocation,
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),

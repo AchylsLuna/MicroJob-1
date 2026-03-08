@@ -241,13 +241,23 @@ export default function App() {
         socket.on('new_application', (payload) => {
           console.log('received new_application', payload);
           // employer receives when a worker applies
-          setEmployerNotifications((prev) => [payload, ...prev]);
+          setEmployerNotifications((prev) => {
+            const nextId = String(payload?.id || payload?._id || `${payload?.jobId || ''}-${payload?.createdAt || ''}`);
+            const exists = prev.some((item) => String(item?.id || item?._id || `${item?.jobId || ''}-${item?.createdAt || ''}`) === nextId);
+            if (exists) return prev;
+            return [payload, ...prev];
+          });
         });
 
         socket.on('application_status_updated', (payload) => {
           console.log('received application_status_updated', payload);
           // worker receives when employer updates status
-          setWorkerNotifications((prev) => [payload, ...prev]);
+          setWorkerNotifications((prev) => {
+            const nextId = String(payload?.id || payload?.applicationId || `${payload?.jobId || ''}-${payload?.updatedAt || ''}`);
+            const exists = prev.some((item) => String(item?.id || item?.applicationId || `${item?.jobId || ''}-${item?.updatedAt || ''}`) === nextId);
+            if (exists) return prev;
+            return [payload, ...prev];
+          });
         });
         socket.on('new_message', (payload) => {
           console.log('received new_message', payload);
@@ -556,6 +566,16 @@ export default function App() {
     setCurrentScreen(SCREEN.Notifications);
   };
 
+  const handleDismissWorkerNotification = useCallback((notificationId) => {
+    const target = String(notificationId || '');
+    if (!target) return;
+    setWorkerNotifications((prev) =>
+      prev.filter(
+        (item) => String(item?.id || item?.applicationId || item?._id || '') !== target
+      )
+    );
+  }, []);
+
   const handleGoToProfile = () => {
     setActiveTab('Profile');
     setViewMode('worker');
@@ -846,6 +866,7 @@ export default function App() {
     <JobDetails
       job={selectedJob}
       onSaveJob={handleToggleSaveJob}
+      onMessageEmployer={handleMessageEmployer}
       isSaved={selectedJob ? savedJobIds.includes(selectedJob._id) : false}
       activeTab={activeTab}
       onTabPress={handleTabPress}
@@ -882,6 +903,7 @@ export default function App() {
       onTabPress={handleTabPress}
       liveNotifications={workerNotifications}
       messageBadgeCount={workerUnreadMessageCount}
+      onDismissLiveNotification={handleDismissWorkerNotification}
     />,
     <Profile
       activeTab={activeTab}

@@ -29,6 +29,13 @@ type ApplicationItem = {
     email: string;
     role?: string;
     phoneNumber?: string;
+    jobsApplied?: number;
+    projectsCompleted?: number;
+    successRate?: string;
+    city?: string;
+    totalExperience?: string;
+    about?: string;
+    avatarUrl?: string;
   };
   coverLetter?: string;
   resume?: string;
@@ -41,6 +48,17 @@ type EmployerApplicationsProps = {
 };
 
 const STATUS_OPTIONS: ApplicationStatus[] = APPLICATION_STATUSES;
+
+const getApiStatusCandidates = (status: ApplicationStatus): string[] => {
+  // Support both newer (Interviewed) and older (Terms) backend status enums.
+  if (status === 'To Be Interview') return ['Interviewed', 'Terms'];
+  return [status];
+};
+
+const toApiFilterStatus = (status: 'All' | ApplicationStatus): string | null => {
+  if (status === 'All') return null;
+  return getApiStatusCandidates(status)[0];
+};
 
 export default function EmployerApplications({ activeTab, onTabPress, onMessageWorker }: EmployerApplicationsProps) {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
@@ -66,15 +84,31 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const params = new URLSearchParams();
-      if (statusFilter !== 'All') params.set('status', statusFilter);
+      const apiStatusFilter = toApiFilterStatus(statusFilter);
+      if (apiStatusFilter) params.set('status', apiStatusFilter);
       if (jobFilter !== 'All') params.set('jobId', jobFilter);
       if (search) params.set('search', search);
-      const url = `${API_URL}/applications/employer${params.toString() ? `?${params}` : ''}`;
-      const result = await apiRequest(url, {
+      const buildUrl = () => `${API_URL}/applications/employer${params.toString() ? `?${params}` : ''}`;
+
+      let result = await apiRequest(buildUrl(), {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       }, 'Failed to load applications.');
+
+      if (
+        !result.ok &&
+        statusFilter === 'To Be Interview' &&
+        (result.message || '').includes('Invalid status')
+      ) {
+        params.set('status', 'Terms');
+        result = await apiRequest(buildUrl(), {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }, 'Failed to load applications.');
+      }
+
       if (!result.ok) throw new Error(result.message || 'Failed to load applications.');
       const mapped = asList<any>(result.raw, ['applications']).map((item) => ({
         ...item,
@@ -97,14 +131,24 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
     setUpdatingId(applicationId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/applications/${applicationId}/status`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ status }),
-      }, 'Failed to update status.');
+      const candidates = getApiStatusCandidates(status);
+      let result: any = null;
+
+      for (let i = 0; i < candidates.length; i += 1) {
+        result = await apiRequest(`${API_URL}/applications/${applicationId}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ status: candidates[i] }),
+        }, 'Failed to update status.');
+
+        if (result.ok) break;
+        const shouldRetry = (result.message || '').includes('Invalid status') && i < candidates.length - 1;
+        if (!shouldRetry) break;
+      }
+
       if (!result.ok) throw new Error(result.message || 'Failed to update status.');
       setApplications((prev) =>
         prev.map((app) => (app._id === applicationId ? { ...app, status } : app))
@@ -302,6 +346,29 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
                 {app.applicant?.role ? (
                   <Text style={styles.profileText}>Role: {app.applicant.role}</Text>
                 ) : null}
+                <View style={styles.workerStatsRow}>
+                  <View style={styles.workerStatBox}>
+                    <Text style={styles.workerStatValue}>{app.applicant?.jobsApplied ?? 0}</Text>
+                    <Text style={styles.workerStatLabel}>Applied Jobs</Text>
+                  </View>
+                  <View style={styles.workerStatBox}>
+                    <Text style={styles.workerStatValue}>{app.applicant?.projectsCompleted ?? 0}</Text>
+                    <Text style={styles.workerStatLabel}>Completed Jobs</Text>
+                  </View>
+                  <View style={styles.workerStatBox}>
+                    <Text style={styles.workerStatValue}>{app.applicant?.successRate || '0%'}</Text>
+                    <Text style={styles.workerStatLabel}>Success Rate</Text>
+                  </View>
+                </View>
+                {app.applicant?.city ? (
+                  <Text style={styles.profileText}>City: {app.applicant.city}</Text>
+                ) : null}
+                {app.applicant?.totalExperience ? (
+                  <Text style={styles.profileText}>Experience: {app.applicant.totalExperience}</Text>
+                ) : null}
+                {app.applicant?.about ? (
+                  <Text style={styles.profileText}>About: {app.applicant.about}</Text>
+                ) : null}
                 {app.resume ? <Text style={styles.profileText}>Resume: Available</Text> : null}
               </View>
             ) : null}
@@ -443,4 +510,31 @@ const styles = StyleSheet.create({
   },
   profileTitle: { fontSize: 12, fontWeight: '700', color: '#0f172a', marginBottom: 6 },
   profileText: { fontSize: 12, color: '#475569', marginBottom: 4 },
+  workerStatsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  workerStatBox: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+  },
+  workerStatValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1d4ed8',
+  },
+  workerStatLabel: {
+    fontSize: 10,
+    color: '#64748b',
+    marginTop: 2,
+    textAlign: 'center',
+  },
 });

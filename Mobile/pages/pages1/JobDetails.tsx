@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { apiRequest } from '../../lib/api';
 
 type JobDetailsProps = {
   onBack?: () => void;
   job: any;
   onSaveJob?: (job: any) => void;
+  onMessageEmployer?: (payload: { userId?: string; userName?: string; jobId?: string }) => void;
   isSaved?: boolean;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
@@ -17,6 +19,7 @@ type JobDetailsProps = {
 export default function JobDetails({
   job,
   onSaveJob,
+  onMessageEmployer,
   isSaved = false,
   activeTab = 'Jobs',
   onTabPress,
@@ -39,6 +42,52 @@ export default function JobDetails({
 
   const handleApply = () => {
     applyForJob();
+  };
+
+  const handleMessageEmployer = async () => {
+    const recipientCandidate = jobDetails?.jobPoster || job?.jobPoster;
+    const recipientId =
+      typeof recipientCandidate === 'string'
+        ? recipientCandidate
+        : recipientCandidate && (recipientCandidate._id || recipientCandidate.id || recipientCandidate.email);
+
+    const recipientName =
+      typeof recipientCandidate === 'string'
+        ? 'Employer'
+        : `${recipientCandidate?.firstName || ''} ${recipientCandidate?.lastName || ''}`.trim() || 'Employer';
+
+    if (!recipientId) {
+      Alert.alert('Unable to message employer', 'Employer details are not available for this job yet.');
+      return;
+    }
+
+    const defaultMessage = `Hi ${recipientName}, I'm interested in your job "${jobDetails?.title || job?.title || 'this job'}".`;
+
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (token) {
+        await apiRequest(
+          `${API_URL}/messages`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ receiverId: recipientId, content: defaultMessage, jobId: jobDetails?._id || job?._id }),
+          },
+          'Failed to send message.'
+        );
+      }
+    } catch (error) {
+      console.warn('Initial message send failed', error);
+    } finally {
+      onMessageEmployer?.({
+        userId: recipientId,
+        userName: recipientName,
+        jobId: jobDetails?._id || job?._id,
+      });
+    }
   };
 
   const handleFindMoreJobs = () => {
@@ -218,6 +267,10 @@ export default function JobDetails({
             <Text style={styles.actionBtnText}>{isLoading ? 'Applying...' : 'Apply now'}</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={[styles.actionBtn, styles.messageBtn]} onPress={handleMessageEmployer}>
+          <Text style={[styles.actionBtnText, styles.messageBtnText]}>Message Employer</Text>
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Bottom nav */}
@@ -345,6 +398,10 @@ const styles = StyleSheet.create({
   applyBtn: {
     backgroundColor: '#4a90e2',
   },
+  messageBtn: {
+    marginTop: 10,
+    backgroundColor: '#0ea5a6',
+  },
   actionBtnText: {
     fontSize: 15,
     fontWeight: '700',
@@ -353,6 +410,9 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   savedBtnText: {
+    color: '#fff',
+  },
+  messageBtnText: {
     color: '#fff',
   },
   successContainer: {

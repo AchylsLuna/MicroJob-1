@@ -4,11 +4,13 @@ import User from '../models/User.js';
 import { emitToUser } from '../lib/socket.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 
-const CANONICAL_STATUSES = ['Pending', 'Shortlisted', 'Terms', 'Hired'];
+const CANONICAL_STATUSES = ['Shortlisted', 'Interviewed', 'Hired'];
 const LEGACY_STATUS_MAP = {
+    Pending: 'Shortlisted',
     Reviewed: 'Shortlisted',
+    Terms: 'Interviewed',
     Accepted: 'Hired',
-    Rejected: 'Pending',
+    Rejected: 'Shortlisted',
 };
 
 const toCanonicalStatus = (status) => {
@@ -196,7 +198,7 @@ export const updateApplicationStatus = async (req, res) => {
             return sendError(
                 res,
                 400,
-                'Invalid status. Expected one of Pending, Shortlisted, Terms, Hired.'
+                'Invalid status. Expected one of Shortlisted, Interviewed, Hired.'
             );
         }
 
@@ -293,7 +295,10 @@ export const getEmployerApplications = async (req, res) => {
 
         let applications = await JobApplication.find(filter)
             .populate('job', 'title company location jobType salary status jobPoster')
-            .populate('applicant', 'firstName lastName email role phoneNumber')
+            .populate(
+                'applicant',
+                'firstName lastName email role phoneNumber jobsApplied projectsCompleted successRate city province about totalExperience avatarUrl resumeUrl resumeFileName skills'
+            )
             .sort({ createdAt: -1 });
 
         applications = await JobApplication.populate(applications, {

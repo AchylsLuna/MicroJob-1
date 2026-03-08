@@ -5,7 +5,7 @@ import { getEmployerApplications, updateApplicationStatus } from "../../services
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 
-type ApplicationStatus = "all" | "under-review" | "pending" | "reviewing" | "interviewed" | "accepted" | "rejected";
+type ApplicationStatus = "all" | "shortlisted" | "interviewed" | "hired";
 
 interface Application {
   id: string;
@@ -16,9 +16,33 @@ interface Application {
   position: string;
   company: string;
   coverLetter: string;
+  city?: string;
+  province?: string;
+  about?: string;
+  totalExperience?: string;
+  successRate?: string;
+  jobsApplied?: number;
+  projectsCompleted?: number;
+  skills?: string[];
+  resumeUrl?: string;
+  resumeFileName?: string;
+  resume?: string;
   appliedDate: string;
   status: Exclude<ApplicationStatus, "all">;
 }
+
+const toAbsoluteAssetUrl = (value?: string): string | null => {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) {
+    const apiBase = import.meta.env.VITE_API_BASE || '/api';
+    const origin = apiBase.startsWith('http')
+      ? apiBase.replace(/\/api\/?$/, '')
+      : window.location.origin;
+    return `${origin}${value}`;
+  }
+  return value;
+};
 
 function getInitials(name: string): string {
   return name
@@ -51,41 +75,23 @@ interface StatusBadgeProps {
 function StatusBadge({ status }: StatusBadgeProps) {
   const getStatusStyles = () => {
     switch (status) {
-      case "under-review":
-        return {
-          bg: "bg-[#DBEAFE]",
-          text: "text-[#1E40AF]",
-          label: "Under Review",
-        };
-      case "pending":
+      case "shortlisted":
         return {
           bg: "bg-[#E0E7FF]",
           text: "text-[#5B21B6]",
-          label: "Pending Review",
-        };
-      case "reviewing":
-        return {
-          bg: "bg-[#FEF3C7]",
-          text: "text-[#92400E]",
-          label: "Reviewing",
+          label: "Shortlisted",
         };
       case "interviewed":
         return {
           bg: "bg-[#DBEAFE]",
           text: "text-[#1E40AF]",
-          label: "Interviewed",
+          label: "To Be Interview",
         };
-      case "accepted":
+      case "hired":
         return {
           bg: "bg-[#D1FAE5]",
           text: "text-[#065F46]",
-          label: "Accepted",
-        };
-      case "rejected":
-        return {
-          bg: "bg-[#FEE2E2]",
-          text: "text-[#991B1B]",
-          label: "Rejected",
+          label: "Hired",
         };
     }
   };
@@ -103,11 +109,14 @@ interface ApplicationCardProps {
   application: Application;
   onStatusChange: (id: string, status: Exclude<ApplicationStatus, "all">) => void;
   onMessage: (application: Application) => void;
+  isExpanded: boolean;
+  onToggleProfile: (id: string) => void;
 }
 
-function ApplicationCard({ application, onStatusChange, onMessage }: ApplicationCardProps) {
+function ApplicationCard({ application, onStatusChange, onMessage, isExpanded, onToggleProfile }: ApplicationCardProps) {
   const initials = getInitials(application.name);
   const avatarColor = getAvatarColor(application.name);
+  const resolvedResumeUrl = toAbsoluteAssetUrl(application.resumeUrl || application.resume);
 
   return (
     <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
@@ -148,14 +157,29 @@ function ApplicationCard({ application, onStatusChange, onMessage }: Application
                 <Calendar className="w-4 h-4" />
                 <span>{application.appliedDate}</span>
               </div>
-              <button className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors">
-                <FileText className="w-4 h-4" />
-                Resume
-                <ExternalLink className="w-3 h-3" />
-              </button>
-              <button className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors">
+              {resolvedResumeUrl ? (
+                <a
+                  className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors"
+                  href={resolvedResumeUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <FileText className="w-4 h-4" />
+                  Resume
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <span className="flex items-center gap-1 text-[#94A3B8] text-[14px] font-medium">
+                  <FileText className="w-4 h-4" />
+                  No Resume
+                </span>
+              )}
+              <button
+                className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors"
+                onClick={() => onToggleProfile(application.id)}
+              >
                 <UserIcon className="w-4 h-4" />
-                View Profile
+                {isExpanded ? "Hide Profile" : "View Profile"}
               </button>
               {application.applicantId && (
                 <button
@@ -173,14 +197,63 @@ function ApplicationCard({ application, onStatusChange, onMessage }: Application
               onChange={(e) => onStatusChange(application.id, e.target.value as Exclude<ApplicationStatus, "all">)}
               className="px-4 py-2 border border-[#D1D5DB] rounded-lg text-[14px] text-[#374151] bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent"
             >
-              <option value="under-review">Under Review</option>
-              <option value="pending">Pending Review</option>
-              <option value="reviewing">Reviewing</option>
-              <option value="interviewed">Interviewed</option>
-              <option value="accepted">Accepted</option>
-              <option value="rejected">Rejected</option>
+              <option value="shortlisted">Shortlisted</option>
+              <option value="interviewed">To Be Interview</option>
+              <option value="hired">Hired</option>
             </select>
           </div>
+
+          {isExpanded && (
+            <div className="mt-4 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
+                  <p className="text-[11px] text-[#64748B]">Applied Jobs</p>
+                  <p className="text-[16px] font-bold text-[#1D4ED8]">{application.jobsApplied ?? 0}</p>
+                </div>
+                <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
+                  <p className="text-[11px] text-[#64748B]">Completed Jobs</p>
+                  <p className="text-[16px] font-bold text-[#1D4ED8]">{application.projectsCompleted ?? 0}</p>
+                </div>
+                <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
+                  <p className="text-[11px] text-[#64748B]">Success Rate</p>
+                  <p className="text-[16px] font-bold text-[#1D4ED8]">{application.successRate || "0%"}</p>
+                </div>
+              </div>
+              {application.city || application.province ? (
+                <p className="text-[13px] text-[#475569] mb-1">
+                  Location: {[application.city, application.province].filter(Boolean).join(', ')}
+                </p>
+              ) : null}
+              {application.totalExperience ? (
+                <p className="text-[13px] text-[#475569] mb-1">Experience: {application.totalExperience}</p>
+              ) : null}
+              {application.about ? <p className="text-[13px] text-[#475569]">About: {application.about}</p> : null}
+              {application.skills && application.skills.length > 0 ? (
+                <div className="mt-3">
+                  <p className="text-[12px] font-semibold text-[#334155] mb-2">Skills</p>
+                  <div className="flex flex-wrap gap-2">
+                    {application.skills.map((skill) => (
+                      <span key={skill} className="px-2 py-1 rounded-full text-[11px] bg-[#E0E7FF] text-[#3730A3]">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {resolvedResumeUrl ? (
+                <div className="mt-3">
+                  <a
+                    href={resolvedResumeUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8]"
+                  >
+                    Open Resume {application.resumeFileName ? `(${application.resumeFileName})` : ''}
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -196,6 +269,7 @@ export function ApplicationsManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedApplicationId, setExpandedApplicationId] = useState<string | null>(null);
   const pageSize = 4;
 
   const handleStatusChange = async (id: string, newStatus: Exclude<ApplicationStatus, "all">) => {
@@ -205,25 +279,30 @@ export function ApplicationsManagement() {
     );
 
     const statusLabels: Record<Exclude<ApplicationStatus, "all">, string> = {
-      "under-review": "Under Review",
-      "pending": "Pending Review",
-      "reviewing": "Reviewing",
-      "interviewed": "Interviewed",
-      "accepted": "Accepted",
-      "rejected": "Rejected",
+      "shortlisted": "Shortlisted",
+      "interviewed": "To Be Interview",
+      "hired": "Hired",
     };
 
     const backendStatus =
-      newStatus === "accepted"
-        ? "Accepted"
-        : newStatus === "rejected"
-        ? "Rejected"
-        : newStatus === "pending"
-        ? "Pending"
-        : "Reviewed";
+      newStatus === "hired"
+        ? "Hired"
+        : newStatus === "interviewed"
+        ? "Interviewed"
+        : "Shortlisted";
 
     try {
-      await updateApplicationStatus(id, backendStatus);
+      try {
+        await updateApplicationStatus(id, backendStatus);
+      } catch (innerError: any) {
+        const needsLegacyFallback =
+          newStatus === "interviewed" &&
+          String(innerError?.message || "").includes("Invalid status");
+        if (!needsLegacyFallback) {
+          throw innerError;
+        }
+        await updateApplicationStatus(id, "Terms");
+      }
       toast.success(`Application marked as ${statusLabels[newStatus].toLowerCase()}`, {
         description: "Candidate status has been updated.",
       });
@@ -247,15 +326,18 @@ export function ApplicationsManagement() {
   const mapStatus = (status?: string): Exclude<ApplicationStatus, "all"> => {
     switch (status) {
       case "Pending":
-        return "pending";
       case "Reviewed":
-        return "under-review";
-      case "Accepted":
-        return "accepted";
       case "Rejected":
-        return "rejected";
+      case "Shortlisted":
+        return "shortlisted";
+      case "Terms":
+      case "Interviewed":
+        return "interviewed";
+      case "Accepted":
+      case "Hired":
+        return "hired";
       default:
-        return "under-review";
+        return "shortlisted";
     }
   };
 
@@ -273,9 +355,24 @@ export function ApplicationsManagement() {
       position: job.title || "Untitled Job",
       company: companyName,
       coverLetter: app.coverLetter || "No cover letter provided.",
+      city: applicant.city || "",
+      province: applicant.province || "",
+      about: applicant.about || "",
+      totalExperience: applicant.totalExperience || "",
+      successRate: applicant.successRate || "0%",
+      jobsApplied: typeof applicant.jobsApplied === "number" ? applicant.jobsApplied : 0,
+      projectsCompleted: typeof applicant.projectsCompleted === "number" ? applicant.projectsCompleted : 0,
+      skills: Array.isArray(applicant.skills) ? applicant.skills.map((skill: any) => skill?.name).filter(Boolean) : [],
+      resumeUrl: applicant.resumeUrl || "",
+      resumeFileName: applicant.resumeFileName || "",
+      resume: app.resume || "",
       appliedDate: formatDate(app.createdAt || app.appliedDate),
       status: mapStatus(app.status),
     };
+  };
+
+  const handleToggleProfile = (applicationId: string) => {
+    setExpandedApplicationId((prev) => (prev === applicationId ? null : applicationId));
   };
 
   useEffect(() => {
@@ -304,11 +401,14 @@ export function ApplicationsManagement() {
 
   const handleMessageApplicant = (application: Application) => {
     if (!application.applicantId) return;
+    const interviewPrefill = `Hi ${application.name}, this is regarding your application for ${application.position}. We would like to contact you for interview scheduling. Please let us know your availability.`;
     navigate(ROUTES.worker.messages, {
       state: {
         userId: application.applicantId,
         name: application.name,
         jobId: application.jobId,
+        jobTitle: application.position,
+        prefill: interviewPrefill,
       },
     });
   };
@@ -374,12 +474,9 @@ export function ApplicationsManagement() {
               className="w-full bg-white border border-[#D1D5DB] rounded-lg pl-10 pr-10 py-2.5 text-[14px] text-[#111827] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent appearance-none cursor-pointer"
             >
               <option value="all">All Statuses</option>
-              <option value="under-review">Under Review</option>
-              <option value="pending">Pending Review</option>
-              <option value="reviewing">Reviewing</option>
-              <option value="interviewed">Interviewed</option>
-              <option value="accepted">Accepted</option>
-              <option value="rejected">Rejected</option>
+              <option value="shortlisted">Shortlisted</option>
+              <option value="interviewed">To Be Interview</option>
+              <option value="hired">Hired</option>
             </select>
             <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
               <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -429,6 +526,8 @@ export function ApplicationsManagement() {
               application={application}
               onStatusChange={handleStatusChange}
               onMessage={handleMessageApplicant}
+              isExpanded={expandedApplicationId === application.id}
+              onToggleProfile={handleToggleProfile}
             />
           ))
         ) : (

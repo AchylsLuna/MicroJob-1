@@ -177,7 +177,10 @@ export function withdrawApplication(applicationId: string) {
   return request(`/applications/${applicationId}`, { method: 'DELETE' });
 }
 
-export function updateApplicationStatus(applicationId: string, status: 'Pending' | 'Reviewed' | 'Accepted' | 'Rejected') {
+export function updateApplicationStatus(
+  applicationId: string,
+  status: 'Shortlisted' | 'Interviewed' | 'Terms' | 'Hired' | 'Pending' | 'Reviewed' | 'Accepted' | 'Rejected'
+) {
   return request(`/applications/${applicationId}/status`, { method: 'PUT', body: { status } });
 }
 

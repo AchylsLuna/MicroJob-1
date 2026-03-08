@@ -94,7 +94,6 @@ export function Profile() {
           email: profile.email,
           phoneNumber: profile.phoneNumber,
           city: profile.city,
-          country: profile.country,
           linkedin: profile.linkedin,
           about: profile.about,
           totalExperience: profile.totalExperience,
@@ -120,7 +119,7 @@ export function Profile() {
 
   const fallbackName = "Jonas Dela Cruz";
   const displayName = profileUser ? `${profileUser.firstName || ""} ${profileUser.lastName || ""}`.trim() : fallbackName;
-  const location = [profileUser?.city, profileUser?.country].filter(Boolean).join(", ") || "Manila, Philippines";
+  const location = profileUser?.city || "Manila";
   const initials = displayName
     .split(" ")
     .filter(Boolean)

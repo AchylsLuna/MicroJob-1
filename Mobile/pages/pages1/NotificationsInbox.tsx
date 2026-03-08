@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
@@ -9,6 +9,7 @@ type NotificationsInboxProps = {
   onTabPress?: (tab: string) => void;
   liveNotifications?: any[];
   messageBadgeCount?: number;
+  onDismissLiveNotification?: (notificationId: string) => void;
 };
 
 export default function NotificationsInbox({
@@ -16,47 +17,43 @@ export default function NotificationsInbox({
   onTabPress,
   liveNotifications = [],
   messageBadgeCount = 0,
+  onDismissLiveNotification,
 }: NotificationsInboxProps) {
-  const [notifications, setNotifications] = useState<any[]>([
-    {
-      id: 1,
-      title: 'Application Sent',
-      company: 'Applications for MRS companies',
-      description: 'have entered for company review',
-      time: '1 minutes ago',
-    },
-    {
-      id: 2,
-      title: 'Application Sent',
-      company: 'Applications for MRS companies',
-      description: 'have entered for company review',
-      time: 'Application Details',
-    },
-    {
-      id: 3,
-      title: 'Application Sent',
-      company: 'Applications for MRS companies',
-      description: 'have entered for company review',
-      time: '1 minutes ago',
-    },
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const dismissedIdsRef = useRef<Set<string>>(new Set());
 
-  const handleClearNotification = (id: number) => {
-    setNotifications(notifications.filter(n => n.id !== id));
+  const getNotificationId = (item: any): string =>
+    String(item?.id || item?.applicationId || item?._id || `${item?.jobId || 'job'}-${item?.updatedAt || item?.createdAt || Date.now()}`);
+
+  const normalizeNotification = (item: any) => {
+    const statusText = item?.status || 'updated';
+    return {
+      id: getNotificationId(item),
+      title: item?.status ? `Application ${statusText}` : 'Application Update',
+      company: item?.jobTitle || item?.company || 'Job',
+      description: item?.status ? `Your application is ${statusText}` : 'New application update',
+      time: item?.updatedAt || item?.createdAt || 'Just now',
+    };
+  };
+
+  const handleClearNotification = (id: string) => {
+    dismissedIdsRef.current.add(id);
+    setNotifications((prev) => prev.filter((n) => String(n.id) !== id));
+    onDismissLiveNotification?.(id);
   };
 
   // merge live notifications (from socket)
   React.useEffect(() => {
     if (!liveNotifications || liveNotifications.length === 0) return;
-    // map payloads to same shape used by this component
-    const mapped = liveNotifications.map((n: any) => ({
-      id: n.id || `${n.jobId}-${Date.now()}`,
-      title: n.status ? `Application ${n.status}` : 'Application Update',
-      company: n.jobTitle || 'Job',
-      description: n.status ? `Your application was ${n.status}` : 'New application update',
-      time: n.updatedAt || n.createdAt || 'Just now',
-    }));
-    setNotifications((prev) => [...mapped, ...prev]);
+    setNotifications((prev) => {
+      const seen = new Set(prev.map((n) => String(n.id)));
+      const mapped = liveNotifications
+        .map((n: any) => normalizeNotification(n))
+        .filter((n: any) => !dismissedIdsRef.current.has(String(n.id)) && !seen.has(String(n.id)));
+
+      if (mapped.length === 0) return prev;
+      return [...mapped, ...prev];
+    });
   }, [liveNotifications]);
 
   return (
@@ -83,7 +80,7 @@ export default function NotificationsInbox({
                 </View>
                 <TouchableOpacity 
                   style={styles.clearButton}
-                  onPress={() => handleClearNotification(notification.id)}
+                  onPress={() => handleClearNotification(String(notification.id))}
                 >
                   <Ionicons name="close-outline" size={16} color="#B91C1C" />
                 </TouchableOpacity>
