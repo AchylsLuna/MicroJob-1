@@ -46,6 +46,22 @@ export default function Profile({
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isDeletingItem, setIsDeletingItem] = useState(false);
   const API_ORIGIN = API_URL.replace(/\/api$/, '');
+  const apiPort = (() => {
+    try {
+      const parsed = new URL(API_ORIGIN);
+      if (parsed.port) return parsed.port;
+      return parsed.protocol === 'https:' ? '443' : '80';
+    } catch {
+      return '5055';
+    }
+  })();
+  const apiProtocol = (() => {
+    try {
+      return new URL(API_ORIGIN).protocol.replace(':', '');
+    } catch {
+      return 'http';
+    }
+  })();
 
   const buildApiCandidates = () => {
     const candidates = new Set<string>([API_URL]);
@@ -64,7 +80,7 @@ export default function Profile({
     const detectedHost = hostCandidates.map(extractHost).find(Boolean);
 
     if (detectedHost) {
-      candidates.add(`http://${detectedHost}:5000/api`);
+      candidates.add(`${apiProtocol}://${detectedHost}:${apiPort}/api`);
     }
 
     if (Platform.OS === 'android' && /localhost|127\.0\.0\.1/.test(API_URL)) {

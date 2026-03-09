@@ -41,7 +41,7 @@ if (process.env.NODE_ENV === 'production') {
 
 //Connection Config
 const config = {
-    PORT: Number(process.env.PORT) || 5000,
+    PORT: Number(process.env.PORT) || 5055,
     MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI,
     ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
     DB_NAME: process.env.DB_NAME || 'MicroJob',
@@ -210,17 +210,13 @@ app.use((err, req, res, next) => {
 }) 
 const startServer = async () => {
     try {
-
-        await mongoose.connect(config.MONGO_URI, { 
-            dbName: config.DB_NAME,
-            serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
-        });
-        console.log('Connected to DB');
-
         if (config.MONGO_URI) {
             try {
-                await mongoose.connect(config.MONGO_URI, { dbName: config.DB_NAME });
+                await mongoose.connect(config.MONGO_URI, {
+                    dbName: config.DB_NAME,
+                    serverSelectionTimeoutMS: 5000,
+                    socketTimeoutMS: 45000,
+                });
                 console.log('Connected to DB');
             } catch (dbError) {
                 if (isProduction || !allowInMemoryMongo) {

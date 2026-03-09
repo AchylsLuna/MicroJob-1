@@ -3,6 +3,10 @@
     "name": "mobile",
     "slug": "mobile",
     "version": "1.0.0",
+    "platforms": [
+      "android",
+      "web"
+    ],
     "extra": {
       "eas": {
         "projectId": "d1b2d617-2132-4db6-828e-92b06ae42e6f"

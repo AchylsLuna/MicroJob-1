@@ -3,16 +3,16 @@
   "version": "1.0.0",
   "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "start": "node scripts/startExpo.cjs",
+    "android": "node scripts/startExpo.cjs --android",
+    "ios": "node scripts/startExpo.cjs --ios",
+    "web": "node scripts/startExpo.cjs --web"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "8.6.0",
-    "expo": "~55.0.0",
+    "expo": "~55.0.5",
     "expo-constants": "~55.0.7",
     "expo-document-picker": "~55.0.8",
     "expo-file-system": "~55.0.10",
@@ -25,7 +25,7 @@
     "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
-    "@types/react": "~19.1.10",
+    "@types/react": "~19.2.10",
     "babel-preset-expo": "~55.0.0",
     "expo-module-scripts": "^55.0.2",
     "typescript": "~5.9.2"

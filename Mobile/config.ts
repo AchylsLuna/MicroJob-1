@@ -20,11 +20,12 @@ const hostCandidates = [
 ];
 
 const host = hostCandidates.map(extractHost).find(Boolean) || '';
+const defaultApiPort = process.env.EXPO_PUBLIC_API_PORT || '5055';
 
 // Uses EXPO_PUBLIC_API_URL if provided, otherwise auto-detects the Expo host IP.
 // This keeps mobile working across different networks without editing this file.
 const fallbackHost = host || (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
-const fallbackOrigin = `http://${fallbackHost}:5000`;
+const fallbackOrigin = `http://${fallbackHost}:${defaultApiPort}`;
 const normalizedApiUrl = (envApiUrl || `${fallbackOrigin}/api`).replace(/\/$/, '');
 
 export const API_URL = normalizedApiUrl.endsWith('/api')
