@@ -43,8 +43,17 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
 
   useEffect(() => {
     if (!email || hasSentRef.current) return;
-    hasSentRef.current = true;
-    sendOtp();
+    const maybeAutoSend = async () => {
+      const skipSend = await AsyncStorage.getItem('pending_verification_skip_send');
+      if (skipSend === '1') {
+        await AsyncStorage.removeItem('pending_verification_skip_send');
+        hasSentRef.current = true;
+        return;
+      }
+      hasSentRef.current = true;
+      sendOtp();
+    };
+    maybeAutoSend();
   }, [email]);
 
   useEffect(() => {

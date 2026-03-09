@@ -30,6 +30,20 @@ export default function JobDetails({
   const [jobDetails, setJobDetails] = useState(job);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [hasApplied, setHasApplied] = useState(false);
+
+  const getCurrentUserId = async () => {
+    const raw = await AsyncStorage.getItem('auth_user');
+    if (!raw) return '';
+    const parsed = JSON.parse(raw);
+    return String(parsed?.id || parsed?._id || parsed?.userId || '').trim();
+  };
+
+  const resolveApplicantId = (value: any) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    return String(value?._id || value?.id || value?.userId || '').trim();
+  };
 
   const handleTabPress = (tab: string) => {
     onTabPress?.(tab);
@@ -102,6 +116,7 @@ export default function JobDetails({
 
   const applyForJob = async () => {
     if (!jobDetails?._id) return;
+    if (hasApplied) return;
     setIsLoading(true);
     setErrorMessage('');
     try {
@@ -117,9 +132,13 @@ export default function JobDetails({
       if (!response.ok) {
         throw new Error(data?.message || 'Failed to apply.');
       }
+      setHasApplied(true);
       setShowSuccess(true);
     } catch (error: any) {
       const message = error?.message || 'Failed to apply.';
+      if (/already applied/i.test(message)) {
+        setHasApplied(true);
+      }
       setErrorMessage(message);
       Alert.alert('Error', message);
     } finally {
@@ -138,6 +157,15 @@ export default function JobDetails({
         throw new Error(data?.message || 'Failed to load job.');
       }
       setJobDetails(data);
+
+      const userId = await getCurrentUserId();
+      if (userId) {
+        const applicants = Array.isArray(data?.applicants) ? data.applicants : [];
+        const alreadyApplied = applicants.some((applicant: any) => resolveApplicantId(applicant) === userId);
+        setHasApplied(alreadyApplied);
+      } else {
+        setHasApplied(false);
+      }
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load job.');
     } finally {
@@ -263,8 +291,14 @@ export default function JobDetails({
               {saved ? 'Saved ✓' : 'Saved job'}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, styles.applyBtn]} onPress={handleApply} disabled={isLoading}>
-            <Text style={styles.actionBtnText}>{isLoading ? 'Applying...' : 'Apply now'}</Text>
+          <TouchableOpacity
+            style={[styles.actionBtn, styles.applyBtn, hasApplied && styles.appliedBtn]}
+            onPress={handleApply}
+            disabled={isLoading || hasApplied}
+          >
+            <Text style={styles.actionBtnText}>
+              {hasApplied ? 'Already submitted' : isLoading ? 'Applying...' : 'Apply now'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -397,6 +431,9 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     backgroundColor: '#4a90e2',
+  },
+  appliedBtn: {
+    backgroundColor: '#94a3b8',
   },
   messageBtn: {
     marginTop: 10,

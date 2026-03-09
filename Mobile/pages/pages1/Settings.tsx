@@ -113,8 +113,6 @@ export default function Settings({
 
   const settingsMenus = [
     { title: 'Personal Information', onPress: () => setShowPersonalInfo(true), icon: 'person-outline' as const },
-    { title: 'Experience', onPress: onNavigatePersonalDetails, icon: 'briefcase-outline' as const },
-    { title: 'CV/Resume', onPress: onNavigatePersonalDetails, icon: 'document-text-outline' as const },
     { title: 'Change Password', onPress: onNavigateChangePassword, icon: 'lock-closed-outline' as const },
     { title: 'Notifications', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
     { title: 'E-Wallet & Payments', onPress: onNavigateEWallet, icon: 'wallet-outline' as const },

@@ -7,6 +7,7 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 
 const otpStore = new Map();
 const passwordResetOtpStore = new Map();
+const passwordChangeOtpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
 
 function getEmailTransporter() {
@@ -416,5 +417,126 @@ export async function resetPasswordWithOtp(req, res) {
     } catch (error) {
         console.error("Reset password with OTP error:", error);
         return res.status(500).json({ message: "Failed to reset password." });
+    }
+}
+
+export async function requestPasswordChangeOtp(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const { currentPassword } = req.body || {};
+
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!currentPassword) {
+            return res.status(400).json({ message: "Current password is required." });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const matches = await user.validatePassword(currentPassword);
+        if (!matches) {
+            return res.status(401).json({ message: "Current password is incorrect." });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const emailKey = String(user.email || "").toLowerCase().trim();
+        passwordChangeOtpStore.set(emailKey, {
+            code,
+            expiresAt: Date.now() + OTP_TTL_MS,
+            userId: String(user._id),
+        });
+
+        const transporter = getEmailTransporter();
+        if (!transporter) {
+            if (process.env.NODE_ENV === "production") {
+                return res.status(500).json({ message: "Email service is not configured." });
+            }
+            console.warn(`SMTP is not configured. Development change-password OTP for ${emailKey}: ${code}`);
+            return res.status(200).json({ message: "OTP generated for development.", code });
+        }
+
+        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const displayName = user.firstName || "there";
+        const subject = "MicroJobs password change verification";
+        const text = `Hi ${displayName},\n\nUse this code to continue changing your MicroJobs password: ${code}\n\nThis code expires in 5 minutes. If you did not request this, please secure your account immediately.`;
+        const html = `
+            <p>Hi ${displayName},</p>
+            <p>Use this code to continue changing your MicroJobs password:</p>
+            <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
+            <p>This code expires in 5 minutes.</p>
+            <p>If you did not request this, please secure your account immediately.</p>
+        `;
+
+        await transporter.sendMail({
+            from: `MicroJobs <${fromAddress}>`,
+            to: emailKey,
+            subject,
+            text,
+            html,
+        });
+
+        return res.status(200).json({ message: "Password change OTP sent." });
+    } catch (error) {
+        console.error("Request password change OTP error:", error);
+        return res.status(500).json({ message: "Failed to send password change OTP." });
+    }
+}
+
+export async function changePasswordWithOtp(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const { currentPassword, code, newPassword } = req.body || {};
+
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!currentPassword || !code || !newPassword) {
+            return res.status(400).json({ message: "Current password, code, and new password are required." });
+        }
+        if (!isStrongPassword(newPassword)) {
+            return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const matches = await user.validatePassword(currentPassword);
+        if (!matches) {
+            return res.status(401).json({ message: "Current password is incorrect." });
+        }
+
+        const emailKey = String(user.email || "").toLowerCase().trim();
+        const normalizedCode = String(code || "").trim();
+        const record = passwordChangeOtpStore.get(emailKey);
+
+        if (!record) {
+            return res.status(400).json({ message: "Password change code not found or expired." });
+        }
+        if (record.expiresAt < Date.now()) {
+            passwordChangeOtpStore.delete(emailKey);
+            return res.status(400).json({ message: "Password change code expired." });
+        }
+        if (String(record.userId) !== String(user._id)) {
+            passwordChangeOtpStore.delete(emailKey);
+            return res.status(400).json({ message: "Invalid password change code." });
+        }
+        if (record.code !== normalizedCode) {
+            return res.status(400).json({ message: "Invalid password change code." });
+        }
+
+        await user.setPassword(newPassword);
+        await user.save();
+        passwordChangeOtpStore.delete(emailKey);
+
+        return res.status(200).json({ message: "Password changed successfully." });
+    } catch (error) {
+        console.error("Change password with OTP error:", error);
+        return res.status(500).json({ message: "Failed to change password." });
     }
 }

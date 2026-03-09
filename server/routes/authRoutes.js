@@ -19,6 +19,8 @@ import {
   updateMe,
   requestPasswordResetOtp,
   resetPasswordWithOtp,
+  requestPasswordChangeOtp,
+  changePasswordWithOtp,
 } from '../controllers/UserController.js';
 import {
   isValidPhone,
@@ -379,6 +381,8 @@ router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
 router.post('/password-reset/request', requestPasswordResetOtp);
 router.post('/password-reset/confirm', resetPasswordWithOtp);
+router.post('/password-change/request', verifyToken, requestPasswordChangeOtp);
+router.post('/password-change/confirm', verifyToken, changePasswordWithOtp);
 
 // Login an existing user (supports email/username and phone)
 // Apply a login rate limiter to mitigate brute-force attacks
