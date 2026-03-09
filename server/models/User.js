@@ -182,6 +182,52 @@ const UserSchema = new mongoose.Schema(
                 },
             },
         ],
+        verification: {
+            emailVerified: {
+                type: Boolean,
+                default: false,
+            },
+            phoneVerified: {
+                type: Boolean,
+                default: false,
+            },
+            identityVerified: {
+                type: Boolean,
+                default: false,
+            },
+            addressVerified: {
+                type: Boolean,
+                default: false,
+            },
+            identityDocument: {
+                status: {
+                    type: String,
+                    enum: ["pending", "in-review", "complete", "rejected"],
+                    default: "pending",
+                },
+                documentUrl: {
+                    type: String,
+                    trim: true,
+                },
+                uploadedAt: {
+                    type: Date,
+                },
+            },
+            addressDocument: {
+                status: {
+                    type: String,
+                    enum: ["pending", "in-review", "complete", "rejected"],
+                    default: "pending",
+                },
+                documentUrl: {
+                    type: String,
+                    trim: true,
+                },
+                uploadedAt: {
+                    type: Date,
+                },
+            },
+        },
         passwordHashed: {
             type: String,
             required: true,

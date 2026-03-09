@@ -48,6 +48,7 @@ export default function Dashboard({
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [hasUploadedResume, setHasUploadedResume] = useState(false);
 
   const recentJobs = useMemo(() => jobs.slice(0, 5), [jobs]);
   const jobsByCategory = useMemo(() => {
@@ -94,9 +95,52 @@ export default function Dashboard({
     }
   };
 
+  const profileHasResume = (profile: any) => {
+    if (!profile || typeof profile !== 'object') return false;
+    const resumeFileName = String(profile.resumeFileName || '').trim();
+    const resumeUrl = String(profile.resumeUrl || '').trim();
+    const resume = String(profile.resume || '').trim();
+    return Boolean(resumeFileName || resumeUrl || resume);
+  };
+
+  const syncResumeStatus = async () => {
+    try {
+      const storedUserRaw = await AsyncStorage.getItem('auth_user');
+      if (storedUserRaw) {
+        const storedUser = JSON.parse(storedUserRaw);
+        setHasUploadedResume(profileHasResume(storedUser));
+      }
+
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) return;
+
+      const result = await apiRequest(`${API_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }, 'Failed to load profile.');
+
+      if (!result.ok) return;
+
+      const payload: any = (result.raw && typeof result.raw === 'object') ? result.raw : {};
+      const dataPayload: any = (result.data && typeof result.data === 'object') ? result.data : {};
+      const profile =
+        dataPayload?.user ||
+        payload?.user ||
+        dataPayload?.profile ||
+        payload?.profile ||
+        dataPayload;
+
+      if (profile && typeof profile === 'object') {
+        setHasUploadedResume(profileHasResume(profile));
+      }
+    } catch (error) {
+      // Keep UI functional even when profile sync fails.
+    }
+  };
+
   useEffect(() => {
     fetchCategories();
     fetchJobs();
+    syncResumeStatus();
   }, []);
 
   const handleTabPress = (tab: string) => {
@@ -130,18 +174,20 @@ export default function Dashboard({
           <Text style={styles.searchPlaceholder}>Search jobs, skills, or companies</Text>
         </View>
 
-        <View style={styles.uploadCard}>
-          <View style={styles.uploadTopRow}>
-            <View style={styles.uploadIconWrap}>
-              <Ionicons name="document-text-outline" size={18} color={tokens.colors.onBrand} />
+        {!hasUploadedResume ? (
+          <View style={styles.uploadCard}>
+            <View style={styles.uploadTopRow}>
+              <View style={styles.uploadIconWrap}>
+                <Ionicons name="document-text-outline" size={18} color={tokens.colors.onBrand} />
+              </View>
+              <Text style={styles.uploadTitle}>Upload your resume</Text>
             </View>
-            <Text style={styles.uploadTitle}>Upload your resume</Text>
+            <Text style={styles.uploadSubtitle}>Get matched with top companies automatically.</Text>
+            <TouchableOpacity style={styles.checkButton} activeOpacity={0.9}>
+              <Text style={styles.checkButtonText}>Check Applied</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={styles.uploadSubtitle}>Get matched with top companies automatically.</Text>
-          <TouchableOpacity style={styles.checkButton} activeOpacity={0.9}>
-            <Text style={styles.checkButtonText}>Check Applied</Text>
-          </TouchableOpacity>
-        </View>
+        ) : null}
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Job Categories</Text>

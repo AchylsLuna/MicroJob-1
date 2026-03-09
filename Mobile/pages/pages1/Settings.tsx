@@ -37,6 +37,7 @@ export default function Settings({
   onNavigateSupport,
   currentRole = 'worker',
 }: SettingsProps) {
+  const isWorkerRole = currentRole === 'worker';
   const [completion, setCompletion] = useState({ percentage: 0, incompleteFields: [] as string[], completedFields: [] as string[] });
   const [profileSummary, setProfileSummary] = useState({
     totalExperience: '',
@@ -49,6 +50,11 @@ export default function Settings({
 
   useEffect(() => {
     const loadProfileCompletion = async () => {
+      if (!isWorkerRole) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) {
@@ -101,7 +107,7 @@ export default function Settings({
     };
 
     loadProfileCompletion();
-  }, []);
+  }, [isWorkerRole]);
 
   const handleLogout = () => {
     onLogout?.();
@@ -113,8 +119,6 @@ export default function Settings({
 
   const settingsMenus = [
     { title: 'Personal Information', onPress: () => setShowPersonalInfo(true), icon: 'person-outline' as const },
-    { title: 'Experience', onPress: onNavigatePersonalDetails, icon: 'briefcase-outline' as const },
-    { title: 'CV/Resume', onPress: onNavigatePersonalDetails, icon: 'document-text-outline' as const },
     { title: 'Change Password', onPress: onNavigateChangePassword, icon: 'lock-closed-outline' as const },
     { title: 'Notifications', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
     { title: 'E-Wallet & Payments', onPress: onNavigateEWallet, icon: 'wallet-outline' as const },
@@ -136,7 +140,7 @@ export default function Settings({
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Profile Completion Section */}
-        {!isLoading && (
+        {isWorkerRole && !isLoading && (
           <View style={[styles.completionCard, { borderColor: getCompletionColor(completion.percentage) }]}>
             <View style={styles.completionTop}>
               <View style={styles.completionInfo}>
@@ -208,7 +212,7 @@ export default function Settings({
             )}
           </View>
         )}
-        {isLoading && (
+        {isWorkerRole && isLoading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={tokens.colors.brand} size="large" />
           </View>

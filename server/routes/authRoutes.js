@@ -17,8 +17,11 @@ import {
   sendOtp,
   verifyOtp,
   updateMe,
+  getPublicProfile,
   requestPasswordResetOtp,
   resetPasswordWithOtp,
+  requestPasswordChangeOtp,
+  changePasswordWithOtp,
 } from '../controllers/UserController.js';
 import {
   isValidPhone,
@@ -121,14 +124,42 @@ const createAccessToken = (user, sessionId) =>
 const createSessionWithTokens = async (req, user) => {
   const forwardedFor = String(req.headers['x-forwarded-for'] || '');
   const requestIp = forwardedFor.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+  const userAgent = req.get('User-Agent') || '';
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  const session = await Session.create({
+
+  // Check for existing active session from same device (userAgent + IP combination)
+  let session = await Session.findOne({
     user: user._id,
-    userAgent: req.get('User-Agent') || '',
+    userAgent: userAgent,
     ip: requestIp,
     active: true,
-    expiresAt,
   });
+
+  if (session) {
+    // Update existing session instead of creating duplicate
+    session.expiresAt = expiresAt;
+    session.createdAt = new Date(); // Update last login time
+  } else {
+    // Clean up old inactive sessions for this user (keep only last 10 inactive)
+    const inactiveSessions = await Session.find({
+      user: user._id,
+      active: false,
+    }).sort({ endedAt: -1 }).skip(10);
+    
+    if (inactiveSessions.length > 0) {
+      const idsToDelete = inactiveSessions.map(s => s._id);
+      await Session.deleteMany({ _id: { $in: idsToDelete } });
+    }
+
+    // Create new session if none exists
+    session = await Session.create({
+      user: user._id,
+      userAgent: userAgent,
+      ip: requestIp,
+      active: true,
+      expiresAt,
+    });
+  }
 
   const accessToken = createAccessToken(user, session._id.toString());
   const refreshToken = crypto.randomBytes(64).toString('hex');
@@ -379,6 +410,8 @@ router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
 router.post('/password-reset/request', requestPasswordResetOtp);
 router.post('/password-reset/confirm', resetPasswordWithOtp);
+router.post('/password-change/request', verifyToken, requestPasswordChangeOtp);
+router.post('/password-change/confirm', verifyToken, changePasswordWithOtp);
 
 // Login an existing user (supports email/username and phone)
 // Apply a login rate limiter to mitigate brute-force attacks
@@ -579,8 +612,34 @@ router.post('/refresh', csrfProtection, async (req, res) => {
 // List active sessions for current user
 router.get('/sessions', verifyToken, async (req, res) => {
   try {
-    const sessions = await Session.find({ user: req.user.id }).select('-refreshTokenHash -token');
-    return res.status(200).json({ sessions });
+    const currentSessionId = req.user.sessionId || null;
+    const now = new Date();
+    
+    // First, clean up expired sessions
+    await Session.deleteMany({ 
+      user: req.user.id,
+      $or: [
+        { expiresAt: { $lt: now } },
+        { active: false }
+      ]
+    });
+    
+    // Get only valid active sessions
+    const sessions = await Session.find({ 
+      user: req.user.id, 
+      active: true,
+      expiresAt: { $gt: now }
+    })
+    .sort({ createdAt: -1 })
+    .select('-refreshTokenHash -token');
+    
+    // Mark the current session
+    const sessionsWithCurrent = sessions.map(session => ({
+      ...session.toObject(),
+      isCurrent: session._id.toString() === currentSessionId,
+    }));
+    
+    return res.status(200).json({ sessions: sessionsWithCurrent, currentSessionId });
   } catch (err) {
     console.error('Sessions list error', err);
     return res.status(500).json({ message: 'Failed to list sessions' });
@@ -593,9 +652,14 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
     const s = await Session.findById(req.params.id);
     if (!s) return res.status(404).json({ message: 'Session not found' });
     if (s.user.toString() !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized' });
-    s.active = false;
-    s.endedAt = new Date();
-    await s.save();
+    
+    // Prevent revoking current session
+    if (req.user.sessionId && s._id.toString() === req.user.sessionId) {
+      return res.status(400).json({ message: 'Cannot revoke current session. Use sign-out instead.' });
+    }
+    
+    // Actually delete the session instead of marking inactive
+    await Session.findByIdAndDelete(req.params.id);
     return res.status(200).json({ message: 'Session revoked' });
   } catch (err) {
     console.error('Revoke session error', err);
@@ -606,7 +670,17 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
 // Revoke all sessions for current user (sign out everywhere)
 router.delete('/sessions', verifyToken, async (req, res) => {
   try {
-    await Session.updateMany({ user: req.user.id, active: true }, { active: false, endedAt: new Date() });
+    // Delete all sessions except the current one
+    await Session.deleteMany({ 
+      user: req.user.id, 
+      _id: { $ne: req.user.sessionId } 
+    });
+    
+    // Also delete current session to log out
+    if (req.user.sessionId) {
+      await Session.findByIdAndDelete(req.user.sessionId);
+    }
+    
     // clear cookies
     res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
     res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
@@ -616,6 +690,27 @@ router.delete('/sessions', verifyToken, async (req, res) => {
   } catch (err) {
     console.error('Revoke all sessions error', err);
     return res.status(500).json({ message: 'Failed to revoke sessions' });
+  }
+});
+
+// Clean up inactive sessions for current user
+router.post('/sessions/cleanup', verifyToken, async (req, res) => {
+  try {
+    const now = new Date();
+    const result = await Session.deleteMany({ 
+      user: req.user.id,
+      $or: [
+        { active: false },
+        { expiresAt: { $lt: now } }
+      ]
+    });
+    return res.status(200).json({ 
+      message: 'Inactive sessions cleaned up', 
+      deletedCount: result.deletedCount 
+    });
+  } catch (err) {
+    console.error('Cleanup sessions error', err);
+    return res.status(500).json({ message: 'Failed to cleanup sessions' });
   }
 });
 
@@ -1091,6 +1186,7 @@ const deleteAvatar = async (req, res) => {
 };
 
 router.get(['/profile', '/me'], verifyToken, getProfile);
+router.get('/profiles/:userId', verifyToken, getPublicProfile);
 router.patch(['/profile', '/me'], verifyToken, updateMe);
 router.post('/profile/avatar', verifyToken, multerAvatar.single('avatar'), uploadAvatar);
 router.delete('/profile/avatar', verifyToken, deleteAvatar);
@@ -1099,5 +1195,132 @@ router.delete('/profile/resume', verifyToken, deleteResume);
 router.post('/profile/skills', verifyToken, addSkill);
 router.delete('/profile/skills/:skillId', verifyToken, deleteSkill);
 router.patch('/profile/skills/:skillId', verifyToken, updateSkillLevel);
+
+// Verification endpoints
+router.get('/verification/status', verifyToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('verification email phoneNumber status');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const steps = [
+      {
+        id: 'email',
+        title: 'Email address',
+        description: 'Confirm the email you use to sign in and receive alerts.',
+        status: user.status === 'active' ? 'complete' : user.status === 'pending' ? 'pending' : 'pending',
+      },
+      {
+        id: 'phone',
+        title: 'Phone number',
+        description: 'Add a verified phone for account recovery and security checks.',
+        status: user.verification?.phoneVerified ? 'complete' : user.phoneNumber ? 'in-review' : 'pending',
+      },
+      {
+        id: 'identity',
+        title: 'Government ID',
+        description: 'Upload a valid ID to prove your identity.',
+        status: user.verification?.identityDocument?.status || 'pending',
+      },
+      {
+        id: 'address',
+        title: 'Proof of address',
+        description: 'Provide a recent utility bill or bank statement.',
+        status: user.verification?.addressDocument?.status || 'pending',
+      },
+    ];
+
+    const completedSteps = steps.filter((step) => step.status === 'complete').length;
+    const completionPercent = Math.round((completedSteps / steps.length) * 100);
+
+    return res.status(200).json({
+      steps,
+      completedSteps,
+      completionPercent,
+    });
+  } catch (err) {
+    console.error('Get verification status error', err);
+    return res.status(500).json({ message: 'Failed to get verification status' });
+  }
+});
+
+router.post('/verification/phone', verifyToken, async (req, res) => {
+  try {
+    // This would typically send an OTP to the phone number
+    // For now, we'll just mark it as verified
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.phoneNumber) {
+      return res.status(400).json({ message: 'Please add a phone number in your profile first' });
+    }
+
+    user.verification = user.verification || {};
+    user.verification.phoneVerified = true;
+    await user.save();
+
+    return res.status(200).json({ message: 'Phone verification completed', verified: true });
+  } catch (err) {
+    console.error('Phone verification error', err);
+    return res.status(500).json({ message: 'Failed to verify phone' });
+  }
+});
+
+router.post('/verification/documents/identity', verifyToken, multerAvatar.single('document'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No document file provided' });
+    }
+
+    const documentUrl = `/uploads/${req.file.filename}`;
+    user.verification = user.verification || {};
+    user.verification.identityDocument = {
+      status: 'in-review',
+      documentUrl,
+      uploadedAt: new Date(),
+    };
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Identity document uploaded successfully',
+      documentUrl,
+      status: 'in-review',
+    });
+  } catch (err) {
+    console.error('Identity document upload error', err);
+    return res.status(500).json({ message: 'Failed to upload identity document' });
+  }
+});
+
+router.post('/verification/documents/address', verifyToken, multerAvatar.single('document'), async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No document file provided' });
+    }
+
+    const documentUrl = `/uploads/${req.file.filename}`;
+    user.verification = user.verification || {};
+    user.verification.addressDocument = {
+      status: 'in-review',
+      documentUrl,
+      uploadedAt: new Date(),
+    };
+    await user.save();
+
+    return res.status(200).json({
+      message: 'Address document uploaded successfully',
+      documentUrl,
+      status: 'in-review',
+    });
+  } catch (err) {
+    console.error('Address document upload error', err);
+    return res.status(500).json({ message: 'Failed to upload address document' });
+  }
+});
 
 export default router;

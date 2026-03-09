@@ -1,0 +1,587 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from '../../config';
+import { apiRequest, asObject } from '../../lib/api';
+
+type PublicProfileProps = {
+  userId: string;
+  viewAs: 'worker' | 'employer';
+  onBack: () => void;
+};
+
+type PublicProfileResponse = {
+  profile?: {
+    id?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+    city?: string;
+    province?: string;
+    address?: string;
+    about?: string;
+    totalExperience?: string;
+    companyName?: string;
+    avatarUrl?: string;
+    resumeUrl?: string;
+    resumeFileName?: string;
+    skills?: Array<{ name?: string } | string>;
+  };
+  rating?: {
+    viewAs?: 'worker' | 'employer';
+    stars?: number;
+    percentage?: number;
+    completedCount?: number;
+    totalCount?: number;
+  };
+  stats?: {
+    worker?: {
+      jobsApplied?: number;
+      projectsCompleted?: number;
+      successRate?: number;
+    };
+    employer?: {
+      jobsPosted?: number;
+      totalApplicants?: number;
+      hires?: number;
+      successRate?: number;
+    };
+  };
+};
+
+const toAbsoluteAssetUrl = (value?: string): string | null => {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('/')) {
+    return `${API_URL.replace(/\/api\/?$/, '')}${value}`;
+  }
+  return value;
+};
+
+export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileProps) {
+  const [data, setData] = useState<PublicProfileResponse | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const load = async () => {
+      if (!userId) return;
+      setIsLoading(true);
+      setError(null);
+      try {
+        const token = await AsyncStorage.getItem('auth_token');
+        const result = await apiRequest(
+          `${API_URL}/auth/profiles/${userId}?viewAs=${viewAs}`,
+          {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          },
+          'Failed to load profile.'
+        );
+
+        if (!result.ok) {
+          throw new Error(result.message || 'Failed to load profile.');
+        }
+
+        const payload =
+          asObject<PublicProfileResponse>(result.data) ||
+          asObject<PublicProfileResponse>(result.raw);
+
+        if (!payload?.profile) {
+          throw new Error('Profile not found.');
+        }
+
+        if (!isMounted) return;
+        setData(payload);
+      } catch (err: any) {
+        if (!isMounted) return;
+        setData(null);
+        setError(err?.message || 'Failed to load profile.');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, [userId, viewAs, reloadKey]);
+
+  const fullName = useMemo(() => {
+    const first = data?.profile?.firstName || '';
+    const last = data?.profile?.lastName || '';
+    return `${first} ${last}`.trim() || 'User';
+  }, [data?.profile?.firstName, data?.profile?.lastName]);
+
+  const skills = useMemo(() => {
+    const raw = data?.profile?.skills || [];
+    return raw
+      .map((entry) => (typeof entry === 'string' ? entry : entry?.name || ''))
+      .filter(Boolean);
+  }, [data?.profile?.skills]);
+
+  const avatarUrl = toAbsoluteAssetUrl(data?.profile?.avatarUrl);
+  const ratingStars = Math.max(0, Math.min(5, Number(data?.rating?.stars || 0)));
+  const ratingPercentage = Math.max(0, Math.min(100, Number(data?.rating?.percentage || 0)));
+
+  const renderStars = () => {
+    const stars = [];
+    for (let i = 0; i < 5; i++) {
+      stars.push(
+        <Text key={i} style={[styles.star, i < Math.round(ratingStars) && styles.starFilled]}>
+          ★
+        </Text>
+      );
+    }
+    return stars;
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Loading profile...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              setError(null);
+              setReloadKey((prev) => prev + 1);
+            }}
+          >
+            <Text style={styles.retryButtonText}>Try Again</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  if (!data?.profile) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Profile not found</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const profile = data.profile;
+  const stats = viewAs === 'worker' ? data.stats?.worker : data.stats?.employer;
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {viewAs === 'employer' ? 'Employer Profile' : 'Worker Profile'}
+        </Text>
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.card}>
+          {/* Profile Header */}
+          <View style={styles.profileHeader}>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>{fullName.charAt(0).toUpperCase()}</Text>
+              </View>
+            )}
+
+            <View style={styles.profileInfo}>
+              <Text style={styles.nameText}>{fullName}</Text>
+              {viewAs === 'employer' && profile.companyName ? (
+                <Text style={styles.companyText}>{profile.companyName}</Text>
+              ) : null}
+              <Text style={styles.emailText}>{profile.email || 'No email'}</Text>
+              {profile.city || profile.province ? (
+                <Text style={styles.locationText}>
+                  📍 {[profile.city, profile.province].filter(Boolean).join(', ')}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+
+          {/* Rating Section */}
+          <View style={styles.ratingContainer}>
+            <View style={styles.ratingBox}>
+              <Text style={styles.ratingLabel}>Rating</Text>
+              <View style={styles.starsRow}>{renderStars()}</View>
+              <Text style={styles.ratingValue}>{ratingStars.toFixed(1)}/5</Text>
+              <Text style={styles.successRate}>{ratingPercentage}% success</Text>
+            </View>
+
+            <View style={styles.ratingBox}>
+              <Text style={styles.ratingLabel}>Completed</Text>
+              <Text style={styles.completedCount}>{data.rating?.completedCount || 0}</Text>
+              <Text style={styles.totalJobs}>
+                out of {data.rating?.totalCount || 0} records
+              </Text>
+            </View>
+          </View>
+
+          {/* Stats Section */}
+          {stats && (
+            <View style={styles.statsContainer}>
+              <Text style={styles.sectionTitle}>Statistics</Text>
+              <View style={styles.statsGrid}>
+                {viewAs === 'worker' ? (
+                  <>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{(stats as any).jobsApplied || 0}</Text>
+                      <Text style={styles.statLabel}>Jobs Applied</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{(stats as any).projectsCompleted || 0}</Text>
+                      <Text style={styles.statLabel}>Completed</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{(stats as any).successRate || 0}%</Text>
+                      <Text style={styles.statLabel}>Success Rate</Text>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{(stats as any).jobsPosted || 0}</Text>
+                      <Text style={styles.statLabel}>Jobs Posted</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{(stats as any).totalApplicants || 0}</Text>
+                      <Text style={styles.statLabel}>Total Applicants</Text>
+                    </View>
+                    <View style={styles.statBox}>
+                      <Text style={styles.statValue}>{(stats as any).hires || 0}</Text>
+                      <Text style={styles.statLabel}>Hires</Text>
+                    </View>
+                  </>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* Experience */}
+          {profile.totalExperience && viewAs === 'worker' ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Experience</Text>
+              <Text style={styles.sectionText}>{profile.totalExperience}</Text>
+            </View>
+          ) : null}
+
+          {/* About */}
+          {profile.about ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>About</Text>
+              <Text style={styles.sectionText}>{profile.about}</Text>
+            </View>
+          ) : null}
+
+          {/* Skills */}
+          {skills.length > 0 && viewAs === 'worker' ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Skills</Text>
+              <View style={styles.skillsGrid}>
+                {skills.map((skill, index) => (
+                  <View key={index} style={styles.skillTag}>
+                    <Text style={styles.skillText}>{skill}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Location Details */}
+          {profile.address && viewAs === 'employer' ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Address</Text>
+              <Text style={styles.sectionText}>{profile.address}</Text>
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+  },
+  header: {
+    paddingTop: 50,
+    paddingBottom: 15,
+    paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+  },
+  backButton: {
+    marginBottom: 10,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  scroll: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#64748B',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#B91C1C',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#4A90E2',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 15,
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    backgroundColor: '#DBEAFE',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#1E3A8A',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  nameText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  companyText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1D4ED8',
+    marginBottom: 4,
+  },
+  emailText: {
+    fontSize: 14,
+    color: '#475569',
+    marginBottom: 4,
+  },
+  locationText: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    gap: 15,
+    marginBottom: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  ratingBox: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  ratingLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 8,
+    fontWeight: '600',
+  },
+  starsRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  star: {
+    fontSize: 16,
+    color: '#CBD5E1',
+    marginHorizontal: 1,
+  },
+  starFilled: {
+    color: '#F59E0B',
+  },
+  ratingValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  successRate: {
+    fontSize: 14,
+    color: '#334155',
+  },
+  completedCount: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 4,
+    marginTop: 8,
+  },
+  totalJobs: {
+    fontSize: 14,
+    color: '#334155',
+    textAlign: 'center',
+  },
+  statsContainer: {
+    marginBottom: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: '#EFF6FF',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1E3A8A',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: '#475569',
+    textAlign: 'center',
+  },
+  section: {
+    marginBottom: 20,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  sectionText: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 22,
+  },
+  skillsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  skillTag: {
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  skillText: {
+    fontSize: 13,
+    color: '#1F2937',
+    fontWeight: '600',
+  },
+});

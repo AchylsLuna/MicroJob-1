@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
 import AppHeader from '../../components/AppHeader';
@@ -23,6 +24,7 @@ type EmployerProfileProps = {
   onTabPress?: (tab: string) => void;
   onLogout?: () => void;
   onOpenWallet?: () => void;
+  onOpenSettings?: () => void;
   currentRole?: 'worker' | 'employer';
   onSwitchRole?: (role: 'worker' | 'employer') => void;
 };
@@ -33,6 +35,7 @@ export default function EmployerProfile({
   onTabPress,
   onLogout,
   onOpenWallet,
+  onOpenSettings,
   currentRole = 'employer',
   onSwitchRole,
 }: EmployerProfileProps) {
@@ -40,6 +43,9 @@ export default function EmployerProfile({
   const [lastName, setLastName] = useState(employer?.lastName || '');
   const [email, setEmail] = useState(employer?.email || '');
   const [phone, setPhone] = useState(employer?.phone || '');
+  const [city, setCity] = useState('');
+  const [address, setAddress] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const employerName = firstName || lastName
@@ -63,6 +69,9 @@ export default function EmployerProfile({
           setLastName(parsed?.lastName || '');
           setEmail(parsed?.email || '');
           setPhone(parsed?.phoneNumber || '');
+          setCity(parsed?.city || '');
+          setAddress(parsed?.address || '');
+          setAvatarUrl(parsed?.avatarUrl || '');
         }
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) return;
@@ -78,6 +87,9 @@ export default function EmployerProfile({
           setLastName(profile.lastName || '');
           setEmail(profile.email || '');
           setPhone(profile.phoneNumber || '');
+          setCity(profile.city || '');
+          setAddress(profile.address || '');
+          setAvatarUrl(profile.avatarUrl || '');
         }
       } catch (error) {
         console.log('Failed to load employer profile', error);
@@ -107,6 +119,8 @@ export default function EmployerProfile({
           lastName: lastName.trim(),
           email: email.trim().toLowerCase(),
           phoneNumber: phone.trim(),
+          city: city.trim(),
+          address: address.trim(),
         }),
       }, 'Failed to update profile.');
 
@@ -118,6 +132,7 @@ export default function EmployerProfile({
       const dataPayload = asObject<any>(result.data) || {};
       const user = dataPayload?.user || payload?.user || dataPayload;
       if (user) {
+        setAvatarUrl(user.avatarUrl || avatarUrl);
         await AsyncStorage.setItem('auth_user', JSON.stringify(user));
       }
       Alert.alert('Success', 'Profile updated.');
@@ -132,7 +147,72 @@ export default function EmployerProfile({
     if (role === currentRole) return;
     onSwitchRole?.(role);
   };
+
+  const handleUploadAvatar = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission required', 'Please allow photo access to upload a profile picture.');
+        return;
+      }
+
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (picked.canceled || !picked.assets?.length) {
+        return;
+      }
+
+      const asset = picked.assets[0];
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        Alert.alert('Error', 'Please sign in again.');
+        return;
+      }
+
+      const ext = (asset.fileName?.split('.').pop() || 'jpg').toLowerCase();
+      const mime = asset.mimeType || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+      const form = new FormData();
+      form.append('avatar', {
+        uri: asset.uri,
+        name: asset.fileName || `avatar.${ext}`,
+        type: mime,
+      } as any);
+
+      setIsLoading(true);
+      const result = await apiRequest(`${API_URL}/auth/profile/avatar`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: form,
+      }, 'Failed to upload profile picture.');
+
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to upload profile picture.');
+      }
+
+      const payload = asObject<any>(result.raw) || {};
+      const dataPayload = asObject<any>(result.data) || {};
+      const nextAvatarUrl = dataPayload?.data?.avatarUrl || payload?.data?.avatarUrl || dataPayload?.avatarUrl;
+      if (nextAvatarUrl) {
+        setAvatarUrl(nextAvatarUrl);
+      }
+      Alert.alert('Success', 'Profile picture updated.');
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Failed to upload profile picture.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   const nextRole: 'worker' | 'employer' = currentRole === 'worker' ? 'employer' : 'worker';
+  const avatarSource = avatarUrl
+    ? { uri: avatarUrl.startsWith('http') ? avatarUrl : `${API_URL.replace(/\/api$/, '')}${avatarUrl}` }
+    : null;
 
   return (
     <View style={styles.container}>
@@ -145,9 +225,16 @@ export default function EmployerProfile({
       />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
+          <TouchableOpacity style={styles.avatar} onPress={handleUploadAvatar}>
+            {avatarSource ? (
+              <Image source={avatarSource} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initials}</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleUploadAvatar}>
+            <Text style={styles.changePhotoText}>Change profile photo</Text>
+          </TouchableOpacity>
           <Text style={styles.name}>{employerName}</Text>
           <Text style={styles.subtitle}>Employer account</Text>
         </View>
@@ -197,12 +284,42 @@ export default function EmployerProfile({
           />
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="City / Location"
+            placeholderTextColor="#9ca3af"
+            value={city}
+            onChangeText={setCity}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Address</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Full address"
+            placeholderTextColor="#9ca3af"
+            value={address}
+            onChangeText={setAddress}
+          />
+        </View>
+
         <TouchableOpacity
           style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={isLoading}
         >
           {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Profile</Text>}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={onOpenSettings}
+          disabled={!onOpenSettings}
+        >
+          <Text style={styles.settingsButtonText}>⚙ Open Settings</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -213,13 +330,6 @@ export default function EmployerProfile({
           <Text style={styles.walletButtonText}>💼 View E-Wallet</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={onLogout}
-          disabled={!onLogout}
-        >
-          <Text style={styles.logoutButtonText}>Log out</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
@@ -246,8 +356,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   avatarText: { color: '#ffffff', fontWeight: '700', fontSize: 20 },
+  changePhotoText: {
+    fontSize: 12,
+    color: '#2563eb',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
   name: { fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 8 },
   meta: { fontSize: 12, color: '#9ca3af' },
@@ -290,12 +412,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   walletButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  logoutButton: {
+  settingsButton: {
     marginTop: 12,
-    backgroundColor: '#fee2e2',
+    backgroundColor: '#1e3a8a',
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
   },
-  logoutButtonText: { color: '#b91c1c', fontSize: 14, fontWeight: '700' },
+  settingsButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

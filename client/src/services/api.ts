@@ -106,6 +106,14 @@ export function resetPasswordWithOtp(payload: { email: string; code: string; new
   return request<{ message: string }>('/auth/password-reset/confirm', { method: 'POST', body: payload });
 }
 
+export function requestPasswordChangeOtp(payload: { currentPassword: string }) {
+  return request<{ message: string; code?: string }>('/auth/password-change/request', { method: 'POST', body: payload });
+}
+
+export function confirmPasswordChangeWithOtp(payload: { currentPassword: string; code: string; newPassword: string }) {
+  return request<{ message: string }>('/auth/password-change/confirm', { method: 'POST', body: payload });
+}
+
 // Category APIs
 export function getCategories() {
   return request<any[]>('/categories', { method: 'GET' });
@@ -214,6 +222,9 @@ export function updateProfile(payload: {
   phoneNumber?: string;
   email?: string;
   city?: string;
+  province?: string;
+  address?: string;
+  companyName?: string;
   country?: string;
   linkedin?: string;
   about?: string;
@@ -224,6 +235,10 @@ export function updateProfile(payload: {
   return request<any>('/auth/me', { method: 'PATCH', body: payload }).then((response: any) => {
     return response?.data ?? response?.profile ?? response?.user ?? response;
   });
+}
+
+export function getPublicProfile(userId: string, viewAs: 'worker' | 'employer' = 'worker') {
+  return request<any>(`/auth/profiles/${userId}${buildQuery({ viewAs })}`, { method: 'GET' });
 }
 
 // Notifications APIs
@@ -263,6 +278,59 @@ export function updateAlertStatus(alertId: string, status: 'open' | 'snoozed' | 
 
 export function deleteAlert(alertId: string) {
   return request(`/alerts/${alertId}`, { method: 'DELETE' });
+}
+
+// Sessions APIs
+export function getSessions() {
+  return request<{ sessions: any[] }>('/auth/sessions', { method: 'GET' });
+}
+
+export function revokeSession(sessionId: string) {
+  return request('/auth/sessions/' + sessionId, { method: 'DELETE' });
+}
+
+export function revokeAllSessions() {
+  return request('/auth/sessions', { method: 'DELETE' });
+}
+
+export function cleanupInactiveSessions() {
+  return request<{ message: string; deletedCount: number }>('/auth/sessions/cleanup', { method: 'POST' });
+}
+
+// Verification APIs
+export function getVerificationStatus() {
+  return request<{
+    steps: Array<{
+      id: string;
+      title: string;
+      description: string;
+      status: 'complete' | 'in-review' | 'pending';
+    }>;
+    completedSteps: number;
+    completionPercent: number;
+  }>('/auth/verification/status', { method: 'GET' });
+}
+
+export function verifyPhone() {
+  return request('/auth/verification/phone', { method: 'POST' });
+}
+
+export function uploadIdentityDocument(file: File) {
+  const formData = new FormData();
+  formData.append('document', file);
+  return request<{ message: string; documentUrl: string; status: string }>(
+    '/auth/verification/documents/identity',
+    { method: 'POST', body: formData }
+  );
+}
+
+export function uploadAddressDocument(file: File) {
+  const formData = new FormData();
+  formData.append('document', file);
+  return request<{ message: string; documentUrl: string; status: string }>(
+    '/auth/verification/documents/address',
+    { method: 'POST', body: formData }
+  );
 }
 
 // Payments APIs

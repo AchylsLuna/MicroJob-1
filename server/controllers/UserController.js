@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import JobApplication from "../models/JobApplication.js";
+import Job from "../models/Job.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
@@ -7,6 +8,7 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 
 const otpStore = new Map();
 const passwordResetOtpStore = new Map();
+const passwordChangeOtpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
 
 function getEmailTransporter() {
@@ -203,6 +205,105 @@ export async function updateProfile(req, res) {
 
 // Keep compatibility with authRoutes expecting updateMe.
 export const updateMe = updateProfile;
+
+const normalizeViewerRole = (value) => {
+    if (value === "employer" || value === "hire") return "employer";
+    return "worker";
+};
+
+const toRatingSummary = (completedCount, totalCount) => {
+    const safeTotal = Number(totalCount) || 0;
+    const safeCompleted = Number(completedCount) || 0;
+    const percentage = safeTotal > 0 ? Math.round((safeCompleted / safeTotal) * 100) : 0;
+    return {
+        percentage,
+        stars: Number((percentage / 20).toFixed(1)),
+        completedCount: safeCompleted,
+        totalCount: safeTotal,
+    };
+};
+
+export async function getPublicProfile(req, res) {
+    try {
+        const requesterId = req.user?.id || req.user?.userId;
+        const { userId } = req.params || {};
+        const viewer = normalizeViewerRole(String(req.query?.viewAs || "").toLowerCase());
+
+        if (!requesterId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!userId) {
+            return res.status(400).json({ message: "User id is required." });
+        }
+
+        const user = await User.findById(userId).select(
+            "firstName lastName email role city province address about totalExperience companyName avatarUrl resumeUrl resumeFileName skills jobsApplied projectsCompleted successRate"
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const workerAppliedCount = await JobApplication.countDocuments({ applicant: user._id });
+        const workerHiredCount = await JobApplication.countDocuments({ applicant: user._id, status: "Hired" });
+
+        const postedJobs = await Job.find({ jobPoster: user._id }).select("_id");
+        const postedJobIds = postedJobs.map((job) => job._id);
+        const employerApplicantsCount = postedJobIds.length
+            ? await JobApplication.countDocuments({ job: { $in: postedJobIds } })
+            : 0;
+        const employerHiredCount = postedJobIds.length
+            ? await JobApplication.countDocuments({ job: { $in: postedJobIds }, status: "Hired" })
+            : 0;
+
+        const workerRating = toRatingSummary(workerHiredCount, workerAppliedCount);
+        const employerRating = toRatingSummary(employerHiredCount, employerApplicantsCount);
+        const selectedRating = viewer === "employer" ? employerRating : workerRating;
+
+        return res.status(200).json({
+            profile: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                city: user.city,
+                province: user.province,
+                address: user.address,
+                about: user.about,
+                totalExperience: user.totalExperience,
+                companyName: user.companyName,
+                avatarUrl: user.avatarUrl,
+                resumeUrl: user.resumeUrl,
+                resumeFileName: user.resumeFileName,
+                skills: Array.isArray(user.skills) ? user.skills : [],
+            },
+            rating: {
+                viewAs: viewer,
+                stars: selectedRating.stars,
+                percentage: selectedRating.percentage,
+                completedCount: selectedRating.completedCount,
+                totalCount: selectedRating.totalCount,
+            },
+            stats: {
+                worker: {
+                    jobsApplied: workerAppliedCount,
+                    projectsCompleted: workerHiredCount,
+                    successRate: workerRating.percentage,
+                },
+                employer: {
+                    jobsPosted: postedJobIds.length,
+                    totalApplicants: employerApplicantsCount,
+                    hires: employerHiredCount,
+                    successRate: employerRating.percentage,
+                },
+            },
+        });
+    } catch (error) {
+        console.error("Get public profile error:", error);
+        return res.status(500).json({ message: "Failed to load profile." });
+    }
+}
 
 export async function sendOtp(req, res) {
     try {
@@ -416,5 +517,126 @@ export async function resetPasswordWithOtp(req, res) {
     } catch (error) {
         console.error("Reset password with OTP error:", error);
         return res.status(500).json({ message: "Failed to reset password." });
+    }
+}
+
+export async function requestPasswordChangeOtp(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const { currentPassword } = req.body || {};
+
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!currentPassword) {
+            return res.status(400).json({ message: "Current password is required." });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const matches = await user.validatePassword(currentPassword);
+        if (!matches) {
+            return res.status(401).json({ message: "Current password is incorrect." });
+        }
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const emailKey = String(user.email || "").toLowerCase().trim();
+        passwordChangeOtpStore.set(emailKey, {
+            code,
+            expiresAt: Date.now() + OTP_TTL_MS,
+            userId: String(user._id),
+        });
+
+        const transporter = getEmailTransporter();
+        if (!transporter) {
+            if (process.env.NODE_ENV === "production") {
+                return res.status(500).json({ message: "Email service is not configured." });
+            }
+            console.warn(`SMTP is not configured. Development change-password OTP for ${emailKey}: ${code}`);
+            return res.status(200).json({ message: "OTP generated for development.", code });
+        }
+
+        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const displayName = user.firstName || "there";
+        const subject = "MicroJobs password change verification";
+        const text = `Hi ${displayName},\n\nUse this code to continue changing your MicroJobs password: ${code}\n\nThis code expires in 5 minutes. If you did not request this, please secure your account immediately.`;
+        const html = `
+            <p>Hi ${displayName},</p>
+            <p>Use this code to continue changing your MicroJobs password:</p>
+            <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
+            <p>This code expires in 5 minutes.</p>
+            <p>If you did not request this, please secure your account immediately.</p>
+        `;
+
+        await transporter.sendMail({
+            from: `MicroJobs <${fromAddress}>`,
+            to: emailKey,
+            subject,
+            text,
+            html,
+        });
+
+        return res.status(200).json({ message: "Password change OTP sent." });
+    } catch (error) {
+        console.error("Request password change OTP error:", error);
+        return res.status(500).json({ message: "Failed to send password change OTP." });
+    }
+}
+
+export async function changePasswordWithOtp(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const { currentPassword, code, newPassword } = req.body || {};
+
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!currentPassword || !code || !newPassword) {
+            return res.status(400).json({ message: "Current password, code, and new password are required." });
+        }
+        if (!isStrongPassword(newPassword)) {
+            return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const matches = await user.validatePassword(currentPassword);
+        if (!matches) {
+            return res.status(401).json({ message: "Current password is incorrect." });
+        }
+
+        const emailKey = String(user.email || "").toLowerCase().trim();
+        const normalizedCode = String(code || "").trim();
+        const record = passwordChangeOtpStore.get(emailKey);
+
+        if (!record) {
+            return res.status(400).json({ message: "Password change code not found or expired." });
+        }
+        if (record.expiresAt < Date.now()) {
+            passwordChangeOtpStore.delete(emailKey);
+            return res.status(400).json({ message: "Password change code expired." });
+        }
+        if (String(record.userId) !== String(user._id)) {
+            passwordChangeOtpStore.delete(emailKey);
+            return res.status(400).json({ message: "Invalid password change code." });
+        }
+        if (record.code !== normalizedCode) {
+            return res.status(400).json({ message: "Invalid password change code." });
+        }
+
+        await user.setPassword(newPassword);
+        await user.save();
+        passwordChangeOtpStore.delete(emailKey);
+
+        return res.status(200).json({ message: "Password changed successfully." });
+    } catch (error) {
+        console.error("Change password with OTP error:", error);
+        return res.status(500).json({ message: "Failed to change password." });
     }
 }

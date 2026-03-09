@@ -3,6 +3,7 @@ import { toast } from "../lib/toast";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { applyForJob, getJobDetails } from "../services/api";
+import { ROUTES } from "../utils/routes";
 
 type ApiJob = {
   _id: string;
@@ -121,9 +122,12 @@ export function JobDetails() {
   };
 
   const handleCompanyProfile = () => {
-    if (!job) return;
-    const companyName = `${job.jobPoster?.firstName || ""} ${job.jobPoster?.lastName || ""}`.trim() || "Company";
-    toast.info(`Opening ${companyName} profile...`);
+    const employerId = typeof job?.jobPoster === "object" ? job.jobPoster?._id : null;
+    if (!employerId) {
+      toast.error("Employer profile is not available for this job.");
+      return;
+    }
+    navigate(`${ROUTES.publicProfile(employerId)}?viewAs=employer`);
   };
 
   const companyName =

@@ -17,6 +17,8 @@ export default function SignIn({
   onNavigateToVerify?: () => void;
   onLogin?: () => void;
 }) {
+  const ROLE_REQUIRING_LOGIN_OTP = new Set(['hire', 'work', 'both', 'employer', 'worker']);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaCode, setMfaCode] = useState('');
@@ -24,6 +26,55 @@ export default function SignIn({
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const shouldRequireOtpForRole = (user: any) => {
+    const role = String(user?.role || '').toLowerCase();
+    return ROLE_REQUIRING_LOGIN_OTP.has(role);
+  };
+
+  const sendLoginOtp = async (emailAddress: string) => {
+    const normalizedEmail = String(emailAddress || '').trim().toLowerCase();
+    if (!normalizedEmail) {
+      throw new Error('No email found for OTP verification.');
+    }
+
+    const result = await apiRequest(`${API_URL}/auth/otp/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: normalizedEmail }),
+    }, 'Unable to send OTP.');
+
+    if (!result.ok) {
+      throw new Error(`${result.message || 'Unable to send OTP.'} (HTTP ${result.status})`);
+    }
+
+    await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
+    await AsyncStorage.setItem('pending_verification_skip_send', '1');
+  };
+
+  const continueAfterPrimaryAuth = async (token: string, user: any) => {
+    if (!token || !user) {
+      throw new Error('Invalid login response.');
+    }
+
+    if (shouldRequireOtpForRole(user)) {
+      setRequiresMfa(false);
+      setMfaToken('');
+      setMfaCode('');
+      await sendLoginOtp(user?.email || email);
+      Alert.alert('OTP Required', 'Enter the 6-digit code sent to your email to finish login.', [
+        {
+          text: 'Continue',
+          onPress: () => onNavigateToVerify?.(),
+        },
+      ]);
+      return;
+    }
+
+    await completeLogin(token, user);
+  };
 
   const completeLogin = async (token: string, user: any) => {
     await AsyncStorage.setItem('auth_token', token);
@@ -90,7 +141,7 @@ export default function SignIn({
         setMfaCode('');
         Alert.alert('MFA Required', 'Enter your authenticator or backup code to continue.');
       } else if (result.ok && token) {
-        await completeLogin(token, user);
+        await continueAfterPrimaryAuth(token, user);
       } else {
         const serverMessage = result.message || 'Unable to sign in.';
         if (result.status === 401 && /verify your email/i.test(serverMessage)) {
@@ -112,9 +163,9 @@ export default function SignIn({
           Alert.alert('Error', `${serverMessage} (HTTP ${result.status})`);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'Network error. Please check your connection and server status.');
+      Alert.alert('Error', error?.message || 'Network error. Please check your connection and server status.');
     } finally {
       setIsLoading(false);
     }
@@ -149,7 +200,7 @@ export default function SignIn({
       const user = responseData?.user || responseRaw?.user;
 
       if (result.ok && token) {
-        await completeLogin(token, user);
+        await continueAfterPrimaryAuth(token, user);
         return;
       }
 

@@ -13,6 +13,7 @@ import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
 import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, normalizeApplicationStatus } from '../../lib/status';
+import PublicProfile from '../shared/PublicProfile';
 
 type ApplicationItem = {
   _id: string;
@@ -69,6 +70,8 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
 
   const jobOptions = useMemo(() => {
     const unique = new Map<string, string>();
@@ -183,6 +186,25 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
       });
   };
 
+  const handleViewProfile = (applicantId: string) => {
+    setProfileUserId(applicantId);
+    setShowProfile(true);
+    setExpandedId(null);
+  };
+
+  if (showProfile && profileUserId) {
+    return (
+      <PublicProfile
+        userId={profileUserId}
+        viewAs="worker"
+        onBack={() => {
+          setShowProfile(false);
+          setProfileUserId(null);
+        }}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -296,7 +318,7 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
                 {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ''}
               </Text>
               <View style={styles.metaActions}>
-                <TouchableOpacity onPress={() => setExpandedId(expandedId === app._id ? null : app._id)}>
+                <TouchableOpacity onPress={() => handleViewProfile(app.applicant._id)}>
                   <Text style={styles.linkText}>View Profile</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => handleRemoveApplication(app._id)}>
