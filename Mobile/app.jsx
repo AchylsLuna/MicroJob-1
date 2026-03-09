@@ -56,6 +56,7 @@ export default function App() {
   const [userRole, setUserRole] = useState(null);
   const [viewMode, setViewMode] = useState('worker');
   const [explicitEmployerView, setExplicitEmployerView] = useState(false);
+  const [settingsFromEmployer, setSettingsFromEmployer] = useState(false);
   const socketRef = useRef(null);
   const [workerNotifications, setWorkerNotifications] = useState([]);
   const [employerNotifications, setEmployerNotifications] = useState([]);
@@ -620,10 +621,21 @@ export default function App() {
   };
 
   const handleGoToSettings = () => {
+    setSettingsFromEmployer(false);
+    setCurrentScreen(SCREEN.Settings);
+  };
+
+  const handleGoToSettingsFromEmployer = () => {
+    setSettingsFromEmployer(true);
     setCurrentScreen(SCREEN.Settings);
   };
 
   const handleBackFromSettings = () => {
+    if (settingsFromEmployer) {
+      setActiveEmployerTab('Profile');
+      setCurrentScreen(SCREEN.EmployerProfile);
+      return;
+    }
     setActiveTab('Profile');
     setCurrentScreen(SCREEN.Profile);
   };
@@ -639,6 +651,22 @@ export default function App() {
 
   const handleGoToSettingsChangePassword = () => {
     setCurrentScreen(SCREEN.SettingsChangePassword);
+  };
+
+  const handleGoToSettingsNotifications = () => {
+    if (settingsFromEmployer) {
+      handleGoToEmployerNotifications();
+      return;
+    }
+    handleGoToNotifications();
+  };
+
+  const handleGoToSettingsEWallet = () => {
+    if (settingsFromEmployer) {
+      handleGoToEmployerEWallet();
+      return;
+    }
+    handleGoToEWallet();
   };
 
   const handleGoToSettingsLocation = () => {
@@ -918,13 +946,14 @@ export default function App() {
       onLogout={handleLogoutConfirm}
       onNavigatePersonalDetails={handleGoToSettingsPersonalDetails}
       onNavigateChangePassword={handleGoToSettingsChangePassword}
-      onNavigateNotifications={handleGoToNotifications}
-      onNavigateEWallet={handleGoToEWallet}
+      onNavigateNotifications={handleGoToSettingsNotifications}
+      onNavigateEWallet={handleGoToSettingsEWallet}
       onNavigateLocation={handleGoToSettingsLocation}
       onNavigateMfa={handleGoToSettingsMfa}
       onNavigateAbout={handleGoToSettingsAbout}
       onNavigateDeleteAccount={handleGoToSettingsDeleteAccount}
       onNavigateSupport={handleGoToSettingsSupport}
+      currentRole={settingsFromEmployer ? 'employer' : 'worker'}
     />,
     <EmployerJobPosts
       onOpenPostJob={handleGoToEmployerPostJob}
@@ -953,8 +982,9 @@ export default function App() {
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
       onLogout={handleLogoutConfirm}
+      onOpenSettings={handleGoToSettingsFromEmployer}
       onOpenWallet={handleGoToEmployerEWallet}
-      currentRole={explicitEmployerView ? 'employer' : 'worker'}
+      currentRole="employer"
       onSwitchRole={handleSwitchRole}
     />,
     <EmployerNotifications

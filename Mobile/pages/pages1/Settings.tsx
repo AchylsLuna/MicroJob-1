@@ -37,6 +37,7 @@ export default function Settings({
   onNavigateSupport,
   currentRole = 'worker',
 }: SettingsProps) {
+  const isWorkerRole = currentRole === 'worker';
   const [completion, setCompletion] = useState({ percentage: 0, incompleteFields: [] as string[], completedFields: [] as string[] });
   const [profileSummary, setProfileSummary] = useState({
     totalExperience: '',
@@ -49,6 +50,11 @@ export default function Settings({
 
   useEffect(() => {
     const loadProfileCompletion = async () => {
+      if (!isWorkerRole) {
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const token = await AsyncStorage.getItem('auth_token');
         if (!token) {
@@ -101,7 +107,7 @@ export default function Settings({
     };
 
     loadProfileCompletion();
-  }, []);
+  }, [isWorkerRole]);
 
   const handleLogout = () => {
     onLogout?.();
@@ -134,7 +140,7 @@ export default function Settings({
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Profile Completion Section */}
-        {!isLoading && (
+        {isWorkerRole && !isLoading && (
           <View style={[styles.completionCard, { borderColor: getCompletionColor(completion.percentage) }]}>
             <View style={styles.completionTop}>
               <View style={styles.completionInfo}>
@@ -206,7 +212,7 @@ export default function Settings({
             )}
           </View>
         )}
-        {isLoading && (
+        {isWorkerRole && isLoading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color={tokens.colors.brand} size="large" />
           </View>
