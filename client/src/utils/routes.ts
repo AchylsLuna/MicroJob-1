@@ -16,6 +16,8 @@ export const ROUTES = {
   cookiePolicy: "/cookie-policy",
 
   settings: "/settings",
+  publicProfilePattern: "/profiles/:userId",
+  publicProfile: (userId: string) => `/profiles/${userId}`,
   notifications: "/notifications",
   support: "/support",
 

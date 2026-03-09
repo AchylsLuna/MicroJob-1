@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import JobApplication from "../models/JobApplication.js";
+import Job from "../models/Job.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
@@ -204,6 +205,105 @@ export async function updateProfile(req, res) {
 
 // Keep compatibility with authRoutes expecting updateMe.
 export const updateMe = updateProfile;
+
+const normalizeViewerRole = (value) => {
+    if (value === "employer" || value === "hire") return "employer";
+    return "worker";
+};
+
+const toRatingSummary = (completedCount, totalCount) => {
+    const safeTotal = Number(totalCount) || 0;
+    const safeCompleted = Number(completedCount) || 0;
+    const percentage = safeTotal > 0 ? Math.round((safeCompleted / safeTotal) * 100) : 0;
+    return {
+        percentage,
+        stars: Number((percentage / 20).toFixed(1)),
+        completedCount: safeCompleted,
+        totalCount: safeTotal,
+    };
+};
+
+export async function getPublicProfile(req, res) {
+    try {
+        const requesterId = req.user?.id || req.user?.userId;
+        const { userId } = req.params || {};
+        const viewer = normalizeViewerRole(String(req.query?.viewAs || "").toLowerCase());
+
+        if (!requesterId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!userId) {
+            return res.status(400).json({ message: "User id is required." });
+        }
+
+        const user = await User.findById(userId).select(
+            "firstName lastName email role city province address about totalExperience companyName avatarUrl resumeUrl resumeFileName skills jobsApplied projectsCompleted successRate"
+        );
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+
+        const workerAppliedCount = await JobApplication.countDocuments({ applicant: user._id });
+        const workerHiredCount = await JobApplication.countDocuments({ applicant: user._id, status: "Hired" });
+
+        const postedJobs = await Job.find({ jobPoster: user._id }).select("_id");
+        const postedJobIds = postedJobs.map((job) => job._id);
+        const employerApplicantsCount = postedJobIds.length
+            ? await JobApplication.countDocuments({ job: { $in: postedJobIds } })
+            : 0;
+        const employerHiredCount = postedJobIds.length
+            ? await JobApplication.countDocuments({ job: { $in: postedJobIds }, status: "Hired" })
+            : 0;
+
+        const workerRating = toRatingSummary(workerHiredCount, workerAppliedCount);
+        const employerRating = toRatingSummary(employerHiredCount, employerApplicantsCount);
+        const selectedRating = viewer === "employer" ? employerRating : workerRating;
+
+        return res.status(200).json({
+            profile: {
+                id: user._id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role,
+                city: user.city,
+                province: user.province,
+                address: user.address,
+                about: user.about,
+                totalExperience: user.totalExperience,
+                companyName: user.companyName,
+                avatarUrl: user.avatarUrl,
+                resumeUrl: user.resumeUrl,
+                resumeFileName: user.resumeFileName,
+                skills: Array.isArray(user.skills) ? user.skills : [],
+            },
+            rating: {
+                viewAs: viewer,
+                stars: selectedRating.stars,
+                percentage: selectedRating.percentage,
+                completedCount: selectedRating.completedCount,
+                totalCount: selectedRating.totalCount,
+            },
+            stats: {
+                worker: {
+                    jobsApplied: workerAppliedCount,
+                    projectsCompleted: workerHiredCount,
+                    successRate: workerRating.percentage,
+                },
+                employer: {
+                    jobsPosted: postedJobIds.length,
+                    totalApplicants: employerApplicantsCount,
+                    hires: employerHiredCount,
+                    successRate: employerRating.percentage,
+                },
+            },
+        });
+    } catch (error) {
+        console.error("Get public profile error:", error);
+        return res.status(500).json({ message: "Failed to load profile." });
+    }
+}
 
 export async function sendOtp(req, res) {
     try {

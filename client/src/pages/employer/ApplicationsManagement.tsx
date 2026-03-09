@@ -115,11 +115,19 @@ interface ApplicationCardProps {
   application: Application;
   onStatusChange: (id: string, status: Exclude<ApplicationStatus, "all">) => void;
   onMessage: (application: Application) => void;
+  onViewPublicProfile: (application: Application) => void;
   isExpanded: boolean;
   onToggleProfile: (id: string) => void;
 }
 
-function ApplicationCard({ application, onStatusChange, onMessage, isExpanded, onToggleProfile }: ApplicationCardProps) {
+function ApplicationCard({
+  application,
+  onStatusChange,
+  onMessage,
+  onViewPublicProfile,
+  isExpanded,
+  onToggleProfile,
+}: ApplicationCardProps) {
   const initials = getInitials(application.name);
   const avatarColor = getAvatarColor(application.name);
   const resolvedResumeUrl = toAbsoluteAssetUrl(application.resumeUrl || application.resume);
@@ -186,6 +194,13 @@ function ApplicationCard({ application, onStatusChange, onMessage, isExpanded, o
               >
                 <UserIcon className="w-4 h-4" />
                 {isExpanded ? "Hide Profile" : "View Profile"}
+              </button>
+              <button
+                className="flex items-center gap-1 text-[#0F766E] text-[14px] font-medium hover:text-[#115E59] transition-colors"
+                onClick={() => onViewPublicProfile(application)}
+              >
+                <ExternalLink className="w-4 h-4" />
+                Open Full Profile
               </button>
               {application.applicantId && (
                 <button
@@ -386,6 +401,14 @@ export function ApplicationsManagement() {
     setExpandedApplicationId((prev) => (prev === applicationId ? null : applicationId));
   };
 
+  const handleViewPublicProfile = (application: Application) => {
+    if (!application.applicantId) {
+      toast.error("Applicant profile is not available.");
+      return;
+    }
+    navigate(`${ROUTES.publicProfile(application.applicantId)}?viewAs=worker`);
+  };
+
   useEffect(() => {
     let isMounted = true;
     const loadApplications = async () => {
@@ -538,6 +561,7 @@ export function ApplicationsManagement() {
               application={application}
               onStatusChange={handleStatusChange}
               onMessage={handleMessageApplicant}
+                  onViewPublicProfile={handleViewPublicProfile}
               isExpanded={expandedApplicationId === application.id}
               onToggleProfile={handleToggleProfile}
             />

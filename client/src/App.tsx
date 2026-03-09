@@ -23,6 +23,7 @@ import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
 import EmailVerification from "./pages/emailVerification";
 import { TopUpSuccess } from "./pages/TopUpSuccess";
+import { PublicProfile } from "./pages/shared/PublicProfile";
 import {
   AdminAnalytics,
   AdminDashboard,
@@ -315,6 +316,7 @@ const App: React.FC = () => {
           </Route>
 
           <Route path={ROUTES.settings} element={<Settings />} />
+          <Route path={ROUTES.publicProfilePattern} element={<PublicProfile />} />
           <Route path={ROUTES.notifications} element={<NotificationsRouter />} />
           <Route path={ROUTES.support} element={<SupportRouter />} />
 

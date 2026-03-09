@@ -2,8 +2,38 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle, Download } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
-import { getProfile, updateProfile, uploadResume, deleteResume, uploadAvatar, deleteAvatar } from "../services/api";
+import {
+  getProfile,
+  updateProfile,
+  uploadResume,
+  deleteResume,
+  uploadAvatar,
+  deleteAvatar,
+  requestPasswordChangeOtp,
+  confirmPasswordChangeWithOtp,
+  getSessions,
+  revokeSession,
+  revokeAllSessions,
+  cleanupInactiveSessions,
+  getVerificationStatus,
+  verifyPhone,
+  uploadIdentityDocument,
+  uploadAddressDocument,
+} from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
+
+const toAbsoluteAssetUrl = (value?: string | null): string | null => {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/")) {
+    const apiBase = import.meta.env.VITE_API_BASE || "/api";
+    const origin = apiBase.startsWith("http")
+      ? apiBase.replace(/\/api\/?$/, "")
+      : window.location.origin;
+    return `${origin}${value}`;
+  }
+  return value;
+};
 
 type TabType = "account" | "privacy" | "payments";
 type AccountTab = "personal" | "experience" | "resume";
@@ -12,6 +42,12 @@ const accountTabConfig: { id: AccountTab; label: string }[] = [
   { id: "personal", label: "Personal Information" },
   { id: "experience", label: "Experience" },
   { id: "resume", label: "CV/Resume" },
+];
+
+const mainTabConfig: { id: TabType; label: string }[] = [
+  { id: "account", label: "Account" },
+  { id: "privacy", label: "Privacy" },
+  { id: "payments", label: "Payments" },
 ];
 
 const mapTabParam = (value: string | null): TabType | null => {
@@ -41,33 +77,6 @@ interface VerificationStep {
   description: string;
   status: VerificationStatus;
 }
-
-const verificationSteps: VerificationStep[] = [
-  {
-    id: "email",
-    title: "Email address",
-    description: "Confirm the email you use to sign in and receive alerts.",
-    status: "complete",
-  },
-  {
-    id: "phone",
-    title: "Phone number",
-    description: "Add a verified phone for account recovery and security checks.",
-    status: "complete",
-  },
-  {
-    id: "identity",
-    title: "Government ID",
-    description: "Upload a valid ID to prove your identity.",
-    status: "complete",
-  },
-  {
-    id: "address",
-    title: "Proof of address",
-    description: "Provide a recent utility bill or bank statement.",
-    status: "complete",
-  },
-];
 
 const verificationStatusStyles: Record<VerificationStatus, string> = {
   complete: "bg-[#DCFCE7] text-[#166534]",
@@ -122,16 +131,20 @@ export function Settings() {
   const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
   const { user, updateProfile: updateAuthProfile } = useAuth();
+  const roleValue = String((user as any)?.role || "").toLowerCase();
+  const accountTypeValue = String((user as any)?.accountType || "").toLowerCase();
+  const isEmployerRole =
+    accountTypeValue === "employer" || roleValue === "hire" || roleValue === "employer";
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
-
-  const completedSteps = verificationSteps.filter((step) => step.status === "complete").length;
-  const completionPercent = Math.round((completedSteps / verificationSteps.length) * 100);
 
   const [personalInfo, setPersonalInfo] = useState({
     firstName: "Jonas",
     lastName: "Dela Cruz",
+    companyName: "",
     city: "Manila",
+    province: "",
+    address: "",
     phone: "+63 912 345 6789",
     email: "jonas.delacruz@email.com",
     linkedin: "linkedin.com/in/jonasdelacruz",
@@ -157,10 +170,14 @@ export function Settings() {
     newPassword: "",
     confirmPassword: "",
   });
+  const [passwordOtp, setPasswordOtp] = useState("");
+  const [passwordOtpRequested, setPasswordOtpRequested] = useState(false);
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
 
   const [resume, setResume] = useState<File | null>(null);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const resolvedAvatarUrl = toAbsoluteAssetUrl(avatarUrl);
 
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
     { id: "visa-1", brand: "Visa", last4: "1234", expiry: "01/26", status: "default" },
@@ -175,24 +192,18 @@ export function Settings() {
     cvv: "",
   });
 
-  const sessions: SessionInfo[] = [
-    {
-      id: "session-1",
-      current: true,
-      device: "MacBook Pro, Chrome",
-      location: "Manila, Philippines",
-      ip: "192.168.0.1",
-      lastActive: "Feb 1, 2026, 9:24 AM",
-    },
-    {
-      id: "session-2",
-      current: false,
-      device: "iPhone 15, Safari",
-      location: "Makati, Philippines",
-      ip: "192.168.1.14",
-      lastActive: "Jan 28, 2026, 6:12 PM",
-    },
-  ];
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+
+  const [verificationStepsData, setVerificationStepsData] = useState<VerificationStep[]>([]);
+  const [verificationCompletionPercent, setVerificationCompletionPercent] = useState(0);
+  const [isLoadingVerification, setIsLoadingVerification] = useState(false);
+
+  const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
+
+  const visibleAccountTabs = isEmployerRole
+    ? accountTabConfig.filter((tab) => tab.id === "personal")
+    : accountTabConfig;
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
@@ -214,16 +225,25 @@ export function Settings() {
     if (activeTab !== "account") return;
     const tabParam = searchParams.get("tab");
     const mappedAccountTab = mapAccountTab(tabParam);
+    const isVisible = (tab: AccountTab) => visibleAccountTabs.some((item) => item.id === tab);
+
     if (mappedAccountTab) {
+      if (!isVisible(mappedAccountTab)) {
+        setAccountTab("personal");
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set("tab", "personal");
+        setSearchParams(nextParams, { replace: true });
+        return;
+      }
       if (mappedAccountTab !== accountTab) {
         setAccountTab(mappedAccountTab);
       }
       return;
     }
-    if (tabParam === "account" && accountTab !== "personal") {
+    if ((tabParam === "account" || !isVisible(accountTab)) && accountTab !== "personal") {
       setAccountTab("personal");
     }
-  }, [activeTab, accountTab, searchParams]);
+  }, [activeTab, accountTab, searchParams, visibleAccountTabs, setSearchParams]);
 
   const handleAccountTabChange = (tab: AccountTab) => {
     setAccountTab(tab);
@@ -231,6 +251,74 @@ export function Settings() {
     nextParams.set("tab", tab);
     setSearchParams(nextParams, { replace: true });
   };
+
+  const handleMainTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    const nextParams = new URLSearchParams(searchParams);
+    if (tab === "account") {
+      nextParams.set("tab", accountTab);
+    } else {
+      nextParams.set("tab", tab);
+    }
+    setSearchParams(nextParams, { replace: true });
+  };
+
+  // Load sessions when privacy tab is active
+  useEffect(() => {
+    if (activeTab !== "privacy") return;
+    const loadSessions = async () => {
+      setIsLoadingSessions(true);
+      try {
+        // Clean up inactive sessions first
+        try {
+          await cleanupInactiveSessions();
+        } catch (cleanupErr) {
+          console.warn("Cleanup sessions warning:", cleanupErr);
+          // Continue even if cleanup fails
+        }
+        
+        const response = await getSessions();
+        const sessionsData = response?.sessions || [];
+        
+        console.log("Loaded sessions:", sessionsData); // Debug log
+        
+        const mapped = sessionsData.map((s: any) => ({
+          id: s._id,
+          current: s.isCurrent === true,
+          device: s.userAgent || "Unknown device",
+          location: "Unknown",
+          ip: s.ip || "Unknown",
+          lastActive: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Unknown",
+        }));
+        setSessions(mapped);
+      } catch (error: any) {
+        console.error("Failed to load sessions:", error);
+        toast.error("Failed to load active sessions");
+      } finally {
+        setIsLoadingSessions(false);
+      }
+    };
+    loadSessions();
+  }, [activeTab]);
+
+  // Load verification status when privacy tab is active
+  useEffect(() => {
+    if (activeTab !== "privacy") return;
+    const loadVerification = async () => {
+      setIsLoadingVerification(true);
+      try {
+        const response = await getVerificationStatus();
+        setVerificationStepsData(response?.steps || []);
+        setVerificationCompletionPercent(response?.completionPercent || 0);
+      } catch (error: any) {
+        console.error("Failed to load verification status:", error);
+        toast.error("Failed to load verification status");
+      } finally {
+        setIsLoadingVerification(false);
+      }
+    };
+    loadVerification();
+  }, [activeTab]);
 
   const handlePersonalInfoChange = (field: string, value: string) => {
     setPersonalInfo({ ...personalInfo, [field]: value });
@@ -242,9 +330,9 @@ export function Settings() {
 
     try {
       const response = await uploadAvatar(file);
-      const newAvatarUrl = response?.data?.avatarUrl || null;
+      const newAvatarUrl = toAbsoluteAssetUrl(response?.data?.avatarUrl || null);
       setAvatarUrl(newAvatarUrl);
-      updateAuthProfile({ avatarUrl: newAvatarUrl });
+      updateAuthProfile({ avatarUrl: newAvatarUrl ?? undefined });
       toast.success("Profile photo uploaded successfully!");
       // Trigger sidebar update
       window.dispatchEvent(new Event('auth_user_updated'));
@@ -272,9 +360,12 @@ export function Settings() {
       ...prev,
       firstName: user.firstName || prev.firstName,
       lastName: user.lastName || prev.lastName,
+      companyName: (user as any).companyName || prev.companyName,
       email: user.email || prev.email,
       phone: user.phoneNumber || prev.phone,
       city: user.city || prev.city,
+      province: (user as any).province || prev.province,
+      address: (user as any).address || prev.address,
       linkedin: user.linkedin || prev.linkedin,
       about: user.about || prev.about,
     }));
@@ -305,9 +396,12 @@ export function Settings() {
           ...prev,
           firstName: profile.firstName || prev.firstName,
           lastName: profile.lastName || prev.lastName,
+          companyName: profile.companyName || prev.companyName,
           email: profile.email || prev.email,
           phone: profile.phoneNumber || prev.phone,
           city: profile.city || prev.city,
+          province: profile.province || prev.province,
+          address: profile.address || prev.address,
           linkedin: profile.linkedin || prev.linkedin,
           about: profile.about || prev.about,
         }));
@@ -328,8 +422,9 @@ export function Settings() {
           setResumeUrl(profile.resumeUrl);
         }
         if (profile.avatarUrl) {
-          setAvatarUrl(profile.avatarUrl);
+          setAvatarUrl(toAbsoluteAssetUrl(profile.avatarUrl));
         }
+        const normalizedAvatarUrl: string | undefined = toAbsoluteAssetUrl(profile.avatarUrl) || undefined;
         updateAuthProfile({
           firstName: profile.firstName,
           lastName: profile.lastName,
@@ -342,7 +437,7 @@ export function Settings() {
           projectsCompleted: profile.projectsCompleted,
           jobsApplied: profile.jobsApplied,
           successRate: profile.successRate,
-          avatarUrl: profile.avatarUrl,
+          avatarUrl: normalizedAvatarUrl,
         });
       } catch (error: any) {
         const message = error?.message || "Failed to load profile.";
@@ -363,8 +458,11 @@ export function Settings() {
       const response = await updateProfile({
         firstName: personalInfo.firstName,
         lastName: personalInfo.lastName,
+        companyName: personalInfo.companyName,
         phoneNumber: personalInfo.phone,
         city: personalInfo.city,
+        province: personalInfo.province,
+        address: personalInfo.address,
         linkedin: personalInfo.linkedin,
         about: personalInfo.about,
         totalExperience: experienceStats.totalExperience,
@@ -484,7 +582,35 @@ export function Settings() {
     }
   };
 
-  const handleChangePassword = () => {
+  const handleRequestPasswordOtp = async () => {
+    if (!securityData.currentPassword) {
+      toast.error("Please enter your current password");
+      return;
+    }
+
+    setIsPasswordSubmitting(true);
+    try {
+      await requestPasswordChangeOtp({ currentPassword: securityData.currentPassword });
+      setPasswordOtpRequested(true);
+      toast.success("OTP sent to your email");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to send OTP");
+    } finally {
+      setIsPasswordSubmitting(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!passwordOtpRequested) {
+      toast.error("Request OTP first");
+      return;
+    }
+
+    if (!passwordOtp) {
+      toast.error("Please enter the OTP code");
+      return;
+    }
+
     if (!securityData.currentPassword || !securityData.newPassword || !securityData.confirmPassword) {
       toast.error("Please fill in all fields");
       return;
@@ -495,12 +621,26 @@ export function Settings() {
       return;
     }
 
-    toast.success("Password changed successfully!");
-    setSecurityData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
+    setIsPasswordSubmitting(true);
+    try {
+      await confirmPasswordChangeWithOtp({
+        currentPassword: securityData.currentPassword,
+        code: passwordOtp,
+        newPassword: securityData.newPassword,
+      });
+      toast.success("Password changed successfully!");
+      setSecurityData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setPasswordOtp("");
+      setPasswordOtpRequested(false);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to change password");
+    } finally {
+      setIsPasswordSubmitting(false);
+    }
   };
 
   const handleDiscardPassword = () => {
@@ -509,6 +649,8 @@ export function Settings() {
       newPassword: "",
       confirmPassword: "",
     });
+    setPasswordOtp("");
+    setPasswordOtpRequested(false);
     toast.info("Changes discarded");
   };
 
@@ -602,16 +744,101 @@ export function Settings() {
     toast.error("Account deletion request submitted");
   };
 
+  const handleRevokeSession = async (sessionId: string) => {
+    try {
+      await revokeSession(sessionId);
+      // Immediately update UI by removing the session
+      setSessions(prevSessions => prevSessions.filter((s) => s.id !== sessionId));
+      toast.success("Session revoked successfully");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to revoke session");
+      console.error("Revoke session error:", error);
+    }
+  };
+
+  const handleRevokeAllSessions = async () => {
+    try {
+      await revokeAllSessions();
+      // Clear all sessions from state
+      setSessions([]);
+      toast.success("All sessions revoked. You will be logged out.");
+      // Optionally redirect to login or refresh the page
+      window.location.href = "/sign-in";
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to revoke all sessions");
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    try {
+      await verifyPhone();
+      toast.success("Phone verified successfully");
+      // Reload verification status
+      const response = await getVerificationStatus();
+      setVerificationStepsData(response?.steps || []);
+      setVerificationCompletionPercent(response?.completionPercent || 0);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to verify phone");
+    }
+  };
+
+  const handleUploadIdentityDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadIdentityDocument(file);
+      toast.success("Identity document uploaded successfully");
+      // Reload verification status
+      const response = await getVerificationStatus();
+      setVerificationStepsData(response?.steps || []);
+      setVerificationCompletionPercent(response?.completionPercent || 0);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to upload identity document");
+    }
+  };
+
+  const handleUploadAddressDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadAddressDocument(file);
+      toast.success("Address document uploaded successfully");
+      // Reload verification status
+      const response = await getVerificationStatus();
+      setVerificationStepsData(response?.steps || []);
+      setVerificationCompletionPercent(response?.completionPercent || 0);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to upload address document");
+    }
+  };
+
   return (
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="bg-white border border-[#E5E7EB] rounded-[16px]">
+        <div className="px-6 pt-6">
+          <div className="flex flex-wrap gap-2 border-b border-[#E5E7EB] pb-4">
+            {mainTabConfig.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleMainTabChange(tab.id)}
+                className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
+                  activeTab === tab.id
+                    ? "bg-[#EEF2FF] text-[#1D4ED8]"
+                    : "text-[#64748B] hover:bg-[#F8FAFC]"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <section className="p-6 space-y-6">
           {activeTab === "account" && (
             <div className="space-y-6">
               <div className="bg-white rounded-[16px] border border-[#E5E7EB]">
                 <div className="p-6">
                   <div className="flex flex-wrap gap-2 border-b border-[#E5E7EB] pb-4 mb-6">
-                    {accountTabConfig.map((subTab) => (
+                    {visibleAccountTabs.map((subTab) => (
                       <button
                         key={subTab.id}
                         onClick={() => handleAccountTabChange(subTab.id)}
@@ -635,6 +862,29 @@ export function Settings() {
                         )}
                       </div>
 
+                      {isEmployerRole && (
+                        <div className="border border-[#DBEAFE] bg-[#F8FBFF] rounded-[14px] p-4">
+                          <div className="flex items-center gap-4">
+                            {resolvedAvatarUrl ? (
+                              <img
+                                src={resolvedAvatarUrl}
+                                alt="Employer profile"
+                                className="w-14 h-14 rounded-[12px] object-cover border border-[#BFDBFE]"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 rounded-[12px] bg-[#DBEAFE] text-[#1D4ED8] flex items-center justify-center font-bold text-[20px] border border-[#BFDBFE]">
+                                {(personalInfo.companyName || personalInfo.firstName || "E").charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-[12px] uppercase tracking-wide text-[#64748B]">Employer Profile</p>
+                              <p className="text-[16px] font-semibold text-[#0F172A]">{personalInfo.companyName || `${personalInfo.firstName} ${personalInfo.lastName}`}</p>
+                              <p className="text-[13px] text-[#475569]">{[personalInfo.city, personalInfo.province].filter(Boolean).join(", ") || "Add company location"}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label className="text-[14px] font-medium text-[#475569] mb-2 block">First name</label>
@@ -656,6 +906,19 @@ export function Settings() {
                         </div>
                       </div>
 
+                      {isEmployerRole && (
+                        <div>
+                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Company name</label>
+                          <input
+                            type="text"
+                            value={personalInfo.companyName}
+                            onChange={(e) => handlePersonalInfoChange("companyName", e.target.value)}
+                            placeholder="Enter your company name"
+                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                          />
+                        </div>
+                      )}
+
                       <div>
                         <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
                         <input
@@ -665,6 +928,30 @@ export function Settings() {
                           className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
                         />
                       </div>
+
+                      {isEmployerRole && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
+                            <input
+                              type="text"
+                              value={personalInfo.province}
+                              onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Address</label>
+                            <input
+                              type="text"
+                              value={personalInfo.address}
+                              onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
+                              placeholder="Office address"
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            />
+                          </div>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -732,10 +1019,10 @@ export function Settings() {
 
                       <div>
                         <label className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</label>
-                        {avatarUrl ? (
+                        {resolvedAvatarUrl ? (
                           <div className="flex items-center gap-4">
                             <img
-                              src={avatarUrl}
+                              src={resolvedAvatarUrl}
                               alt="Profile"
                               className="w-24 h-24 rounded-[12px] object-cover border-2 border-[#E5E7EB]"
                             />
@@ -1126,6 +1413,31 @@ export function Settings() {
                     </div>
                   </div>
 
+                  <div className="rounded-[10px] border border-[#E5E7EB] bg-[#F8FAFC] p-3 text-[12px] text-[#475569]">
+                    Request OTP first. You will need the OTP from your email before setting a new password.
+                  </div>
+
+                  <div>
+                    <button
+                      onClick={handleRequestPasswordOtp}
+                      disabled={isPasswordSubmitting}
+                      className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-[13px] font-semibold disabled:opacity-60"
+                    >
+                      {isPasswordSubmitting ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
+                    </button>
+                  </div>
+
+                  <div>
+                    <label className="text-[13px] text-[#6B7280]">OTP Code</label>
+                    <input
+                      type="text"
+                      value={passwordOtp}
+                      onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      placeholder="Enter 6-digit OTP"
+                      className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#2563EB]"
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="text-[13px] text-[#6B7280]">New Password</label>
@@ -1176,9 +1488,10 @@ export function Settings() {
                   </button>
                   <button
                     onClick={handleChangePassword}
-                    className="px-6 py-2.5 bg-[#4F46E5] text-white rounded-full text-[14px] font-semibold"
+                    disabled={isPasswordSubmitting}
+                    className="px-6 py-2.5 bg-[#4F46E5] text-white rounded-full text-[14px] font-semibold disabled:opacity-60"
                   >
-                    Save New Password
+                    {isPasswordSubmitting ? "Saving..." : "Save New Password"}
                   </button>
                 </div>
               </div>
@@ -1351,47 +1664,73 @@ export function Settings() {
               </div>
 
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                <h3 className="text-[16px] font-semibold text-[#111827] mb-2">Active Sessions</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[16px] font-semibold text-[#111827]">Active Sessions</h3>
+                  {sessions.length > 0 && (
+                    <button
+                      onClick={handleRevokeAllSessions}
+                      className="text-[#EF4444] hover:bg-[#FEE2E2] px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors"
+                    >
+                      Delete All
+                    </button>
+                  )}
+                </div>
                 <p className="text-[13px] text-[#6B7280] mb-4">
                   See your currently logged in sessions and remove unrecognized ones.
                 </p>
                 <div className="space-y-4">
-                  {sessions.map((session, index) => (
-                    <div key={session.id} className="border border-[#E5E7EB] rounded-[12px] p-4">
-                      <p className="text-[13px] font-semibold text-[#111827] mb-3">Session {index + 1}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-[12px] text-[#6B7280]">Current Session?</p>
-                          <p className="text-[14px] font-semibold text-[#111827]">{session.current ? "Yes" : "No"}</p>
+                  {isLoadingSessions ? (
+                    <p className="text-[13px] text-[#6B7280]">Loading sessions...</p>
+                  ) : sessions.length === 0 ? (
+                    <p className="text-[13px] text-[#6B7280]">No active sessions found.</p>
+                  ) : (
+                    sessions.map((session, index) => (
+                      <div key={session.id} className="border border-[#E5E7EB] rounded-[12px] p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <p className="text-[13px] font-semibold text-[#111827]">Session {index + 1}</p>
+                          {!session.current && (
+                            <button
+                              onClick={() => handleRevokeSession(session.id)}
+                              className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-[12px] font-medium transition-colors"
+                            >
+                              Revoke
+                            </button>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-[12px] text-[#6B7280]">Device Details</p>
-                          <p className="text-[14px] font-semibold text-[#111827]">{session.device}</p>
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#6B7280]">IP Address</p>
-                          <p className="text-[14px] font-semibold text-[#111827]">{session.ip}</p>
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#6B7280]">Location</p>
-                          <p className="text-[14px] font-semibold text-[#111827]">{session.location}</p>
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#6B7280]">Last activity</p>
-                          <p className="text-[14px] font-semibold text-[#111827]">{session.lastActive}</p>
-                        </div>
-                        <div className="flex items-end">
-                          <span
-                            className={`px-3 py-1 rounded-full text-[12px] font-semibold ${
-                              session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#E2E8F0] text-[#475569]"
-                            }`}
-                          >
-                            {session.current ? "Current session" : "Signed in"}
-                          </span>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[12px] text-[#6B7280]">Current Session?</p>
+                            <p className="text-[14px] font-semibold text-[#111827]">{session.current ? "Yes" : "No"}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-[#6B7280]">Device Details</p>
+                            <p className="text-[14px] font-semibold text-[#111827]">{session.device}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-[#6B7280]">IP Address</p>
+                            <p className="text-[14px] font-semibold text-[#111827]">{session.ip}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-[#6B7280]">Location</p>
+                            <p className="text-[14px] font-semibold text-[#111827]">{session.location}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-[#6B7280]">Last activity</p>
+                            <p className="text-[14px] font-semibold text-[#111827]">{session.lastActive}</p>
+                          </div>
+                          <div className="flex items-end">
+                            <span
+                              className={`px-3 py-1 rounded-full text-[12px] font-semibold ${
+                                session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#E2E8F0] text-[#475569]"
+                              }`}
+                            >
+                              {session.current ? "Current session" : "Signed in"}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -1405,21 +1744,24 @@ export function Settings() {
                       <p className="text-[12px] text-[#64748B] mt-1">All requirements completed.</p>
                     </div>
                     <span className="text-[12px] font-semibold px-3 py-1 rounded-full bg-[#DCFCE7] text-[#166534]">
-                      {completionPercent}% complete
+                      {verificationCompletionPercent}% complete
                     </span>
                   </div>
                   <div className="mt-3">
                     <div className="h-2 w-full bg-[#E2E8F0] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#22C55E]" style={{ width: `${completionPercent}%` }} />
+                      <div className="h-full bg-[#22C55E]" style={{ width: `${verificationCompletionPercent}%` }} />
                     </div>
                     <p className="text-[12px] text-[#64748B] mt-2">
-                      {completedSteps} of {verificationSteps.length} steps completed
+                      {completedSteps} of {verificationStepsData.length} steps completed
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
-                  {verificationSteps.map((step) => {
+                  {isLoadingVerification ? (
+                    <p className="text-[13px] text-[#6B7280]">Loading verification status...</p>
+                  ) : (
+                    verificationStepsData.map((step) => {
                     const statusBadge = verificationStatusStyles[step.status];
                     const statusLabel = verificationStatusLabels[step.status];
                     const iconBg =
@@ -1440,18 +1782,53 @@ export function Settings() {
                             <div className={`w-9 h-9 rounded-full flex items-center justify-center ${iconBg}`}>
                               {icon}
                             </div>
-                            <div>
+                            <div className="flex-1">
                               <p className="text-[15px] font-semibold text-[#1E293B]">{step.title}</p>
                               <p className="text-[13px] text-[#64748B] mt-1">{step.description}</p>
+                              
+                              {/* Action buttons based on verification type and status */}
+                              {step.id === "phone" && step.status === "pending" && (
+                                <button
+                                  onClick={handleVerifyPhone}
+                                  className="mt-2 px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8]"
+                                >
+                                  Verify Phone
+                                </button>
+                              )}
+                              
+                              {step.id === "identity" && step.status === "pending" && (
+                                <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
+                                  Upload ID
+                                  <input
+                                    type="file"
+                                    accept="image/*,.pdf"
+                                    onChange={handleUploadIdentityDocument}
+                                    className="hidden"
+                                  />
+                                </label>
+                              )}
+                              
+                              {step.id === "address" && step.status === "pending" && (
+                                <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
+                                  Upload Document
+                                  <input
+                                    type="file"
+                                    accept="image/*,.pdf"
+                                    onChange={handleUploadAddressDocument}
+                                    className="hidden"
+                                  />
+                                </label>
+                              )}
                             </div>
                           </div>
-                          <span className={`text-[12px] font-semibold px-3 py-1 rounded-full ${statusBadge}`}>
+                          <span className={`text-[12px] font-semibold px-3 py-1 rounded-full ${statusBadge} whitespace-nowrap`}>
                             {statusLabel}
                           </span>
                         </div>
                       </div>
                     );
-                  })}
+                  })
+                  )}
                 </div>
               </div>
             </div>
