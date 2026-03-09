@@ -3,7 +3,23 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, asObject } from '../../lib/api';
+import PublicProfile from '../shared/PublicProfile';
+
+type EmployerPreview = {
+  profile?: {
+    id?: string;
+    firstName?: string;
+    lastName?: string;
+    companyName?: string;
+    city?: string;
+    province?: string;
+  };
+  rating?: {
+    stars?: number;
+    percentage?: number;
+  };
+};
 
 type JobDetailsProps = {
   onBack?: () => void;
@@ -31,6 +47,10 @@ export default function JobDetails({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [hasApplied, setHasApplied] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [employerPreview, setEmployerPreview] = useState<EmployerPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const getCurrentUserId = async () => {
     const raw = await AsyncStorage.getItem('auth_user');
@@ -56,6 +76,61 @@ export default function JobDetails({
 
   const handleApply = () => {
     applyForJob();
+  };
+
+  const resolveEmployerId = (source: any): string => {
+    if (!source) return '';
+
+    const poster = source?.jobPoster || source?.employer || source?.postedBy;
+
+    if (typeof poster === 'string') return poster.trim();
+    if (poster && typeof poster === 'object') {
+      const nestedId = poster._id || poster.id || poster.userId || poster.user?._id || poster.user?.id;
+      if (nestedId) return String(nestedId).trim();
+    }
+
+    const directId = source?.jobPosterId || source?.employerId || source?.postedById;
+    return directId ? String(directId).trim() : '';
+  };
+
+  const fetchEmployerPreview = async (employerId: string) => {
+    if (!employerId) {
+      setEmployerPreview(null);
+      return;
+    }
+
+    setPreviewLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const result = await apiRequest(`${API_URL}/auth/profiles/${employerId}?viewAs=employer`, {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }, 'Failed to load employer profile.');
+
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to load employer profile.');
+      }
+
+      const payload = asObject<EmployerPreview>(result.data) || asObject<EmployerPreview>(result.raw);
+      setEmployerPreview(payload?.profile ? payload : null);
+    } catch (error) {
+      setEmployerPreview(null);
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleViewEmployerProfile = () => {
+    const employerId = resolveEmployerId(jobDetails) || resolveEmployerId(job);
+    
+    if (!employerId) {
+      Alert.alert('Error', 'Employer information not available');
+      return;
+    }
+    
+    setProfileUserId(employerId);
+    setShowProfile(true);
   };
 
   const handleMessageEmployer = async () => {
@@ -177,6 +252,24 @@ export default function JobDetails({
     fetchDetails();
   }, [job?._id]);
 
+  useEffect(() => {
+    const employerId = resolveEmployerId(jobDetails) || resolveEmployerId(job);
+    fetchEmployerPreview(employerId);
+  }, [jobDetails?._id, jobDetails?.jobPoster, job?._id]);
+
+  if (showProfile && profileUserId) {
+    return (
+      <PublicProfile
+        userId={profileUserId}
+        viewAs="employer"
+        onBack={() => {
+          setShowProfile(false);
+          setProfileUserId(null);
+        }}
+      />
+    );
+  }
+
   if (showSuccess) {
     console.log('Rendering success screen');
     return (
@@ -246,12 +339,39 @@ export default function JobDetails({
         </View>
 
         {/* Posted Info */}
-        <Text style={styles.postedInfo}>
-          This job post is managed by{' '}
-          <Text style={styles.highlight}>
-            {jobDetails?.jobPoster?.firstName ? `${jobDetails.jobPoster.firstName} ${jobDetails.jobPoster.lastName || ''}`.trim() : 'the employer'}
+        <View style={styles.postedInfoContainer}>
+          <Text style={styles.postedInfo}>
+            This job post is managed by{' '}
+            <Text style={styles.highlight}>
+              {jobDetails?.jobPoster?.firstName ? `${jobDetails.jobPoster.firstName} ${jobDetails.jobPoster.lastName || ''}`.trim() : 'the employer'}
+            </Text>
           </Text>
-        </Text>
+
+          {previewLoading ? (
+            <ActivityIndicator size="small" color="#64748b" style={styles.previewLoader} />
+          ) : employerPreview?.profile ? (
+            <View style={styles.previewCard}>
+              <Text style={styles.previewName}>
+                {`${employerPreview.profile.firstName || ''} ${employerPreview.profile.lastName || ''}`.trim() || employerPreview.profile.companyName || 'Employer'}
+              </Text>
+              {employerPreview.profile.companyName ? (
+                <Text style={styles.previewCompany}>{employerPreview.profile.companyName}</Text>
+              ) : null}
+              <Text style={styles.previewMeta}>
+                Rating {Number(employerPreview.rating?.stars || 0).toFixed(1)}/5 • {Number(employerPreview.rating?.percentage || 0)}% success
+              </Text>
+              {(employerPreview.profile.city || employerPreview.profile.province) ? (
+                <Text style={styles.previewMeta}>
+                  {[employerPreview.profile.city, employerPreview.profile.province].filter(Boolean).join(', ')}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          <TouchableOpacity onPress={handleViewEmployerProfile} style={styles.viewProfileBtn}>
+            <Text style={styles.viewProfileText}>View Profile</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Skills */}
         <Text style={styles.sectionTitle}>Must have skills</Text>
@@ -359,13 +479,56 @@ const styles = StyleSheet.create({
   statIcon: { fontSize: 20, marginBottom: 8 },
   statLabel: { fontSize: 10, color: '#6b7280', marginBottom: 4, fontWeight: '600' },
   statValue: { fontSize: 12, color: '#1f2937', fontWeight: '700', textAlign: 'center' },
+  postedInfoContainer: {
+    marginBottom: 24,
+  },
   postedInfo: {
     fontSize: 12,
     color: '#6b7280',
-    marginBottom: 24,
     lineHeight: 18,
+    marginBottom: 8,
   },
   highlight: { fontWeight: '700', color: '#1f2937' },
+  viewProfileBtn: {
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  previewLoader: {
+    marginBottom: 10,
+  },
+  previewCard: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+  },
+  previewName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  previewCompany: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  previewMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#64748B',
+  },
+  viewProfileText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1D4ED8',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
