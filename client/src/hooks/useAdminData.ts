@@ -1,6 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "../lib/toast";
-import { deleteUser, getCategories, getJobs, getUserList, updateUserStatus } from "../services/api";
+import {
+  deleteUser,
+  getAdminStats,
+  getAdminUsers,
+  getAdminJobs,
+  getAdminCategories,
+  getAdminWalletStats,
+  getAdminRecentPayouts,
+  getAdminTransactions,
+  updateUserStatus,
+} from "../services/api";
 
 export type AdminUser = {
   _id: string;
@@ -29,10 +39,53 @@ export type AdminCategory = {
   name: string;
 };
 
+type AdminStats = {
+  totalUsers: number;
+  activeUsers: number;
+  pendingUsers: number;
+  totalJobs: number;
+  availableJobs: number;
+  completedJobs: number;
+  totalTransactions: number;
+  totalRevenue: number;
+  totalCategories: number;
+};
+
+type AdminWalletStats = {
+  completedCount: number;
+  pendingCount: number;
+  completedTotal: number;
+  pendingTotal: number;
+  averageCompleted: number;
+};
+
+const DEFAULT_ADMIN_STATS: AdminStats = {
+  totalUsers: 0,
+  activeUsers: 0,
+  pendingUsers: 0,
+  totalJobs: 0,
+  availableJobs: 0,
+  completedJobs: 0,
+  totalTransactions: 0,
+  totalRevenue: 0,
+  totalCategories: 0,
+};
+
+const DEFAULT_ADMIN_WALLET_STATS: AdminWalletStats = {
+  completedCount: 0,
+  pendingCount: 0,
+  completedTotal: 0,
+  pendingTotal: 0,
+  averageCompleted: 0,
+};
+
 export function useAdminData() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [stats, setStats] = useState<AdminStats>(DEFAULT_ADMIN_STATS);
+  const [walletStats, setWalletStats] = useState<AdminWalletStats>(DEFAULT_ADMIN_WALLET_STATS);
+  const [recentPayouts, setRecentPayouts] = useState<AdminJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -43,19 +96,35 @@ export function useAdminData() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [userList, jobList, categoryList] = await Promise.all([
-          getUserList(),
-          getJobs(),
-          getCategories(),
+        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult] = await Promise.all([
+          getAdminStats(),
+          getAdminUsers(),
+          getAdminJobs(),
+          getAdminCategories(),
+          getAdminWalletStats(),
+          getAdminRecentPayouts(),
         ]);
+        
         if (!isActive) return;
+        
+        setStats({
+          ...DEFAULT_ADMIN_STATS,
+          ...(statResult && typeof statResult === "object" ? statResult : {}),
+        });
         setUsers(Array.isArray(userList) ? userList : []);
         setJobs(Array.isArray(jobList) ? jobList : []);
         setCategories(Array.isArray(categoryList) ? categoryList : []);
+        setWalletStats({
+          ...DEFAULT_ADMIN_WALLET_STATS,
+          ...(walletResult && typeof walletResult === "object" ? walletResult : {}),
+        });
+        setRecentPayouts(Array.isArray(payoutsResult) ? payoutsResult : []);
       } catch (error: any) {
         if (!isActive) return;
         const message = error?.message || "Failed to load admin data.";
         setLoadError(message);
+        setStats(DEFAULT_ADMIN_STATS);
+        setWalletStats(DEFAULT_ADMIN_WALLET_STATS);
         toast.error(message);
       } finally {
         if (isActive) setIsLoading(false);
@@ -97,19 +166,6 @@ export function useAdminData() {
     return map;
   }, [jobs]);
 
-  const stats = useMemo(
-    () => ({
-      totalUsers: users.length,
-      activeUsers: users.filter((u) => u.status === "active").length,
-      pendingUsers: users.filter((u) => u.status === "pending").length,
-      disabledUsers: users.filter((u) => u.status === "disabled").length,
-      totalJobs: jobs.length,
-      availableJobs: jobs.filter((j) => j.status === "Available").length,
-      totalCategories: categories.length,
-    }),
-    [users, jobs, categories],
-  );
-
   const topCategories = useMemo(() => {
     return categories
       .map((category) => ({
@@ -139,31 +195,6 @@ export function useAdminData() {
     if (amount > 0) return formatCurrency(amount);
     return salary || "—";
   };
-
-  const walletStats = useMemo(() => {
-    const completedJobs = jobs.filter((job) => job.status === "Completed");
-    const inProgressJobs = jobs.filter((job) => job.status === "In Progress");
-    const completedTotal = completedJobs.reduce((sum, job) => sum + parseSalary(job.salary), 0);
-    const pendingTotal = inProgressJobs.reduce((sum, job) => sum + parseSalary(job.salary), 0);
-    return {
-      completedCount: completedJobs.length,
-      pendingCount: inProgressJobs.length,
-      completedTotal,
-      pendingTotal,
-      averageCompleted: completedJobs.length ? Math.round(completedTotal / completedJobs.length) : 0,
-    };
-  }, [jobs]);
-
-  const recentPayouts = useMemo(() => {
-    return [...jobs]
-      .filter((job) => job.status === "Completed")
-      .sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bTime - aTime;
-      })
-      .slice(0, 5);
-  }, [jobs]);
 
   const recentActivity = useMemo(() => {
     const activities: Array<{ id: string; title: string; subtitle: string; date: Date; type: "user" | "job" }> = [];

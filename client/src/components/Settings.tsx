@@ -133,6 +133,7 @@ export function Settings() {
   const { user, updateProfile: updateAuthProfile } = useAuth();
   const roleValue = String((user as any)?.role || "").toLowerCase();
   const accountTypeValue = String((user as any)?.accountType || "").toLowerCase();
+  const isAdminRole = roleValue === "admin" || roleValue === "superadmin";
   const isEmployerRole =
     accountTypeValue === "employer" || roleValue === "hire" || roleValue === "employer";
   const [isProfileSaving, setIsProfileSaving] = useState(false);
@@ -201,9 +202,22 @@ export function Settings() {
 
   const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
 
-  const visibleAccountTabs = isEmployerRole
+  const visibleMainTabs = isAdminRole
+    ? mainTabConfig.filter((tab) => tab.id !== "payments")
+    : mainTabConfig;
+
+  const visibleAccountTabs = isAdminRole || isEmployerRole
     ? accountTabConfig.filter((tab) => tab.id === "personal")
     : accountTabConfig;
+
+  useEffect(() => {
+    if (!visibleMainTabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab("account");
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("tab", "account");
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [activeTab, searchParams, setSearchParams, visibleMainTabs]);
 
   useEffect(() => {
     const tabParam = searchParams.get("tab");
@@ -303,7 +317,7 @@ export function Settings() {
 
   // Load verification status when privacy tab is active
   useEffect(() => {
-    if (activeTab !== "privacy") return;
+    if (activeTab !== "privacy" || isAdminRole) return;
     const loadVerification = async () => {
       setIsLoadingVerification(true);
       try {
@@ -318,7 +332,7 @@ export function Settings() {
       }
     };
     loadVerification();
-  }, [activeTab]);
+  }, [activeTab, isAdminRole]);
 
   const handlePersonalInfoChange = (field: string, value: string) => {
     setPersonalInfo({ ...personalInfo, [field]: value });
@@ -455,17 +469,22 @@ export function Settings() {
   const handleSavePersonalInfo = async () => {
     setIsProfileSaving(true);
     try {
-      const response = await updateProfile({
+      const profilePayload: Record<string, string> = {
         firstName: personalInfo.firstName,
         lastName: personalInfo.lastName,
         companyName: personalInfo.companyName,
-        phoneNumber: personalInfo.phone,
         city: personalInfo.city,
         province: personalInfo.province,
         address: personalInfo.address,
-        linkedin: personalInfo.linkedin,
-        about: personalInfo.about,
-        totalExperience: experienceStats.totalExperience,
+      };
+      if (!isAdminRole) {
+        profilePayload.phoneNumber = personalInfo.phone;
+        profilePayload.linkedin = personalInfo.linkedin;
+        profilePayload.about = personalInfo.about;
+        profilePayload.totalExperience = experienceStats.totalExperience;
+      }
+      const response = await updateProfile({
+        ...profilePayload,
         // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated by backend
       });
       const updated = (response as any)?.user ?? response;
@@ -817,7 +836,7 @@ export function Settings() {
       <div className="bg-white border border-[#E5E7EB] rounded-[16px]">
         <div className="px-6 pt-6">
           <div className="flex flex-wrap gap-2 border-b border-[#E5E7EB] pb-4">
-            {mainTabConfig.map((tab) => (
+            {visibleMainTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => handleMainTabChange(tab.id)}
@@ -953,16 +972,30 @@ export function Settings() {
                         </div>
                       )}
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Phone number</label>
-                          <input
-                            type="tel"
-                            value={personalInfo.phone}
-                            onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                          />
+                      {!isAdminRole && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Phone number</label>
+                            <input
+                              type="tel"
+                              value={personalInfo.phone}
+                              onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
+                            <input
+                              type="email"
+                              value={personalInfo.email}
+                              disabled
+                              className="w-full bg-gray-50 border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
+                            />
+                          </div>
                         </div>
+                      )}
+
+                      {isAdminRole && (
                         <div>
                           <label className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
                           <input
@@ -972,95 +1005,99 @@ export function Settings() {
                             className="w-full bg-gray-50 border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
                           />
                         </div>
-                      </div>
+                      )}
 
-                      <div>
-                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">LinkedIn</label>
-                        <input
-                          type="text"
-                          value={personalInfo.linkedin}
-                          onChange={(e) => handlePersonalInfoChange("linkedin", e.target.value)}
-                          className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
-                        <textarea
-                          value={personalInfo.about}
-                          onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
-                          placeholder="Tell us about yourself, your experience, and what you're passionate about..."
-                          className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
-                          rows={4}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">Total Experience</label>
-                        <select
-                          value={experienceStats.totalExperience}
-                          onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
-                          className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                        >
-                          <option value="">Select experience</option>
-                          <option value="Less than 1 Year">Less than 1 Year</option>
-                          <option value="1 Year">1 Year</option>
-                          <option value="2 Years">2 Years</option>
-                          <option value="3 Years">3 Years</option>
-                          <option value="4 Years">4 Years</option>
-                          <option value="5 Years">5 Years</option>
-                          <option value="6 Years">6 Years</option>
-                          <option value="7 Years">7 Years</option>
-                          <option value="8 Years">8 Years</option>
-                          <option value="9 Years">9 Years</option>
-                          <option value="10+ Years">10+ Years</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</label>
-                        {resolvedAvatarUrl ? (
-                          <div className="flex items-center gap-4">
-                            <img
-                              src={resolvedAvatarUrl}
-                              alt="Profile"
-                              className="w-24 h-24 rounded-[12px] object-cover border-2 border-[#E5E7EB]"
+                      {!isAdminRole && (
+                        <>
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">LinkedIn</label>
+                            <input
+                              type="text"
+                              value={personalInfo.linkedin}
+                              onChange={(e) => handlePersonalInfoChange("linkedin", e.target.value)}
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
                             />
-                            <div className="flex flex-col gap-2">
-                              <label className="bg-[#2563EB] text-white font-semibold px-6 py-2 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2 text-[14px]">
-                                <Upload className="w-4 h-4" />
-                                Change photo
-                                <input
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handlePhotoUpload}
-                                  className="hidden"
+                          </div>
+
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
+                            <textarea
+                              value={personalInfo.about}
+                              onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
+                              placeholder="Tell us about yourself, your experience, and what you're passionate about..."
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
+                              rows={4}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Total Experience</label>
+                            <select
+                              value={experienceStats.totalExperience}
+                              onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            >
+                              <option value="">Select experience</option>
+                              <option value="Less than 1 Year">Less than 1 Year</option>
+                              <option value="1 Year">1 Year</option>
+                              <option value="2 Years">2 Years</option>
+                              <option value="3 Years">3 Years</option>
+                              <option value="4 Years">4 Years</option>
+                              <option value="5 Years">5 Years</option>
+                              <option value="6 Years">6 Years</option>
+                              <option value="7 Years">7 Years</option>
+                              <option value="8 Years">8 Years</option>
+                              <option value="9 Years">9 Years</option>
+                              <option value="10+ Years">10+ Years</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</label>
+                            {resolvedAvatarUrl ? (
+                              <div className="flex items-center gap-4">
+                                <img
+                                  src={resolvedAvatarUrl}
+                                  alt="Profile"
+                                  className="w-24 h-24 rounded-[12px] object-cover border-2 border-[#E5E7EB]"
                                 />
-                              </label>
-                              <button
-                                onClick={handleDeletePhoto}
-                                className="text-[#EF4444] hover:bg-[#FEE2E2] px-6 py-2 rounded-[10px] transition-all text-[14px] font-medium border border-[#FCA5A5]"
-                              >
-                                Remove photo
-                              </button>
-                            </div>
+                                <div className="flex flex-col gap-2">
+                                  <label className="bg-[#2563EB] text-white font-semibold px-6 py-2 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2 text-[14px]">
+                                    <Upload className="w-4 h-4" />
+                                    Change photo
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={handlePhotoUpload}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                  <button
+                                    onClick={handleDeletePhoto}
+                                    className="text-[#EF4444] hover:bg-[#FEE2E2] px-6 py-2 rounded-[10px] transition-all text-[14px] font-medium border border-[#FCA5A5]"
+                                  >
+                                    Remove photo
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap items-center gap-4">
+                                <label className="bg-[#2563EB] text-white font-semibold px-6 py-3 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2">
+                                  <Upload className="w-4 h-4" />
+                                  Upload your photo
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handlePhotoUpload}
+                                    className="hidden"
+                                  />
+                                </label>
+                                <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
+                              </div>
+                            )}
                           </div>
-                        ) : (
-                          <div className="flex flex-wrap items-center gap-4">
-                            <label className="bg-[#2563EB] text-white font-semibold px-6 py-3 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2">
-                              <Upload className="w-4 h-4" />
-                              Upload your photo
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handlePhotoUpload}
-                                className="hidden"
-                              />
-                            </label>
-                            <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
-                          </div>
-                        )}
-                      </div>
+                        </>
+                      )}
 
                       <button
                         onClick={handleSavePersonalInfo}
@@ -1734,103 +1771,105 @@ export function Settings() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                <h3 className="text-[16px] font-semibold text-[#111827] mb-2">Verification</h3>
-                <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] p-4 mb-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[14px] text-[#64748B]">Verification status</p>
-                      <h4 className="text-[18px] font-semibold text-[#111827]">Profile verified</h4>
-                      <p className="text-[12px] text-[#64748B] mt-1">All requirements completed.</p>
-                    </div>
-                    <span className="text-[12px] font-semibold px-3 py-1 rounded-full bg-[#DCFCE7] text-[#166534]">
-                      {verificationCompletionPercent}% complete
-                    </span>
-                  </div>
-                  <div className="mt-3">
-                    <div className="h-2 w-full bg-[#E2E8F0] rounded-full overflow-hidden">
-                      <div className="h-full bg-[#22C55E]" style={{ width: `${verificationCompletionPercent}%` }} />
-                    </div>
-                    <p className="text-[12px] text-[#64748B] mt-2">
-                      {completedSteps} of {verificationStepsData.length} steps completed
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {isLoadingVerification ? (
-                    <p className="text-[13px] text-[#6B7280]">Loading verification status...</p>
-                  ) : (
-                    verificationStepsData.map((step) => {
-                    const statusBadge = verificationStatusStyles[step.status];
-                    const statusLabel = verificationStatusLabels[step.status];
-                    const iconBg =
-                      step.status === "complete" ? "bg-[#DCFCE7]" : step.status === "in-review" ? "bg-[#FEF3C7]" : "bg-[#E2E8F0]";
-                    const icon =
-                      step.status === "complete" ? (
-                        <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
-                      ) : step.status === "in-review" ? (
-                        <Clock className="w-5 h-5 text-[#D97706]" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-[#94A3B8]" />
-                      );
-
-                    return (
-                      <div key={step.id} className="bg-white border border-[#E5E7EB] rounded-[12px] p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex items-start gap-3">
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center ${iconBg}`}>
-                              {icon}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-[15px] font-semibold text-[#1E293B]">{step.title}</p>
-                              <p className="text-[13px] text-[#64748B] mt-1">{step.description}</p>
-                              
-                              {/* Action buttons based on verification type and status */}
-                              {step.id === "phone" && step.status === "pending" && (
-                                <button
-                                  onClick={handleVerifyPhone}
-                                  className="mt-2 px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8]"
-                                >
-                                  Verify Phone
-                                </button>
-                              )}
-                              
-                              {step.id === "identity" && step.status === "pending" && (
-                                <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
-                                  Upload ID
-                                  <input
-                                    type="file"
-                                    accept="image/*,.pdf"
-                                    onChange={handleUploadIdentityDocument}
-                                    className="hidden"
-                                  />
-                                </label>
-                              )}
-                              
-                              {step.id === "address" && step.status === "pending" && (
-                                <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
-                                  Upload Document
-                                  <input
-                                    type="file"
-                                    accept="image/*,.pdf"
-                                    onChange={handleUploadAddressDocument}
-                                    className="hidden"
-                                  />
-                                </label>
-                              )}
-                            </div>
-                          </div>
-                          <span className={`text-[12px] font-semibold px-3 py-1 rounded-full ${statusBadge} whitespace-nowrap`}>
-                            {statusLabel}
-                          </span>
-                        </div>
+              {!isAdminRole && (
+                <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+                  <h3 className="text-[16px] font-semibold text-[#111827] mb-2">Verification</h3>
+                  <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] p-4 mb-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-[14px] text-[#64748B]">Verification status</p>
+                        <h4 className="text-[18px] font-semibold text-[#111827]">Profile verified</h4>
+                        <p className="text-[12px] text-[#64748B] mt-1">All requirements completed.</p>
                       </div>
-                    );
-                  })
-                  )}
+                      <span className="text-[12px] font-semibold px-3 py-1 rounded-full bg-[#DCFCE7] text-[#166534]">
+                        {verificationCompletionPercent}% complete
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      <div className="h-2 w-full bg-[#E2E8F0] rounded-full overflow-hidden">
+                        <div className="h-full bg-[#22C55E]" style={{ width: `${verificationCompletionPercent}%` }} />
+                      </div>
+                      <p className="text-[12px] text-[#64748B] mt-2">
+                        {completedSteps} of {verificationStepsData.length} steps completed
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {isLoadingVerification ? (
+                      <p className="text-[13px] text-[#6B7280]">Loading verification status...</p>
+                    ) : (
+                      verificationStepsData.map((step) => {
+                      const statusBadge = verificationStatusStyles[step.status];
+                      const statusLabel = verificationStatusLabels[step.status];
+                      const iconBg =
+                        step.status === "complete" ? "bg-[#DCFCE7]" : step.status === "in-review" ? "bg-[#FEF3C7]" : "bg-[#E2E8F0]";
+                      const icon =
+                        step.status === "complete" ? (
+                          <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
+                        ) : step.status === "in-review" ? (
+                          <Clock className="w-5 h-5 text-[#D97706]" />
+                        ) : (
+                          <Circle className="w-5 h-5 text-[#94A3B8]" />
+                        );
+
+                      return (
+                        <div key={step.id} className="bg-white border border-[#E5E7EB] rounded-[12px] p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex items-start gap-3">
+                              <div className={`w-9 h-9 rounded-full flex items-center justify-center ${iconBg}`}>
+                                {icon}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-[15px] font-semibold text-[#1E293B]">{step.title}</p>
+                                <p className="text-[13px] text-[#64748B] mt-1">{step.description}</p>
+
+                                {/* Action buttons based on verification type and status */}
+                                {step.id === "phone" && step.status === "pending" && (
+                                  <button
+                                    onClick={handleVerifyPhone}
+                                    className="mt-2 px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8]"
+                                  >
+                                    Verify Phone
+                                  </button>
+                                )}
+
+                                {step.id === "identity" && step.status === "pending" && (
+                                  <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
+                                    Upload ID
+                                    <input
+                                      type="file"
+                                      accept="image/*,.pdf"
+                                      onChange={handleUploadIdentityDocument}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                )}
+
+                                {step.id === "address" && step.status === "pending" && (
+                                  <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
+                                    Upload Document
+                                    <input
+                                      type="file"
+                                      accept="image/*,.pdf"
+                                      onChange={handleUploadAddressDocument}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                )}
+                              </div>
+                            </div>
+                            <span className={`text-[12px] font-semibold px-3 py-1 rounded-full ${statusBadge} whitespace-nowrap`}>
+                              {statusLabel}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
