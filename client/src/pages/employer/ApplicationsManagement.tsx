@@ -436,7 +436,7 @@ export function ApplicationsManagement() {
   const handleMessageApplicant = (application: Application) => {
     if (!application.applicantId) return;
     const interviewPrefill = `Hi ${application.name}, this is regarding your application for ${application.position}. We would like to contact you for interview scheduling. Please let us know your availability.`;
-    navigate(ROUTES.worker.messages, {
+    navigate(ROUTES.employer.messages, {
       state: {
         userId: application.applicantId,
         name: application.name,

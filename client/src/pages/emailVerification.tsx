@@ -99,7 +99,10 @@ const EmailVerification: React.FC = () => {
       }
 
       const targetUser = user || getStoredUser();
-      navigate(getDefaultDashboardPath(targetUser), { replace: true });
+      const fallbackDestination = getDefaultDashboardPath(targetUser);
+      const destination = sessionStorage.getItem("post_verify_redirect") || fallbackDestination;
+      sessionStorage.removeItem("post_verify_redirect");
+      window.location.replace(destination);
     } catch {
       setErrorMessage("Invalid verification code. Please try again.");
     } finally {

@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { jobsAPI } from '../../services/jobs';
 import { markAllNotificationsRead, deleteNotification } from '../../services/api';
 import { ROUTES } from '../../utils/routes';
-import { MessageSquare, DollarSign, CheckCircle, Clock, X } from 'lucide-react';
+import { MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { useAuth } from '../../hooks/useAuth';
 
 type NotificationType = 'application' | 'message' | 'payment';
 
@@ -25,10 +26,17 @@ type NotificationItem = {
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | NotificationType>('all');
+  const normalizedRole = String(user?.role || '').toLowerCase();
+  const isEmployerView =
+    user?.accountType === 'employer' ||
+    normalizedRole === 'employer' ||
+    normalizedRole === 'doctor' ||
+    normalizedRole === 'hire';
 
   const fetchNotifications = async () => {
     setLoading(true);
@@ -38,11 +46,34 @@ export default function NotificationsPage() {
 
       // Fetch application notifications
       try {
-        const res = await jobsAPI.getUserApplications();
+        const res = isEmployerView
+          ? await jobsAPI.getEmployerApplications()
+          : await jobsAPI.getUserApplications();
         const apps = res.data || [];
         const appNotifs = apps
-          .filter((a: any) => ['Shortlisted', 'Terms', 'Hired', 'Accepted'].includes(a.status))
+          .filter((a: any) => {
+            if (isEmployerView) return true;
+            return ['Shortlisted', 'Terms', 'Hired', 'Accepted'].includes(a.status);
+          })
           .map((a: any) => {
+            if (isEmployerView) {
+              const applicantName = `${a.applicant?.firstName || ''} ${a.applicant?.lastName || ''}`.trim() || 'A candidate';
+              const jobTitle = a.job?.title || 'your job post';
+              const currentStatus = String(a.status || 'Applied');
+
+              return {
+                id: a._id || `${a.job?._id || 'app'}-${Math.random()}`,
+                applicationId: a._id,
+                type: 'application' as NotificationType,
+                title: '📥 New Application',
+                description: `${applicantName} applied for "${jobTitle}"${currentStatus ? ` • Status: ${currentStatus}` : ''}.`,
+                time: a.createdAt ? new Date(a.createdAt).toLocaleString() : a.updatedAt ? new Date(a.updatedAt).toLocaleString() : undefined,
+                jobId: a.job?._id,
+                isNew: !a.employerReadAt,
+                color: !a.employerReadAt ? 'bg-yellow-50 border-yellow-100' : 'bg-blue-50 border-blue-100',
+              };
+            }
+
             let title = `Application ${a.status}`;
             let description = `Your application for "${a.job?.title || 'a job'}" is now ${a.status.toLowerCase()}.`;
             let color = 'bg-blue-50 border-blue-100';
@@ -101,12 +132,16 @@ export default function NotificationsPage() {
     fetchNotifications();
     // Also refresh the global notification count in NavBar
     window.dispatchEvent(new Event('notification-refresh'));
-  }, []);
+  }, [isEmployerView]);
 
   const markRead = async (applicationId?: string) => {
     if (!applicationId) return;
     try {
-      await jobsAPI.markApplicantRead(applicationId);
+      if (isEmployerView) {
+        await jobsAPI.markEmployerRead(applicationId);
+      } else {
+        await jobsAPI.markApplicantRead(applicationId);
+      }
       setNotifications((prev) => 
         prev.map((n) => (n.applicationId === applicationId ? { ...n, isNew: false } : n))
       );
@@ -122,7 +157,9 @@ export default function NotificationsPage() {
     const unread = notifications.filter((n) => n.applicationId && n.isNew);
     await Promise.all([
       ...unread.map((n) => 
-        jobsAPI.markApplicantRead(n.applicationId!).catch(() => null)
+        (isEmployerView
+          ? jobsAPI.markEmployerRead(n.applicationId!)
+          : jobsAPI.markApplicantRead(n.applicationId!)).catch(() => null)
       ),
       // Also mark all global notifications as read
       markAllNotificationsRead().catch(() => null)
@@ -203,7 +240,7 @@ export default function NotificationsPage() {
               : 'border-transparent text-gray-600 hover:text-gray-900'
           }`}
         >
-          <DollarSign className="w-4 h-4" />
+          <span className="text-[16px] leading-none font-semibold">₱</span>
           Payments
         </button>
       </div>
@@ -231,7 +268,7 @@ export default function NotificationsPage() {
                 }`}>
                   {n.type === 'application' && <CheckCircle className="w-5 h-5" />}
                   {n.type === 'message' && <MessageSquare className="w-5 h-5" />}
-                  {n.type === 'payment' && <DollarSign className="w-5 h-5" />}
+                  {n.type === 'payment' && <span className="text-[20px] leading-none font-semibold">₱</span>}
                 </div>
 
                 {/* Content */}
@@ -260,15 +297,19 @@ export default function NotificationsPage() {
                 <div className="flex gap-2">
                   {n.type === 'application' && n.jobId && (
                     <button
-                      onClick={() => n.jobId && navigate(ROUTES.worker.jobDetails(n.jobId))}
+                      onClick={() =>
+                        isEmployerView
+                          ? navigate(ROUTES.employer.applications)
+                          : n.jobId && navigate(ROUTES.worker.jobDetails(n.jobId))
+                      }
                       className="text-sm text-blue-600 font-semibold hover:text-blue-700"
                     >
-                      View Job
+                      {isEmployerView ? 'View Application' : 'View Job'}
                     </button>
                   )}
                   {n.type === 'message' && (
                     <button
-                      onClick={() => navigate(ROUTES.worker.messages)}
+                      onClick={() => navigate(isEmployerView ? ROUTES.employer.messages : ROUTES.worker.messages)}
                       className="text-sm text-blue-600 font-semibold hover:text-blue-700"
                     >
                       View Message
@@ -276,7 +317,7 @@ export default function NotificationsPage() {
                   )}
                   {n.type === 'payment' && (
                     <button
-                      onClick={() => navigate(ROUTES.worker.eWallet)}
+                      onClick={() => navigate(isEmployerView ? ROUTES.employer.eWallet : ROUTES.worker.eWallet)}
                       className="text-sm text-blue-600 font-semibold hover:text-blue-700"
                     >
                       View Payment

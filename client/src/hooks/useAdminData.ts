@@ -43,6 +43,7 @@ type AdminStats = {
   totalUsers: number;
   activeUsers: number;
   pendingUsers: number;
+  disabledUsers: number;
   totalJobs: number;
   availableJobs: number;
   completedJobs: number;
@@ -63,6 +64,7 @@ const DEFAULT_ADMIN_STATS: AdminStats = {
   totalUsers: 0,
   activeUsers: 0,
   pendingUsers: 0,
+  disabledUsers: 0,
   totalJobs: 0,
   availableJobs: 0,
   completedJobs: 0,

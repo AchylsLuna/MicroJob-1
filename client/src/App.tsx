@@ -274,6 +274,11 @@ const App: React.FC = () => {
             <Route path={ROUTES.employer.jobPosts} element={<JobPosts />} />
             <Route path={ROUTES.employer.applications} element={<Applications />} />
             <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
+            <Route path={ROUTES.employer.messages} element={<WorkerMessages />} />
+            <Route path={ROUTES.employer.eWallet} element={<WorkerEWallet />} />
+            <Route path={ROUTES.employer.notifications} element={<NotificationsRouter />} />
+            <Route path={ROUTES.employer.support} element={<SupportRouter />} />
+            <Route path={ROUTES.employer.settings} element={<Settings />} />
 
             <Route
               path={ROUTES.doctor.root}
@@ -298,6 +303,26 @@ const App: React.FC = () => {
             <Route
               path={ROUTES.doctor.jobs}
               element={<PreserveRedirect to={ROUTES.employer.jobs} />}
+            />
+            <Route
+              path={ROUTES.doctor.messages}
+              element={<PreserveRedirect to={ROUTES.employer.messages} />}
+            />
+            <Route
+              path={ROUTES.doctor.eWallet}
+              element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
+            />
+            <Route
+              path={ROUTES.doctor.notifications}
+              element={<PreserveRedirect to={ROUTES.employer.notifications} />}
+            />
+            <Route
+              path={ROUTES.doctor.support}
+              element={<PreserveRedirect to={ROUTES.employer.support} />}
+            />
+            <Route
+              path={ROUTES.doctor.settings}
+              element={<PreserveRedirect to={ROUTES.employer.settings} />}
             />
           </Route>
 
@@ -380,6 +405,26 @@ const App: React.FC = () => {
             path={ROUTES.legacyDashboard.doctor.jobs}
             element={<PreserveRedirect to={ROUTES.employer.jobs} />}
           />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.messages}
+            element={<PreserveRedirect to={ROUTES.employer.messages} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.eWallet}
+            element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.notifications}
+            element={<PreserveRedirect to={ROUTES.employer.notifications} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.support}
+            element={<PreserveRedirect to={ROUTES.employer.support} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.doctor.settings}
+            element={<PreserveRedirect to={ROUTES.employer.settings} />}
+          />
 
           <Route
             path={ROUTES.legacyDashboard.employer.root}
@@ -400,6 +445,26 @@ const App: React.FC = () => {
           <Route
             path={ROUTES.legacyDashboard.employer.jobs}
             element={<PreserveRedirect to={ROUTES.employer.jobs} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.messages}
+            element={<PreserveRedirect to={ROUTES.employer.messages} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.eWallet}
+            element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.notifications}
+            element={<PreserveRedirect to={ROUTES.employer.notifications} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.support}
+            element={<PreserveRedirect to={ROUTES.employer.support} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.employer.settings}
+            element={<PreserveRedirect to={ROUTES.employer.settings} />}
           />
 
           <Route

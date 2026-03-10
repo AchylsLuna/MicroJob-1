@@ -78,6 +78,7 @@ export default function App() {
 
   // Toggle for testing onboarding screens
   const FORCE_ONBOARDING = false;
+  const BYPASS_LOGIN_FLOW = true;
 
   const SCREEN = {
     Screen1: 0,
@@ -341,6 +342,16 @@ export default function App() {
           setCurrentScreen(SCREEN.Screen1);
           return;
         }
+
+        if (BYPASS_LOGIN_FLOW) {
+          setActiveTab('Home');
+          setViewMode('worker');
+          setExplicitEmployerView(false);
+          setUserRole('worker');
+          setCurrentScreen(SCREEN.Dashboard);
+          return;
+        }
+
         const token = await AsyncStorage.getItem('auth_token');
         const hasOnboarded = await AsyncStorage.getItem('has_onboarded');
 
@@ -755,6 +766,21 @@ export default function App() {
 
   const handleLogout = async () => {
     setShowLogoutModal(false);
+    if (BYPASS_LOGIN_FLOW) {
+      setActiveTab('Home');
+      setActiveEmployerTab('Home');
+      setWorkerUnreadMessageCount(0);
+      setWorkerNotifications([]);
+      setEmployerNotifications([]);
+      setMessageEvents([]);
+      setWorkerInboxInitialChatTarget(null);
+      setViewMode('worker');
+      setExplicitEmployerView(false);
+      setUserRole('worker');
+      setCurrentScreen(SCREEN.Dashboard);
+      return;
+    }
+
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (token) {
@@ -1005,7 +1031,7 @@ export default function App() {
     <ChangePassword onBack={handleBackToSettings} />,
     <ContactSupport onBack={handleBackToSettings} />,
   ];
-  const currentView = screens[currentScreen] ?? screens[SCREEN.SignIn] ?? null;
+  const currentView = screens[currentScreen] ?? screens[SCREEN.Dashboard] ?? null;
 
   const translateX = transition.interpolate({
     inputRange: [0, 1],

@@ -26,8 +26,6 @@ const AppliedJobs: React.FC = () => {
   const navigate = useNavigate();
   const [selectedFilter, setSelectedFilter] = useState<string>("All");
   const [applications, setApplications] = useState<Application[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,71 +59,10 @@ const AppliedJobs: React.FC = () => {
     }
   };
 
-  const normalizedQuery = searchQuery.trim().toLowerCase();
-  const filteredApplications = applications.filter((application) => {
-    if (!normalizedQuery) return true;
-    const job = application.job;
-    return (
-      job?.title?.toLowerCase().includes(normalizedQuery) ||
-      job?.jobType?.toLowerCase().includes(normalizedQuery)
-    );
-  });
-
-  const suggestions = (() => {
-    if (!normalizedQuery) return [] as string[];
-    const pool = applications.flatMap((application) => {
-      const job = application.job;
-      return [job?.title, job?.jobType].filter(Boolean) as string[];
-    });
-    const unique = Array.from(new Set(pool));
-    return unique
-      .filter((item) => item.toLowerCase().includes(normalizedQuery))
-      .slice(0, 6);
-  })();
+  const filteredApplications = applications;
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="font-semibold text-[20px] text-[#111827]">Applied Jobs</h2>
-          <p className="text-[14px] text-[#6B7280] mt-1">
-            You have {applications.length} job application{applications.length === 1 ? "" : "s"}.
-          </p>
-        </div>
-        <div className="relative w-full max-w-sm">
-          <input
-            type="text"
-            placeholder="Search applications..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setShowSuggestions(true);
-            }}
-            onFocus={() => setShowSuggestions(true)}
-            onBlur={() => setTimeout(() => setShowSuggestions(false), 120)}
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-          />
-          <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
-          {showSuggestions && suggestions.length > 0 && (
-            <div className="absolute z-10 mt-2 w-full rounded-xl border border-gray-200 bg-white shadow-lg">
-              {suggestions.map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onMouseDown={() => {
-                    setSearchQuery(item);
-                    setShowSuggestions(false);
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
       <div className="flex flex-wrap items-center gap-2">
         {filterOptions.map((filter) => (
           <button
@@ -240,9 +177,7 @@ const AppliedJobs: React.FC = () => {
               <div className="text-6xl mb-4">📋</div>
               <h3 className="text-2xl font-bold text-gray-900 mb-2">No Applications Found</h3>
               <p className="text-gray-600 mb-6">
-                {searchQuery
-                  ? "No applications match your search."
-                  : "You haven't applied to any jobs with this status yet."}
+                You haven't applied to any jobs with this status yet.
               </p>
               <button
                 onClick={() => navigate(ROUTES.worker.findJobs)}

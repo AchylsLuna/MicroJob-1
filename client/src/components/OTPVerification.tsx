@@ -146,9 +146,11 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
       );
 
       if (success || (hasAuthToken && nextUser && typeof nextUser === "object")) {
-        const destination = getDefaultDashboardPath(
+        const computedDestination = getDefaultDashboardPath(
           nextUser && typeof nextUser === "object" ? (nextUser as any) : null,
         );
+        const destination = sessionStorage.getItem("post_verify_redirect") || computedDestination;
+        sessionStorage.removeItem("post_verify_redirect");
         // Use hard redirect immediately to avoid route-guard/modal state races.
         window.location.replace(destination);
         return;

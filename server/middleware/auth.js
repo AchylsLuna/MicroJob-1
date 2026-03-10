@@ -3,14 +3,15 @@ import Session from '../models/Session.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
 const verifyToken = async (req, res, next) => {
-    // Check for token in Authorization header or cookies
-    let token = req.cookies?.token;
+    // Prefer Authorization bearer token to avoid stale cookie overriding a fresh session token.
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+    }
 
     if (!token) {
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            token = authHeader.substring(7);
-        }
+        token = req.cookies?.token;
     }
 
     if (!token) {

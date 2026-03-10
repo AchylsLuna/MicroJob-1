@@ -7,7 +7,6 @@ import {
   MapPin,
   CalendarDays,
   TrendingUp,
-  ChevronRight,
   ArrowRight
 } from "lucide-react";
 import { getMyJobs } from "../../services/api";
@@ -164,13 +163,6 @@ export function JobsManagement() {
           >
             <Users className="w-4 h-4" />
             View Applications
-          </button>
-          <button
-            onClick={() => navigate(ROUTES.employer.postJob)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#1C4D8D] text-white font-semibold text-[13px] rounded-[10px] hover:bg-[#0F2954] transition-all shadow-sm"
-          >
-            <ChevronRight className="w-4 h-4" />
-            Post New Job
           </button>
         </div>
       </div>

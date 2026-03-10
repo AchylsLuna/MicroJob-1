@@ -4,7 +4,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   BarChart3,
-  Briefcase,
   CheckCircle,
   Clock,
   MessageSquare,
@@ -133,17 +132,6 @@ export function EmployerDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => navigate(ROUTES.employer.postJob)}
-          className="inline-flex items-center gap-2 rounded-[12px] bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] px-5 py-3 text-[14px] font-semibold text-white shadow-[0_12px_24px_rgba(28,77,141,0.2)] hover:opacity-95"
-        >
-          <Briefcase className="h-4 w-4" />
-          Post New Job
-        </button>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Users className="h-6 w-6" />}

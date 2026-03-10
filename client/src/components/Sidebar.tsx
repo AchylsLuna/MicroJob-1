@@ -96,7 +96,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       : "user";
 
   const workerMenuItems: MenuItem[] = [
-    { icon: "find-jobs", label: "Apply Jobs", path: ROUTES.worker.findJobs },
+    { icon: "find-jobs", label: "Find Jobs", path: ROUTES.worker.findJobs },
     { icon: "applied-jobs", label: "Applied Jobs", path: ROUTES.worker.appliedJobs },
   ];
 
@@ -110,10 +110,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     ],
   };
 
-  const commonMenuItems: MenuItem[] = [
-    { icon: "messages", label: "Messages", path: ROUTES.worker.messages, notification: true },
-    { icon: "e-wallet", label: "E-Wallet", path: ROUTES.worker.eWallet },
-  ];
+  const commonMenuItems: MenuItem[] =
+    effectiveRole === "employer"
+      ? [
+          { icon: "messages", label: "Messages", path: ROUTES.employer.messages, notification: true },
+          { icon: "e-wallet", label: "E-Wallet", path: ROUTES.employer.eWallet },
+        ]
+      : [
+          { icon: "messages", label: "Messages", path: ROUTES.worker.messages, notification: true },
+          { icon: "e-wallet", label: "E-Wallet", path: ROUTES.worker.eWallet },
+        ];
 
   const adminMenuItems: MenuItem[] = [
     { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics },
@@ -138,6 +144,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   const bottomMenuItems: MenuItem[] =
     effectiveRole === "admin"
       ? [{ icon: "settings", label: "Settings", path: ROUTES.settings }]
+      : effectiveRole === "employer"
+      ? [
+          { icon: "notifications", label: "Notifications", path: ROUTES.employer.notifications, notification: true },
+          { icon: "settings", label: "Settings", path: ROUTES.employer.settings },
+          { icon: "support", label: "Support", path: ROUTES.employer.support },
+        ]
       : [
           { icon: "notifications", label: "Notifications", path: ROUTES.notifications, notification: true },
           { icon: "settings", label: "Settings", path: ROUTES.settings },
@@ -204,16 +216,34 @@ const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const isPathActive = (path: string) => {
-    if (path === ROUTES.notifications) {
+    if (path === ROUTES.notifications || path === ROUTES.employer.notifications) {
       return (
         matchesPath(location.pathname, ROUTES.notifications) ||
-        matchesPath(location.pathname, ROUTES.worker.notifications)
+        matchesPath(location.pathname, ROUTES.worker.notifications) ||
+        matchesPath(location.pathname, ROUTES.employer.notifications) ||
+        matchesPath(location.pathname, ROUTES.doctor.notifications) ||
+        matchesPath(location.pathname, ROUTES.legacyDashboard.employer.notifications) ||
+        matchesPath(location.pathname, ROUTES.legacyDashboard.doctor.notifications)
       );
     }
-    if (path === ROUTES.support) {
+    if (path === ROUTES.support || path === ROUTES.employer.support) {
       return (
         matchesPath(location.pathname, ROUTES.support) ||
-        matchesPath(location.pathname, ROUTES.worker.support)
+        matchesPath(location.pathname, ROUTES.worker.support) ||
+        matchesPath(location.pathname, ROUTES.employer.support) ||
+        matchesPath(location.pathname, ROUTES.doctor.support) ||
+        matchesPath(location.pathname, ROUTES.legacyDashboard.employer.support) ||
+        matchesPath(location.pathname, ROUTES.legacyDashboard.doctor.support)
+      );
+    }
+    if (path === ROUTES.settings || path === ROUTES.employer.settings) {
+      return (
+        matchesPath(location.pathname, ROUTES.settings) ||
+        matchesPath(location.pathname, ROUTES.employer.settings) ||
+        matchesPath(location.pathname, ROUTES.doctor.settings) ||
+        matchesPath(location.pathname, ROUTES.legacyDashboard.settings) ||
+        matchesPath(location.pathname, ROUTES.legacyDashboard.employer.settings) ||
+        matchesPath(location.pathname, ROUTES.legacyDashboard.doctor.settings)
       );
     }
     return startsWithPath(location.pathname, path);

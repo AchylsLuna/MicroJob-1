@@ -1,8 +1,21 @@
-import { useEffect, useState, useRef } from "react";
-import { Search, Send, Paperclip, MoreVertical, Phone, Video, Star, Archive, Trash2, Ban } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Archive,
+  Ban,
+  ChevronLeft,
+  Ellipsis,
+  MoreVertical,
+  Phone,
+  Search,
+  Send,
+  Smile,
+  SquarePen,
+  Trash2,
+} from "lucide-react";
 import { toast } from "../../lib/toast";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
+import { ROUTES } from "../../utils/routes";
 import { 
   getConversations, 
   getArchivedConversations,
@@ -64,6 +77,33 @@ const formatMessageTime = (dateString: string): string => {
   return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
 
+const formatMessageDay = (dateString: string): string => {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const today = new Date();
+  const sameDay =
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear();
+  if (sameDay) return "Today";
+
+  return date.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  });
+};
+
+const formatHandle = (name: string): string => {
+  const normalized = String(name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, "");
+  return `@${normalized || "user"}`;
+};
+
 const pickArray = <T,>(...candidates: any[]): T[] => {
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) {
@@ -92,6 +132,7 @@ const getCurrentUserIdFromStorage = () => {
 };
 
 export function Messages() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [archivedContacts, setArchivedContacts] = useState<Contact[]>([]);
@@ -105,8 +146,10 @@ export function Messages() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [showListMenu, setShowListMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string>("");
+  const listMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const startChatHandledRef = useRef(false);
@@ -267,8 +310,14 @@ export function Messages() {
   }, []);
 
   useEffect(() => {
-    const query = searchParams.get("q") || "";
-    setSearchQuery(query);
+    // Keep message search local-only (do not persist to URL query string).
+    if (searchParams.has("q")) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete("q");
+      setSearchParams(nextParams, { replace: true });
+      return;
+    }
+
     const contactId = searchParams.get("contact");
     const startUserId = searchParams.get("startUser");
     const startJobId = searchParams.get("jobId");
@@ -324,6 +373,9 @@ export function Messages() {
   useEffect(() => {
     // Close menu when clicking outside
     const handleClickOutside = (event: MouseEvent) => {
+      if (listMenuRef.current && !listMenuRef.current.contains(event.target as Node)) {
+        setShowListMenu(false);
+      }
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setShowMoreMenu(false);
       }
@@ -586,23 +638,24 @@ export function Messages() {
   };
 
   const handleAttachment = () => {
-    toast.info("File attachments coming soon...");
+    toast.info("More composer actions coming soon...");
   };
 
-  const handleCall = () => {
-    if (selectedContact) {
-      toast.info(`Voice calls coming soon...`);
+  const toggleArchiveMode = async () => {
+    const next = !showArchived;
+    setShowArchived(next);
+    setShowListMenu(false);
+    if (next) {
+      await loadArchivedConversations();
     }
+    setSelectedContact(null);
+    setMessages([]);
+    setShowMoreMenu(false);
   };
 
-  const handleVideoCall = () => {
-    if (selectedContact) {
-      toast.info(`Video calls coming soon...`);
-    }
-  };
-
-  const handleStarConversation = () => {
-    toast.info("Starring conversations coming soon...");
+  const handleViewProfile = () => {
+    if (!selectedContact?.otherUserId) return;
+    navigate(`${ROUTES.publicProfile(selectedContact.otherUserId)}?viewAs=worker`);
   };
 
   // Ensure contacts is always an array before filtering
@@ -616,16 +669,56 @@ export function Messages() {
     (showArchived ? archivedSet.has(selectedContact.conversationId) : !archivedSet.has(selectedContact.conversationId));
   const effectiveContacts = canInjectSelectedContact ? [selectedContact as Contact, ...contactsArray] : contactsArray;
 
-  const filteredContacts = effectiveContacts.filter(contact =>
-    contact.otherUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (contact.jobTitle && contact.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredContacts = useMemo(
+    () =>
+      effectiveContacts
+        .filter(
+          (contact) =>
+            contact.otherUserName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (contact.jobTitle && contact.jobTitle.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+        .sort((a, b) => {
+          const aTime = new Date(a.lastMessageAt).getTime() || 0;
+          const bTime = new Date(b.lastMessageAt).getTime() || 0;
+          return bTime - aTime;
+        }),
+    [effectiveContacts, searchQuery]
   );
+
+  const orderedMessages = useMemo(
+    () =>
+      [...messages].sort((a, b) => {
+        const aTime = new Date(a.createdAt).getTime() || 0;
+        const bTime = new Date(b.createdAt).getTime() || 0;
+        return aTime - bTime;
+      }),
+    [messages]
+  );
+
+  const messageRows = useMemo(() => {
+    const rows: Array<{ type: "divider"; label: string } | { type: "message"; message: Message }> = [];
+    let previousDay = "";
+
+    orderedMessages.forEach((message) => {
+      const currentDay = new Date(message.createdAt).toDateString();
+      if (currentDay !== previousDay) {
+        rows.push({
+          type: "divider",
+          label: formatMessageDay(message.createdAt),
+        });
+        previousDay = currentDay;
+      }
+      rows.push({ type: "message", message });
+    });
+
+    return rows;
+  }, [orderedMessages]);
 
   if (loading) {
     return (
-      <div className="max-w-[1341px] mx-auto h-[calc(100vh-160px)] min-h-[640px] flex items-center justify-center">
+      <div className="mx-auto flex h-[calc(100vh-160px)] min-h-[640px] max-w-[1341px] items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#1C4D8D] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#1C4D8D] border-t-transparent" />
           <p className="text-[#6B7280]">Loading conversations...</p>
         </div>
       </div>
@@ -633,209 +726,266 @@ export function Messages() {
   }
 
   return (
-    <div className="max-w-[1341px] mx-auto h-[calc(100vh-160px)] min-h-[640px]">
-      <div className="flex justify-end mb-3">
-        <button
-          type="button"
-          onClick={async () => {
-            const next = !showArchived;
-            setShowArchived(next);
-            if (next) {
-              await loadArchivedConversations();
-            }
-            setSelectedContact(null);
-            setMessages([]);
-          }}
-          className="px-3 py-2 text-[13px] font-medium rounded-[10px] border border-[#E5E7EB] bg-white text-[#1C4D8D] hover:bg-[#F9FAFB]"
-        >
-          {showArchived ? "Back to Inbox" : "View Archived Messages"}
-        </button>
-      </div>
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] overflow-hidden shadow-sm h-full flex">
-        {/* Contacts Sidebar */}
-        <div className="w-[340px] border-r border-[#E5E7EB] flex flex-col min-h-0">
-          {/* Search */}
-          <div className="p-4 border-b border-[#E5E7EB]">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
+    <div className="mx-auto h-[calc(100vh-160px)] min-h-[640px] max-w-[1341px] pt-1">
+      <div className="flex h-full overflow-hidden rounded-[20px] border border-[#DDE2EB] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
+        <div className={`${selectedContact ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-[#E5E7EB] bg-white md:w-[34%] md:min-w-[320px] md:max-w-[460px]`}>
+          <div className="border-b border-[#E5E7EB] px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <h3 className="text-[28px] font-semibold leading-none text-[#111827] md:text-[30px]">Inbox Chat</h3>
+                <span className="rounded-full bg-[#1983F6] px-3 py-1 text-[12px] font-semibold text-white">
+                  {effectiveContacts.length}
+                </span>
+              </div>
+              <div className="relative flex items-center gap-2" ref={listMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedContact(null);
+                    setMessages([]);
+                    setShowListMenu(false);
+                    setShowMoreMenu(false);
+                  }}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
+                  title="New message"
+                >
+                  <SquarePen className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowListMenu((prev) => !prev)}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
+                  title="List options"
+                >
+                  <Ellipsis className="h-4 w-4" />
+                </button>
+                {showListMenu ? (
+                  <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-[#E5E7EB] bg-white py-2 shadow-[0_10px_24px_rgba(15,23,42,0.12)]">
+                    <button
+                      type="button"
+                      onClick={toggleArchiveMode}
+                      className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#374151] hover:bg-[#F5F7FB]"
+                    >
+                      <Archive className="h-4 w-4" />
+                      {showArchived ? "Back To Inbox" : "View Archived"}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="relative mt-4">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
               <input
                 type="text"
-                placeholder={showArchived ? "Search archived messages..." : "Search messages..."}
+                placeholder="Search"
                 value={searchQuery}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setSearchQuery(value);
-                  const nextParams = new URLSearchParams(searchParams);
-                  if (value) {
-                    nextParams.set("q", value);
-                  } else {
-                    nextParams.delete("q");
-                  }
-                  setSearchParams(nextParams);
-                }}
-                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[10px] pl-10 pr-4 py-2.5 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-full border border-[#D8DEE8] bg-white py-3 pl-11 pr-4 text-[14px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#4E8FD1] focus:ring-2 focus:ring-[#4E8FD1]/20"
               />
             </div>
           </div>
 
-          {/* Contacts List */}
-          <div className="flex-1 overflow-y-auto min-h-0">
-            {filteredContacts.length === 0 && (
-              <div className="p-8 text-center text-[#9CA3AF]">
-                <p>No conversations yet</p>
+          <div className="flex-1 overflow-y-auto bg-white">
+            {filteredContacts.length === 0 ? (
+              <div className="flex h-full items-center justify-center px-6 text-center text-[15px] text-[#9AA3B2]">
+                <span>No conversations yet.</span>
               </div>
+            ) : (
+              filteredContacts.map((contact) => {
+                const isActive = selectedContact?.conversationId === contact.conversationId;
+                return (
+                  <button
+                    key={contact.conversationId}
+                    type="button"
+                    onClick={() => {
+                      handleSelectContact(contact);
+                      setShowListMenu(false);
+                      const nextParams = new URLSearchParams(searchParams);
+                      nextParams.set("contact", contact.conversationId);
+                      setSearchParams(nextParams);
+                    }}
+                    className={`w-full border-b border-[#EDF1F6] px-4 py-4 text-left transition hover:bg-[#F8FBFF] ${
+                      isActive ? "bg-[#EAF2FD]" : "bg-white"
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      {!isActive ? <span className="mt-4 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-[#E11D48]" /> : <span className="mt-4 h-2.5 w-2.5 flex-shrink-0" />}
+                      <div className="relative mt-0.5">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#4F97D9] to-[#1F5DAB] text-[14px] font-bold text-white">
+                          {getInitials(contact.otherUserName)}
+                        </div>
+                        <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#1D9BF0]" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-[15px] font-semibold leading-tight text-[#111827] md:text-[16px]">
+                              {contact.otherUserName}
+                            </p>
+                            <p className="truncate text-[15px] leading-tight text-[#4B5563] md:text-[16px]">
+                              {formatHandle(contact.otherUserName)}
+                            </p>
+                          </div>
+                          <span className="whitespace-nowrap text-[13px] text-[#6B7280]">
+                            {formatTime(contact.lastMessageAt)}
+                          </span>
+                        </div>
+                        {contact.jobTitle ? (
+                          <p className="mt-1 truncate text-[13px] text-[#6B7280]">Re: {contact.jobTitle}</p>
+                        ) : null}
+                        <p className="mt-2 line-clamp-2 text-[13px] text-[#4B5563]">{contact.lastMessage || "No messages yet"}</p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })
             )}
-            {filteredContacts.map((contact) => (
-              <div
-                key={contact.conversationId}
-                onClick={() => {
-                  handleSelectContact(contact);
-                  const nextParams = new URLSearchParams(searchParams);
-                  nextParams.set("contact", contact.conversationId);
-                  setSearchParams(nextParams);
-                }}
-                className={`p-4 border-b border-[#E5E7EB] cursor-pointer transition-colors hover:bg-[#F9FAFB] ${
-                  selectedContact?.conversationId === contact.conversationId ? "bg-[#E8F2F8]" : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div className="relative flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white font-bold text-[14px]">
-                      {getInitials(contact.otherUserName)}
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-[14px] font-semibold text-[#111827] truncate">{contact.otherUserName}</h4>
-                      <span className="text-[11px] text-[#9CA3AF]">{formatTime(contact.lastMessageAt)}</span>
-                    </div>
-                    {contact.jobTitle && (
-                      <p className="text-[12px] text-[#6B7280] mb-1 truncate">Re: {contact.jobTitle}</p>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <p className="text-[12px] text-[#9CA3AF] truncate flex-1">{contact.lastMessage}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
 
-        {/* Chat Area */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className={`${selectedContact ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col bg-[#F9FAFC]`}>
           {!selectedContact ? (
-            <div className="flex-1 flex items-center justify-center bg-[#F9FAFB]">
-              <p className="text-[#9CA3AF]">Select a conversation to start messaging</p>
+            <div className="flex flex-1 items-center justify-center px-6 text-center text-[16px] text-[#9AA3B2]">
+              Select a conversation to start messaging.
             </div>
           ) : (
             <>
-              {/* Chat Header */}
-              <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-5 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedContact(null);
+                      setMessages([]);
+                      setShowMoreMenu(false);
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB] md:hidden"
+                    title="Back"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
                   <div className="relative">
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white font-bold text-[14px]">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#4F97D9] to-[#1F5DAB] text-[14px] font-bold text-white">
                       {getInitials(selectedContact.otherUserName)}
                     </div>
+                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#1D9BF0]" />
                   </div>
-                  <div>
-                    <h3 className="text-[16px] font-semibold text-[#111827]">{selectedContact.otherUserName}</h3>
-                    {selectedContact.jobTitle && (
-                      <p className="text-[12px] text-[#6B7280]">Re: {selectedContact.jobTitle}</p>
-                    )}
+                  <div className="min-w-0">
+                    <p className="truncate text-[16px] font-semibold text-[#111827]">{selectedContact.otherUserName}</p>
+                    <p className="truncate text-[14px] text-[#4B5563]">{formatHandle(selectedContact.otherUserName)}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="hidden h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#374151] transition hover:bg-[#F5F7FB] md:flex"
+                      title="Call"
+                    >
+                      <Phone className="h-4 w-4" />
+                    </button>
+                  {showArchived ? (
+                    <button
+                      type="button"
+                      onClick={handleUnarchiveConversation}
+                      className="hidden rounded-full border border-[#D7DCE7] px-4 py-2 text-[14px] font-medium text-[#111827] transition hover:bg-[#F5F7FB] md:block"
+                    >
+                      Unarchive
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleArchiveConversation}
+                      className="hidden rounded-full border border-[#D7DCE7] px-4 py-2 text-[14px] font-medium text-[#111827] transition hover:bg-[#F5F7FB] md:block"
+                    >
+                      Archive
+                    </button>
+                  )}
                   <button
-                    onClick={handleCall}
-                    className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"
-                    title="Voice call"
+                    type="button"
+                    onClick={handleViewProfile}
+                    className="hidden rounded-full bg-[#1983F6] px-5 py-2 text-[14px] font-semibold text-white transition hover:bg-[#0B74E7] md:block"
                   >
-                    <Phone className="w-5 h-5 text-[#6B7280]" />
-                  </button>
-                  <button
-                    onClick={handleVideoCall}
-                    className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"
-                    title="Video call"
-                  >
-                    <Video className="w-5 h-5 text-[#6B7280]" />
-                  </button>
-                  <button
-                    onClick={handleStarConversation}
-                    className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"
-                    title="Star conversation"
-                  >
-                    <Star className="w-5 h-5 text-[#6B7280]" />
+                    View Profile
                   </button>
                   <div className="relative" ref={moreMenuRef}>
                     <button
-                      onClick={() => setShowMoreMenu(!showMoreMenu)}
-                      className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"
+                      type="button"
+                      onClick={() => setShowMoreMenu((prev) => !prev)}
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#374151] transition hover:bg-[#F5F7FB]"
                       title="More options"
                     >
-                      <MoreVertical className="w-5 h-5 text-[#6B7280]" />
+                      <MoreVertical className="h-4 w-4" />
                     </button>
-                    {showMoreMenu && (
-                      <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#E5E7EB] py-2 z-50">
-                        {showArchived ? (
-                          <button
-                            onClick={handleUnarchiveConversation}
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#111827] hover:bg-[#F9FAFB] flex items-center gap-3"
-                          >
-                            <Archive className="w-4 h-4 text-[#6B7280]" />
-                            Unarchive Conversation
-                          </button>
-                        ) : (
-                          <button
-                            onClick={handleArchiveConversation}
-                            className="w-full px-4 py-2 text-left text-[14px] text-[#111827] hover:bg-[#F9FAFB] flex items-center gap-3"
-                          >
-                            <Archive className="w-4 h-4 text-[#6B7280]" />
-                            Archive Conversation
-                          </button>
-                        )}
+                    {showMoreMenu ? (
+                      <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-[#E5E7EB] bg-white py-2 shadow-[0_8px_20px_rgba(15,23,42,0.14)]">
                         <button
+                          type="button"
                           onClick={handleBlockUser}
-                          className="w-full px-4 py-2 text-left text-[14px] text-[#DC2626] hover:bg-[#FEF2F2] flex items-center gap-3"
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#DC2626] hover:bg-[#FEF2F2]"
                         >
-                          <Ban className="w-4 h-4" />
+                          <Ban className="h-4 w-4" />
                           Block User
                         </button>
                         <button
+                          type="button"
                           onClick={handleDeleteConversation}
-                          className="w-full px-4 py-2 text-left text-[14px] text-[#DC2626] hover:bg-[#FEF2F2] flex items-center gap-3"
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#DC2626] hover:bg-[#FEF2F2]"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                           Delete Conversation
                         </button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-[#F9FAFB] min-h-0">
-                {messages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-[#9CA3AF]">No messages yet. Start the conversation!</p>
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFD] px-5 py-5">
+                {orderedMessages.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-[#9CA3AF]">
+                    No messages yet. Start the conversation!
                   </div>
                 ) : (
-                  <>
-                    {messages.map((message) => {
+                  <div className="space-y-3">
+                    {messageRows.map((row, index) => {
+                      if (row.type === "divider") {
+                        return (
+                          <div key={`divider-${index}`} className="py-1">
+                            <div className="mx-auto w-full max-w-[420px] rounded-[10px] border border-[#DDE2EB] bg-[#F3F5F9] px-3 py-1 text-center text-[12px] font-medium text-[#6B7280]">
+                              {row.label}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      const message = row.message;
                       const isOwn = currentUserId && message.sender._id === currentUserId;
                       const isEditing = editingMessageId === message._id;
+
                       return (
-                        <div
-                          key={message._id}
-                          className={`flex ${isOwn ? "justify-end" : "justify-start"}`}
-                        >
-                          <div className={`max-w-[80%] md:max-w-[60%] ${isOwn ? "order-2" : "order-1"}`}>
+                        <div key={message._id || `message-${index}`} className={`flex gap-3 ${isOwn ? "justify-end" : "justify-start"}`}>
+                          {!isOwn ? (
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#4F97D9] to-[#1F5DAB] text-[12px] font-bold text-white">
+                              {getInitials(selectedContact.otherUserName)}
+                            </div>
+                          ) : null}
+                          <div className={`flex max-w-[78%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
+                            {isOwn ? (
+                              <div className="mb-1 text-[12px] text-[#6B7280]">{formatMessageTime(message.createdAt)}</div>
+                            ) : null}
+                            {!isOwn ? (
+                              <div className="mb-1 flex items-center gap-2 text-[13px] text-[#6B7280]">
+                                <span className="font-semibold text-[#111827]">{selectedContact.otherUserName}</span>
+                                <span>{formatMessageTime(message.createdAt)}</span>
+                              </div>
+                            ) : null}
                             <div
-                              className={`rounded-[16px] px-4 py-3 ${
+                              className={`rounded-[14px] px-4 py-3 ${
                                 isOwn
-                                  ? "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white"
-                                  : "bg-white text-[#111827] border border-[#E5E7EB]"
+                                  ? "bg-[#1983F6] text-white"
+                                  : "border border-[#DDE2EB] bg-white text-[#111827]"
                               }`}
                             >
                               {isEditing ? (
@@ -844,14 +994,14 @@ export function Messages() {
                                     type="text"
                                     value={editingText}
                                     onChange={(e) => setEditingText(e.target.value)}
-                                    className="w-full rounded-[8px] px-3 py-2 text-[14px] border border-[#D1D5DB] text-[#111827]"
+                                    className="w-full rounded-[8px] border border-[#D1D5DB] px-3 py-2 text-[14px] text-[#111827]"
                                     disabled={isEditingSaving}
                                   />
                                   <div className="flex justify-end gap-2">
                                     <button
                                       type="button"
                                       onClick={cancelEditMessage}
-                                      className="px-2 py-1 text-[12px] rounded bg-[#E5E7EB] text-[#374151]"
+                                      className="rounded bg-[#E5E7EB] px-2 py-1 text-[12px] text-[#374151]"
                                       disabled={isEditingSaving}
                                     >
                                       Cancel
@@ -859,7 +1009,7 @@ export function Messages() {
                                     <button
                                       type="button"
                                       onClick={saveEditMessage}
-                                      className="px-2 py-1 text-[12px] rounded bg-[#1C4D8D] text-white"
+                                      className="rounded bg-[#1C4D8D] px-2 py-1 text-[12px] text-white"
                                       disabled={isEditingSaving}
                                     >
                                       Save
@@ -870,57 +1020,75 @@ export function Messages() {
                                 <p className="text-[14px] leading-relaxed">{message.content}</p>
                               )}
                             </div>
-                            <div className={`flex items-center gap-2 text-[11px] text-[#9CA3AF] mt-1 ${isOwn ? "justify-end" : "justify-start"}`}>
-                              <span>{formatMessageTime(message.createdAt)}</span>
-                              {message.isEdited && <span>(edited)</span>}
-                              {isOwn && !isEditing && canEditMessage(message) && (
+                            <div className={`mt-1 flex items-center gap-2 text-[11px] text-[#9CA3AF] ${isOwn ? "justify-end" : "justify-start"}`}>
+                              {message.isEdited ? <span>(edited)</span> : null}
+                              {isOwn && !isEditing && canEditMessage(message) ? (
                                 <button
                                   type="button"
                                   onClick={() => beginEditMessage(message)}
-                                  className="text-[#1C4D8D] hover:underline"
+                                  className="font-medium text-[#1C4D8D] hover:underline"
                                 >
                                   Edit
                                 </button>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>
                       );
                     })}
                     <div ref={messagesEndRef} />
-                  </>
+                  </div>
                 )}
               </div>
 
-              {/* Message Input */}
-              <div className="p-4 border-t border-[#E5E7EB] bg-white">
-                <div className="flex items-center gap-3">
+              <div className="border-t border-[#E5E7EB] bg-white px-5 py-4">
+                <textarea
+                  placeholder="Enter message"
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      if (!sending) {
+                        handleSendMessage();
+                      }
+                    }
+                  }}
+                  disabled={sending}
+                  className="min-h-[88px] w-full resize-none rounded-[12px] border border-[#DDE2EB] bg-[#FBFCFE] px-4 py-3 text-[15px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#4E8FD1] focus:ring-2 focus:ring-[#4E8FD1]/20 disabled:opacity-60"
+                />
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAttachment}
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
+                      title="Emoji"
+                    >
+                      <Smile className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAttachment}
+                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
+                      title="More actions"
+                    >
+                      <Ellipsis className="h-5 w-5" />
+                    </button>
+                  </div>
                   <button
-                    onClick={handleAttachment}
-                    className="p-2 hover:bg-[#F9FAFB] rounded-lg transition-colors"
-                    title="Attach file"
-                  >
-                    <Paperclip className="w-5 h-5 text-[#6B7280]" />
-                  </button>
-                  <input
-                    type="text"
-                    placeholder="Type a message..."
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && !sending && handleSendMessage()}
-                    disabled={sending}
-                    className="flex-1 bg-[#F9FAFB] border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent disabled:opacity-50"
-                  />
-                  <button
+                    type="button"
                     onClick={handleSendMessage}
-                    className="bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white p-3 rounded-[10px] hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={!messageText.trim() || sending}
-                    title="Send message"
+                    className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-full bg-[#1983F6] px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-[#0B74E7] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sending ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (
-                      <Send className="w-5 h-5" />
+                      <>
+                        Send
+                        <Send className="h-4 w-4" />
+                      </>
                     )}
                   </button>
                 </div>

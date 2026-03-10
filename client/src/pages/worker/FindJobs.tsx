@@ -1,18 +1,9 @@
 import { useEffect, useState } from "react";
-import { Heart, Clock, SlidersHorizontal, CheckCircle2, Star } from "lucide-react";
+import { Heart, Clock, SlidersHorizontal } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getJobs } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
-
-interface CompanyInfo {
-  founded: string;
-  location: string;
-  verified: boolean;
-  rating: number;
-  spend: string;
-  services: string[];
-}
 
 interface Job {
   id: string;
@@ -20,16 +11,14 @@ interface Job {
   company: string;
   companyLogo: string;
   applicants: number;
-  type: "Full-Time" | "Part-Time" | "Project Work";
+  type: "Full-Time" | "Part-Time" | "Contract" | "Project Work";
   workMode: "Remote" | "Hybrid" | "On-site";
-  experienceLevel: "Entry Level" | "Intermediate" | "Expert";
+  experienceLevel: "Entry Level" | "Mid-Level" | "Senior";
   description: string;
-  responsibilities: string[];
   salary: string;
   postedDaysAgo: number;
   saved: boolean;
   category: string;
-  companyInfo: CompanyInfo;
 }
 
 interface ApiJob {
@@ -42,32 +31,19 @@ interface ApiJob {
   createdAt?: string;
   category?: { name?: string } | string;
   applicants?: string[];
-  responsibilities?: string[];
   requirements?: string[];
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 }
 
-const defaultCompanyInfo: CompanyInfo = {
-  founded: "January 6, 1997",
-  location: "San Francisco, USA",
-  verified: true,
-  rating: 4.8,
-  spend: "$65k + Spend",
-  services: ["Web & App Design", "Backend", "FedRAMP", "Compliance", "Frontend", "Offensive Security"],
+const normalizeCadenceLabel = (raw: string) => {
+  const source = raw.toLowerCase();
+  if (source.includes("/mo") || source.includes("/month") || source.includes("per month")) return "/month";
+  if (source.includes("/yr") || source.includes("/year") || source.includes("per year")) return "/year";
+  if (source.includes("/week") || source.includes("per week")) return "/week";
+  if (source.includes("/day") || source.includes("per day")) return "/day";
+  if (source.includes("/hr") || source.includes("/hour") || source.includes("per hour")) return "/hour";
+  return "";
 };
-
-const buildCompanyInfo = (overrides?: Partial<CompanyInfo>): CompanyInfo => ({
-  ...defaultCompanyInfo,
-  ...overrides,
-});
-
-const defaultResponsibilities = [
-  "We want you to have a deep understanding of the tools and services that are offered through our platform.",
-  "Partner with cross-functional teams to deliver high-quality work on time and at scale.",
-  "Bring curiosity and a problem-solving mindset to every stage of the project lifecycle.",
-];
-
-
 
 export function FindJobs() {
   const navigate = useNavigate();
@@ -77,7 +53,6 @@ export function FindJobs() {
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "salary" | "applicants">("recent");
-  const [selectedJobId, setSelectedJobId] = useState("");
 
   const sortLabels = {
     recent: "Most recent",
@@ -90,43 +65,59 @@ export function FindJobs() {
   };
 
   const handleSaveJob = (jobId: string) => {
-    setJobs(jobs.map(job => 
-      job.id === jobId ? { ...job, saved: !job.saved } : job
-    ));
-    const job = jobs.find(j => j.id === jobId);
-    toast.success(job?.saved ? "Job removed from saved" : "Job saved!");
+    setJobs((prevJobs) => {
+      const targetJob = prevJobs.find((job) => job.id === jobId);
+      const nextSaved = !targetJob?.saved;
+      toast.success(nextSaved ? "Job saved!" : "Job removed from saved");
+      return prevJobs.map((job) =>
+        job.id === jobId ? { ...job, saved: !job.saved } : job
+      );
+    });
   };
 
-  const getExperienceLevelColor = (level: string) => {
+  const getExperienceLevelColor = (level: Job["experienceLevel"]) => {
     switch (level) {
       case "Entry Level":
-        return "bg-[#DBEAFE] text-[#1E40AF]";
-      case "Intermediate":
-        return "bg-[#E9D5FF] text-[#7C3AED]";
-      case "Expert":
-        return "bg-[#FEE2E2] text-[#DC2626]";
+        return "bg-[#DCFCE7] text-[#15803D]";
+      case "Mid-Level":
+        return "bg-[#DBEAFE] text-[#1D4ED8]";
+      case "Senior":
+        return "bg-[#F3E8FF] text-[#7E22CE]";
       default:
         return "bg-[#F3F4F6] text-[#6B7280]";
     }
   };
 
   const getJobTypeLabel = (jobType?: string): Job["type"] => {
-    switch (jobType) {
-      case "Part-time":
+    const normalized = (jobType || "").toLowerCase();
+    switch (true) {
+      case normalized.includes("part"):
         return "Part-Time";
-      case "Freelance":
+      case normalized.includes("contract"):
+        return "Contract";
+      case normalized.includes("freelance") || normalized.includes("project"):
         return "Project Work";
-      case "Remote":
-        return "Full-Time";
-      case "Fulltime":
       default:
         return "Full-Time";
     }
   };
 
-  const getWorkModeLabel = (jobType?: string): Job["workMode"] => {
-    if (jobType === "Remote") return "Remote";
+  const getWorkModeLabel = (jobType?: string, location?: string, description?: string): Job["workMode"] => {
+    const source = `${jobType || ""} ${location || ""} ${description || ""}`.toLowerCase();
+    if (source.includes("remote")) return "Remote";
+    if (source.includes("hybrid")) return "Hybrid";
     return "On-site";
+  };
+
+  const getExperienceLevel = (job: ApiJob): Job["experienceLevel"] => {
+    const details = `${job.title || ""} ${(job.requirements || []).join(" ")}`.toLowerCase();
+    if (/(senior|lead|principal|architect|manager|[5-9]\+?\s*years?)/.test(details)) {
+      return "Senior";
+    }
+    if (/(mid|intermediate|[3-4]\+?\s*years?)/.test(details)) {
+      return "Mid-Level";
+    }
+    return "Entry Level";
   };
 
   const getPostedDays = (createdAt?: string) => {
@@ -147,10 +138,22 @@ export function FindJobs() {
     const companyName = getCompanyName(job.jobPoster);
     const categoryName =
       typeof job.category === "string" ? job.category : job.category?.name || "General";
-    const salaryLabel =
-      typeof job.salary === "number"
-        ? `PHP ${job.salary.toLocaleString()}`
-        : (job.salary || "—");
+    const salaryLabel = (() => {
+      if (typeof job.salary === "number") return `₱${job.salary.toLocaleString()}`;
+      const raw = `${job.salary || ""}`.trim();
+      if (!raw) return "—";
+      const numeric = Number.parseFloat(raw.replace(/,/g, "").replace(/[^0-9.]/g, ""));
+      const cadence = normalizeCadenceLabel(raw);
+      if (Number.isFinite(numeric) && numeric > 0) {
+        return `₱${numeric.toLocaleString()}${cadence ? ` ${cadence}` : ""}`;
+      }
+      return raw
+        .replace(/\$/g, "₱")
+        .replace(/\bUSD\b/gi, "₱")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    })();
+
     return {
       id: job._id,
       title: job.title,
@@ -158,15 +161,13 @@ export function FindJobs() {
       companyLogo: companyName.charAt(0) || "M",
       applicants: job.applicants?.length || 0,
       type: getJobTypeLabel(job.jobType),
-      workMode: getWorkModeLabel(job.jobType),
-      experienceLevel: "Entry Level",
+      workMode: getWorkModeLabel(job.jobType, job.location, job.description),
+      experienceLevel: getExperienceLevel(job),
       description: job.description,
-      responsibilities: job.responsibilities?.length ? job.responsibilities : defaultResponsibilities,
       salary: salaryLabel,
       postedDaysAgo: getPostedDays(job.createdAt),
       saved: false,
       category: categoryName,
-      companyInfo: buildCompanyInfo({ location: job.location || defaultCompanyInfo.location }),
     };
   };
 
@@ -197,9 +198,13 @@ export function FindJobs() {
   const getJobTypeColor = (type: string) => {
     switch (type) {
       case "Full-Time":
-        return "bg-[#D1FAE5] text-[#065F46]";
+        return "bg-[#DFE8FF] text-[#365CCE]";
       case "Part-Time":
-        return "bg-[#DBEAFE] text-[#1E40AF]";
+        return "bg-[#E0F2FE] text-[#0369A1]";
+      case "Contract":
+        return "bg-[#FFEDD5] text-[#C2410C]";
+      case "Project Work":
+        return "bg-[#FEF3C7] text-[#B45309]";
       default:
         return "bg-[#F3F4F6] text-[#6B7280]";
     }
@@ -208,11 +213,11 @@ export function FindJobs() {
   const getWorkModeColor = (mode: Job["workMode"]) => {
     switch (mode) {
       case "Remote":
-        return "bg-[#FEF3C7] text-[#92400E]";
+        return "bg-[#D1FAE5] text-[#047857]";
       case "Hybrid":
-        return "bg-[#EDE9FE] text-[#5B21B6]";
+        return "bg-[#CCFBF1] text-[#0F766E]";
       case "On-site":
-        return "bg-[#DBEAFE] text-[#1E40AF]";
+        return "bg-[#FFEDD5] text-[#C2410C]";
       default:
         return "bg-[#F3F4F6] text-[#6B7280]";
     }
@@ -225,6 +230,20 @@ export function FindJobs() {
     const cleaned = value.replace(/[^0-9.]/g, "");
     const amount = Number.parseFloat(cleaned);
     return Number.isFinite(amount) ? amount : 0;
+  };
+
+  const getSalarySuffix = (salary: string) => {
+    const normalized = salary.toLowerCase();
+    if (normalized === "—") return "";
+    if (normalized.includes("/")) return "";
+    if (normalized.includes("per month") || normalized.includes("per year")) return "";
+    return " /yr";
+  };
+
+  const getPostedLabel = (postedDaysAgo: number) => {
+    if (postedDaysAgo <= 0) return "Today";
+    if (postedDaysAgo === 1) return "1d ago";
+    return `${postedDaysAgo}d ago`;
   };
 
   const filteredJobs = jobs.filter(job => {
@@ -249,251 +268,115 @@ export function FindJobs() {
     }
   });
 
-  useEffect(() => {
-    if (!sortedJobs.length) return;
-    if (!sortedJobs.find((job) => job.id === selectedJobId)) {
-      setSelectedJobId(sortedJobs[0].id);
-    }
-  }, [selectedJobId, sortedJobs]);
-
-  const selectedJob = sortedJobs.find((job) => job.id === selectedJobId) ?? sortedJobs[0];
-
   return (
-    <div className="max-w-[1341px] mx-auto">
-      <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)_320px] gap-6">
-        {/* Left Sidebar - Job List */}
-        <aside className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[18px] font-semibold text-[#111827]">Find Jobs</h2>
-            <button
-              onClick={handleSortChange}
-              className="flex items-center gap-2 px-3 py-2 border border-[#E5E7EB] rounded-[12px] bg-white hover:bg-gray-50 transition-colors"
-            >
-              <SlidersHorizontal className="w-4 h-4 text-[#6B7280]" />
-              <span className="text-[13px] text-[#111827]">{sortLabels[sortBy]}</span>
-            </button>
-          </div>
-
-          <div className="space-y-4">
-            {sortedJobs.map((job) => {
-              const isActive = selectedJob?.id === job.id;
-              return (
-                <div
-                  key={job.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedJobId(job.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setSelectedJobId(job.id);
-                    }
-                  }}
-                  className={`bg-white rounded-[16px] border p-4 transition-all cursor-pointer ${
-                    isActive ? "border-[#2563EB] shadow-[0_0_0_1px_#2563EB]" : "border-[#E5E7EB] hover:shadow-md"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-[12px] bg-[#F3F4F6] flex items-center justify-center text-[16px] font-semibold text-[#111827]">
-                        {job.companyLogo || job.company.charAt(0)}
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-[15px] text-[#111827]">{job.title}</h3>
-                        <p className="text-[12px] text-[#9CA3AF]">
-                          {job.company} • {job.applicants} Applicants
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        handleSaveJob(job.id);
-                      }}
-                      className="text-[#9CA3AF] hover:text-[#EF4444] transition-colors"
-                    >
-                      <Heart className={`w-5 h-5 ${job.saved ? "fill-[#EF4444] text-[#EF4444]" : ""}`} />
-                    </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className={`px-2.5 py-1 rounded-[6px] text-[11px] font-semibold ${getExperienceLevelColor(job.experienceLevel)}`}>
-                      {job.experienceLevel}
-                    </span>
-                    <span className={`px-2.5 py-1 rounded-[6px] text-[11px] font-semibold ${getJobTypeColor(job.type)}`}>
-                      {job.type}
-                    </span>
-                    <span className={`px-2.5 py-1 rounded-[6px] text-[11px] font-semibold ${getWorkModeColor(job.workMode)}`}>
-                      {job.workMode}
-                    </span>
-                  </div>
-
-                  <p className="text-[13px] text-[#6B7280] leading-relaxed mt-3 line-clamp-2">
-                    {job.description}
-                  </p>
-
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-[#E5E7EB]">
-                    <div>
-                      <span className="text-[16px] font-semibold text-[#111827]">{job.salary}</span>
-                      <span className="text-[12px] text-[#9CA3AF]"> salary</span>
-                    </div>
-                    <div className="flex items-center gap-1 text-[12px] text-[#9CA3AF]">
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Posted {job.postedDaysAgo} days ago</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {isLoading && (
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#6B7280]">
-                Loading jobs...
-              </div>
-            )}
-            {loadError && !isLoading && (
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#B91C1C]">
-                {loadError}
-              </div>
-            )}
-            {!isLoading && !loadError && sortedJobs.length === 0 && (
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-center text-[#6B7280]">
-                No jobs found. Try another search.
-              </div>
-            )}
-          </div>
-        </aside>
-
-        {/* Middle Content - Job Details */}
-        <section className="bg-white border border-[#E5E7EB] rounded-[16px] p-6 min-h-[640px]">
-          {selectedJob ? (
-            <div className="space-y-8">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-[26px] font-semibold text-[#111827]">{selectedJob.title}</h1>
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    <span className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold ${getExperienceLevelColor(selectedJob.experienceLevel)}`}>
-                      {selectedJob.experienceLevel}
-                    </span>
-                    <span className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold ${getJobTypeColor(selectedJob.type)}`}>
-                      {selectedJob.type}
-                    </span>
-                    <span className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold ${getWorkModeColor(selectedJob.workMode)}`}>
-                      {selectedJob.workMode}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleSaveJob(selectedJob.id)}
-                  className="text-[#9CA3AF] hover:text-[#EF4444] transition-colors"
-                >
-                  <Heart className={`w-6 h-6 ${selectedJob.saved ? "fill-[#EF4444] text-[#EF4444]" : ""}`} />
-                </button>
-              </div>
-
-              <div>
-                <h3 className="text-[18px] font-semibold text-[#111827] mb-3">About the role</h3>
-                <p className="text-[14px] text-[#6B7280] leading-relaxed">
-                  {selectedJob.description} We are looking for someone who can own the experience end-to-end,
-                  collaborate with the team, and ship work that delights users.
-                </p>
-              </div>
-
-              <div>
-                <h3 className="text-[18px] font-semibold text-[#111827] mb-3">Responsibilities</h3>
-                <ul className="list-disc pl-5 space-y-2 text-[14px] text-[#6B7280]">
-                  {selectedJob.responsibilities.map((item) => (
-                    <li key={item}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-
-              <div>
-                <button
-                  onClick={() => navigate(ROUTES.worker.jobDetails(selectedJob.id))}
-                  className="px-5 py-3 bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white text-[14px] font-semibold rounded-[12px] hover:shadow-lg transition-all"
-                >
-                  View Full Details
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-[#6B7280]">
-              Select a job to view details.
-            </div>
-          )}
-        </section>
-
-        {/* Right Sidebar - Company Info */}
-        <aside className="space-y-4">
-          <div className="bg-white border border-[#E5E7EB] rounded-[16px] p-6">
-            {selectedJob ? (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-[12px] bg-[#F3F4F6] flex items-center justify-center text-[18px] font-semibold text-[#111827]">
-                    {selectedJob.companyLogo || selectedJob.company.charAt(0)}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-[16px] font-semibold text-[#111827]">{selectedJob.company}</h3>
-                    {selectedJob.companyInfo.verified && <CheckCircle2 className="w-4 h-4 text-[#2563EB]" />}
-                  </div>
-                </div>
-
-                <div className="border-t border-[#E5E7EB] pt-4 space-y-4">
-                  <div>
-                    <p className="text-[12px] text-[#94A3B8] uppercase tracking-wide">Founded</p>
-                    <p className="text-[14px] text-[#111827]">{selectedJob.companyInfo.founded}</p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#94A3B8] uppercase tracking-wide">Location</p>
-                    <p className="text-[14px] text-[#111827]">{selectedJob.companyInfo.location}</p>
-                  </div>
-                </div>
-
-                <div className="border-t border-[#E5E7EB] pt-4 space-y-3">
-                  <h4 className="text-[14px] font-semibold text-[#111827]">Other Information</h4>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <Star
-                        key={index}
-                        className={`w-4 h-4 ${
-                          index < Math.round(selectedJob.companyInfo.rating)
-                            ? "text-[#FBBF24] fill-[#FBBF24]"
-                            : "text-[#E5E7EB]"
-                        }`}
-                      />
-                    ))}
-                    <span className="text-[12px] text-[#6B7280] ml-2">
-                      {selectedJob.companyInfo.rating.toFixed(1)}
-                    </span>
-                  </div>
-                  <p className="text-[13px] text-[#6B7280]">Payment verified</p>
-                  <div>
-                    <p className="text-[14px] font-semibold text-[#111827]">{selectedJob.companyInfo.spend}</p>
-                    <p className="text-[12px] text-[#6B7280]">Payment verified</p>
-                  </div>
-                </div>
-
-                <div className="border-t border-[#E5E7EB] pt-4">
-                  <h4 className="text-[14px] font-semibold text-[#111827] mb-3">Services</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedJob.companyInfo.services.map((service) => (
-                      <span
-                        key={service}
-                        className="px-3 py-1 rounded-[10px] bg-[#F3F4F6] text-[12px] text-[#475569]"
-                      >
-                        {service}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-[#6B7280] text-[14px]">Select a job to view company info.</div>
-            )}
-          </div>
-        </aside>
+    <div className="max-w-[1341px] mx-auto space-y-5 font-sans">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[24px] leading-none font-semibold text-[#111827]">
+          {sortedJobs.length} {sortedJobs.length === 1 ? "job" : "jobs"} found
+        </p>
+        <button
+          type="button"
+          onClick={handleSortChange}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] border border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-[#F9FAFB] transition-colors"
+          title={`Sort by ${sortLabels[sortBy]}`}
+        >
+          <SlidersHorizontal className="w-4 h-4" />
+          <span className="text-[14px] font-semibold hidden sm:inline">{sortLabels[sortBy]}</span>
+          <span className="text-[14px] font-semibold sm:hidden">Filters</span>
+        </button>
       </div>
+
+      {isLoading && (
+        <div className="bg-white rounded-[18px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
+          Loading jobs...
+        </div>
+      )}
+
+      {loadError && !isLoading && (
+        <div className="bg-[#FEF2F2] rounded-[18px] border border-[#FECACA] p-6 text-center text-[#B91C1C]">
+          {loadError}
+        </div>
+      )}
+
+      {!isLoading && !loadError && sortedJobs.length === 0 && (
+        <div className="bg-white rounded-[18px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
+          No jobs found. Try another search.
+        </div>
+      )}
+
+      {!isLoading && !loadError && sortedJobs.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {sortedJobs.map((job) => (
+            <div
+              key={job.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate(ROUTES.worker.jobDetails(job.id))}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  navigate(ROUTES.worker.jobDetails(job.id));
+                }
+              }}
+              className="bg-white rounded-[18px] border border-[#E5E7EB] p-6 transition-all cursor-pointer hover:shadow-[0_8px_30px_rgba(15,23,42,0.06)] hover:-translate-y-0.5"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-4 min-w-0">
+                  <div className="w-14 h-14 rounded-[16px] bg-[#E7ECF8] text-[#365CCE] flex items-center justify-center text-[30px] font-semibold shrink-0">
+                    {job.companyLogo || job.company.charAt(0)}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-[18px] leading-tight text-[#111827] line-clamp-1">
+                      {job.title}
+                    </h3>
+                    <p className="text-[16px] text-[#6B7280] mt-1 line-clamp-1">
+                      {job.company} · {job.applicants} Applicants
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleSaveJob(job.id);
+                  }}
+                  className="text-[#9CA3AF] hover:text-[#EF4444] transition-colors"
+                  title={job.saved ? "Remove from saved" : "Save job"}
+                >
+                  <Heart className={`w-6 h-6 ${job.saved ? "fill-[#EF4444] text-[#EF4444]" : ""}`} />
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mt-4">
+                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getExperienceLevelColor(job.experienceLevel)}`}>
+                  {job.experienceLevel}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getJobTypeColor(job.type)}`}>
+                  {job.type}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getWorkModeColor(job.workMode)}`}>
+                  {job.workMode}
+                </span>
+              </div>
+
+              <p className="text-[14px] text-[#6B7280] leading-relaxed mt-4 line-clamp-2">
+                {job.description}
+              </p>
+
+              <div className="flex items-center justify-between mt-5">
+                <p className="text-[18px] font-bold text-[#111827]">
+                  {job.salary}
+                  <span className="text-[14px] font-medium text-[#6B7280]">{getSalarySuffix(job.salary)}</span>
+                </p>
+                <div className="flex items-center gap-1.5 text-[14px] text-[#6B7280]">
+                  <Clock className="w-4 h-4" />
+                  <span>{getPostedLabel(job.postedDaysAgo)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

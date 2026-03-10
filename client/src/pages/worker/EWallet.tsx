@@ -278,7 +278,7 @@ export function EWallet() {
               <h4 className="text-[18px] font-semibold text-[#111827]">Top Up Wallet</h4>
             </div>
 
-            <label className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
+            <label className="text-[13px] text-[#374151] mb-2 block">Amount (₱)</label>
             <input
               type="number"
               min="1"

@@ -42,6 +42,11 @@ export const ROUTES = {
     jobPosts: "/employer/job-posts",
     applications: "/employer/applications",
     jobs: "/employer/jobs",
+    messages: "/employer/messages",
+    eWallet: "/employer/e-wallet",
+    notifications: "/employer/notifications",
+    support: "/employer/support",
+    settings: "/employer/settings",
   },
 
   doctor: {
@@ -52,6 +57,11 @@ export const ROUTES = {
     jobPosts: "/doctor/job-posts",
     applications: "/doctor/applications",
     jobs: "/doctor/jobs",
+    messages: "/doctor/messages",
+    eWallet: "/doctor/e-wallet",
+    notifications: "/doctor/notifications",
+    support: "/doctor/support",
+    settings: "/doctor/settings",
   },
 
   admin: {
@@ -86,6 +96,11 @@ export const ROUTES = {
       postJob: "/dashboard/employer/post-job",
       jobPosts: "/dashboard/employer/job-posts",
       jobs: "/dashboard/employer/jobs",
+      messages: "/dashboard/employer/messages",
+      eWallet: "/dashboard/employer/e-wallet",
+      notifications: "/dashboard/employer/notifications",
+      support: "/dashboard/employer/support",
+      settings: "/dashboard/employer/settings",
     },
     doctor: {
       root: "/dashboard/doctor",
@@ -93,6 +108,11 @@ export const ROUTES = {
       postJob: "/dashboard/doctor/post-job",
       jobPosts: "/dashboard/doctor/job-posts",
       jobs: "/dashboard/doctor/jobs",
+      messages: "/dashboard/doctor/messages",
+      eWallet: "/dashboard/doctor/e-wallet",
+      notifications: "/dashboard/doctor/notifications",
+      support: "/dashboard/doctor/support",
+      settings: "/dashboard/doctor/settings",
     },
     admin: {
       root: "/dashboard/admin-dashboard",

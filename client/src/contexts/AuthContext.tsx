@@ -10,6 +10,7 @@ import {
   resetPasswordWithOtp,
 } from "../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
+import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import {
   EMAIL_VALIDATION_MESSAGE,
   FULL_NAME_VALIDATION_MESSAGE,
@@ -90,6 +91,7 @@ const LEGACY_TOKEN_KEY = "token";
 const PENDING_VERIFICATION_EMAIL_KEY = "pending_verification_email";
 const PENDING_VERIFICATION_NAME_KEY = "pending_verification_name";
 const PENDING_VERIFICATION_FLOW_KEY = "pending_verification_flow";
+const POST_VERIFY_REDIRECT_KEY = "post_verify_redirect";
 
 type AccountPreference = "employer" | "worker" | "both";
 
@@ -437,6 +439,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(LEGACY_TOKEN_KEY, token);
       }
       window.dispatchEvent(new Event("auth_user_updated"));
+      sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, getDefaultDashboardPath(newUser));
 
       localStorage.removeItem("pending_account_preference");
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
@@ -449,6 +452,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success("Verification successful!");
       return true;
     } catch (error: any) {
+      sessionStorage.removeItem(POST_VERIFY_REDIRECT_KEY);
       setIsLoading(false);
       toast.error(error?.message || "Invalid OTP");
       return false;
@@ -566,6 +570,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
+    sessionStorage.removeItem(POST_VERIFY_REDIRECT_KEY);
     if (!options?.silent) {
       toast.success("Logged out successfully");
     }

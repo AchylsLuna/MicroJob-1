@@ -320,7 +320,7 @@ const PostJob: React.FC = () => {
               <div>
                 <label className="block text-base font-semibold text-gray-900 mb-2">Salary Range</label>
                 <div className="flex items-center gap-2">
-                  <span className="px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold">PHP</span>
+                  <span className="px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold">₱</span>
                   <input
                     type="text"
                     inputMode="numeric"
@@ -339,7 +339,7 @@ const PostJob: React.FC = () => {
                     required
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Currency is set to PHP automatically.</p>
+                <p className="text-xs text-gray-500 mt-2">Currency is set to ₱ automatically.</p>
               </div>
 
               <div>

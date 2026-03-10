@@ -3,6 +3,7 @@ import { Bell, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { jobsAPI } from "../services/jobs";
 import {
   getNotifications,
   markAllNotificationsRead,
@@ -18,6 +19,8 @@ interface Notification {
   time: string;
   read: boolean;
   link?: string;
+  source: "global" | "application";
+  applicationId?: string;
 }
 
 const formatTimeLabel = (value?: string) => {
@@ -41,6 +44,7 @@ export function NavBar() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
+  const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
   
   const rawAccountOptions = user?.accountOptions;
   const accountOptions: Array<"worker" | "employer"> = Array.isArray(rawAccountOptions)
@@ -78,20 +82,75 @@ export function NavBar() {
 
   const isPath = (...targets: string[]) => matchesAnyPath(path, targets);
   const isExactPath = (...targets: string[]) => targets.some((target) => matchesPath(path, target));
+  const isAppliedJobsPage = isPath(
+    ROUTES.worker.appliedJobs,
+    ROUTES.legacyDashboard.appliedJobs,
+    ROUTES.legacyShortcuts.appliedJobs,
+  );
+
+  useEffect(() => {
+    if (!isAppliedJobsPage) return;
+    let isMounted = true;
+    const loadAppliedCount = async () => {
+      try {
+        const response = await jobsAPI.getUserApplications();
+        const nextCount = Array.isArray(response?.data) ? response.data.length : 0;
+        if (isMounted) setAppliedJobsCount(nextCount);
+      } catch {
+        if (isMounted) setAppliedJobsCount(0);
+      }
+    };
+    loadAppliedCount();
+    return () => {
+      isMounted = false;
+    };
+  }, [isAppliedJobsPage, path]);
 
   const loadNotifications = async () => {
     setNotificationsLoading(true);
     try {
-      const data = await getNotifications({ limit: 10 });
-      const mapped = (Array.isArray(data) ? data : []).map((item: any) => ({
+      const [globalData, applicationData] = await Promise.all([
+        getNotifications({ limit: 10 }).catch(() => [] as any[]),
+        jobsAPI.getUserApplications().then((res) => res.data || []).catch(() => [] as any[]),
+      ]);
+
+      const globalNotifications = (Array.isArray(globalData) ? globalData : []).map((item: any) => ({
         id: item._id || item.id,
         title: item.title || "Notification",
         message: item.message || "",
         time: formatTimeLabel(item.createdAt),
         read: Boolean(item.readAt),
         link: item.link || undefined,
-      })) as Notification[];
-      setNotifications(mapped);
+        source: "global" as const,
+        sortTime: item.createdAt ? new Date(item.createdAt).getTime() : 0,
+      }));
+
+      const applicationNotifications = (Array.isArray(applicationData) ? applicationData : [])
+        .filter((item: any) => ["Shortlisted", "Terms", "Hired", "Accepted"].includes(item?.status))
+        .map((item: any) => {
+          const status = item?.status || "Updated";
+          const jobTitle = item?.job?.title || "a job";
+          const title = status === "Shortlisted" ? "Application Shortlisted" : `Application ${status}`;
+          const message = `Your application for "${jobTitle}" is now ${String(status).toLowerCase()}.`;
+          const sourceTime = item?.updatedAt || item?.createdAt;
+          return {
+            id: `app-${item?._id || Math.random().toString(36).slice(2)}`,
+            applicationId: item?._id,
+            title,
+            message,
+            time: formatTimeLabel(sourceTime),
+            read: Boolean(item?.applicantReadAt),
+            link: item?.job?._id ? ROUTES.worker.jobDetails(item.job._id) : ROUTES.notifications,
+            source: "application" as const,
+            sortTime: sourceTime ? new Date(sourceTime).getTime() : 0,
+          };
+        });
+
+      const merged = [...globalNotifications, ...applicationNotifications]
+        .sort((a, b) => b.sortTime - a.sortTime)
+        .map(({ sortTime, ...notification }) => notification) as Notification[];
+
+      setNotifications(merged);
     } catch {
       // avoid noisy toast when user is not authenticated
     } finally {
@@ -139,15 +198,35 @@ export function NavBar() {
     if (isPath(ROUTES.worker.appliedJobs, ROUTES.legacyDashboard.appliedJobs, ROUTES.legacyShortcuts.appliedJobs)) {
       return {
         title: "Applied Jobs",
-        search: { placeholder: "Search applications...", mode: "query" as const },
+        subtitle: `You have ${appliedJobsCount} job application${appliedJobsCount === 1 ? "" : "s"}.`,
       };
     }
 
-    if (isPath(ROUTES.worker.messages, ROUTES.legacyDashboard.messages, ROUTES.legacyShortcuts.messages)) {
+    if (
+      isPath(
+        ROUTES.worker.messages,
+        ROUTES.legacyDashboard.messages,
+        ROUTES.legacyShortcuts.messages,
+        ROUTES.employer.messages,
+        ROUTES.doctor.messages,
+        ROUTES.legacyDashboard.employer.messages,
+        ROUTES.legacyDashboard.doctor.messages,
+      )
+    ) {
       return { title: "Messages" };
     }
 
-    if (isPath(ROUTES.worker.support, ROUTES.legacyDashboard.support, ROUTES.support)) {
+    if (
+      isPath(
+        ROUTES.worker.support,
+        ROUTES.legacyDashboard.support,
+        ROUTES.support,
+        ROUTES.employer.support,
+        ROUTES.doctor.support,
+        ROUTES.legacyDashboard.employer.support,
+        ROUTES.legacyDashboard.doctor.support,
+      )
+    ) {
       return { title: "Support", search: { placeholder: "Search help...", mode: "query" as const } };
     }
 
@@ -158,15 +237,44 @@ export function NavBar() {
       };
     }
 
-    if (isPath(ROUTES.worker.eWallet, ROUTES.legacyDashboard.eWallet, ROUTES.legacyShortcuts.eWallet)) {
+    if (
+      isPath(
+        ROUTES.worker.eWallet,
+        ROUTES.legacyDashboard.eWallet,
+        ROUTES.legacyShortcuts.eWallet,
+        ROUTES.employer.eWallet,
+        ROUTES.doctor.eWallet,
+        ROUTES.legacyDashboard.employer.eWallet,
+        ROUTES.legacyDashboard.doctor.eWallet,
+      )
+    ) {
       return { title: "E-Wallet" };
     }
 
-    if (isPath(ROUTES.worker.notifications, ROUTES.legacyDashboard.notifications, ROUTES.notifications)) {
-      return { title: "Notifications" };
+    if (
+      isPath(
+        ROUTES.worker.notifications,
+        ROUTES.legacyDashboard.notifications,
+        ROUTES.notifications,
+        ROUTES.employer.notifications,
+        ROUTES.doctor.notifications,
+        ROUTES.legacyDashboard.employer.notifications,
+        ROUTES.legacyDashboard.doctor.notifications,
+      )
+    ) {
+      return { title: "" };
     }
 
-    if (isPath(ROUTES.settings, ROUTES.legacyDashboard.settings)) {
+    if (
+      isPath(
+        ROUTES.settings,
+        ROUTES.legacyDashboard.settings,
+        ROUTES.employer.settings,
+        ROUTES.doctor.settings,
+        ROUTES.legacyDashboard.employer.settings,
+        ROUTES.legacyDashboard.doctor.settings,
+      )
+    ) {
       return { title: "Settings" };
     }
 
@@ -378,19 +486,33 @@ export function NavBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const markAsRead = async (id: string) => {
-    setNotifications(notifications.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  const markAsRead = async (notification: Notification) => {
+    setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
     try {
-      await markNotificationRead(id);
+      if (notification.source === "application" && notification.applicationId) {
+        await jobsAPI.markApplicantRead(notification.applicationId);
+      } else {
+        await markNotificationRead(notification.id);
+      }
     } catch (error: any) {
       toast.error(error?.message || "Failed to mark notification.");
     }
   };
 
   const markAllAsRead = async () => {
-    setNotifications(notifications.map((n) => ({ ...n, read: true })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await markAllNotificationsRead();
+      const unreadApplicationNotifications = notifications.filter(
+        (notification) =>
+          !notification.read && notification.source === "application" && notification.applicationId,
+      );
+
+      await Promise.all([
+        ...unreadApplicationNotifications.map((notification) =>
+          jobsAPI.markApplicantRead(notification.applicationId as string).catch(() => null),
+        ),
+        markAllNotificationsRead().catch(() => null),
+      ]);
       toast.success("All notifications marked as read");
     } catch (error: any) {
       toast.error(error?.message || "Failed to mark all as read.");
@@ -503,7 +625,7 @@ export function NavBar() {
                           !notification.read ? "bg-[#EEF2FF]" : ""
                         }`}
                         onClick={async () => {
-                          await markAsRead(notification.id);
+                          await markAsRead(notification);
                           if (notification.link) {
                             navigate(notification.link);
                           } else {
