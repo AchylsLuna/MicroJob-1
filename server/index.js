@@ -81,6 +81,7 @@ import MessageRoute from './routes/MessageRoute.js';
 import paymentRoutes from './routes/PaymentRoute.js';
 import AlertRoute from './routes/AlertRoute.js';
 import NotificationRoute from './routes/NotificationRoute.js';
+import AdminRoute from './routes/AdminRoute.js';
 
 
 app.get('/', (req, res) => {
@@ -99,6 +100,7 @@ app.use('/api/messages', MessageRoute);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/alerts', AlertRoute);
 app.use('/api/notifications', NotificationRoute);
+app.use('/api/admin', AdminRoute);
 
 const truthy = (value = '') => ['1', 'true', 'yes'].includes(String(value).toLowerCase());
 

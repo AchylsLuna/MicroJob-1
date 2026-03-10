@@ -197,10 +197,6 @@ export function getUserList() {
   return request<any[]>('/users/userlist', { method: 'GET' });
 }
 
-export function getAdminUsers() {
-  return request<any[]>('/users/admins', { method: 'GET' });
-}
-
 export function updateUserStatus(userId: string, status: 'active' | 'pending' | 'disabled') {
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
 }
@@ -451,4 +447,35 @@ export async function uploadAvatar(file: File) {
 
 export function deleteAvatar() {
   return request<any>('/auth/profile/avatar', { method: 'DELETE' });
+}
+
+/**
+ * ADMIN APIS - Data for admin dashboard
+ */
+export function getAdminStats() {
+  return request<any>('/admin/stats', { method: 'GET' });
+}
+
+export function getAdminUsers() {
+  return request<any[]>('/admin/users', { method: 'GET' });
+}
+
+export function getAdminJobs() {
+  return request<any[]>('/admin/jobs', { method: 'GET' });
+}
+
+export function getAdminCategories() {
+  return request<any[]>('/admin/categories', { method: 'GET' });
+}
+
+export function getAdminWalletStats() {
+  return request<any>('/admin/wallets', { method: 'GET' });
+}
+
+export function getAdminRecentPayouts() {
+  return request<any[]>('/admin/recent-payouts', { method: 'GET' });
+}
+
+export function getAdminTransactions() {
+  return request<any[]>('/admin/transactions', { method: 'GET' });
 }
