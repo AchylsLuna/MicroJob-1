@@ -21,11 +21,33 @@ function scrub(obj) {
   return clean;
 }
 
-module.exports = function sanitize(req, res, next) {
+function applyCleanInPlace(target, clean) {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) {
+    return;
+  }
+
+  for (const key of Object.keys(target)) {
+    if (!(key in clean)) {
+      delete target[key];
+    }
+  }
+
+  for (const [key, value] of Object.entries(clean)) {
+    target[key] = value;
+  }
+}
+
+export default function sanitize(req, res, next) {
   try {
-    if (req.body) req.body = scrub(req.body);
-    if (req.query) req.query = scrub(req.query);
-    if (req.params) req.params = scrub(req.params);
+    if (req.body && typeof req.body === 'object') {
+      applyCleanInPlace(req.body, scrub(req.body));
+    }
+    if (req.query && typeof req.query === 'object') {
+      applyCleanInPlace(req.query, scrub(req.query));
+    }
+    if (req.params && typeof req.params === 'object') {
+      applyCleanInPlace(req.params, scrub(req.params));
+    }
   } catch (err) {
     console.warn('Sanitization failed', err);
   }

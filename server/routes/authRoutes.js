@@ -310,7 +310,7 @@ const signupLimiter = rateLimit({
 
 // Login rate limiter to mitigate brute-force attacks
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 5 * 60 * 1000, // 5 minutes
   max: 6, // limit each IP to 6 login requests per windowMs
   message: { message: 'Too many login attempts. Please try again later.' },
   standardHeaders: true,
@@ -320,7 +320,7 @@ const loginLimiter = rateLimit({
 // ==================== Route Handlers ====================
 
 // Apply rate limiting and CSRF protection
-router.post('/register', signupLimiter, csrfProtection, async (req, res) => {
+router.post('/register', signupLimiter, async (req, res) => {
   try {
     const { username, email, password, phoneNumber, firstName, lastName, role } = req.body;
     const normalizedEmail = normalizeEmail(email);
@@ -429,12 +429,12 @@ router.post('/register', signupLimiter, csrfProtection, async (req, res) => {
 
 router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
-router.post('/password-reset/request', csrfProtection, requestPasswordResetOtp);
-router.post('/password-reset/confirm', csrfProtection, resetPasswordWithOtp);
+router.post('/password-reset/request', requestPasswordResetOtp);
+router.post('/password-reset/confirm', resetPasswordWithOtp);
 router.post('/password-change/request', verifyToken, csrfProtection, requestPasswordChangeOtp);
 router.post('/password-change/confirm', verifyToken, csrfProtection, changePasswordWithOtp);
 
-router.post('/login', loginLimiter, csrfProtection, async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { emailOrUsername, password, phoneNumber } = req.body;
     if (!password) {
@@ -513,7 +513,7 @@ router.post('/login', loginLimiter, csrfProtection, async (req, res) => {
   }
 });
 
-router.post('/login/mfa', loginLimiter, csrfProtection, async (req, res) => {
+router.post('/login/mfa', loginLimiter, async (req, res) => {
   try {
     const { mfaToken, code } = req.body || {};
     if (!mfaToken || !code) {
