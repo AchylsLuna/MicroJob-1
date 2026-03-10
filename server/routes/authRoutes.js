@@ -298,8 +298,29 @@ const mfaStatusPayload = (user) => ({
   hasPendingSetup: Boolean(user?.mfaPendingSecret),
 });
 
-// Register a new user (supports both email/username and phone-based registration)
-router.post('/register', async (req, res) => {
+// ==================== Rate Limiters ====================
+// Signup rate limiter to prevent account enumeration and brute-force registration
+const signupLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // limit each IP to 5 registration attempts per hour
+  message: { message: 'Too many registration attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Login rate limiter to mitigate brute-force attacks
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 6, // limit each IP to 6 login requests per windowMs
+  message: { message: 'Too many login attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// ==================== Route Handlers ====================
+
+// Apply rate limiting and CSRF protection
+router.post('/register', signupLimiter, csrfProtection, async (req, res) => {
   try {
     const { username, email, password, phoneNumber, firstName, lastName, role } = req.body;
     const normalizedEmail = normalizeEmail(email);
@@ -408,22 +429,12 @@ router.post('/register', async (req, res) => {
 
 router.post('/otp/send', sendOtp);
 router.post('/otp/verify', verifyOtp);
-router.post('/password-reset/request', requestPasswordResetOtp);
-router.post('/password-reset/confirm', resetPasswordWithOtp);
-router.post('/password-change/request', verifyToken, requestPasswordChangeOtp);
-router.post('/password-change/confirm', verifyToken, changePasswordWithOtp);
+router.post('/password-reset/request', csrfProtection, requestPasswordResetOtp);
+router.post('/password-reset/confirm', csrfProtection, resetPasswordWithOtp);
+router.post('/password-change/request', verifyToken, csrfProtection, requestPasswordChangeOtp);
+router.post('/password-change/confirm', verifyToken, csrfProtection, changePasswordWithOtp);
 
-// Login an existing user (supports email/username and phone)
-// Apply a login rate limiter to mitigate brute-force attacks
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 6, // limit each IP to 6 login requests per windowMs
-  message: { message: 'Too many login attempts. Please try again later.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-router.post('/login', loginLimiter, async (req, res) => {
+router.post('/login', loginLimiter, csrfProtection, async (req, res) => {
   try {
     const { emailOrUsername, password, phoneNumber } = req.body;
     if (!password) {
@@ -502,7 +513,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
-router.post('/login/mfa', loginLimiter, async (req, res) => {
+router.post('/login/mfa', loginLimiter, csrfProtection, async (req, res) => {
   try {
     const { mfaToken, code } = req.body || {};
     if (!mfaToken || !code) {

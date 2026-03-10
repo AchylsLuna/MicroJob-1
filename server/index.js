@@ -10,6 +10,7 @@ import cors from 'cors';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { initSocket } from './lib/socket.js';
 import User from './models/User.js';
+import sanitize from './middleware/sanitize.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -39,6 +40,23 @@ if (process.env.NODE_ENV === 'production') {
     });
 }
 
+// Security Headers: Content Security Policy (CSP) to prevent XSS attacks
+app.use((req, res, next) => {
+    res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';"
+    );
+    // Prevent MIME type sniffing
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // Prevent clickjacking attacks
+    res.setHeader('X-Frame-Options', 'DENY');
+    // Enable XSS protection in older browsers
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    // Control referrer information
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+});
+
 //Connection Config
 const config = {
     PORT: Number(process.env.PORT) || 5000,
@@ -49,12 +67,15 @@ const config = {
 const isProduction = process.env.NODE_ENV === 'production';
 const allowInMemoryMongo = process.env.ENABLE_IN_MEMORY_MONGO !== 'false';
 let inMemoryMongoServer = null;
-app.use (morgan('dev'));
+app.use(morgan('dev'));
 
 app.use(express.json());
 app.use(cookieParser());
 
 app.use(express.urlencoded({ extended: true}));
+
+// Global input sanitization middleware (NoSQL injection prevention)
+app.use(sanitize);
 
 // Allow CORS including PATCH and preflight for the client
 app.use(cors({
