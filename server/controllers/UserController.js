@@ -22,6 +22,9 @@ const otpStore = new Map();
 const passwordResetOtpStore = new Map();
 const passwordChangeOtpStore = new Map();
 const OTP_TTL_MS = 5 * 60 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
+const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
 
 function getEmailTransporter() {
     const host = process.env.SMTP_HOST;
@@ -123,7 +126,6 @@ export async function updateProfile(req, res) {
             "startDate",
             "endDate",
             "logoName",
-            "resumeFileName",
             "about",
             "linkedin",
             "totalExperience",
@@ -270,7 +272,7 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName email role city province address about totalExperience companyName avatarUrl resumeUrl resumeFileName skills jobsApplied projectsCompleted successRate"
+            "firstName lastName role city province address about totalExperience companyName avatarUrl skills jobsApplied projectsCompleted successRate"
         );
 
         if (!user) {
@@ -298,7 +300,6 @@ export async function getPublicProfile(req, res) {
                 id: user._id,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                email: user.email,
                 role: user.role,
                 city: user.city,
                 province: user.province,
@@ -307,8 +308,6 @@ export async function getPublicProfile(req, res) {
                 totalExperience: user.totalExperience,
                 companyName: user.companyName,
                 avatarUrl: user.avatarUrl,
-                resumeUrl: user.resumeUrl,
-                resumeFileName: user.resumeFileName,
                 skills: Array.isArray(user.skills) ? user.skills : [],
             },
             rating: {
@@ -358,13 +357,14 @@ export async function sendOtp(req, res) {
 
         // Keep existing "not found" behavior when lookup succeeds.
         if (!user && !userLookupFailed) {
-            return res.status(404).json({ message: "User not found." });
+            return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         otpStore.set(normalizedEmail, {
             code,
             expiresAt: Date.now() + OTP_TTL_MS,
+            attempts: 0,
         });
 
         const transporter = getEmailTransporter();
@@ -374,7 +374,7 @@ export async function sendOtp(req, res) {
             }
             console.warn(`SMTP is not configured. Development OTP for ${normalizedEmail}: ${code}`);
             return res.status(200).json({
-                message: "OTP generated for development.",
+                message: OTP_GENERIC_MESSAGE,
                 code,
             });
         }
@@ -399,9 +399,9 @@ export async function sendOtp(req, res) {
         });
 
         if (process.env.NODE_ENV === "production") {
-            return res.status(200).json({ message: "OTP sent." });
+            return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
         }
-        return res.status(200).json({ message: "OTP sent.", code });
+        return res.status(200).json({ message: OTP_GENERIC_MESSAGE, code });
     } catch (error) {
         console.error("Send OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
@@ -428,7 +428,16 @@ export async function verifyOtp(req, res) {
             return res.status(400).json({ message: "OTP expired." });
         }
 
+        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
+            otpStore.delete(key);
+            return res.status(429).json({ message: "Too many invalid attempts. Request a new OTP." });
+        }
+
         if (record.code !== code) {
+            otpStore.set(key, {
+                ...record,
+                attempts: (record.attempts || 0) + 1,
+            });
             return res.status(400).json({ message: "Invalid OTP." });
         }
 
@@ -489,15 +498,16 @@ export async function requestPasswordResetOtp(req, res) {
             return res.status(400).json({ message: "Email is required." });
         }
 
-        const user = await User.findOne({ email: normalizedEmail });
+        const user = await User.findOne({ email: normalizedEmail }).select("firstName email");
         if (!user) {
-            return res.status(404).json({ message: "Email is not registered or not found." });
+            return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
         }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         passwordResetOtpStore.set(normalizedEmail, {
             code,
             expiresAt: Date.now() + OTP_TTL_MS,
+            attempts: 0,
         });
 
         const transporter = getEmailTransporter();
@@ -525,7 +535,7 @@ export async function requestPasswordResetOtp(req, res) {
             html,
         });
 
-        return res.status(200).json({ message: "Password reset OTP sent." });
+        return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
     } catch (error) {
         console.error("Request password reset OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
@@ -557,7 +567,16 @@ export async function resetPasswordWithOtp(req, res) {
             return res.status(400).json({ message: "Reset code expired." });
         }
 
+        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
+            passwordResetOtpStore.delete(normalizedEmail);
+            return res.status(429).json({ message: "Too many invalid attempts. Request a new reset code." });
+        }
+
         if (record.code !== normalizedCode) {
+            passwordResetOtpStore.set(normalizedEmail, {
+                ...record,
+                attempts: (record.attempts || 0) + 1,
+            });
             return res.status(400).json({ message: "Invalid reset code." });
         }
 
@@ -605,6 +624,7 @@ export async function requestPasswordChangeOtp(req, res) {
             code,
             expiresAt: Date.now() + OTP_TTL_MS,
             userId: String(user._id),
+            attempts: 0,
         });
 
         const transporter = getEmailTransporter();
@@ -679,11 +699,19 @@ export async function changePasswordWithOtp(req, res) {
             passwordChangeOtpStore.delete(emailKey);
             return res.status(400).json({ message: "Password change code expired." });
         }
+        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
+            passwordChangeOtpStore.delete(emailKey);
+            return res.status(429).json({ message: "Too many invalid attempts. Request a new code." });
+        }
         if (String(record.userId) !== String(user._id)) {
             passwordChangeOtpStore.delete(emailKey);
             return res.status(400).json({ message: "Invalid password change code." });
         }
         if (record.code !== normalizedCode) {
+            passwordChangeOtpStore.set(emailKey, {
+                ...record,
+                attempts: (record.attempts || 0) + 1,
+            });
             return res.status(400).json({ message: "Invalid password change code." });
         }
 

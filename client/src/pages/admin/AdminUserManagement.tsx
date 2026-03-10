@@ -238,7 +238,7 @@ function AdminUserManagementContent() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  navigate(ROUTES.worker.messages, {
+                                  navigate(ROUTES.admin.messages, {
                                     state: { userId: user._id, name: getUserName(user) },
                                   });
                                   setOpenMenuId(null);

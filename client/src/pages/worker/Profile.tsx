@@ -154,8 +154,8 @@ export function Profile() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("auth_token") || localStorage.getItem("token")}`,
         },
+        credentials: "include",
         body: JSON.stringify({
           name: newSkillName,
           level: newSkillLevel,
@@ -181,9 +181,7 @@ export function Profile() {
     try {
       const response = await fetch(`/api/auth/profile/skills/${skillId}`, {
         method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("auth_token") || localStorage.getItem("token")}`,
-        },
+        credentials: "include",
       });
       if (!response.ok) throw new Error("Failed to delete skill");
       const data = await response.json();

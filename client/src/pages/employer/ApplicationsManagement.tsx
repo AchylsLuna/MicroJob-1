@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLink, ArrowLeft, ArrowRight } from "lucide-react";
+import { Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLink, ArrowLeft, ArrowRight } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { getEmployerApplications, updateApplicationStatus } from "../../services/api";
 import { useNavigate } from "react-router-dom";
@@ -105,7 +105,7 @@ function StatusBadge({ status }: StatusBadgeProps) {
   const styles = getStatusStyles();
 
   return (
-    <span className={`${styles.bg} ${styles.text} px-3 py-1 rounded-full text-[12px] font-medium`}>
+    <span className={`${styles.bg} ${styles.text} px-3 py-1 rounded-full text-xs font-medium`}>
       {styles.label}
     </span>
   );
@@ -133,11 +133,11 @@ function ApplicationCard({
   const resolvedResumeUrl = toAbsoluteAssetUrl(application.resumeUrl || application.resume);
 
   return (
-    <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
+    <div className="ui-card p-6 transition-shadow hover:shadow-md">
       <div className="flex items-start gap-4">
         {/* Avatar */}
         <div className={`${avatarColor} rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0`}>
-          <span className="text-[#1F2937] font-semibold text-[16px]">{initials}</span>
+          <span className="text-base font-semibold text-slate-800">{initials}</span>
         </div>
 
         {/* Content */}
@@ -145,35 +145,35 @@ function ApplicationCard({
           {/* Header */}
           <div className="flex items-start justify-between gap-4 mb-2">
             <div>
-              <h3 className="font-semibold text-[16px] text-[#111827]">{application.name}</h3>
+              <h3 className="text-base font-semibold text-slate-900">{application.name}</h3>
               <div className="flex items-center gap-2 mt-1">
-                <Mail className="w-4 h-4 text-[#6B7280]" />
-                <span className="text-[14px] text-[#6B7280]">{application.email}</span>
+                <Mail className="w-4 h-4 text-slate-500" />
+                <span className="text-sm text-slate-500">{application.email}</span>
               </div>
             </div>
             <StatusBadge status={application.status} />
           </div>
 
           {/* Position */}
-          <p className="text-[14px] text-[#4B5563] mb-3">
-            Applied for: <span className="font-semibold text-[#111827]">{application.position}</span> at {application.company}
+          <p className="mb-3 text-sm text-slate-600">
+            Applied for: <span className="font-semibold text-slate-900">{application.position}</span> at {application.company}
           </p>
 
           {/* Cover Letter */}
-          <p className="text-[14px] text-[#6B7280] leading-relaxed mb-4">
+          <p className="mb-4 text-sm leading-relaxed text-slate-500">
             {application.coverLetter}
           </p>
 
           {/* Footer */}
-          <div className="flex items-center justify-between pt-3 border-t border-[#E5E7EB]">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-[#6B7280] text-[14px]">
+          <div className="flex flex-col gap-3 border-t border-slate-200 pt-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
                 <Calendar className="w-4 h-4" />
                 <span>{application.appliedDate}</span>
               </div>
               {resolvedResumeUrl ? (
                 <a
-                  className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors"
+                  className="flex items-center gap-1 text-sm font-medium text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
                   href={resolvedResumeUrl}
                   target="_blank"
                   rel="noreferrer"
@@ -183,20 +183,20 @@ function ApplicationCard({
                   <ExternalLink className="w-3 h-3" />
                 </a>
               ) : (
-                <span className="flex items-center gap-1 text-[#94A3B8] text-[14px] font-medium">
+                <span className="flex items-center gap-1 text-sm font-medium text-slate-400">
                   <FileText className="w-4 h-4" />
                   No Resume
                 </span>
               )}
               <button
-                className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors"
+                className="flex items-center gap-1 text-sm font-medium text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
                 onClick={() => onToggleProfile(application.id)}
               >
                 <UserIcon className="w-4 h-4" />
                 {isExpanded ? "Hide Profile" : "View Profile"}
               </button>
               <button
-                className="flex items-center gap-1 text-[#0F766E] text-[14px] font-medium hover:text-[#115E59] transition-colors"
+                className="flex items-center gap-1 text-sm font-medium text-[#0F766E] transition-colors hover:text-[#115E59]"
                 onClick={() => onViewPublicProfile(application)}
               >
                 <ExternalLink className="w-4 h-4" />
@@ -204,7 +204,7 @@ function ApplicationCard({
               </button>
               {application.applicantId && (
                 <button
-                  className="flex items-center gap-1 text-[#2563EB] text-[14px] font-medium hover:text-[#1D4ED8] transition-colors"
+                  className="flex items-center gap-1 text-sm font-medium text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
                   onClick={() => onMessage(application)}
                 >
                   💬 Message
@@ -216,7 +216,7 @@ function ApplicationCard({
             <select
               value={application.status}
               onChange={(e) => onStatusChange(application.id, e.target.value as Exclude<ApplicationStatus, "all">)}
-              className="px-4 py-2 border border-[#D1D5DB] rounded-lg text-[14px] text-[#374151] bg-white hover:bg-gray-50 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent"
+              className="h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm text-slate-700 outline-none transition hover:bg-slate-50 focus:border-transparent focus:ring-2 focus:ring-[#4F46E5]"
             >
               <option value="shortlisted">Shortlisted</option>
               <option value="interviewed">To Be Interview</option>
@@ -226,36 +226,36 @@ function ApplicationCard({
           </div>
 
           {isExpanded && (
-            <div className="mt-4 rounded-[10px] border border-[#E2E8F0] bg-[#F8FAFC] p-4">
+            <div className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 p-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                 <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
-                  <p className="text-[11px] text-[#64748B]">Applied Jobs</p>
-                  <p className="text-[16px] font-bold text-[#1D4ED8]">{application.jobsApplied ?? 0}</p>
+                  <p className="text-xs text-[#64748B]">Applied Jobs</p>
+                  <p className="text-base font-bold text-[#1D4ED8]">{application.jobsApplied ?? 0}</p>
                 </div>
                 <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
-                  <p className="text-[11px] text-[#64748B]">Completed Jobs</p>
-                  <p className="text-[16px] font-bold text-[#1D4ED8]">{application.projectsCompleted ?? 0}</p>
+                  <p className="text-xs text-[#64748B]">Completed Jobs</p>
+                  <p className="text-base font-bold text-[#1D4ED8]">{application.projectsCompleted ?? 0}</p>
                 </div>
                 <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
-                  <p className="text-[11px] text-[#64748B]">Success Rate</p>
-                  <p className="text-[16px] font-bold text-[#1D4ED8]">{application.successRate || "0%"}</p>
+                  <p className="text-xs text-[#64748B]">Success Rate</p>
+                  <p className="text-base font-bold text-[#1D4ED8]">{application.successRate || "0%"}</p>
                 </div>
               </div>
               {application.city || application.province ? (
-                <p className="text-[13px] text-[#475569] mb-1">
+                <p className="text-sm text-[#475569] mb-1">
                   Location: {[application.city, application.province].filter(Boolean).join(', ')}
                 </p>
               ) : null}
               {application.totalExperience ? (
-                <p className="text-[13px] text-[#475569] mb-1">Experience: {application.totalExperience}</p>
+                <p className="text-sm text-[#475569] mb-1">Experience: {application.totalExperience}</p>
               ) : null}
-              {application.about ? <p className="text-[13px] text-[#475569]">About: {application.about}</p> : null}
+              {application.about ? <p className="text-sm text-[#475569]">About: {application.about}</p> : null}
               {application.skills && application.skills.length > 0 ? (
                 <div className="mt-3">
-                  <p className="text-[12px] font-semibold text-[#334155] mb-2">Skills</p>
+                  <p className="text-xs font-semibold text-[#334155] mb-2">Skills</p>
                   <div className="flex flex-wrap gap-2">
                     {application.skills.map((skill) => (
-                      <span key={skill} className="px-2 py-1 rounded-full text-[11px] bg-[#E0E7FF] text-[#3730A3]">
+                      <span key={skill} className="px-2 py-1 rounded-full text-xs bg-[#E0E7FF] text-[#3730A3]">
                         {skill}
                       </span>
                     ))}
@@ -268,7 +268,7 @@ function ApplicationCard({
                     href={resolvedResumeUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-[13px] font-medium text-[#2563EB] hover:text-[#1D4ED8]"
+                    className="text-sm font-medium text-[#2563EB] hover:text-[#1D4ED8]"
                   >
                     Open Resume {application.resumeFileName ? `(${application.resumeFileName})` : ''}
                   </a>
@@ -284,7 +284,6 @@ function ApplicationCard({
 
 export function ApplicationsManagement() {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<ApplicationStatus>("all");
   const [jobFilter, setJobFilter] = useState("all");
   const [applications, setApplications] = useState<Application[]>([]);
@@ -448,18 +447,13 @@ export function ApplicationsManagement() {
   };
 
   const filteredApplications = applications.filter((app) => {
-    const matchesSearch =
-      app.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      app.position.toLowerCase().includes(searchQuery.toLowerCase());
-
     const matchesStatus = statusFilter === "all" || app.status === statusFilter;
     const matchesJob =
       jobFilter === "all" ||
       app.jobId === jobFilter ||
       (!app.jobId && app.position === jobFilter);
 
-    return matchesSearch && matchesStatus && matchesJob;
+    return matchesStatus && matchesJob;
   });
 
   const totalPages = Math.max(1, Math.ceil(filteredApplications.length / pageSize));
@@ -474,7 +468,7 @@ export function ApplicationsManagement() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, jobFilter]);
+  }, [statusFilter, jobFilter]);
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -483,29 +477,18 @@ export function ApplicationsManagement() {
   }, [currentPage, totalPages]);
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-6">
+    <div className="ui-page px-4 md:px-0 pb-16">
       {/* Search and Filter Bar */}
-      <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-4">
+      <div className="ui-card p-4">
         <div className="flex flex-col md:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
-            <input
-              type="text"
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-[#D1D5DB] rounded-lg pl-12 pr-4 py-2.5 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent"
-            />
-          </div>
 
           {/* Status Filter */}
-          <div className="relative min-w-[180px]">
+          <div className="relative min-w-[180px] md:w-[220px]">
             <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus)}
-              className="w-full bg-white border border-[#D1D5DB] rounded-lg pl-10 pr-10 py-2.5 text-[14px] text-[#111827] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent appearance-none cursor-pointer"
+              className="h-11 w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white pl-10 pr-10 text-sm text-slate-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-[#4F46E5]"
             >
               <option value="all">All Statuses</option>
               <option value="shortlisted">Shortlisted</option>
@@ -521,11 +504,11 @@ export function ApplicationsManagement() {
           </div>
 
           {/* Job Filter */}
-          <div className="relative min-w-[180px]">
+          <div className="relative min-w-[180px] md:w-[260px]">
             <select
               value={jobFilter}
               onChange={(e) => setJobFilter(e.target.value)}
-              className="w-full bg-white border border-[#D1D5DB] rounded-lg px-4 pr-10 py-2.5 text-[14px] text-[#111827] outline-none focus:ring-2 focus:ring-[#4F46E5] focus:border-transparent appearance-none cursor-pointer"
+              className="h-11 w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-[#4F46E5]"
             >
               <option value="all">All Jobs</option>
               {jobOptions.map((job) => (
@@ -546,13 +529,13 @@ export function ApplicationsManagement() {
       {/* Applications List */}
       <div className="space-y-4">
         {isLoading ? (
-          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
-            <p className="text-[#6B7280] text-[16px]">Loading applications...</p>
+          <div className="ui-card p-12 text-center">
+            <p className="text-base text-slate-500">Loading applications...</p>
           </div>
         ) : loadError ? (
-          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
-            <p className="text-[#6B7280] text-[16px]">{loadError}</p>
-            <p className="text-[#9CA3AF] text-[14px] mt-2">Please try again later.</p>
+          <div className="ui-card p-12 text-center">
+            <p className="text-base text-slate-500">{loadError}</p>
+            <p className="mt-2 text-sm text-slate-400">Please try again later.</p>
           </div>
         ) : pagedApplications.length > 0 ? (
           pagedApplications.map((application) => (
@@ -567,19 +550,19 @@ export function ApplicationsManagement() {
             />
           ))
         ) : (
-          <div className="bg-white rounded-[12px] border border-[#E5E7EB] p-12 text-center">
-            <p className="text-[#6B7280] text-[16px]">No applications found</p>
-            <p className="text-[#9CA3AF] text-[14px] mt-2">Try adjusting your search or filter criteria</p>
+          <div className="ui-card p-12 text-center">
+            <p className="text-base text-slate-500">No applications found</p>
+            <p className="mt-2 text-sm text-slate-400">Try adjusting your search or filter criteria</p>
           </div>
         )}
       </div>
 
       {filteredApplications.length > 0 && (
-        <div className="bg-white rounded-[12px] border border-[#E5E7EB] px-6 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="ui-card flex flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
           <button
             onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}
-            className="flex items-center gap-3 text-[14px] text-[#4F46E5] hover:text-[#4338CA] font-semibold disabled:text-[#94A3B8]"
+            className="flex items-center gap-3 text-sm text-[#4F46E5] hover:text-[#4338CA] font-semibold disabled:text-[#94A3B8]"
           >
             <ArrowLeft className="w-4 h-4" />
             Go to page {String(1).padStart(2, "0")}
@@ -596,14 +579,14 @@ export function ApplicationsManagement() {
             <button
               onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
               disabled={currentPage === totalPages}
-              className="flex items-center gap-3 px-6 py-2.5 rounded-full bg-[#4F46E5] text-white text-[14px] font-semibold hover:bg-[#4338CA] disabled:opacity-50"
+              className="flex h-11 items-center gap-3 rounded-full bg-[#4F46E5] px-6 text-sm font-semibold text-white hover:bg-[#4338CA] disabled:opacity-50"
             >
               Next Page
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="flex items-center gap-3 text-[14px] text-[#6B7280]">
+          <div className="flex items-center gap-3 text-sm text-[#6B7280]">
             <span>Page</span>
             <input
               type="text"
@@ -620,7 +603,7 @@ export function ApplicationsManagement() {
                   setCurrentPage(Math.min(Math.max(1, value), totalPages));
                 }
               }}
-              className="w-[72px] text-center border border-[#E5E7EB] rounded-full px-3 py-2 text-[14px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+              className="h-11 w-[72px] rounded-full border border-[#E5E7EB] px-3 text-center text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
             />
             <span>of {String(totalPages).padStart(2, "0")}</span>
           </div>

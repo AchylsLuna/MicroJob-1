@@ -5,20 +5,14 @@ const API_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE ||
 
 const api = axios.create({
   baseURL: API_URL,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add token to requests
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
+  (config: InternalAxiosRequestConfig) => config,
   (error: AxiosError) => Promise.reject(error)
 );
 
@@ -27,8 +21,8 @@ api.interceptors.response.use(
   (error: AxiosError<{ message?: string }>) => {
     const status = error.response?.status;
     const message = error.response?.data?.message || error.message;
-    const hasToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
-    if (isInvalidTokenError({ status, message, path: error.config?.url, hasToken })) {
+    const hasSession = Boolean(localStorage.getItem("auth_user") || localStorage.getItem("current_user"));
+    if (isInvalidTokenError({ status, message, path: error.config?.url, hasToken: hasSession })) {
       handleInvalidSession();
     }
     return Promise.reject(error);

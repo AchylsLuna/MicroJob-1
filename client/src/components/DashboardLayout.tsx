@@ -9,7 +9,7 @@ export function DashboardLayout() {
       <Sidebar />
       <div className={webUi.layout.content}>
         <NavBar />
-        <main className={webUi.layout.main}>
+        <main className={`${webUi.layout.main} dashboard-scope`}>
           <Outlet />
         </main>
       </div>

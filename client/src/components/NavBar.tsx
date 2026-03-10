@@ -43,7 +43,6 @@ export function NavBar() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [dashboardSearch, setDashboardSearch] = useState("");
   const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
   
   const rawAccountOptions = user?.accountOptions;
@@ -160,29 +159,11 @@ export function NavBar() {
 
   type PageMeta =
     | { title: string; subtitle?: string; icon?: ReactNode; search?: undefined }
-    | {
-        title: string;
-        subtitle?: string;
-        icon?: ReactNode;
-        search: { placeholder: string; mode: "query" };
-      }
-    | {
-        title: string;
-        subtitle?: string;
-        icon?: ReactNode;
-        search: { placeholder: string; mode: "redirect"; redirectTo: string };
-      };
+    | { title: string; subtitle?: string; icon?: ReactNode; search: { placeholder: string; mode: "query" } };
 
   const pageMeta: PageMeta = (() => {
     if (isPath(ROUTES.worker.dashboard, ROUTES.legacyDashboard.root)) {
-      return {
-        title: "Dashboard",
-        search: {
-          placeholder: "Search by skills, name, or expertise...",
-          mode: "redirect" as const,
-          redirectTo: ROUTES.worker.findJobs,
-        },
-      };
+      return { title: "Dashboard" };
     }
 
     if (
@@ -208,8 +189,10 @@ export function NavBar() {
         ROUTES.legacyDashboard.messages,
         ROUTES.legacyShortcuts.messages,
         ROUTES.employer.messages,
+        ROUTES.admin.messages,
         ROUTES.doctor.messages,
         ROUTES.legacyDashboard.employer.messages,
+        ROUTES.legacyDashboard.admin.messages,
         ROUTES.legacyDashboard.doctor.messages,
       )
     ) {
@@ -262,7 +245,10 @@ export function NavBar() {
         ROUTES.legacyDashboard.doctor.notifications,
       )
     ) {
-      return { title: "" };
+      return {
+        title: "Notifications",
+        subtitle: "Application updates, messages, and payments",
+      };
     }
 
     if (
@@ -293,8 +279,8 @@ export function NavBar() {
       )
     ) {
       return {
-        title: "Overview",
-        subtitle: "Manage your job postings and candidate applications",
+        title: "Employer Dashboard",
+        subtitle: "Monitor your hiring pipeline and recent activity.",
       };
     }
 
@@ -308,7 +294,7 @@ export function NavBar() {
     ) {
       return {
         title: "Applications",
-        search: { placeholder: "Search applications...", mode: "query" as const },
+        subtitle: "Review applicants and update hiring status.",
       };
     }
 
@@ -423,26 +409,11 @@ export function NavBar() {
     return { title: "" };
   })();
 
-  const searchValue =
-    pageMeta.search?.mode === "query" ? searchParams.get("q") ?? "" : dashboardSearch;
+  const searchValue = pageMeta.search?.mode === "query" ? searchParams.get("q") ?? "" : "";
 
   const handleSearchChange = (value: string) => {
     if (pageMeta.search?.mode === "query") {
       setSearchParams(value ? { q: value } : {});
-    } else {
-      setDashboardSearch(value);
-    }
-  };
-
-  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key !== "Enter") return;
-    if (pageMeta.search?.mode === "redirect") {
-      const trimmed = dashboardSearch.trim();
-      navigate(
-        trimmed
-          ? `${pageMeta.search.redirectTo}?q=${encodeURIComponent(trimmed)}`
-          : pageMeta.search.redirectTo,
-      );
     }
   };
 
@@ -571,7 +542,6 @@ export function NavBar() {
                 type="text"
                 value={searchValue}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                onKeyDown={handleSearchKeyDown}
                 placeholder={pageMeta.search.placeholder}
                 className={webUi.navbar.searchInput}
               />

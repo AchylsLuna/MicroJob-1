@@ -148,18 +148,18 @@ export function JobsManagement() {
   };
 
   return (
-    <div className="max-w-[1341px] mx-auto space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="ui-page px-4 md:px-0 pb-16">
+      <div className="ui-page-header">
         <div>
-          <h2 className="font-semibold text-[20px] text-[#111827]">Jobs Management</h2>
-          <p className="text-[14px] text-[#6B7280] mt-1">
+          <h1 className="ui-page-title">Jobs Management</h1>
+          <p className="ui-page-subtitle">
             Track job postings, candidate matches, and hiring progress.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => navigate(ROUTES.employer.applications)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-[#E5E7EB] text-[#1F2937] font-medium text-[13px] rounded-[10px] hover:bg-gray-50 transition-all"
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <Users className="w-4 h-4" />
             View Applications
@@ -169,28 +169,28 @@ export function JobsManagement() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {isLoading && (
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-            <p className="text-[14px] text-[#6B7280]">Loading job postings...</p>
+          <div className="ui-card p-6">
+            <p className="text-sm text-slate-500">Loading job postings...</p>
           </div>
         )}
         {loadError && !isLoading && (
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-            <p className="text-[14px] text-[#6B7280]">{loadError}</p>
+          <div className="ui-card p-6">
+            <p className="text-sm text-slate-500">{loadError}</p>
           </div>
         )}
         {!isLoading && !loadError && jobs.map((job) => (
           <div
             key={job.id}
-            className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-lg transition-all"
+            className="ui-card p-6 transition-all hover:shadow-lg"
           >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full text-[11px] font-semibold flex items-center gap-1 ${getStatusStyle(job.status)}`}>
+                    <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(job.status)}`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
                       {job.status}
                     </span>
-                    <span className="text-[12px] text-gray-600">{job.department}</span>
+                    <span className="text-xs text-slate-500">{job.department}</span>
                   </div>
                   <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                     <MoreVertical className="w-4 h-4 text-gray-400" />
@@ -201,11 +201,11 @@ export function JobsManagement() {
                 <div className="mb-4">
                   <div className="flex items-start gap-3">
                     <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center flex-shrink-0">
-                      <span className="text-white text-[18px]">⚛</span>
+                      <span className="text-white text-base">⚛</span>
                     </div>
                     <div>
-                      <h3 className="font-semibold text-[16px] text-gray-900 mb-1">{job.title}</h3>
-                      <div className="flex items-center gap-3 text-[12px] text-gray-500">
+                      <h3 className="mb-1 text-base font-semibold text-slate-900">{job.title}</h3>
+                      <div className="flex items-center gap-3 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
                           {job.location}
@@ -244,66 +244,66 @@ export function JobsManagement() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className={`font-bold text-[14px] ${getMatchColor(job.matchPercentage)}`}>
+                      <span className={`text-sm font-bold ${getMatchColor(job.matchPercentage)}`}>
                         {job.matchPercentage}%
                       </span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-[13px] font-semibold text-gray-900">{job.matchQuality}</p>
-                    <p className="text-[12px] text-gray-500">Match quality</p>
+                    <p className="text-sm font-semibold text-slate-900">{job.matchQuality}</p>
+                    <p className="text-xs text-slate-500">Match quality</p>
                   </div>
                 </div>
 
                 {/* Stats */}
                 <div className="space-y-3 mb-4 pb-4 border-b border-gray-100">
                   <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-600 flex items-center gap-2">
+                    <span className="flex items-center gap-2 text-sm text-slate-600">
                       <TrendingUp className="w-4 h-4 text-[#9CA3AF]" />
                       Salary
                     </span>
-                    <span className="text-[13px] font-semibold text-gray-900">{job.salary}</span>
+                    <span className="text-sm font-semibold text-slate-900">{job.salary}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-600 flex items-center gap-2">
+                    <span className="flex items-center gap-2 text-sm text-slate-600">
                       <Users className="w-4 h-4 text-[#9CA3AF]" />
                       Candidates Applied
                     </span>
-                    <span className="text-[13px] font-semibold text-gray-900">{job.candidatesApplied}</span>
+                    <span className="text-sm font-semibold text-slate-900">{job.candidatesApplied}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-[12px] text-gray-600 flex items-center gap-2">
+                    <span className="flex items-center gap-2 text-sm text-slate-600">
                       <MessageSquare className="w-4 h-4 text-[#9CA3AF]" />
                       Completed Interview
                     </span>
-                    <span className="text-[13px] font-semibold text-gray-900">{job.completedInterviews}</span>
+                    <span className="text-sm font-semibold text-slate-900">{job.completedInterviews}</span>
                   </div>
                 </div>
 
                 {/* Tags */}
                 <div className="flex flex-wrap gap-2 mb-4">
-                  <span className="px-2 py-1 bg-amber-100 text-amber-700 text-[11px] font-medium rounded">
+                  <span className="rounded px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700">
                     {job.tags.workLocation}
                   </span>
-                  <span className="px-2 py-1 bg-purple-100 text-purple-700 text-[11px] font-medium rounded">
+                  <span className="rounded px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700">
                     {job.tags.workType}
                   </span>
-                  <span className="px-2 py-1 bg-green-100 text-green-700 text-[11px] font-medium rounded">
+                  <span className="rounded px-2 py-1 text-xs font-medium bg-green-100 text-green-700">
                     {job.tags.experience}
                   </span>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-700 text-[11px] font-medium rounded">
+                  <span className="rounded px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700">
                     {job.tags.positions}
                   </span>
                 </div>
 
                 {/* Footer */}
                 <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-gray-500">
-                    Created by <span className="font-semibold text-gray-900">{job.createdBy}</span>
+                  <span className="text-sm text-slate-500">
+                    Created by <span className="font-semibold text-slate-900">{job.createdBy}</span>
                   </span>
                   <button
                     onClick={() => navigate(ROUTES.employer.applications)}
-                    className="text-[13px] text-[#1C4D8D] hover:text-[#0F2954] font-semibold inline-flex items-center gap-1"
+                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#1C4D8D] hover:text-[#0F2954]"
                   >
                     View details
                     <ArrowRight className="w-3.5 h-3.5" />
@@ -312,8 +312,8 @@ export function JobsManagement() {
           </div>
         ))}
         {!isLoading && !loadError && jobs.length === 0 && (
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-            <p className="text-[14px] text-[#6B7280]">No job postings found.</p>
+          <div className="ui-card p-6">
+            <p className="text-sm text-slate-500">No job postings found.</p>
           </div>
         )}
       </div>

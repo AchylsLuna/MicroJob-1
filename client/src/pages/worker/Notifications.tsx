@@ -187,11 +187,7 @@ export default function NotificationsPage() {
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-semibold text-[20px] text-[#111827]">Notifications</h2>
-          <p className="text-[14px] text-[#6B7280] mt-1">Application updates, messages, and payments</p>
-        </div>
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-3">
           <button onClick={markAll} className="text-sm text-blue-600 font-semibold hover:text-blue-700">Mark all as read</button>
           <button onClick={fetchNotifications} className="text-sm text-gray-600 hover:text-gray-700">Refresh</button>

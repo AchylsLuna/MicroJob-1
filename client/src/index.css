@@ -35,6 +35,10 @@
 :root {
 	color-scheme: light;
 	--app-font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+	--ui-title-size: clamp(1.875rem, 2.2vw, 2.25rem);
+	--ui-subtitle-size: 1rem;
+	--ui-control-height: 2.75rem;
+	--ui-control-font-size: 0.95rem;
 }
 
 * {
@@ -57,4 +61,53 @@ input,
 textarea,
 select {
 	font: inherit;
+}
+
+#root {
+	min-height: 100vh;
+}
+
+@layer components {
+	.dashboard-scope {
+		font-family: var(--app-font-family);
+	}
+
+	.dashboard-scope .ui-page {
+		@apply mx-auto max-w-[1341px] space-y-6;
+	}
+
+	.dashboard-scope .ui-page-header {
+		@apply flex flex-wrap items-start justify-between gap-4;
+	}
+
+	.dashboard-scope .ui-page-title {
+		font-size: var(--ui-title-size);
+		@apply font-bold tracking-tight text-slate-900 leading-tight;
+	}
+
+	.dashboard-scope .ui-page-subtitle {
+		font-size: var(--ui-subtitle-size);
+		@apply mt-1 text-slate-500;
+	}
+
+	.dashboard-scope .ui-card {
+		@apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+	}
+
+	.dashboard-scope :where(
+		input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+		select
+	) {
+		min-height: var(--ui-control-height);
+		font-size: var(--ui-control-font-size);
+	}
+
+	.dashboard-scope textarea {
+		min-height: 6.25rem;
+		font-size: var(--ui-control-font-size);
+	}
+
+	.dashboard-scope label {
+		@apply text-sm font-semibold text-slate-700;
+	}
 }

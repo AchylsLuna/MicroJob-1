@@ -78,12 +78,18 @@ const InactivityHandler: React.FC = () => {
   }, []);
 
   const isAuthenticated = useCallback(() => {
-    return Boolean(localStorage.getItem("auth_token"));
+    return Boolean(localStorage.getItem("auth_user") || localStorage.getItem("current_user"));
   }, []);
 
   const performLogout = useCallback(() => {
+    fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    }).catch(() => undefined);
     localStorage.removeItem("auth_user");
+    localStorage.removeItem("current_user");
     localStorage.removeItem("auth_token");
+    localStorage.removeItem("token");
     localStorage.removeItem("pending_verification_email");
     window.dispatchEvent(new Event("auth_user_updated"));
     setShowWarning(false);
@@ -332,6 +338,7 @@ const App: React.FC = () => {
               element={<PreserveRedirect to={ROUTES.admin.dashboard} />}
             />
             <Route path={ROUTES.admin.dashboard} element={<AdminDashboard />} />
+            <Route path={ROUTES.admin.messages} element={<WorkerMessages />} />
             <Route path={ROUTES.admin.analytics} element={<AdminAnalytics />} />
             <Route path={ROUTES.admin.reports} element={<AdminReports />} />
             <Route path={ROUTES.admin.eWallet} element={<AdminEWalletMonitoring />} />
@@ -470,6 +477,10 @@ const App: React.FC = () => {
           <Route
             path={ROUTES.legacyDashboard.admin.root}
             element={<PreserveRedirect to={ROUTES.admin.dashboard} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.messages}
+            element={<PreserveRedirect to={ROUTES.admin.messages} />}
           />
           <Route
             path={ROUTES.legacyDashboard.admin.analytics}

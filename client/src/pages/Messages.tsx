@@ -211,7 +211,9 @@ export default function Messages() {
   useEffect(() => {
     // determine socket URL: prefer explicit env, else derive from API_BASE or origin
     const socketUrl = (import.meta.env.VITE_SOCKET_URL as string) || (API_BASE && API_BASE.startsWith('http') ? API_BASE.replace(/\/api\/?$/, '') : window.location.origin);
-    const socket = io(socketUrl);
+    const socket = io(socketUrl, {
+      withCredentials: true,
+    });
     socketRef.current = socket;
 
     const raw = localStorage.getItem('auth_user');
@@ -265,9 +267,8 @@ export default function Messages() {
   const fetchConversations = useCallback(async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth_token');
       const response = await fetch(`${API_BASE}/messages/conversations`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       const data = (await response.json()) as { conversations?: unknown };
       setConversations(mapConversations(data.conversations));
@@ -280,8 +281,7 @@ export default function Messages() {
 
   const fetchBlockedUsers = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const resp = await fetch(`${API_BASE}/messages/blocked`, { headers: { Authorization: `Bearer ${token}` } });
+      const resp = await fetch(`${API_BASE}/messages/blocked`, { credentials: 'include' });
       if (!resp.ok) return setBlockedUsers([]);
       const data = await resp.json();
       setBlockedUsers(Array.isArray(data.blocked) ? data.blocked : []);
@@ -293,8 +293,7 @@ export default function Messages() {
 
   const fetchArchivedConversations = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth_token');
-      const resp = await fetch(`${API_BASE}/messages/archived`, { headers: { Authorization: `Bearer ${token}` } });
+      const resp = await fetch(`${API_BASE}/messages/archived`, { credentials: 'include' });
       if (!resp.ok) return setArchivedConvs([]);
       const data = await resp.json();
       setArchivedConvs(Array.isArray(data.archived) ? data.archived : []);
@@ -306,10 +305,10 @@ export default function Messages() {
 
   const unblockUser = async (userId: string) => {
     try {
-      const token = localStorage.getItem('auth_token');
       await fetch(`${API_BASE}/messages/unblock`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ otherUserId: userId }),
       });
       setBlockedUsers((prev) => prev.filter((u) => String(u.id) !== String(userId)));
@@ -323,10 +322,9 @@ export default function Messages() {
     setLoadingMessages(true);
     // do not set a visible error here; failures should silently clear messages
     try {
-      const token = localStorage.getItem('auth_token');
       const query = jobId ? `?jobId=${encodeURIComponent(jobId)}` : '';
       const response = await fetch(`${API_BASE}/messages/conversation/${otherUserId}${query}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       const data = (await response.json()) as { messages?: unknown };
       const messageList = Array.isArray(data.messages) ? (data.messages as ChatMessage[]) : [];
@@ -337,8 +335,8 @@ export default function Messages() {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ otherUserId, ...(jobId ? { jobId } : {}) }),
       });
     } catch (err) {
@@ -403,7 +401,6 @@ export default function Messages() {
 
     setError(null);
     try {
-      const token = localStorage.getItem('auth_token');
       const payload: { receiverId: string; content: string; jobId?: string } = {
         receiverId: selectedUserId,
         content,
@@ -414,8 +411,8 @@ export default function Messages() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -443,14 +440,13 @@ export default function Messages() {
   // Archive conversation for current user
   const archiveConversationAction = async (archive = true) => {
     if (!selectedUserId) return;
-    const token = localStorage.getItem('auth_token');
     try {
       await fetch(`${API_BASE}/messages/archive`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ otherUserId: selectedUserId, jobId: selectedJobId, archive }),
       });
       // remove from visible conversations when archiving
@@ -472,14 +468,13 @@ export default function Messages() {
   const deleteConversationAction = async () => {
     if (!selectedUserId) return;
     if (!window.confirm('Delete this conversation for both users? This cannot be undone.')) return;
-    const token = localStorage.getItem('auth_token');
     try {
       await fetch(`${API_BASE}/messages/conversation`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ otherUserId: selectedUserId, jobId: selectedJobId }),
       });
       setConversations((prev) => prev.filter((c) => c.conversationId !== `${selectedUserId}::${selectedJobId || 'general'}`));
@@ -497,14 +492,13 @@ export default function Messages() {
   const blockUserAction = async () => {
     if (!selectedUserId) return;
     if (!window.confirm('Block this user? They will not be able to message you.')) return;
-    const token = localStorage.getItem('auth_token');
     try {
       await fetch(`${API_BASE}/messages/block`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
+        credentials: 'include',
         body: JSON.stringify({ otherUserId: selectedUserId }),
       });
       // remove from UI

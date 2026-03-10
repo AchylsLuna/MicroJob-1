@@ -141,11 +141,11 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
         nextUser = null;
       }
 
-      const hasAuthToken = Boolean(
-        localStorage.getItem("auth_token") || localStorage.getItem("token"),
+      const hasSessionUser = Boolean(
+        localStorage.getItem("auth_user") || localStorage.getItem("current_user"),
       );
 
-      if (success || (hasAuthToken && nextUser && typeof nextUser === "object")) {
+      if (success || (hasSessionUser && nextUser && typeof nextUser === "object")) {
         const computedDestination = getDefaultDashboardPath(
           nextUser && typeof nextUser === "object" ? (nextUser as any) : null,
         );

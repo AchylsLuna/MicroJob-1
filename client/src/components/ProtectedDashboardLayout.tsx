@@ -19,8 +19,7 @@ export function ProtectedDashboardLayout() {
   };
 
   const storedUser = getStoredUser();
-  const hasAuthToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
-  const hasAuthenticatedSession = Boolean(user || storedUser) && hasAuthToken;
+  const hasAuthenticatedSession = Boolean(user || storedUser);
 
   // Show loading state while checking authentication
   if (isLoading) {

@@ -183,7 +183,9 @@ export function Messages() {
       : undefined;
     const socketUrl = explicitSocketUrl || proxyTarget || derivedFromApiBase || window.location.origin;
 
-    const socket = io(socketUrl, { withCredentials: true });
+    const socket = io(socketUrl, {
+      withCredentials: true,
+    });
     socketRef.current = socket;
     socket.emit("register", currentUserId);
 

@@ -7,9 +7,13 @@ import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { initSocket } from './lib/socket.js';
 import User from './models/User.js';
+import sanitize from './middleware/sanitize.js';
+import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -49,21 +53,59 @@ const config = {
 const isProduction = process.env.NODE_ENV === 'production';
 const allowInMemoryMongo = process.env.ENABLE_IN_MEMORY_MONGO !== 'false';
 let inMemoryMongoServer = null;
+const allowedOrigins = buildAllowedOrigins({
+    clientOrigin: config.ORIGIN,
+    extraOrigins: process.env.ADDITIONAL_CORS_ORIGINS || '',
+});
+
+const globalApiLimiter = rateLimit({
+    windowMs: Number(process.env.GLOBAL_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+    max: Number(process.env.GLOBAL_RATE_LIMIT_MAX || 300),
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: 'Too many requests. Please try again later.' },
+    skip: (req) =>
+      req.method === 'OPTIONS' ||
+      req.originalUrl === '/api/payment/webhook',
+});
+
+app.use(
+    helmet({
+        // API serves uploaded files cross-origin in dev; keep resource policy permissive.
+        crossOriginResourcePolicy: { policy: 'cross-origin' },
+        // API does not serve app HTML; disable CSP here to avoid overblocking file previews.
+        contentSecurityPolicy: false,
+    })
+);
+
 app.use (morgan('dev'));
 
 app.use(express.json());
 app.use(cookieParser());
 
 app.use(express.urlencoded({ extended: true}));
+app.use(sanitize);
 
 // Allow CORS including PATCH and preflight for the client
 app.use(cors({
-    origin: process.env.NODE_ENV === 'production' ? config.ORIGIN : '*',
+    origin: (origin, callback) => {
+        if (!isProduction) {
+            callback(null, true);
+            return;
+        }
+        if (isAllowedOrigin(origin, allowedOrigins)) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     preflightContinue: false,
 }));
+
+app.use('/api', globalApiLimiter);
 
 // Ensure OPTIONS preflight is handled for all routes
 // No explicit app.options needed because CORS middleware is applied globally
@@ -105,7 +147,7 @@ app.use('/api/admin', AdminRoute);
 const truthy = (value = '') => ['1', 'true', 'yes'].includes(String(value).toLowerCase());
 
 const ensureDevSuperAdmin = async () => {
-    if (isProduction || !truthy(process.env.AUTO_SEED_SUPERADMIN ?? 'true')) {
+    if (isProduction || !truthy(process.env.AUTO_SEED_SUPERADMIN ?? 'false')) {
         return;
     }
 
@@ -152,7 +194,7 @@ const ensureDevSuperAdmin = async () => {
 };
 
 const ensureDevDemoUser = async () => {
-    if (isProduction || !truthy(process.env.AUTO_SEED_DEMO_USER ?? 'true')) {
+    if (isProduction || !truthy(process.env.AUTO_SEED_DEMO_USER ?? 'false')) {
         return;
     }
 
@@ -246,7 +288,7 @@ const startServer = async () => {
 
 
         // initialize socket.io
-        initSocket(server);
+        initSocket(server, { allowedOrigins });
 
         server.on('error', (error) => {
             if (error?.code === 'EADDRINUSE') {

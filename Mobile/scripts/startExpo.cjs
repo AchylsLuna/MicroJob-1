@@ -2,16 +2,69 @@
 
 const net = require('net');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const extraArgs = process.argv.slice(2);
-const requestedPort = Number(process.env.METRO_PORT || process.env.EXPO_METRO_PORT || 8081);
 const maxPortScan = Number(process.env.EXPO_PORT_SCAN_LIMIT || 20);
 const explicitClientModes = new Set(['--go', '--dev-client']);
 const explicitHostModes = new Set(['--lan', '--localhost', '--tunnel']);
+const iosFlags = new Set(['--ios', '-i']);
 
 const envClientMode = (process.env.EXPO_START_CLIENT || 'go').trim().toLowerCase();
 const envHostMode = (process.env.EXPO_START_HOST || '').trim().toLowerCase();
+
+function parseRequestedPort(args) {
+  const fallbackPort = Number(process.env.METRO_PORT || process.env.EXPO_METRO_PORT || 8081);
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--port' || arg === '-p') {
+      const value = Number(args[index + 1]);
+      if (Number.isFinite(value) && value > 0) {
+        return value;
+      }
+    }
+
+    if (arg.startsWith('--port=')) {
+      const value = Number(arg.slice('--port='.length));
+      if (Number.isFinite(value) && value > 0) {
+        return value;
+      }
+    }
+  }
+
+  return fallbackPort;
+}
+
+function stripPortArgs(args) {
+  const sanitized = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === '--port' || arg === '-p') {
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith('--port=')) {
+      continue;
+    }
+    sanitized.push(arg);
+  }
+
+  return sanitized;
+}
+
+function canUseSimctl() {
+  if (process.platform !== 'darwin') {
+    return false;
+  }
+
+  const result = spawnSync('xcrun', ['simctl', 'help'], {
+    stdio: 'ignore',
+  });
+
+  return result.status === 0;
+}
 
 function isPortFree(port) {
   return new Promise((resolve) => {
@@ -36,14 +89,16 @@ async function findFreePort(startPort, maxOffset) {
 }
 
 async function main() {
+  const requestedPort = parseRequestedPort(extraArgs);
+  const forwardedArgs = stripPortArgs(extraArgs);
   const port = await findFreePort(requestedPort, maxPortScan);
 
   if (port !== requestedPort) {
     console.log(`Port ${requestedPort} is already in use. Starting Expo on port ${port} instead.`);
   }
 
-  const hasExplicitClientMode = extraArgs.some((arg) => explicitClientModes.has(arg));
-  const hasExplicitHostMode = extraArgs.some((arg) => explicitHostModes.has(arg));
+  const hasExplicitClientMode = forwardedArgs.some((arg) => explicitClientModes.has(arg));
+  const hasExplicitHostMode = forwardedArgs.some((arg) => explicitHostModes.has(arg));
 
   const modeArgs = [];
 
@@ -57,6 +112,24 @@ async function main() {
     modeArgs.push(`--${envHostMode}`);
   }
 
+  const wantsIOS = forwardedArgs.some((arg) => iosFlags.has(arg));
+  const simctlAvailable = canUseSimctl();
+  const childEnv = {
+    ...process.env,
+  };
+
+  if (process.platform === 'darwin' && !simctlAvailable) {
+    if (wantsIOS) {
+      console.error('Unable to start iOS: `xcrun simctl` is not available on this machine.');
+      console.error('Install Xcode and run `sudo xcode-select -s /Applications/Xcode.app`, then try again.');
+      process.exit(1);
+    }
+
+    // Prevent Expo CLI from probing iOS simulators when simctl is unavailable.
+    childEnv.EXPO_NO_IOS_SIMCTL_CHECK = '1';
+    console.warn('xcrun simctl is unavailable; starting Expo without iOS simulator integration.');
+  }
+
   const expoBin = path.join(
     process.cwd(),
     'node_modules',
@@ -64,14 +137,9 @@ async function main() {
     process.platform === 'win32' ? 'expo.cmd' : 'expo'
   );
 
-  const child = spawn(expoBin, ['start', '--port', String(port), ...modeArgs, ...extraArgs], {
+  const child = spawn(expoBin, ['start', '--port', String(port), ...modeArgs, ...forwardedArgs], {
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      // Expo CLI shows account login prompts in interactive mode.
-      // Use CI mode by default to skip login selection prompts.
-      CI: process.env.CI || '1',
-    },
+    env: childEnv,
   });
 
   child.on('exit', (code, signal) => {

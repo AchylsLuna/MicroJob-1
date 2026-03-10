@@ -217,7 +217,6 @@ const getAuthPayload = (response: any) => {
   const container = response?.data && typeof response.data === "object" ? response.data : response;
   return {
     user: container?.user ?? response?.user ?? null,
-    token: container?.token ?? response?.token ?? null,
   };
 };
 
@@ -238,6 +237,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncSessionFromStorage = () => {
+      // Token storage is deprecated; auth now uses httpOnly cookies.
+      localStorage.removeItem(AUTH_TOKEN_KEY);
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+
       const currentUser = localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(CURRENT_USER_KEY);
       if (!currentUser) {
         setUser(null);
@@ -397,12 +400,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await verifyOtp({ email: verificationEmail, code: otp });
-      const { user: apiUser, token } = getAuthPayload(response);
+      const { user: apiUser } = getAuthPayload(response);
       if (!apiUser) {
         throw new Error("Invalid verification response from server.");
-      }
-      if (!token) {
-        throw new Error("Verification failed. Missing auth token.");
       }
       const role = normalizeRole(getRoleCandidate(apiUser));
       const preferredAccount = accountPreference ?? normalizePreference(getPreferenceCandidate(apiUser));
@@ -434,10 +434,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newUser);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
-      if (token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, token);
-        localStorage.setItem(LEGACY_TOKEN_KEY, token);
-      }
       window.dispatchEvent(new Event("auth_user_updated"));
       sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, getDefaultDashboardPath(newUser));
 
@@ -486,7 +482,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const response = await loginUser({ emailOrUsername: normalizedEmail, password });
-      const { user: apiUser, token } = getAuthPayload(response);
+      const { user: apiUser } = getAuthPayload(response);
       if (!apiUser) {
         throw new Error("Invalid login response from server.");
       }
@@ -539,10 +535,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(loggedInUser);
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedInUser));
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(loggedInUser));
-      if (token) {
-        localStorage.setItem(AUTH_TOKEN_KEY, token);
-        localStorage.setItem(LEGACY_TOKEN_KEY, token);
-      }
       window.dispatchEvent(new Event("auth_user_updated"));
 
       setIsLoading(false);

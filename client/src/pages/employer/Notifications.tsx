@@ -81,51 +81,71 @@ export default function EmployerNotifications() {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Employer Notifications</h1>
-          <p className="text-sm text-gray-500">Recent applications to your job posts</p>
-        </div>
-        <div>
-          <button onClick={async () => {
+    <div className="ui-page px-4 md:px-0 pb-16">
+      <div className="flex justify-end">
+        <button
+          onClick={async () => {
             await markAllNotificationsRead().catch(() => null);
             setItems((prev) => prev.map((i) => ({ ...i, isNew: false })));
-            // Refresh NavBar notification count
             window.dispatchEvent(new Event('notification-refresh'));
-          }} className="text-sm text-blue-600 font-semibold">Mark all as read</button>
-        </div>
+          }}
+          className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-sky-700 hover:bg-slate-50"
+        >
+          Mark all as read
+        </button>
       </div>
 
-      {loading && <div className="bg-white rounded-xl p-6 shadow-sm text-gray-600">Loading...</div>}
-      {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700 mb-4">{error}</div>}
+      {loading && <div className="ui-card p-6 text-sm text-slate-500">Loading...</div>}
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
 
-      <div className="space-y-4">
-        {items.map((it) => (
-          <div key={it.id} className={`bg-white rounded-xl p-4 shadow-sm border ${it.isNew ? 'border-blue-100' : 'border-gray-100'}`}>
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900">{it.applicantName || 'Someone applied'}</h3>
-                <p className="text-xs text-gray-600 mt-1">Applied for: <span className="font-semibold">{it.jobTitle}</span></p>
-                <p className="text-xs text-gray-400 mt-1">{it.time}</p>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <button
-                  onClick={() => removeNotification(it.id)}
-                  className="text-gray-400 hover:text-red-600 transition-colors mb-2"
-                  title="Remove notification"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-                <div className="flex gap-2">
-                  <button onClick={() => navigate(ROUTES.employer.applications)} className="text-sm text-blue-600 font-semibold">View</button>
-                  <button onClick={() => markRead(it.applicationId)} className="text-sm text-gray-600">Mark read</button>
+      {items.length === 0 && !loading && !error ? (
+        <div className="ui-card p-10 text-center">
+          <p className="text-base font-semibold text-slate-700">No notifications yet</p>
+          <p className="mt-1 text-sm text-slate-500">You will see new applications here.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {items.map((it) => (
+            <div
+              key={it.id}
+              className={`ui-card p-4 ${it.isNew ? 'border-sky-200' : 'border-slate-200'}`}
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-semibold text-slate-900">{it.applicantName || 'Someone applied'}</h3>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Applied for: <span className="font-semibold">{it.jobTitle}</span>
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">{it.time}</p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <button
+                    onClick={() => removeNotification(it.id)}
+                    className="mb-1 text-slate-400 transition-colors hover:text-red-600"
+                    title="Remove notification"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => navigate(ROUTES.employer.applications)}
+                      className="h-9 rounded-lg bg-sky-600 px-3 text-sm font-semibold text-white hover:bg-sky-700"
+                    >
+                      View
+                    </button>
+                    <button
+                      onClick={() => markRead(it.applicationId)}
+                      className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-600 hover:bg-slate-50"
+                    >
+                      Mark read
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

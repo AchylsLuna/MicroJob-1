@@ -27,17 +27,15 @@ export function RoleRoute({ requiredRole }: { requiredRole: RouteRole }) {
   };
 
   const storedUser = getStoredUser();
-  const hasAuthToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
-
   // Let auth context finish initial sync before redirecting to sign-in.
-  if (isLoading && hasAuthToken && !contextUser && !storedUser) {
+  if (isLoading && !contextUser && !storedUser) {
     return null;
   }
 
   // Storage fallback protects against short-lived state sync races after OTP/login.
   const user = contextUser || storedUser;
 
-  if (!user || !hasAuthToken) {
+  if (!user) {
     return <Navigate to={getSignInRouteForPath(location.pathname)} replace />;
   }
 

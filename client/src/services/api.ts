@@ -49,18 +49,23 @@ async function request<T>(
   path: string,
   options: RequestInitInput & { body?: unknown; method?: string } = {}
 ): Promise<T> {
-  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+  const hasLocalSession = Boolean(
+    localStorage.getItem('auth_user') || localStorage.getItem('current_user')
+  );
+  const body = options.body;
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+  const headers = new Headers(options.headers || undefined);
+  if (!isFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        ...(options.headers || {}),
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers,
+      credentials: 'include',
+      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
     });
   } catch {
     throw new Error('Unable to reach the server. Make sure the backend is running.');
@@ -69,7 +74,7 @@ async function request<T>(
   const data = (await res.json().catch(() => ({}))) as any;
   if (!res.ok) {
     const message = data?.message || 'Request failed';
-    if (isInvalidTokenError({ status: res.status, message, path, hasToken: Boolean(token) })) {
+    if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession })) {
       handleInvalidSession();
     }
     throw new Error(message);
@@ -399,15 +404,12 @@ export function editMessage(messageId: string, content: string) {
 }
 // Resume APIs
 export async function uploadResume(file: File) {
-  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
   const formData = new FormData();
   formData.append('resume', file);
 
   const res = await fetch(`${API_BASE}/auth/profile/resume`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    credentials: 'include',
     body: formData,
   });
 
@@ -425,15 +427,12 @@ export function deleteResume() {
 
 // Avatar APIs
 export async function uploadAvatar(file: File) {
-  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
   const formData = new FormData();
   formData.append('avatar', file);
 
   const res = await fetch(`${API_BASE}/auth/profile/avatar`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
+    credentials: 'include',
     body: formData,
   });
 

@@ -21,6 +21,8 @@ const canApplyRole = (role) =>
     role === 'worker' ||
     role === 'patient';
 
+const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export async function getJobList(req, res) {
     try {
         const { category, jobType, search, excludeOwn } = req.query;
@@ -40,10 +42,11 @@ export async function getJobList(req, res) {
         
         // Search filter
         if (search) {
+            const safeSearch = escapeRegExp(String(search).trim());
             filter.$or = [
-                { title: { $regex: search, $options: 'i' } },
-                { description: { $regex: search, $options: 'i' } },
-                { location: { $regex: search, $options: 'i' } }
+                { title: { $regex: safeSearch, $options: 'i' } },
+                { description: { $regex: safeSearch, $options: 'i' } },
+                { location: { $regex: safeSearch, $options: 'i' } }
             ];
         }
 

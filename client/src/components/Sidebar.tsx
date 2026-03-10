@@ -128,6 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs },
     { icon: "security", label: "Security", path: ROUTES.admin.security },
     { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement },
+    { icon: "messages", label: "Messages", path: ROUTES.admin.messages, notification: true },
   ];
 
   let menuItems: MenuItem[] = [];

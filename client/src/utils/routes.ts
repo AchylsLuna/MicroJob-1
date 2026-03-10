@@ -67,6 +67,7 @@ export const ROUTES = {
   admin: {
     root: "/admin",
     dashboard: "/admin/dashboard",
+    messages: "/admin/messages",
     analytics: "/admin/analytics",
     reports: "/admin/reports",
     eWallet: "/admin/e-wallet",
@@ -116,6 +117,7 @@ export const ROUTES = {
     },
     admin: {
       root: "/dashboard/admin-dashboard",
+      messages: "/dashboard/admin-dashboard/messages",
       analytics: "/dashboard/admin-dashboard/analytics",
       reports: "/dashboard/admin-dashboard/reports",
       eWallet: "/dashboard/admin-dashboard/e-wallet",

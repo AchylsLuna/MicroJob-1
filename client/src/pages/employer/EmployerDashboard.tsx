@@ -33,14 +33,14 @@ function StatCard({ icon, title, value, change, gradient }: StatCardProps) {
         <div className="mb-4 flex items-start justify-between">
           <div className="rounded-[16px] bg-white/20 p-4 backdrop-blur-sm">{icon}</div>
           {change && (
-            <div className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-[12px] font-semibold">
+            <div className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold">
               <ArrowUpRight className="h-3 w-3" />
               {change}
             </div>
           )}
         </div>
-        <p className="text-[14px] text-white/90">{title}</p>
-        <p className="mt-2 text-[40px] font-bold leading-none">{value}</p>
+        <p className="text-sm text-white/90">{title}</p>
+        <p className="mt-2 text-4xl font-bold leading-none">{value}</p>
       </div>
     </div>
   );
@@ -50,8 +50,8 @@ function PipelineRow({ label, count, colorClass }: { label: string; count: numbe
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[13px] font-medium text-[#334155]">{label}</span>
-        <span className="text-[13px] font-semibold text-[#0F172A]">{count}</span>
+        <span className="text-sm font-medium text-[#334155]">{label}</span>
+        <span className="text-sm font-semibold text-[#0F172A]">{count}</span>
       </div>
       <div className="h-2 rounded-full bg-[#E2E8F0]">
         <div className={`h-2 rounded-full ${colorClass}`} style={{ width: `${Math.min(100, count * 12)}%` }} />
@@ -131,7 +131,7 @@ export function EmployerDashboard() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="ui-page px-4 md:px-0 pb-16">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Users className="h-6 w-6" />}
@@ -164,10 +164,10 @@ export function EmployerDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] lg:col-span-2">
+        <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] lg:col-span-2">
           <div className="mb-5 flex items-center justify-between">
-            <h3 className="text-[18px] font-semibold text-[#111827]">Candidate Pipeline</h3>
-            <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-[12px] font-medium text-[#4F46E5]">
+            <h3 className="text-lg font-semibold text-[#111827]">Candidate Pipeline</h3>
+            <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-medium text-[#4F46E5]">
               Live Snapshot
             </span>
           </div>
@@ -182,7 +182,7 @@ export function EmployerDashboard() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.employer.applications)}
-              className="inline-flex items-center justify-center gap-2 rounded-[12px] bg-[#4F46E5] px-4 py-3 text-[14px] font-semibold text-white hover:bg-[#4338CA]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]"
             >
               <Users className="h-4 w-4" />
               Manage Applications
@@ -191,7 +191,7 @@ export function EmployerDashboard() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.employer.jobs)}
-              className="inline-flex items-center justify-center gap-2 rounded-[12px] border border-[#D5DCE8] bg-white px-4 py-3 text-[14px] font-semibold text-[#334155] hover:bg-[#F8FAFC]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D5DCE8] bg-white px-4 text-sm font-semibold text-[#334155] hover:bg-[#F8FAFC]"
             >
               <BarChart3 className="h-4 w-4" />
               View All Jobs
@@ -199,37 +199,37 @@ export function EmployerDashboard() {
           </div>
         </div>
 
-        <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-          <h3 className="mb-5 text-[18px] font-semibold text-[#111827]">Quick Totals</h3>
+        <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+          <h3 className="mb-5 text-lg font-semibold text-[#111827]">Quick Totals</h3>
           <div className="space-y-3">
-            <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-              <p className="text-[13px] text-[#64748B]">Hired</p>
-              <p className="mt-1 text-[24px] font-semibold text-[#10B981]">{isLoading ? "—" : stats.hired}</p>
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+              <p className="text-sm text-[#64748B]">Hired</p>
+              <p className="mt-1 text-2xl font-semibold text-[#10B981]">{isLoading ? "—" : stats.hired}</p>
             </div>
-            <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-              <p className="text-[13px] text-[#64748B]">Rejected</p>
-              <p className="mt-1 text-[24px] font-semibold text-[#EF4444]">{isLoading ? "—" : stats.rejected}</p>
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+              <p className="text-sm text-[#64748B]">Rejected</p>
+              <p className="mt-1 text-2xl font-semibold text-[#EF4444]">{isLoading ? "—" : stats.rejected}</p>
             </div>
-            <div className="rounded-[12px] border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-              <p className="text-[13px] text-[#64748B]">Total in Pipeline</p>
-              <p className="mt-1 text-[24px] font-semibold text-[#0F172A]">{isLoading ? "—" : stats.total}</p>
+            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+              <p className="text-sm text-[#64748B]">Total in Pipeline</p>
+              <p className="mt-1 text-2xl font-semibold text-[#0F172A]">{isLoading ? "—" : stats.total}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-        <h3 className="mb-5 text-[18px] font-semibold text-[#111827]">Recent Activity</h3>
+      <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+        <h3 className="mb-5 text-lg font-semibold text-[#111827]">Recent Activity</h3>
         <div className="space-y-4">
           <div className="flex items-start gap-3 border-b border-[#EEF2F7] pb-4">
             <div className="rounded-full bg-[#D1FAE5] p-2">
               <CheckCircle className="h-4 w-4 text-[#10B981]" />
             </div>
             <div className="flex-1">
-              <p className="text-[14px] text-[#111827]">
+              <p className="text-sm text-[#111827]">
                 <span className="font-semibold">Sarah Chen</span> application accepted for Senior Frontend Developer
               </p>
-              <p className="mt-1 text-[12px] text-[#64748B]">2 hours ago</p>
+              <p className="mt-1 text-xs text-[#64748B]">2 hours ago</p>
             </div>
           </div>
 
@@ -238,10 +238,10 @@ export function EmployerDashboard() {
               <MessageSquare className="h-4 w-4 text-[#3B82F6]" />
             </div>
             <div className="flex-1">
-              <p className="text-[14px] text-[#111827]">
+              <p className="text-sm text-[#111827]">
                 New application from <span className="font-semibold">Michael Rodriguez</span>
               </p>
-              <p className="mt-1 text-[12px] text-[#64748B]">5 hours ago</p>
+              <p className="mt-1 text-xs text-[#64748B]">5 hours ago</p>
             </div>
           </div>
 
@@ -250,10 +250,10 @@ export function EmployerDashboard() {
               <XCircle className="h-4 w-4 text-[#EF4444]" />
             </div>
             <div className="flex-1">
-              <p className="text-[14px] text-[#111827]">
+              <p className="text-sm text-[#111827]">
                 <span className="font-semibold">{isLoading ? "—" : stats.rejected} applications</span> rejected this week
               </p>
-              <p className="mt-1 text-[12px] text-[#64748B]">1 day ago</p>
+              <p className="mt-1 text-xs text-[#64748B]">1 day ago</p>
             </div>
           </div>
         </div>

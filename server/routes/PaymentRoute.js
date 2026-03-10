@@ -9,6 +9,7 @@ import {
   simulateWebhook,
 } from '../controllers/PaymentController.js';
 import verifyToken from '../middleware/auth.js';
+import requireAdmin from '../middleware/admin.js';
 
 const router = express.Router();
 
@@ -19,7 +20,7 @@ router.get('/transactions', verifyToken, getUserTransactions);
 router.post('/topup/confirm', verifyToken, confirmTopUp);
 
 // Dev-only webhook simulator for local testing
-router.post('/dev/webhook-sim', verifyToken, simulateWebhook);
+router.post('/dev/webhook-sim', verifyToken, requireAdmin, simulateWebhook);
 
 // Admin audit endpoint: recent transactions
 router.get('/audit', verifyToken, getAllTransactions);

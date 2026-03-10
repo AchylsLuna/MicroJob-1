@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 
@@ -12,12 +13,35 @@ function AdminJobMonitoringContent() {
     formatSalary,
   } = useAdminData();
 
-  const sortedJobs = [...jobs].sort((a, b) => {
-    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-    if (aTime && bTime) return bTime - aTime;
-    return b._id.localeCompare(a._id);
-  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  const sortedJobs = useMemo(
+    () =>
+      [...jobs].sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        if (aTime && bTime) return bTime - aTime;
+        return b._id.localeCompare(a._id);
+      }),
+    [jobs]
+  );
+
+  const totalPages = Math.max(1, Math.ceil(sortedJobs.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const pageEnd = Math.min(pageStart + pageSize, sortedJobs.length);
+  const paginatedJobs = sortedJobs.slice(pageStart, pageStart + pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortedJobs.length]);
+
+  useEffect(() => {
+    if (currentPage !== safePage) {
+      setCurrentPage(safePage);
+    }
+  }, [currentPage, safePage]);
 
   const getPosterName = (job: typeof jobs[number]) => {
     const poster = job.jobPoster;
@@ -80,7 +104,7 @@ function AdminJobMonitoringContent() {
               )}
 
               {!isLoading &&
-                sortedJobs.map((job) => {
+                paginatedJobs.map((job) => {
                   const postedDate = job.createdAt
                     ? new Date(job.createdAt).toLocaleDateString()
                     : formatDateFromObjectId(job._id);
@@ -109,6 +133,48 @@ function AdminJobMonitoringContent() {
             </tbody>
           </table>
         </div>
+
+        {!isLoading && sortedJobs.length > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E5E7EB] text-[13px] text-[#6B7280] mt-4">
+            <span>
+              Showing {pageStart + 1}-{pageEnd} of {sortedJobs.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={safePage === 1}
+                className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
+              >
+                Previous
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-8 h-8 rounded-[8px] text-[13px] ${
+                      page === safePage
+                        ? "bg-[#1C4D8D] text-white"
+                        : "border border-[#E5E7EB] text-[#111827] hover:bg-[#F9FAFB]"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={safePage === totalPages}
+                className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </section>
     </div>
   );

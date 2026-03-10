@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs';
 import speakeasy from 'speakeasy';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { basename, dirname, extname, join, resolve } from 'path';
 import fs from 'fs';
 import csrfProtection from '../middleware/csrf.js';
 import Session from '../models/Session.js';
@@ -42,6 +42,24 @@ const router = express.Router();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const uploadsDir = join(__dirname, '..', 'uploads');
+const uploadsRoot = `${resolve(uploadsDir)}${process.platform === 'win32' ? '\\' : '/'}`;
+
+const safeExt = (value = '') => String(value || '').toLowerCase().replace(/[^a-z0-9.]/g, '');
+
+const isSafeUploadFileName = (value = '') => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return false;
+  if (normalized !== basename(normalized)) return false;
+  if (normalized.includes('..')) return false;
+  return /^[a-zA-Z0-9._-]+$/.test(normalized);
+};
+
+const resolveUploadPath = (fileName = '') => {
+  if (!isSafeUploadFileName(fileName)) return null;
+  const fullPath = resolve(uploadsDir, fileName);
+  if (fullPath !== resolve(uploadsDir) && !fullPath.startsWith(uploadsRoot)) return null;
+  return fullPath;
+};
 
 // Create uploads directory if it doesn't exist
 if (!fs.existsSync(uploadsDir)) {
@@ -56,8 +74,8 @@ const resumeStorage = multer.diskStorage({
   filename: (req, file, cb) => {
     const userId = req.user?.id;
     const timestamp = Date.now();
-    const ext = file.originalname.split('.').pop();
-    cb(null, `resume_${userId}_${timestamp}.${ext}`);
+    const ext = safeExt(extname(file.originalname)) || '.bin';
+    cb(null, `resume_${userId}_${timestamp}${ext}`);
   },
 });
 
@@ -69,8 +87,8 @@ const avatarStorage = multer.diskStorage({
   filename: (req, file, cb) => {
     const userId = req.user?.id;
     const timestamp = Date.now();
-    const ext = file.originalname.split('.').pop();
-    cb(null, `avatar_${userId}_${timestamp}.${ext}`);
+    const ext = safeExt(extname(file.originalname)) || '.jpg';
+    cb(null, `avatar_${userId}_${timestamp}${ext}`);
   },
 });
 
@@ -79,8 +97,13 @@ const multerResume = multer({
   storage: resumeStorage,
   fileFilter: (req, file, cb) => {
     const allowed = ['.pdf', '.doc', '.docx'];
-    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
-    if (allowed.includes(ext)) {
+    const allowedMime = new Set([
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]);
+    const ext = safeExt(extname(file.originalname));
+    if (allowed.includes(ext) && allowedMime.has(String(file.mimetype || '').toLowerCase())) {
       cb(null, true);
     } else {
       cb(new Error('Only PDF and DOC files are allowed for resumes'));
@@ -94,8 +117,14 @@ const multerAvatar = multer({
   storage: avatarStorage,
   fileFilter: (req, file, cb) => {
     const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    const ext = '.' + file.originalname.split('.').pop().toLowerCase();
-    if (allowed.includes(ext)) {
+    const allowedMime = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ]);
+    const ext = safeExt(extname(file.originalname));
+    if (allowed.includes(ext) && allowedMime.has(String(file.mimetype || '').toLowerCase())) {
       cb(null, true);
     } else {
       cb(new Error('Only JPG, PNG, GIF, and WEBP images are allowed'));
@@ -109,6 +138,7 @@ const cookieSecurityOptions = {
   sameSite: 'strict',
   secure: process.env.NODE_ENV === 'production',
 };
+const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 
 const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ').toLowerCase();
 const normalizeDisplayName = (value = '') => String(value).trim().replace(/\s+/g, ' ');
@@ -165,6 +195,7 @@ const createSessionWithTokens = async (req, user) => {
   }
 
   const accessToken = createAccessToken(user, session._id.toString());
+  const accessTokenExpiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
   const refreshToken = crypto.randomBytes(64).toString('hex');
   const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
   session.token = accessToken;
@@ -173,6 +204,7 @@ const createSessionWithTokens = async (req, user) => {
 
   return {
     accessToken,
+    accessTokenExpiresAt,
     refreshToken,
     expiresAt,
     sessionId: session._id.toString(),
@@ -180,7 +212,10 @@ const createSessionWithTokens = async (req, user) => {
   };
 };
 
-const setSessionCookies = (res, { refreshToken, sessionId, expiresAt, csrfToken }) => {
+const setSessionCookies = (
+  res,
+  { refreshToken, sessionId, accessToken, accessTokenExpiresAt, expiresAt, csrfToken }
+) => {
   if (csrfToken) {
     res.cookie('csrfToken', csrfToken, {
       httpOnly: false,
@@ -199,6 +234,14 @@ const setSessionCookies = (res, { refreshToken, sessionId, expiresAt, csrfToken 
     ...cookieSecurityOptions,
     expires: expiresAt,
   });
+
+  if (accessToken) {
+    res.cookie('token', accessToken, {
+      httpOnly: true,
+      ...cookieSecurityOptions,
+      expires: accessTokenExpiresAt || expiresAt,
+    });
+  }
 };
 
 const buildLoginPayload = (user, includePhone = false) => {
@@ -415,12 +458,52 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/otp/send', sendOtp);
-router.post('/otp/verify', verifyOtp);
-router.post('/password-reset/request', requestPasswordResetOtp);
-router.post('/password-reset/confirm', resetPasswordWithOtp);
-router.post('/password-change/request', verifyToken, requestPasswordChangeOtp);
-router.post('/password-change/confirm', verifyToken, changePasswordWithOtp);
+const otpSendLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many OTP requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const otpVerifyLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: { message: 'Too many OTP verification attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const passwordResetRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many password reset requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const passwordResetConfirmLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  message: { message: 'Too many password reset attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const passwordChangeLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many password change attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post('/otp/send', otpSendLimiter, sendOtp);
+router.post('/otp/verify', otpVerifyLimiter, verifyOtp);
+router.post('/password-reset/request', passwordResetRequestLimiter, requestPasswordResetOtp);
+router.post('/password-reset/confirm', passwordResetConfirmLimiter, resetPasswordWithOtp);
+router.post('/password-change/request', verifyToken, passwordChangeLimiter, requestPasswordChangeOtp);
+router.post('/password-change/confirm', verifyToken, passwordChangeLimiter, changePasswordWithOtp);
 
 // Login an existing user (supports email/username and phone)
 // Apply a login rate limiter to mitigate brute-force attacks
@@ -494,6 +577,8 @@ router.post('/login', loginLimiter, async (req, res) => {
     setSessionCookies(res, {
       refreshToken: authSession.refreshToken,
       sessionId: authSession.sessionId,
+      accessToken: authSession.accessToken,
+      accessTokenExpiresAt: authSession.accessTokenExpiresAt,
       expiresAt: authSession.expiresAt,
       csrfToken,
     });
@@ -556,6 +641,8 @@ router.post('/login/mfa', loginLimiter, async (req, res) => {
     setSessionCookies(res, {
       refreshToken: authSession.refreshToken,
       sessionId: authSession.sessionId,
+      accessToken: authSession.accessToken,
+      accessTokenExpiresAt: authSession.accessTokenExpiresAt,
       expiresAt: authSession.expiresAt,
       csrfToken,
     });
@@ -608,6 +695,8 @@ router.post('/refresh', csrfProtection, async (req, res) => {
     setSessionCookies(res, {
       refreshToken: newRefresh,
       sessionId: session._id.toString(),
+      accessToken: newAccess,
+      accessTokenExpiresAt: new Date(Date.now() + ACCESS_TOKEN_TTL_MS),
       expiresAt: session.expiresAt,
     });
 
@@ -1063,8 +1152,8 @@ const uploadResume = async (req, res) => {
 
     // Delete old resume file if exists
     if (user.resumeFileName) {
-      const oldFile = join(uploadsDir, user.resumeFileName);
-      if (fs.existsSync(oldFile)) {
+      const oldFile = resolveUploadPath(user.resumeFileName);
+      if (oldFile && fs.existsSync(oldFile)) {
         fs.unlinkSync(oldFile);
       }
     }
@@ -1100,8 +1189,8 @@ const deleteResume = async (req, res) => {
     }
 
     // Delete resume file
-    const filePath = join(uploadsDir, user.resumeFileName);
-    if (fs.existsSync(filePath)) {
+    const filePath = resolveUploadPath(user.resumeFileName);
+    if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
 
@@ -1138,8 +1227,8 @@ const uploadAvatar = async (req, res) => {
     // Delete old avatar file if exists
     if (user.avatarUrl) {
       const oldFileName = user.avatarUrl.split('/').pop();
-      const oldFile = join(uploadsDir, oldFileName);
-      if (fs.existsSync(oldFile)) {
+      const oldFile = resolveUploadPath(oldFileName);
+      if (oldFile && fs.existsSync(oldFile)) {
         fs.unlinkSync(oldFile);
       }
     }
@@ -1174,8 +1263,8 @@ const deleteAvatar = async (req, res) => {
 
     // Delete avatar file
     const fileName = user.avatarUrl.split('/').pop();
-    const filePath = join(uploadsDir, fileName);
-    if (fs.existsSync(filePath)) {
+    const filePath = resolveUploadPath(fileName);
+    if (filePath && fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
 
