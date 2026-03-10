@@ -5,6 +5,22 @@ import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
+const getRequesterId = (req) => req.user?.id || req.user?.userId || null;
+const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
+const isAdminRole = (role) => role === 'admin' || role === 'superadmin';
+const canPostJobsRole = (role) =>
+    role === 'hire' ||
+    role === 'both' ||
+    role === 'employer' ||
+    role === 'doctor' ||
+    isAdminRole(role);
+const canApplyRole = (role) =>
+    role === 'work' ||
+    role === 'both' ||
+    role === 'user' ||
+    role === 'worker' ||
+    role === 'patient';
+
 export async function getJobList(req, res) {
     try {
         const { category, jobType, search, excludeOwn } = req.query;
@@ -97,9 +113,14 @@ export async function getJobDetails(req, res){
 export async function getApplicantsList(req, res){
     try {
         const {jobId} = req.params;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         const job = await Job.findById(jobId).populate('applicants');
         if(!job) {
             return res.status(404).json({message: "Job not found."});
+        }
+        if (job.jobPoster?.toString() !== requesterId && !isAdminRole(requesterRole)) {
+            return res.status(403).json({ message: "Not authorized to view applicants for this job." });
         }
         res.status(200).json(job.applicants);
     } catch (error) {
@@ -123,7 +144,15 @@ export async function createJob(req, res){
             urgent,
             positionsNeeded
         } = req.body;
-        const jobPosterId = req.user?.userId || req.user?.id;
+        const requesterRole = getRequesterRole(req);
+        const jobPosterId = getRequesterId(req);
+
+        if (!jobPosterId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!canPostJobsRole(requesterRole)) {
+            return res.status(403).json({ message: "Only employer accounts can create jobs." });
+        }
         
         const missingFields = [];
         if (!title) missingFields.push('title');
@@ -211,6 +240,8 @@ export async function changeJobStatus(req, res){
     try {
         const {id} = req.params;
         const {status} = req.body;
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         const statusOptions = ['Available', 'In Progress', 'Completed', 'Cancelled', 'Closed'];
 
         if(!statusOptions.includes(status)) {
@@ -218,6 +249,9 @@ export async function changeJobStatus(req, res){
         }
         const job = await Job.findById(id);
         if(!job) return res.status(404).json({message: "Job not found."});
+        if (job.jobPoster?.toString() !== requesterId && !isAdminRole(requesterRole)) {
+            return res.status(403).json({ message: "You are not allowed to update this job status." });
+        }
 
         if (status === 'Completed' && job.status !== 'Completed') {
             // When completing a job, pay out all applicants that were marked as Hired
@@ -293,7 +327,15 @@ export async function changeJobStatus(req, res){
 export async function applyForJob(req, res){
     try {
         const {jobId} = req.params;
-        const userId = req.user.id;
+        const userId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
+
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!canApplyRole(requesterRole)) {
+            return res.status(403).json({ message: "Only worker accounts can apply to jobs." });
+        }
 
         const job = await Job.findById(jobId).populate('jobPoster');
 
@@ -327,8 +369,13 @@ export async function selectApplicant(req, res){
     try {
         const {jobId, applicantId} = req.params,
         job = await Job.findById(jobId);
+        const requesterId = getRequesterId(req);
+        const requesterRole = getRequesterRole(req);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
+        }
+        if (job.jobPoster?.toString() !== requesterId && !isAdminRole(requesterRole)) {
+            return res.status(403).json({ message: "You are not allowed to select applicants for this job." });
         }
         if(!job.applicants.includes(applicantId)) {
             return res.status(400).json({message: "Applicant did not apply for this job."});

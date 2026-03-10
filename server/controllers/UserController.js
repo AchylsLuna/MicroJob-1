@@ -1,9 +1,21 @@
 import User from "../models/User.js";
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
+import Session from "../models/Session.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
+import {
+    EMAIL_VALIDATION_MESSAGE,
+    NAME_VALIDATION_MESSAGE,
+    PHONE_VALIDATION_MESSAGE,
+    isValidEmail,
+    isValidName,
+    isValidPhone,
+    normalizeEmail,
+    normalizeName,
+    normalizePhone,
+} from "../lib/authValidation.js";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 
 const otpStore = new Map();
@@ -136,8 +148,29 @@ export async function updateProfile(req, res) {
             }
         }
 
+        if (updates.firstName !== undefined) {
+            updates.firstName = normalizeName(updates.firstName);
+            if (!isValidName(updates.firstName)) {
+                return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+            }
+        }
+        if (updates.lastName !== undefined) {
+            updates.lastName = normalizeName(updates.lastName);
+            if (!isValidName(updates.lastName)) {
+                return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+            }
+        }
         if (updates.email) {
-            updates.email = updates.email.toLowerCase();
+            updates.email = normalizeEmail(updates.email);
+            if (!isValidEmail(updates.email)) {
+                return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+            }
+        }
+        if (updates.phoneNumber !== undefined) {
+            updates.phoneNumber = normalizePhone(updates.phoneNumber);
+            if (updates.phoneNumber && !isValidPhone(updates.phoneNumber)) {
+                return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
+            }
         }
 
         // Auto-calculate job statistics from JobApplication collection
@@ -313,8 +346,18 @@ export async function sendOtp(req, res) {
             return res.status(400).json({ message: "Email is required." });
         }
 
-        const user = await User.findOne({ email: normalizedEmail });
-        if (!user) {
+        let user = null;
+        let userLookupFailed = false;
+        try {
+            user = await User.findOne({ email: normalizedEmail }).select("firstName");
+        } catch (lookupError) {
+            userLookupFailed = true;
+            const reason = lookupError?.message ? ` ${lookupError.message}` : "";
+            console.warn(`Send OTP user lookup failed; continuing without lookup.${reason}`.trim());
+        }
+
+        // Keep existing "not found" behavior when lookup succeeds.
+        if (!user && !userLookupFailed) {
             return res.status(404).json({ message: "User not found." });
         }
 
@@ -337,7 +380,7 @@ export async function sendOtp(req, res) {
         }
 
         const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
-        const displayName = user.firstName || "there";
+        const displayName = user?.firstName || "there";
         const subject = "MicroJobs email verification";
         const text = `Hi ${displayName},\n\nUse this code to verify your email for MicroJobs: ${code}\n\nIf you did not request this, you can ignore this message.`;
         const html = `
@@ -397,11 +440,25 @@ export async function verifyOtp(req, res) {
         user.status = "active";
         await user.save();
 
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+        const forwardedFor = String(req.headers["x-forwarded-for"] || "");
+        const requestIp = forwardedFor.split(",")[0]?.trim() || req.socket.remoteAddress || "";
+        const userAgent = req.get("User-Agent") || "";
+        const session = await Session.create({
+            user: user._id,
+            userAgent,
+            ip: requestIp,
+            active: true,
+            expiresAt,
+        });
+
         const token = jwt.sign(
-            { id: user._id, role: user.role },
+            { userId: user._id, role: user.role, sessionId: session._id.toString() },
             getJwtSecret(),
             { expiresIn: "7d" }
         );
+        session.token = token;
+        await session.save();
 
         otpStore.delete(key);
 

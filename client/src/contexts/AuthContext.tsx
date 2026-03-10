@@ -77,7 +77,7 @@ interface AuthContextType {
   resendOTP: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   resetPassword: (code: string, newPassword: string) => Promise<void>;
-  pendingVerification: { email: string; name: string } | null;
+  pendingVerification: { email: string; name: string; flow?: "signup" | "signin" } | null;
   updateProfile: (updates: Partial<User>) => void;
 }
 
@@ -89,6 +89,7 @@ const AUTH_TOKEN_KEY = "auth_token";
 const LEGACY_TOKEN_KEY = "token";
 const PENDING_VERIFICATION_EMAIL_KEY = "pending_verification_email";
 const PENDING_VERIFICATION_NAME_KEY = "pending_verification_name";
+const PENDING_VERIFICATION_FLOW_KEY = "pending_verification_flow";
 
 type AccountPreference = "employer" | "worker" | "both";
 
@@ -230,6 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [pendingVerification, setPendingVerification] = useState<{
     email: string;
     name: string;
+    flow?: "signup" | "signin";
   } | null>(null);
 
   useEffect(() => {
@@ -271,7 +273,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const pendingEmail = localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY);
       if (pendingEmail) {
         const pendingName = localStorage.getItem(PENDING_VERIFICATION_NAME_KEY) || "User";
-        setPendingVerification({ email: pendingEmail, name: pendingName });
+        const flowValue = localStorage.getItem(PENDING_VERIFICATION_FLOW_KEY);
+        const pendingFlow =
+          flowValue === "signup" || flowValue === "signin" ? flowValue : undefined;
+        setPendingVerification({ email: pendingEmail, name: pendingName, flow: pendingFlow });
       } else {
         setPendingVerification(null);
       }
@@ -316,13 +321,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
 
     const { firstName, lastName } = splitName(normalizedName);
-    // Keep API payload backward compatible while app role is normalized to user/employer/admin.
-    const role = accountPreference === "employer" ? "hire" : "work";
+    // Keep API payload backward compatible while preserving explicit "both" selection.
+    const role =
+      accountPreference === "employer"
+        ? "hire"
+        : accountPreference === "both"
+          ? "both"
+          : "work";
 
     // Store pending verification
-    setPendingVerification({ email: normalizedEmail, name: normalizedName });
+    setPendingVerification({ email: normalizedEmail, name: normalizedName, flow: "signup" });
     localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, normalizedEmail);
     localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, normalizedName);
+    localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signup");
     localStorage.setItem("pending_account_preference", accountPreference);
 
     try {
@@ -344,18 +355,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const otpResponse = await sendOtp({ email: normalizedEmail });
+      await sendOtp({ email: normalizedEmail });
       toast.success("OTP sent to your email!");
     } catch (error: any) {
       setPendingVerification(null);
       localStorage.removeItem("pending_account_preference");
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
-      setIsLoading(false);
+      localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
       throw new Error(error?.message || "Registration failed");
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const verifyOTP = async (otp: string): Promise<boolean> => {
@@ -365,6 +376,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       pendingVerification?.email || localStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY) || "";
     const verificationName =
       pendingVerification?.name || localStorage.getItem(PENDING_VERIFICATION_NAME_KEY) || "User";
+    const verificationFlow =
+      pendingVerification?.flow ||
+      (localStorage.getItem(PENDING_VERIFICATION_FLOW_KEY) === "signup" ? "signup" : "signin");
 
     if (!verificationEmail) {
       setIsLoading(false);
@@ -372,7 +386,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    const storedPreference = localStorage.getItem("pending_account_preference");
+    const storedPreference =
+      verificationFlow === "signup" ? localStorage.getItem("pending_account_preference") : null;
     const accountPreference: "employer" | "worker" | "both" | undefined =
       storedPreference === "employer" || storedPreference === "worker" || storedPreference === "both"
         ? storedPreference
@@ -384,8 +399,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!apiUser) {
         throw new Error("Invalid verification response from server.");
       }
+      if (!token) {
+        throw new Error("Verification failed. Missing auth token.");
+      }
       const role = normalizeRole(getRoleCandidate(apiUser));
-      const { accountType, accountOptions } = normalizeAccount(role, accountPreference);
+      const preferredAccount = accountPreference ?? normalizePreference(getPreferenceCandidate(apiUser));
+      const { accountType, accountOptions } = normalizeAccount(role, preferredAccount);
 
       const apiUserId = getUserId(apiUser);
       if (!apiUserId) {
@@ -399,6 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: apiUser.lastName || splitName(verificationName).lastName,
         role,
         accountType,
+        accountPreference: normalizePreference(preferredAccount) || undefined,
         accountOptions: [...accountOptions],
         isVerified: true,
         phoneNumber: apiUser.phoneNumber,
@@ -421,6 +441,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("pending_account_preference");
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
+      localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
       setPendingVerification(null);
       setDevOtpCode(null);
 
@@ -498,9 +519,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const verificationName = `${apiUser.firstName || ""} ${apiUser.lastName || ""}`.trim() || "User";
 
         const otpResponse = await sendOtp({ email: verificationEmail });
-        setPendingVerification({ email: verificationEmail, name: verificationName });
+        setPendingVerification({ email: verificationEmail, name: verificationName, flow: "signin" });
         localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, verificationEmail);
         localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, verificationName);
+        localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signin");
+        localStorage.removeItem("pending_account_preference");
 
         setIsLoading(false);
         if (!options?.suppressToast) {
@@ -542,6 +565,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LEGACY_TOKEN_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
+    localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
     if (!options?.silent) {
       toast.success("Logged out successfully");
     }

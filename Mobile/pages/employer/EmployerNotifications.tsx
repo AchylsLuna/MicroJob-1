@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import { apiRequest } from '../../lib/api';
 
 type NotificationItem = {
   id: string;
@@ -51,12 +52,16 @@ export default function EmployerNotifications({
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/applications/employer`, {
+      const result = await apiRequest<any[]>(`${API_URL}/applications/employer`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await response.json().catch(() => []);
-      if (!response.ok) throw new Error(data?.message || 'Failed to load notifications.');
-      const mapped = (Array.isArray(data) ? data : [])
+      }, 'Failed to load notifications.');
+      if (!result.ok) throw new Error(result.message || 'Failed to load notifications.');
+      const records = Array.isArray(result.data)
+        ? result.data
+        : Array.isArray(result.raw)
+          ? result.raw
+          : [];
+      const mapped = records
         .map((app: any) => normalizeNotification(app))
         .filter((item) => !removedIdsRef.current.has(item.id));
       setNotifications(mapped);
@@ -90,13 +95,12 @@ export default function EmployerNotifications({
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/applications/${notificationId}/employer/remove`, {
+      const result = await apiRequest(`${API_URL}/applications/${notificationId}/employer/remove`, {
         method: 'PATCH',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error((data as any)?.message || 'Failed to remove notification.');
+      }, 'Failed to remove notification.');
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to remove notification.');
       }
 
       removedIdsRef.current.add(notificationId);
@@ -111,13 +115,12 @@ export default function EmployerNotifications({
     setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, isRead: true } : item)));
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/applications/${notificationId}/employer/read`, {
+      const result = await apiRequest(`${API_URL}/applications/${notificationId}/employer/read`, {
         method: 'PATCH',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error((data as any)?.message || 'Failed to mark as read.');
+      }, 'Failed to mark as read.');
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to mark as read.');
       }
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to mark as read.');

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { apiRequest, asObject } from '../../lib/api';
 
 type Message = {
   _id: string;
@@ -27,11 +28,15 @@ export default function EmployerMessages({ workerId, jobId }: EmployerMessagesPr
       const token = await AsyncStorage.getItem('auth_token');
       const params = new URLSearchParams({ otherUserId: workerId });
       if (jobId) params.append('jobId', jobId);
-      const res = await fetch(`${API_URL}/messages?${params.toString()}`, {
+      const result = await apiRequest(`${API_URL}/messages?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      setMessages(data.messages || []);
+      }, 'Failed to load messages.');
+      if (!result.ok) {
+        setMessages([]);
+        return;
+      }
+      const payload = asObject<{ messages?: Message[] }>(result.raw);
+      setMessages(Array.isArray(payload?.messages) ? payload.messages : []);
     } finally {
       setLoading(false);
     }
@@ -42,14 +47,14 @@ export default function EmployerMessages({ workerId, jobId }: EmployerMessagesPr
   const sendMessage = async () => {
     if (!input.trim()) return;
     const token = await AsyncStorage.getItem('auth_token');
-    await fetch(`${API_URL}/messages`, {
+    await apiRequest(`${API_URL}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ receiverId: workerId, content: input, jobId }),
-    });
+    }, 'Failed to send message.');
     setInput('');
     fetchMessages();
   };
@@ -134,4 +139,3 @@ const styles = StyleSheet.create({
   },
   sendText: { color: '#fff', fontWeight: '700' },
 });
-

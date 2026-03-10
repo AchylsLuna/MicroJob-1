@@ -13,7 +13,6 @@ const PUBLIC_AUTH_PATHS = new Set([
   "/auth/register",
   "/auth/otp/send",
   "/auth/otp/verify",
-  "/auth/google",
 ]);
 
 let redirectInProgress = false;

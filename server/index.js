@@ -69,7 +69,7 @@ app.use(cors({
 // No explicit app.options needed because CORS middleware is applied globally
 
 // Static file serving for uploads
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(resolve(__dirname, 'uploads')));
 
 // Routes
 import CategoryRoute from './routes/CategoryRoute.js';

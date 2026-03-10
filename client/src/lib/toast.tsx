@@ -94,11 +94,11 @@ export function Toaster({ position = "top-right" }: { position?: "top-right" | "
   }
 
   return (
-    <div className={`fixed z-50 flex flex-col gap-3 ${positionClasses}`}>
+    <div className={`fixed z-[9999] pointer-events-none flex flex-col gap-3 ${positionClasses}`}>
       {toasts.map((toastItem) => (
         <div
           key={toastItem.id}
-          className={`w-[320px] border rounded-[12px] px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ${toastStyles[toastItem.type]}`}
+          className={`pointer-events-auto w-[320px] border rounded-[12px] px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ${toastStyles[toastItem.type]}`}
         >
           <p className="text-[14px] font-semibold">{toastItem.title}</p>
           {toastItem.description && (

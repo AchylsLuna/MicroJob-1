@@ -1,10 +1,11 @@
 export const PHONE_DIGITS = 11;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const NAME_REGEX = /^[A-Za-z][A-Za-z\s'.-]*$/;
+const PH_PHONE_REGEX = /^09\d{9}$/;
 
 export const EMAIL_VALIDATION_MESSAGE =
   "Please enter a valid email address (example: email@gmail.com).";
-export const PHONE_VALIDATION_MESSAGE = `Phone number must be exactly ${PHONE_DIGITS} digits.`;
+export const PHONE_VALIDATION_MESSAGE = "Phone number must be a valid Philippine mobile number (09XXXXXXXXX).";
 export const FULL_NAME_VALIDATION_MESSAGE =
   "Full name must contain letters only (spaces, apostrophes, hyphens, and periods are allowed).";
 
@@ -17,11 +18,15 @@ export function isValidEmail(value: string): boolean {
 }
 
 export function normalizePhone(value: string): string {
-  return value.replace(/\D/g, "").slice(0, PHONE_DIGITS);
+  const digitsOnly = value.replace(/\D/g, "");
+  if (digitsOnly.startsWith("63")) {
+    return `0${digitsOnly.slice(2)}`.slice(0, PHONE_DIGITS);
+  }
+  return digitsOnly.slice(0, PHONE_DIGITS);
 }
 
 export function isValidPhone(value: string): boolean {
-  return new RegExp(`^\\d{${PHONE_DIGITS}}$`).test(value);
+  return PH_PHONE_REGEX.test(value);
 }
 
 export function normalizeFullName(value: string): string {

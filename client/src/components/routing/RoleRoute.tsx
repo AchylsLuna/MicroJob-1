@@ -1,5 +1,5 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { useAuth } from "../../hooks/useAuth";
 import {
   getDefaultDashboardPath,
@@ -12,46 +12,32 @@ import { getSignInRouteForPath } from "../../utils/authRedirects";
 export type RouteRole = "patient" | "employer" | "admin";
 
 export function RoleRoute({ requiredRole }: { requiredRole: RouteRole }) {
-  const { user: contextUser } = useAuth();
+  const { user: contextUser, isLoading } = useAuth();
   const location = useLocation();
-  const [, setAuthTrigger] = useState(0);
-  const hasBothOptionsInContext =
-    Array.isArray(contextUser?.accountOptions) &&
-    contextUser.accountOptions.includes("worker") &&
-    contextUser.accountOptions.includes("employer");
 
-  // Force re-check when auth_user_updated event fires
-  useEffect(() => {
-    const handleAuthUpdate = () => {
-      console.log(`RoleRoute - auth_user_updated event received, forcing re-check`);
-      setAuthTrigger(prev => prev + 1);
-    };
-    
-    window.addEventListener("auth_user_updated", handleAuthUpdate);
-    return () => window.removeEventListener("auth_user_updated", handleAuthUpdate);
-  }, []);
-
-  // For role="both" users, check localStorage to get the ACTUAL current accountType
-  // This is necessary because state updates are async and RoleRoute may render 
-  // before context updates when a role switch happens
-  let user = contextUser;
-  if (contextUser?.role === "both" || contextUser?.accountPreference === "both" || hasBothOptionsInContext) {
+  const getStoredUser = () => {
     try {
       const storedUser = localStorage.getItem("current_user") || localStorage.getItem("auth_user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        console.log(`RoleRoute - User has dual account options, using localStorage version:`, parsed);
-        user = parsed;
-      }
-    } catch (e) {
-      console.log(`RoleRoute - Error parsing localStorage, using context user`, e);
+      if (!storedUser) return null;
+      const parsed = JSON.parse(storedUser);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
     }
+  };
+
+  const storedUser = getStoredUser();
+  const hasAuthToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
+
+  // Let auth context finish initial sync before redirecting to sign-in.
+  if (isLoading && hasAuthToken && !contextUser && !storedUser) {
+    return null;
   }
 
-  console.log(`RoleRoute - Checking ${requiredRole} access, user:`, user);
+  // Storage fallback protects against short-lived state sync races after OTP/login.
+  const user = contextUser || storedUser;
 
-  if (!user) {
-    console.log(`RoleRoute - No user, redirecting to signin`);
+  if (!user || !hasAuthToken) {
     return <Navigate to={getSignInRouteForPath(location.pathname)} replace />;
   }
 
@@ -62,12 +48,8 @@ export function RoleRoute({ requiredRole }: { requiredRole: RouteRole }) {
       ? isEmployer(user)
       : isPatient(user);
 
-  console.log(`RoleRoute - ${requiredRole} hasAccess:`, hasAccess, `accountType:`, user.accountType);
-
   if (!hasAccess) {
-    const defaultPath = getDefaultDashboardPath(user);
-    console.log(`RoleRoute - Access denied, redirecting to ${defaultPath}`);
-    return <Navigate to={defaultPath} replace />;
+    return <Navigate to={getDefaultDashboardPath(user)} replace />;
   }
 
   return <Outlet />;

@@ -1,17 +1,28 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { sendOtp, verifyOtp } from '../services/api';
-import { ROUTES } from '../utils/routes';
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { sendOtp } from "../services/api";
+import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { ROUTES } from "../utils/routes";
 
 const EmailVerification: React.FC = () => {
   const navigate = useNavigate();
-  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const { verifyOTP, resendOTP, user } = useAuth();
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
   const [hasSent, setHasSent] = useState(false);
-  const [verified, setVerified] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const [email] = useState(() => localStorage.getItem('pending_verification_email') || '');
+  const [email] = useState(() => localStorage.getItem("pending_verification_email") || "");
+
+  const getStoredUser = () => {
+    try {
+      const raw = localStorage.getItem("auth_user") || localStorage.getItem("current_user");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
 
   useEffect(() => {
     if (!email || hasSent) {
@@ -21,22 +32,17 @@ const EmailVerification: React.FC = () => {
     let isCancelled = false;
     const sendCode = async () => {
       setIsLoading(true);
-      setErrorMessage('');
+      setErrorMessage("");
       try {
         await sendOtp({ email });
         if (!isCancelled) {
           setHasSent(true);
-          // persist email so page refresh keeps it
-          localStorage.setItem('pending_verification_email', email);
+          localStorage.setItem("pending_verification_email", email);
         }
       } catch (error) {
-        console.error('Error sending OTP:', error);
-        const err = error as { code?: string; message?: string };
-        const detail = err?.code ? `${err.code} ${err.message || ''}`.trim() : err?.message || '';
-        if (detail) {
-          setErrorMessage(detail);
+        if (!isCancelled) {
+          setErrorMessage("Failed to send verification code. Please try again.");
         }
-        alert('Failed to send verification code');
       } finally {
         if (!isCancelled) {
           setIsLoading(false);
@@ -52,54 +58,50 @@ const EmailVerification: React.FC = () => {
   }, [email, hasSent]);
 
   const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return; // Only allow digits
+    if (!/^\d*$/.test(value)) return;
 
-    const newOtp = [...otp];
-    newOtp[index] = value.slice(-1); // Only take last character
-    setOtp(newOtp);
+    const next = [...otp];
+    next[index] = value.slice(-1);
+    setOtp(next);
 
-    // Auto-focus next input
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
     }
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
 
   const handleOtpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
-    const otpCode = otp.join('');
+    setErrorMessage("");
+    const otpCode = otp.join("");
 
     if (!email) {
-      alert('Missing email for verification. Please sign in again.');
+      setErrorMessage("Missing email for verification. Please sign in again.");
       return;
     }
-    
+
     if (otpCode.length !== 6) {
-      alert('Please enter the complete 6-digit code');
+      setErrorMessage("Please enter the complete 6-digit code.");
       return;
     }
 
     setIsLoading(true);
     try {
-      const response = await verifyOtp({ email, code: otpCode });
-      if (response?.token && response?.user) {
-        localStorage.setItem('auth_user', JSON.stringify(response.user));
-        localStorage.setItem('auth_token', response.token);
-        window.dispatchEvent(new Event('auth_user_updated'));
+      const success = await verifyOTP(otpCode);
+      if (!success) {
+        setErrorMessage("Invalid verification code. Please try again.");
+        return;
       }
-      localStorage.removeItem('pending_verification_email');
-      // show a dedicated confirmation UI instead of redirecting immediately
-      setVerified(true);
-    } catch (error) {
-      console.error('Error verifying OTP:', error);
-      // Avoid showing raw error details (like hostnames). Show a friendly message below the inputs.
-      setErrorMessage('Invalid verification code. Please try again.');
+
+      const targetUser = user || getStoredUser();
+      navigate(getDefaultDashboardPath(targetUser), { replace: true });
+    } catch {
+      setErrorMessage("Invalid verification code. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -107,32 +109,24 @@ const EmailVerification: React.FC = () => {
 
   const handleResendCode = async () => {
     if (!email) {
-      alert('Missing email for verification. Please sign in again.');
+      setErrorMessage("Missing email for verification. Please sign in again.");
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage('');
+    setErrorMessage("");
     try {
-      await sendOtp({ email });
-      
-      setOtp(['', '', '', '', '', '']);
-      alert('Verification code sent!');
-    } catch (error) {
-      console.error('Error resending OTP:', error);
-      const err = error as { code?: string; message?: string };
-      const detail = err?.code ? `${err.code} ${err.message || ''}`.trim() : err?.message || '';
-      if (detail) {
-        setErrorMessage(detail);
-      }
-      alert('Failed to resend code');
+      await resendOTP();
+      setOtp(["", "", "", "", "", ""]);
+    } catch {
+      setErrorMessage("Failed to resend verification code. Please try again.");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleBackToLogin = () => {
-    navigate(ROUTES.signInLegacy);
+    navigate(ROUTES.signIn);
   };
 
   if (!email) {
@@ -140,9 +134,7 @@ const EmailVerification: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2942] to-[#0f1820] p-4 page-transition">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl p-8">
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-3">
-              Email Required
-            </h2>
+            <h2 className="text-2xl font-bold text-center text-gray-800 mb-3">Email Required</h2>
             <p className="text-center text-gray-600 text-sm mb-6">
               Please sign in again to receive a verification code.
             </p>
@@ -159,130 +151,84 @@ const EmailVerification: React.FC = () => {
     );
   }
 
-  if (verified) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2942] to-[#0f1820] p-4 page-transition">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">Email Verified</h2>
-            <p className="text-gray-600 mb-6">Thank you — your email has been verified successfully.</p>
-            <button
-              type="button"
-              onClick={() => navigate(ROUTES.legacyDashboard.root, { replace: true })}
-              className="w-full bg-[#1e3a5f] text-white py-3 rounded-xl font-semibold hover:bg-[#2d5080] transition-colors"
-            >
-              OK
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2942] to-[#0f1820] p-4 page-transition">
       <div className="w-full max-w-md">
-        {/* OTP Verification Screen */}
         <div className="bg-white rounded-3xl shadow-2xl p-8">
-            {/* Back Button */}
-            <button
+          <button
             onClick={handleBackToLogin}
-              className="mb-6 flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+            className="mb-6 flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+          >
+            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+
+          <div className="flex justify-center mb-6">
+            <div className="w-16 h-16 rounded-full bg-[#1e3a5f] flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
+                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                 />
               </svg>
-            </button>
+            </div>
+          </div>
 
-            {/* Icon */}
-            <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-[#1e3a5f] flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Verify Email</h2>
+          <p className="text-center text-gray-500 text-sm mb-2">
+            {hasSent ? "We've sent a 6-digit code to" : "Sending a 6-digit code to"}
+          </p>
+          <p className="text-center text-gray-700 font-medium mb-8">{email}</p>
+
+          <form onSubmit={handleOtpSubmit}>
+            <div className="flex justify-center gap-2 mb-6">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => {
+                    inputRefs.current[index] = el;
+                  }}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleOtpChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                />
+              ))}
             </div>
 
-            {/* Title */}
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">
-              Verify Email
-            </h2>
-            <p className="text-center text-gray-500 text-sm mb-2">
-              {hasSent ? "We've sent a 6-digit code to" : 'Sending a 6-digit code to'}
-            </p>
+            {errorMessage && (
+              <p className="mt-2 mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 text-center">
+                {errorMessage}
+              </p>
+            )}
 
-            <p className="text-center text-gray-700 font-medium mb-8">
-              {email || 'Missing email'}
-            </p>
+            <button
+              type="submit"
+              disabled={isLoading || otp.join("").length !== 6}
+              className="w-full bg-[#1e3a5f] text-white py-3 rounded-xl font-semibold hover:bg-[#2d5080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+            >
+              {isLoading ? "Verifying..." : "Verify Code"}
+            </button>
 
-            {/* Form */}
-            <form onSubmit={handleOtpSubmit}>
-              {/* OTP Input Boxes */}
-              <div className="flex justify-center gap-2 mb-6">
-                {otp.map((digit, index) => (
-                  <input
-                    key={index}
-                    ref={(el) => { inputRefs.current[index] = el; }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
-                  />
-                ))}
-              </div>
-
-              {errorMessage && (
-                <p className="mt-2 mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700 text-center">
-                  {errorMessage}
-                </p>
-              )}
-
+            <div className="text-center">
+              <span className="text-gray-600 text-sm">Didn't receive the code? </span>
               <button
-                type="submit"
-                disabled={isLoading || otp.join('').length !== 6}
-                className="w-full bg-[#1e3a5f] text-white py-3 rounded-xl font-semibold hover:bg-[#2d5080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+                type="button"
+                onClick={handleResendCode}
+                disabled={isLoading}
+                className="text-[#1e3a5f] font-medium hover:underline disabled:opacity-50"
               >
-                {isLoading ? 'Verifying...' : 'Verify Code'}
+                Resend Code
               </button>
-
-              <div className="text-center">
-                <span className="text-gray-600 text-sm">
-                  Didn't receive the code?{' '}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleResendCode}
-                  disabled={isLoading}
-                  className="text-[#1e3a5f] font-medium hover:underline disabled:opacity-50"
-                >
-                  Resend Code
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

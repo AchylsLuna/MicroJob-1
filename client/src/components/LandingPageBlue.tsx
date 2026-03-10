@@ -7,6 +7,19 @@ import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 
+const toAbsoluteAssetUrl = (value?: string): string | null => {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith("/uploads/")) {
+    const apiBase = import.meta.env.VITE_API_BASE || "/api";
+    const origin = apiBase.startsWith("http")
+      ? apiBase.replace(/\/api\/?$/, "")
+      : window.location.origin;
+    return `${origin}${value}`;
+  }
+  return value;
+};
+
 // Animated Counter Component
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
   const [count, setCount] = useState(0);
@@ -145,6 +158,7 @@ export function LandingPageBlue() {
       name: "Ashriel Mejia",
       role: "Project Manager",
       avatarClass: "from-[#4988C4] to-[#1C4D8D]",
+      avatarImage: "/team/pic-portrait.png",
       positionClass: "top-6 left-4 sm:left-8 md:left-10",
       delay: 0.2,
       hoverRotate: 5,
@@ -155,6 +169,7 @@ export function LandingPageBlue() {
       name: "Jonas Enriquez",
       role: "Full Stack Developer",
       avatarClass: "from-[#6BCF7F] to-[#4CAF50]",
+      avatarImage: "/team/pic-portrait.png",
       positionClass: "top-1/4 right-4 sm:right-8 md:right-10",
       delay: 0.35,
       hoverRotate: -5,
@@ -165,6 +180,7 @@ export function LandingPageBlue() {
       name: "Nicholas Gonzales",
       role: "Backend Developer",
       avatarClass: "from-[#FFD93D] to-[#FFA500]",
+      avatarImage: "/team/pic-portrait.png",
       positionClass: "bottom-10 left-6 sm:left-12 md:left-14",
       delay: 0.5,
       hoverRotate: 5,
@@ -175,6 +191,7 @@ export function LandingPageBlue() {
       name: "Elijah Vinluan",
       role: "Front-end Developer",
       avatarClass: "from-[#A78BFA] to-[#7C3AED]",
+      avatarImage: "/team/pic-portrait.png",
       positionClass: "bottom-16 right-5 sm:right-10 md:right-14",
       delay: 0.65,
       hoverRotate: -5,
@@ -185,6 +202,7 @@ export function LandingPageBlue() {
       name: "Winona Gamba",
       role: "Documentator",
       avatarClass: "from-[#FB7185] to-[#E11D48]",
+      avatarImage: "/team/pic-portrait.png",
       positionClass: "top-4 left-1/2 -translate-x-1/2 sm:top-6 md:top-8",
       delay: 0.8,
       hoverRotate: 5,
@@ -344,30 +362,6 @@ export function LandingPageBlue() {
                 </p>
               </motion.div>
 
-              {/* Trusted Companies */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                id="employers"
-                className="mt-12 scroll-mt-24"
-              >
-                <p className="text-[13px] text-gray-500 mb-4">Trusted by leading companies:</p>
-                <div className="flex items-center gap-4">
-                  {["🏢", "💼", "🚀", "⚡", "🎯", "💡"].map((emoji, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ delay: 1 + i * 0.1, type: "spring" }}
-                      whileHover={{ scale: 1.2, rotate: 360 }}
-                      className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-[18px] cursor-pointer"
-                    >
-                      {emoji}
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
             </motion.div>
 
             {/* Right Content - Illustration */}
@@ -390,10 +384,19 @@ export function LandingPageBlue() {
                     className={`absolute ${member.positionClass} w-[140px] sm:w-[150px] bg-white/90 backdrop-blur-md rounded-[16px] p-4 shadow-xl cursor-pointer`}
                   >
                     <motion.div
-                      className={`w-12 h-12 rounded-full bg-gradient-to-br ${member.avatarClass} mb-2`}
-                      animate={{ rotate: member.spinRotate }}
-                      transition={{ duration: member.spinDuration, repeat: Infinity, ease: "linear" }}
-                    />
+                      className={`w-12 h-12 rounded-full mb-2 overflow-hidden ${member.avatarImage ? "bg-gray-100" : `bg-gradient-to-br ${member.avatarClass}`}`}
+                      animate={member.avatarImage ? undefined : { rotate: member.spinRotate }}
+                      transition={member.avatarImage ? undefined : { duration: member.spinDuration, repeat: Infinity, ease: "linear" }}
+                    >
+                      {member.avatarImage ? (
+                        <img
+                          src={toAbsoluteAssetUrl(member.avatarImage) || undefined}
+                          alt={member.name}
+                          className="w-full h-full object-cover object-center"
+                          loading="lazy"
+                        />
+                      ) : null}
+                    </motion.div>
                     <p className="text-[13px] font-semibold text-gray-900 leading-tight">{member.name}</p>
                     <p className="text-[11px] text-gray-500 leading-snug mt-1">{member.role}</p>
                   </motion.div>

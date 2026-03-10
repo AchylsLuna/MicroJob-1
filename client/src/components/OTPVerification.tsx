@@ -10,11 +10,13 @@ interface OTPVerificationProps {
 }
 
 export function OTPVerification({ onClose, email }: OTPVerificationProps) {
-  const { verifyOTP, resendOTP, user } = useAuth();
+  const { verifyOTP, resendOTP } = useAuth();
   const navigate = useNavigate();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [canResend, setCanResend] = useState(false);
+  const verifyInFlightRef = useRef(false);
+  const [isResending, setIsResending] = useState(false);
+  const resendInFlightRef = useRef(false);
   const [countdown, setCountdown] = useState(60);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -25,16 +27,19 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
     // Countdown timer
     const timer = setInterval(() => {
       setCountdown((prev) => {
-        if (prev <= 1) {
-          setCanResend(true);
-          return 0;
-        }
+        if (prev <= 1) return 0;
         return prev - 1;
       });
     }, 1000);
 
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    setCountdown(60);
+    setIsResending(false);
+    resendInFlightRef.current = false;
+  }, [email]);
 
   const applyOtpDigits = (startIndex: number, digits: string) => {
     const nextOtp = [...otp];
@@ -117,39 +122,62 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
   };
 
   const handleVerify = async (otpCode: string) => {
+    if (verifyInFlightRef.current) {
+      return;
+    }
+    verifyInFlightRef.current = true;
     setIsVerifying(true);
     
     try {
       const success = await verifyOTP(otpCode);
-      if (success) {
-        let nextUser = user;
-        try {
-          const storedUserRaw =
-            localStorage.getItem("auth_user") || localStorage.getItem("current_user");
-          if (storedUserRaw) {
-            nextUser = JSON.parse(storedUserRaw);
-          }
-        } catch {
-          // Ignore malformed storage payload and use in-memory auth user.
+      let nextUser: unknown = null;
+      try {
+        const storedUserRaw =
+          localStorage.getItem("auth_user") || localStorage.getItem("current_user");
+        if (storedUserRaw) {
+          nextUser = JSON.parse(storedUserRaw);
         }
-        onClose();
-        navigate(getDefaultDashboardPath(nextUser), { replace: true });
+      } catch {
+        nextUser = null;
+      }
+
+      const hasAuthToken = Boolean(
+        localStorage.getItem("auth_token") || localStorage.getItem("token"),
+      );
+
+      if (success || (hasAuthToken && nextUser && typeof nextUser === "object")) {
+        const destination = getDefaultDashboardPath(
+          nextUser && typeof nextUser === "object" ? (nextUser as any) : null,
+        );
+        // Use hard redirect immediately to avoid route-guard/modal state races.
+        window.location.replace(destination);
+        return;
       } else {
         inputRefs.current[0]?.focus();
       }
     } catch (error) {
       inputRefs.current[0]?.focus();
     } finally {
+      verifyInFlightRef.current = false;
       setIsVerifying(false);
     }
   };
 
   const handleResend = async () => {
-    if (!canResend) return;
-    
-    await resendOTP();
-    setCanResend(false);
+    if (countdown > 0 || resendInFlightRef.current) {
+      return;
+    }
+
+    resendInFlightRef.current = true;
+    setIsResending(true);
     setCountdown(60);
+
+    try {
+      await resendOTP();
+    } finally {
+      resendInFlightRef.current = false;
+      setIsResending(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -218,9 +246,10 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
 
         {/* Resend */}
         <div className="text-center">
-          {canResend ? (
+          {countdown === 0 && !isResending ? (
             <button
               onClick={handleResend}
+              disabled={isResending}
               className="text-[14px] text-[#1C4D8D] hover:text-[#0F2954] font-semibold flex items-center justify-center gap-2 mx-auto"
             >
               <RefreshCw className="w-4 h-4" />

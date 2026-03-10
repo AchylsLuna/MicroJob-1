@@ -4,8 +4,23 @@ import { getSignInRouteForPath } from "../utils/authRedirects";
 import { DashboardLayout } from "./DashboardLayout";
 
 export function ProtectedDashboardLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
+
+  const getStoredUser = () => {
+    try {
+      const storedUser = localStorage.getItem("current_user") || localStorage.getItem("auth_user");
+      if (!storedUser) return null;
+      const parsed = JSON.parse(storedUser);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const storedUser = getStoredUser();
+  const hasAuthToken = Boolean(localStorage.getItem("auth_token") || localStorage.getItem("token"));
+  const hasAuthenticatedSession = Boolean(user || storedUser) && hasAuthToken;
 
   // Show loading state while checking authentication
   if (isLoading) {
@@ -20,7 +35,7 @@ export function ProtectedDashboardLayout() {
   }
 
   // Redirect to role-aware sign-in page if not authenticated
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !hasAuthenticatedSession) {
     return <Navigate to={getSignInRouteForPath(location.pathname)} replace />;
   }
 

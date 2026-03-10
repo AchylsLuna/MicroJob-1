@@ -42,10 +42,12 @@ export function NavBar() {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [dashboardSearch, setDashboardSearch] = useState("");
   
+  const rawAccountOptions = user?.accountOptions;
+  const accountOptions: Array<"worker" | "employer"> = Array.isArray(rawAccountOptions)
+    ? (rawAccountOptions as Array<"worker" | "employer">)
+    : [];
   const hasBothOptions =
-    Array.isArray(user?.accountOptions) &&
-    user.accountOptions.includes("worker") &&
-    user.accountOptions.includes("employer");
+    accountOptions.includes("worker") && accountOptions.includes("employer");
   const isBothRole =
     !!user &&
     user.role !== "admin" &&

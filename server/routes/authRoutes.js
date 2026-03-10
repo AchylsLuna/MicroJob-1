@@ -24,7 +24,10 @@ import {
   changePasswordWithOtp,
 } from '../controllers/UserController.js';
 import {
+  isValidName,
   isValidPhone,
+  NAME_VALIDATION_MESSAGE,
+  normalizeName,
   normalizeEmail,
   normalizePhone,
   PHONE_VALIDATION_MESSAGE,
@@ -333,6 +336,12 @@ router.post('/register', async (req, res) => {
       const nameParts = displayUsername.split(' ').filter(Boolean);
       userFirstName = nameParts[0] || displayUsername;
       userLastName = nameParts.slice(1).join(' ') || userFirstName;
+    }
+
+    userFirstName = normalizeName(userFirstName);
+    userLastName = normalizeName(userLastName);
+    if (!isValidName(userFirstName) || !isValidName(userLastName)) {
+      return sendError(res, 400, NAME_VALIDATION_MESSAGE);
     }
 
     const duplicateQuery = [

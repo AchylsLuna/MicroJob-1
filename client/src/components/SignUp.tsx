@@ -22,6 +22,18 @@ import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 
+const SIGN_UP_DRAFT_KEY = "signup_draft_v1";
+
+type SignUpDraft = {
+  fullName: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  userType: "employer" | "worker" | "both";
+  agreeToTerms: boolean;
+};
+
 export function SignUp() {
   const navigate = useNavigate();
   const { register, pendingVerification, isAuthenticated, user } = useAuth();
@@ -63,12 +75,47 @@ export function SignUp() {
         ? "bg-[#EAB308]"
         : "bg-[#10B981]";
 
+  useEffect(() => {
+    const raw = sessionStorage.getItem(SIGN_UP_DRAFT_KEY);
+    if (!raw) return;
+    try {
+      const draft = JSON.parse(raw) as Partial<SignUpDraft>;
+      setFormData({
+        fullName: String(draft.fullName || ""),
+        email: String(draft.email || ""),
+        phone: String(draft.phone || ""),
+        password: String(draft.password || ""),
+        confirmPassword: String(draft.confirmPassword || ""),
+      });
+      if (draft.userType === "employer" || draft.userType === "worker" || draft.userType === "both") {
+        setUserType(draft.userType);
+      }
+      setAgreeToTerms(Boolean(draft.agreeToTerms));
+    } catch {
+      sessionStorage.removeItem(SIGN_UP_DRAFT_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const draft: SignUpDraft = {
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+      userType,
+      agreeToTerms,
+    };
+    sessionStorage.setItem(SIGN_UP_DRAFT_KEY, JSON.stringify(draft));
+  }, [formData, userType, agreeToTerms]);
+
   // Redirect to dashboard if already authenticated
   useEffect(() => {
-    if (isAuthenticated && !pendingVerification) {
+    if (isAuthenticated) {
+      sessionStorage.removeItem(SIGN_UP_DRAFT_KEY);
       navigate(getDefaultDashboardPath(user), { replace: true });
     }
-  }, [isAuthenticated, pendingVerification, navigate, user]);
+  }, [isAuthenticated, navigate, user]);
 
   const handleChange = (field: string, value: string) => {
     if (field === "fullName") {
@@ -128,6 +175,7 @@ export function SignUp() {
       submitInFlightRef.current = true;
       setIsSubmitting(true);
       await register(normalizedEmail, formData.password, normalizedFullName, userType, normalizedPhone);
+      sessionStorage.removeItem(SIGN_UP_DRAFT_KEY);
       setShowOTP(true);
     } catch (error: any) {
       const message = error?.message || "Registration failed";
@@ -284,7 +332,7 @@ export function SignUp() {
                   onChange={(e) => handleChange("phone", e.target.value)}
                   inputMode="numeric"
                   maxLength={PHONE_DIGITS}
-                  placeholder={`Enter ${PHONE_DIGITS}-digit phone number`}
+                  placeholder="Enter PH mobile number (09XXXXXXXXX)"
                   aria-invalid={phoneHasError}
                   className={`w-full bg-[#F9FAFB] border rounded-[12px] pl-12 pr-4 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:border-transparent transition-all ${
                     phoneHasError

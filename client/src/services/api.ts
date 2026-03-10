@@ -50,17 +50,25 @@ async function request<T>(
   options: RequestInitInput & { body?: unknown; method?: string } = {}
 ): Promise<T> {
   const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
+  const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const headers: HeadersInit = {
+    ...(isFormDataBody ? {} : { 'Content-Type': 'application/json' }),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
+  const requestBody =
+    options.body === undefined
+      ? undefined
+      : isFormDataBody
+        ? (options.body as FormData)
+        : JSON.stringify(options.body);
 
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
       method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-        ...(options.headers || {}),
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers,
+      body: requestBody,
     });
   } catch {
     throw new Error('Unable to reach the server. Make sure the backend is running.');
@@ -262,11 +270,6 @@ export function deleteReadNotifications() {
   return request(`/notifications/read`, { method: 'DELETE' });
 }
 
-// Social sign-in
-export function googleSignIn(idToken: string) {
-  return request<{ token?: string; user?: any; message?: string }>(`/auth/google`, { method: 'POST', body: { idToken } });
-}
-
 // Alerts APIs
 export function getAlerts(params?: QueryParams) {
   return request<any[]>(`/alerts${buildQuery(params)}`, { method: 'GET' });
@@ -403,24 +406,9 @@ export function editMessage(messageId: string, content: string) {
 }
 // Resume APIs
 export async function uploadResume(file: File) {
-  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
   const formData = new FormData();
   formData.append('resume', file);
-
-  const res = await fetch(`${API_BASE}/auth/profile/resume`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    const message = data?.message || 'Failed to upload resume';
-    throw new Error(message);
-  }
-  return data;
+  return request<any>('/auth/profile/resume', { method: 'POST', body: formData });
 }
 
 export function deleteResume() {
@@ -429,24 +417,9 @@ export function deleteResume() {
 
 // Avatar APIs
 export async function uploadAvatar(file: File) {
-  const token = localStorage.getItem('token') || localStorage.getItem('auth_token');
   const formData = new FormData();
   formData.append('avatar', file);
-
-  const res = await fetch(`${API_BASE}/auth/profile/avatar`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-    body: formData,
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    const message = data?.message || 'Failed to upload avatar';
-    throw new Error(message);
-  }
-  return data;
+  return request<any>('/auth/profile/avatar', { method: 'POST', body: formData });
 }
 
 export function deleteAvatar() {
