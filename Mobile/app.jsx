@@ -78,7 +78,7 @@ export default function App() {
 
   // Toggle for testing onboarding screens
   const FORCE_ONBOARDING = false;
-  const BYPASS_LOGIN_FLOW = true;
+  const BYPASS_LOGIN_FLOW = false;
 
   const SCREEN = {
     Screen1: 0,
@@ -672,14 +672,6 @@ export default function App() {
     handleGoToNotifications();
   };
 
-  const handleGoToSettingsEWallet = () => {
-    if (settingsFromEmployer) {
-      handleGoToEmployerEWallet();
-      return;
-    }
-    handleGoToEWallet();
-  };
-
   const handleGoToSettingsLocation = () => {
     setCurrentScreen(SCREEN.SettingsLocationServices);
   };
@@ -884,7 +876,6 @@ export default function App() {
     <CreatePass onBackToLogin={handleGoToSignIn} onReset={handleGoToPassChanged} />,
     <PassChanged onBackToLogin={handleGoToSignIn} />,
     <Dashboard
-      onLogout={handleLogoutConfirm}
       activeTab={activeTab}
       onTabPress={handleTabPress}
       onNavigateToJobs={handleGoToJobs}
@@ -896,7 +887,6 @@ export default function App() {
       messageBadgeCount={workerUnreadMessageCount}
     />,
     <Jobs
-      onBack={handleGoToDashboard}
       onViewDetails={handleGoToJobDetails}
       onToggleSave={handleToggleSaveJob}
       onMessageEmployer={handleMessageEmployer}
@@ -904,17 +894,16 @@ export default function App() {
       onOpenSavedJobs={handleGoToSaved}
       onOpenAppliedJobs={handleGoToApplied}
       onOpenNotifications={handleGoToNotifications}
-      notificationBadgeCount={workerNotificationBadgeCount}
       activeTab={activeTab}
       onTabPress={handleTabPress}
+      notificationBadgeCount={workerNotificationBadgeCount}
       messageBadgeCount={workerUnreadMessageCount}
     />,
     <EWallet
-      onBack={handleGoToJobs}
-      onOpenNotifications={handleGoToNotifications}
-      notificationBadgeCount={workerNotificationBadgeCount}
       activeTab={activeTab}
       onTabPress={handleTabPress}
+      onOpenNotifications={handleGoToNotifications}
+      notificationBadgeCount={workerNotificationBadgeCount}
       messageBadgeCount={workerUnreadMessageCount}
     />,
     <JobDetails
@@ -973,7 +962,6 @@ export default function App() {
       onNavigatePersonalDetails={handleGoToSettingsPersonalDetails}
       onNavigateChangePassword={handleGoToSettingsChangePassword}
       onNavigateNotifications={handleGoToSettingsNotifications}
-      onNavigateEWallet={handleGoToSettingsEWallet}
       onNavigateLocation={handleGoToSettingsLocation}
       onNavigateMfa={handleGoToSettingsMfa}
       onNavigateAbout={handleGoToSettingsAbout}
@@ -982,10 +970,6 @@ export default function App() {
       currentRole={settingsFromEmployer ? 'employer' : 'worker'}
     />,
     <EmployerJobPosts
-      onOpenPostJob={handleGoToEmployerPostJob}
-      onOpenApplications={handleGoToEmployerApplications}
-      onOpenNotifications={handleGoToEmployerNotifications}
-      onOpenProfile={handleGoToEmployerProfile}
       onEditJob={handleGoToEmployerPostJob}
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
@@ -1007,7 +991,6 @@ export default function App() {
     <EmployerProfile
       activeTab={activeEmployerTab}
       onTabPress={handleEmployerTabPress}
-      onLogout={handleLogoutConfirm}
       onOpenSettings={handleGoToSettingsFromEmployer}
       onOpenWallet={handleGoToEmployerEWallet}
       currentRole="employer"
@@ -1018,7 +1001,11 @@ export default function App() {
       onTabPress={handleEmployerTabPress}
       liveNotifications={employerNotifications}
     />,
-    <EmployerInbox activeTab={activeEmployerTab} onTabPress={handleEmployerTabPress} liveMessages={messageEvents} />,
+    <EmployerInbox
+      activeTab={activeEmployerTab}
+      onTabPress={handleEmployerTabPress}
+      liveMessages={messageEvents}
+    />,
     <EmployerEWallet
       onBack={handleGoToEmployerProfile}
       activeTab={activeEmployerTab}

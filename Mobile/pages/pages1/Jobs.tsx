@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
+import TabTopNav from '../../components/TabTopNav';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
@@ -23,7 +24,6 @@ export type Job = {
 };
 
 type JobsProps = {
-  onBack?: () => void;
   onViewDetails?: (job: Job) => void;
   onToggleSave?: (job: Job) => void;
   onOpenSavedJobs?: () => void;
@@ -175,20 +175,12 @@ export default function Jobs(props: JobsProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.greeting}>Explore opportunities</Text>
-          <Text style={styles.headerTitle}>Jobs for you</Text>
-        </View>
-        <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications}>
-          <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
-          {notificationBadgeCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </View>
+      <TabTopNav
+        title="Jobs"
+        showNotifications
+        onOpenNotifications={onOpenNotifications}
+        notificationBadgeCount={notificationBadgeCount}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.searchContainer}>
@@ -414,51 +406,6 @@ export default function Jobs(props: JobsProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  header: {
-    paddingHorizontal: 18,
-    paddingTop: 52,
-    paddingBottom: 14,
-    backgroundColor: tokens.colors.background,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  headerContent: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  greeting: { fontSize: 13, color: tokens.colors.textMuted, marginBottom: 4, fontWeight: '600' },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: tokens.colors.text, letterSpacing: -0.4 },
-  notificationIcon: {
-    position: 'relative',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: tokens.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: tokens.colors.danger,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: tokens.colors.white,
-  },
-  badgeText: {
-    color: tokens.colors.onBrand,
-    fontSize: 11,
-    fontWeight: '700',
-  },
   scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 94, gap: 14 },
   searchContainer: {
     flexDirection: 'row',

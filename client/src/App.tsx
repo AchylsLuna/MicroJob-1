@@ -36,7 +36,6 @@ import {
 } from "./pages/admin";
 import { ApplicationsManagement as Applications } from "./pages/employer/ApplicationsManagement";
 import { EmployerDashboard } from "./pages/employer/EmployerDashboard";
-import JobPosts from "./pages/employer/JobPosts";
 import { JobsManagement } from "./pages/employer/JobsManagement";
 import PostJob from "./pages/employer/PostJob";
 import NotificationsRouter from "./pages/NotificationsRouter";
@@ -57,7 +56,7 @@ import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { getDefaultDashboardPath } from "./utils/dashboardRoutes";
 import { ROUTES } from "./utils/routes";
 
-const IDLE_TIMEOUT_MS = 60 * 60 * 1000;
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 30 * 1000;
 
 const InactivityHandler: React.FC = () => {
@@ -277,7 +276,10 @@ const App: React.FC = () => {
             />
             <Route path={ROUTES.employer.dashboard} element={<EmployerDashboard />} />
             <Route path={ROUTES.employer.postJob} element={<PostJob />} />
-            <Route path={ROUTES.employer.jobPosts} element={<JobPosts />} />
+            <Route
+              path="/employer/job-posts"
+              element={<PreserveRedirect to={ROUTES.employer.postJob} />}
+            />
             <Route path={ROUTES.employer.applications} element={<Applications />} />
             <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
             <Route path={ROUTES.employer.messages} element={<WorkerMessages />} />
@@ -299,8 +301,8 @@ const App: React.FC = () => {
               element={<PreserveRedirect to={ROUTES.employer.postJob} />}
             />
             <Route
-              path={ROUTES.doctor.jobPosts}
-              element={<PreserveRedirect to={ROUTES.employer.jobPosts} />}
+              path="/doctor/job-posts"
+              element={<PreserveRedirect to={ROUTES.employer.postJob} />}
             />
             <Route
               path={ROUTES.doctor.applications}
@@ -405,8 +407,8 @@ const App: React.FC = () => {
             element={<PreserveRedirect to={ROUTES.employer.postJob} />}
           />
           <Route
-            path={ROUTES.legacyDashboard.doctor.jobPosts}
-            element={<PreserveRedirect to={ROUTES.employer.jobPosts} />}
+            path="/dashboard/doctor/job-posts"
+            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
           />
           <Route
             path={ROUTES.legacyDashboard.doctor.jobs}
@@ -446,8 +448,8 @@ const App: React.FC = () => {
             element={<PreserveRedirect to={ROUTES.employer.postJob} />}
           />
           <Route
-            path={ROUTES.legacyDashboard.employer.jobPosts}
-            element={<PreserveRedirect to={ROUTES.employer.jobPosts} />}
+            path="/dashboard/employer/job-posts"
+            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
           />
           <Route
             path={ROUTES.legacyDashboard.employer.jobs}

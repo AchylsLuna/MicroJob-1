@@ -1,20 +1,29 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, ActivityIndicator, Alert, Platform } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
 import Navigation from '../../components/navigation';
-import AppHeader from '../../components/AppHeader';
-import AddExperience from './AddExperience';
-import AddEducation from './AddEducation';
+import TabTopNav from '../../components/TabTopNav';
 import AddCV from './AddCV';
-import AddSkills from './AddSkills';
+import AddExperience from './AddExperience';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
-import { calculateProfileCompletion, getCompletionColor, getCompletionMessage, type ProfileData } from '../../lib/profileCompletion';
 
 type ProfileProps = {
   activeTab?: string;
@@ -23,6 +32,12 @@ type ProfileProps = {
   currentRole?: 'worker' | 'employer';
   onSwitchRole?: (role: 'worker' | 'employer') => void;
   messageBadgeCount?: number;
+};
+
+type ExperienceItem = {
+  title: string;
+  subtitle: string;
+  period?: string;
 };
 
 export default function Profile({
@@ -35,16 +50,15 @@ export default function Profile({
 }: ProfileProps) {
   const [profileTab, setProfileTab] = useState(activeTab || 'Profile');
   const [showAddExperience, setShowAddExperience] = useState(false);
-  const [showAddEducation, setShowAddEducation] = useState(false);
   const [showAddCV, setShowAddCV] = useState(false);
-  const [showAddSkills, setShowAddSkills] = useState(false);
   const [firstName, setFirstName] = useState('Jonas');
   const [lastName, setLastName] = useState('');
   const [profile, setProfile] = useState<any>(null);
-  const [profileData, setProfileData] = useState<ProfileData>({});
-  const [completion, setCompletion] = useState({ percentage: 0, completedCount: 0, totalFields: 0 });
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isDeletingItem, setIsDeletingItem] = useState(false);
+  const [showGovernmentScanModal, setShowGovernmentScanModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [isToastVisible, setIsToastVisible] = useState(false);
+
   const API_ORIGIN = API_URL.replace(/\/api$/, '');
   const apiPort = (() => {
     try {
@@ -95,12 +109,6 @@ export default function Profile({
     onTabPress?.(tab);
   };
 
-  const handleRoleSwitch = (role: 'worker' | 'employer') => {
-    if (role === currentRole) return;
-    onSwitchRole?.(role);
-  };
-  const nextRole: 'worker' | 'employer' = currentRole === 'worker' ? 'employer' : 'worker';
-
   const handlePickProfilePicture = async () => {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -117,8 +125,7 @@ export default function Profile({
       });
 
       if (!result.canceled && result.assets[0]) {
-        const pickedImage = result.assets[0];
-        await handleUploadProfilePicture(pickedImage);
+        await handleUploadProfilePicture(result.assets[0]);
       }
     } catch (error) {
       console.log('Error picking image:', error);
@@ -142,7 +149,6 @@ export default function Profile({
       const extensionFromMime = image.mimeType?.split('/').pop()?.toLowerCase();
       const extension = extensionFromName || extensionFromMime || 'jpg';
 
-      // Normalize non-file URI schemes (content://, ph://, assets-library://) before multipart upload.
       if (!uploadUri.startsWith('file://') && FileSystem.cacheDirectory) {
         const cachePath = `${FileSystem.cacheDirectory}avatar_upload_${Date.now()}.${extension}`;
         await FileSystem.copyAsync({ from: uploadUri, to: cachePath });
@@ -156,7 +162,6 @@ export default function Profile({
 
       const formData = new FormData();
       const fileName = image.fileName || `profile_${Date.now()}.${extension}`;
-      
       formData.append('avatar', {
         uri: uploadUri,
         type: image.mimeType || `image/${extension === 'jpg' ? 'jpeg' : extension}`,
@@ -205,135 +210,10 @@ export default function Profile({
       Alert.alert('Success', 'Profile picture updated successfully');
     } catch (error) {
       console.log('Error uploading profile picture:', error);
-      Alert.alert('Upload Failed', 'Could not upload profile picture. Please ensure your phone and backend are on the same network and try again.');
+      Alert.alert('Upload Failed', 'Could not upload profile picture. Please try again.');
     } finally {
       setIsUploadingAvatar(false);
     }
-  }
-
-  const handleDeleteSkill = (skill: any) => {
-    const skillId = skill?._id || skill?.id;
-    if (!skillId) {
-      Alert.alert('Unable to remove', 'This skill cannot be removed because its ID is missing.');
-      return;
-    }
-
-    Alert.alert('Remove Skill', `Remove ${skill?.name || 'this skill'} from your profile?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setIsDeletingItem(true);
-            const token = await AsyncStorage.getItem('auth_token');
-            if (!token) {
-              Alert.alert('Error', 'Authentication token not found');
-              return;
-            }
-
-            const result = await apiRequest(`${API_URL}/auth/profile/skills/${skillId}`, {
-              method: 'DELETE',
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }, 'Failed to remove skill.');
-
-            if (!result.ok) {
-              Alert.alert('Error', result.message || 'Failed to remove skill');
-              return;
-            }
-
-            await loadProfile();
-          } catch (error) {
-            console.log('Failed to remove skill:', error);
-            Alert.alert('Error', 'Failed to remove skill');
-          } finally {
-            setIsDeletingItem(false);
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleDeleteEducation = () => {
-    Alert.alert('Remove Education', 'This will clear your About / Education section. Continue?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setIsDeletingItem(true);
-            const token = await AsyncStorage.getItem('auth_token');
-            if (!token) {
-              Alert.alert('Error', 'Authentication token not found');
-              return;
-            }
-
-            const result = await apiRequest(`${API_URL}/auth/me`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ about: '' }),
-            }, 'Failed to remove education.');
-
-            if (!result.ok) {
-              Alert.alert('Error', result.message || 'Failed to remove education');
-              return;
-            }
-
-            await loadProfile();
-          } catch (error) {
-            console.log('Failed to remove education:', error);
-            Alert.alert('Error', 'Failed to remove education');
-          } finally {
-            setIsDeletingItem(false);
-          }
-        },
-      },
-    ]);
-  };
-
-  const handleDeleteResume = () => {
-    Alert.alert('Remove CV', 'Delete your uploaded CV from profile?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            setIsDeletingItem(true);
-            const token = await AsyncStorage.getItem('auth_token');
-            if (!token) {
-              Alert.alert('Error', 'Authentication token not found');
-              return;
-            }
-
-            const result = await apiRequest(`${API_URL}/auth/profile/resume`, {
-              method: 'DELETE',
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }, 'Failed to remove CV.');
-
-            if (!result.ok) {
-              Alert.alert('Error', result.message || 'Failed to remove CV');
-              return;
-            }
-
-            await loadProfile();
-          } catch (error) {
-            console.log('Failed to remove CV:', error);
-            Alert.alert('Error', 'Failed to remove CV');
-          } finally {
-            setIsDeletingItem(false);
-          }
-        },
-      },
-    ]);
   };
 
   const loadProfile = async () => {
@@ -344,313 +224,411 @@ export default function Profile({
         setFirstName(parsed?.firstName || 'Jonas');
         setLastName(parsed?.lastName || '');
       }
+
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        console.log('❌ No auth token found');
         return;
       }
-      const result = await apiRequest(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }, 'Failed to load profile.') as any;
+
+      const result = (await apiRequest(
+        `${API_URL}/auth/me`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        'Failed to load profile.',
+      )) as any;
 
       if (!result.ok) {
-        console.log('❌ Profile API failed:', result);
         return;
       }
 
-      // The API returns user data directly in result.data
-      const profile = result.data as any;
-
-      if (profile) {
-        console.log('✅ Profile loaded successfully:', {
-          firstName: profile.firstName,
-          lastName: profile.lastName,
-          city: profile.city,
-          phoneNumber: profile.phoneNumber,
-          skills: profile.skills?.length || 0,
-          totalExperience: profile.totalExperience,
-          about: profile.about,
-          avatarUrl: profile.avatarUrl,
-        });
-        
-        setFirstName(profile.firstName || 'Jonas');
-        setLastName(profile.lastName || '');
-        setProfile(profile);
-
-        const profileDataToCalculate: ProfileData = {
-          firstName: profile.firstName?.trim() || '',
-          lastName: profile.lastName?.trim() || '',
-          avatarUrl: profile.avatarUrl?.trim() || '',
-          about: profile.about?.trim() || '',
-          city: profile.city?.trim() || '',
-          phoneNumber: profile.phoneNumber?.trim() || '',
-          linkedin: profile.linkedin?.trim() || '',
-          totalExperience: profile.totalExperience?.trim() || '',
-          resumeUrl: profile.resumeUrl?.trim() || '',
-          skills: Array.isArray(profile.skills) ? profile.skills : [],
-        };
-
-        setProfileData(profileDataToCalculate);
-        const completionStatus = calculateProfileCompletion(profileDataToCalculate);
-        setCompletion(completionStatus);
-      } else {
-        console.log('⚠️ Profile is null or empty');
+      const nextProfile = result.data as any;
+      if (!nextProfile) {
+        return;
       }
+
+      setFirstName(nextProfile.firstName || 'Jonas');
+      setLastName(nextProfile.lastName || '');
+      setProfile(nextProfile);
     } catch (error) {
-      console.log('❌ Failed to load profile:', error);
+      console.log('Failed to load profile:', error);
     }
   };
 
   useEffect(() => {
     loadProfile();
   }, []);
-  
-  // Reload profile when screen becomes focused
+
   useEffect(() => {
     if (activeTab === 'Profile') {
       loadProfile();
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    if (!isToastVisible) return;
+    const timeout = setTimeout(() => {
+      setIsToastVisible(false);
+    }, 2600);
+    return () => clearTimeout(timeout);
+  }, [isToastVisible, toastMessage]);
+
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || 'Jonas';
-  const skills = Array.isArray(profile?.skills) ? profile.skills : [];
-  const totalExperience = profile?.totalExperience || '';
+  const locationLabel = [profile?.city, profile?.province, profile?.country].filter(Boolean).join(', ') || 'Location not set';
   const jobsApplied = typeof profile?.jobsApplied === 'number' ? profile.jobsApplied : 0;
-  const jobsCompleted = typeof profile?.projectsCompleted === 'number' ? profile.projectsCompleted : 0;
-  const successRate = profile?.successRate || '0%';
+  const jobsReviewed =
+    typeof profile?.jobsReviewed === 'number'
+      ? profile.jobsReviewed
+      : typeof profile?.projectsCompleted === 'number'
+      ? profile.projectsCompleted
+      : 0;
+  const interviews =
+    typeof profile?.interviewsCount === 'number'
+      ? profile.interviewsCount
+      : typeof profile?.interviews === 'number'
+      ? profile.interviews
+      : 0;
+
   const resumeUrl = profile?.resumeUrl || profile?.cvUrl || '';
-  const resumeName = profile?.resumeFileName || 'No resume uploaded';
-  const aboutText = profile?.about || '';
+  const absoluteResumeUrl = resumeUrl
+    ? String(resumeUrl).startsWith('http')
+      ? resumeUrl
+      : `${API_ORIGIN}${resumeUrl}`
+    : '';
+  const resumeName = profile?.resumeFileName || 'No document uploaded';
+  const resumeExtension = useMemo(() => {
+    if (!resumeName || !resumeName.includes('.')) return 'FILE';
+    return resumeName.split('.').pop()?.toUpperCase() || 'FILE';
+  }, [resumeName]);
+
   const avatarUrl = profile?.avatarUrl
     ? String(profile.avatarUrl).startsWith('http')
       ? profile.avatarUrl
       : `${API_ORIGIN}${profile.avatarUrl}`
     : '';
-  const initials = displayName
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase() || 'JD';
+
+  const initials =
+    displayName
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'JD';
+
+  const verificationItems = [
+    { label: 'Email', complete: Boolean(profile?.email) },
+    { label: 'Phone', complete: Boolean(profile?.phoneNumber) },
+    {
+      label: 'Gov ID',
+      complete: Boolean(profile?.governmentId || profile?.govId || profile?.idNumber || profile?.nationalId),
+    },
+    { label: 'Resume', complete: Boolean(absoluteResumeUrl) },
+  ];
+  const hasGovernmentId = Boolean(profile?.governmentId || profile?.govId || profile?.idNumber || profile?.nationalId);
+
+  const verifiedCount = verificationItems.filter((item) => item.complete).length;
+  const verificationStrength = Math.round((verifiedCount / verificationItems.length) * 100);
+
+  const totalExperience = profile?.totalExperience || '';
+  const experienceItems: ExperienceItem[] = useMemo(() => {
+    const normalize = (entry: any): ExperienceItem | null => {
+      const title = entry?.title || entry?.position || entry?.role || entry?.jobTitle || '';
+      const company = entry?.company || entry?.companyName || '';
+      const location = entry?.location || entry?.city || '';
+      const periodFromDates = [entry?.startDate, entry?.endDate].filter(Boolean).join(' - ');
+      const period = entry?.period || entry?.duration || periodFromDates || '';
+      const subtitle = [company, location].filter(Boolean).join(' • ');
+
+      if (!title && !subtitle && !period) {
+        return null;
+      }
+
+      return {
+        title: title || 'Work Experience',
+        subtitle: subtitle || 'Professional background',
+        period,
+      };
+    };
+
+    const rawList = Array.isArray(profile?.workExperience)
+      ? profile.workExperience
+      : Array.isArray(profile?.experiences)
+      ? profile.experiences
+      : [];
+
+    const normalized = rawList.map(normalize).filter(Boolean) as ExperienceItem[];
+    if (normalized.length) {
+      return normalized;
+    }
+
+    if (totalExperience) {
+      return [
+        {
+          title: 'Experience Summary',
+          subtitle: totalExperience,
+          period: '',
+        },
+      ];
+    }
+
+    return [];
+  }, [profile, totalExperience]);
+
+  const handleOpenResume = async () => {
+    if (!absoluteResumeUrl) {
+      Alert.alert('No document', 'Upload a CV in Documents first.');
+      return;
+    }
+
+    try {
+      const canOpen = await Linking.canOpenURL(absoluteResumeUrl);
+      if (!canOpen) {
+        throw new Error('Unsupported URL');
+      }
+      await Linking.openURL(absoluteResumeUrl);
+    } catch {
+      Alert.alert('Unable to open', 'Could not open the uploaded document.');
+    }
+  };
+
+  const showGovernmentIdUnavailableToast = () => {
+    setShowGovernmentScanModal(false);
+    setToastMessage('Still not available. This will be improved in Capstone 2.');
+    setIsToastVisible(true);
+  };
+
+  const handleGovernmentIdAction = () => {
+    setShowGovernmentScanModal(true);
+  };
 
   return (
     <View style={styles.container}>
-      <AppHeader
-        title="Details"
-        rightLabel={nextRole === 'employer' ? 'Switch to Employer' : 'Switch to Worker'}
-        rightIconName="swap-horizontal"
-        onRightPress={() => handleRoleSwitch(nextRole)}
+      <TabTopNav
+        title="My Profile"
+        currentRole={currentRole}
+        onSwitchRole={onSwitchRole}
+        onOpenSettings={onOpenSettings}
+        showModeSwitch
+        showSettings
       />
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scroll} 
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        bounces={true}
-        alwaysBounceVertical={true}
+        bounces
       >
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          {/* Avatar */}
-          <View style={styles.avatarContainer}>
-            <TouchableOpacity 
-              style={styles.avatar}
-              onPress={handlePickProfilePicture}
-              disabled={isUploadingAvatar}
-            >
-              {avatarUrl ? (
-                <Image 
-                  source={{ uri: avatarUrl }} 
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <Text style={styles.avatarText}>{initials}</Text>
-              )}
-              {isUploadingAvatar && (
-                <View style={styles.avatarUploadingOverlay}>
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+        <View style={styles.profileHero}>
+          <View style={styles.avatarFrame}>
+            <TouchableOpacity style={styles.avatar} onPress={handlePickProfilePicture} disabled={isUploadingAvatar}>
+              {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarImage} /> : <Text style={styles.avatarInitials}>{initials}</Text>}
+              {isUploadingAvatar ? (
+                <View style={styles.avatarLoadingOverlay}>
+                  <ActivityIndicator size="small" color="#FFFFFF" />
                 </View>
-              )}
+              ) : null}
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.cameraBtn}
+
+            <TouchableOpacity
+              style={styles.editAvatarButton}
               onPress={handlePickProfilePicture}
               disabled={isUploadingAvatar}
+              activeOpacity={0.9}
+              accessibilityLabel="Edit profile photo"
             >
-              <Ionicons name="camera-outline" size={16} color={tokens.colors.brandDark} />
+              <Ionicons name="create-outline" size={16} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
 
-          {/* Name */}
-          <Text style={styles.name}>{displayName}</Text>
-          
-          {/* Profile Completion Section */}
-          <View style={styles.completionContainer}>
-            <View style={styles.completionHeader}>
-              <Text style={styles.completionLabel}>Profile Completion</Text>
-              <Text style={[styles.completionPercentage, { color: getCompletionColor(completion.percentage) }]}>
-                {completion.percentage}%
-              </Text>
-            </View>
-            
-            {/* Progress Bar */}
-            <View style={styles.progressBarBackground}>
-              <View
-                style={[
-                  styles.progressBarFill,
-                  {
-                    width: `${completion.percentage}%`,
-                    backgroundColor: getCompletionColor(completion.percentage),
-                  },
-                ]}
-              />
-            </View>
-            
-            <Text style={styles.completionMessage}>
-              {getCompletionMessage(completion.percentage)}
-            </Text>
-            
-            <Text style={styles.completionSubtext}>
-              {completion.completedCount} of {completion.totalFields} fields completed
-            </Text>
-          </View>
-          
-          <TouchableOpacity onPress={onOpenSettings} style={styles.settingsChip}>
-            <Text style={styles.settingsChipText}>
-              {completion.percentage >= 100 ? 'Settings' : 'Complete Your Profile →'}
-            </Text>
-          </TouchableOpacity>
+          <Text style={styles.profileName}>{displayName}</Text>
 
-          {/* Stats */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statCount}>{jobsApplied}</Text>
-              <Text style={styles.statLabel}>Applied</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={16} color="#64748B" />
+            <Text style={styles.locationText}>{locationLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.verificationCard}>
+          <View style={styles.verificationHeader}>
+            <View style={styles.verificationIconWrap}>
+              <Ionicons name="shield-checkmark-outline" size={22} color="#2563EB" />
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statCount}>{jobsCompleted}</Text>
-              <Text style={styles.statLabel}>Completed</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statCount}>{successRate}</Text>
-              <Text style={styles.statLabel}>Success</Text>
+            <View style={styles.verificationTextBlock}>
+              <View style={styles.verificationTitleRow}>
+                <Text style={styles.verificationTitle}>Verified Identity</Text>
+                <Ionicons name="checkmark-circle" size={16} color="#2563EB" />
+              </View>
+              <Text style={styles.verificationSubtitle}>Comprehensive profile checks completed</Text>
             </View>
           </View>
 
-          <View style={styles.skillsBlock}>
-            <View style={styles.skillsHeader}>
-              <Text style={styles.skillsLabel}>Skills</Text>
-              <TouchableOpacity onPress={() => setShowAddSkills(true)}>
-                <Ionicons name="add-circle-outline" size={18} color="#fff" />
-              </TouchableOpacity>
+          <View style={styles.verificationScoreRow}>
+            <Text style={styles.verificationScoreLabel}>Verification Strength</Text>
+            <Text style={styles.verificationScoreValue}>{verificationStrength}%</Text>
+          </View>
+
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${verificationStrength}%` }]} />
+          </View>
+
+          <View style={styles.verificationItemsRow}>
+            {verificationItems.map((item) => (
+              <View key={item.label} style={styles.verificationItem}>
+                <Ionicons
+                  name={item.complete ? 'checkmark-circle' : 'ellipse-outline'}
+                  size={15}
+                  color={item.complete ? '#22C55E' : '#94A3B8'}
+                />
+                <Text style={[styles.verificationItemText, !item.complete && styles.verificationItemTextIncomplete]}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.statsRow}>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{jobsApplied}</Text>
+            <Text style={styles.statLabel}>Applied</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{jobsReviewed}</Text>
+            <Text style={styles.statLabel}>Reviewed</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statValue}>{interviews}</Text>
+            <Text style={styles.statLabel}>Interviews</Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Work Experience</Text>
+            <TouchableOpacity style={styles.sectionAction} onPress={() => setShowAddExperience(true)} activeOpacity={0.9}>
+              <Ionicons name="add" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          {experienceItems.length ? (
+            experienceItems.map((item, index) => (
+              <View style={styles.listCard} key={`${item.title}-${index}`}>
+                <View style={styles.listIconWrap}>
+                  <Ionicons name="briefcase-outline" size={20} color="#111827" />
+                </View>
+                <View style={styles.listContent}>
+                  <Text style={styles.listTitle}>{item.title}</Text>
+                  <Text style={styles.listSubtitle}>{item.subtitle}</Text>
+                  {item.period ? (
+                    <View style={styles.listPeriodPill}>
+                      <Text style={styles.listPeriodText}>{item.period}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyCardText}>Add your work experience to strengthen your profile.</Text>
             </View>
-            <View style={styles.skillsWrap}>
-              {skills.length ? (
-                skills.slice(0, 8).map((skill: any) => (
-                  <View key={skill?._id || skill?.id || skill?.name} style={styles.skillPill}>
-                    <Text style={styles.skillPillText}>{skill?.name || 'Skill'}</Text>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteSkill(skill)}
-                      style={styles.skillDeleteBtn}
-                      disabled={isDeletingItem}
-                    >
-                      <Ionicons name="close" size={12} color="#fff" />
-                    </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Documents</Text>
+            <TouchableOpacity style={styles.sectionAction} onPress={() => setShowAddCV(true)} activeOpacity={0.9}>
+              <Ionicons name="add" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.documentsStack}>
+            <View style={[styles.documentCard, absoluteResumeUrl ? styles.documentCardActive : styles.documentCardEmpty]}>
+              <View style={[styles.listIconWrap, styles.documentIconWrap]}>
+                <Ionicons name="document-text-outline" size={20} color={absoluteResumeUrl ? '#E11D48' : '#64748B'} />
+              </View>
+
+              <View style={styles.listContent}>
+                <Text style={styles.listTitle}>{resumeName}</Text>
+                <Text style={styles.listSubtitle}>{absoluteResumeUrl ? `${resumeExtension} • Uploaded` : 'No document uploaded yet'}</Text>
+              </View>
+
+              {absoluteResumeUrl ? (
+                <TouchableOpacity style={styles.downloadButton} onPress={handleOpenResume} activeOpacity={0.9}>
+                  <Ionicons name="download-outline" size={20} color="#E11D48" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            <View style={styles.identityCard}>
+              <View style={styles.identityTopRow}>
+                <View style={[styles.listIconWrap, styles.identityIconWrap]}>
+                  <Ionicons name="card-outline" size={20} color="#2563EB" />
+                </View>
+
+                <View style={styles.listContent}>
+                  <Text style={styles.listTitle}>Government ID</Text>
+                  <Text style={styles.listSubtitle}>{hasGovernmentId ? 'Identity verified' : 'Verify your identity'}</Text>
+                </View>
+
+                <TouchableOpacity style={styles.identityActionButton} onPress={handleGovernmentIdAction} activeOpacity={0.9}>
+                  <Ionicons name={hasGovernmentId ? 'checkmark-circle-outline' : 'scan-outline'} size={20} color="#2563EB" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.identityDivider} />
+
+              <Text style={styles.identityAcceptedTitle}>ACCEPTED DOCUMENTS</Text>
+              <View style={styles.identityDocumentsRow}>
+                {['Passport', "Driver's License", 'National ID'].map((doc) => (
+                  <View key={doc} style={styles.identityDocumentPill}>
+                    <Text style={styles.identityDocumentPillText}>{doc}</Text>
                   </View>
-                ))
-              ) : (
-                <Text style={styles.emptyInlineText}>No skills added yet</Text>
-              )}
-            </View>
-          </View>
-        </View>
-
-        {/* Experience Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Experience</Text>
-            <TouchableOpacity onPress={() => setShowAddExperience(true)}>
-              <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
-            </TouchableOpacity>
-          </View>
-
-          {totalExperience ? (
-            <View style={styles.infoCard}>
-              <View style={styles.infoIcon}>
-                <Ionicons name="briefcase-outline" size={20} color={tokens.colors.brand} />
+                ))}
               </View>
-              <Text style={styles.infoText}>{totalExperience}</Text>
             </View>
-          ) : (
-            <Text style={styles.emptySectionText}>No experience added yet</Text>
-          )}
-        </View>
-
-        {/* Education Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>About / Education</Text>
-            <View style={styles.sectionActions}>
-              {aboutText ? (
-                <TouchableOpacity onPress={handleDeleteEducation} disabled={isDeletingItem}>
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity onPress={() => setShowAddEducation(true)} disabled={isDeletingItem}>
-                <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {aboutText ? (
-            <View style={styles.infoCard}>
-              <View style={styles.infoIcon}>
-                <Ionicons name="school-outline" size={20} color={tokens.colors.brand} />
-              </View>
-              <Text style={styles.infoText}>{aboutText}</Text>
-            </View>
-          ) : (
-            <Text style={styles.emptySectionText}>No education added yet</Text>
-          )}
-        </View>
-
-        {/* CV Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>CV</Text>
-            <View style={styles.sectionActions}>
-              {resumeUrl ? (
-                <TouchableOpacity onPress={handleDeleteResume} disabled={isDeletingItem}>
-                  <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity onPress={() => setShowAddCV(true)} disabled={isDeletingItem}>
-                <Ionicons name="add-circle-outline" size={20} color={tokens.colors.brand} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.cvFile}>
-            <View style={styles.cvIcon}>
-              <Ionicons name="document-text-outline" size={20} color={tokens.colors.brand} />
-            </View>
-            <View style={styles.cvInfo}>
-              <Text style={styles.cvFileName}>{resumeName}</Text>
-              <Text style={styles.cvFileSize}>{resumeUrl ? 'Uploaded from server' : 'No resume uploaded'}</Text>
-            </View>
-            {resumeUrl ? (
-              <TouchableOpacity>
-                <Ionicons name="download-outline" size={18} color={tokens.colors.textMuted} />
-              </TouchableOpacity>
-            ) : null}
           </View>
         </View>
       </ScrollView>
 
-      {/* Bottom nav */}
+      <Modal
+        visible={showGovernmentScanModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowGovernmentScanModal(false)}
+      >
+        <View style={styles.scanModalBackdrop}>
+          <View style={styles.scanModalCard}>
+            <View style={styles.scanModalHandle} />
+            <Text style={styles.scanModalTitle}>Scan Government ID</Text>
+            <Text style={styles.scanModalSubtitle}>
+              Position your ID within the frame. The scan will happen automatically.
+            </Text>
+
+            <View style={styles.scanPreviewOuter}>
+              <View style={styles.scanPreviewInner} />
+            </View>
+
+            <View style={styles.scanActionsRow}>
+              <TouchableOpacity style={styles.scanSecondaryButton} onPress={showGovernmentIdUnavailableToast} activeOpacity={0.9}>
+                <Text style={styles.scanSecondaryButtonText}>Upload File</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.scanPrimaryButton} onPress={showGovernmentIdUnavailableToast} activeOpacity={0.9}>
+                <Text style={styles.scanPrimaryButtonText}>Capture Manually</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {isToastVisible ? (
+        <View style={styles.toastWrapper}>
+          <View style={styles.toastCard}>
+            <Ionicons name="information-circle-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.toastText}>{toastMessage}</Text>
+          </View>
+        </View>
+      ) : null}
+
       <Navigation
         activeTab={profileTab}
         onTabPress={handleTabPress}
@@ -658,7 +636,6 @@ export default function Profile({
         profileInitials={initials}
       />
 
-      {/* Modals */}
       <AddExperience
         visible={showAddExperience}
         initialTotalExperience={profile?.totalExperience || ''}
@@ -667,14 +644,20 @@ export default function Profile({
           try {
             const token = await AsyncStorage.getItem('auth_token');
             if (!token) return;
-            await apiRequest(`${API_URL}/auth/me`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
+
+            await apiRequest(
+              `${API_URL}/auth/me`,
+              {
+                method: 'PATCH',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ totalExperience: data.totalExperience }),
               },
-              body: JSON.stringify({ totalExperience: data.totalExperience }),
-            }, 'Failed to update experience.');
+              'Failed to update experience.',
+            );
+
             await loadProfile();
           } catch (error) {
             console.log('Failed to update experience', error);
@@ -683,66 +666,11 @@ export default function Profile({
           }
         }}
       />
-      <AddSkills
-        visible={showAddSkills}
-        onClose={() => setShowAddSkills(false)}
-        onAdd={async (data) => {
-          try {
-            const token = await AsyncStorage.getItem('auth_token');
-            if (!token) return;
-            const result = await apiRequest(`${API_URL}/auth/profile/skills`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ name: data.skillName, level: data.level }),
-            }, 'Failed to add skill.') as any;
-            
-            if (result.ok) {
-              console.log('✅ Skill added successfully');
-              await loadProfile();
-            } else {
-              console.error('❌ Failed to add skill:', result.raw);
-            }
-          } catch (error) {
-            console.log('Failed to add skill', error);
-          } finally {
-            setShowAddSkills(false);
-          }
-        }}
-      />
-      <AddEducation 
-        visible={showAddEducation} 
-        onClose={() => setShowAddEducation(false)}
-        onAdd={async (data) => {
-          try {
-            const token = await AsyncStorage.getItem('auth_token');
-            if (!token) return;
-            await apiRequest(`${API_URL}/auth/me`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                about: data.schoolName ? `Studied ${data.degree} in ${data.fieldOfStudy} at ${data.schoolName}` : '',
-              }),
-            }, 'Failed to add education.');
-            await loadProfile();
-          } catch (error) {
-            console.log('Failed to add education:', error);
-          } finally {
-            setShowAddEducation(false);
-          }
-        }}
-      />
-      <AddCV 
-        visible={showAddCV} 
+
+      <AddCV
+        visible={showAddCV}
         onClose={() => setShowAddCV(false)}
-        onAdd={async (data) => {
-          console.log('Resume uploaded successfully:', data);
-          // Reload profile to show the new resume
+        onAdd={async () => {
           await loadProfile();
           setShowAddCV(false);
         }}
@@ -752,283 +680,491 @@ export default function Profile({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.colors.background },
-  scrollView: { flex: 1 },
-  scroll: { 
-    flexGrow: 1,
-    paddingHorizontal: 20, 
-    paddingTop: 24, 
+  container: {
+    flex: 1,
+    backgroundColor: '#F4F6FA',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
     paddingBottom: 120,
+    gap: 24,
   },
-  profileCard: {
-    backgroundColor: '#1e3a5f',
-    borderRadius: 16,
-    paddingVertical: 32,
-    paddingHorizontal: 20,
+  profileHero: {
     alignItems: 'center',
-    marginBottom: 24,
-    gap: 20,
+    gap: 10,
   },
-  avatarContainer: {
-    position: 'relative',
-    width: 100,
-    height: 100,
-  },
-  avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#3b5a85',
+  avatarFrame: {
+    width: 142,
+    height: 142,
+    borderRadius: 28,
+    backgroundColor: '#EEF2F7',
+    borderWidth: 1,
+    borderColor: '#D7DEE9',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#4a7ba7',
+    position: 'relative',
+  },
+  avatar: {
+    width: 122,
+    height: 122,
+    borderRadius: 24,
     overflow: 'hidden',
+    backgroundColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
   },
-  avatarUploadingOverlay: {
+  avatarInitials: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  avatarLoadingOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
   },
-  avatarText: { fontSize: 40, fontWeight: '700', color: '#fff' },
-  cameraBtn: {
+  editAvatarButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fff',
+    right: -6,
+    bottom: -6,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#1e3a5f',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#2563EB',
+    ...tokens.shadow.card,
   },
-  name: { fontSize: 24, fontWeight: '700', color: '#fff' },
-  completionContainer: {
-    width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
+  profileName: {
+    marginTop: 8,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: '#111827',
+    textAlign: 'center',
   },
-  completionHeader: {
+  locationRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
   },
-  completionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.8)',
-  },
-  completionPercentage: {
+  locationText: {
     fontSize: 16,
-    fontWeight: '700',
+    color: '#64748B',
+    fontWeight: '500',
   },
-  progressBarBackground: {
-    height: 6,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 3,
+  verificationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D9E0EA',
+    padding: 18,
+    gap: 14,
+    ...tokens.shadow.card,
+  },
+  verificationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  verificationIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EAF2FF',
+  },
+  verificationTextBlock: {
+    flex: 1,
+    gap: 4,
+  },
+  verificationTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  verificationTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  verificationSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+    lineHeight: 22,
+  },
+  verificationScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  verificationScoreLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  verificationScoreValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#2563EB',
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: '#DDE7FF',
     overflow: 'hidden',
   },
-  progressBarFill: {
+  progressFill: {
     height: '100%',
-    borderRadius: 3,
-  },
-  completionMessage: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#fff',
-    marginTop: 4,
-  },
-  completionSubtext: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.7)',
-  },
-  settingsChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.32)',
+    backgroundColor: '#2563EB',
   },
-  settingsChipText: { fontSize: 12, fontWeight: '700', color: '#fff' },
+  verificationItemsRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#E5EAF2',
+    paddingTop: 12,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  verificationItem: {
+    minWidth: '22%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  verificationItemText: {
+    fontSize: 14,
+    color: '#475569',
+    fontWeight: '500',
+  },
+  verificationItemTextIncomplete: {
+    color: '#94A3B8',
+  },
   statsRow: {
     flexDirection: 'row',
-    width: '100%',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingTop: 16,
+    gap: 12,
   },
-  statItem: {
+  statCard: {
     flex: 1,
+    minHeight: 92,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D9E0EA',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
   },
-  statCount: { fontSize: 20, fontWeight: '700', color: '#fff' },
-  statLabel: { fontSize: 12, color: '#b0c4de', marginTop: 4 },
-  statDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: '#3b5a85',
+  statValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.5,
   },
-  skillsBlock: {
-    width: '100%',
-    gap: 8,
+  statLabel: {
+    fontSize: 13,
+    color: '#64748B',
+    fontWeight: '600',
   },
-  skillsHeader: {
+  section: {
+    gap: 12,
+  },
+  sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  skillsLabel: {
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: '#111827',
+  },
+  sectionAction: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2F7',
+  },
+  listCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D9E0EA',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  listIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F6FA',
+    borderWidth: 1,
+    borderColor: '#E3E8F0',
+  },
+  listContent: {
+    flex: 1,
+    gap: 2,
+  },
+  listTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    letterSpacing: -0.4,
+  },
+  listSubtitle: {
+    fontSize: 14,
+    color: '#64748B',
+    fontWeight: '500',
+    lineHeight: 20,
+  },
+  listPeriodPill: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: '#EEF2F7',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  listPeriodText: {
+    fontSize: 12,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  emptyCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D9E0EA',
+    borderStyle: 'dashed',
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+  },
+  emptyCardText: {
+    fontSize: 16,
+    color: '#64748B',
+  },
+  documentCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  documentCardActive: {
+    borderColor: '#F2C9D4',
+    backgroundColor: '#FFF8FA',
+  },
+  documentCardEmpty: {
+    borderColor: '#D9E0EA',
+  },
+  documentsStack: {
+    gap: 12,
+  },
+  documentIconWrap: {
+    backgroundColor: '#FFF1F4',
+    borderColor: '#F5CFD9',
+  },
+  identityCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#D9E0EA',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+  },
+  identityTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  identityIconWrap: {
+    backgroundColor: '#EAF2FF',
+    borderColor: '#D2E3FF',
+  },
+  identityActionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EDF4FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#D9E8FF',
+  },
+  identityDivider: {
+    marginTop: 14,
+    marginBottom: 12,
+    height: 1,
+    backgroundColor: '#E5EAF2',
+  },
+  identityAcceptedTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#d1dce6',
+    letterSpacing: 0.6,
+    color: '#64748B',
+    marginBottom: 10,
   },
-  skillsWrap: {
+  identityDocumentsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  skillPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
+  identityDocumentPill: {
     borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#D9E0EA',
   },
-  skillPillText: {
-    color: '#fff',
-    fontSize: 11,
+  identityDocumentPillText: {
+    fontSize: 12,
     fontWeight: '600',
+    color: '#475569',
   },
-  skillDeleteBtn: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+  downloadButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: '#FFE9EF',
   },
-  emptyInlineText: {
-    color: '#d1dce6',
-    fontSize: 12,
+  scanModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
   },
-  emptySectionText: {
-    color: '#6b7280',
-    fontSize: 13,
-    fontStyle: 'italic',
+  scanModalCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: '#E5EAF2',
   },
-  section: { marginBottom: 24 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  scanModalHandle: {
+    alignSelf: 'center',
+    width: 78,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#EEF2F7',
     marginBottom: 16,
   },
-  sectionActions: {
+  scanModalTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    letterSpacing: -0.5,
+  },
+  scanModalSubtitle: {
+    marginTop: 8,
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  scanPreviewOuter: {
+    marginTop: 16,
+    borderRadius: 18,
+    backgroundColor: '#12233F',
+    borderWidth: 2,
+    borderColor: '#1E3A63',
+    padding: 10,
+  },
+  scanPreviewInner: {
+    height: 200,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+    backgroundColor: '#0F1D37',
+  },
+  scanActionsRow: {
+    marginTop: 20,
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937' },
-  experienceItem: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  expLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  infoIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  infoText: {
+  scanSecondaryButton: {
     flex: 1,
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: '#1E293B',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  scanSecondaryButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    lineHeight: 20,
+    fontWeight: '700',
+    color: '#1E293B',
   },
-  expInfo: { flex: 1 },
-  expTitle: { fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
-  expCompany: { fontSize: 12, color: '#6b7280', marginBottom: 2 },
-  expDate: { fontSize: 12, color: '#9ca3af' },
-  expLocation: { fontSize: 12, color: '#6b7280' },
-  educationItem: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  eduLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+  scanPrimaryButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1D4ED8',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#2563EB',
   },
-  eduInfo: { flex: 1 },
-  eduTitle: { fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
-  eduSchool: { fontSize: 12, color: '#6b7280', marginBottom: 2 },
-  eduDate: { fontSize: 12, color: '#9ca3af' },
-  eduLocation: { fontSize: 12, color: '#6b7280' },
-  cvFile: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
+  scanPrimaryButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  toastWrapper: {
+    position: 'absolute',
+    left: 18,
+    right: 18,
+    bottom: 92,
+    zIndex: 120,
+  },
+  toastCard: {
+    backgroundColor: '#0F172A',
     borderRadius: 12,
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#1E293B',
   },
-  cvIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#f3f4f6',
-    alignItems: 'center',
-    justifyContent: 'center',
+  toastText: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '500',
   },
-  cvInfo: { flex: 1 },
-  cvFileName: { fontSize: 14, fontWeight: '700', color: '#1f2937', marginBottom: 2 },
-  cvFileSize: { fontSize: 12, color: '#6b7280' },
 });

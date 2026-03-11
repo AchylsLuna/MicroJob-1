@@ -16,6 +16,7 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import TabTopNav from '../../components/TabTopNav';
 
 type Category = { _id: string; name: string };
 
@@ -38,7 +39,12 @@ type FormData = {
   jobType: string;
 };
 
-export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabPress }: PostJobProps) {
+export default function EmployerPostJob({
+  onPosted,
+  jobToEdit,
+  activeTab,
+  onTabPress,
+}: PostJobProps) {
   const [formData, setFormData] = useState<FormData>({
     title: '',
     category: '',
@@ -270,12 +276,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>{isEditing ? 'Edit Job' : 'Post a Job'}</Text>
-          <Text style={styles.headerSubtitle}>Find the perfect talent for your project</Text>
-        </View>
-      </View>
+      <TabTopNav title={isEditing ? 'Edit Job' : 'Post a Job'} />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -505,17 +506,7 @@ export default function EmployerPostJob({ onPosted, jobToEdit, activeTab, onTabP
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fb' },
   flex: { flex: 1 },
-  header: {
-    backgroundColor: '#0a2847',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    gap: 12,
-  },
   scroll: { padding: 20, paddingBottom: 90 },
-  headerTitle: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
-  headerSubtitle: { color: '#cbd5f0', fontSize: 13, marginTop: 4 },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 18,

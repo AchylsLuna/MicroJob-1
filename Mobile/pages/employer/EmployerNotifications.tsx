@@ -10,6 +10,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import TabTopNav from '../../components/TabTopNav';
 import { apiRequest } from '../../lib/api';
 
 type NotificationItem = {
@@ -129,10 +130,7 @@ export default function EmployerNotifications({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <Text style={styles.headerSubtitle}>New applicants for your job posts</Text>
-      </View>
+      <TabTopNav title="Notifications" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {errorMessage ? (
@@ -215,14 +213,6 @@ export default function EmployerNotifications({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fb' },
-  header: {
-    backgroundColor: '#0a2847',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-  },
-  headerTitle: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
-  headerSubtitle: { color: '#cbd5f0', fontSize: 13, marginTop: 4 },
   scroll: { padding: 20, paddingBottom: 90 },
   card: {
     backgroundColor: '#ffffff',

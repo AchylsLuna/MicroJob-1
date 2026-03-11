@@ -306,20 +306,9 @@ export function NavBar() {
         ROUTES.legacyDashboard.employer.postJob,
       )
     ) {
-      return { title: "Post a Job" };
-    }
-
-    if (
-      isPath(
-        ROUTES.doctor.jobPosts,
-        ROUTES.legacyDashboard.doctor.jobPosts,
-        ROUTES.employer.jobPosts,
-        ROUTES.legacyDashboard.employer.jobPosts,
-      )
-    ) {
       return {
-        title: "My Job Posts",
-        subtitle: "Manage the jobs you have posted.",
+        title: "My Job Postings",
+        subtitle: "Create and manage your open positions",
       };
     }
 

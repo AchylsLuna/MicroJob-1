@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
+import TabTopNav from '../../components/TabTopNav';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
@@ -32,7 +33,6 @@ export default function Dashboard({
   notificationBadgeCount = 0,
   messageBadgeCount = 0,
 }: {
-  onLogout?: () => void;
   onNavigateToJobs?: () => void;
   onViewJobDetails?: (job: any) => void;
   onSaveJob?: (job: any) => void;
@@ -153,20 +153,12 @@ export default function Dashboard({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.greeting}>Good morning, Jonas</Text>
-          <Text style={styles.headerTitle}>Find your next role</Text>
-        </View>
-        <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} activeOpacity={0.85}>
-          <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
-          {notificationBadgeCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </View>
+      <TabTopNav
+        title="Home"
+        showNotifications
+        onOpenNotifications={onOpenNotifications}
+        notificationBadgeCount={notificationBadgeCount}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.searchContainer}>
@@ -293,50 +285,6 @@ export default function Dashboard({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  header: {
-    paddingHorizontal: 18,
-    paddingTop: 52,
-    paddingBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: tokens.colors.background,
-  },
-  headerContent: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  greeting: { fontSize: 13, color: tokens.colors.textMuted, marginBottom: 4, fontWeight: '600' },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: tokens.colors.text, letterSpacing: -0.4 },
-  notificationIcon: {
-    position: 'relative',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: tokens.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: tokens.colors.danger,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: tokens.colors.surface,
-  },
-  badgeText: {
-    color: tokens.colors.onBrand,
-    fontSize: 11,
-    fontWeight: '700',
-  },
   scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 90, gap: 16 },
   searchContainer: {
     flexDirection: 'row',

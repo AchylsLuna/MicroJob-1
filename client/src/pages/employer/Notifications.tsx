@@ -82,17 +82,25 @@ export default function EmployerNotifications() {
 
   return (
     <div className="ui-page px-4 md:px-0 pb-16">
-      <div className="flex justify-end">
-        <button
-          onClick={async () => {
-            await markAllNotificationsRead().catch(() => null);
-            setItems((prev) => prev.map((i) => ({ ...i, isNew: false })));
-            window.dispatchEvent(new Event('notification-refresh'));
-          }}
-          className="h-11 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-sky-700 hover:bg-slate-50"
-        >
-          Mark all as read
-        </button>
+      <div className="flex items-center justify-end">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={async () => {
+              await markAllNotificationsRead().catch(() => null);
+              setItems((prev) => prev.map((i) => ({ ...i, isNew: false })));
+              window.dispatchEvent(new Event('notification-refresh'));
+            }}
+            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-sky-700 transition-colors hover:text-sky-800"
+          >
+            Mark all as read
+          </button>
+          <button
+            onClick={fetch}
+            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-medium text-slate-600 transition-colors hover:text-slate-700"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {loading && <div className="ui-card p-6 text-sm text-slate-500">Loading...</div>}

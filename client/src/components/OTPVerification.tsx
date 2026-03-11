@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Mail, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 
 interface OTPVerificationProps {
@@ -11,7 +10,6 @@ interface OTPVerificationProps {
 
 export function OTPVerification({ onClose, email }: OTPVerificationProps) {
   const { verifyOTP, resendOTP } = useAuth();
-  const navigate = useNavigate();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyInFlightRef = useRef(false);

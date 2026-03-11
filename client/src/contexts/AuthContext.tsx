@@ -228,7 +228,6 @@ const getUserId = (apiUser: any): string => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [devOtpCode, setDevOtpCode] = useState<string | null>(null);
   const [pendingVerification, setPendingVerification] = useState<{
     email: string;
     name: string;
@@ -442,7 +441,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
       setPendingVerification(null);
-      setDevOtpCode(null);
 
       setIsLoading(false);
       toast.success("Verification successful!");
@@ -465,7 +463,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const otpResponse = await sendOtp({ email: verificationEmail });
+      await sendOtp({ email: verificationEmail });
       toast.success("New OTP sent!");
     } catch (error: any) {
       toast.error(error?.message || "Failed to resend OTP");
@@ -518,7 +516,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const verificationEmail = String(apiUser.email || normalizedEmail).toLowerCase().trim();
         const verificationName = `${apiUser.firstName || ""} ${apiUser.lastName || ""}`.trim() || "User";
 
-        const otpResponse = await sendOtp({ email: verificationEmail });
+        await sendOtp({ email: verificationEmail });
         setPendingVerification({ email: verificationEmail, name: verificationName, flow: "signin" });
         localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, verificationEmail);
         localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, verificationName);

@@ -59,7 +59,10 @@ export default function NotificationsInbox({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
+        <View>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerSubtitle}>New updates for your applications</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -111,17 +114,23 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     paddingHorizontal: 18,
     paddingTop: 54,
     paddingBottom: 14,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: '#0a2847',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: tokens.colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
     letterSpacing: -0.3,
+  },
+  headerSubtitle: {
+    marginTop: 2,
+    fontSize: 13,
+    color: '#cbd5f0',
+    fontWeight: '500',
   },
   scroll: {
     paddingHorizontal: 16,

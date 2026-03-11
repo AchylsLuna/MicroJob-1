@@ -105,7 +105,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     label: "Post a Job",
     path: ROUTES.employer.postJob,
     children: [
-      { icon: "job-posts", label: "My Job Posts", path: ROUTES.employer.jobPosts },
       { icon: "applications", label: "Applications", path: ROUTES.employer.applications },
     ],
   };
@@ -162,7 +161,6 @@ const Sidebar: React.FC<SidebarProps> = ({
     "find-jobs": <Search className="h-5 w-5" />,
     "applied-jobs": <Mail className="h-5 w-5" />,
     "post-job": <Plus className="h-5 w-5" />,
-    "job-posts": <Briefcase className="h-5 w-5" />,
     applications: <ClipboardList className="h-5 w-5" />,
     analytics: <BarChart3 className="h-5 w-5" />,
     reports: <FileText className="h-5 w-5" />,

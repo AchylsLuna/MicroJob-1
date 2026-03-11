@@ -45,7 +45,7 @@ const txLabel = (tx: PaymentTransaction) => {
 };
 
 export function EWallet() {
-  const { user, updateProfile } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingTopUp, setIsCreatingTopUp] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);

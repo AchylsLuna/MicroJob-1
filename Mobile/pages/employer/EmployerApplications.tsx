@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import TabTopNav from '../../components/TabTopNav';
 import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, normalizeApplicationStatus } from '../../lib/status';
 import PublicProfile from '../shared/PublicProfile';
@@ -61,7 +62,11 @@ const toApiFilterStatus = (status: 'All' | ApplicationStatus): string | null => 
   return getApiStatusCandidates(status)[0];
 };
 
-export default function EmployerApplications({ activeTab, onTabPress, onMessageWorker }: EmployerApplicationsProps) {
+export default function EmployerApplications({
+  activeTab,
+  onTabPress,
+  onMessageWorker,
+}: EmployerApplicationsProps) {
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -207,12 +212,7 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Applications</Text>
-          <Text style={styles.headerSubtitle}>Review candidates and update statuses</Text>
-        </View>
-      </View>
+      <TabTopNav title="Applications" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {errorMessage ? (
@@ -405,16 +405,6 @@ export default function EmployerApplications({ activeTab, onTabPress, onMessageW
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fb' },
-  header: {
-    backgroundColor: '#0a2847',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    gap: 12,
-  },
-  headerTitle: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
-  headerSubtitle: { color: '#cbd5f0', fontSize: 13, marginTop: 4 },
   scroll: { padding: 20, paddingBottom: 90 },
   filterCard: {
     backgroundColor: '#ffffff',

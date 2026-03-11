@@ -59,12 +59,10 @@ export default function AppHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: tokens.colors.brand,
-    paddingTop: 50,
+    backgroundColor: '#0a2847',
+    paddingTop: 54,
     paddingBottom: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.lg,
-    borderBottomLeftRadius: tokens.radius.lg,
-    borderBottomRightRadius: tokens.radius.lg,
   },
   row: {
     flexDirection: 'row',
@@ -84,14 +82,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.spacing.sm,
   },
   title: {
-    fontSize: tokens.typography.h3,
+    fontSize: 22,
     fontWeight: '700',
     color: tokens.colors.white,
     textAlign: 'center',
   },
   subtitle: {
     marginTop: 2,
-    fontSize: tokens.typography.caption,
+    fontSize: 13,
     color: '#dbe8ff',
     textAlign: 'center',
   },
@@ -125,4 +123,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-

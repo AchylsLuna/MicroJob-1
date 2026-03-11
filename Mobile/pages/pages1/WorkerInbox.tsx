@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import MessageList from '../employer/MessageList';
 import ChatScreen from '../employer/ChatScreen';
 import Navigation from '../../components/navigation';
+import { tokens } from '../../theme/tokens';
 
 type ChatTarget = {
   id: string;
@@ -34,8 +35,8 @@ export default function WorkerInbox({
   }, [initialChatTarget]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ flex: 1 }}>
+    <View style={styles.container}>
+      <View style={styles.content}>
         {selectedUser ? (
           <ChatScreen
             userId={selectedUser.id}
@@ -58,3 +59,14 @@ export default function WorkerInbox({
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: tokens.colors.background,
+  },
+  content: {
+    flex: 1,
+    backgroundColor: tokens.colors.background,
+  },
+});

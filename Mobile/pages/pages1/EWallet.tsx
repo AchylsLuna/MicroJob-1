@@ -14,15 +14,15 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
+import TabTopNav from '../../components/TabTopNav';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 
 type EWalletProps = {
-  onBack?: () => void;
-  onOpenNotifications?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  onOpenNotifications?: () => void;
   notificationBadgeCount?: number;
   messageBadgeCount?: number;
 };
@@ -38,10 +38,9 @@ type WalletTransaction = {
 };
 
 export default function EWallet({
-  onBack,
-  onOpenNotifications,
   activeTab = 'EWallet',
   onTabPress,
+  onOpenNotifications,
   notificationBadgeCount = 0,
   messageBadgeCount = 0,
 }: EWalletProps) {
@@ -300,20 +299,12 @@ export default function EWallet({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.headerButton} onPress={onBack}>
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>E-Wallet</Text>
-        <TouchableOpacity style={styles.headerButton} onPress={onOpenNotifications}>
-          <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
-          {notificationBadgeCount > 0 ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </View>
+      <TabTopNav
+        title="E-Wallet"
+        showNotifications
+        onOpenNotifications={onOpenNotifications}
+        notificationBadgeCount={notificationBadgeCount}
+      />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.balanceCard}>
@@ -456,51 +447,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tokens.colors.background,
-  },
-  header: {
-    paddingTop: 52,
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    backgroundColor: tokens.colors.background,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: tokens.colors.surface,
-  },
-  headerTitle: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: tokens.colors.text,
-    letterSpacing: -0.3,
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -6,
-    backgroundColor: tokens.colors.danger,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 4,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: tokens.colors.white,
-  },
-  badgeText: {
-    color: tokens.colors.onBrand,
-    fontSize: 11,
-    fontWeight: '700',
   },
   scroll: {
     paddingHorizontal: 16,

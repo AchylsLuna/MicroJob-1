@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BriefcaseBusiness, Plus, X } from "lucide-react";
+import { BriefcaseBusiness, Filter, Plus, Search, X } from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 
 type JobEdit = {
@@ -117,6 +117,9 @@ const PostJob: React.FC = () => {
   const [categories, setCategories] = useState<{ _id: string; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [jobTypeFilter, setJobTypeFilter] = useState("all");
 
   const totalPostings = jobs.length;
   const activePostings = useMemo(
@@ -135,6 +138,44 @@ const PostJob: React.FC = () => {
       }).length,
     [jobs]
   );
+  const filteredJobs = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return jobs.filter((job) => {
+      const status = String(job.status || "Available");
+      const jobType = String(job.jobType || "");
+      const categoryName =
+        typeof job.category === "object" ? String(job.category?.name || "") : "";
+      const skillsText = Array.isArray(job.skills) ? job.skills.join(" ") : "";
+
+      if (statusFilter !== "all" && status !== statusFilter) {
+        return false;
+      }
+
+      if (jobTypeFilter !== "all" && jobType !== jobTypeFilter) {
+        return false;
+      }
+
+      if (!query) {
+        return true;
+      }
+
+      const searchableText = [
+        job.title,
+        job.location,
+        status,
+        jobType,
+        categoryName,
+        job.description,
+        skillsText,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      return searchableText.includes(query);
+    });
+  }, [jobs, searchQuery, statusFilter, jobTypeFilter]);
 
   const loadJobs = useCallback(async () => {
     setLoadingJobs(true);
@@ -321,15 +362,10 @@ const PostJob: React.FC = () => {
   return (
     <div className="ui-page px-4 md:px-0 pb-16">
       <div className="ui-page-header">
-        <div>
-          <h1 className="ui-page-title">My Job Postings</h1>
-          <p className="ui-page-subtitle">Create and manage your open positions</p>
-        </div>
-
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+          className="ml-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
         >
           <Plus size={20} />
           Post a Job
@@ -350,6 +386,54 @@ const PostJob: React.FC = () => {
           <p className="mt-2 text-base text-slate-500">Closed</p>
         </div>
       </div>
+
+      {!loadingJobs && jobs.length > 0 && (
+        <div className="ui-card p-4">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[240px_240px_1fr]">
+            <div className="relative">
+              <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="all">All Statuses</option>
+                <option value="Available">Available</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Closed">Closed</option>
+                <option value="Cancelled">Cancelled</option>
+                <option value="Completed">Completed</option>
+              </select>
+            </div>
+
+            <div>
+              <select
+                value={jobTypeFilter}
+                onChange={(e) => setJobTypeFilter(e.target.value)}
+                className="h-12 w-full rounded-xl border border-indigo-500 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="all">All Jobs</option>
+                <option value="Fulltime">Full Time</option>
+                <option value="Part-time">Part Time</option>
+                <option value="Freelance">Freelance</option>
+                <option value="Contract">Contract</option>
+                <option value="Remote">Remote</option>
+              </select>
+            </div>
+
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search jobs by title, location, skill, or category..."
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {loadingJobs && (
         <div className="ui-card p-6 text-sm text-slate-500">
@@ -379,9 +463,9 @@ const PostJob: React.FC = () => {
         </div>
       )}
 
-      {!loadingJobs && jobs.length > 0 && (
+      {!loadingJobs && jobs.length > 0 && filteredJobs.length > 0 && (
         <div className="space-y-4">
-          {jobs.map((job) => {
+          {filteredJobs.map((job) => {
             const categoryName = typeof job.category === "object" ? job.category?.name : "";
             const isClosed =
               job.status === "Closed" || job.status === "Cancelled" || job.status === "Completed";
@@ -444,241 +528,265 @@ const PostJob: React.FC = () => {
         </div>
       )}
 
+      {!loadingJobs && jobs.length > 0 && filteredJobs.length === 0 && (
+        <div className="ui-card p-8 text-center">
+          <h3 className="text-xl font-semibold text-slate-700">No jobs match your filters</h3>
+          <p className="mt-2 text-sm text-slate-500">
+            Try a different keyword or clear one of the filters.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchQuery("");
+              setStatusFilter("all");
+              setJobTypeFilter("all");
+            }}
+            className="mt-4 inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            Clear Filters
+          </button>
+        </div>
+      )}
+
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/45 p-4 md:items-center md:p-8">
-          <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-              <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
-                {editingJob ? "Edit Job" : "Post a New Job"}
-              </h2>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="rounded-md p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100"
-                aria-label="Close modal"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="px-6 py-5">
-              {formError && (
-                <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">
-                  {formError}
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} noValidate className="space-y-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
-                      Job Title <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      data-field="title"
-                      value={formData.title}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="e.g. Senior Engineer"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
-                      Category <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      data-field="category"
-                      value={formData.category}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      required
-                    >
-                      <option value="">Select category</option>
-                      {categories.map((category) => (
-                        <option key={category._id} value={category._id}>
-                          {category.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
-                      Location <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      data-field="location"
-                      value={formData.location}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="e.g. Manila or Remote"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">Job Type</label>
-                    <select
-                      data-field="jobType"
-                      value={formData.jobType}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, jobType: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      required
-                    >
-                      <option value="Fulltime">Fulltime</option>
-                      <option value="Freelance">Freelance</option>
-                      <option value="Contract">Contract</option>
-                      <option value="Remote">Remote</option>
-                      <option value="Part-time">Part-time</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Salary Range (PHP / month) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
-                    <input
-                      type="text"
-                      data-field="salary"
-                      inputMode="numeric"
-                      value={formData.salaryMin}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          salaryMin: e.target.value.replace(/[^0-9]/g, ""),
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="Min (e.g. 20000)"
-                    />
-                    <span className="text-slate-400 text-xl leading-none">-</span>
-                    <input
-                      type="text"
-                      data-field="salary"
-                      inputMode="numeric"
-                      value={formData.salaryMax}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          salaryMax: e.target.value.replace(/[^0-9]/g, ""),
-                        }))
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="Max (e.g. 50000)"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
-                      Deadline <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="date"
-                      data-field="deadline"
-                      value={formData.deadline}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, deadline: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">Positions Needed</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={formData.positionsNeeded}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, positionsNeeded: e.target.value }))
-                      }
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">
-                    Job Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    data-field="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="Describe the role, responsibilities, and team..."
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">Requirements</label>
-                  <textarea
-                    value={formData.requirements}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, requirements: e.target.value }))
-                    }
-                    className="min-h-[100px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="Skills, experience, qualifications needed..."
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">Responsibilities</label>
-                  <textarea
-                    value={formData.responsibilities}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, responsibilities: e.target.value }))
-                    }
-                    className="min-h-[100px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="Daily tasks and ownership for this role..."
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">Skills (comma-separated)</label>
-                  <input
-                    type="text"
-                    value={formData.skills}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="React, TypeScript, Communication"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="fixed inset-0 z-50 bg-black/45 p-4 md:p-8">
+          <div className="flex min-h-full items-start justify-center">
+            <div className="flex w-full max-w-4xl max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+              <div className="shrink-0 border-b border-slate-200 bg-white px-6 py-5">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
+                    {editingJob ? "Edit Job" : "Post a New Job"}
+                  </h2>
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    className="rounded-md p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                    aria-label="Close modal"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+                {formError && (
+                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">
+                    {formError}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} noValidate className="space-y-5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Job Title <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        data-field="title"
+                        value={formData.title}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="e.g. Senior Engineer"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Category <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        data-field="category"
+                        value={formData.category}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        required
+                      >
+                        <option value="">Select category</option>
+                        {categories.map((category) => (
+                          <option key={category._id} value={category._id}>
+                            {category.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Location <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        data-field="location"
+                        value={formData.location}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="e.g. Manila or Remote"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">Job Type</label>
+                      <select
+                        data-field="jobType"
+                        value={formData.jobType}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, jobType: e.target.value }))}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        required
+                      >
+                        <option value="Fulltime">Fulltime</option>
+                        <option value="Freelance">Freelance</option>
+                        <option value="Contract">Contract</option>
+                        <option value="Remote">Remote</option>
+                        <option value="Part-time">Part-time</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Salary Range (PHP / month) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                      <input
+                        type="text"
+                        data-field="salary"
+                        inputMode="numeric"
+                        value={formData.salaryMin}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            salaryMin: e.target.value.replace(/[^0-9]/g, ""),
+                          }))
+                        }
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="Min (e.g. 20000)"
+                      />
+                      <span className="text-slate-400 text-xl leading-none">-</span>
+                      <input
+                        type="text"
+                        data-field="salary"
+                        inputMode="numeric"
+                        value={formData.salaryMax}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            salaryMax: e.target.value.replace(/[^0-9]/g, ""),
+                          }))
+                        }
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="Max (e.g. 50000)"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Deadline <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        data-field="deadline"
+                        value={formData.deadline}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, deadline: e.target.value }))}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">Positions Needed</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={formData.positionsNeeded}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, positionsNeeded: e.target.value }))
+                        }
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      Job Description <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      data-field="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                      className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="Describe the role, responsibilities, and team..."
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">Requirements</label>
+                    <textarea
+                      value={formData.requirements}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, requirements: e.target.value }))
+                      }
+                      className="min-h-[100px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="Skills, experience, qualifications needed..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">Responsibilities</label>
+                    <textarea
+                      value={formData.responsibilities}
+                      onChange={(e) =>
+                        setFormData((prev) => ({ ...prev, responsibilities: e.target.value }))
+                      }
+                      className="min-h-[100px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="Daily tasks and ownership for this role..."
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">Skills (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={formData.skills}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
+                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder="React, TypeScript, Communication"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      disabled={submitting}
+                    >
+                      Cancel
+                    </button>
+                  <button
+                    type="submit"
+                    className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition disabled:opacity-60"
                     disabled={submitting}
                   >
-                    Cancel
+                    {submitting
+                      ? editingJob
+                        ? "Updating..."
+                        : "Posting..."
+                      : editingJob
+                      ? "Update Job"
+                      : "Post Job"}
                   </button>
-                <button
-                  type="submit"
-                  className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition disabled:opacity-60"
-                  disabled={submitting}
-                >
-                  {submitting
-                    ? editingJob
-                      ? "Updating..."
-                      : "Posting..."
-                    : editingJob
-                    ? "Update Job"
-                    : "Post Job"}
-                </button>
-                </div>
-              </form>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>

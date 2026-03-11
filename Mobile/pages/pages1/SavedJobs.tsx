@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import Navigation from '../../components/navigation';
+import { Ionicons } from '@expo/vector-icons';
 
 type SavedJob = {
   _id: string;
@@ -49,7 +50,7 @@ export default function SavedJobs({
             handleTabPress('Jobs');
           }}
         >
-          <Text style={styles.backBtnText}>Back</Text>
+          <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Saved jobs</Text>
@@ -118,24 +119,27 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 48,
+    paddingTop: 54,
     paddingBottom: 14,
-    backgroundColor: '#1e3a5f',
+    backgroundColor: '#0a2847',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   backBtn: {
-    width: 32,
-    height: 32,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.26)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  backBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerRightSpacer: { width: 32 },
-  headerTitle: { fontSize: 46, fontWeight: '700', color: '#fff', lineHeight: 50 },
-  headerSubtitle: { fontSize: 16, color: '#9ca3af', marginTop: 2, fontWeight: '600' },
+  headerRightSpacer: { width: 42, height: 42 },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', lineHeight: 26, letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 13, color: '#cbd5f0', marginTop: 2, fontWeight: '500' },
   scroll: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 90 },
   emptyState: {
     flex: 1,

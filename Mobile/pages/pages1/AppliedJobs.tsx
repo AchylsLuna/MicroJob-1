@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, getApplicationStatusColor, normalizeApplicationStatus } from '../../lib/status';
+import { Ionicons } from '@expo/vector-icons';
 
 type AppliedJob = {
   id: string;
@@ -87,9 +88,13 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')}>
-          <Text style={styles.backBtnText}>‹</Text>
+          <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Applied jobs</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Applied jobs</Text>
+          <Text style={styles.headerSubtitle}>{applications.length} total applications</Text>
+        </View>
+        <View style={styles.headerRightSpacer} />
       </View>
 
       <View style={styles.toggleContainer}>
@@ -176,26 +181,28 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#e5e7eb' },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 48,
-    paddingBottom: 12,
-    backgroundColor: '#1e3a5f',
+    paddingHorizontal: 16,
+    paddingTop: 54,
+    paddingBottom: 14,
+    backgroundColor: '#0a2847',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    justifyContent: 'space-between',
   },
   backBtn: {
-    position: 'absolute',
-    left: 12,
-    top: 46,
-    width: 24,
-    height: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.26)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backBtnText: { color: '#fff', fontSize: 24, lineHeight: 24 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#fff' },
+  headerCenter: { flex: 1, alignItems: 'center' },
+  headerRightSpacer: { width: 42, height: 42 },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
+  headerSubtitle: { marginTop: 2, fontSize: 13, fontWeight: '500', color: '#cbd5f0' },
   toggleContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,

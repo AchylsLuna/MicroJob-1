@@ -10,7 +10,6 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
 import { getEmployerApplications } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";

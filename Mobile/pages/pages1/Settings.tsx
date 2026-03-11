@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { tokens } from '../../theme/tokens';
+import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../../config';
-import { apiRequest, asObject } from '../../lib/api';
-import { calculateProfileCompletion, getCompletionColor, type ProfileData } from '../../lib/profileCompletion';
+import { tokens } from '../../theme/tokens';
 import PersonalInformation from './PersonalInformation';
 
 type SettingsProps = {
@@ -14,7 +12,6 @@ type SettingsProps = {
   onNavigatePersonalDetails?: () => void;
   onNavigateChangePassword?: () => void;
   onNavigateNotifications?: () => void;
-  onNavigateEWallet?: () => void;
   onNavigateLocation?: () => void;
   onNavigateMfa?: () => void;
   onNavigateAbout?: () => void;
@@ -23,13 +20,21 @@ type SettingsProps = {
   currentRole?: 'worker' | 'employer' | 'both';
 };
 
+type SettingsItem = {
+  title: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  iconColor: string;
+  iconBackground: string;
+  onPress?: () => void;
+  danger?: boolean;
+};
+
 export default function Settings({
   onBack,
   onLogout,
   onNavigatePersonalDetails,
   onNavigateChangePassword,
   onNavigateNotifications,
-  onNavigateEWallet,
   onNavigateLocation,
   onNavigateMfa,
   onNavigateAbout,
@@ -37,217 +42,205 @@ export default function Settings({
   onNavigateSupport,
   currentRole = 'worker',
 }: SettingsProps) {
-  const isWorkerRole = currentRole === 'worker';
-  const [completion, setCompletion] = useState({ percentage: 0, incompleteFields: [] as string[], completedFields: [] as string[] });
-  const [profileSummary, setProfileSummary] = useState({
-    totalExperience: '',
-    projectsCompleted: 0,
-    jobsApplied: 0,
-    successRate: '0%',
-  });
-  const [isLoading, setIsLoading] = useState(true);
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
-
-  useEffect(() => {
-    const loadProfileCompletion = async () => {
-      if (!isWorkerRole) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const token = await AsyncStorage.getItem('auth_token');
-        if (!token) {
-          setIsLoading(false);
-          return;
-        }
-
-        const result = await apiRequest(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to load profile.') as any;
-
-        if (result.ok) {
-          // The API returns user data directly in result.data
-          const profile = result.data as any;
-
-          if (profile) {
-            const profileDataToCalculate: ProfileData = {
-              firstName: profile.firstName?.trim() || '',
-              lastName: profile.lastName?.trim() || '',
-              avatarUrl: profile.avatarUrl?.trim() || '',
-              about: profile.about?.trim() || '',
-              city: profile.city?.trim() || '',
-              phoneNumber: profile.phoneNumber?.trim() || '',
-              linkedin: profile.linkedin?.trim() || '',
-              totalExperience: profile.totalExperience?.trim() || '',
-              resumeUrl: (profile.resumeUrl || profile.cvUrl)?.trim() || '',
-              skills: Array.isArray(profile.skills) ? profile.skills : [],
-            };
-
-            const completionStatus = calculateProfileCompletion(profileDataToCalculate);
-            setCompletion({
-              percentage: completionStatus.percentage,
-              incompleteFields: completionStatus.incompleteFields,
-              completedFields: completionStatus.completedFields,
-            });
-
-            setProfileSummary({
-              totalExperience: profile.totalExperience || '',
-              projectsCompleted: profile.projectsCompleted || 0,
-              jobsApplied: profile.jobsApplied || 0,
-              successRate: profile.successRate || '0%',
-            });
-          }
-        }
-      } catch (error) {
-        console.log('Failed to load profile completion', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadProfileCompletion();
-  }, [isWorkerRole]);
+  const [profileName, setProfileName] = useState('Account User');
+  const [profileEmail, setProfileEmail] = useState('No email set');
+  const [profileAvatar, setProfileAvatar] = useState('');
 
   const handleLogout = () => {
     onLogout?.();
+  };
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const storedUser = await AsyncStorage.getItem('auth_user');
+        if (!storedUser) return;
+        const parsed = JSON.parse(storedUser);
+        const name =
+          [parsed?.firstName, parsed?.lastName].filter(Boolean).join(' ').trim() ||
+          parsed?.name ||
+          parsed?.username ||
+          'Account User';
+        const email = String(parsed?.email || '').trim() || 'No email set';
+        const avatar = String(
+          parsed?.avatarUrl || parsed?.avatar || parsed?.profileImage || parsed?.photo || '',
+        ).trim();
+
+        setProfileName(name);
+        setProfileEmail(email);
+        setProfileAvatar(avatar);
+      } catch (error) {
+        console.log('Failed to load settings profile', error);
+      }
+    };
+
+    loadProfile();
+  }, []);
+
+  const profileInitials = useMemo(() => {
+    return profileName
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  }, [profileName]);
+
+  const avatarSource = useMemo(() => {
+    if (!profileAvatar) return null;
+    const uri = profileAvatar.startsWith('http')
+      ? profileAvatar
+      : `${API_URL.replace(/\/api$/, '')}${profileAvatar}`;
+    return { uri };
+  }, [profileAvatar]);
+
+  const handleOpenPersonalInfo = () => {
+    setShowPersonalInfo(true);
+  };
+
+  const handleOpenResumeDocuments = () => {
+    if (onNavigatePersonalDetails) {
+      onNavigatePersonalDetails();
+      return;
+    }
+    setShowPersonalInfo(true);
   };
 
   if (showPersonalInfo) {
     return <PersonalInformation key="personal-info" onBack={() => setShowPersonalInfo(false)} currentRole={currentRole} />;
   }
 
-  const settingsMenus = [
-    { title: 'Personal Information', onPress: () => setShowPersonalInfo(true), icon: 'person-outline' as const },
+  const accountMenus: SettingsItem[] = [
+    {
+      title: 'Personal Information',
+      onPress: handleOpenPersonalInfo,
+      icon: 'person-outline',
+      iconColor: '#2563EB',
+      iconBackground: '#EAF2FF',
+    },
+    {
+      title: 'Resume & Documents',
+      onPress: handleOpenResumeDocuments,
+      icon: 'document-text-outline',
+      iconColor: '#2563EB',
+      iconBackground: '#EAF2FF',
+    },
+  ];
+
+  const securityMenus: SettingsItem[] = [
     { title: 'Change Password', onPress: onNavigateChangePassword, icon: 'lock-closed-outline' as const },
-    { title: 'Notifications', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
-    { title: 'E-Wallet & Payments', onPress: onNavigateEWallet, icon: 'wallet-outline' as const },
-    { title: 'Location Services', onPress: onNavigateLocation, icon: 'location-outline' as const },
     { title: 'Two-Factor Authentication', onPress: onNavigateMfa, icon: 'shield-checkmark-outline' as const },
+  ].map((item) => ({
+    ...item,
+    iconColor: '#0F9D71',
+    iconBackground: '#E9F8F1',
+  }));
+
+  const preferencesMenus: SettingsItem[] = [
+    { title: 'Notifications', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
+    { title: 'Location Services', onPress: onNavigateLocation, icon: 'location-outline' as const },
+  ].map((item) => ({
+    ...item,
+    iconColor: '#9333EA',
+    iconBackground: '#F2EAFB',
+  }));
+
+  const supportMenus: SettingsItem[] = [
     { title: 'Contact Support', onPress: onNavigateSupport, icon: 'help-circle-outline' as const },
     { title: 'About', onPress: onNavigateAbout, icon: 'information-circle-outline' as const },
-    { title: 'Delete Account', onPress: onNavigateDeleteAccount, icon: 'trash-outline' as const, danger: true },
+  ].map((item) => ({
+    ...item,
+    iconColor: '#475569',
+    iconBackground: '#EEF2F7',
+  }));
+
+  const accountActions: SettingsItem[] = [
+    {
+      title: 'Log Out',
+      onPress: handleLogout,
+      icon: 'log-out-outline',
+      iconColor: '#475569',
+      iconBackground: '#F3F5F9',
+    },
+    {
+      title: 'Delete Account',
+      onPress: onNavigateDeleteAccount,
+      icon: 'trash-outline',
+      iconColor: '#EF4444',
+      iconBackground: '#FEEDED',
+      danger: true,
+    },
   ];
+
+  const renderMenuCard = (items: SettingsItem[]) => {
+    return (
+      <View style={styles.menuCard}>
+        {items.map((item, index) => (
+          <View key={item.title}>
+            <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.88}>
+              <View style={styles.menuLeft}>
+                <View style={[styles.iconWrap, { backgroundColor: item.iconBackground }]}>
+                  <Ionicons name={item.icon} size={22} color={item.iconColor} />
+                </View>
+                <Text style={[styles.menuTitle, item.danger && styles.menuTitleDanger]}>{item.title}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={22} color="#C0C8D4" />
+            </TouchableOpacity>
+            {index < items.length - 1 ? <View style={styles.divider} /> : null}
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack}>
-          <Ionicons name="chevron-back" size={20} color="#6B7280" />
+        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.88}>
+          <Ionicons name="chevron-back" size={22} color="#4B5563" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Account Settings</Text>
+        <Text style={styles.headerTitle}>Settings</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {/* Profile Completion Section */}
-        {isWorkerRole && !isLoading && (
-          <View style={[styles.completionCard, { borderColor: getCompletionColor(completion.percentage) }]}>
-            <View style={styles.completionTop}>
-              <View style={styles.completionInfo}>
-                <Text style={styles.completionTitle}>Profile Strength</Text>
-                <Text style={styles.completionSubtitle}>Complete your profile to get better matches</Text>
-              </View>
-              <View
-                style={[
-                  styles.completionCircle,
-                  { borderColor: getCompletionColor(completion.percentage) },
-                ]}
-              >
-                <Text style={[styles.completionPercent, { color: getCompletionColor(completion.percentage) }]}>
-                  {completion.percentage}%
-                </Text>
-              </View>
-            </View>
-
-            {/* Progress Bar */}
-            <View style={styles.progressBarBackground}>
-              <View
-                style={[
-                  styles.progressBarFill,
-                  {
-                    width: `${completion.percentage}%`,
-                    backgroundColor: getCompletionColor(completion.percentage),
-                  },
-                ]}
-              />
-            </View>
-
-            <View style={styles.quickStatsRow}>
-              <View style={styles.quickStatItem}>
-                <Text style={styles.quickStatValue}>{profileSummary.jobsApplied}</Text>
-                <Text style={styles.quickStatLabel}>Applied</Text>
-              </View>
-              <View style={styles.quickStatDivider} />
-              <View style={styles.quickStatItem}>
-                <Text style={styles.quickStatValue}>{profileSummary.projectsCompleted}</Text>
-                <Text style={styles.quickStatLabel}>Completed</Text>
-              </View>
-              <View style={styles.quickStatDivider} />
-              <View style={styles.quickStatItem}>
-                <Text style={styles.quickStatValue}>{profileSummary.successRate}</Text>
-                <Text style={styles.quickStatLabel}>Success</Text>
-              </View>
-            </View>
-
-            {profileSummary.totalExperience ? (
-              <Text style={styles.totalExperienceText}>Total Experience: {profileSummary.totalExperience}</Text>
-            ) : null}
-
-            {/* Incomplete Fields */}
-            {completion.incompleteFields.length > 0 && (
-              <View style={styles.incompleteSectionContainer}>
-                <Text style={styles.incompleteTitle}>Missing: {completion.incompleteFields.length}</Text>
-                <View style={styles.fieldsList}>
-                  {completion.incompleteFields.slice(0, 3).map((field, index) => (
-                    <View key={index} style={styles.fieldItem}>
-                      <Ionicons name="checkbox-outline" size={16} color="#EF4444" />
-                      <Text style={styles.fieldText}>{field}</Text>
-                    </View>
-                  ))}
-                  {completion.incompleteFields.length > 3 && (
-                    <Text style={styles.moreText}>+{completion.incompleteFields.length - 3} more</Text>
-                  )}
-                </View>
+        <TouchableOpacity style={styles.profileCard} onPress={handleOpenPersonalInfo} activeOpacity={0.9}>
+          <View style={styles.profileLeft}>
+            {avatarSource ? (
+              <Image source={avatarSource} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarFallback}>
+                <Text style={styles.avatarInitials}>{profileInitials}</Text>
               </View>
             )}
-          </View>
-        )}
-        {isWorkerRole && isLoading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color={tokens.colors.brand} size="large" />
-          </View>
-        )}
-        <View style={styles.menuCard}>
-          {settingsMenus.map((menu, index) => (
-            <View key={menu.title}>
-              <TouchableOpacity style={styles.menuItem} onPress={menu.onPress}>
-                <View style={styles.menuLeft}>
-                  <View style={styles.iconWrap}>
-                    <Ionicons
-                      name={menu.icon}
-                      size={19}
-                      color={menu.danger ? tokens.colors.danger : '#4B5563'}
-                    />
-                  </View>
-                  <Text style={[styles.menuTitle, menu.danger && styles.menuTitleDanger]}>{menu.title}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#C5CCD7" />
-              </TouchableOpacity>
-              {index < settingsMenus.length - 1 && <View style={styles.divider} />}
+            <View style={styles.profileMeta}>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {profileName}
+              </Text>
+              <Text style={styles.profileEmail} numberOfLines={1}>
+                {profileEmail}
+              </Text>
             </View>
-          ))}
+          </View>
+          <View style={styles.editButton}>
+            <Text style={styles.editButtonText}>Edit</Text>
+          </View>
+        </TouchableOpacity>
 
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
-            <View style={styles.menuLeft}>
-              <View style={styles.iconWrap}>
-                <Ionicons name="log-out-outline" size={19} color={tokens.colors.danger} />
-              </View>
-              <Text style={[styles.menuTitle, styles.menuTitleDanger]}>Log out</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#C5CCD7" />
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.sectionLabel}>ACCOUNT</Text>
+        {renderMenuCard(accountMenus)}
+
+        <Text style={styles.sectionLabel}>SECURITY</Text>
+        {renderMenuCard(securityMenus)}
+
+        <Text style={styles.sectionLabel}>PREFERENCES</Text>
+        {renderMenuCard(preferencesMenus)}
+
+        <Text style={styles.sectionLabel}>SUPPORT & INFO</Text>
+        {renderMenuCard(supportMenus)}
+
+        <View style={styles.footerActionsWrap}>{renderMenuCard(accountActions)}</View>
       </ScrollView>
     </View>
   );
@@ -256,188 +249,158 @@ export default function Settings({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6F7FB',
+    backgroundColor: '#F3F5F9',
   },
   header: {
-    paddingTop: 54,
-    paddingHorizontal: 24,
-    paddingBottom: 12,
+    paddingTop: 56,
+    paddingHorizontal: 22,
+    paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
+    backgroundColor: '#F8FAFC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8ECF3',
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#E6EAF2',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#D7DEE8',
+    backgroundColor: '#EEF2F7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.3,
-  },
-  scroll: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 100 },
-  loadingContainer: {
-    paddingVertical: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  completionCard: {
-    backgroundColor: tokens.colors.surface,
-    borderRadius: 16,
-    borderWidth: 2,
-    padding: 16,
-    marginBottom: 20,
-    ...tokens.shadow.card,
-  },
-  completionTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  completionInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  completionTitle: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
+    letterSpacing: -0.2,
   },
-  completionSubtitle: {
-    fontSize: 12,
-    color: '#6B7280',
+  scroll: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 110,
+    gap: 10,
   },
-  completionCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F9FAFB',
-  },
-  completionPercent: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  progressBarBackground: {
-    height: 8,
-    backgroundColor: '#E5EAF0',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 12,
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  quickStatsRow: {
+  profileCard: {
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E5EAF1',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 102,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    ...tokens.shadow.card,
   },
-  quickStatItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  quickStatValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111827',
-  },
-  quickStatLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    marginTop: 2,
-  },
-  quickStatDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: '#E5EAF0',
-  },
-  totalExperienceText: {
-    fontSize: 12,
-    color: '#475569',
-    marginBottom: 8,
-  },
-  incompleteSectionContainer: {
-    marginTop: 8,
-  },
-  incompleteTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 8,
-  },
-  fieldsList: {
-    gap: 6,
-  },
-  fieldItem: {
+  profileLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    backgroundColor: '#FEE2E2',
-    borderRadius: 8,
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 12,
   },
-  fieldText: {
-    fontSize: 12,
-    color: '#7F1D1D',
+  avatar: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#CBD5E1',
+  },
+  avatarFallback: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#CBD5E1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitials: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  profileMeta: {
+    flex: 1,
+    minWidth: 0,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  profileEmail: {
+    fontSize: 13,
+    color: '#6B7280',
     fontWeight: '500',
   },
-  moreText: {
+  editButton: {
+    minWidth: 78,
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D1D8E3',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+  },
+  editButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  sectionLabel: {
+    marginTop: 12,
+    marginLeft: 6,
     fontSize: 11,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    marginTop: 4,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: '#97A1B2',
   },
   menuCard: {
     backgroundColor: tokens.colors.surface,
-    borderRadius: 20,
+    borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E5EAF0',
+    borderColor: '#E5EAF1',
     ...tokens.shadow.card,
   },
   menuItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    minHeight: 72,
+    paddingHorizontal: 14,
+    paddingVertical: 16,
+    minHeight: 84,
   },
   menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
     flexShrink: 1,
+    minWidth: 0,
   },
   iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F3F5F9',
-    borderWidth: 1,
-    borderColor: '#ECEFF5',
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuTitle: { fontSize: 18, fontWeight: '700', color: '#111827', flexShrink: 1 },
+  menuTitle: { fontSize: 17, fontWeight: '700', color: '#1F2937', flexShrink: 1 },
   menuTitleDanger: { color: tokens.colors.danger },
   divider: {
     height: 1,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: '#ECEFF5',
+    marginLeft: 74,
+  },
+  footerActionsWrap: {
+    marginTop: 10,
   },
 });

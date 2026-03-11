@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
-import AppHeader from '../../components/AppHeader';
+import TabTopNav from '../../components/TabTopNav';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 
@@ -22,7 +22,6 @@ type EmployerProfileProps = {
   };
   activeTab?: string;
   onTabPress?: (tab: string) => void;
-  onLogout?: () => void;
   onOpenWallet?: () => void;
   onOpenSettings?: () => void;
   currentRole?: 'worker' | 'employer';
@@ -33,7 +32,6 @@ export default function EmployerProfile({
   employer,
   activeTab,
   onTabPress,
-  onLogout,
   onOpenWallet,
   onOpenSettings,
   currentRole = 'employer',
@@ -143,11 +141,6 @@ export default function EmployerProfile({
     }
   };
 
-  const handleRoleSwitch = (role: 'worker' | 'employer') => {
-    if (role === currentRole) return;
-    onSwitchRole?.(role);
-  };
-
   const handleUploadAvatar = async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -209,19 +202,19 @@ export default function EmployerProfile({
       setIsLoading(false);
     }
   };
-  const nextRole: 'worker' | 'employer' = currentRole === 'worker' ? 'employer' : 'worker';
   const avatarSource = avatarUrl
     ? { uri: avatarUrl.startsWith('http') ? avatarUrl : `${API_URL.replace(/\/api$/, '')}${avatarUrl}` }
     : null;
 
   return (
     <View style={styles.container}>
-      <AppHeader
-        title="Employer Profile"
-        subtitle="Manage your account details"
-        rightLabel={nextRole === 'employer' ? 'Switch to Employer' : 'Switch to Worker'}
-        rightIconName="swap-horizontal"
-        onRightPress={() => handleRoleSwitch(nextRole)}
+      <TabTopNav
+        title="My Profile"
+        currentRole={currentRole}
+        onSwitchRole={onSwitchRole}
+        onOpenSettings={onOpenSettings}
+        showModeSwitch
+        showSettings
       />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.profileCard}>

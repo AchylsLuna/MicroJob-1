@@ -67,8 +67,6 @@ export default function EmployerEWallet({
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const [liveBalance, setLiveBalance] = useState(0);
-  const [employerBalance, setEmployerBalance] = useState(0);
-  const [workerBalance, setWorkerBalance] = useState(0);
   const [walletTarget, setWalletTarget] = useState<'EMPLOYER' | 'WORKER' | 'BOTH'>('EMPLOYER');
   const [transactions, setTransactions] = useState<WalletTransaction[]>(fallbackTransactions);
   const appStateRef = useRef(AppState.currentState);
@@ -120,14 +118,11 @@ export default function EmployerEWallet({
       if (profileResult.ok) {
         const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
         const nextEmployer = Number(profilePayload?.employerBalance || 0);
-        const nextWorker = Number(profilePayload?.workerBalance || 0);
         const role = String(profilePayload?.role || '').toLowerCase();
 
         const effectiveTarget: 'EMPLOYER' | 'WORKER' | 'BOTH' =
           role === 'both' ? 'BOTH' : role === 'work' ? 'WORKER' : 'EMPLOYER';
 
-        setEmployerBalance(Number.isFinite(nextEmployer) ? nextEmployer : 0);
-        setWorkerBalance(Number.isFinite(nextWorker) ? nextWorker : 0);
         setWalletTarget(effectiveTarget);
 
         // For employer view, show employer balance or combined if both role
@@ -291,10 +286,10 @@ export default function EmployerEWallet({
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerButton} onPress={onBack}>
-          <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+          <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>E-Wallet</Text>
-        <View style={styles.headerButton} />
+        <View style={styles.headerButtonPlaceholder} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -409,29 +404,33 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.background,
   },
   header: {
-    paddingTop: 52,
+    paddingTop: 54,
     paddingBottom: 14,
     paddingHorizontal: 16,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: '#0a2847',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 42,
+    height: 42,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: tokens.colors.surface,
+    borderColor: 'rgba(255,255,255,0.26)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  headerButtonPlaceholder: {
+    width: 42,
+    height: 42,
   },
   headerTitle: {
-    fontSize: 23,
-    fontWeight: '800',
-    color: tokens.colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
   scroll: {

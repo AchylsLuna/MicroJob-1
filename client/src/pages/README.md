@@ -31,13 +31,7 @@ Pages accessible to all user types (exports from parent):
 - SignIn/SignUp
 
 ### Root Level Pages
-Legacy pages (will be moved to shared/):
-- `Dashboard.tsx` - Main dashboard
-- `FindJobs.tsx` - Browse available jobs
-- `JobDetails.tsx` - View individual job details
-- `Settings.tsx` - User settings and preferences
-- `Home.tsx` - Landing page
-- `signIn.tsx` / `signUp.tsx` - Authentication
+Root level pages should be avoided for new features. Add new routes under role-specific folders (`worker`, `employer`, `admin`) or shared pages.
 
 ## Usage
 
@@ -50,8 +44,6 @@ import { PostJob } from './pages/employer';
 
 // Import shared pages
 import { Dashboard, Settings } from './pages/shared';
-// or
-import Dashboard from './pages/Dashboard';
 ```
 
 ## Routes

@@ -8,7 +8,6 @@ import {
   getAdminCategories,
   getAdminWalletStats,
   getAdminRecentPayouts,
-  getAdminTransactions,
   updateUserStatus,
 } from "../services/api";
 

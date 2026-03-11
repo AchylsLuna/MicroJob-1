@@ -4,19 +4,15 @@ import {
   Mail, 
   Phone, 
   MapPin, 
-  Briefcase, 
   Award, 
   Download, 
   Edit, 
   Calendar,
-  Building2,
-  CheckCircle2,
   FileText,
   Linkedin,
   Globe,
   DollarSign
 } from "lucide-react";
-import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { getProfile } from "../../services/api";
@@ -47,8 +43,6 @@ export function Profile() {
   const { user, updateProfile: updateAuthProfile } = useAuth();
   const [profileUser, setProfileUser] = useState(user);
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [newSkillName, setNewSkillName] = useState("");
-  const [newSkillLevel, setNewSkillLevel] = useState<"Beginner" | "Intermediate" | "Advanced" | "Expert">("Intermediate");
   const [totalExperience, setTotalExperience] = useState("5+ Years");
   const [projectsCompleted, setProjectsCompleted] = useState(0);
   const [jobsApplied, setJobsApplied] = useState(0);
@@ -141,60 +135,6 @@ export function Profile() {
     resumeUploaded: true,
     resumeName: "Jonas_Dela_Cruz_Resume_2026.pdf",
     resumeSize: "245 KB",
-  };
-
-  
-  const handleAddSkill = async () => {
-    if (!newSkillName.trim()) {
-      toast.error("Please enter a skill name");
-      return;
-    }
-    try {
-      const response = await fetch("/api/auth/profile/skills", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name: newSkillName,
-          level: newSkillLevel,
-        }),
-      });
-      if (!response.ok) throw new Error("Failed to add skill");
-      const data = await response.json();
-      const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
-        ...skill,
-        id: skill.id || skill._id || "",
-      })) as Skill[];
-      setSkills(mappedSkills);
-      updateAuthProfile({ skills: mappedSkills });
-      setNewSkillName("");
-      setNewSkillLevel("Intermediate");
-      toast.success(`${newSkillName} added to your skills!`);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add skill");
-    }
-  };
-
-  const handleRemoveSkill = async (skillId: string) => {
-    try {
-      const response = await fetch(`/api/auth/profile/skills/${skillId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to delete skill");
-      const data = await response.json();
-      const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
-        ...skill,
-        id: skill.id || skill._id || "",
-      })) as Skill[];
-      setSkills(mappedSkills);
-      updateAuthProfile({ skills: mappedSkills });
-      toast.success("Skill removed successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to remove skill");
-    }
   };
 
   const acceptedWorks: AcceptedWork[] = [

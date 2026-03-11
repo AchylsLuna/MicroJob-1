@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import TabTopNav from '../../components/TabTopNav';
 import { tokens } from '../../theme/tokens';
 
 interface ConversationSummary {
@@ -269,23 +270,12 @@ export default function MessageList({
 
   return (
     <View style={styles.container}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerTitleRow}>
-          <Text style={styles.headerTitle}>Inboxes</Text>
-          <Ionicons name="sparkles" size={16} color="#F59E0B" />
-        </View>
-        <TouchableOpacity
-          style={styles.composeButton}
-          onPress={onOpenNotifications || (() => Alert.alert('Compose', 'New chat composer is coming soon.'))}
-        >
-          <Ionicons name="create-outline" size={20} color="#64748B" />
-          {notificationBadgeCount > 0 ? (
-            <View style={styles.notifyDot}>
-              <Text style={styles.notifyDotText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
-            </View>
-          ) : null}
-        </TouchableOpacity>
-      </View>
+      <TabTopNav
+        title="Messages"
+        showNotifications={Boolean(onOpenNotifications)}
+        onOpenNotifications={onOpenNotifications}
+        notificationBadgeCount={notificationBadgeCount}
+      />
 
       <View style={styles.searchWrap}>
         <Ionicons style={styles.searchIcon} name="search-outline" size={18} color="#94A3B8" />
@@ -353,7 +343,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tokens.colors.background,
-    paddingTop: 12,
   },
   loadingWrap: {
     flex: 1,
@@ -361,57 +350,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerRow: {
-    paddingHorizontal: 20,
-    paddingTop: 6,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -1,
-  },
-  composeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#EEF2F7',
-    borderWidth: 1,
-    borderColor: '#DEE5EF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  notifyDot: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: tokens.colors.danger,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1,
-    borderColor: tokens.colors.white,
-  },
-  notifyDotText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '700',
-  },
   searchWrap: {
     marginHorizontal: 20,
+    marginTop: 10,
     marginBottom: 12,
     height: 50,
     borderRadius: 16,

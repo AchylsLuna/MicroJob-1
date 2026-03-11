@@ -10,7 +10,8 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
-import { apiRequest, asList, asObject } from '../../lib/api';
+import TabTopNav from '../../components/TabTopNav';
+import { apiRequest, asList } from '../../lib/api';
 
 type JobItem = {
   _id: string;
@@ -28,25 +29,16 @@ type JobItem = {
 };
 
 type EmployerJobPostsProps = {
-  onOpenPostJob?: () => void;
-  onOpenApplications?: () => void;
-  onOpenProfile?: () => void;
-  onOpenNotifications?: () => void;
   onEditJob?: (job: JobItem) => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
 };
 
 export default function EmployerJobPosts({
-  onOpenPostJob,
-  onOpenApplications,
-  onOpenProfile,
-  onOpenNotifications,
   onEditJob,
   activeTab,
   onTabPress,
 }: EmployerJobPostsProps) {
-  const [employerName, setEmployerName] = useState('Employer');
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -76,45 +68,9 @@ export default function EmployerJobPosts({
     fetchJobs();
   }, []);
 
-  useEffect(() => {
-    const loadEmployerName = async () => {
-      try {
-        const storedUser = await AsyncStorage.getItem('auth_user');
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          const name = [parsed?.firstName, parsed?.lastName].filter(Boolean).join(' ');
-          if (name) {
-            setEmployerName(name);
-            return;
-          }
-        }
-        const token = await AsyncStorage.getItem('auth_token');
-        if (!token) return;
-        const result = await apiRequest(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to load profile.');
-        if (!result.ok) return;
-        const payload = asObject<any>(result.raw) || {};
-        const dataPayload = asObject<any>(result.data) || {};
-        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
-        const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(' ');
-        if (name) setEmployerName(name);
-      } catch (error) {
-        console.log('Failed to load employer name', error);
-      }
-    };
-
-    loadEmployerName();
-  }, []);
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>{employerName}</Text>
-          <Text style={styles.headerSubtitle}>Employer</Text>
-        </View>
-      </View>
+      <TabTopNav title="Home" />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.summaryCard}>
@@ -210,17 +166,6 @@ export default function EmployerJobPosts({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fb' },
-  header: {
-    backgroundColor: '#0a2847',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  headerTitle: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
-  headerSubtitle: { color: '#cbd5f0', fontSize: 13, marginTop: 4 },
   scroll: { padding: 20, paddingBottom: 90 },
   summaryCard: {
     backgroundColor: '#ffffff',

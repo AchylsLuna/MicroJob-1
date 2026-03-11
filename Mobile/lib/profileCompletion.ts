@@ -38,7 +38,7 @@ const PROFILE_FIELDS = [
 /**
  * Check if a field is filled
  */
-const isFieldFilled = (value: any, key: string): boolean => {
+const isFieldFilled = (value: any): boolean => {
   // Null, undefined, or empty string
   if (value === null || value === undefined) {
     return false;
@@ -74,7 +74,7 @@ export const calculateProfileCompletion = (profile: ProfileData): CompletionStat
 
   PROFILE_FIELDS.forEach((field) => {
     const value = profile[field.key as keyof ProfileData];
-    const isFilled = isFieldFilled(value, field.key);
+    const isFilled = isFieldFilled(value);
     
     totalWeight += field.weight;
 

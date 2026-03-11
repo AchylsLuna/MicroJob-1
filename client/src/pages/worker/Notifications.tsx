@@ -187,58 +187,67 @@ export default function NotificationsPage() {
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-3">
-          <button onClick={markAll} className="text-sm text-blue-600 font-semibold hover:text-blue-700">Mark all as read</button>
-          <button onClick={fetchNotifications} className="text-sm text-gray-600 hover:text-gray-700">Refresh</button>
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-gray-200">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setFilterType('all')}
+            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm ${
+              filterType === 'all'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setFilterType('application')}
+            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+              filterType === 'application'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <CheckCircle className="w-4 h-4" />
+            Applications
+          </button>
+          <button
+            onClick={() => setFilterType('message')}
+            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+              filterType === 'message'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Messages
+          </button>
+          <button
+            onClick={() => setFilterType('payment')}
+            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+              filterType === 'payment'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <span className="text-[16px] leading-none font-semibold">₱</span>
+            Payments
+          </button>
         </div>
-      </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-2 border-b border-gray-200">
-        <button
-          onClick={() => setFilterType('all')}
-          className={`px-4 py-2 border-b-2 font-medium text-sm ${
-            filterType === 'all'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          All
-        </button>
-        <button
-          onClick={() => setFilterType('application')}
-          className={`px-4 py-2 border-b-2 font-medium text-sm flex items-center gap-1 ${
-            filterType === 'application'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <CheckCircle className="w-4 h-4" />
-          Applications
-        </button>
-        <button
-          onClick={() => setFilterType('message')}
-          className={`px-4 py-2 border-b-2 font-medium text-sm flex items-center gap-1 ${
-            filterType === 'message'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4" />
-          Messages
-        </button>
-        <button
-          onClick={() => setFilterType('payment')}
-          className={`px-4 py-2 border-b-2 font-medium text-sm flex items-center gap-1 ${
-            filterType === 'payment'
-              ? 'border-blue-600 text-blue-600'
-              : 'border-transparent text-gray-600 hover:text-gray-900'
-          }`}
-        >
-          <span className="text-[16px] leading-none font-semibold">₱</span>
-          Payments
-        </button>
+        <div className="flex items-center gap-2 pb-2">
+          <button
+            onClick={markAll}
+            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-blue-600 transition-colors hover:text-blue-700"
+          >
+            Mark all as read
+          </button>
+          <button
+            onClick={fetchNotifications}
+            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-700"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
 
       {loading && <div className="bg-white rounded-xl p-6 shadow-sm text-gray-600">Loading...</div>}

@@ -30,7 +30,6 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
   const getEntityId = (value: any) => {
@@ -41,7 +40,6 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   };
 
   const fetchMessages = async () => {
-    setLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const result = await apiRequest(`${API_URL}/messages/conversation/${userId}`, {
@@ -59,15 +57,12 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
         if (msgs.length > 0) {
           const first = msgs[0];
           const senderId = getEntityId(first?.sender);
-          const receiverId = getEntityId(first?.receiver);
           const other = String(senderId) === String(meId) ? first.receiver : first.sender;
           const otherName = other?.firstName ? `${other.firstName} ${other.lastName || ''}`.trim() : (other?.senderName || other?.receiverName || undefined);
           if (otherName) setDisplayName(otherName);
         }
-      } catch (e) {}
-    } finally {
-      setLoading(false);
-    }
+      } catch {}
+    } catch {}
   };
 
   useEffect(() => { fetchMessages(); }, [userId]);
@@ -81,7 +76,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
         const senderId = getEntityId(p?.sender || p?.senderId);
         const receiverId = getEntityId(p?.receiver || p?.receiverId);
         return String(senderId) === String(userId) || String(receiverId) === String(userId);
-      } catch (e) { return false; }
+      } catch { return false; }
     });
     if (relevant.length === 0) return;
     setMessages((prev) => {
