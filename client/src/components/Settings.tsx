@@ -16,7 +16,8 @@ import {
   revokeAllSessions,
   cleanupInactiveSessions,
   getVerificationStatus,
-  verifyPhone,
+  requestPhoneVerificationOtp,
+  confirmPhoneVerificationOtp,
   uploadIdentityDocument,
   uploadAddressDocument,
 } from "../services/api";
@@ -199,6 +200,11 @@ export function Settings() {
   const [verificationStepsData, setVerificationStepsData] = useState<VerificationStep[]>([]);
   const [verificationCompletionPercent, setVerificationCompletionPercent] = useState(0);
   const [isLoadingVerification, setIsLoadingVerification] = useState(false);
+  const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
+  const [phoneCodeRequested, setPhoneCodeRequested] = useState(false);
+  const [isSendingPhoneCode, setIsSendingPhoneCode] = useState(false);
+  const [isConfirmingPhoneCode, setIsConfirmingPhoneCode] = useState(false);
+  const [phoneCodeHint, setPhoneCodeHint] = useState<string | null>(null);
 
   const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
 
@@ -277,6 +283,20 @@ export function Settings() {
     setSearchParams(nextParams, { replace: true });
   };
 
+  const reloadVerificationStatus = async () => {
+    const response = await getVerificationStatus();
+    const steps = response?.steps || [];
+    setVerificationStepsData(steps);
+    setVerificationCompletionPercent(response?.completionPercent || 0);
+
+    const phoneStep = steps.find((step: VerificationStep) => step.id === "phone");
+    if (phoneStep?.status === "complete") {
+      setPhoneCodeRequested(false);
+      setPhoneVerificationCode("");
+      setPhoneCodeHint(null);
+    }
+  };
+
   // Load sessions when privacy tab is active
   useEffect(() => {
     if (activeTab !== "privacy") return;
@@ -321,9 +341,7 @@ export function Settings() {
     const loadVerification = async () => {
       setIsLoadingVerification(true);
       try {
-        const response = await getVerificationStatus();
-        setVerificationStepsData(response?.steps || []);
-        setVerificationCompletionPercent(response?.completionPercent || 0);
+        await reloadVerificationStatus();
       } catch (error: any) {
         console.error("Failed to load verification status:", error);
         toast.error("Failed to load verification status");
@@ -786,16 +804,39 @@ export function Settings() {
     }
   };
 
-  const handleVerifyPhone = async () => {
+  const handleRequestPhoneCode = async () => {
     try {
-      await verifyPhone();
+      setIsSendingPhoneCode(true);
+      const response = await requestPhoneVerificationOtp();
+      setPhoneCodeRequested(true);
+      if (response?.devCode) {
+        setPhoneCodeHint(`Dev OTP: ${response.devCode}`);
+      } else {
+        setPhoneCodeHint(null);
+      }
+      toast.success(response?.message || "Verification code sent");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to send verification code");
+    } finally {
+      setIsSendingPhoneCode(false);
+    }
+  };
+
+  const handleConfirmPhoneCode = async () => {
+    const normalizedCode = phoneVerificationCode.trim();
+    if (!normalizedCode) {
+      toast.error("Enter the verification code");
+      return;
+    }
+    try {
+      setIsConfirmingPhoneCode(true);
+      await confirmPhoneVerificationOtp({ code: normalizedCode });
       toast.success("Phone verified successfully");
-      // Reload verification status
-      const response = await getVerificationStatus();
-      setVerificationStepsData(response?.steps || []);
-      setVerificationCompletionPercent(response?.completionPercent || 0);
+      await reloadVerificationStatus();
     } catch (error: any) {
       toast.error(error?.message || "Failed to verify phone");
+    } finally {
+      setIsConfirmingPhoneCode(false);
     }
   };
 
@@ -806,9 +847,7 @@ export function Settings() {
       await uploadIdentityDocument(file);
       toast.success("Identity document uploaded successfully");
       // Reload verification status
-      const response = await getVerificationStatus();
-      setVerificationStepsData(response?.steps || []);
-      setVerificationCompletionPercent(response?.completionPercent || 0);
+      await reloadVerificationStatus();
     } catch (error: any) {
       toast.error(error?.message || "Failed to upload identity document");
     }
@@ -821,9 +860,7 @@ export function Settings() {
       await uploadAddressDocument(file);
       toast.success("Address document uploaded successfully");
       // Reload verification status
-      const response = await getVerificationStatus();
-      setVerificationStepsData(response?.steps || []);
-      setVerificationCompletionPercent(response?.completionPercent || 0);
+      await reloadVerificationStatus();
     } catch (error: any) {
       toast.error(error?.message || "Failed to upload address document");
     }
@@ -1823,13 +1860,49 @@ export function Settings() {
                                 <p className="text-[13px] text-[#64748B] mt-1">{step.description}</p>
 
                                 {/* Action buttons based on verification type and status */}
-                                {step.id === "phone" && step.status === "pending" && (
-                                  <button
-                                    onClick={handleVerifyPhone}
-                                    className="mt-2 px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8]"
-                                  >
-                                    Verify Phone
-                                  </button>
+                                {step.id === "phone" && step.status !== "complete" && (
+                                  <div className="mt-2 space-y-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <button
+                                        onClick={handleRequestPhoneCode}
+                                        disabled={isSendingPhoneCode}
+                                        className="px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] disabled:opacity-60"
+                                      >
+                                        {isSendingPhoneCode
+                                          ? "Sending..."
+                                          : phoneCodeRequested
+                                            ? "Resend code"
+                                            : "Send verification code"}
+                                      </button>
+                                      {phoneCodeHint && (
+                                        <span className="text-[12px] text-[#475569]">{phoneCodeHint}</span>
+                                      )}
+                                    </div>
+                                    {phoneCodeRequested && (
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <input
+                                          type="text"
+                                          inputMode="numeric"
+                                          maxLength={6}
+                                          value={phoneVerificationCode}
+                                          onChange={(event) =>
+                                            setPhoneVerificationCode(
+                                              event.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                                            )
+                                          }
+                                          placeholder="Enter 6-digit code"
+                                          className="w-[180px] bg-white border border-[#CBD5E1] rounded-[8px] px-3 py-2 text-[12px] text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]"
+                                        />
+                                        <button
+                                          onClick={handleConfirmPhoneCode}
+                                          disabled={isConfirmingPhoneCode}
+                                          className="px-4 py-2 border border-[#2563EB] text-[#1D4ED8] text-[12px] font-semibold rounded-[8px] hover:bg-[#EFF6FF] disabled:opacity-60"
+                                        >
+                                          {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
 
                                 {step.id === "identity" && step.status === "pending" && (

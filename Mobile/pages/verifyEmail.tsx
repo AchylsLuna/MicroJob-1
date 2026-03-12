@@ -1,32 +1,102 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, StatusBar, ActivityIndicator, Alert } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Keyboard,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Feather } from '@expo/vector-icons';
 import { API_URL } from '../config';
 import { apiRequest, asObject } from '../lib/api';
+import AuthScreenLayout from '../components/auth/AuthScreenLayout';
+import AuthStepCard from '../components/auth/AuthStepCard';
+import { AUTH_COLORS, clamp } from '../theme/authTheme';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TIMER_SECONDS = 30;
+const formatSeconds = (value: number) => `0:${Math.max(value, 0).toString().padStart(2, '0')}`;
 
 type Props = {
   email?: string;
   onVerified?: () => void;
-  onBack?: () => void; // NEW
+  onBack?: () => void;
 };
 
 export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Props) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [code, setCode] = useState(Array(6).fill(''));
   const [email, setEmail] = useState(emailProp || '');
-  const [timer, setTimer] = useState(30);
+  const [timer, setTimer] = useState(TIMER_SECONDS);
   const [canResend, setCanResend] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  const inputs = useRef<TextInput[]>([]);
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const inputs = useRef<Array<TextInput | null>>([]);
   const hasSentRef = useRef(false);
 
-  const handleChange = (val: string, idx: number) => {
-    const digit = val.slice(-1);
+  const codeCellWidth = clamp(screenWidth * 0.115, 44, 52);
+  const codeCellHeight = clamp(screenHeight * 0.066, 46, 54);
+  const codeFontSize = clamp(screenWidth * 0.054, 18, 22);
+  const codeGap = clamp(screenWidth * 0.018, 6, 10);
+  const buttonHeight = clamp(screenHeight * 0.086, 68, 76);
+  const buttonRadius = clamp(buttonHeight * 0.26, 18, 20);
+  const buttonFontSize = clamp(screenWidth * 0.052, 18, 20);
+  const helperFontSize = clamp(screenWidth * 0.04, 14, 16);
+  const statusFontSize = clamp(screenWidth * 0.035, 12, 14);
+  const badgeSize = clamp(screenWidth * 0.17, 58, 66);
+  const badgeIconSize = clamp(badgeSize * 0.42, 24, 30);
+  const pillRadius = clamp(screenWidth * 0.045, 14, 18);
+  const progressHeight = clamp(screenHeight * 0.0065, 4, 6);
+  const timerProgress = canResend ? 100 : ((TIMER_SECONDS - timer) / TIMER_SECONDS) * 100;
+  const formattedTimer = formatSeconds(timer);
+
+  const commitDigits = (rawValue: string, startIndex: number) => {
+    const digits = rawValue.replace(/\D/g, '');
     const next = [...code];
-    next[idx] = digit;
+
+    if (!digits) {
+      next[startIndex] = '';
+      setCode(next);
+      return;
+    }
+
+    let cursor = startIndex;
+    for (const digit of digits) {
+      if (cursor > 5) break;
+      next[cursor] = digit;
+      cursor += 1;
+    }
+
     setCode(next);
-    if (digit && idx < 5) inputs.current[idx + 1]?.focus();
+    const firstEmpty = next.findIndex((item) => !item);
+
+    if (firstEmpty >= 0) {
+      inputs.current[firstEmpty]?.focus();
+      return;
+    }
+
+    Keyboard.dismiss();
   };
+
+  const handleChange = (val: string, idx: number) => {
+    setErrorMessage('');
+    commitDigits(val, idx);
+  };
+
+  useEffect(() => {
+    const focusTimeout = setTimeout(() => {
+      inputs.current[0]?.focus();
+      setFocusedIndex(0);
+    }, 160);
+
+    return () => clearTimeout(focusTimeout);
+  }, []);
 
   useEffect(() => {
     const loadEmail = async () => {
@@ -72,26 +142,34 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
   }, [timer, canResend]);
 
   const sendOtp = async () => {
-    if (!email) {
-      setErrorMessage('Missing email. Please sign up again.');
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      setErrorMessage('Missing or invalid email. Please sign up again.');
       return;
     }
 
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const result = await apiRequest(`${API_URL}/auth/otp/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      }, 'Failed to send OTP.');
+      const result = await apiRequest(
+        `${API_URL}/auth/otp/send`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail }),
+        },
+        'Failed to send OTP.',
+      );
 
       if (!result.ok) {
         throw new Error(`${result.message || 'Failed to send OTP.'} (HTTP ${result.status})`);
       }
 
-      setTimer(30);
+      setTimer(TIMER_SECONDS);
       setCanResend(false);
+      setCode(Array(6).fill(''));
+      setFocusedIndex(0);
+      inputs.current[0]?.focus();
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to send OTP.');
     } finally {
@@ -105,15 +183,24 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
       Alert.alert('Error', 'Please enter the complete 6-digit code.');
       return;
     }
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      Alert.alert('Error', 'Missing or invalid email. Please sign in again.');
+      return;
+    }
 
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const result = await apiRequest(`${API_URL}/auth/otp/verify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, code: otpCode }),
-      }, 'Verification failed.');
+      const result = await apiRequest(
+        `${API_URL}/auth/otp/verify`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail, code: otpCode }),
+        },
+        'Verification failed.',
+      );
 
       if (!result.ok) {
         throw new Error(`${result.message || 'Verification failed.'} (HTTP ${result.status})`);
@@ -139,186 +226,223 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.card}>
-        {/* Back Button */}
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+    <AuthScreenLayout title="Verify Email" subtitle="Enter the 6-digit code sent to your inbox." onBack={onBack}>
+      <View style={[styles.heroBadge, { width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2 }]}>
+        <Feather name="mail" size={badgeIconSize} color={AUTH_COLORS.primaryText} />
+      </View>
 
-        <View style={styles.iconWrap}>
-          <View style={styles.icon}>
-            <Text style={styles.iconText}>✉️</Text>
-          </View>
-        </View>
+      <View style={[styles.emailPill, { borderRadius: pillRadius }]}>
+        <Text allowFontScaling={false} numberOfLines={1} style={[styles.emailPillText, { fontSize: helperFontSize }]}>
+          {email || 'your email address'}
+        </Text>
+      </View>
 
-        <Text style={styles.title}>Verify Your Email</Text>
-        <Text style={styles.subtitle}>We’ve sent a 6-digit code to</Text>
-        <Text style={styles.email}>{email || 'your email'}</Text>
-
+      <AuthStepCard
+        step={1}
+        title="Verification Code"
+        subtitle="Use the OTP from your email."
+        style={styles.primaryCard}
+      >
         {errorMessage ? (
-          <Text style={styles.errorText}>{errorMessage}</Text>
+          <Text allowFontScaling={false} style={[styles.errorText, { fontSize: clamp(helperFontSize * 0.95, 13, 14) }]}>
+            {errorMessage}
+          </Text>
         ) : null}
 
-        <View style={styles.codeRow}>
-          {code.map((c, i) => (
-            <View key={i} style={{ width: 44 }}>
-              <TextInput
-                ref={(r: TextInput | null) => {
-                  if (r) inputs.current[i] = r;
-                }}
-                style={styles.codeBox}
-                value={c}
-                onChangeText={v => handleChange(v, i)}
-                keyboardType="number-pad"
-                maxLength={1}
-                returnKeyType="next"
-              />
-            </View>
+        <View style={styles.timerWrap}>
+          <View style={[styles.progressTrack, { height: progressHeight, borderRadius: progressHeight }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  height: progressHeight,
+                  borderRadius: progressHeight,
+                  width: `${Math.max(0, Math.min(timerProgress, 100))}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text allowFontScaling={false} style={[styles.timerMetaText, { fontSize: statusFontSize }]}>
+            {canResend ? 'You can request a new code now.' : `Resend available in ${formattedTimer}`}
+          </Text>
+        </View>
+
+        <View style={[styles.codeRow, { gap: codeGap }]}>
+          {code.map((value, index) => (
+            <TextInput
+              key={index}
+              ref={(ref) => {
+                inputs.current[index] = ref;
+              }}
+              allowFontScaling={false}
+              style={[
+                styles.codeBox,
+                { width: codeCellWidth, height: codeCellHeight, fontSize: codeFontSize, borderRadius: codeCellHeight * 0.22 },
+                focusedIndex === index ? styles.codeBoxFocused : null,
+                value ? styles.codeBoxFilled : null,
+              ]}
+              value={value}
+              onChangeText={(nextValue) => handleChange(nextValue, index)}
+              onFocus={() => setFocusedIndex(index)}
+              onBlur={() => setFocusedIndex((prev) => (prev === index ? -1 : prev))}
+              onKeyPress={({ nativeEvent }) => {
+                if (nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
+                  inputs.current[index - 1]?.focus();
+                }
+              }}
+              keyboardType="number-pad"
+              maxLength={6}
+              returnKeyType={index === 5 ? 'done' : 'next'}
+              textAlign="center"
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
+            />
           ))}
         </View>
 
-        <TouchableOpacity style={[styles.button, isLoading && styles.buttonDisabled]} onPress={handleVerify} disabled={isLoading}>
-          {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verify Code</Text>}
+        <TouchableOpacity
+          style={[styles.button, { minHeight: buttonHeight, borderRadius: buttonRadius }, isLoading && styles.buttonDisabled]}
+          onPress={handleVerify}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color={AUTH_COLORS.primaryText} />
+          ) : (
+            <Text allowFontScaling={false} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
+              Verify Code
+            </Text>
+          )}
         </TouchableOpacity>
 
-        <View style={styles.resendRow}>
-          <Text style={styles.resendText}>Didn’t receive the code? </Text>
-          {canResend ? (
-            <TouchableOpacity onPress={sendOtp} disabled={isLoading}>
-              <Text style={styles.resendLink}>Resend Code</Text>
-            </TouchableOpacity>
-          ) : (
-            <Text style={styles.resendLink}>Resend Code (0:{timer.toString().padStart(2, '0')})</Text>
-          )}
-        </View>
-      </View>
-    </View>
+        <TouchableOpacity
+          style={[
+            styles.resendButton,
+            { borderRadius: clamp(buttonRadius * 0.8, 12, 14) },
+            (!canResend || isLoading) && styles.resendButtonDisabled,
+          ]}
+          onPress={sendOtp}
+          disabled={!canResend || isLoading}
+        >
+          <Feather name="refresh-cw" size={clamp(helperFontSize + 1, 14, 16)} color={AUTH_COLORS.linkLight} />
+          <Text allowFontScaling={false} style={[styles.resendButtonText, { fontSize: helperFontSize }]}>
+            {canResend ? 'Resend Code' : `Resend in ${formattedTimer}`}
+          </Text>
+        </TouchableOpacity>
+      </AuthStepCard>
+
+    </AuthScreenLayout>
   );
 }
 
-const CARD_MAX_WIDTH = 360;
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a2847',
+  primaryCard: {
+    marginBottom: 12,
+  },
+  heroBadge: {
+    alignSelf: 'center',
+    marginBottom: 12,
+    borderWidth: 1.5,
+    borderColor: AUTH_COLORS.cardBorderActive,
+    backgroundColor: 'rgba(27, 79, 216, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
   },
-  card: {
+  emailPill: {
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.inputDarkBorder,
+    backgroundColor: AUTH_COLORS.inputDark,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginBottom: 16,
+    maxWidth: '100%',
+  },
+  emailPillText: {
+    color: AUTH_COLORS.textSecondary,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  errorText: {
+    marginBottom: 12,
+    color: '#FFC2C2',
+    fontWeight: '600',
+    borderWidth: 1,
+    borderColor: 'rgba(241,92,92,0.45)',
+    backgroundColor: 'rgba(241,92,92,0.15)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  timerWrap: {
+    marginBottom: 14,
+  },
+  progressTrack: {
     width: '100%',
-    maxWidth: CARD_MAX_WIDTH,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  iconWrap: {
-    marginBottom: 20,
-    shadowColor: '#d88cf7',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  icon: {
-    width: 72,
-    height: 72,
-    borderRadius: 16,
-    backgroundColor: '#0a2847',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconText: {
-    fontSize: 34,
-    color: '#fff',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
     marginBottom: 8,
-    textAlign: 'center',
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#666',
-    textAlign: 'center',
+  progressFill: {
+    backgroundColor: AUTH_COLORS.primary,
   },
-  email: {
-    fontSize: 13,
-    color: '#666',
-    marginBottom: 20,
+  timerMetaText: {
+    color: AUTH_COLORS.textSecondary,
+    fontWeight: '500',
     textAlign: 'center',
   },
   codeRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 20,
+    justifyContent: 'center',
+    marginBottom: 16,
   },
   codeBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: '#f2f2f2',
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.inputDarkBorder,
+    backgroundColor: AUTH_COLORS.inputDark,
     textAlign: 'center',
-    fontSize: 18,
-    color: '#111',
-  },
-  button: {
-    width: '100%',
-    backgroundColor: '#0a2847',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 15,
+    color: AUTH_COLORS.textPrimary,
     fontWeight: '700',
   },
-  resendRow: {
-    flexDirection: 'row',
+  codeBoxFocused: {
+    borderColor: AUTH_COLORS.primary,
+    backgroundColor: 'rgba(27,79,216,0.16)',
+  },
+  codeBoxFilled: {
+    borderColor: AUTH_COLORS.cardBorderActive,
+  },
+  button: {
+    backgroundColor: AUTH_COLORS.primary,
     alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    shadowColor: AUTH_COLORS.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
   },
-  resendText: {
-    fontSize: 13,
-    color: '#666',
-  },
-  resendLink: {
-    fontSize: 13,
-    color: '#0a5ac7',
+  buttonText: {
+    color: AUTH_COLORS.primaryText,
     fontWeight: '700',
   },
   buttonDisabled: {
-    opacity: 0.7,
+    opacity: 0.65,
   },
-  errorText: {
-    marginTop: 8,
-    marginBottom: 12,
-    color: '#b91c1c',
-    fontSize: 12,
-    textAlign: 'center',
+  resendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.inputDarkBorder,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  backBtn: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    padding: 8,
-    zIndex: 1,
+  resendButtonDisabled: {
+    opacity: 0.65,
   },
-  backIcon: {
-    fontSize: 20,
-    color: '#111',
+  resendButtonText: {
+    color: AUTH_COLORS.linkLight,
+    fontWeight: '700',
   },
 });

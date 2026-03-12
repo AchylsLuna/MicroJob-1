@@ -17,6 +17,7 @@ import {
     normalizePhone,
 } from "../lib/authValidation.js";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
+import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
 
 const otpStore = new Map();
 const passwordResetOtpStore = new Map();
@@ -47,7 +48,9 @@ function getEmailTransporter() {
 
 export async function getUserList(req, res) {
     try {
-        const users = await User.find({});
+        const users = await User.find({}).select(
+            "-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes"
+        );
         res.status(200).json(users);
     } catch (error) {
         res.status(500).json({ message: "Failed to retrieve users." });
@@ -56,7 +59,9 @@ export async function getUserList(req, res) {
 
 export async function getAdminUsers(req, res) {
     try {
-        const users = await User.find({ role: { $in: ["admin", "superadmin"] } });
+        const users = await User.find({ role: { $in: ["admin", "superadmin"] } }).select(
+            "-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes"
+        );
         res.status(200).json(users);
     } catch (error) {
         res.status(500).json({ message: "Failed to retrieve admin users." });
@@ -76,7 +81,7 @@ export async function updateUserStatus(req, res) {
             userId,
             { status },
             { new: true, runValidators: true }
-        );
+        ).select("-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes");
         if (!updated) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -106,6 +111,11 @@ export async function updateProfile(req, res) {
         const userId = req.user?.id || req.user?.userId;
         if (!userId) {
             return res.status(401).json({ message: "Authentication required." });
+        }
+
+        const existingUser = await User.findById(userId).select("phoneNumber verification.phoneVerified");
+        if (!existingUser) {
+            return res.status(404).json({ message: "User not found." });
         }
 
         console.log('📥 Update profile request from user:', userId);
@@ -173,6 +183,17 @@ export async function updateProfile(req, res) {
             if (updates.phoneNumber && !isValidPhone(updates.phoneNumber)) {
                 return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
             }
+        }
+
+        const existingPhone = normalizePhone(existingUser.phoneNumber || "");
+        const incomingPhoneProvided = updates.phoneNumber !== undefined;
+        const incomingPhoneCleared = Object.prototype.hasOwnProperty.call(unset, "phoneNumber");
+        const incomingPhone = incomingPhoneCleared ? "" : (incomingPhoneProvided ? updates.phoneNumber : existingPhone);
+        const phoneChanged = incomingPhone !== existingPhone;
+
+        if (phoneChanged) {
+            updates["verification.phoneVerified"] = false;
+            clearPhoneVerificationOtp(String(userId));
         }
 
         // Auto-calculate job statistics from JobApplication collection

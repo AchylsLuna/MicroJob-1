@@ -1,8 +1,24 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 import { useState } from 'react';
 import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest, asObject } from '../lib/api';
+import { Feather } from '@expo/vector-icons';
+import { AUTH_COLORS, clamp } from '../theme/authTheme';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function SignIn({
   onBack,
@@ -17,6 +33,28 @@ export default function SignIn({
   onNavigateToVerify?: () => void;
   onLogin?: () => void;
 }) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const horizontalPadding = clamp(screenWidth * 0.052, 18, 24);
+  const topPadding = clamp(screenHeight * 0.07, 46, 64);
+  const cardMaxWidth = Math.min(420, screenWidth - horizontalPadding * 2);
+  const cardRadius = clamp(screenWidth * 0.085, 26, 32);
+  const cardVerticalPadding = clamp(screenHeight * 0.032, 22, 28);
+  const cardHorizontalPadding = clamp(screenWidth * 0.065, 22, 28);
+  const backButtonSize = clamp(screenWidth * 0.12, 40, 44);
+  const backIconSize = clamp(screenWidth * 0.056, 20, 22);
+  const iconTileSize = clamp(screenWidth * 0.19, 72, 80);
+  const iconTileRadius = clamp(iconTileSize * 0.28, 18, 22);
+  const authIconSize = clamp(iconTileSize * 0.41, 28, 32);
+  const titleFontSize = clamp(screenWidth * 0.07, 26, 30);
+  const subtitleFontSize = clamp(screenWidth * 0.038, 14, 15);
+  const fieldHeight = clamp(screenHeight * 0.068, 50, 56);
+  const fieldRadius = clamp(fieldHeight * 0.24, 12, 14);
+  const fieldIconSize = clamp(screenWidth * 0.049, 18, 20);
+  const inputFontSize = clamp(screenWidth * 0.04, 14, 15);
+  const buttonHeight = clamp(screenHeight * 0.068, 50, 56);
+  const buttonRadius = clamp(buttonHeight * 0.23, 12, 14);
+  const buttonFontSize = clamp(screenWidth * 0.043, 15, 16);
+  const helperFontSize = clamp(screenWidth * 0.039, 13, 14);
   const ROLE_REQUIRING_LOGIN_OTP = new Set(['hire', 'work', 'both', 'employer', 'worker']);
 
   const [email, setEmail] = useState('');
@@ -90,10 +128,14 @@ export default function SignIn({
   };
 
   const handleSignIn = async () => {
-    // Validation
-    const loginInput = email.trim();
-    if (!loginInput) {
-      Alert.alert('Error', 'Please enter your email, username, or phone number');
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -105,27 +147,15 @@ export default function SignIn({
     setIsLoading(true);
 
     try {
-      const phoneDigits = loginInput.replace(/\D/g, '');
-      const normalizedPhone = phoneDigits.startsWith('63') && phoneDigits.length === 12
-        ? `0${phoneDigits.slice(2)}`
-        : phoneDigits;
-      const isPhoneLogin = /^\d{11}$/.test(normalizedPhone);
-      const requestBody: Record<string, string> = { password };
-
-      if (isPhoneLogin) {
-        requestBody.phoneNumber = normalizedPhone;
-      } else {
-        requestBody.emailOrUsername = loginInput.includes('@')
-          ? loginInput.toLowerCase()
-          : loginInput;
-      }
-
       const result = await apiRequest(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          emailOrUsername: normalizedEmail,
+          password,
+        }),
       }, 'Unable to sign in.');
 
       const responseData = asObject<any>(result.data) || {};
@@ -145,10 +175,7 @@ export default function SignIn({
       } else {
         const serverMessage = result.message || 'Unable to sign in.';
         if (result.status === 401 && /verify your email/i.test(serverMessage)) {
-          const normalizedEmail = loginInput.includes('@') ? loginInput.toLowerCase() : '';
-          if (normalizedEmail) {
-            await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
-          }
+          await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
           Alert.alert(
             'Email verification required',
             serverMessage,
@@ -158,7 +185,7 @@ export default function SignIn({
             ]
           );
         } else if (result.status === 401 && /invalid credentials/i.test(serverMessage)) {
-          Alert.alert('Error', 'Invalid credentials. Check your email/phone/username and password.');
+          Alert.alert('Error', 'Invalid credentials. Check your email and password.');
         } else {
           Alert.alert('Error', `${serverMessage} (HTTP ${result.status})`);
         }
@@ -213,241 +240,280 @@ export default function SignIn({
   };
 
   return (
-    <View style={styles.container}>
-      {/* Back Button */}
-      <TouchableOpacity style={styles.backButton} onPress={onBack}>
-        <Text style={styles.backIcon}>←</Text>
-      </TouchableOpacity>
-
-      {/* Card */}
-      <View style={styles.card}>
-        {/* Icon */}
-        <View style={styles.iconContainer}>
-          <View style={styles.icon}>
-            <Text style={styles.iconText}>💼</Text>
-          </View>
-        </View>
-
-        {/* Title */}
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Sign in to your account</Text>
-
-        {/* Login Input */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputIcon}>📧</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="Email, Username, or Phone"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="default"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        {/* Password Input */}
-        <View style={styles.passwordContainer}>
-          <Text style={styles.inputIcon}>🔒</Text>
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            autoCorrect={false}
-            textContentType="password"
-            autoComplete="password"
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-            <Text style={styles.eyeIcon}>{showPassword ? '👁️' : '👁️'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {requiresMfa ? (
-          <>
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputIcon}>🔐</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Authenticator / Backup Code"
-                placeholderTextColor="#999"
-                value={mfaCode}
-                onChangeText={setMfaCode}
-                autoCapitalize="characters"
-              />
-            </View>
-            <Text style={styles.mfaHelpText}>
-              MFA is enabled for this account. Enter a valid code to continue.
-            </Text>
-          </>
-        ) : (
-          <TouchableOpacity style={styles.forgotContainer} onPress={onNavigateToForgot}>
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Sign In Button */}
-        <TouchableOpacity 
-          style={[styles.signInButton, isLoading && styles.signInButtonDisabled]} 
-          onPress={requiresMfa ? handleVerifyMfa : handleSignIn}
-          disabled={isLoading}
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingHorizontal: horizontalPadding, paddingTop: topPadding },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <TouchableOpacity
+          style={[
+            styles.backButton,
+            { width: backButtonSize, height: backButtonSize, borderRadius: clamp(backButtonSize * 0.29, 14, 16) },
+          ]}
+          onPress={onBack}
         >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.signInButtonText}>{requiresMfa ? 'Verify MFA' : 'Sign in'}</Text>
-          )}
+          <Feather name="arrow-left" size={backIconSize} color={AUTH_COLORS.primaryText} />
         </TouchableOpacity>
 
-        {/* Sign Up Link */}
-        <View style={styles.signUpContainer}>
-          <Text style={styles.signUpText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={onNavigateToSignUp}>
-            <Text style={styles.signUpLink}>Sign Up</Text>
+        <View
+          style={[
+            styles.card,
+            {
+              maxWidth: cardMaxWidth,
+              borderRadius: cardRadius,
+              paddingTop: cardVerticalPadding,
+              paddingBottom: cardVerticalPadding,
+              paddingHorizontal: cardHorizontalPadding,
+            },
+          ]}
+        >
+          <View style={styles.iconWrap}>
+            <View style={[styles.iconTile, { width: iconTileSize, height: iconTileSize, borderRadius: iconTileRadius }]}>
+              <Feather name="briefcase" size={authIconSize} color="#ffffff" />
+            </View>
+          </View>
+
+          <Text
+            allowFontScaling={false}
+            style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
+          >
+            Welcome Back
+          </Text>
+          <Text
+            allowFontScaling={false}
+            style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.45) }]}
+          >
+            Sign in to your account
+          </Text>
+
+          <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
+            <Feather name="at-sign" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
+            <TextInput
+              style={[styles.input, { fontSize: inputFontSize }]}
+              placeholder="Email address"
+              placeholderTextColor={AUTH_COLORS.placeholderLight}
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="emailAddress"
+              autoComplete="email"
+            />
+          </View>
+
+          <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
+            <Feather name="lock" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
+            <TextInput
+              style={[styles.input, { fontSize: inputFontSize }]}
+              placeholder="Password"
+              placeholderTextColor={AUTH_COLORS.placeholderLight}
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="password"
+              autoComplete="password"
+            />
+            <TouchableOpacity style={styles.eyeButton} onPress={() => setShowPassword((prev) => !prev)}>
+              <Feather name={showPassword ? 'eye-off' : 'eye'} size={fieldIconSize + 2} color={AUTH_COLORS.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {requiresMfa ? (
+            <>
+              <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
+                <Feather name="shield" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
+                <TextInput
+                  style={[styles.input, { fontSize: inputFontSize }]}
+                  placeholder="Authenticator / Backup Code"
+                  placeholderTextColor={AUTH_COLORS.placeholderLight}
+                  value={mfaCode}
+                  onChangeText={setMfaCode}
+                  autoCapitalize="characters"
+                />
+              </View>
+              <Text allowFontScaling={false} style={[styles.mfaHelpText, { fontSize: clamp(inputFontSize * 0.72, 12, 13) }]}>
+                MFA is enabled for this account. Enter a valid code to continue.
+              </Text>
+            </>
+          ) : (
+            <TouchableOpacity style={styles.forgotButton} onPress={onNavigateToForgot}>
+              <Text allowFontScaling={false} style={[styles.forgotText, { fontSize: helperFontSize }]}>
+                Forgot password?
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.primaryButton,
+              { minHeight: buttonHeight, borderRadius: buttonRadius },
+              isLoading && styles.buttonDisabled,
+            ]}
+            onPress={requiresMfa ? handleVerifyMfa : handleSignIn}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text allowFontScaling={false} style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
+                {requiresMfa ? 'Verify MFA' : 'Sign in'}
+              </Text>
+            )}
           </TouchableOpacity>
+
+          <View style={styles.bottomRow}>
+            <Text allowFontScaling={false} style={[styles.bottomText, { fontSize: helperFontSize }]}>
+              {"Don't have an account? "}
+            </Text>
+            <TouchableOpacity onPress={onNavigateToSignUp}>
+              <Text allowFontScaling={false} style={[styles.bottomLink, { fontSize: helperFontSize }]}>
+                Sign Up
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a2847',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    backgroundColor: AUTH_COLORS.background,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 52,
+    paddingBottom: 24,
   },
   backButton: {
-    position: 'absolute',
-    top: 40,
-    left: 20,
     width: 40,
     height: 40,
-    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: 'transparent',
     alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: '#fff',
+    justifyContent: 'center',
+    marginBottom: 24,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: AUTH_COLORS.cardLight,
+    borderRadius: 28,
+    paddingTop: 32,
+    paddingBottom: 28,
+    paddingHorizontal: 28,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 420,
+    alignSelf: 'center',
+  },
+  iconWrap: {
     alignItems: 'center',
+    marginBottom: 20,
   },
-  iconContainer: {
-    marginBottom: 24,
-  },
-  icon: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#0a2847',
-    borderRadius: 16,
+  iconTile: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: AUTH_COLORS.tile,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconText: {
-    fontSize: 40,
-  },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 8,
+    textAlign: 'center',
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '800',
+    color: '#0D1B3E',
+    marginBottom: 6,
   },
   subtitle: {
+    textAlign: 'center',
     fontSize: 14,
-    color: '#666',
-    marginBottom: 24,
+    lineHeight: 20,
+    color: '#4B5E8A',
+    marginBottom: 28,
+    fontWeight: '400',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: AUTH_COLORS.inputLight,
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.inputLightBorder,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    marginBottom: 16,
-  },
-  passwordContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    minHeight: 52,
+    paddingHorizontal: 14,
     marginBottom: 12,
-  },
-  inputIcon: {
-    fontSize: 18,
-    marginRight: 8,
   },
   input: {
     flex: 1,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#000',
+    marginLeft: 10,
+    fontSize: 15,
+    color: AUTH_COLORS.inputTextLight,
+    fontWeight: '400',
   },
-  passwordInput: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 14,
-    color: '#000',
-  },
-  eyeIcon: {
-    fontSize: 18,
-  },
-  forgotContainer: {
-    alignSelf: 'flex-end',
-    marginBottom: 24,
-  },
-  forgotText: {
-    fontSize: 13,
-    color: '#0066cc',
-    fontWeight: '600',
+  eyeButton: {
+    padding: 4,
   },
   mfaHelpText: {
-    width: '100%',
     fontSize: 12,
-    color: '#475569',
+    color: '#4B5E8A',
+    marginBottom: 10,
+  },
+  forgotButton: {
+    alignSelf: 'flex-end',
     marginBottom: 16,
   },
-  signInButton: {
-    backgroundColor: '#0a2847',
+  forgotText: {
+    color: AUTH_COLORS.linkAccent,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  primaryButton: {
+    backgroundColor: AUTH_COLORS.tile,
     borderRadius: 12,
-    paddingVertical: 14,
+    minHeight: 52,
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 16,
-  },
-  signInButtonDisabled: {
-    opacity: 0.6,
-  },
-  signInButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-  },
-  signUpContainer: {
-    flexDirection: 'row',
     justifyContent: 'center',
+    marginBottom: 18,
+    shadowColor: AUTH_COLORS.tile,
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  primaryButtonText: {
+    color: AUTH_COLORS.primaryText,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+  bottomRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  signUpText: {
-    fontSize: 13,
-    color: '#666',
+  bottomText: {
+    color: '#4B5E8A',
+    fontSize: 14,
+    fontWeight: '400',
   },
-  signUpLink: {
-    fontSize: 13,
-    color: '#0066cc',
+  bottomLink: {
+    color: AUTH_COLORS.linkAccent,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

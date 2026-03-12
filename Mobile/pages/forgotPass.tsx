@@ -1,154 +1,219 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import {
+  ActivityIndicator,
+  Alert,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions,
+} from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import AuthScreenLayout from '../components/auth/AuthScreenLayout';
+import AuthStepCard from '../components/auth/AuthStepCard';
+import { AUTH_COLORS, clamp } from '../theme/authTheme';
 
 type Props = {
   onBack?: () => void;
-  onSendReset?: (email: string) => void;
+  onSendReset?: (email: string) => void | Promise<void>;
 };
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function ForgotPass({ onBack, onSendReset }: Props) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+
+  const fieldHeight = clamp(screenHeight * 0.082, 64, 74);
+  const fieldRadius = clamp(fieldHeight * 0.24, 16, 18);
+  const fieldIconSize = clamp(screenWidth * 0.056, 20, 22);
+  const inputFontSize = clamp(screenWidth * 0.046, 16, 18);
+  const buttonHeight = clamp(screenHeight * 0.086, 68, 76);
+  const buttonRadius = clamp(buttonHeight * 0.26, 18, 20);
+  const buttonTextSize = clamp(screenWidth * 0.052, 18, 20);
+  const helperFontSize = clamp(screenWidth * 0.039, 13, 15);
+  const badgeSize = clamp(screenWidth * 0.18, 60, 68);
+  const badgeIconSize = clamp(badgeSize * 0.43, 24, 30);
+  const fieldLabelSize = clamp(screenWidth * 0.04, 14, 15);
+
+  const handleSendReset = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) {
+      Alert.alert('Error', 'Please enter your email address.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await onSendReset?.(normalizedEmail);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'Unable to send reset code.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.card}>
-        {/* Back Arrow */}
-        <TouchableOpacity style={styles.backBtn} onPress={onBack}>
-          <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+    <AuthScreenLayout
+      title="Reset Password"
+      subtitle="Enter your email and we will send recovery instructions."
+      onBack={onBack}
+    >
+      <View style={[styles.heroBadge, { width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2 }]}>
+        <Feather name="shield" size={badgeIconSize} color={AUTH_COLORS.primaryText} />
+      </View>
 
-        {/* Icon */}
-        <View style={styles.iconWrapper}>
-          <View style={styles.icon}>
-            <Text style={styles.iconText}>✉️</Text>
-          </View>
-        </View>
-
-        {/* Title */}
-        <Text style={styles.title}>Forgot Password?</Text>
-        <Text style={styles.subtitle}>
-          No worries! Enter your email and we’ll send{'\n'}you reset instructions
+      <AuthStepCard
+        step={1}
+        title="Recovery Email"
+        subtitle="Use the same email tied to your account."
+        style={styles.primaryCard}
+      >
+        <Text allowFontScaling={false} style={[styles.fieldLabel, { fontSize: fieldLabelSize }]}>
+          Email Address
         </Text>
 
-        {/* Email Input */}
-        <View style={styles.inputContainer}>
-          <Text style={styles.inputIcon}>✉️</Text>
+        <View
+          style={[
+            styles.inputContainer,
+            { minHeight: fieldHeight, borderRadius: fieldRadius },
+            isInputFocused && styles.inputContainerFocused,
+          ]}
+        >
+          <Feather name="mail" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
           <TextInput
-            style={styles.input}
+            allowFontScaling={false}
+            style={[styles.input, { fontSize: inputFontSize }]}
             placeholder="Enter your email"
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={AUTH_COLORS.placeholderDark}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
           />
         </View>
+        <Text allowFontScaling={false} style={[styles.helperText, { fontSize: helperFontSize }]}>
+          We will send a 6-digit verification code to this email.
+        </Text>
 
-        {/* Button */}
-        <TouchableOpacity style={styles.button} onPress={() => onSendReset?.(email)}>
-          <Text style={styles.buttonText}>Send Reset Link</Text>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            { minHeight: buttonHeight, borderRadius: buttonRadius },
+            isLoading && styles.buttonDisabled,
+          ]}
+          onPress={handleSendReset}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color={AUTH_COLORS.primaryText} />
+          ) : (
+            <Text allowFontScaling={false} style={[styles.buttonText, { fontSize: buttonTextSize }]}>
+              Send Reset Link
+            </Text>
+          )}
         </TouchableOpacity>
-      </View>
-    </View>
+
+        <View style={styles.infoRow}>
+          <Feather name="lock" size={clamp(helperFontSize + 1, 14, 16)} color={AUTH_COLORS.textMuted} />
+          <Text allowFontScaling={false} style={[styles.infoText, { fontSize: helperFontSize }]}>
+            For security, use the same email you registered with.
+          </Text>
+        </View>
+        <Text allowFontScaling={false} style={[styles.infoSubText, { fontSize: clamp(helperFontSize * 0.92, 12, 14) }]}>
+          {"Didn't receive it? You can resend from the OTP screen."}
+        </Text>
+      </AuthStepCard>
+    </AuthScreenLayout>
   );
 }
 
-const CARD_MAX_WIDTH = 360;
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a2847',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+  primaryCard: {
+    marginBottom: 10,
   },
-  card: {
-    width: '100%',
-    maxWidth: CARD_MAX_WIDTH,
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
-    alignItems: 'center',
-    position: 'relative',
-  },
-  backBtn: {
-    position: 'absolute',
-    top: 16,
-    left: 16,
-    padding: 8,
-  },
-  backIcon: {
-    fontSize: 22,
-    color: '#111',
-  },
-  iconWrapper: {
-    marginTop: 16,
-    marginBottom: 24,
-    shadowColor: '#d88cf7',
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  icon: {
-    width: 72,
-    height: 72,
-    borderRadius: 16,
-    backgroundColor: '#0a2847',
+  heroBadge: {
+    alignSelf: 'center',
+    marginBottom: 14,
+    borderWidth: 1.5,
+    borderColor: AUTH_COLORS.cardBorderActive,
+    backgroundColor: 'rgba(27, 79, 216, 0.24)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  iconText: {
-    fontSize: 34,
-    color: '#fff',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111',
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: '#555',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 18,
+  fieldLabel: {
+    color: AUTH_COLORS.textPrimary,
+    fontWeight: '600',
+    marginBottom: 8,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '100%',
-    backgroundColor: '#f2f2f2',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 20,
+    backgroundColor: AUTH_COLORS.inputDark,
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.inputDarkBorder,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    marginBottom: 8,
   },
-  inputIcon: {
-    fontSize: 16,
-    color: '#8c8c8c',
-    marginRight: 8,
+  inputContainerFocused: {
+    borderColor: AUTH_COLORS.cardBorderActive,
+    backgroundColor: 'rgba(27,79,216,0.14)',
   },
   input: {
     flex: 1,
-    fontSize: 14,
-    color: '#111',
+    marginLeft: 14,
+    color: AUTH_COLORS.inputTextDark,
+    fontWeight: '500',
+  },
+  helperText: {
+    color: AUTH_COLORS.textSecondary,
+    fontWeight: '500',
+    marginBottom: 14,
   },
   button: {
-    width: '100%',
-    backgroundColor: '#0a2847',
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: AUTH_COLORS.primary,
+    borderRadius: 18,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: AUTH_COLORS.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 15,
+    color: AUTH_COLORS.primaryText,
     fontWeight: '700',
+  },
+  buttonDisabled: {
+    opacity: 0.65,
+  },
+  infoRow: {
+    marginTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  infoText: {
+    marginLeft: 8,
+    color: AUTH_COLORS.textSecondary,
+    fontWeight: '500',
+    flex: 1,
+  },
+  infoSubText: {
+    marginTop: 8,
+    color: AUTH_COLORS.textTertiary,
+    fontWeight: '500',
   },
 });

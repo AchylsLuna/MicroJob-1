@@ -1,78 +1,101 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { StatusBar } from 'expo-status-bar';
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import AuthScreenLayout from '../components/auth/AuthScreenLayout';
+import AuthStepCard from '../components/auth/AuthStepCard';
+import { AUTH_COLORS, clamp } from '../theme/authTheme';
 
 type Props = {
   onBackToLogin?: () => void;
 };
 
 export default function PassChanged({ onBackToLogin }: Props) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const iconSize = clamp(screenWidth * 0.26, 92, 108);
+  const checkSize = clamp(iconSize * 0.36, 32, 40);
+  const buttonHeight = clamp(screenHeight * 0.086, 68, 76);
+  const buttonRadius = clamp(buttonHeight * 0.26, 18, 20);
+  const buttonFontSize = clamp(screenWidth * 0.052, 18, 20);
+  const helperFontSize = clamp(screenWidth * 0.04, 14, 16);
+
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
-      <View style={styles.iconWrap}>
-        <View style={styles.icon}>
-          <Text style={styles.check}>✓</Text>
+    <AuthScreenLayout title="Password Updated" subtitle="Your credential has been changed successfully.">
+      <AuthStepCard
+        step={1}
+        title="Reset Completed"
+        subtitle="Your account is now protected with your new password."
+        style={styles.primaryCard}
+      >
+        <View style={styles.successIconWrap}>
+          <View
+            style={[styles.successIcon, { width: iconSize, height: iconSize, borderRadius: iconSize / 2 }]}
+          >
+            <Feather name="check" size={checkSize} color={AUTH_COLORS.primaryText} />
+          </View>
         </View>
-      </View>
 
-      <Text style={styles.title}>Password changed</Text>
-      <Text style={styles.subtitle}>Your password has been changed{'\n'}successfully</Text>
+        <TouchableOpacity
+          style={[styles.button, { minHeight: buttonHeight, borderRadius: buttonRadius }]}
+          onPress={onBackToLogin}
+        >
+          <Text allowFontScaling={false} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
+            Back to Login
+          </Text>
+        </TouchableOpacity>
+      </AuthStepCard>
 
-      <TouchableOpacity style={styles.button} onPress={onBackToLogin}>
-        <Text style={styles.buttonText}>Back to login</Text>
-      </TouchableOpacity>
-    </View>
+      <AuthStepCard
+        step={2}
+        title="Account Status"
+        subtitle="Sign in again with your new password to continue."
+        dark
+      >
+        <Text allowFontScaling={false} style={[styles.darkChip, { fontSize: helperFontSize }]}>
+          Ready to authenticate
+        </Text>
+      </AuthStepCard>
+    </AuthScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0a2847',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  iconWrap: {
-    marginBottom: 24,
-  },
-  icon: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#16a34a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  check: {
-    fontSize: 46,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#fff',
+  primaryCard: {
     marginBottom: 12,
-    textAlign: 'center',
   },
-  subtitle: {
-    fontSize: 13,
-    color: '#b7c0cc',
-    textAlign: 'center',
-    marginBottom: 28,
-    lineHeight: 18,
+  successIconWrap: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  successIcon: {
+    backgroundColor: AUTH_COLORS.success,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: AUTH_COLORS.success,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
   },
   button: {
-    width: '100%',
-    backgroundColor: '#2563eb',
-    borderRadius: 10,
-    paddingVertical: 14,
+    backgroundColor: AUTH_COLORS.primary,
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: AUTH_COLORS.primary,
+    shadowOpacity: 0.35,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 14,
+    color: AUTH_COLORS.primaryText,
     fontWeight: '700',
+  },
+  darkChip: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.cardBorderActive,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    color: AUTH_COLORS.textPrimary,
+    backgroundColor: 'rgba(43, 86, 209, 0.2)',
+    fontWeight: '600',
   },
 });

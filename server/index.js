@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import fs from 'fs';
 import express from 'express';
 import http from 'http';
 import cookieParser from 'cookie-parser';
@@ -9,11 +10,14 @@ import morgan from 'morgan';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { initSocket } from './lib/socket.js';
 import User from './models/User.js';
+import Session from './models/Session.js';
 import sanitize from './middleware/sanitize.js';
 import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
+import { getJwtSecret } from './lib/jwtSecret.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -26,14 +30,32 @@ dotenv.config({ path: resolve(__dirname, '.env') });
 const app = express();
 const server = http.createServer(app);
 
-// Security: trust proxy (for HTTPS enforcement behind a proxy)
-app.set('trust proxy', 1);
+const parseTrustProxy = () => {
+    const raw = process.env.TRUST_PROXY;
+    if (raw === undefined) {
+        return false;
+    }
+    const normalized = String(raw).trim().toLowerCase();
+    if (normalized === 'true') {
+        return 1;
+    }
+    if (normalized === 'false') {
+        return false;
+    }
+    const asNumber = Number(normalized);
+    if (Number.isInteger(asNumber) && asNumber >= 0) {
+        return asNumber;
+    }
+    return false;
+};
+
+// Security: only trust proxy headers when explicitly configured.
+app.set('trust proxy', parseTrustProxy());
 
 // Enforce HTTPS and HSTS in production
 if (process.env.NODE_ENV === 'production') {
     app.use((req, res, next) => {
-        const proto = req.headers['x-forwarded-proto'] || req.protocol;
-        if (proto && proto !== 'https') {
+        if (req.protocol !== 'https') {
             // Redirect to https
             return res.redirect(`https://${req.headers.host}${req.url}`);
         }
@@ -110,8 +132,128 @@ app.use('/api', globalApiLimiter);
 // Ensure OPTIONS preflight is handled for all routes
 // No explicit app.options needed because CORS middleware is applied globally
 
-// Static file serving for uploads
-app.use('/uploads', express.static(resolve(__dirname, 'uploads')));
+const uploadsDir = resolve(__dirname, 'uploads');
+const uploadsRoot = `${uploadsDir}${process.platform === 'win32' ? '\\' : '/'}`;
+
+const isSafeUploadFileName = (value = '') => {
+    const normalized = String(value || '').trim();
+    if (!normalized) return false;
+    if (normalized.includes('..')) return false;
+    return /^[a-zA-Z0-9._-]+$/.test(normalized);
+};
+
+const isAdminRole = (role = '') => {
+    const normalized = String(role || '').toLowerCase();
+    return normalized === 'admin' || normalized === 'superadmin';
+};
+
+const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
+
+const getAuthContextFromRequest = async (req) => {
+    let token = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+    }
+    if (!token) {
+        token = req.cookies?.token;
+    }
+    if (!token) {
+        return null;
+    }
+
+    try {
+        const decoded = jwt.verify(token, getJwtSecret());
+        const userId = decoded?.userId || decoded?.id || decoded?._id;
+        if (!userId) {
+            return null;
+        }
+
+        const role = String(decoded?.role || '');
+        const sessionId = decoded?.sessionId;
+        if (sessionId) {
+            const session = await Session.findById(sessionId).select('user active expiresAt');
+            if (!session || !session.active) {
+                return null;
+            }
+            if (String(session.user) !== String(userId)) {
+                return null;
+            }
+            if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
+                return null;
+            }
+        }
+
+        return { id: String(userId), role };
+    } catch {
+        return null;
+    }
+};
+
+// Restrict sensitive uploads (resumes/KYC docs) to owner/admin.
+// Avatars can still be served publicly.
+// Resumes and verification documents are owner/admin only.
+app.get('/uploads/:fileName', async (req, res) => {
+    try {
+        const fileName = String(req.params?.fileName || '').trim();
+        if (!isSafeUploadFileName(fileName)) {
+            return res.status(400).json({ message: 'Invalid file path.' });
+        }
+
+        const fullPath = resolve(uploadsDir, fileName);
+        if (fullPath !== uploadsDir && !fullPath.startsWith(uploadsRoot)) {
+            return res.status(400).json({ message: 'Invalid file path.' });
+        }
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({ message: 'File not found.' });
+        }
+
+        const uploadUrl = toUploadUrl(fileName);
+        const owner = await User.findOne({
+            $or: [
+                { avatarUrl: uploadUrl },
+                { resumeFileName: fileName },
+                { resumeUrl: uploadUrl },
+                { 'verification.identityDocument.documentUrl': uploadUrl },
+                { 'verification.addressDocument.documentUrl': uploadUrl },
+            ],
+        }).select(
+            '_id avatarUrl resumeFileName resumeUrl verification.identityDocument.documentUrl verification.addressDocument.documentUrl'
+        );
+
+        if (!owner) {
+            return res.status(404).json({ message: 'File metadata not found.' });
+        }
+
+        const isAvatar = owner.avatarUrl === uploadUrl;
+        const isSensitiveFile =
+            owner.resumeFileName === fileName ||
+            owner.resumeUrl === uploadUrl ||
+            owner.verification?.identityDocument?.documentUrl === uploadUrl ||
+            owner.verification?.addressDocument?.documentUrl === uploadUrl;
+
+        if (isSensitiveFile) {
+            const authContext = await getAuthContextFromRequest(req);
+            if (!authContext?.id) {
+                return res.status(401).json({ message: 'Authentication required.' });
+            }
+
+            const isOwner = String(owner._id) === authContext.id;
+            if (!isOwner && !isAdminRole(authContext.role)) {
+                return res.status(403).json({ message: 'Not allowed to access this file.' });
+            }
+        }
+
+        if (isAvatar || isSensitiveFile) {
+            return res.sendFile(fullPath);
+        }
+
+        return res.status(404).json({ message: 'File metadata not found.' });
+    } catch (error) {
+        console.error('Upload access error:', error);
+        return res.status(500).json({ message: 'Failed to access file.' });
+    }
+});
 
 // Routes
 import CategoryRoute from './routes/CategoryRoute.js';

@@ -312,8 +312,21 @@ export function getVerificationStatus() {
   }>('/auth/verification/status', { method: 'GET' });
 }
 
-export function verifyPhone() {
-  return request('/auth/verification/phone', { method: 'POST' });
+export function requestPhoneVerificationOtp() {
+  return request<{
+    message: string;
+    provider?: string;
+    phoneMasked?: string;
+    expiresInSec?: number;
+    devCode?: string;
+  }>('/auth/verification/phone', { method: 'POST' });
+}
+
+export function confirmPhoneVerificationOtp(payload: { code: string }) {
+  return request<{ message: string; verified: boolean }>('/auth/verification/phone/confirm', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export function uploadIdentityDocument(file: File) {

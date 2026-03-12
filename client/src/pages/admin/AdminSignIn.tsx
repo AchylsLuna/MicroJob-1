@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Shield } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { Navigate } from "react-router-dom";
@@ -9,7 +9,7 @@ import { ROUTES } from "../../utils/routes";
 export function AdminSignIn() {
   const { login, isAuthenticated, user, logout } = useAuth();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -19,6 +19,19 @@ export function AdminSignIn() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    const password = passwordInputRef.current?.value || "";
+
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "::1";
+    const isSecureContext =
+      window.isSecureContext || window.location.protocol === "https:" || isLocalhost;
+
+    if (!isSecureContext) {
+      toast.error("Secure connection required. Please use HTTPS.");
+      return;
+    }
 
     if (!email || !password) {
       toast.error("Please fill in all fields");
@@ -42,6 +55,9 @@ export function AdminSignIn() {
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {
+      if (passwordInputRef.current) {
+        passwordInputRef.current.value = "";
+      }
       setIsLoading(false);
     }
   };
@@ -67,6 +83,9 @@ export function AdminSignIn() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
+                autoComplete="username"
+                autoCapitalize="none"
+                spellCheck={false}
                 className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-4 py-4 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                 disabled={isLoading}
               />
@@ -78,10 +97,13 @@ export function AdminSignIn() {
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
+                ref={passwordInputRef}
                 type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
+                autoComplete="current-password"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
                 className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-12 py-4 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                 disabled={isLoading}
               />

@@ -35,6 +35,11 @@ import {
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
+import {
+  PhoneOtpError,
+  sendPhoneVerificationOtp,
+  verifyPhoneVerificationOtp,
+} from '../lib/phoneOtp.js';
 
 const router = express.Router();
 
@@ -494,6 +499,22 @@ const passwordChangeLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   message: { message: 'Too many password change attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const verificationPhoneSendLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { message: 'Too many phone verification requests. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const verificationPhoneConfirmLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: { message: 'Too many verification code attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -1341,16 +1362,61 @@ router.get('/verification/status', verifyToken, async (req, res) => {
   }
 });
 
-router.post('/verification/phone', verifyToken, async (req, res) => {
+router.post('/verification/phone', verifyToken, verificationPhoneSendLimiter, async (req, res) => {
   try {
-    // This would typically send an OTP to the phone number
-    // For now, we'll just mark it as verified
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('phoneNumber verification.phoneVerified');
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     if (!user.phoneNumber) {
       return res.status(400).json({ message: 'Please add a phone number in your profile first' });
     }
+
+    if (user.verification?.phoneVerified) {
+      return res.status(200).json({ message: 'Phone already verified.', verified: true });
+    }
+
+    const otpResult = await sendPhoneVerificationOtp({
+      userId: String(user._id),
+      phoneNumber: user.phoneNumber,
+    });
+
+    return res.status(200).json(otpResult);
+  } catch (err) {
+    if (err instanceof PhoneOtpError) {
+      const retryAfterSec = err?.metadata?.retryAfterSec;
+      if (retryAfterSec) {
+        res.setHeader('Retry-After', String(retryAfterSec));
+      }
+      return res.status(err.statusCode || 400).json({ message: err.message });
+    }
+    console.error('Phone verification error', err);
+    return res.status(500).json({ message: 'Failed to start phone verification' });
+  }
+});
+
+router.post('/verification/phone/confirm', verifyToken, verificationPhoneConfirmLimiter, async (req, res) => {
+  try {
+    const { code } = req.body || {};
+    if (!code) {
+      return res.status(400).json({ message: 'Verification code is required.' });
+    }
+
+    const user = await User.findById(req.user.id).select('phoneNumber verification.phoneVerified');
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (!user.phoneNumber) {
+      return res.status(400).json({ message: 'Please add a phone number in your profile first' });
+    }
+
+    if (user.verification?.phoneVerified) {
+      return res.status(200).json({ message: 'Phone already verified.', verified: true });
+    }
+
+    verifyPhoneVerificationOtp({
+      userId: String(user._id),
+      phoneNumber: user.phoneNumber,
+      code,
+    });
 
     user.verification = user.verification || {};
     user.verification.phoneVerified = true;
@@ -1358,7 +1424,10 @@ router.post('/verification/phone', verifyToken, async (req, res) => {
 
     return res.status(200).json({ message: 'Phone verification completed', verified: true });
   } catch (err) {
-    console.error('Phone verification error', err);
+    if (err instanceof PhoneOtpError) {
+      return res.status(err.statusCode || 400).json({ message: err.message });
+    }
+    console.error('Phone verification confirm error', err);
     return res.status(500).json({ message: 'Failed to verify phone' });
   }
 });

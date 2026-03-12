@@ -54,7 +54,7 @@ export async function getAdminStats(req, res) {
 export async function getAdminUsers(req, res) {
   try {
     const users = await User.find({})
-      .select('-password')
+      .select('-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes')
       .sort({ createdAt: -1 })
       .lean();
     res.status(200).json(users);

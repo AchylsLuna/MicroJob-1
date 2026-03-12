@@ -1,5 +1,4 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Animated, Dimensions, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import io from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +11,7 @@ import Screen1 from './pages/Screen1';
 import Screen2 from './pages/Screen2';
 import Screen3 from './pages/Screen3';
 import Screen4 from './pages/Screen4';
+import OnboardingCarouselScreen from './pages/OnboardingCarouselScreen';
 import SignUp from './pages/signUp';
 import SignIn from './pages/signIn';
 import SignSuccess from './pages/signSuccess';
@@ -43,6 +43,8 @@ import EmployerEWallet from './pages/employer/EmployerEWallet';
 import EmployerNotifications from './pages/employer/EmployerNotifications';
 import EmployerInbox from './pages/employer/EmployerInbox';
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState(0);
   const [activeTab, setActiveTab] = useState('Home');
@@ -65,8 +67,6 @@ export default function App() {
   const [workerInboxInitialChatTarget, setWorkerInboxInitialChatTarget] = useState(null);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const transition = useRef(new Animated.Value(0)).current;
-  const screenWidth = Dimensions.get('window').width;
   const warningTimerRef = useRef(null);
   const logoutTimerRef = useRef(null);
   const currentScreenRef = useRef(currentScreen);
@@ -408,44 +408,49 @@ export default function App() {
   }, [savedJobs]);
 
   const transitionTo = (nextScreen) => {
-    const isOnboarding = currentScreen <= SCREEN.Screen4;
-    if (!isOnboarding) {
-      setCurrentScreen(nextScreen);
-      return;
-    }
-
-    Animated.timing(transition, {
-      toValue: 1,
-      duration: 220,
-      useNativeDriver: true,
-    }).start(() => {
-      setCurrentScreen(nextScreen);
-      transition.setValue(1);
-      Animated.timing(transition, {
-        toValue: 0,
-        duration: 260,
-        useNativeDriver: true,
-      }).start();
-    });
+    setCurrentScreen(nextScreen);
   };
+
+  const markOnboardingDone = useCallback(async () => {
+    try {
+      await AsyncStorage.setItem('has_onboarded', 'true');
+    } catch (error) {
+      console.log('Failed to persist onboarding state', error);
+    }
+  }, []);
 
   const handleNext = () => {
     transitionTo(currentScreen + 1);
   };
 
+  const handlePreviousOnboarding = () => {
+    if (currentScreen > SCREEN.Screen1 && currentScreen <= SCREEN.Screen4) {
+      transitionTo(currentScreen - 1);
+    }
+  };
+
+  const handleSkipOnboarding = () => {
+    void markOnboardingDone();
+    setCurrentScreen(SCREEN.SignIn);
+  };
+
   const handleGoToSignUp = () => {
+    if (currentScreen <= SCREEN.Screen4) {
+      void markOnboardingDone();
+    }
     transitionTo(SCREEN.SignUp);
   };
 
   const handleGoToSignIn = () => {
+    if (currentScreen <= SCREEN.Screen4) {
+      void markOnboardingDone();
+    }
+    void AsyncStorage.multiRemove(['pending_reset_email', 'pending_verification_skip_send']);
     setCurrentScreen(SCREEN.SignIn);
   };
 
-  const handleGoToSuccess = () => {
-    setCurrentScreen(SCREEN.SignSuccess);
-  };
-
   const handleGoToForgot = () => {
+    void AsyncStorage.removeItem('pending_reset_email');
     setCurrentScreen(SCREEN.ForgotPass);
   };
 
@@ -453,12 +458,82 @@ export default function App() {
     setCurrentScreen(SCREEN.VerifyEmail);
   };
 
-  const handleGoToCreatePass = () => {
+  const handleGoToPassChanged = () => {
+    setCurrentScreen(SCREEN.PassChanged);
+  };
+
+  const handleRequestPasswordReset = async (emailAddress) => {
+    const normalizedEmail = String(emailAddress || '').trim().toLowerCase();
+    if (!EMAIL_REGEX.test(normalizedEmail)) {
+      Alert.alert('Error', 'Please enter a valid email address.');
+      return;
+    }
+
+    const result = await apiRequest(`${API_URL}/auth/password-reset/request`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email: normalizedEmail }),
+    }, 'Unable to request password reset.');
+
+    if (!result.ok) {
+      Alert.alert(
+        'Error',
+        `${result.message || 'Unable to request password reset.'} (HTTP ${result.status})`
+      );
+      return;
+    }
+
+    await AsyncStorage.setItem('pending_reset_email', normalizedEmail);
+    Alert.alert(
+      'Check your email',
+      result.message || 'If the account exists, a reset code was sent to your email.'
+    );
     setCurrentScreen(SCREEN.CreatePass);
   };
 
-  const handleGoToPassChanged = () => {
-    setCurrentScreen(SCREEN.PassChanged);
+  const handleResetPassword = async ({ code, password, confirm }) => {
+    const normalizedCode = String(code || '').replace(/\D/g, '').slice(0, 6);
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      Alert.alert('Error', 'Please enter a valid 6-digit reset code.');
+      return;
+    }
+    if (!password) {
+      Alert.alert('Error', 'Please enter your new password.');
+      return;
+    }
+    if (password !== confirm) {
+      Alert.alert('Error', 'Passwords do not match.');
+      return;
+    }
+
+    const resetEmail = String(await AsyncStorage.getItem('pending_reset_email') || '').trim().toLowerCase();
+    if (!EMAIL_REGEX.test(resetEmail)) {
+      Alert.alert('Error', 'Reset session expired. Please request a new reset code.');
+      setCurrentScreen(SCREEN.ForgotPass);
+      return;
+    }
+
+    const result = await apiRequest(`${API_URL}/auth/password-reset/confirm`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: resetEmail,
+        code: normalizedCode,
+        newPassword: password,
+      }),
+    }, 'Unable to reset password.');
+
+    if (!result.ok) {
+      Alert.alert('Error', `${result.message || 'Unable to reset password.'} (HTTP ${result.status})`);
+      return;
+    }
+
+    await AsyncStorage.multiRemove(['pending_reset_email', 'pending_verification_skip_send']);
+    handleGoToPassChanged();
   };
 
   const handleGoToDashboard = async () => {
@@ -791,7 +866,13 @@ export default function App() {
       socketRef.current = null;
     }
 
-    await AsyncStorage.multiRemove(['auth_token', 'auth_user', 'pending_verification_email']);
+    await AsyncStorage.multiRemove([
+      'auth_token',
+      'auth_user',
+      'pending_verification_email',
+      'pending_reset_email',
+      'pending_verification_skip_send',
+    ]);
     setActiveTab('Home');
     setActiveEmployerTab('Home');
     setWorkerUnreadMessageCount(0);
@@ -858,10 +939,25 @@ export default function App() {
   const workerNotificationBadgeCount = workerNotifications.length;
 
   const screens = [
-    <Screen1 onNext={handleNext} />,
-    <Screen2 onNext={handleNext} />,
-    <Screen3 onNext={handleNext} />,
-    <Screen4 onNext={handleGoToSignUp} />,
+    <Screen1 onNext={handleNext} onSkip={handleSkipOnboarding} onLogin={handleGoToSignIn} />,
+    <Screen2
+      onNext={handleNext}
+      onPrevious={handlePreviousOnboarding}
+      onSkip={handleSkipOnboarding}
+      onLogin={handleGoToSignIn}
+    />,
+    <Screen3
+      onNext={handleNext}
+      onPrevious={handlePreviousOnboarding}
+      onSkip={handleSkipOnboarding}
+      onLogin={handleGoToSignIn}
+    />,
+    <Screen4
+      onNext={handleGoToSignUp}
+      onPrevious={handlePreviousOnboarding}
+      onSkip={handleSkipOnboarding}
+      onLogin={handleGoToSignIn}
+    />,
     <SignUp onBack={handleBack} onNavigateToSignIn={handleGoToSignIn} onNavigateToVerify={handleGoToVerify} />,
     <SignIn
       onBack={handleBack}
@@ -871,9 +967,9 @@ export default function App() {
       onLogin={handleGoToDashboard}
     />,
     <SignSuccess onBackToLogin={handleGoToSignIn} />,
-    <ForgotPass onBack={handleGoToSignIn} onSendReset={handleGoToVerify} />,
+    <ForgotPass onBack={handleGoToSignIn} onSendReset={handleRequestPasswordReset} />,
     <VerifyEmail onVerified={handleGoToDashboard} onBack={handleGoToSignIn} />,
-    <CreatePass onBackToLogin={handleGoToSignIn} onReset={handleGoToPassChanged} />,
+    <CreatePass onBackToLogin={handleGoToSignIn} onReset={handleResetPassword} />,
     <PassChanged onBackToLogin={handleGoToSignIn} />,
     <Dashboard
       activeTab={activeTab}
@@ -1018,17 +1114,18 @@ export default function App() {
     <ChangePassword onBack={handleBackToSettings} />,
     <ContactSupport onBack={handleBackToSettings} />,
   ];
-  const currentView = screens[currentScreen] ?? screens[SCREEN.Dashboard] ?? null;
-
-  const translateX = transition.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 0],
-  });
-
-  const opacity = transition.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1],
-  });
+  const isOnboardingFlow = currentScreen >= SCREEN.Screen1 && currentScreen <= SCREEN.Screen4;
+  const currentView = isOnboardingFlow
+    ? (
+      <OnboardingCarouselScreen
+        activeIndex={currentScreen - SCREEN.Screen1}
+        onIndexChange={(index) => transitionTo(SCREEN.Screen1 + index)}
+        onSkip={handleSkipOnboarding}
+        onLogin={handleGoToSignIn}
+        onComplete={handleGoToSignUp}
+      />
+    )
+    : (screens[currentScreen] ?? screens[SCREEN.Dashboard] ?? null);
 
   if (!isReady) {
     return <View style={{ flex: 1, backgroundColor: tokens.colors.brand }} />;
@@ -1041,15 +1138,9 @@ export default function App() {
       onResponderGrant={handleActivity}
       onTouchStart={handleActivity}
     >
-      <Animated.View
-        style={{
-          flex: 1,
-          opacity,
-          transform: [{ translateX }],
-        }}
-      >
+      <View style={{ flex: 1 }}>
         {currentView}
-      </Animated.View>
+      </View>
       {showLogoutModal && (
         <View style={styles.logoutOverlay}>
           <View style={styles.logoutCard}>
@@ -1093,17 +1184,6 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
   logoutOverlay: {
     position: 'absolute',
     top: 0,
