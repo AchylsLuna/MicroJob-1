@@ -1,36 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { jobsAPI } from '../../services/jobs';
-import { markAllNotificationsRead, deleteNotification } from '../../services/api';
+import { Bell, MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
+import { deleteNotification, getNotifications, markAllNotificationsRead, markNotificationRead } from '../../services/api';
 import { ROUTES } from '../../utils/routes';
-import { MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { useAuth } from '../../hooks/useAuth';
-
-type NotificationType = 'application' | 'message' | 'payment';
-
-type NotificationItem = {
-  id: string;
-  applicationId?: string;
-  messageId?: string;
-  transactionId?: string;
-  type: NotificationType;
-  title: string;
-  description?: string;
-  time?: string;
-  jobId?: string;
-  isNew?: boolean;
-  icon?: any;
-  color?: string;
-};
+import { mapNotificationRecord, type FeedNotification, type NotificationFeedType } from '../../utils/notificationFeed';
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] = useState<FeedNotification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filterType, setFilterType] = useState<'all' | NotificationType>('all');
+  const [filterType, setFilterType] = useState<'all' | NotificationFeedType>('all');
   const normalizedRole = String(user?.role || '').toLowerCase();
   const isEmployerView =
     user?.accountType === 'employer' ||
@@ -39,90 +22,21 @@ export default function NotificationsPage() {
     normalizedRole === 'hire';
 
   const fetchNotifications = async () => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const allNotifications: NotificationItem[] = [];
-
-      // Fetch application notifications
-      try {
-        const res = isEmployerView
-          ? await jobsAPI.getEmployerApplications()
-          : await jobsAPI.getUserApplications();
-        const apps = res.data || [];
-        const appNotifs = apps
-          .filter((a: any) => {
-            if (isEmployerView) return true;
-            return ['Shortlisted', 'Terms', 'Hired', 'Accepted'].includes(a.status);
-          })
-          .map((a: any) => {
-            if (isEmployerView) {
-              const applicantName = `${a.applicant?.firstName || ''} ${a.applicant?.lastName || ''}`.trim() || 'A candidate';
-              const jobTitle = a.job?.title || 'your job post';
-              const currentStatus = String(a.status || 'Applied');
-
-              return {
-                id: a._id || `${a.job?._id || 'app'}-${Math.random()}`,
-                applicationId: a._id,
-                type: 'application' as NotificationType,
-                title: '📥 New Application',
-                description: `${applicantName} applied for "${jobTitle}"${currentStatus ? ` • Status: ${currentStatus}` : ''}.`,
-                time: a.createdAt ? new Date(a.createdAt).toLocaleString() : a.updatedAt ? new Date(a.updatedAt).toLocaleString() : undefined,
-                jobId: a.job?._id,
-                isNew: !a.employerReadAt,
-                color: !a.employerReadAt ? 'bg-yellow-50 border-yellow-100' : 'bg-blue-50 border-blue-100',
-              };
-            }
-
-            let title = `Application ${a.status}`;
-            let description = `Your application for "${a.job?.title || 'a job'}" is now ${a.status.toLowerCase()}.`;
-            let color = 'bg-blue-50 border-blue-100';
-            
-            if (a.status === 'Hired' || a.status === 'Accepted') {
-              title = '🎉 Application Accepted!';
-              description = `Great news! You've been accepted for the position: ${a.job?.title || 'a job'}`;
-              color = 'bg-green-50 border-green-100';
-            } else if (a.status === 'Shortlisted') {
-              title = '⭐ Application Shortlisted';
-              description = `Your application for "${a.job?.title || 'a job'}" has been shortlisted!`;
-              color = 'bg-yellow-50 border-yellow-100';
-            } else if (a.status === 'Terms') {
-              title = '💼 Terms Offered';
-              description = `Terms have been offered for ${a.job?.title || 'a job'}`;
-              color = 'bg-purple-50 border-purple-100';
-            }
-
-            return {
-              id: a._id || `${a.job?._id || 'app'}-${Math.random()}`,
-              applicationId: a._id,
-              type: 'application' as NotificationType,
-              title,
-              description,
-              time: a.updatedAt ? new Date(a.updatedAt).toLocaleString() : a.createdAt ? new Date(a.createdAt).toLocaleString() : undefined,
-              jobId: a.job?._id,
-              isNew: !a.applicantReadAt,
-              color,
-            };
-          });
-        allNotifications.push(...appNotifs);
-      } catch (err) {
-        console.warn('Failed to fetch applications:', err);
-      }
-
-
-      // TODO: Add message notifications when API endpoint is available
-      // TODO: Add payment notifications when API endpoint is available
-      // Sort by time (newest first)
-      allNotifications.sort((x, y) => {
-        const timeX = new Date(x.time || 0).getTime();
-        const timeY = new Date(y.time || 0).getTime();
-        return timeY - timeX;
-      });
-
-      setNotifications(allNotifications);
+      const data = await getNotifications({ limit: 100 });
+      const nextNotifications = (Array.isArray(data) ? data : [])
+        .map((item: any) => mapNotificationRecord(item, isEmployerView, 'full'))
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setNotifications(nextNotifications);
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load notifications');
-      console.error('Notification fetch error:', err);
+      setError(err?.message || 'Failed to load notifications');
     } finally {
       setLoading(false);
     }
@@ -134,17 +48,10 @@ export default function NotificationsPage() {
     window.dispatchEvent(new Event('notification-refresh'));
   }, [isEmployerView]);
 
-  const markRead = async (applicationId?: string) => {
-    if (!applicationId) return;
+  const markRead = async (notificationId: string) => {
     try {
-      if (isEmployerView) {
-        await jobsAPI.markEmployerRead(applicationId);
-      } else {
-        await jobsAPI.markApplicantRead(applicationId);
-      }
-      setNotifications((prev) => 
-        prev.map((n) => (n.applicationId === applicationId ? { ...n, isNew: false } : n))
-      );
+      await markNotificationRead(notificationId);
+      setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)));
       // Refresh NavBar notification count
       window.dispatchEvent(new Event('notification-refresh'));
     } catch (err) {
@@ -154,20 +61,14 @@ export default function NotificationsPage() {
   };
 
   const markAll = async () => {
-    const unread = notifications.filter((n) => n.applicationId && n.isNew);
-    await Promise.all([
-      ...unread.map((n) => 
-        (isEmployerView
-          ? jobsAPI.markEmployerRead(n.applicationId!)
-          : jobsAPI.markApplicantRead(n.applicationId!)).catch(() => null)
-      ),
-      // Also mark all global notifications as read
-      markAllNotificationsRead().catch(() => null)
-    ]);
-    setNotifications((prev) => prev.map((n) => ({ ...n, isNew: false })));
-    toast.success('All notifications marked as read');
-    // Refresh NavBar notification count
-    window.dispatchEvent(new Event('notification-refresh'));
+    try {
+      await markAllNotificationsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      toast.success('All notifications marked as read');
+      window.dispatchEvent(new Event('notification-refresh'));
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to mark all as read');
+    }
   };
 
   const removeNotification = async (id: string) => {
@@ -232,6 +133,17 @@ export default function NotificationsPage() {
             <span className="text-[16px] leading-none font-semibold">₱</span>
             Payments
           </button>
+          <button
+            onClick={() => setFilterType('update')}
+            className={`-mb-px px-4 py-2 border-b-2 font-medium text-sm inline-flex items-center gap-1 ${
+              filterType === 'update'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            <Bell className="w-4 h-4" />
+            Updates
+          </button>
         </div>
 
         <div className="flex items-center gap-2 pb-2">
@@ -261,7 +173,7 @@ export default function NotificationsPage() {
         {notifications
           .filter((n) => filterType === 'all' || n.type === filterType)
           .map((n) => (
-          <div key={n.id} className={`rounded-xl p-4 shadow-sm border ${n.color || 'bg-white border-gray-100'}`}>
+          <div key={n.id} className={`rounded-xl p-4 shadow-sm border ${!n.read ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'}`}>
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3 flex-1">
                 {/* Icon based on notification type */}
@@ -269,20 +181,21 @@ export default function NotificationsPage() {
                   n.type === 'application' ? 'bg-blue-100 text-blue-600' :
                   n.type === 'message' ? 'bg-indigo-100 text-indigo-600' :
                   n.type === 'payment' ? 'bg-emerald-100 text-emerald-600' :
-                  'bg-gray-100 text-gray-600'
+                  'bg-amber-100 text-amber-700'
                 }`}>
                   {n.type === 'application' && <CheckCircle className="w-5 h-5" />}
                   {n.type === 'message' && <MessageSquare className="w-5 h-5" />}
                   {n.type === 'payment' && <span className="text-[20px] leading-none font-semibold">₱</span>}
+                  {n.type === 'update' && <Bell className="w-5 h-5" />}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-gray-900">{n.title}</h3>
-                    {n.isNew && <span className="inline-block w-2 h-2 bg-blue-600 rounded-full" />}
+                    {!n.read && <span className="inline-block w-2 h-2 bg-blue-600 rounded-full" />}
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{n.description}</p>
+                  <p className="text-sm text-gray-600 mt-1">{n.message}</p>
                   <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {n.time}
@@ -300,37 +213,23 @@ export default function NotificationsPage() {
                   <X className="w-5 h-5" />
                 </button>
                 <div className="flex gap-2">
-                  {n.type === 'application' && n.jobId && (
+                  <button
+                    onClick={() => navigate(n.link)}
+                    className="text-sm text-blue-600 font-semibold hover:text-blue-700"
+                  >
+                    {n.type === 'application'
+                      ? isEmployerView
+                        ? 'View Pipeline'
+                        : 'View Applications'
+                      : n.type === 'message'
+                      ? 'View Messages'
+                      : n.type === 'payment'
+                      ? 'View Wallet'
+                      : 'Open'}
+                  </button>
+                  {!n.read && (
                     <button
-                      onClick={() =>
-                        isEmployerView
-                          ? navigate(ROUTES.employer.applications)
-                          : n.jobId && navigate(ROUTES.worker.jobDetails(n.jobId))
-                      }
-                      className="text-sm text-blue-600 font-semibold hover:text-blue-700"
-                    >
-                      {isEmployerView ? 'View Application' : 'View Job'}
-                    </button>
-                  )}
-                  {n.type === 'message' && (
-                    <button
-                      onClick={() => navigate(isEmployerView ? ROUTES.employer.messages : ROUTES.worker.messages)}
-                      className="text-sm text-blue-600 font-semibold hover:text-blue-700"
-                    >
-                      View Message
-                    </button>
-                  )}
-                  {n.type === 'payment' && (
-                    <button
-                      onClick={() => navigate(isEmployerView ? ROUTES.employer.eWallet : ROUTES.worker.eWallet)}
-                      className="text-sm text-blue-600 font-semibold hover:text-blue-700"
-                    >
-                      View Payment
-                    </button>
-                  )}
-                  {n.isNew && (
-                    <button 
-                      onClick={() => markRead(n.applicationId)} 
+                      onClick={() => markRead(n.id)}
                       className="text-sm text-gray-600 hover:text-gray-700"
                     >
                       Mark read

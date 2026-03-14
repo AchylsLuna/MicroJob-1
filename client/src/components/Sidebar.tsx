@@ -19,7 +19,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { jobsAPI } from "../services/jobs";
+import { getNotifications } from "../services/api";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 import { MicroJobsLogo } from "./MicroJobsLogo";
@@ -77,7 +77,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Listen for auth updates to force sidebar re-render on role switch
   useEffect(() => {
     const handleAuthUpdate = () => {
-      console.log("Sidebar - Auth update detected, forcing re-render");
       setAuthUpdateTrigger((prev) => prev + 1);
     };
 
@@ -123,6 +122,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const adminMenuItems: MenuItem[] = [
     { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics },
     { icon: "reports", label: "Reports", path: ROUTES.admin.reports },
+    { icon: "payouts", label: "Payouts", path: ROUTES.admin.payouts },
+    { icon: "support", label: "Support", path: ROUTES.admin.support },
     { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet },
     { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs },
     { icon: "security", label: "Security", path: ROUTES.admin.security },
@@ -164,6 +165,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     applications: <ClipboardList className="h-5 w-5" />,
     analytics: <BarChart3 className="h-5 w-5" />,
     reports: <FileText className="h-5 w-5" />,
+    payouts: <Wallet className="h-5 w-5" />,
     "jobs-monitoring": <Briefcase className="h-5 w-5" />,
     security: <ShieldCheck className="h-5 w-5" />,
     "user-management": <Users className="h-5 w-5" />,
@@ -184,18 +186,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         return;
       }
 
-      if (effectiveRole === "employer") {
-        const res = await jobsAPI.getEmployerApplications();
-        const apps = res.data || [];
-        const unread = apps.filter((a: any) => !a.employerReadAt).length;
-        setNotifCount(unread);
-      } else {
-        const res = await jobsAPI.getUserApplications();
-        const apps = res.data || [];
-        const allowed = new Set(["Shortlisted", "Terms", "Hired"]);
-        const unread = apps.filter((a: any) => allowed.has(a.status) && !a.applicantReadAt).length;
-        setNotifCount(unread);
-      }
+      const notifications = await getNotifications({ unread: true, limit: 200 }).catch(() => [] as any[]);
+      setNotifCount(Array.isArray(notifications) ? notifications.length : 0);
     } catch {
       // ignore notification count errors
     }
@@ -205,7 +197,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     loadNotifCount();
     const handler = () => loadNotifCount();
     window.addEventListener("auth_user_updated", handler);
-    return () => window.removeEventListener("auth_user_updated", handler);
+    window.addEventListener("notification-refresh", handler);
+    return () => {
+      window.removeEventListener("auth_user_updated", handler);
+      window.removeEventListener("notification-refresh", handler);
+    };
   }, [effectiveRole]);
 
   const renderIcon = (iconKey: string) => (

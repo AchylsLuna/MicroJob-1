@@ -19,6 +19,7 @@ import { apiRequest, asList } from '../../lib/api';
 import { Ionicons } from '@expo/vector-icons';
 import TabTopNav from '../../components/TabTopNav';
 import { tokens } from '../../theme/tokens';
+import { useToast } from '../../contexts/ToastContext';
 
 interface ConversationSummary {
   conversationId: string;
@@ -77,6 +78,7 @@ export default function MessageList({
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const toast = useToast();
 
   const filteredConversations = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -152,7 +154,7 @@ export default function MessageList({
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to delete conversation', err);
-      Alert.alert('Error', 'Unable to delete conversation');
+      toast.error('Unable to delete conversation.');
     } finally {
       setProcessingId(null);
     }
@@ -171,7 +173,7 @@ export default function MessageList({
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to archive conversation', err);
-      Alert.alert('Error', 'Unable to archive conversation');
+      toast.error('Unable to archive conversation.');
     } finally {
       setProcessingId(null);
     }
@@ -187,11 +189,11 @@ export default function MessageList({
         body: JSON.stringify({ otherUserId: userId }),
       }, 'Unable to block user');
       if (!result.ok) throw new Error(result.message || 'Unable to block user');
-      Alert.alert('Blocked', 'User has been blocked');
+      toast.success('User has been blocked.');
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to block user', err);
-      Alert.alert('Error', 'Unable to block user');
+      toast.error('Unable to block user.');
     } finally {
       setProcessingId(null);
     }
@@ -260,14 +262,6 @@ export default function MessageList({
     return () => sub.remove();
   }, []);
 
-  if (loading) {
-    return (
-      <View style={styles.loadingWrap}>
-        <ActivityIndicator color={tokens.colors.brand} />
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <TabTopNav
@@ -299,7 +293,7 @@ export default function MessageList({
           return (
             <TouchableOpacity
               style={styles.row}
-              onPress={() => (item.userId ? onOpenChat(item.userId, item.name) : Alert.alert('No user', 'Cannot open this conversation'))}
+              onPress={() => (item.userId ? onOpenChat(item.userId, item.name) : toast.info('Cannot open this conversation.'))}
               onLongPress={() => (item.userId ? showOptions(item.userId) : null)}
               delayLongPress={400}
             >
@@ -333,7 +327,21 @@ export default function MessageList({
           );
         }}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
-        ListEmptyComponent={<Text style={styles.emptyText}>No conversations found.</Text>}
+        ListEmptyComponent={
+          loading ? (
+            <View style={styles.emptyCard}>
+              <ActivityIndicator color={tokens.colors.brand} />
+              <Text style={styles.emptyTitle}>Loading conversations</Text>
+              <Text style={styles.emptyText}>Pulling your latest message threads.</Text>
+            </View>
+          ) : (
+            <View style={styles.emptyCard}>
+              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#94A3B8" />
+              <Text style={styles.emptyTitle}>No conversations yet</Text>
+              <Text style={styles.emptyText}>Messages with workers and employers will appear here.</Text>
+            </View>
+          )
+        }
       />
     </View>
   );
@@ -343,12 +351,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: tokens.colors.background,
-  },
-  loadingWrap: {
-    flex: 1,
-    backgroundColor: tokens.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   searchWrap: {
     marginHorizontal: 20,
@@ -465,9 +467,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   emptyText: {
-    marginTop: 40,
     textAlign: 'center',
     color: '#94A3B8',
     fontSize: 14,
+    lineHeight: 20,
+  },
+  emptyCard: {
+    marginTop: 36,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D9E0EA',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 28,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    gap: 8,
+    ...tokens.shadow.card,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111827',
   },
 });

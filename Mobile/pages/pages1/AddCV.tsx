@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
+import { useToast } from '../../contexts/ToastContext';
 
 type AddCVProps = {
   visible: boolean;
@@ -18,8 +20,10 @@ type SelectedFile = {
 };
 
 export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
+  const insets = useSafeAreaInsets();
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const toast = useToast();
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -51,7 +55,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
         
         // Check file size (max 5MB)
         if (file.size && file.size > 5 * 1024 * 1024) {
-          Alert.alert('File Too Large', 'Please select a file smaller than 5MB.');
+          toast.error('Please select a file smaller than 5MB.');
           return;
         }
 
@@ -64,7 +68,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
       }
     } catch (error) {
       console.error('Error picking file:', error);
-      Alert.alert('Error', 'Failed to pick file. Please try again.');
+      toast.error('Failed to pick file. Please try again.');
     }
   };
 
@@ -75,7 +79,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        Alert.alert('Error', 'Authentication token not found. Please log in again.');
+        toast.error('Authentication token not found. Please log in again.');
         return;
       }
 
@@ -104,7 +108,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
       const result = await response.json();
 
       if (response.ok && result.success) {
-        Alert.alert('Success', 'Resume uploaded successfully');
+        toast.success('Resume uploaded successfully');
         onAdd?.({ 
           resumeFileName: result.data?.resumeFileName || selectedFile.name,
           resumeUrl: result.data?.resumeUrl 
@@ -112,11 +116,11 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
         setSelectedFile(null);
         onClose?.();
       } else {
-        Alert.alert('Error', result.message || 'Failed to upload resume');
+        toast.error(result.message || 'Failed to upload resume');
       }
     } catch (error) {
       console.error('Error uploading resume:', error);
-      Alert.alert('Error', 'Failed to upload resume. Please check your connection and try again.');
+      toast.error('Failed to upload resume. Please check your connection and try again.');
     } finally {
       setIsUploading(false);
     }
@@ -137,10 +141,10 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <View style={styles.overlay} />
-        <View style={styles.modal}>
+        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]}>
           <Text style={styles.modalTitle}>Upload CV</Text>
 
           <View style={styles.content}>

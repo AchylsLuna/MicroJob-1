@@ -1,282 +1,270 @@
-import { useEffect, useState } from "react";
-import { Filter, Calendar, FileText, User as UserIcon, Mail, ExternalLink, ArrowLeft, ArrowRight } from "lucide-react";
-import { toast } from "../../lib/toast";
-import { getEmployerApplications, updateApplicationStatus } from "../../services/api";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Calendar,
+  CheckSquare,
+  Eye,
+  Filter,
+  Grid2X2,
+  LayoutList,
+  Mail,
+  MessageSquare,
+  Square,
+  User as UserIcon,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "../../lib/toast";
+import {
+  getEmployerApplications,
+  hideEmployerApplication,
+  scheduleInterview,
+  updateApplicationStatus,
+  updateInterview,
+  type ApplicationStatus,
+} from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 
-type ApplicationStatus = "all" | "shortlisted" | "interviewed" | "hired" | "rejected";
+const PIPELINE_STATUSES: ApplicationStatus[] = [
+  "Applied",
+  "Shortlisted",
+  "Interview Scheduled",
+  "Interviewed",
+  "Offer Sent",
+  "Hired",
+  "Rejected",
+];
 
-interface Application {
-  id: string;
-  jobId: string;
-  applicantId: string;
-  name: string;
-  email: string;
-  position: string;
-  company: string;
-  coverLetter: string;
-  city?: string;
-  province?: string;
-  about?: string;
-  totalExperience?: string;
-  successRate?: string;
-  jobsApplied?: number;
-  projectsCompleted?: number;
-  skills?: string[];
-  resumeUrl?: string;
-  resumeFileName?: string;
-  resume?: string;
-  appliedDate: string;
-  status: Exclude<ApplicationStatus, "all">;
-}
+type EmployerApplication = {
+  _id: string;
+  status: ApplicationStatus;
+  createdAt?: string;
+  updatedAt?: string;
+  coverLetter?: string;
+  job: {
+    _id: string;
+    title: string;
+    company?: string;
+    location?: string;
+  };
+  applicant: {
+    _id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phoneNumber?: string;
+    jobsApplied?: number;
+    projectsCompleted?: number;
+    successRate?: string;
+    city?: string;
+    province?: string;
+    about?: string;
+    totalExperience?: string;
+    skills?: string[];
+    resumeUrl?: string;
+    resumeFileName?: string;
+    resume?: string;
+  };
+  nextInterview?: {
+    _id: string;
+    scheduledAt: string;
+    location?: string | null;
+    mode?: string | null;
+    notes?: string | null;
+  } | null;
+  timeline?: Array<{
+    _id?: string;
+    type?: string;
+    status?: ApplicationStatus;
+    note?: string;
+    createdAt?: string;
+  }>;
+};
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
   if (!value) return null;
   if (/^https?:\/\//i.test(value)) return value;
-  if (value.startsWith('/')) {
-    const apiBase = import.meta.env.VITE_API_BASE || '/api';
-    const origin = apiBase.startsWith('http')
-      ? apiBase.replace(/\/api\/?$/, '')
+  if (value.startsWith("/")) {
+    const apiBase = import.meta.env.VITE_API_BASE || "/api";
+    const origin = apiBase.startsWith("http")
+      ? apiBase.replace(/\/api\/?$/, "")
       : window.location.origin;
     return `${origin}${value}`;
   }
   return value;
 };
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
+const formatDate = (value?: string) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString();
+};
+
+const statusClasses: Record<ApplicationStatus, string> = {
+  Applied: "bg-[#E2E8F0] text-[#334155]",
+  Shortlisted: "bg-[#E0E7FF] text-[#4338CA]",
+  "Interview Scheduled": "bg-[#DBEAFE] text-[#1D4ED8]",
+  Interviewed: "bg-[#FEF3C7] text-[#B45309]",
+  "Offer Sent": "bg-[#FCE7F3] text-[#BE185D]",
+  Hired: "bg-[#DCFCE7] text-[#15803D]",
+  Rejected: "bg-[#FEE2E2] text-[#B91C1C]",
+  Withdrawn: "bg-[#F3F4F6] text-[#6B7280]",
+};
+
+const getApplicantName = (application: EmployerApplication) =>
+  `${application.applicant?.firstName || ""} ${application.applicant?.lastName || ""}`.trim() ||
+  application.applicant?.email ||
+  "Applicant";
+
+const getApplicantInitials = (application: EmployerApplication) =>
+  getApplicantName(application)
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
     .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function getAvatarColor(name: string): string {
-  const colors = [
-    "bg-[#93C5FD]",
-    "bg-[#A5B4FC]",
-    "bg-[#C4B5FD]",
-    "bg-[#F9A8D4]",
-    "bg-[#FCA5A5]",
-    "bg-[#FDBA74]",
-    "bg-[#FCD34D]",
-    "bg-[#BEF264]",
-  ];
-  const index = name.charCodeAt(0) % colors.length;
-  return colors[index];
-}
-
-interface StatusBadgeProps {
-  status: Exclude<ApplicationStatus, "all">;
-}
-
-function StatusBadge({ status }: StatusBadgeProps) {
-  const getStatusStyles = () => {
-    switch (status) {
-      case "shortlisted":
-        return {
-          bg: "bg-[#E0E7FF]",
-          text: "text-[#5B21B6]",
-          label: "Shortlisted",
-        };
-      case "interviewed":
-        return {
-          bg: "bg-[#DBEAFE]",
-          text: "text-[#1E40AF]",
-          label: "To Be Interview",
-        };
-      case "hired":
-        return {
-          bg: "bg-[#D1FAE5]",
-          text: "text-[#065F46]",
-          label: "Hired",
-        };
-      case "rejected":
-        return {
-          bg: "bg-[#FEE2E2]",
-          text: "text-[#991B1B]",
-          label: "Rejected",
-        };
-    }
-  };
-
-  const styles = getStatusStyles();
-
-  return (
-    <span className={`${styles.bg} ${styles.text} px-3 py-1 rounded-full text-xs font-medium`}>
-      {styles.label}
-    </span>
-  );
-}
-
-interface ApplicationCardProps {
-  application: Application;
-  onStatusChange: (id: string, status: Exclude<ApplicationStatus, "all">) => void;
-  onMessage: (application: Application) => void;
-  onViewPublicProfile: (application: Application) => void;
-  isExpanded: boolean;
-  onToggleProfile: (id: string) => void;
-}
+    .slice(0, 2)
+    .toUpperCase();
 
 function ApplicationCard({
   application,
+  selected,
+  onToggleSelected,
   onStatusChange,
+  onHide,
+  onScheduleInterview,
+  onOpenProfile,
   onMessage,
-  onViewPublicProfile,
-  isExpanded,
-  onToggleProfile,
-}: ApplicationCardProps) {
-  const initials = getInitials(application.name);
-  const avatarColor = getAvatarColor(application.name);
-  const resolvedResumeUrl = toAbsoluteAssetUrl(application.resumeUrl || application.resume);
+}: {
+  application: EmployerApplication;
+  selected: boolean;
+  onToggleSelected: (applicationId: string) => void;
+  onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
+  onHide: (applicationId: string) => void;
+  onScheduleInterview: (application: EmployerApplication) => void;
+  onOpenProfile: (application: EmployerApplication) => void;
+  onMessage: (application: EmployerApplication) => void;
+}) {
+  const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
 
   return (
-    <div className="ui-card p-6 transition-shadow hover:shadow-md">
-      <div className="flex items-start gap-4">
-        {/* Avatar */}
-        <div className={`${avatarColor} rounded-full w-12 h-12 flex items-center justify-center flex-shrink-0`}>
-          <span className="text-base font-semibold text-slate-800">{initials}</span>
-        </div>
-
-        {/* Content */}
+    <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-4 shadow-sm space-y-4">
+      <div className="flex items-start justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => onToggleSelected(application._id)}
+          className="mt-1 text-[#64748B] hover:text-[#1D4ED8]"
+          aria-label={selected ? "Deselect application" : "Select application"}
+        >
+          {selected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+        </button>
         <div className="flex-1 min-w-0">
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4 mb-2">
-            <div>
-              <h3 className="text-base font-semibold text-slate-900">{application.name}</h3>
-              <div className="flex items-center gap-2 mt-1">
-                <Mail className="w-4 h-4 text-slate-500" />
-                <span className="text-sm text-slate-500">{application.email}</span>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-[#EEF2FF] text-[#2563EB] flex items-center justify-center font-semibold">
+              {getApplicantInitials(application)}
             </div>
-            <StatusBadge status={application.status} />
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{getApplicantName(application)}</p>
+              <p className="text-[12px] text-[#6B7280] line-clamp-1">{application.applicant?.email || "No email provided"}</p>
+            </div>
           </div>
-
-          {/* Position */}
-          <p className="mb-3 text-sm text-slate-600">
-            Applied for: <span className="font-semibold text-slate-900">{application.position}</span> at {application.company}
-          </p>
-
-          {/* Cover Letter */}
-          <p className="mb-4 text-sm leading-relaxed text-slate-500">
-            {application.coverLetter}
-          </p>
-
-          {/* Footer */}
-          <div className="flex flex-col gap-3 border-t border-slate-200 pt-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Calendar className="w-4 h-4" />
-                <span>{application.appliedDate}</span>
-              </div>
-              {resolvedResumeUrl ? (
-                <a
-                  className="flex items-center gap-1 text-sm font-medium text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
-                  href={resolvedResumeUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  <FileText className="w-4 h-4" />
-                  Resume
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              ) : (
-                <span className="flex items-center gap-1 text-sm font-medium text-slate-400">
-                  <FileText className="w-4 h-4" />
-                  No Resume
-                </span>
-              )}
-              <button
-                className="flex items-center gap-1 text-sm font-medium text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
-                onClick={() => onToggleProfile(application.id)}
-              >
-                <UserIcon className="w-4 h-4" />
-                {isExpanded ? "Hide Profile" : "View Profile"}
-              </button>
-              <button
-                className="flex items-center gap-1 text-sm font-medium text-[#0F766E] transition-colors hover:text-[#115E59]"
-                onClick={() => onViewPublicProfile(application)}
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open Full Profile
-              </button>
-              {application.applicantId && (
-                <button
-                  className="flex items-center gap-1 text-sm font-medium text-[#2563EB] transition-colors hover:text-[#1D4ED8]"
-                  onClick={() => onMessage(application)}
-                >
-                  💬 Message
-                </button>
-              )}
-            </div>
-
-            {/* Status Dropdown */}
-            <select
-              value={application.status}
-              onChange={(e) => onStatusChange(application.id, e.target.value as Exclude<ApplicationStatus, "all">)}
-              className="h-11 rounded-lg border border-slate-300 bg-white px-4 text-sm text-slate-700 outline-none transition hover:bg-slate-50 focus:border-transparent focus:ring-2 focus:ring-[#4F46E5]"
-            >
-              <option value="shortlisted">Shortlisted</option>
-              <option value="interviewed">To Be Interview</option>
-              <option value="hired">Hired</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
-
-          {isExpanded && (
-            <div className="mt-4 rounded-[10px] border border-slate-200 bg-slate-50 p-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
-                  <p className="text-xs text-[#64748B]">Applied Jobs</p>
-                  <p className="text-base font-bold text-[#1D4ED8]">{application.jobsApplied ?? 0}</p>
-                </div>
-                <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
-                  <p className="text-xs text-[#64748B]">Completed Jobs</p>
-                  <p className="text-base font-bold text-[#1D4ED8]">{application.projectsCompleted ?? 0}</p>
-                </div>
-                <div className="rounded-[10px] bg-white border border-[#DBEAFE] px-3 py-2">
-                  <p className="text-xs text-[#64748B]">Success Rate</p>
-                  <p className="text-base font-bold text-[#1D4ED8]">{application.successRate || "0%"}</p>
-                </div>
-              </div>
-              {application.city || application.province ? (
-                <p className="text-sm text-[#475569] mb-1">
-                  Location: {[application.city, application.province].filter(Boolean).join(', ')}
-                </p>
-              ) : null}
-              {application.totalExperience ? (
-                <p className="text-sm text-[#475569] mb-1">Experience: {application.totalExperience}</p>
-              ) : null}
-              {application.about ? <p className="text-sm text-[#475569]">About: {application.about}</p> : null}
-              {application.skills && application.skills.length > 0 ? (
-                <div className="mt-3">
-                  <p className="text-xs font-semibold text-[#334155] mb-2">Skills</p>
-                  <div className="flex flex-wrap gap-2">
-                    {application.skills.map((skill) => (
-                      <span key={skill} className="px-2 py-1 rounded-full text-xs bg-[#E0E7FF] text-[#3730A3]">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {resolvedResumeUrl ? (
-                <div className="mt-3">
-                  <a
-                    href={resolvedResumeUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-sm font-medium text-[#2563EB] hover:text-[#1D4ED8]"
-                  >
-                    Open Resume {application.resumeFileName ? `(${application.resumeFileName})` : ''}
-                  </a>
-                </div>
-              ) : null}
-            </div>
-          )}
         </div>
+        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[application.status]}`}>
+          {application.status}
+        </span>
+      </div>
+
+      <div>
+        <p className="text-[14px] font-medium text-[#111827]">{application.job?.title || "Untitled role"}</p>
+        <p className="text-[12px] text-[#6B7280] mt-1">Applied {formatDate(application.createdAt)}</p>
+      </div>
+
+      {application.nextInterview ? (
+        <div className="rounded-[12px] border border-[#DBEAFE] bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#1D4ED8]">
+          Next interview: {formatDate(application.nextInterview.scheduledAt)}
+          {application.nextInterview.location ? ` · ${application.nextInterview.location}` : ""}
+        </div>
+      ) : null}
+
+      {application.coverLetter ? (
+        <p className="text-[13px] text-[#475569] line-clamp-3">{application.coverLetter}</p>
+      ) : null}
+
+      <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
+        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+          <div className="text-[#111827] font-semibold">{application.applicant?.jobsApplied || 0}</div>
+          <div className="text-[#6B7280] mt-1">Applied</div>
+        </div>
+        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+          <div className="text-[#111827] font-semibold">{application.applicant?.projectsCompleted || 0}</div>
+          <div className="text-[#6B7280] mt-1">Completed</div>
+        </div>
+        <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
+          <div className="text-[#111827] font-semibold">{application.applicant?.successRate || "0%"}</div>
+          <div className="text-[#6B7280] mt-1">Success</div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <select
+          value={application.status}
+          onChange={(event) => onStatusChange(application._id, event.target.value as ApplicationStatus)}
+          className="w-full h-10 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+        >
+          {PIPELINE_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onScheduleInterview(application)}
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] font-semibold text-[#1D4ED8]"
+          >
+            <Calendar className="w-4 h-4" />
+            {application.nextInterview ? "Reschedule" : "Schedule"}
+          </button>
+          <button
+            type="button"
+            onClick={() => onHide(application._id)}
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12px] font-semibold text-[#B91C1C]"
+          >
+            <Eye className="w-4 h-4" />
+            Hide
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenProfile(application)}
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
+          >
+            <UserIcon className="w-4 h-4" />
+            Profile
+          </button>
+          <button
+            type="button"
+            onClick={() => onMessage(application)}
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
+          >
+            <MessageSquare className="w-4 h-4" />
+            Message
+          </button>
+        </div>
+
+        {resumeUrl ? (
+          <a
+            href={resumeUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#2563EB]"
+          >
+            <Mail className="w-4 h-4" />
+            View Resume
+          </a>
+        ) : null}
       </div>
     </div>
   );
@@ -284,331 +272,534 @@ function ApplicationCard({
 
 export function ApplicationsManagement() {
   const navigate = useNavigate();
-  const [statusFilter, setStatusFilter] = useState<ApplicationStatus>("all");
+  const [viewMode, setViewMode] = useState<"board" | "table">("board");
+  const [statusFilter, setStatusFilter] = useState<"all" | ApplicationStatus>("all");
   const [jobFilter, setJobFilter] = useState("all");
-  const [applications, setApplications] = useState<Application[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [applications, setApplications] = useState<EmployerApplication[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [expandedApplicationId, setExpandedApplicationId] = useState<string | null>(null);
-  const pageSize = 4;
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState<ApplicationStatus>("Shortlisted");
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+  const [scheduleTarget, setScheduleTarget] = useState<EmployerApplication | null>(null);
+  const [scheduleForm, setScheduleForm] = useState({
+    scheduledAt: "",
+    location: "",
+    mode: "virtual",
+    notes: "",
+  });
+  const [isScheduling, setIsScheduling] = useState(false);
 
-  const handleStatusChange = async (id: string, newStatus: Exclude<ApplicationStatus, "all">) => {
-    const previous = applications.find(app => app.id === id)?.status;
-    setApplications((apps) =>
-      apps.map((app) => (app.id === id ? { ...app, status: newStatus } : app))
-    );
-
-    const statusLabels: Record<Exclude<ApplicationStatus, "all">, string> = {
-      "shortlisted": "Shortlisted",
-      "interviewed": "To Be Interview",
-      "hired": "Hired",
-      "rejected": "Rejected",
-    };
-
-    const backendStatus =
-      newStatus === "hired"
-        ? "Hired"
-        : newStatus === "interviewed"
-        ? "Interviewed"
-        : newStatus === "rejected"
-        ? "Rejected"
-        : "Shortlisted";
-
+  const loadApplications = async () => {
+    setIsLoading(true);
+    setLoadError(null);
     try {
-      try {
-        await updateApplicationStatus(id, backendStatus);
-      } catch (innerError: any) {
-        const needsLegacyFallback =
-          newStatus === "interviewed" &&
-          String(innerError?.message || "").includes("Invalid status");
-        if (!needsLegacyFallback) {
-          throw innerError;
-        }
-        await updateApplicationStatus(id, "Terms");
-      }
-      toast.success(`Application marked as ${statusLabels[newStatus].toLowerCase()}`, {
-        description: "Candidate status has been updated.",
+      const response = await getEmployerApplications({
+        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+        ...(jobFilter !== "all" ? { jobId: jobFilter } : {}),
+        ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
       });
+      const nextApplications = Array.isArray(response) ? (response as EmployerApplication[]) : [];
+      setApplications(nextApplications.filter((item) => item.status !== "Withdrawn"));
+      setSelectedIds((current) => current.filter((id) => nextApplications.some((item) => item._id === id)));
     } catch (error: any) {
-      if (previous) {
-        setApplications((apps) =>
-          apps.map((app) => (app.id === id ? { ...app, status: previous } : app))
-        );
-      }
-      toast.error(error?.message || "Failed to update status.");
+      setLoadError(error?.message || "Failed to load applications.");
+      setApplications([]);
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const formatDate = (value?: string) => {
-    if (!value) return "—";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleDateString();
-  };
-
-  const mapStatus = (status?: string): Exclude<ApplicationStatus, "all"> => {
-    switch (status) {
-      case "Pending":
-      case "Reviewed":
-      case "Shortlisted":
-        return "shortlisted";
-      case "Terms":
-      case "Interviewed":
-        return "interviewed";
-      case "Accepted":
-      case "Hired":
-        return "hired";
-      case "Rejected":
-        return "rejected";
-      default:
-        return "shortlisted";
-    }
-  };
-
-  const mapApplication = (app: any): Application => {
-    const applicant = app.applicant || {};
-    const job = app.job || {};
-    const applicantName = `${applicant.firstName || ""} ${applicant.lastName || ""}`.trim() || "Applicant";
-    const companyName = job.company || "MicroJobs";
-    return {
-      id: app._id,
-      jobId: job._id || "",
-      applicantId: applicant._id || "",
-      name: applicantName,
-      email: applicant.email || "—",
-      position: job.title || "Untitled Job",
-      company: companyName,
-      coverLetter: app.coverLetter || "No cover letter provided.",
-      city: applicant.city || "",
-      province: applicant.province || "",
-      about: applicant.about || "",
-      totalExperience: applicant.totalExperience || "",
-      successRate: applicant.successRate || "0%",
-      jobsApplied: typeof applicant.jobsApplied === "number" ? applicant.jobsApplied : 0,
-      projectsCompleted: typeof applicant.projectsCompleted === "number" ? applicant.projectsCompleted : 0,
-      skills: Array.isArray(applicant.skills) ? applicant.skills.map((skill: any) => skill?.name).filter(Boolean) : [],
-      resumeUrl: applicant.resumeUrl || "",
-      resumeFileName: applicant.resumeFileName || "",
-      resume: app.resume || "",
-      appliedDate: formatDate(app.createdAt || app.appliedDate),
-      status: mapStatus(app.status),
-    };
-  };
-
-  const handleToggleProfile = (applicationId: string) => {
-    setExpandedApplicationId((prev) => (prev === applicationId ? null : applicationId));
-  };
-
-  const handleViewPublicProfile = (application: Application) => {
-    if (!application.applicantId) {
-      toast.error("Applicant profile is not available.");
-      return;
-    }
-    navigate(`${ROUTES.publicProfile(application.applicantId)}?viewAs=worker`);
   };
 
   useEffect(() => {
-    let isMounted = true;
-    const loadApplications = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const data = await getEmployerApplications();
-        if (!isMounted) return;
-        const mapped = Array.isArray(data) ? data.map(mapApplication) : [];
-        setApplications(mapped);
-      } catch (error: any) {
-        if (!isMounted) return;
-        setLoadError(error?.message || "Failed to load applications.");
-        setApplications([]);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-    loadApplications();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    const timer = window.setTimeout(loadApplications, 250);
+    return () => window.clearTimeout(timer);
+  }, [jobFilter, searchTerm, statusFilter]);
 
-  const handleMessageApplicant = (application: Application) => {
-    if (!application.applicantId) return;
-    const interviewPrefill = `Hi ${application.name}, this is regarding your application for ${application.position}. We would like to contact you for interview scheduling. Please let us know your availability.`;
-    navigate(ROUTES.employer.messages, {
-      state: {
-        userId: application.applicantId,
-        name: application.name,
-        jobId: application.jobId,
-        jobTitle: application.position,
-        prefill: interviewPrefill,
-      },
+  const groupedApplications = useMemo(
+    () =>
+      PIPELINE_STATUSES.reduce<Record<ApplicationStatus, EmployerApplication[]>>((acc, status) => {
+        acc[status] = applications.filter((application) => application.status === status);
+        return acc;
+      }, {} as Record<ApplicationStatus, EmployerApplication[]>),
+    [applications],
+  );
+
+  const jobOptions = useMemo(() => {
+    const unique = new Map<string, string>();
+    applications.forEach((application) => {
+      if (application.job?._id) {
+        unique.set(application.job._id, application.job.title);
+      }
+    });
+    return Array.from(unique.entries()).map(([id, title]) => ({ id, title }));
+  }, [applications]);
+
+  const visibleApplications = useMemo(
+    () => (statusFilter === "all" ? applications : applications.filter((application) => application.status === statusFilter)),
+    [applications, statusFilter],
+  );
+
+  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
+
+  const updateLocalApplication = (applicationId: string, updater: (item: EmployerApplication) => EmployerApplication) => {
+    setApplications((current) => current.map((item) => (item._id === applicationId ? updater(item) : item)));
+  };
+
+  const handleStatusChange = async (applicationId: string, nextStatus: ApplicationStatus) => {
+    try {
+      await updateApplicationStatus(applicationId, nextStatus);
+      updateLocalApplication(applicationId, (item) => ({ ...item, status: nextStatus }));
+      toast.success(`Application moved to ${nextStatus}.`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update application status.");
+    }
+  };
+
+  const handleHideApplications = async (applicationIds: string[]) => {
+    if (applicationIds.length === 0) return;
+    try {
+      await Promise.all(applicationIds.map((applicationId) => hideEmployerApplication(applicationId)));
+      setApplications((current) => current.filter((item) => !applicationIds.includes(item._id)));
+      setSelectedIds((current) => current.filter((id) => !applicationIds.includes(id)));
+      toast.success(applicationIds.length === 1 ? "Application hidden." : "Applications hidden.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to hide applications.");
+    }
+  };
+
+  const handleBulkStatusChange = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkUpdating(true);
+    try {
+      await Promise.all(selectedIds.map((applicationId) => updateApplicationStatus(applicationId, bulkStatus)));
+      setApplications((current) =>
+        current.map((item) => (selectedSet.has(item._id) ? { ...item, status: bulkStatus } : item)),
+      );
+      setSelectedIds([]);
+      toast.success(`Updated ${selectedIds.length} application${selectedIds.length === 1 ? "" : "s"}.`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update selected applications.");
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleToggleSelected = (applicationId: string) => {
+    setSelectedIds((current) =>
+      current.includes(applicationId) ? current.filter((id) => id !== applicationId) : [...current, applicationId],
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    const visibleIds = visibleApplications.map((item) => item._id);
+    const allSelected = visibleIds.every((id) => selectedSet.has(id));
+    if (allSelected) {
+      setSelectedIds((current) => current.filter((id) => !visibleIds.includes(id)));
+      return;
+    }
+    setSelectedIds(Array.from(new Set([...selectedIds, ...visibleIds])));
+  };
+
+  const handleOpenProfile = (application: EmployerApplication) => {
+    navigate(`${ROUTES.publicProfile(application.applicant._id)}?viewAs=worker`);
+  };
+
+  const handleMessage = (application: EmployerApplication) => {
+    const name = getApplicantName(application);
+    const params = new URLSearchParams({
+      contact: `${application.applicant._id}::${application.job?._id || ""}`,
+      startUser: application.applicant._id,
+      jobId: application.job?._id || "",
+      startName: name,
+      draft: `Hi ${name}, I would like to discuss your application for ${application.job?.title || "this role"}.`,
+    });
+    navigate(`${ROUTES.employer.messages}?${params.toString()}`);
+  };
+
+  const handleOpenSchedule = (application: EmployerApplication) => {
+    setScheduleTarget(application);
+    setScheduleForm({
+      scheduledAt: application.nextInterview?.scheduledAt
+        ? new Date(application.nextInterview.scheduledAt).toISOString().slice(0, 16)
+        : "",
+      location: application.nextInterview?.location || "",
+      mode: application.nextInterview?.mode || "virtual",
+      notes: application.nextInterview?.notes || "",
     });
   };
 
-  const filteredApplications = applications.filter((app) => {
-    const matchesStatus = statusFilter === "all" || app.status === statusFilter;
-    const matchesJob =
-      jobFilter === "all" ||
-      app.jobId === jobFilter ||
-      (!app.jobId && app.position === jobFilter);
-
-    return matchesStatus && matchesJob;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredApplications.length / pageSize));
-  const pagedApplications = filteredApplications.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
-
-  const jobOptions = Array.from(
-    new Map(applications.map((app) => [app.jobId || app.position, app.position])).entries(),
-  ).map(([id, label]) => ({ id, label }));
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [statusFilter, jobFilter]);
-
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+  const handleScheduleSubmit = async () => {
+    if (!scheduleTarget) return;
+    if (!scheduleForm.scheduledAt) {
+      toast.error("Interview date and time are required.");
+      return;
     }
-  }, [currentPage, totalPages]);
+
+    setIsScheduling(true);
+    try {
+      if (scheduleTarget.nextInterview?._id) {
+        await updateInterview(scheduleTarget._id, scheduleTarget.nextInterview._id, {
+          scheduledAt: new Date(scheduleForm.scheduledAt).toISOString(),
+          location: scheduleForm.location.trim(),
+          mode: scheduleForm.mode,
+          notes: scheduleForm.notes.trim(),
+        });
+      } else {
+        await scheduleInterview(scheduleTarget._id, {
+          scheduledAt: new Date(scheduleForm.scheduledAt).toISOString(),
+          location: scheduleForm.location.trim(),
+          mode: scheduleForm.mode,
+          notes: scheduleForm.notes.trim(),
+        });
+      }
+      toast.success(scheduleTarget.nextInterview ? "Interview rescheduled." : "Interview scheduled.");
+      setScheduleTarget(null);
+      await loadApplications();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save interview schedule.");
+    } finally {
+      setIsScheduling(false);
+    }
+  };
 
   return (
-    <div className="ui-page px-4 md:px-0 pb-16">
-      {/* Search and Filter Bar */}
-      <div className="ui-card p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-
-          {/* Status Filter */}
-          <div className="relative min-w-[180px] md:w-[220px]">
-            <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none" />
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as ApplicationStatus)}
-              className="h-11 w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white pl-10 pr-10 text-sm text-slate-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-[#4F46E5]"
-            >
-              <option value="all">All Statuses</option>
-              <option value="shortlisted">Shortlisted</option>
-              <option value="interviewed">To Be Interview</option>
-              <option value="hired">Hired</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+    <div className="max-w-[1341px] mx-auto space-y-6">
+      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+          <div>
+            <h1 className="text-[24px] font-semibold text-[#111827]">Applications</h1>
+            <p className="text-[13px] text-[#6B7280] mt-1">Review applicants by stage, schedule interviews, and run bulk workflow actions safely.</p>
           </div>
-
-          {/* Job Filter */}
-          <div className="relative min-w-[180px] md:w-[260px]">
-            <select
-              value={jobFilter}
-              onChange={(e) => setJobFilter(e.target.value)}
-              className="h-11 w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-4 pr-10 text-sm text-slate-900 outline-none transition focus:border-transparent focus:ring-2 focus:ring-[#4F46E5]"
+          <div className="inline-flex items-center rounded-[12px] border border-[#E5E7EB] overflow-hidden self-start">
+            <button
+              type="button"
+              onClick={() => setViewMode("board")}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold ${viewMode === "board" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-white text-[#475569]"}`}
             >
-              <option value="all">All Jobs</option>
-              {jobOptions.map((job) => (
-                <option key={job.id} value={job.id}>
-                  {job.label}
-                </option>
-              ))}
-            </select>
-            <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
-              <svg className="w-4 h-4 text-[#9CA3AF]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
+              <Grid2X2 className="w-4 h-4" />
+              Board
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-white text-[#475569]"}`}
+            >
+              <LayoutList className="w-4 h-4" />
+              Table
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Applications List */}
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="ui-card p-12 text-center">
-            <p className="text-base text-slate-500">Loading applications...</p>
-          </div>
-        ) : loadError ? (
-          <div className="ui-card p-12 text-center">
-            <p className="text-base text-slate-500">{loadError}</p>
-            <p className="mt-2 text-sm text-slate-400">Please try again later.</p>
-          </div>
-        ) : pagedApplications.length > 0 ? (
-          pagedApplications.map((application) => (
-            <ApplicationCard
-              key={application.id}
-              application={application}
-              onStatusChange={handleStatusChange}
-              onMessage={handleMessageApplicant}
-                  onViewPublicProfile={handleViewPublicProfile}
-              isExpanded={expandedApplicationId === application.id}
-              onToggleProfile={handleToggleProfile}
-            />
-          ))
-        ) : (
-          <div className="ui-card p-12 text-center">
-            <p className="text-base text-slate-500">No applications found</p>
-            <p className="mt-2 text-sm text-slate-400">Try adjusting your search or filter criteria</p>
-          </div>
-        )}
-      </div>
-
-      {filteredApplications.length > 0 && (
-        <div className="ui-card flex flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <button
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
-            className="flex items-center gap-3 text-sm text-[#4F46E5] hover:text-[#4338CA] font-semibold disabled:text-[#94A3B8]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Go to page {String(1).padStart(2, "0")}
-          </button>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={currentPage === 1}
-              className="w-11 h-11 rounded-full border border-[#4F46E5] flex items-center justify-center text-[#4F46E5] hover:bg-[#EEF2FF] disabled:border-[#E5E7EB] disabled:text-[#94A3B8]"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-              disabled={currentPage === totalPages}
-              className="flex h-11 items-center gap-3 rounded-full bg-[#4F46E5] px-6 text-sm font-semibold text-white hover:bg-[#4338CA] disabled:opacity-50"
-            >
-              Next Page
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3 text-sm text-[#6B7280]">
-            <span>Page</span>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_180px_180px] gap-3">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
             <input
               type="text"
-              inputMode="numeric"
-              value={String(currentPage).padStart(2, "0")}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/[^0-9]/g, "");
-                if (!raw) {
-                  setCurrentPage(1);
-                  return;
-                }
-                const value = Number(raw);
-                if (!Number.isNaN(value)) {
-                  setCurrentPage(Math.min(Math.max(1, value), totalPages));
-                }
-              }}
-              className="h-11 w-[72px] rounded-full border border-[#E5E7EB] px-3 text-center text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search by applicant, email, or job title"
+              className="w-full h-11 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
             />
-            <span>of {String(totalPages).padStart(2, "0")}</span>
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+            className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+          >
+            <option value="all">All stages</option>
+            {PIPELINE_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+          <select
+            value={jobFilter}
+            onChange={(event) => setJobFilter(event.target.value)}
+            className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+          >
+            <option value="all">All jobs</option>
+            {jobOptions.map((job) => (
+              <option key={job.id} value={job.id}>
+                {job.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {selectedIds.length > 0 ? (
+          <div className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-[13px] text-[#1D4ED8] font-medium">
+              {selectedIds.length} application{selectedIds.length === 1 ? "" : "s"} selected
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                value={bulkStatus}
+                onChange={(event) => setBulkStatus(event.target.value as ApplicationStatus)}
+                className="h-10 rounded-[10px] border border-[#BFDBFE] px-3 text-[13px] text-[#111827]"
+              >
+                {PIPELINE_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    Move to {status}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleBulkStatusChange}
+                disabled={isBulkUpdating}
+                className="h-10 rounded-[10px] bg-[#1D4ED8] px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+              >
+                {isBulkUpdating ? "Updating..." : "Apply Bulk Status"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleHideApplications(selectedIds)}
+                className="h-10 rounded-[10px] border border-[#FCA5A5] bg-white px-4 text-[13px] font-semibold text-[#B91C1C]"
+              >
+                Hide Selected
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {loadError ? (
+        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+          {loadError}
+        </div>
+      ) : null}
+
+      {isLoading ? (
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
+          Loading applications...
+        </div>
+      ) : null}
+
+      {!isLoading && applications.length === 0 ? (
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
+          No applications matched the current filters.
+        </div>
+      ) : null}
+
+      {!isLoading && applications.length > 0 && viewMode === "board" ? (
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {PIPELINE_STATUSES.map((status) => (
+            <div key={status} className="min-w-[320px] max-w-[320px] rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-[16px] font-semibold text-[#111827]">{status}</h3>
+                  <p className="text-[12px] text-[#6B7280] mt-1">{groupedApplications[status].length} applicant{groupedApplications[status].length === 1 ? "" : "s"}</p>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[status]}`}>
+                  {groupedApplications[status].length}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {groupedApplications[status].length === 0 ? (
+                  <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-white px-4 py-8 text-center text-[13px] text-[#94A3B8]">
+                    No applicants here.
+                  </div>
+                ) : (
+                  groupedApplications[status].map((application) => (
+                    <ApplicationCard
+                      key={application._id}
+                      application={application}
+                      selected={selectedSet.has(application._id)}
+                      onToggleSelected={handleToggleSelected}
+                      onStatusChange={handleStatusChange}
+                      onHide={(applicationId) => handleHideApplications([applicationId])}
+                      onScheduleInterview={handleOpenSchedule}
+                      onOpenProfile={handleOpenProfile}
+                      onMessage={handleMessage}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {!isLoading && applications.length > 0 && viewMode === "table" ? (
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 overflow-x-auto">
+          <table className="w-full text-left text-[13px]">
+            <thead>
+              <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
+                <th className="py-3 pr-4 font-medium">
+                  <button type="button" onClick={handleToggleSelectAll} className="text-[#64748B] hover:text-[#1D4ED8]">
+                    {visibleApplications.length > 0 && visibleApplications.every((application) => selectedSet.has(application._id)) ? (
+                      <CheckSquare className="w-5 h-5" />
+                    ) : (
+                      <Square className="w-5 h-5" />
+                    )}
+                  </button>
+                </th>
+                <th className="py-3 pr-4 font-medium">Applicant</th>
+                <th className="py-3 pr-4 font-medium">Role</th>
+                <th className="py-3 pr-4 font-medium">Stage</th>
+                <th className="py-3 pr-4 font-medium">Interview</th>
+                <th className="py-3 pr-4 font-medium">Applied</th>
+                <th className="py-3 pr-4 font-medium">Resume</th>
+                <th className="py-3 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visibleApplications.map((application) => {
+                const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
+                return (
+                  <tr key={application._id} className="border-b border-[#F3F4F6] align-top">
+                    <td className="py-3 pr-4">
+                      <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-[#64748B] hover:text-[#1D4ED8]">
+                        {selectedSet.has(application._id) ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
+                      </button>
+                    </td>
+                    <td className="py-3 pr-4 text-[#111827]">
+                      <div className="font-medium">{getApplicantName(application)}</div>
+                      <div className="text-[12px] text-[#6B7280] mt-1">{application.applicant?.email || "—"}</div>
+                    </td>
+                    <td className="py-3 pr-4 text-[#6B7280]">{application.job?.title || "—"}</td>
+                    <td className="py-3 pr-4">
+                      <select
+                        value={application.status}
+                        onChange={(event) => handleStatusChange(application._id, event.target.value as ApplicationStatus)}
+                        className="h-10 rounded-[10px] border border-[#E5E7EB] px-3 text-[12px] text-[#111827]"
+                      >
+                        {PIPELINE_STATUSES.map((status) => (
+                          <option key={status} value={status}>
+                            {status}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-3 pr-4 text-[#6B7280]">
+                      {application.nextInterview ? formatDate(application.nextInterview.scheduledAt) : "Not scheduled"}
+                    </td>
+                    <td className="py-3 pr-4 text-[#6B7280]">{formatDate(application.createdAt)}</td>
+                    <td className="py-3 pr-4">
+                      {resumeUrl ? (
+                        <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-[#2563EB] font-semibold">
+                          View Resume
+                        </a>
+                      ) : (
+                        <span className="text-[#9CA3AF]">No resume</span>
+                      )}
+                    </td>
+                    <td className="py-3">
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenSchedule(application)}
+                          className="px-3 py-2 rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8] font-semibold"
+                        >
+                          Interview
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenProfile(application)}
+                          className="px-3 py-2 rounded-[10px] border border-[#E5E7EB] text-[#111827] font-semibold"
+                        >
+                          Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleHideApplications([application._id])}
+                          className="px-3 py-2 rounded-[10px] border border-[#FECACA] text-[#B91C1C] font-semibold"
+                        >
+                          Hide
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {scheduleTarget ? (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-xl bg-white rounded-[18px] p-6 shadow-xl space-y-5">
+            <div>
+              <h3 className="text-[20px] font-semibold text-[#111827]">
+                {scheduleTarget.nextInterview ? "Update Interview" : "Schedule Interview"}
+              </h3>
+              <p className="text-[13px] text-[#6B7280] mt-1">
+                {getApplicantName(scheduleTarget)} · {scheduleTarget.job?.title || "Role"}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[13px] text-[#374151] mb-2">Date and time</label>
+                <input
+                  type="datetime-local"
+                  value={scheduleForm.scheduledAt}
+                  onChange={(event) => setScheduleForm((current) => ({ ...current, scheduledAt: event.target.value }))}
+                  className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                />
+              </div>
+              <div>
+                <label className="block text-[13px] text-[#374151] mb-2">Mode</label>
+                <select
+                  value={scheduleForm.mode}
+                  onChange={(event) => setScheduleForm((current) => ({ ...current, mode: event.target.value }))}
+                  className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                >
+                  <option value="virtual">Virtual</option>
+                  <option value="onsite">On-site</option>
+                  <option value="phone">Phone</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[13px] text-[#374151] mb-2">Location or meeting link</label>
+              <input
+                type="text"
+                value={scheduleForm.location}
+                onChange={(event) => setScheduleForm((current) => ({ ...current, location: event.target.value }))}
+                className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                placeholder="Google Meet link, office address, or call instructions"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[13px] text-[#374151] mb-2">Notes</label>
+              <textarea
+                rows={4}
+                value={scheduleForm.notes}
+                onChange={(event) => setScheduleForm((current) => ({ ...current, notes: event.target.value }))}
+                className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827]"
+                placeholder="Interview preparation, interviewer names, or custom instructions"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setScheduleTarget(null)}
+                className="px-4 py-2 rounded-[10px] border border-[#D1D5DB] text-[14px]"
+                disabled={isScheduling}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleScheduleSubmit}
+                className="px-4 py-2 rounded-[10px] bg-[#1D4ED8] text-white text-[14px] font-medium disabled:opacity-60"
+                disabled={isScheduling}
+              >
+                {isScheduling ? "Saving..." : scheduleTarget.nextInterview ? "Update Interview" : "Schedule Interview"}
+              </button>
+            </div>
           </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

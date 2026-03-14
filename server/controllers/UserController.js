@@ -2,6 +2,10 @@ import User from "../models/User.js";
 import JobApplication from "../models/JobApplication.js";
 import Job from "../models/Job.js";
 import Session from "../models/Session.js";
+import PayoutRequest from "../models/PayoutRequest.js";
+import PushDevice from "../models/PushDevice.js";
+import SavedJob from "../models/SavedJob.js";
+import Notification from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
@@ -26,6 +30,134 @@ const OTP_TTL_MS = 5 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
+
+const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired"];
+
+async function getDeletionBlockers(userId) {
+    const user = await User.findById(userId).select("workerBalance employerBalance");
+    if (!user) {
+        return [{ code: "user_not_found", message: "User not found.", count: 1 }];
+    }
+
+    const [pendingPayouts, openJobs, applicantApplications, employerApplications] = await Promise.all([
+        PayoutRequest.countDocuments({ user: userId, status: { $in: ["requested", "approved"] } }),
+        Job.countDocuments({ jobPoster: userId, status: { $nin: ["Completed", "Cancelled"] } }),
+        JobApplication.countDocuments({ applicant: userId, status: { $nin: TERMINAL_APPLICATION_STATUSES } }),
+        JobApplication.countDocuments({
+            status: { $nin: TERMINAL_APPLICATION_STATUSES },
+            job: {
+                $in: await Job.find({ jobPoster: userId }).distinct("_id"),
+            },
+        }),
+    ]);
+
+    const blockers = [];
+    if ((user.workerBalance || 0) > 0) {
+        blockers.push({
+            code: "worker_balance",
+            message: "Withdraw or use your remaining worker balance before deleting the account.",
+            count: Number(user.workerBalance || 0),
+        });
+    }
+    if ((user.employerBalance || 0) > 0) {
+        blockers.push({
+            code: "employer_balance",
+            message: "Use or refund your remaining employer balance before deleting the account.",
+            count: Number(user.employerBalance || 0),
+        });
+    }
+    if (pendingPayouts > 0) {
+        blockers.push({
+            code: "pending_payouts",
+            message: "Pending payout requests must be completed or cancelled first.",
+            count: pendingPayouts,
+        });
+    }
+    if (openJobs > 0) {
+        blockers.push({
+            code: "open_jobs",
+            message: "Close or complete all active jobs before deleting the account.",
+            count: openJobs,
+        });
+    }
+    if (applicantApplications > 0) {
+        blockers.push({
+            code: "active_applications",
+            message: "Withdraw or resolve your active applications before deleting the account.",
+            count: applicantApplications,
+        });
+    }
+    if (employerApplications > 0) {
+        blockers.push({
+            code: "active_hiring",
+            message: "Resolve your active hiring pipeline before deleting the account.",
+            count: employerApplications,
+        });
+    }
+
+    return blockers;
+}
+
+export async function anonymizeAndDeleteUser(userId) {
+    const user = await User.findById(userId);
+    if (!user) {
+        return null;
+    }
+
+    const deletionStamp = new Date();
+    const suffix = `${String(user._id)}-${Date.now()}`;
+    const originalEmailKey = String(user.email || "").toLowerCase().trim();
+    user.status = "deleted";
+    user.deletedAt = deletionStamp;
+    user.redactedAt = deletionStamp;
+    user.firstName = "Deleted";
+    user.lastName = "User";
+    user.email = `deleted+${suffix}@microjobs.invalid`;
+    user.phoneNumber = undefined;
+    user.username = `deleted_${String(user._id).slice(-12)}`;
+    user.city = undefined;
+    user.province = undefined;
+    user.address = undefined;
+    user.facebook = undefined;
+    user.profilePhotoName = undefined;
+    user.jobPosition = undefined;
+    user.companyName = undefined;
+    user.startDate = undefined;
+    user.endDate = undefined;
+    user.logoName = undefined;
+    user.resumeFileName = undefined;
+    user.resumeUrl = undefined;
+    user.avatarUrl = undefined;
+    user.about = undefined;
+    user.linkedin = undefined;
+    user.totalExperience = undefined;
+    user.skills = [];
+    user.verification = {
+        emailVerified: false,
+        phoneVerified: false,
+        identityVerified: false,
+        addressVerified: false,
+        identityDocument: { status: "pending" },
+        addressDocument: { status: "pending" },
+    };
+    user.workerBalance = 0;
+    user.employerBalance = 0;
+    await user.save();
+
+    await Promise.all([
+        Session.updateMany({ user: userId, active: true }, { $set: { active: false, endedAt: deletionStamp } }),
+        PushDevice.deleteMany({ user: userId }),
+        SavedJob.deleteMany({ user: userId }),
+        Notification.deleteMany({ user: userId }),
+    ]);
+
+    clearPhoneVerificationOtp(String(userId));
+    otpStore.delete(originalEmailKey);
+    passwordResetOtpStore.delete(originalEmailKey);
+    passwordChangeOtpStore.delete(originalEmailKey);
+
+    return user;
+}
 
 function getEmailTransporter() {
     const host = process.env.SMTP_HOST;
@@ -95,11 +227,16 @@ export async function updateUserStatus(req, res) {
 export async function deleteUser(req, res) {
     try {
         const { userId } = req.params;
-        const deleted = await User.findByIdAndDelete(userId);
+        const blockers = await getDeletionBlockers(userId);
+        if (blockers.length > 0) {
+            return res.status(400).json({ message: "User cannot be deleted until blockers are resolved.", blockers });
+        }
+
+        const deleted = await anonymizeAndDeleteUser(userId);
         if (!deleted) {
             return res.status(404).json({ message: "User not found." });
         }
-        return res.status(200).json({ message: "User deleted successfully." });
+        return res.status(200).json({ message: "User deleted successfully.", user: deleted });
     } catch (error) {
         console.error("Delete user error:", error);
         return res.status(500).json({ message: "Failed to delete user." });
@@ -117,9 +254,6 @@ export async function updateProfile(req, res) {
         if (!existingUser) {
             return res.status(404).json({ message: "User not found." });
         }
-
-        console.log('📥 Update profile request from user:', userId);
-        console.log('📥 Request body:', req.body);
 
         const allowed = [
             "firstName",
@@ -216,9 +350,6 @@ export async function updateProfile(req, res) {
             updateOps.$unset = unset;
         }
 
-        console.log('💾 Saving to database, userId:', userId);
-        console.log('💾 Update operations:', JSON.stringify(updateOps, null, 2));
-
         const user = await User.findByIdAndUpdate(userId, updateOps, {
             new: true,
             runValidators: true,
@@ -229,15 +360,6 @@ export async function updateProfile(req, res) {
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
-
-        console.log('✅ Successfully saved user data:', {
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            phoneNumber: user.phoneNumber,
-            city: user.city,
-            province: user.province,
-        });
 
         return res.status(200).json({ user });
     } catch (error) {
@@ -744,5 +866,49 @@ export async function changePasswordWithOtp(req, res) {
     } catch (error) {
         console.error("Change password with OTP error:", error);
         return res.status(500).json({ message: "Failed to change password." });
+    }
+}
+
+export async function requestSelfDelete(req, res) {
+    try {
+        const userId = req.user?.id || req.user?.userId;
+        const { currentPassword, confirm } = req.body || {};
+
+        if (!userId) {
+            return res.status(401).json({ message: "Authentication required." });
+        }
+        if (!currentPassword) {
+            return res.status(400).json({ message: "Current password is required." });
+        }
+        if (String(confirm || "").trim().toUpperCase() !== "DELETE") {
+            return res.status(400).json({ message: "Confirmation must be DELETE." });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        if (user.status === "deleted") {
+            return res.status(400).json({ message: "Account is already deleted." });
+        }
+
+        const matches = await user.validatePassword(currentPassword);
+        if (!matches) {
+            return res.status(401).json({ message: "Current password is incorrect." });
+        }
+
+        const blockers = await getDeletionBlockers(userId);
+        if (blockers.length > 0) {
+            return res.status(400).json({
+                message: "Resolve the following blockers before deleting your account.",
+                blockers,
+            });
+        }
+
+        await anonymizeAndDeleteUser(userId);
+        return res.status(200).json({ message: "Account deleted successfully." });
+    } catch (error) {
+        console.error("Request self delete error:", error);
+        return res.status(500).json({ message: "Failed to delete account." });
     }
 }

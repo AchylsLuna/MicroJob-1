@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const SKILL_CATEGORIES = [
   { id: 'academic', label: 'Academic', icon: 'school-outline' as const },
@@ -30,6 +31,7 @@ type AddSkillsProps = {
 };
 
 export default function AddSkills({ visible, onClose, onAdd }: AddSkillsProps) {
+  const insets = useSafeAreaInsets();
   const [selectedCategory, setSelectedCategory] = useState('');
   const [customSkillName, setCustomSkillName] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('Intermediate');
@@ -70,10 +72,10 @@ export default function AddSkills({ visible, onClose, onAdd }: AddSkillsProps) {
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <View style={styles.overlay} />
-        <View style={styles.modal}>
+        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]}>
           <Text style={styles.modalTitle}>Add Skill</Text>
 
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

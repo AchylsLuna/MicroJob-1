@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
@@ -68,10 +69,12 @@ const toAbsoluteAssetUrl = (value?: string): string | null => {
 };
 
 export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileProps) {
+  const insets = useSafeAreaInsets();
   const [data, setData] = useState<PublicProfileResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const headerStyle = [styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }];
 
   useEffect(() => {
     let isMounted = true;
@@ -152,7 +155,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
   if (isLoading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={headerStyle}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
@@ -168,7 +171,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
   if (error) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={headerStyle}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
@@ -192,7 +195,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
   if (!data?.profile) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
+        <View style={headerStyle}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
@@ -209,7 +212,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={headerStyle}>
         <TouchableOpacity onPress={onBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
@@ -218,7 +221,10 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
         </Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 40 + Math.max(insets.bottom, 10) }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.card}>
           {/* Profile Header */}
           <View style={styles.profileHeader}>
@@ -351,7 +357,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
   },
   header: {
-    paddingTop: 50,
     paddingBottom: 15,
     paddingHorizontal: 20,
     backgroundColor: '#fff',

@@ -1,428 +1,576 @@
-import { useEffect, useState } from "react";
-import { MessageSquare, Mail, Phone, HelpCircle, Book, Video, Send, Search, ChevronDown, ChevronUp } from "lucide-react";
-import { toast } from "../../lib/toast";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Book,
+  ChevronDown,
+  ChevronUp,
+  Clock3,
+  HelpCircle,
+  LifeBuoy,
+  Mail,
+  MessageSquare,
+  Phone,
+  Send,
+  ShieldCheck,
+  Ticket,
+} from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "../../lib/toast";
+import { useAuth } from "../../hooks/useAuth";
+import {
+  createSupportTicket,
+  getSupportTicket,
+  getSupportTickets,
+  replyToSupportTicket,
+  type SupportTicket,
+} from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 
-interface FAQ {
-  id: string;
-  question: string;
-  answer: string;
-  category: "account" | "payments" | "jobs" | "technical";
-}
-
-const faqs: FAQ[] = [
+const faqs = [
   {
-    id: "1",
-    question: "How do I create a job posting?",
-    answer: "To create a job posting, navigate to the Employer Dashboard and click on 'Post New Job'. Fill in the required details such as job title, description, requirements, and salary range. Once submitted, your job posting will be reviewed and published within 24 hours.",
-    category: "jobs",
-  },
-  {
-    id: "2",
-    question: "How do I withdraw money from my e-wallet?",
-    answer: "Go to the E-Wallet page, click on the 'Withdraw' button, enter the amount you want to withdraw, and select your bank account. Withdrawals are processed within 1-3 business days.",
-    category: "payments",
-  },
-  {
-    id: "3",
+    id: "account-verify",
     question: "How do I verify my account?",
-    answer: "To verify your account, go to Settings > Personal Information and upload a valid government-issued ID. Our team will review your submission within 24-48 hours.",
+    answer: "Go to settings and complete your identity details. Verification items remain visible until they are reviewed.",
     category: "account",
   },
   {
-    id: "4",
-    question: "What payment methods are supported?",
-    answer: "We support bank transfers, credit/debit cards, GCash, and PayMaya for topping up your e-wallet. Withdrawals can be made to any Philippine bank account.",
+    id: "payout-time",
+    question: "How long do payouts take?",
+    answer: "Payout requests are reviewed manually. Once approved, you can track each request in your wallet history.",
     category: "payments",
   },
   {
-    id: "5",
-    question: "How do I edit my profile?",
-    answer: "Navigate to Settings or click on 'Welcome back Jonas' in the sidebar to access your profile. From there, you can edit your personal information, work experience, and upload your CV/Resume.",
-    category: "account",
-  },
-  {
-    id: "6",
-    question: "Why is my job posting pending?",
-    answer: "All job postings go through a review process to ensure they meet our quality standards and community guidelines. This typically takes 12-24 hours. You'll receive a notification once your posting is approved.",
+    id: "application-status",
+    question: "Why did my application stage change?",
+    answer: "Employers now move applications through explicit pipeline stages such as Shortlisted, Interview Scheduled, Offer Sent, and Hired.",
     category: "jobs",
   },
   {
-    id: "7",
-    question: "How do I contact applicants?",
-    answer: "Go to Applications Management, click on an applicant's profile, and use the 'Message' button to start a conversation. You can also schedule interviews directly from the application details page.",
+    id: "messages",
+    question: "Can I contact an employer directly?",
+    answer: "Yes. Use the Messages area from job details or your application workflow to contact the employer directly.",
     category: "jobs",
   },
   {
-    id: "8",
-    question: "What are the platform fees?",
-    answer: "We charge a 5% service fee on all completed job payments. There are no fees for posting jobs or creating an account. Withdrawal fees depend on your chosen payment method.",
-    category: "payments",
-  },
-  {
-    id: "9",
-    question: "How do I reset my password?",
-    answer: "Click on 'Forgot Password' on the sign-in page. Enter your email address, and we'll send you a link to reset your password. Make sure to check your spam folder if you don't see the email.",
+    id: "security",
+    question: "How do I secure my account?",
+    answer: "Use a strong password, enable MFA in settings, and review active sessions regularly from your account settings.",
     category: "account",
-  },
-  {
-    id: "10",
-    question: "My page is not loading properly",
-    answer: "Try clearing your browser cache and cookies. Make sure you're using the latest version of your browser. If the issue persists, contact our support team with details about your browser and device.",
-    category: "technical",
   },
 ];
 
+const formatDate = (value?: string) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString();
+};
+
+const getStatusClasses = (status: SupportTicket["status"]) => {
+  switch (status) {
+    case "open":
+      return "bg-[#DBEAFE] text-[#1D4ED8]";
+    case "in_progress":
+      return "bg-[#FEF3C7] text-[#B45309]";
+    case "waiting_user":
+      return "bg-[#E0F2FE] text-[#0369A1]";
+    case "resolved":
+      return "bg-[#D1FAE5] text-[#047857]";
+    case "closed":
+      return "bg-[#F3F4F6] text-[#6B7280]";
+    default:
+      return "bg-[#F3F4F6] text-[#6B7280]";
+  }
+};
+
+const getPriorityClasses = (priority?: SupportTicket["priority"]) => {
+  switch (priority) {
+    case "urgent":
+      return "bg-[#FEE2E2] text-[#B91C1C]";
+    case "high":
+      return "bg-[#FFEDD5] text-[#C2410C]";
+    case "medium":
+      return "bg-[#E0E7FF] text-[#4338CA]";
+    default:
+      return "bg-[#ECFDF5] text-[#047857]";
+  }
+};
+
 export function Support() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [openFAQ, setOpenFAQ] = useState<string | null>(null);
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "account" | "payments" | "jobs" | "technical">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "account" | "payments" | "jobs">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState("");
+  const [isLoadingTickets, setIsLoadingTickets] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isReplying, setIsReplying] = useState(false);
   const [supportForm, setSupportForm] = useState({
-    name: "",
-    email: "",
     subject: "",
+    category: "general",
+    priority: "medium" as NonNullable<SupportTicket["priority"]>,
     message: "",
   });
+
+  const selectedTicket = useMemo(
+    () => tickets.find((ticket) => ticket._id === selectedTicketId) || null,
+    [selectedTicketId, tickets],
+  );
+
+  const loadTickets = async (selectedId?: string | null) => {
+    setIsLoadingTickets(true);
+    try {
+      const response = await getSupportTickets();
+      const nextTickets = Array.isArray((response as any)?.tickets)
+        ? ((response as any).tickets as SupportTicket[])
+        : [];
+      setTickets(nextTickets);
+      if (nextTickets.length > 0) {
+        setSelectedTicketId(selectedId || nextTickets[0]._id);
+      } else {
+        setSelectedTicketId(null);
+      }
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to load support tickets.");
+    } finally {
+      setIsLoadingTickets(false);
+    }
+  };
+
+  const loadTicketDetails = async (ticketId: string) => {
+    try {
+      const response = await getSupportTicket(ticketId);
+      const ticket = (response as any)?.ticket as SupportTicket | undefined;
+      if (!ticket) return;
+      setTickets((current) =>
+        current.map((item) => (item._id === ticketId ? ticket : item)),
+      );
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to load ticket details.");
+    }
+  };
 
   useEffect(() => {
     const query = searchParams.get("q") || "";
     setSearchQuery(query);
   }, [searchParams]);
 
-  const handleSubmitTicket = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!supportForm.name || !supportForm.email || !supportForm.subject || !supportForm.message) {
-      toast.error("Please fill in all fields");
-      return;
+  useEffect(() => {
+    loadTickets();
+  }, []);
+
+  useEffect(() => {
+    if (selectedTicketId) {
+      loadTicketDetails(selectedTicketId);
     }
+  }, [selectedTicketId]);
 
-    toast.success("Support ticket submitted successfully! We'll get back to you within 24 hours.");
-    setSupportForm({
-      name: "",
-      email: "",
-      subject: "",
-      message: "",
-    });
-  };
-
-  const toggleFAQ = (id: string) => {
-    setOpenFAQ(openFAQ === id ? null : id);
-  };
-
-  const filteredFAQs = faqs.filter(faq => {
+  const filteredFAQs = faqs.filter((faq) => {
     const matchesCategory = categoryFilter === "all" || faq.category === categoryFilter;
-    const matchesSearch = faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch =
+      faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      faq.answer.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
+  const handleSubmitTicket = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!supportForm.subject.trim() || !supportForm.message.trim()) {
+      toast.error("Subject and message are required.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await createSupportTicket({
+        subject: supportForm.subject.trim(),
+        category: supportForm.category,
+        priority: supportForm.priority,
+        message: supportForm.message.trim(),
+      });
+      const ticket = (response as any)?.ticket as SupportTicket | undefined;
+      if (ticket) {
+        setTickets((current) => [ticket, ...current.filter((item) => item._id !== ticket._id)]);
+        setSelectedTicketId(ticket._id);
+      } else {
+        await loadTickets();
+      }
+      setSupportForm({ subject: "", category: "general", priority: "medium", message: "" });
+      toast.success("Support ticket submitted.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to submit support ticket.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleReply = async () => {
+    if (!selectedTicketId || !replyDraft.trim()) return;
+    setIsReplying(true);
+    try {
+      const response = await replyToSupportTicket(selectedTicketId, { message: replyDraft.trim() });
+      const updatedTicket = (response as any)?.ticket as SupportTicket | undefined;
+      if (updatedTicket) {
+        setTickets((current) =>
+          current.map((item) => (item._id === updatedTicket._id ? updatedTicket : item)),
+        );
+      } else {
+        await loadTicketDetails(selectedTicketId);
+      }
+      setReplyDraft("");
+      toast.success("Reply sent.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to send reply.");
+    } finally {
+      setIsReplying(false);
+    }
+  };
+
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="font-semibold text-[32px] text-[#111827] mb-2">How can we help you?</h1>
-        <p className="text-[16px] text-[#6B7280]">
-          Get help, find answers, or contact our support team
-        </p>
-      </div>
-
-      {/* Quick Contact Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#DBEAFE] to-[#BFDBFE] flex items-center justify-center mb-4">
-            <MessageSquare className="w-6 h-6 text-[#3B82F6]" />
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)] gap-6">
+        <div className="space-y-6">
+          <div className="bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] rounded-[20px] p-8 text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -mr-36 -mt-36" />
+            <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h1 className="text-[32px] font-semibold mb-2">Support Center</h1>
+                <p className="text-[15px] text-white/85 max-w-[620px]">
+                  Search FAQs, open a support ticket, and track each reply in a single thread.
+                </p>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-[16px] px-5 py-4 min-w-[240px]">
+                <p className="text-[12px] uppercase tracking-[0.18em] text-white/65">Signed in as</p>
+                <p className="text-[18px] font-semibold mt-1">
+                  {`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "MicroJobs user"}
+                </p>
+                <p className="text-[13px] text-white/75 mt-1">{user?.email || "Support replies will appear here."}</p>
+              </div>
+            </div>
           </div>
-          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Live Chat</h3>
-          <p className="text-[14px] text-[#6B7280] mb-4">
-            Chat with our support team in real-time
-          </p>
-          <button
-            onClick={() => navigate(`${ROUTES.worker.messages}?contact=support`)}
-            className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:bg-[#0F2954] transition-all text-[14px]"
-          >
-            Start Chat
-          </button>
-        </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#D1FAE5] to-[#A7F3D0] flex items-center justify-center mb-4">
-            <Mail className="w-6 h-6 text-[#10B981]" />
-          </div>
-          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Email Support</h3>
-          <p className="text-[14px] text-[#6B7280] mb-4">
-            support@microjobs.ph
-          </p>
-          <a
-            href="mailto:support@microjobs.ph"
-            className="w-full block text-center bg-white border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]"
-          >
-            Send Email
-          </a>
-        </div>
-
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow">
-          <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] flex items-center justify-center mb-4">
-            <Phone className="w-6 h-6 text-[#F59E0B]" />
-          </div>
-          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Phone Support</h3>
-          <p className="text-[14px] text-[#6B7280] mb-4">
-            +63 2 8123 4567
-          </p>
-          <a
-            href="tel:+6328123456"
-            className="w-full block text-center bg-white border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]"
-          >
-            Call Now
-          </a>
-        </div>
-      </div>
-
-      {/* Resources */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="bg-gradient-to-br from-[#1C4D8D] to-[#4988C4] rounded-[16px] p-6 text-white cursor-pointer hover:shadow-lg transition-shadow">
-          <Book className="w-8 h-8 mb-3" />
-          <h3 className="text-[20px] font-semibold mb-2">Knowledge Base</h3>
-          <p className="text-[14px] opacity-90 mb-4">
-            Browse our comprehensive guides and tutorials
-          </p>
-          <button
-            onClick={() => toast.info("Opening knowledge base...")}
-            className="text-[14px] font-medium underline hover:no-underline"
-          >
-            View Articles →
-          </button>
-        </div>
-
-        <div className="bg-gradient-to-br from-[#10B981] to-[#34D399] rounded-[16px] p-6 text-white cursor-pointer hover:shadow-lg transition-shadow">
-          <Video className="w-8 h-8 mb-3" />
-          <h3 className="text-[20px] font-semibold mb-2">Video Tutorials</h3>
-          <p className="text-[14px] opacity-90 mb-4">
-            Watch step-by-step video guides
-          </p>
-          <button
-            onClick={() => toast.info("Opening video tutorials...")}
-            className="text-[14px] font-medium underline hover:no-underline"
-          >
-            Watch Videos →
-          </button>
-        </div>
-      </div>
-
-      {/* FAQ Section */}
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <HelpCircle className="w-6 h-6 text-[#1C4D8D]" />
-          <h2 className="text-[24px] font-semibold text-[#111827]">Frequently Asked Questions</h2>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSearchQuery(value);
-              setSearchParams(value ? { q: value } : {});
-            }}
-            placeholder="Search FAQs..."
-            className="w-full pl-10 pr-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
-          />
-        </div>
-
-        {/* Category Filter */}
-        <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-          <button
-            onClick={() => setCategoryFilter("all")}
-            className={`px-4 py-2 rounded-[8px] font-medium text-[14px] whitespace-nowrap transition-all ${
-              categoryFilter === "all"
-                ? "bg-[#1C4D8D] text-white"
-                : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setCategoryFilter("account")}
-            className={`px-4 py-2 rounded-[8px] font-medium text-[14px] whitespace-nowrap transition-all ${
-              categoryFilter === "account"
-                ? "bg-[#1C4D8D] text-white"
-                : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
-            }`}
-          >
-            Account
-          </button>
-          <button
-            onClick={() => setCategoryFilter("payments")}
-            className={`px-4 py-2 rounded-[8px] font-medium text-[14px] whitespace-nowrap transition-all ${
-              categoryFilter === "payments"
-                ? "bg-[#1C4D8D] text-white"
-                : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
-            }`}
-          >
-            Payments
-          </button>
-          <button
-            onClick={() => setCategoryFilter("jobs")}
-            className={`px-4 py-2 rounded-[8px] font-medium text-[14px] whitespace-nowrap transition-all ${
-              categoryFilter === "jobs"
-                ? "bg-[#1C4D8D] text-white"
-                : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
-            }`}
-          >
-            Jobs
-          </button>
-          <button
-            onClick={() => setCategoryFilter("technical")}
-            className={`px-4 py-2 rounded-[8px] font-medium text-[14px] whitespace-nowrap transition-all ${
-              categoryFilter === "technical"
-                ? "bg-[#1C4D8D] text-white"
-                : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
-            }`}
-          >
-            Technical
-          </button>
-        </div>
-
-        {/* FAQ List */}
-        <div className="space-y-3">
-          {filteredFAQs.map((faq) => (
-            <div
-              key={faq.id}
-              className="border border-[#E5E7EB] rounded-[12px] overflow-hidden"
-            >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+              <div className="w-12 h-12 rounded-[12px] bg-[#E0F2FE] flex items-center justify-center mb-4">
+                <MessageSquare className="w-6 h-6 text-[#0369A1]" />
+              </div>
+              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Message Support</h3>
+              <p className="text-[14px] text-[#6B7280] mb-4">Use the messaging workspace for urgent conversations with the support team.</p>
               <button
-                onClick={() => toggleFAQ(faq.id)}
-                className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                onClick={() => navigate(`${ROUTES.worker.messages}?contact=support`)}
+                className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:bg-[#0F2954] transition-all text-[14px]"
               >
-                <span className="text-[16px] font-medium text-[#111827] text-left">
-                  {faq.question}
-                </span>
-                {openFAQ === faq.id ? (
-                  <ChevronUp className="w-5 h-5 text-[#6B7280] shrink-0" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-[#6B7280] shrink-0" />
-                )}
+                Open Messages
               </button>
-              {openFAQ === faq.id && (
-                <div className="px-4 pb-4 pt-0">
-                  <p className="text-[14px] text-[#6B7280] leading-relaxed">
-                    {faq.answer}
-                  </p>
+            </div>
+
+            <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+              <div className="w-12 h-12 rounded-[12px] bg-[#DCFCE7] flex items-center justify-center mb-4">
+                <Mail className="w-6 h-6 text-[#15803D]" />
+              </div>
+              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Email Support</h3>
+              <p className="text-[14px] text-[#6B7280] mb-4">support@microjobs.ph</p>
+              <a
+                href="mailto:support@microjobs.ph"
+                className="w-full block text-center bg-white border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]"
+              >
+                Send Email
+              </a>
+            </div>
+
+            <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+              <div className="w-12 h-12 rounded-[12px] bg-[#FEF3C7] flex items-center justify-center mb-4">
+                <Phone className="w-6 h-6 text-[#B45309]" />
+              </div>
+              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Security Escalation</h3>
+              <p className="text-[14px] text-[#6B7280] mb-4">Account compromise, payout disputes, and identity concerns.</p>
+              <button className="w-full border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]">
+                Escalate Issue
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <HelpCircle className="w-6 h-6 text-[#1C4D8D]" />
+              <h2 className="text-[24px] font-semibold text-[#111827]">Frequently Asked Questions</h2>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-4 mb-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSearchQuery(value);
+                    setSearchParams(value ? { q: value } : {});
+                  }}
+                  placeholder="Search FAQs..."
+                  className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {(["all", "account", "payments", "jobs"] as const).map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => setCategoryFilter(item)}
+                    className={`px-4 py-2 rounded-[8px] font-medium text-[14px] whitespace-nowrap transition-all ${
+                      categoryFilter === item
+                        ? "bg-[#1C4D8D] text-white"
+                        : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
+                    }`}
+                  >
+                    {item === "all" ? "All" : item.charAt(0).toUpperCase() + item.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {filteredFAQs.map((faq) => (
+                <div key={faq.id} className="border border-[#E5E7EB] rounded-[12px] overflow-hidden">
+                  <button
+                    onClick={() => setOpenFAQ(openFAQ === faq.id ? null : faq.id)}
+                    className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
+                  >
+                    <span className="text-[16px] font-medium text-[#111827] text-left">{faq.question}</span>
+                    {openFAQ === faq.id ? (
+                      <ChevronUp className="w-5 h-5 text-[#6B7280] shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-[#6B7280] shrink-0" />
+                    )}
+                  </button>
+                  {openFAQ === faq.id ? (
+                    <div className="px-4 pb-4 pt-0">
+                      <p className="text-[14px] text-[#6B7280] leading-relaxed">{faq.answer}</p>
+                    </div>
+                  ) : null}
                 </div>
-              )}
+              ))}
             </div>
-          ))}
+          </div>
+
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <h2 className="text-[24px] font-semibold text-[#111827] mb-2">Submit a Support Ticket</h2>
+            <p className="text-[14px] text-[#6B7280] mb-6">
+              Create a ticket for payout issues, account access, application disputes, or platform bugs.
+            </p>
+
+            <form onSubmit={handleSubmitTicket} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <label className="block text-[14px] font-medium text-[#111827] mb-2">Subject</label>
+                  <input
+                    type="text"
+                    value={supportForm.subject}
+                    onChange={(event) => setSupportForm((current) => ({ ...current, subject: event.target.value }))}
+                    placeholder="Brief description of the issue"
+                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[14px] font-medium text-[#111827] mb-2">Category</label>
+                  <select
+                    value={supportForm.category}
+                    onChange={(event) => setSupportForm((current) => ({ ...current, category: event.target.value }))}
+                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                  >
+                    <option value="general">General</option>
+                    <option value="payments">Payments</option>
+                    <option value="account">Account</option>
+                    <option value="jobs">Jobs</option>
+                    <option value="technical">Technical</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[14px] font-medium text-[#111827] mb-2">Priority</label>
+                  <select
+                    value={supportForm.priority}
+                    onChange={(event) =>
+                      setSupportForm((current) => ({
+                        ...current,
+                        priority: event.target.value as NonNullable<SupportTicket["priority"]>,
+                      }))
+                    }
+                    className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                <div className="bg-[#F8FAFC] rounded-[12px] border border-[#E5E7EB] px-4 py-3">
+                  <p className="text-[12px] uppercase tracking-[0.14em] text-[#6B7280]">Reply Destination</p>
+                  <p className="text-[15px] font-semibold text-[#111827] mt-1">{user?.email || "Signed-in email"}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[14px] font-medium text-[#111827] mb-2">Message</label>
+                <textarea
+                  value={supportForm.message}
+                  onChange={(event) => setSupportForm((current) => ({ ...current, message: event.target.value }))}
+                  placeholder="Describe the issue, the expected result, and any dates or references we should review."
+                  rows={6}
+                  className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent resize-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full md:w-auto bg-[#1C4D8D] text-white font-semibold py-3 px-8 rounded-[12px] hover:bg-[#0F2954] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                {isSubmitting ? "Submitting..." : "Submit Ticket"}
+              </button>
+            </form>
+          </div>
         </div>
 
-        {filteredFAQs.length === 0 && (
-          <div className="text-center py-12">
-            <HelpCircle className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
-            <p className="text-[14px] text-[#6B7280]">No FAQs found matching your search</p>
-          </div>
-        )}
-      </div>
-
-      {/* Support Ticket Form */}
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-        <h2 className="text-[24px] font-semibold text-[#111827] mb-2">Submit a Support Ticket</h2>
-        <p className="text-[14px] text-[#6B7280] mb-6">
-          Can't find what you're looking for? Send us a message and we'll get back to you within 24 hours.
-        </p>
-
-        <form onSubmit={handleSubmitTicket} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[14px] font-medium text-[#111827] mb-2">
-                Name
-              </label>
-              <input
-                type="text"
-                value={supportForm.name}
-                onChange={(e) => setSupportForm({ ...supportForm, name: e.target.value })}
-                placeholder="Enter your name"
-                className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
-              />
+        <aside className="space-y-6">
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Ticket className="w-5 h-5 text-[#1C4D8D]" />
+              <h2 className="text-[20px] font-semibold text-[#111827]">Your Tickets</h2>
             </div>
-            <div>
-              <label className="block text-[14px] font-medium text-[#111827] mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={supportForm.email}
-                onChange={(e) => setSupportForm({ ...supportForm, email: e.target.value })}
-                placeholder="Enter your email"
-                className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
-              />
+
+            {isLoadingTickets ? (
+              <div className="py-8 text-center text-[14px] text-[#6B7280]">Loading ticket history...</div>
+            ) : tickets.length === 0 ? (
+              <div className="py-8 text-center">
+                <LifeBuoy className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
+                <p className="text-[15px] font-medium text-[#111827]">No tickets yet</p>
+                <p className="text-[13px] text-[#6B7280] mt-1">Submit a ticket to start a support thread.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {tickets.map((ticket) => {
+                  const latestMessage = ticket.messages?.[ticket.messages.length - 1];
+                  return (
+                    <button
+                      key={ticket._id}
+                      onClick={() => setSelectedTicketId(ticket._id)}
+                      className={`w-full text-left rounded-[14px] border p-4 transition-colors ${
+                        selectedTicketId === ticket._id
+                          ? "border-[#1C4D8D] bg-[#EFF6FF]"
+                          : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{ticket.subject}</p>
+                          <p className="text-[12px] text-[#6B7280] mt-1">{formatDate(ticket.updatedAt || ticket.createdAt)}</p>
+                        </div>
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getStatusClasses(ticket.status)}`}>
+                          {ticket.status.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getPriorityClasses(ticket.priority)}`}>
+                          {ticket.priority || "low"}
+                        </span>
+                        <span className="text-[12px] text-[#6B7280] inline-flex items-center gap-1">
+                          <Clock3 className="w-3.5 h-3.5" />
+                          {ticket.messageCount || ticket.messages?.length || 0} messages
+                        </span>
+                      </div>
+                      <p className="text-[13px] text-[#6B7280] line-clamp-2">{latestMessage?.body || "No messages yet."}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Book className="w-5 h-5 text-[#1C4D8D]" />
+              <h2 className="text-[20px] font-semibold text-[#111827]">Ticket Thread</h2>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-[14px] font-medium text-[#111827] mb-2">
-              Subject
-            </label>
-            <input
-              type="text"
-              value={supportForm.subject}
-              onChange={(e) => setSupportForm({ ...supportForm, subject: e.target.value })}
-              placeholder="Brief description of your issue"
-              className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
-            />
-          </div>
+            {!selectedTicket ? (
+              <div className="py-8 text-center text-[14px] text-[#6B7280]">Select a ticket to review the thread.</div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-[14px] bg-[#F8FAFC] border border-[#E5E7EB] p-4">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-[17px] font-semibold text-[#111827]">{selectedTicket.subject}</p>
+                      <p className="text-[13px] text-[#6B7280] mt-1">Opened {formatDate(selectedTicket.createdAt)}</p>
+                    </div>
+                    <span className={`px-3 py-1.5 rounded-full text-[11px] font-semibold ${getStatusClasses(selectedTicket.status)}`}>
+                      {selectedTicket.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                </div>
 
-          <div>
-            <label className="block text-[14px] font-medium text-[#111827] mb-2">
-              Message
-            </label>
-            <textarea
-              value={supportForm.message}
-              onChange={(e) => setSupportForm({ ...supportForm, message: e.target.value })}
-              placeholder="Describe your issue in detail..."
-              rows={6}
-              className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent resize-none"
-            />
-          </div>
+                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                  {(selectedTicket.messages || []).map((message) => {
+                    const isAdmin = message.actorRole === "admin";
+                    return (
+                      <div
+                        key={message._id}
+                        className={`rounded-[14px] p-4 border ${
+                          isAdmin
+                            ? "bg-[#EFF6FF] border-[#BFDBFE]"
+                            : "bg-[#F9FAFB] border-[#E5E7EB]"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2">
+                            {isAdmin ? (
+                              <ShieldCheck className="w-4 h-4 text-[#1D4ED8]" />
+                            ) : (
+                              <MessageSquare className="w-4 h-4 text-[#6B7280]" />
+                            )}
+                            <p className="text-[13px] font-semibold text-[#111827]">
+                              {isAdmin ? "Support Team" : "You"}
+                            </p>
+                          </div>
+                          <p className="text-[12px] text-[#6B7280]">{formatDate(message.createdAt)}</p>
+                        </div>
+                        <p className="text-[14px] leading-relaxed text-[#374151]">{message.body}</p>
+                      </div>
+                    );
+                  })}
+                </div>
 
-          <button
-            type="submit"
-            className="w-full md:w-auto bg-[#1C4D8D] text-white font-semibold py-3 px-8 rounded-[12px] hover:bg-[#0F2954] transition-all flex items-center justify-center gap-2"
-          >
-            <Send className="w-4 h-4" />
-            Submit Ticket
-          </button>
-        </form>
-      </div>
-
-      {/* Business Hours */}
-      <div className="bg-gradient-to-br from-[#F9FAFB] to-[#F3F4F6] rounded-[16px] border border-[#E5E7EB] p-6">
-        <h3 className="text-[18px] font-semibold text-[#111827] mb-4">Business Hours</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <p className="text-[14px] text-[#6B7280] mb-2">
-              <span className="font-medium text-[#111827]">Monday - Friday:</span> 9:00 AM - 6:00 PM
-            </p>
-            <p className="text-[14px] text-[#6B7280] mb-2">
-              <span className="font-medium text-[#111827]">Saturday:</span> 10:00 AM - 4:00 PM
-            </p>
-            <p className="text-[14px] text-[#6B7280]">
-              <span className="font-medium text-[#111827]">Sunday:</span> Closed
-            </p>
+                {selectedTicket.status === "closed" ? (
+                  <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] text-[#6B7280]">
+                    This ticket is closed. Open a new ticket if you need further help.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <textarea
+                      value={replyDraft}
+                      onChange={(event) => setReplyDraft(event.target.value)}
+                      rows={4}
+                      placeholder="Add more detail or reply to support..."
+                      className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent resize-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleReply}
+                      disabled={isReplying || !replyDraft.trim()}
+                      className="w-full bg-[#1C4D8D] text-white font-semibold py-3 px-4 rounded-[12px] hover:bg-[#0F2954] transition-all disabled:opacity-60"
+                    >
+                      {isReplying ? "Sending reply..." : "Reply to Ticket"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <div>
-            <p className="text-[14px] text-[#6B7280] mb-2">
-              <span className="font-medium text-[#111827]">Average Response Time:</span> 2-4 hours
-            </p>
-            <p className="text-[14px] text-[#6B7280]">
-              <span className="font-medium text-[#111827]">Emergency Support:</span> 24/7 for premium users
-            </p>
-          </div>
-        </div>
+        </aside>
       </div>
     </div>
   );

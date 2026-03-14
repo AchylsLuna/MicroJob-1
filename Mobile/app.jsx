@@ -1,24 +1,21 @@
-import { StyleSheet, Text, View, TouchableOpacity, Alert } from 'react-native';
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import io from 'socket.io-client';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useCallback, useMemo, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import "./global.css";
-import { API_URL, SOCKET_URL } from './config';
-import { apiRequest, asObject } from './lib/api';
+import { NavigationContainer, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_URL } from './config';
+import { apiRequest } from './lib/api';
 import { tokens } from './theme/tokens';
-import Screen1 from './pages/Screen1';
-import Screen2 from './pages/Screen2';
-import Screen3 from './pages/Screen3';
-import Screen4 from './pages/Screen4';
 import OnboardingCarouselScreen from './pages/OnboardingCarouselScreen';
-import SignUp from './pages/signUp';
 import SignIn from './pages/signIn';
-import SignSuccess from './pages/signSuccess';
-import ForgotPass from './pages/forgotPass';
+import SignUp from './pages/signUp';
 import VerifyEmail from './pages/verifyEmail';
-import PassChanged from './pages/passChanged';
+import ForgotPass from './pages/forgotPass';
 import CreatePass from './pages/createPass';
+import PassChanged from './pages/passChanged';
 import Dashboard from './pages/pages1/dashboard';
 import Jobs from './pages/pages1/Jobs';
 import JobDetails from './pages/pages1/JobDetails';
@@ -42,1209 +39,783 @@ import EmployerProfile from './pages/employer/EmployerProfile';
 import EmployerEWallet from './pages/employer/EmployerEWallet';
 import EmployerNotifications from './pages/employer/EmployerNotifications';
 import EmployerInbox from './pages/employer/EmployerInbox';
+import { AppSessionProvider, useAppSession } from './contexts/AppSessionContext';
+import { ToastProvider, useToast } from './contexts/ToastContext';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AuthStack = createNativeStackNavigator();
+const WorkerStack = createNativeStackNavigator();
+const EmployerStack = createNativeStackNavigator();
+const WorkerTab = createBottomTabNavigator();
+const EmployerTab = createBottomTabNavigator();
 
-export default function App() {
-  const [currentScreen, setCurrentScreen] = useState(0);
-  const [activeTab, setActiveTab] = useState('Home');
-  const [activeEmployerTab, setActiveEmployerTab] = useState('Home');
-  const [isReady, setIsReady] = useState(false);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [savedJobs, setSavedJobs] = useState([]);
-  const [selectedEmployerJob, setSelectedEmployerJob] = useState(null);
-  const [selectedWorkerId, setSelectedWorkerId] = useState(null);
-  const [selectedJobId, setSelectedJobId] = useState(null);
-  const [userRole, setUserRole] = useState(null);
-  const [viewMode, setViewMode] = useState('worker');
-  const [explicitEmployerView, setExplicitEmployerView] = useState(false);
-  const [settingsFromEmployer, setSettingsFromEmployer] = useState(false);
-  const socketRef = useRef(null);
-  const [workerNotifications, setWorkerNotifications] = useState([]);
-  const [employerNotifications, setEmployerNotifications] = useState([]);
-  const [messageEvents, setMessageEvents] = useState([]);
-  const [workerUnreadMessageCount, setWorkerUnreadMessageCount] = useState(0);
-  const [workerInboxInitialChatTarget, setWorkerInboxInitialChatTarget] = useState(null);
-  const [showIdleWarning, setShowIdleWarning] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const warningTimerRef = useRef(null);
-  const logoutTimerRef = useRef(null);
-  const currentScreenRef = useRef(currentScreen);
-  const socketErrorLogRef = useRef({ message: '', at: 0 });
-  const socketFailureCountRef = useRef(0);
+const hiddenTabs = {
+  headerShown: false,
+  tabBarStyle: { display: 'none' },
+};
 
-  const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
-  const WARNING_DURATION_MS = 10 * 1000;
+function navigateToWorkerTab(navigation, tab) {
+  const routeNames = navigation.getState?.()?.routeNames || [];
+  if (routeNames.includes(tab)) {
+    navigation.navigate(tab);
+    return;
+  }
+  navigation.navigate('WorkerTabs', { screen: tab });
+}
 
-  // Toggle for testing onboarding screens
-  const FORCE_ONBOARDING = false;
-  const BYPASS_LOGIN_FLOW = false;
+function navigateToEmployerTab(navigation, tab) {
+  const routeNames = navigation.getState?.()?.routeNames || [];
+  if (routeNames.includes(tab)) {
+    navigation.navigate(tab);
+    return;
+  }
+  navigation.navigate('EmployerTabs', { screen: tab });
+}
 
-  const SCREEN = {
-    Screen1: 0,
-    Screen2: 1,
-    Screen3: 2,
-    Screen4: 3,
-    SignUp: 4,
-    SignIn: 5,
-    SignSuccess: 6,
-    ForgotPass: 7,
-    VerifyEmail: 8,
-    CreatePass: 9,
-    PassChanged: 10,
-    Dashboard: 11,
-    Jobs: 12,
-    EWallet: 13,
-    JobDetails: 14,
-    Saved: 15,
-    Applied: 16,
-    Messages: 17, // WorkerInbox
-    Notifications: 18, // NotificationsInbox
-    Profile: 19,
-    Settings: 20,
-    EmployerJobPosts: 21,
-    EmployerPostJob: 22,
-    EmployerApplications: 23,
-    EmployerProfile: 24,
-    EmployerNotifications: 25,
-    EmployerMessages: 26, // EmployerInbox / EmployerMessages
-    EmployerEWallet: 27,
-    SettingsLocationServices: 28,
-    SettingsMfa: 29,
-    SettingsAbout: 30,
-    SettingsDeleteAccount: 31,
-    SettingsChangePassword: 32,
-    SettingsSupport: 33,
+function OnboardingScreen() {
+  const navigation = useNavigation();
+  const { markOnboarded } = useAppSession();
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const goToSignIn = async () => {
+    await markOnboarded();
+    navigation.navigate('SignIn');
   };
 
-  const isSessionActive = currentScreen >= SCREEN.Dashboard;
-  useEffect(() => {
-    currentScreenRef.current = currentScreen;
-  }, [currentScreen]);
-
-  const normalizeRole = useCallback((role) => {
-    if (!role) return null;
-    if (role === 'hire') return 'employer';
-    if (role === 'work') return 'worker';
-    return role;
-  }, []);
-  // Treat 'both' as neutral: don't auto-switch to employer unless explicitly employer-only
-  const isEmployerRole = userRole === 'employer' || userRole === 'hire';
-
-  const fetchUserRole = useCallback(async () => {
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      if (!token) return null;
-      const result = await apiRequest(`${API_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }, 'Failed to load profile.');
-
-      if (result.ok) {
-        const payload = asObject(result.raw) || {};
-        const dataPayload = asObject(result.data) || {};
-        const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
-        const role = profile?.role || payload?.role || payload?.user?.role;
-        if (profile) {
-          await AsyncStorage.setItem('auth_user', JSON.stringify(profile));
-        }
-        return normalizeRole(role || null);
-      }
-    } catch (error) {
-      console.log('Failed to fetch user role', error);
-    }
-
-    try {
-      const storedUser = await AsyncStorage.getItem('auth_user');
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        return normalizeRole(parsed?.role || null);
-      }
-    } catch (error) {
-      console.log('Failed to load stored user role', error);
-    }
-
-    return null;
-  }, [normalizeRole]);
-
-  // Initialize socket only during authenticated sessions.
-  useEffect(() => {
-    const disconnectSocket = () => {
-      if (socketRef.current) {
-        socketRef.current.removeAllListeners();
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      socketFailureCountRef.current = 0;
-      socketErrorLogRef.current = { message: '', at: 0 };
-    };
-
-    const initSocket = async () => {
-      try {
-        const token = await AsyncStorage.getItem('auth_token');
-        const storedUser = await AsyncStorage.getItem('auth_user');
-        if (!token || !storedUser) {
-          disconnectSocket();
-          return;
-        }
-        const parsed = JSON.parse(storedUser);
-        const userId = parsed?._id || parsed?.id || parsed?.userId;
-        if (!userId) {
-          disconnectSocket();
-          return;
-        }
-
-        // avoid duplicate socket instances
-        if (socketRef.current) {
-          if (socketRef.current.connected || socketRef.current.active) return;
-          disconnectSocket();
-        }
-
-        const socket = io(SOCKET_URL, {
-          auth: { token },
-          transports: ['websocket', 'polling'],
-          timeout: 10000,
-          reconnection: true,
-          reconnectionAttempts: 3,
-          reconnectionDelay: 1500,
-          reconnectionDelayMax: 10000,
-        });
-        socketRef.current = socket;
-
-        socket.on('connect', () => {
-          console.log('socket connected', socket.id);
-          socketFailureCountRef.current = 0;
-          socketErrorLogRef.current = { message: '', at: 0 };
-          socket.emit('register', String(userId));
-        });
-        socket.on('connect_error', (err) => {
-          // Throttle noisy transport errors so the terminal is readable.
-          const message = String(err?.message || err || 'unknown');
-          const now = Date.now();
-          const shouldLog =
-            socketErrorLogRef.current.message !== message ||
-            now - socketErrorLogRef.current.at > 15000;
-
-          if (shouldLog) {
-            console.warn(`socket connect_error (${SOCKET_URL})`, message);
-            socketErrorLogRef.current = { message, at: now };
-          }
-
-          socketFailureCountRef.current += 1;
-          if (socketFailureCountRef.current >= 3) {
-            console.warn('socket disabled after repeated connection failures');
-            disconnectSocket();
-          }
-        });
-        socket.io.on('reconnect_failed', () => {
-          console.warn('socket reconnect_failed');
-          disconnectSocket();
-        });
-
-        socket.on('new_application', (payload) => {
-          console.log('received new_application', payload);
-          // employer receives when a worker applies
-          setEmployerNotifications((prev) => {
-            const nextId = String(payload?.id || payload?._id || `${payload?.jobId || ''}-${payload?.createdAt || ''}`);
-            const exists = prev.some((item) => String(item?.id || item?._id || `${item?.jobId || ''}-${item?.createdAt || ''}`) === nextId);
-            if (exists) return prev;
-            return [payload, ...prev];
-          });
-        });
-
-        socket.on('application_status_updated', (payload) => {
-          console.log('received application_status_updated', payload);
-          // worker receives when employer updates status
-          setWorkerNotifications((prev) => {
-            const nextId = String(payload?.id || payload?.applicationId || `${payload?.jobId || ''}-${payload?.updatedAt || ''}`);
-            const exists = prev.some((item) => String(item?.id || item?.applicationId || `${item?.jobId || ''}-${item?.updatedAt || ''}`) === nextId);
-            if (exists) return prev;
-            return [payload, ...prev];
-          });
-        });
-        socket.on('new_message', (payload) => {
-          console.log('received new_message', payload);
-          setMessageEvents((prev) => [payload, ...prev]);
-          const isViewingWorkerMessages = currentScreenRef.current === SCREEN.Messages;
-          if (!isViewingWorkerMessages) {
-            setWorkerUnreadMessageCount((prev) => prev + 1);
-          }
-        });
-
-        socket.on('new_message_echo', (payload) => {
-          console.log('received new_message_echo', payload);
-          setMessageEvents((prev) => [payload, ...prev]);
-        });
-      } catch (error) {
-        disconnectSocket();
-      }
-    };
-
-    if (isReady && isSessionActive) {
-      initSocket();
-    } else {
-      disconnectSocket();
-    }
-
-    return disconnectSocket;
-  }, [isReady, isSessionActive]);
-
-  const savedJobIds = useMemo(() => savedJobs.map((job) => job._id).filter(Boolean), [savedJobs]);
-
-  const normalizeSavedJob = useCallback((job) => {
-    if (!job) return null;
-    const company = job.jobPoster?.firstName
-      ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ''}`.trim()
-      : job.company || 'Job Poster';
-
-    return {
-      _id: job._id || job.id,
-      title: job.title || 'Untitled job',
-      company,
-      location: job.location || 'Unknown location',
-      tags: Array.isArray(job.skills) ? job.skills : Array.isArray(job.tags) ? job.tags : [],
-      salary: job.salary || '',
-      jobType: job.jobType,
-      jobPoster: job.jobPoster,
-    };
-  }, []);
-
-  const handleToggleSaveJob = useCallback((job) => {
-    const normalized = normalizeSavedJob(job);
-    if (!normalized || !normalized._id) return;
-    setSavedJobs((prev) => {
-      const exists = prev.some((item) => item._id === normalized._id);
-      if (exists) {
-        return prev.filter((item) => item._id !== normalized._id);
-      }
-      return [...prev, normalized];
-    });
-  }, [normalizeSavedJob]);
-
-  const handleRemoveSavedJob = useCallback((jobId) => {
-    setSavedJobs((prev) => prev.filter((item) => item._id !== jobId));
-  }, []);
-
-  const clearIdleTimers = useCallback(() => {
-    if (warningTimerRef.current) {
-      clearTimeout(warningTimerRef.current);
-      warningTimerRef.current = null;
-    }
-    if (logoutTimerRef.current) {
-      clearTimeout(logoutTimerRef.current);
-      logoutTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    const init = async () => {
-      try {
-        if (FORCE_ONBOARDING) {
-          setCurrentScreen(SCREEN.Screen1);
-          return;
-        }
-
-        if (BYPASS_LOGIN_FLOW) {
-          setActiveTab('Home');
-          setViewMode('worker');
-          setExplicitEmployerView(false);
-          setUserRole('worker');
-          setCurrentScreen(SCREEN.Dashboard);
-          return;
-        }
-
-        const token = await AsyncStorage.getItem('auth_token');
-        const hasOnboarded = await AsyncStorage.getItem('has_onboarded');
-
-        if (token) {
-          setActiveTab('Home');
-          const role = await fetchUserRole();
-          setUserRole(role);
-          if (role === 'employer') {
-            setCurrentScreen(SCREEN.EmployerJobPosts);
-          } else {
-            setCurrentScreen(SCREEN.Dashboard);
-          }
-        } else if (hasOnboarded === 'true') {
-          setCurrentScreen(SCREEN.SignIn);
-        } else {
-          setCurrentScreen(SCREEN.Screen1);
-        }
-      } finally {
-        setIsReady(true);
-      }
-    };
-
-    init();
-  }, [fetchUserRole]);
-
-  useEffect(() => {
-    const loadSaved = async () => {
-      try {
-        const stored = await AsyncStorage.getItem('saved_jobs');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            setSavedJobs(parsed);
-          }
-        }
-      } catch (error) {
-        console.log('Failed to load saved jobs', error);
-      }
-    };
-
-    loadSaved();
-  }, []);
-
-  useEffect(() => {
-    const persistSaved = async () => {
-      try {
-        await AsyncStorage.setItem('saved_jobs', JSON.stringify(savedJobs));
-      } catch (error) {
-        console.log('Failed to persist saved jobs', error);
-      }
-    };
-
-    persistSaved();
-  }, [savedJobs]);
-
-  const transitionTo = (nextScreen) => {
-    setCurrentScreen(nextScreen);
+  const goToSignUp = async () => {
+    await markOnboarded();
+    navigation.navigate('SignUp');
   };
 
-  const markOnboardingDone = useCallback(async () => {
-    try {
-      await AsyncStorage.setItem('has_onboarded', 'true');
-    } catch (error) {
-      console.log('Failed to persist onboarding state', error);
-    }
-  }, []);
-
-  const handleNext = () => {
-    transitionTo(currentScreen + 1);
-  };
-
-  const handlePreviousOnboarding = () => {
-    if (currentScreen > SCREEN.Screen1 && currentScreen <= SCREEN.Screen4) {
-      transitionTo(currentScreen - 1);
-    }
-  };
-
-  const handleSkipOnboarding = () => {
-    void markOnboardingDone();
-    setCurrentScreen(SCREEN.SignIn);
-  };
-
-  const handleGoToSignUp = () => {
-    if (currentScreen <= SCREEN.Screen4) {
-      void markOnboardingDone();
-    }
-    transitionTo(SCREEN.SignUp);
-  };
-
-  const handleGoToSignIn = () => {
-    if (currentScreen <= SCREEN.Screen4) {
-      void markOnboardingDone();
-    }
-    void AsyncStorage.multiRemove(['pending_reset_email', 'pending_verification_skip_send']);
-    setCurrentScreen(SCREEN.SignIn);
-  };
-
-  const handleGoToForgot = () => {
-    void AsyncStorage.removeItem('pending_reset_email');
-    setCurrentScreen(SCREEN.ForgotPass);
-  };
-
-  const handleGoToVerify = () => {
-    setCurrentScreen(SCREEN.VerifyEmail);
-  };
-
-  const handleGoToPassChanged = () => {
-    setCurrentScreen(SCREEN.PassChanged);
-  };
-
-  const handleRequestPasswordReset = async (emailAddress) => {
-    const normalizedEmail = String(emailAddress || '').trim().toLowerCase();
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Error', 'Please enter a valid email address.');
-      return;
-    }
-
-    const result = await apiRequest(`${API_URL}/auth/password-reset/request`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email: normalizedEmail }),
-    }, 'Unable to request password reset.');
-
-    if (!result.ok) {
-      Alert.alert(
-        'Error',
-        `${result.message || 'Unable to request password reset.'} (HTTP ${result.status})`
-      );
-      return;
-    }
-
-    await AsyncStorage.setItem('pending_reset_email', normalizedEmail);
-    Alert.alert(
-      'Check your email',
-      result.message || 'If the account exists, a reset code was sent to your email.'
-    );
-    setCurrentScreen(SCREEN.CreatePass);
-  };
-
-  const handleResetPassword = async ({ code, password, confirm }) => {
-    const normalizedCode = String(code || '').replace(/\D/g, '').slice(0, 6);
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      Alert.alert('Error', 'Please enter a valid 6-digit reset code.');
-      return;
-    }
-    if (!password) {
-      Alert.alert('Error', 'Please enter your new password.');
-      return;
-    }
-    if (password !== confirm) {
-      Alert.alert('Error', 'Passwords do not match.');
-      return;
-    }
-
-    const resetEmail = String(await AsyncStorage.getItem('pending_reset_email') || '').trim().toLowerCase();
-    if (!EMAIL_REGEX.test(resetEmail)) {
-      Alert.alert('Error', 'Reset session expired. Please request a new reset code.');
-      setCurrentScreen(SCREEN.ForgotPass);
-      return;
-    }
-
-    const result = await apiRequest(`${API_URL}/auth/password-reset/confirm`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: resetEmail,
-        code: normalizedCode,
-        newPassword: password,
-      }),
-    }, 'Unable to reset password.');
-
-    if (!result.ok) {
-      Alert.alert('Error', `${result.message || 'Unable to reset password.'} (HTTP ${result.status})`);
-      return;
-    }
-
-    await AsyncStorage.multiRemove(['pending_reset_email', 'pending_verification_skip_send']);
-    handleGoToPassChanged();
-  };
-
-  const handleGoToDashboard = async () => {
-    await AsyncStorage.setItem('has_onboarded', 'true');
-    const role = await fetchUserRole();
-    setUserRole(role);
-    if (role === 'employer') {
-      setActiveEmployerTab('Home');
-      setCurrentScreen(SCREEN.EmployerJobPosts);
-    } else {
-      setActiveTab('Home');
-      setViewMode('worker');
-      setExplicitEmployerView(false);
-      setCurrentScreen(SCREEN.Dashboard);
-    }
-  };
-
-  const handleGoToWorkerDashboard = () => {
-    setActiveTab('Home');
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setCurrentScreen(SCREEN.Dashboard);
-  };
-
-  const handleGoToEmployerPosts = () => {
-    setActiveEmployerTab('Home');
-    setCurrentScreen(SCREEN.EmployerJobPosts);
-  };
-
-  const handleGoToEmployerPostJob = (job) => {
-    setActiveEmployerTab('Post Job');
-    setSelectedEmployerJob(job || null);
-    setCurrentScreen(SCREEN.EmployerPostJob);
-  };
-
-  const handleGoToEmployerApplications = () => {
-    setActiveEmployerTab('Applications');
-    setCurrentScreen(SCREEN.EmployerApplications);
-  };
-
-  const handleMessageWorker = (workerId, jobId) => {
-    setSelectedWorkerId(workerId);
-    setSelectedJobId(jobId);
-    setCurrentScreen(SCREEN.EmployerMessages);
-  };
-
-  const handleMessageEmployer = ({ userId, userName, jobId }) => {
-    if (!userId) {
-      Alert.alert('Unable to open chat', 'Missing employer information.');
-      return;
-    }
-    setSelectedJobId(jobId || null);
-    setActiveTab('Messages');
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setWorkerUnreadMessageCount(0);
-    setWorkerInboxInitialChatTarget({ id: String(userId), name: userName || 'Employer' });
-    setCurrentScreen(SCREEN.Messages);
-  };
-
-  const handleGoToEmployerProfile = () => {
-    setActiveEmployerTab('Profile');
-    setCurrentScreen(SCREEN.EmployerProfile);
-  };
-
-  const handleGoToEmployerNotifications = () => {
-    setActiveEmployerTab('Notifications');
-    setCurrentScreen(SCREEN.EmployerNotifications);
-  };
-
-  const handleGoToJobs = () => {
-    setActiveTab('Jobs');
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setCurrentScreen(SCREEN.Jobs);
-  };
-
-  const handleGoToEWallet = () => {
-    setActiveTab('EWallet');
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setCurrentScreen(SCREEN.EWallet);
-  };
-
-  const handleGoToEmployerEWallet = () => {
-    setActiveEmployerTab('EWallet');
-    setCurrentScreen(SCREEN.EmployerEWallet);
-  };
-
-  const handleGoToJobDetails = (job) => {
-    setSelectedJob(job);
-    setCurrentScreen(SCREEN.JobDetails);
-  };
-
-  const handleGoToSaved = () => {
-    setActiveTab('Jobs');
-    setCurrentScreen(SCREEN.Saved);
-  };
-
-  const handleGoToApplied = () => {
-    setActiveTab('Jobs');
-    setCurrentScreen(SCREEN.Applied);
-  };
-
-  const handleGoToMessages = () => {
-    setActiveTab('Messages');
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setWorkerUnreadMessageCount(0);
-    setWorkerInboxInitialChatTarget(null);
-    setCurrentScreen(SCREEN.Messages);
-  };
-
-  const handleGoToNotifications = () => {
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setCurrentScreen(SCREEN.Notifications);
-  };
-
-  const handleDismissWorkerNotification = useCallback((notificationId) => {
-    const target = String(notificationId || '');
-    if (!target) return;
-    setWorkerNotifications((prev) =>
-      prev.filter(
-        (item) => String(item?.id || item?.applicationId || item?._id || '') !== target
-      )
-    );
-  }, []);
-
-  const handleGoToProfile = () => {
-    setActiveTab('Profile');
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setCurrentScreen(SCREEN.Profile);
-  };
-
-  const handleSwitchRole = (nextRole) => {
-    const normalizedRole = nextRole === 'employer' ? 'employer' : 'worker';
-    Alert.alert(
-      'Switch role',
-      `Switch to ${normalizedRole === 'employer' ? 'Employer' : 'Worker'} mode?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Switch',
-          onPress: async () => {
-            setUserRole(normalizedRole);
-            setViewMode(normalizedRole === 'employer' ? 'employer' : 'worker');
-            setExplicitEmployerView(normalizedRole === 'employer');
-            try {
-              const storedUser = await AsyncStorage.getItem('auth_user');
-              if (storedUser) {
-                const parsed = JSON.parse(storedUser);
-                await AsyncStorage.setItem('auth_user', JSON.stringify({ ...parsed, role: normalizedRole }));
-              }
-            } catch (error) {
-              console.log('Failed to persist role switch', error);
-            }
-
-            if (normalizedRole === 'employer') {
-              setActiveEmployerTab('Home');
-              setCurrentScreen(SCREEN.EmployerJobPosts);
-            } else {
-              setActiveTab('Home');
-              setCurrentScreen(SCREEN.Dashboard);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleGoToSettings = () => {
-    setSettingsFromEmployer(false);
-    setCurrentScreen(SCREEN.Settings);
-  };
-
-  const handleGoToSettingsFromEmployer = () => {
-    setSettingsFromEmployer(true);
-    setCurrentScreen(SCREEN.Settings);
-  };
-
-  const handleBackFromSettings = () => {
-    if (settingsFromEmployer) {
-      setActiveEmployerTab('Profile');
-      setCurrentScreen(SCREEN.EmployerProfile);
-      return;
-    }
-    setActiveTab('Profile');
-    setCurrentScreen(SCREEN.Profile);
-  };
-
-  const handleBackToSettings = () => {
-    setCurrentScreen(SCREEN.Settings);
-  };
-
-  const handleGoToSettingsPersonalDetails = () => {
-    setActiveTab('Profile');
-    setCurrentScreen(SCREEN.Profile);
-  };
-
-  const handleGoToSettingsChangePassword = () => {
-    setCurrentScreen(SCREEN.SettingsChangePassword);
-  };
-
-  const handleGoToSettingsNotifications = () => {
-    if (settingsFromEmployer) {
-      handleGoToEmployerNotifications();
-      return;
-    }
-    handleGoToNotifications();
-  };
-
-  const handleGoToSettingsLocation = () => {
-    setCurrentScreen(SCREEN.SettingsLocationServices);
-  };
-
-  const handleGoToSettingsMfa = () => {
-    setCurrentScreen(SCREEN.SettingsMfa);
-  };
-
-  const handleGoToSettingsAbout = () => {
-    setCurrentScreen(SCREEN.SettingsAbout);
-  };
-
-  const handleGoToSettingsDeleteAccount = () => {
-    setCurrentScreen(SCREEN.SettingsDeleteAccount);
-  };
-
-  const handleGoToSettingsSupport = () => {
-    setCurrentScreen(SCREEN.SettingsSupport);
-  };
-
-  const handleTabPress = (tab) => {
-    switch (tab) {
-      case 'Home':
-        // Only switch to the employer section if the user explicitly switched
-        // to employer view. This prevents auto-switching when a user with
-        // employer privileges is using the worker UI.
-        if (isEmployerRole && explicitEmployerView) {
-          handleGoToEmployerPosts();
-        } else {
-          handleGoToWorkerDashboard();
-        }
-        break;
-      case 'Jobs':
-        handleGoToJobs();
-        break;
-      case 'EWallet':
-      case 'E-Wallet':
-        handleGoToEWallet();
-        break;
-      case 'Messages':
-        if (isEmployerRole && explicitEmployerView) {
-          setActiveEmployerTab('Messages');
-          setCurrentScreen(SCREEN.EmployerMessages);
-        } else {
-          handleGoToMessages();
-        }
-        break;
-      case 'Profile':
-        // Only switch to employer profile if the user explicitly switched
-        // to employer view.
-        if (isEmployerRole && explicitEmployerView) {
-          setActiveEmployerTab('Profile');
-          setCurrentScreen(SCREEN.EmployerProfile);
-        } else {
-          setExplicitEmployerView(false);
-          handleGoToProfile();
-        }
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleEmployerTabPress = (tab) => {
-    setActiveEmployerTab(tab);
-    if (tab === 'Home') {
-      handleGoToEmployerPosts();
-    } else if (tab === 'Applications') {
-      handleGoToEmployerApplications();
-    } else if (tab === 'Post Job') {
-      handleGoToEmployerPostJob(null);
-    } else if (tab === 'Notifications') {
-      handleGoToEmployerNotifications();
-    } else if (tab === 'Profile') {
-      handleGoToEmployerProfile();
-    } else if (tab === 'Messages') {
-      setCurrentScreen(SCREEN.EmployerMessages);
-    }
-  };
-
-  const handleBack = () => {
-    setCurrentScreen(Math.max(0, currentScreen - 1));
-  };
-
-  const handleLogout = async () => {
-    setShowLogoutModal(false);
-    if (BYPASS_LOGIN_FLOW) {
-      setActiveTab('Home');
-      setActiveEmployerTab('Home');
-      setWorkerUnreadMessageCount(0);
-      setWorkerNotifications([]);
-      setEmployerNotifications([]);
-      setMessageEvents([]);
-      setWorkerInboxInitialChatTarget(null);
-      setViewMode('worker');
-      setExplicitEmployerView(false);
-      setUserRole('worker');
-      setCurrentScreen(SCREEN.Dashboard);
-      return;
-    }
-
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      if (token) {
-        await apiRequest(`${API_URL}/auth/logout`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to logout.');
-      }
-    } catch (error) {
-      // keep local logout behavior even if API logout fails
-    }
-
-    if (socketRef.current) {
-      socketRef.current.removeAllListeners();
-      socketRef.current.disconnect();
-      socketRef.current = null;
-    }
-
-    await AsyncStorage.multiRemove([
-      'auth_token',
-      'auth_user',
-      'pending_verification_email',
-      'pending_reset_email',
-      'pending_verification_skip_send',
-    ]);
-    setActiveTab('Home');
-    setActiveEmployerTab('Home');
-    setWorkerUnreadMessageCount(0);
-    setWorkerNotifications([]);
-    setEmployerNotifications([]);
-    setMessageEvents([]);
-    setWorkerInboxInitialChatTarget(null);
-    setViewMode('worker');
-    setExplicitEmployerView(false);
-    setUserRole(null);
-    setCurrentScreen(SCREEN.SignIn); // Always go to login
-  };
-
-  const handleLogoutConfirm = () => {
-    setShowLogoutModal(true);
-  };
-
-  const scheduleIdleTimers = useCallback(() => {
-    clearIdleTimers();
-    if (!isSessionActive) {
-      setShowIdleWarning(false);
-      return;
-    }
-
-    warningTimerRef.current = setTimeout(() => {
-      setShowIdleWarning(true);
-    }, Math.max(IDLE_TIMEOUT_MS - WARNING_DURATION_MS, 0));
-
-    logoutTimerRef.current = setTimeout(() => {
-      handleLogout();
-    }, IDLE_TIMEOUT_MS);
-  }, [clearIdleTimers, isSessionActive]);
-
-  const handleActivity = useCallback((force = false) => {
-    if (!isSessionActive) {
-      return;
-    }
-    if (showIdleWarning && !force) {
-      return;
-    }
-    setShowIdleWarning(false);
-    scheduleIdleTimers();
-  }, [isSessionActive, scheduleIdleTimers, showIdleWarning]);
-
-  useEffect(() => {
-    scheduleIdleTimers();
-    return () => {
-      clearIdleTimers();
-    };
-  }, [scheduleIdleTimers, clearIdleTimers]);
-
-  useEffect(() => {
-    const originalFetch = global.fetch;
-    global.fetch = async (...args) => {
-      handleActivity();
-      return originalFetch(...args);
-    };
-
-    return () => {
-      global.fetch = originalFetch;
-    };
-  }, [handleActivity]);
-
-  const workerNotificationBadgeCount = workerNotifications.length;
-
-  const screens = [
-    <Screen1 onNext={handleNext} onSkip={handleSkipOnboarding} onLogin={handleGoToSignIn} />,
-    <Screen2
-      onNext={handleNext}
-      onPrevious={handlePreviousOnboarding}
-      onSkip={handleSkipOnboarding}
-      onLogin={handleGoToSignIn}
-    />,
-    <Screen3
-      onNext={handleNext}
-      onPrevious={handlePreviousOnboarding}
-      onSkip={handleSkipOnboarding}
-      onLogin={handleGoToSignIn}
-    />,
-    <Screen4
-      onNext={handleGoToSignUp}
-      onPrevious={handlePreviousOnboarding}
-      onSkip={handleSkipOnboarding}
-      onLogin={handleGoToSignIn}
-    />,
-    <SignUp onBack={handleBack} onNavigateToSignIn={handleGoToSignIn} onNavigateToVerify={handleGoToVerify} />,
+  return (
+    <OnboardingCarouselScreen
+      activeIndex={activeIndex}
+      onIndexChange={setActiveIndex}
+      onSkip={goToSignIn}
+      onLogin={goToSignIn}
+      onComplete={goToSignUp}
+    />
+  );
+}
+
+function SignInScreen() {
+  const navigation = useNavigation();
+  const { handleAuthSuccess } = useAppSession();
+  return (
     <SignIn
-      onBack={handleBack}
-      onNavigateToSignUp={handleGoToSignUp}
-      onNavigateToForgot={handleGoToForgot}
-      onNavigateToVerify={handleGoToVerify}
-      onLogin={handleGoToDashboard}
-    />,
-    <SignSuccess onBackToLogin={handleGoToSignIn} />,
-    <ForgotPass onBack={handleGoToSignIn} onSendReset={handleRequestPasswordReset} />,
-    <VerifyEmail onVerified={handleGoToDashboard} onBack={handleGoToSignIn} />,
-    <CreatePass onBackToLogin={handleGoToSignIn} onReset={handleResetPassword} />,
-    <PassChanged onBackToLogin={handleGoToSignIn} />,
-    <Dashboard
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      onNavigateToJobs={handleGoToJobs}
-      onViewJobDetails={handleGoToJobDetails}
-      onSaveJob={handleToggleSaveJob}
-      savedJobIds={savedJobIds}
-      onOpenNotifications={handleGoToNotifications}
-      notificationBadgeCount={workerNotificationBadgeCount}
-      messageBadgeCount={workerUnreadMessageCount}
-    />,
-    <Jobs
-      onViewDetails={handleGoToJobDetails}
-      onToggleSave={handleToggleSaveJob}
-      onMessageEmployer={handleMessageEmployer}
-      savedJobIds={savedJobIds}
-      onOpenSavedJobs={handleGoToSaved}
-      onOpenAppliedJobs={handleGoToApplied}
-      onOpenNotifications={handleGoToNotifications}
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      notificationBadgeCount={workerNotificationBadgeCount}
-      messageBadgeCount={workerUnreadMessageCount}
-    />,
-    <EWallet
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      onOpenNotifications={handleGoToNotifications}
-      notificationBadgeCount={workerNotificationBadgeCount}
-      messageBadgeCount={workerUnreadMessageCount}
-    />,
-    <JobDetails
-      job={selectedJob}
-      onSaveJob={handleToggleSaveJob}
-      onMessageEmployer={handleMessageEmployer}
-      isSaved={selectedJob ? savedJobIds.includes(selectedJob._id) : false}
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      messageBadgeCount={workerUnreadMessageCount}
-    />,
-    <SavedJobs
-      savedJobs={savedJobs}
-      onRemoveJob={handleRemoveSavedJob}
-      onViewDetails={handleGoToJobDetails}
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      onViewAppliedJobs={handleGoToApplied}
-      messageBadgeCount={workerUnreadMessageCount}
-    />,
-    <AppliedJobs
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      onViewDetails={handleGoToJobDetails}
-      onViewSavedJobs={handleGoToSaved}
-      onMessageEmployer={handleMessageEmployer}
-      messageBadgeCount={workerUnreadMessageCount}
-    />,
-    <WorkerInbox
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      liveMessages={messageEvents}
-      onOpenNotifications={handleGoToNotifications}
-      notificationBadgeCount={workerNotificationBadgeCount}
-      messageBadgeCount={workerUnreadMessageCount}
-      initialChatTarget={workerInboxInitialChatTarget}
-    />,
-    <NotificationsInbox
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      liveNotifications={workerNotifications}
-      messageBadgeCount={workerUnreadMessageCount}
-      onDismissLiveNotification={handleDismissWorkerNotification}
-    />,
-    <Profile
-      activeTab={activeTab}
-      onTabPress={handleTabPress}
-      onOpenSettings={handleGoToSettings}
-      currentRole={explicitEmployerView ? 'employer' : 'worker'}
-      onSwitchRole={handleSwitchRole}
-      messageBadgeCount={workerUnreadMessageCount}
-    />,
-    <Settings
-      onBack={handleBackFromSettings}
-      onLogout={handleLogoutConfirm}
-      onNavigatePersonalDetails={handleGoToSettingsPersonalDetails}
-      onNavigateChangePassword={handleGoToSettingsChangePassword}
-      onNavigateNotifications={handleGoToSettingsNotifications}
-      onNavigateLocation={handleGoToSettingsLocation}
-      onNavigateMfa={handleGoToSettingsMfa}
-      onNavigateAbout={handleGoToSettingsAbout}
-      onNavigateDeleteAccount={handleGoToSettingsDeleteAccount}
-      onNavigateSupport={handleGoToSettingsSupport}
-      currentRole={settingsFromEmployer ? 'employer' : 'worker'}
-    />,
-    <EmployerJobPosts
-      onEditJob={handleGoToEmployerPostJob}
-      activeTab={activeEmployerTab}
-      onTabPress={handleEmployerTabPress}
-    />,
-    <EmployerPostJob
-      onPosted={() => {
-        setSelectedEmployerJob(null);
-        handleGoToEmployerPosts();
+      onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Onboarding')}
+      onNavigateToSignUp={() => navigation.navigate('SignUp')}
+      onNavigateToForgot={() => navigation.navigate('ForgotPassword')}
+      onNavigateToVerify={() => navigation.navigate('VerifyEmail')}
+      onLogin={async () => {
+        await handleAuthSuccess();
       }}
-      jobToEdit={selectedEmployerJob}
-      activeTab={activeEmployerTab}
-      onTabPress={handleEmployerTabPress}
-    />,
-    <EmployerApplications
-      activeTab={activeEmployerTab}
-      onTabPress={handleEmployerTabPress}
-      onMessageWorker={handleMessageWorker}
-    />,
-    <EmployerProfile
-      activeTab={activeEmployerTab}
-      onTabPress={handleEmployerTabPress}
-      onOpenSettings={handleGoToSettingsFromEmployer}
-      onOpenWallet={handleGoToEmployerEWallet}
-      currentRole="employer"
-      onSwitchRole={handleSwitchRole}
-    />,
-    <EmployerNotifications
-      activeTab={activeEmployerTab}
-      onTabPress={handleEmployerTabPress}
-      liveNotifications={employerNotifications}
-    />,
-    <EmployerInbox
-      activeTab={activeEmployerTab}
-      onTabPress={handleEmployerTabPress}
-      liveMessages={messageEvents}
-    />,
-    <EmployerEWallet
-      onBack={handleGoToEmployerProfile}
-      activeTab={activeEmployerTab}
-      onTabPress={handleEmployerTabPress}
-    />,
-    <LocationServices onBack={handleBackToSettings} />,
-    <MFA onBack={handleBackToSettings} />,
-    <About onBack={handleBackToSettings} />,
-    <DeleteAccount onBack={handleBackToSettings} />,
-    <ChangePassword onBack={handleBackToSettings} />,
-    <ContactSupport onBack={handleBackToSettings} />,
-  ];
-  const isOnboardingFlow = currentScreen >= SCREEN.Screen1 && currentScreen <= SCREEN.Screen4;
-  const currentView = isOnboardingFlow
-    ? (
-      <OnboardingCarouselScreen
-        activeIndex={currentScreen - SCREEN.Screen1}
-        onIndexChange={(index) => transitionTo(SCREEN.Screen1 + index)}
-        onSkip={handleSkipOnboarding}
-        onLogin={handleGoToSignIn}
-        onComplete={handleGoToSignUp}
-      />
-    )
-    : (screens[currentScreen] ?? screens[SCREEN.Dashboard] ?? null);
+    />
+  );
+}
 
-  if (!isReady) {
+function SignUpScreen() {
+  const navigation = useNavigation();
+  return (
+    <SignUp
+      onBack={() => navigation.goBack()}
+      onNavigateToSignIn={() => navigation.navigate('SignIn')}
+      onNavigateToVerify={() => navigation.navigate('VerifyEmail')}
+    />
+  );
+}
+
+function VerifyEmailScreen() {
+  const navigation = useNavigation();
+  const { handleAuthSuccess } = useAppSession();
+  return (
+    <VerifyEmail
+      onBack={() => navigation.navigate('SignIn')}
+      onVerified={async () => {
+        await handleAuthSuccess();
+      }}
+    />
+  );
+}
+
+function ForgotPasswordScreen() {
+  const navigation = useNavigation();
+  const toast = useToast();
+  return (
+    <ForgotPass
+      onBack={() => navigation.navigate('SignIn')}
+      onSendReset={async (emailAddress) => {
+        const normalizedEmail = String(emailAddress || '').trim().toLowerCase();
+        const result = await apiRequest(`${API_URL}/auth/password-reset/request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: normalizedEmail }),
+        }, 'Unable to request password reset.');
+        if (!result.ok) {
+          toast.error(`${result.message || 'Unable to request password reset.'} (HTTP ${result.status})`);
+          return;
+        }
+        await AsyncStorage.setItem('pending_reset_email', normalizedEmail);
+        toast.info(result.message || 'If the account exists, a reset code was sent to your email.');
+        navigation.navigate('CreatePass');
+      }}
+    />
+  );
+}
+
+function CreatePassScreen() {
+  const navigation = useNavigation();
+  const toast = useToast();
+  return (
+    <CreatePass
+      onBackToLogin={() => navigation.navigate('SignIn')}
+      onReset={async ({ code, password, confirm }) => {
+        const normalizedCode = String(code || '').replace(/\D/g, '').slice(0, 6);
+        if (!/^\d{6}$/.test(normalizedCode)) {
+          toast.error('Please enter a valid 6-digit reset code.');
+          return;
+        }
+        if (!password) {
+          toast.error('Please enter your new password.');
+          return;
+        }
+        if (password !== confirm) {
+          toast.error('Passwords do not match.');
+          return;
+        }
+
+        const resetEmail = String((await AsyncStorage.getItem('pending_reset_email')) || '').trim().toLowerCase();
+        const result = await apiRequest(`${API_URL}/auth/password-reset/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: resetEmail,
+            code: normalizedCode,
+            newPassword: password,
+          }),
+        }, 'Unable to reset password.');
+
+        if (!result.ok) {
+          toast.error(`${result.message || 'Unable to reset password.'} (HTTP ${result.status})`);
+          return;
+        }
+
+        await AsyncStorage.multiRemove(['pending_reset_email', 'pending_verification_skip_send']);
+        toast.success('Password reset successful.');
+        navigation.navigate('PassChanged');
+      }}
+    />
+  );
+}
+
+function PassChangedScreen() {
+  const navigation = useNavigation();
+  return <PassChanged onBackToLogin={() => navigation.navigate('SignIn')} />;
+}
+
+function AuthNavigator() {
+  const { hasOnboarded } = useAppSession();
+  return (
+    <AuthStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={hasOnboarded ? 'SignIn' : 'Onboarding'}>
+      <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
+      <AuthStack.Screen name="SignIn" component={SignInScreen} />
+      <AuthStack.Screen name="SignUp" component={SignUpScreen} />
+      <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
+      <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="CreatePass" component={CreatePassScreen} />
+      <AuthStack.Screen name="PassChanged" component={PassChangedScreen} />
+    </AuthStack.Navigator>
+  );
+}
+
+function useWorkerTabNavigation() {
+  const navigation = useNavigation();
+  return useCallback((tab) => {
+    navigateToWorkerTab(navigation, tab);
+  }, [navigation]);
+}
+
+function useEmployerTabNavigation() {
+  const navigation = useNavigation();
+  return useCallback((tab) => {
+    navigateToEmployerTab(navigation, tab);
+  }, [navigation]);
+}
+
+function WorkerHomeScreen() {
+  const navigation = useNavigation();
+  const workerTabPress = useWorkerTabNavigation();
+  const session = useAppSession();
+  const toast = useToast();
+  return (
+    <Dashboard
+      activeTab="Home"
+      onTabPress={workerTabPress}
+      onNavigateToJobs={() => navigation.navigate('Jobs')}
+      onViewJobDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
+      onSaveJob={async (job) => {
+        try {
+          await session.toggleSavedJob(job);
+        } catch (error) {
+          toast.error(error?.message || 'Failed to update saved jobs.');
+        }
+      }}
+      savedJobIds={session.savedJobIds}
+      onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
+      notificationBadgeCount={session.workerNotifications.length}
+      messageBadgeCount={session.unreadMessageCount}
+    />
+  );
+}
+
+function WorkerJobsScreen() {
+  const navigation = useNavigation();
+  const workerTabPress = useWorkerTabNavigation();
+  const session = useAppSession();
+  const toast = useToast();
+  return (
+    <Jobs
+      onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
+      onToggleSave={async (job) => {
+        try {
+          await session.toggleSavedJob(job);
+        } catch (error) {
+          toast.error(error?.message || 'Failed to update saved jobs.');
+        }
+      }}
+      onMessageEmployer={({ userId, userName, jobId }) => {
+        if (!userId) return;
+        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
+        session.markMessagesViewed();
+        navigation.navigate('Messages');
+      }}
+      savedJobIds={session.savedJobIds}
+      onOpenSavedJobs={() => navigation.navigate('WorkerSavedJobs')}
+      onOpenAppliedJobs={() => navigation.navigate('WorkerAppliedJobs')}
+      onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
+      activeTab="Jobs"
+      onTabPress={workerTabPress}
+      notificationBadgeCount={session.workerNotifications.length}
+      messageBadgeCount={session.unreadMessageCount}
+    />
+  );
+}
+
+function WorkerEWalletScreen() {
+  const navigation = useNavigation();
+  const workerTabPress = useWorkerTabNavigation();
+  const session = useAppSession();
+  return (
+    <EWallet
+      activeTab="EWallet"
+      onTabPress={workerTabPress}
+      onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
+      notificationBadgeCount={session.workerNotifications.length}
+      messageBadgeCount={session.unreadMessageCount}
+    />
+  );
+}
+
+function WorkerMessagesScreen() {
+  const navigation = useNavigation();
+  const workerTabPress = useWorkerTabNavigation();
+  const session = useAppSession();
+
+  useFocusEffect(
+    useCallback(() => {
+      session.markMessagesViewed();
+      return undefined;
+    }, [session]),
+  );
+
+  return (
+    <WorkerInbox
+      activeTab="Messages"
+      onTabPress={workerTabPress}
+      liveMessages={session.messageEvents}
+      onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
+      notificationBadgeCount={session.workerNotifications.length}
+      messageBadgeCount={session.unreadMessageCount}
+      initialChatTarget={session.initialWorkerChatTarget}
+      onConsumeInitialChatTarget={session.clearInitialWorkerChatTarget}
+    />
+  );
+}
+
+function WorkerProfileScreen() {
+  const navigation = useNavigation();
+  const workerTabPress = useWorkerTabNavigation();
+  const session = useAppSession();
+  return (
+    <Profile
+      activeTab="Profile"
+      onTabPress={workerTabPress}
+      onOpenSettings={() => navigation.navigate('WorkerSettings')}
+      currentRole={session.viewMode}
+      onSwitchRole={session.switchViewMode}
+      messageBadgeCount={session.unreadMessageCount}
+    />
+  );
+}
+
+function WorkerTabsNavigator() {
+  return (
+    <WorkerTab.Navigator screenOptions={hiddenTabs}>
+      <WorkerTab.Screen name="Home" component={WorkerHomeScreen} />
+      <WorkerTab.Screen name="Jobs" component={WorkerJobsScreen} />
+      <WorkerTab.Screen name="EWallet" component={WorkerEWalletScreen} />
+      <WorkerTab.Screen name="Messages" component={WorkerMessagesScreen} />
+      <WorkerTab.Screen name="Profile" component={WorkerProfileScreen} />
+    </WorkerTab.Navigator>
+  );
+}
+
+function WorkerJobDetailsScreen() {
+  const route = useRoute();
+  const navigation = useNavigation();
+  const session = useAppSession();
+  const toast = useToast();
+  const job = route.params?.job || null;
+  return (
+    <JobDetails
+      job={job}
+      onSaveJob={async (targetJob) => {
+        try {
+          await session.toggleSavedJob(targetJob || job);
+        } catch (error) {
+          toast.error(error?.message || 'Failed to update saved jobs.');
+        }
+      }}
+      onMessageEmployer={({ userId, userName }) => {
+        if (!userId) return;
+        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
+        navigation.navigate('WorkerTabs', { screen: 'Messages' });
+      }}
+      isSaved={job?._id ? session.savedJobIds.includes(String(job._id)) : false}
+      activeTab="Jobs"
+      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      messageBadgeCount={session.unreadMessageCount}
+    />
+  );
+}
+
+function WorkerSavedJobsScreen() {
+  const navigation = useNavigation();
+  const session = useAppSession();
+  const toast = useToast();
+  return (
+    <SavedJobs
+      savedJobs={session.savedJobs}
+      onRemoveJob={async (jobId) => {
+        try {
+          await session.removeSavedJob(jobId);
+        } catch (error) {
+          toast.error(error?.message || 'Failed to remove saved job.');
+        }
+      }}
+      onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job: job.raw || job })}
+      activeTab="Jobs"
+      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      onViewAppliedJobs={() => navigation.navigate('WorkerAppliedJobs')}
+      messageBadgeCount={session.unreadMessageCount}
+    />
+  );
+}
+
+function WorkerAppliedJobsScreen() {
+  const navigation = useNavigation();
+  const session = useAppSession();
+  return (
+    <AppliedJobs
+      activeTab="Jobs"
+      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
+      onViewSavedJobs={() => navigation.navigate('WorkerSavedJobs')}
+      onMessageEmployer={({ userId, userName }) => {
+        if (!userId) return;
+        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
+        navigation.navigate('WorkerTabs', { screen: 'Messages' });
+      }}
+      messageBadgeCount={session.unreadMessageCount}
+    />
+  );
+}
+
+function WorkerNotificationsScreen() {
+  const navigation = useNavigation();
+  const session = useAppSession();
+  return (
+    <NotificationsInbox
+      activeTab="Home"
+      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      liveNotifications={session.workerNotifications}
+      messageBadgeCount={session.unreadMessageCount}
+      onDismissLiveNotification={session.dismissWorkerNotification}
+    />
+  );
+}
+
+function WorkerSettingsScreen() {
+  const navigation = useNavigation();
+  const session = useAppSession();
+  return (
+    <Settings
+      onBack={() => navigation.goBack()}
+      onLogout={session.openLogoutConfirm}
+      onNavigatePersonalDetails={() => navigation.navigate('WorkerTabs', { screen: 'Profile' })}
+      onNavigateChangePassword={() => navigation.navigate('WorkerChangePassword')}
+      onNavigateNotifications={() => navigation.navigate('WorkerNotifications')}
+      onNavigateLocation={() => navigation.navigate('WorkerLocationServices')}
+      onNavigateMfa={() => navigation.navigate('WorkerMfa')}
+      onNavigateAbout={() => navigation.navigate('WorkerAbout')}
+      onNavigateDeleteAccount={() => navigation.navigate('WorkerDeleteAccount')}
+      onNavigateSupport={() => navigation.navigate('WorkerSupport')}
+      currentRole="worker"
+    />
+  );
+}
+
+function WorkerLocationServicesScreen() {
+  const navigation = useNavigation();
+  return <LocationServices onBack={() => navigation.goBack()} />;
+}
+
+function WorkerMfaScreen() {
+  const navigation = useNavigation();
+  return <MFA onBack={() => navigation.goBack()} />;
+}
+
+function WorkerAboutScreen() {
+  const navigation = useNavigation();
+  return <About onBack={() => navigation.goBack()} />;
+}
+
+function WorkerDeleteAccountScreen() {
+  const navigation = useNavigation();
+  const session = useAppSession();
+  return <DeleteAccount onBack={() => navigation.goBack()} onDeleted={() => void session.logout()} />;
+}
+
+function WorkerChangePasswordScreen() {
+  const navigation = useNavigation();
+  return <ChangePassword onBack={() => navigation.goBack()} />;
+}
+
+function WorkerSupportScreen() {
+  const navigation = useNavigation();
+  return <ContactSupport onBack={() => navigation.goBack()} />;
+}
+
+function WorkerStackNavigator() {
+  return (
+    <WorkerStack.Navigator screenOptions={{ headerShown: false }}>
+      <WorkerStack.Screen name="WorkerTabs" component={WorkerTabsNavigator} />
+      <WorkerStack.Screen name="WorkerJobDetails" component={WorkerJobDetailsScreen} />
+      <WorkerStack.Screen name="WorkerSavedJobs" component={WorkerSavedJobsScreen} />
+      <WorkerStack.Screen name="WorkerAppliedJobs" component={WorkerAppliedJobsScreen} />
+      <WorkerStack.Screen name="WorkerNotifications" component={WorkerNotificationsScreen} />
+      <WorkerStack.Screen name="WorkerSettings" component={WorkerSettingsScreen} />
+      <WorkerStack.Screen name="WorkerLocationServices" component={WorkerLocationServicesScreen} />
+      <WorkerStack.Screen name="WorkerMfa" component={WorkerMfaScreen} />
+      <WorkerStack.Screen name="WorkerAbout" component={WorkerAboutScreen} />
+      <WorkerStack.Screen name="WorkerDeleteAccount" component={WorkerDeleteAccountScreen} />
+      <WorkerStack.Screen name="WorkerChangePassword" component={WorkerChangePasswordScreen} />
+      <WorkerStack.Screen name="WorkerSupport" component={WorkerSupportScreen} />
+    </WorkerStack.Navigator>
+  );
+}
+
+function EmployerHomeScreen() {
+  const navigation = useNavigation();
+  const employerTabPress = useEmployerTabNavigation();
+  return <EmployerJobPosts onEditJob={(job) => navigation.navigate('EmployerPostJobScreen', { jobToEdit: job })} activeTab="Home" onTabPress={employerTabPress} />;
+}
+
+function EmployerApplicationsScreen() {
+  const navigation = useNavigation();
+  const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
+  return (
+    <EmployerApplications
+      activeTab="Applications"
+      onTabPress={employerTabPress}
+      onMessageWorker={({ workerId, workerName }) => {
+        if (!workerId) return;
+        session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker' });
+        navigateToEmployerTab(navigation, 'Messages');
+      }}
+    />
+  );
+}
+
+function EmployerPostJobScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const employerTabPress = useEmployerTabNavigation();
+  return (
+    <EmployerPostJob
+      onPosted={() => navigateToEmployerTab(navigation, 'Home')}
+      jobToEdit={route.params?.jobToEdit || null}
+      activeTab="Post Job"
+      onTabPress={employerTabPress}
+    />
+  );
+}
+
+function EmployerMessagesScreen() {
+  const navigation = useNavigation();
+  const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
+  return (
+    <EmployerInbox
+      activeTab="Messages"
+      onTabPress={employerTabPress}
+      liveMessages={session.messageEvents}
+      onOpenNotifications={() => navigateToEmployerTab(navigation, 'Notifications')}
+      notificationBadgeCount={session.employerNotifications.length}
+      initialChatTarget={session.initialEmployerChatTarget}
+      onConsumeInitialChatTarget={session.clearInitialEmployerChatTarget}
+    />
+  );
+}
+
+function EmployerNotificationsScreen() {
+  const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
+  return <EmployerNotifications activeTab="Notifications" onTabPress={employerTabPress} liveNotifications={session.employerNotifications} />;
+}
+
+function EmployerProfileScreen() {
+  const navigation = useNavigation();
+  const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
+  return (
+    <EmployerProfile
+      activeTab="Profile"
+      onTabPress={employerTabPress}
+      onOpenSettings={() => navigation.navigate('EmployerSettings')}
+      onOpenWallet={() => navigation.navigate('EmployerEWallet')}
+      currentRole="employer"
+      onSwitchRole={session.switchViewMode}
+    />
+  );
+}
+
+function EmployerTabsNavigator() {
+  return (
+    <EmployerTab.Navigator screenOptions={hiddenTabs}>
+      <EmployerTab.Screen name="Home" component={EmployerHomeScreen} />
+      <EmployerTab.Screen name="Applications" component={EmployerApplicationsScreen} />
+      <EmployerTab.Screen name="Post Job" component={EmployerPostJobScreen} />
+      <EmployerTab.Screen name="Messages" component={EmployerMessagesScreen} />
+      <EmployerTab.Screen name="Notifications" component={EmployerNotificationsScreen} />
+      <EmployerTab.Screen name="Profile" component={EmployerProfileScreen} />
+    </EmployerTab.Navigator>
+  );
+}
+
+function EmployerSettingsScreen() {
+  const navigation = useNavigation();
+  const session = useAppSession();
+  return (
+    <Settings
+      onBack={() => navigation.goBack()}
+      onLogout={session.openLogoutConfirm}
+      onNavigatePersonalDetails={() => navigation.navigate('EmployerTabs', { screen: 'Profile' })}
+      onNavigateChangePassword={() => navigation.navigate('EmployerChangePassword')}
+      onNavigateNotifications={() => navigation.navigate('EmployerTabs', { screen: 'Notifications' })}
+      onNavigateLocation={() => navigation.navigate('EmployerLocationServices')}
+      onNavigateMfa={() => navigation.navigate('EmployerMfa')}
+      onNavigateAbout={() => navigation.navigate('EmployerAbout')}
+      onNavigateDeleteAccount={() => navigation.navigate('EmployerDeleteAccount')}
+      onNavigateSupport={() => navigation.navigate('EmployerSupport')}
+      currentRole="employer"
+    />
+  );
+}
+
+function EmployerEWalletScreen() {
+  const navigation = useNavigation();
+  return (
+    <EmployerEWallet
+      onBack={() => navigation.goBack()}
+      activeTab="Profile"
+      onTabPress={(tab) => navigation.navigate('EmployerTabs', { screen: tab })}
+    />
+  );
+}
+
+function EmployerLocationServicesScreen() {
+  const navigation = useNavigation();
+  return <LocationServices onBack={() => navigation.goBack()} />;
+}
+
+function EmployerMfaScreen() {
+  const navigation = useNavigation();
+  return <MFA onBack={() => navigation.goBack()} />;
+}
+
+function EmployerAboutScreen() {
+  const navigation = useNavigation();
+  return <About onBack={() => navigation.goBack()} />;
+}
+
+function EmployerDeleteAccountScreen() {
+  const navigation = useNavigation();
+  const session = useAppSession();
+  return <DeleteAccount onBack={() => navigation.goBack()} onDeleted={() => void session.logout()} />;
+}
+
+function EmployerChangePasswordScreen() {
+  const navigation = useNavigation();
+  return <ChangePassword onBack={() => navigation.goBack()} />;
+}
+
+function EmployerSupportScreen() {
+  const navigation = useNavigation();
+  return <ContactSupport onBack={() => navigation.goBack()} />;
+}
+
+function EmployerStackNavigator() {
+  return (
+    <EmployerStack.Navigator screenOptions={{ headerShown: false }}>
+      <EmployerStack.Screen name="EmployerTabs" component={EmployerTabsNavigator} />
+      <EmployerStack.Screen name="EmployerPostJobScreen" component={EmployerPostJobScreen} />
+      <EmployerStack.Screen name="EmployerEWallet" component={EmployerEWalletScreen} />
+      <EmployerStack.Screen name="EmployerSettings" component={EmployerSettingsScreen} />
+      <EmployerStack.Screen name="EmployerLocationServices" component={EmployerLocationServicesScreen} />
+      <EmployerStack.Screen name="EmployerMfa" component={EmployerMfaScreen} />
+      <EmployerStack.Screen name="EmployerAbout" component={EmployerAboutScreen} />
+      <EmployerStack.Screen name="EmployerDeleteAccount" component={EmployerDeleteAccountScreen} />
+      <EmployerStack.Screen name="EmployerChangePassword" component={EmployerChangePasswordScreen} />
+      <EmployerStack.Screen name="EmployerSupport" component={EmployerSupportScreen} />
+    </EmployerStack.Navigator>
+  );
+}
+
+function AppNavigator() {
+  const session = useAppSession();
+
+  if (!session.isReady) {
     return <View style={{ flex: 1, backgroundColor: tokens.colors.brand }} />;
   }
 
+  return session.isAuthenticated ? (session.viewMode === 'employer' ? <EmployerStackNavigator /> : <WorkerStackNavigator />) : <AuthNavigator />;
+}
+
+function SessionOverlays() {
+  const session = useAppSession();
+
   return (
-    <View
-      style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.brand }}
-      onStartShouldSetResponder={() => true}
-      onResponderGrant={handleActivity}
-      onTouchStart={handleActivity}
-    >
-      <View style={{ flex: 1 }}>
-        {currentView}
-      </View>
-      {showLogoutModal && (
+    <>
+      {session.showLogoutModal ? (
         <View style={styles.logoutOverlay}>
           <View style={styles.logoutCard}>
-            <TouchableOpacity style={styles.logoutClose} onPress={() => setShowLogoutModal(false)}>
+            <TouchableOpacity style={styles.logoutClose} onPress={session.closeLogoutConfirm}>
               <Ionicons name="close" size={20} color="#6B7280" />
             </TouchableOpacity>
-
             <View style={styles.logoutIconWrap}>
               <Ionicons name="log-out-outline" size={36} color="#6B7280" />
             </View>
-
             <Text style={styles.logoutTitle}>Sign Out?</Text>
             <Text style={styles.logoutSubtitle}>Are you sure you want to exit?</Text>
-
             <View style={styles.logoutActions}>
-              <TouchableOpacity style={styles.logoutSecondary} onPress={() => setShowLogoutModal(false)}>
+              <TouchableOpacity style={styles.logoutSecondary} onPress={session.closeLogoutConfirm}>
                 <Text style={styles.logoutSecondaryText}>NO</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.logoutPrimary} onPress={handleLogout}>
+              <TouchableOpacity style={styles.logoutPrimary} onPress={() => void session.logout()}>
                 <Text style={styles.logoutPrimaryText}>SIGN OUT</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
-      )}
-      {showIdleWarning && (
+      ) : null}
+
+      {session.showIdleWarning ? (
         <View style={styles.idleOverlay}>
           <View style={styles.idleCard}>
             <Text style={styles.idleTitle}>Session timeout</Text>
             <Text style={styles.idleSubtitle}>Your session will end due to inactivity. Press OK to continue.</Text>
             <View style={styles.idleActions}>
-              <TouchableOpacity style={styles.idlePrimary} onPress={() => handleActivity(true)}>
+              <TouchableOpacity style={styles.idlePrimary} onPress={session.dismissIdleWarning}>
                 <Text style={styles.idlePrimaryText}>OK</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
-      )}
+      ) : null}
+    </>
+  );
+}
+
+function RootApp() {
+  const session = useAppSession();
+  return (
+    <View
+      style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.brand }}
+      onStartShouldSetResponder={() => true}
+      onResponderGrant={() => session.registerActivity()}
+      onTouchStart={() => session.registerActivity()}
+    >
+      <NavigationContainer onStateChange={() => session.registerActivity()}>
+        <AppNavigator />
+      </NavigationContainer>
+      <SessionOverlays />
     </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ToastProvider>
+        <AppSessionProvider>
+          <RootApp />
+        </AppSessionProvider>
+      </ToastProvider>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   logoutOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 24,
   },
   logoutCard: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 26,
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 20,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    padding: 24,
     alignItems: 'center',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.16,
-    shadowRadius: 24,
-    elevation: 12,
   },
   logoutClose: {
     position: 'absolute',
-    right: 14,
-    top: 14,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
+    right: 18,
+    top: 18,
   },
   logoutIconWrap: {
-    width: 86,
-    height: 86,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#EEF2F7',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
-    marginBottom: 16,
+    marginTop: 8,
   },
   logoutTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-    textAlign: 'center',
+    marginTop: 18,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
   },
   logoutSubtitle: {
-    marginTop: 10,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
-    textTransform: 'uppercase',
-    letterSpacing: 1.1,
+    marginTop: 8,
+    fontSize: 14,
+    color: '#6B7280',
     textAlign: 'center',
   },
   logoutActions: {
@@ -1255,79 +826,70 @@ const styles = StyleSheet.create({
   },
   logoutSecondary: {
     flex: 1,
-    height: 52,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#D1D5DB',
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   logoutSecondaryText: {
-    fontSize: 15,
-    color: '#0F172A',
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.4,
+    color: '#111827',
   },
   logoutPrimary: {
     flex: 1,
-    height: 52,
     borderRadius: 16,
-    backgroundColor: '#0B1C44',
+    backgroundColor: '#EF4444',
+    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   logoutPrimaryText: {
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.4,
+    color: '#fff',
   },
   idleOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   idleCard: {
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 360,
+    borderRadius: 22,
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
+    padding: 24,
   },
   idleTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#111',
-    marginBottom: 6,
-    textAlign: 'center',
+    color: '#111827',
   },
   idleSubtitle: {
-    fontSize: 13,
-    color: '#111',
-    textAlign: 'center',
-    marginBottom: 16,
+    marginTop: 8,
+    fontSize: 14,
+    color: '#6B7280',
+    lineHeight: 20,
   },
   idleActions: {
+    marginTop: 20,
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
   },
   idlePrimary: {
-    backgroundColor: '#ef4444',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    minWidth: 110,
+    borderRadius: 14,
+    backgroundColor: '#1D4ED8',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
   },
   idlePrimaryText: {
-    color: '#111',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
+    color: '#fff',
   },
 });

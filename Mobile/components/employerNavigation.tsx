@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
+import { useAppSession } from '../contexts/AppSessionContext';
 
 type EmployerTab = 'Home' | 'Applications' | 'Post Job' | 'Messages' | 'Notifications' | 'Profile';
 
@@ -28,6 +30,11 @@ export default function EmployerNavigation({
   notificationsCount,
   profileInitials = 'JD',
 }: Props) {
+  const insets = useSafeAreaInsets();
+  const session = useAppSession();
+  const resolvedNotificationsCount =
+    typeof notificationsCount === 'number' ? notificationsCount : session.employerNotifications.length;
+
   const navItems: NavItem[] = [
     { label: 'Home', screen: 'Home', iconInactive: 'home-outline', iconActive: 'home' },
     {
@@ -43,14 +50,22 @@ export default function EmployerNavigation({
       screen: 'Notifications',
       iconInactive: 'notifications-outline',
       iconActive: 'notifications',
-      badge: notificationsCount,
+      badge: resolvedNotificationsCount,
     },
     { label: 'Profile', screen: 'Profile' },
   ];
 
   return (
     <View style={styles.navWrapper}>
-      <View style={styles.tabBar}>
+      <View
+        style={[
+          styles.tabBar,
+          {
+            paddingBottom: Math.max(insets.bottom, 10) + 4,
+            minHeight: 82 + Math.max(insets.bottom, 10),
+          },
+        ]}
+      >
         {navItems.map((item) => {
           const isActive = activeTab === item.screen;
           const hasBadge = item.screen === 'Notifications' && (item.badge || 0) > 0;
@@ -101,9 +116,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
     borderWidth: 1,
     borderColor: '#E6EAF2',
-    paddingBottom: 14,
     paddingTop: 12,
-    minHeight: 96,
     borderRadius: 30,
     paddingHorizontal: 10,
     marginHorizontal: 8,

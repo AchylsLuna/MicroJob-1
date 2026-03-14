@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Keyboard,
   StyleSheet,
   Text,
@@ -17,6 +16,7 @@ import { apiRequest, asObject } from '../lib/api';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import { useToast } from '../contexts/ToastContext';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TIMER_SECONDS = 30;
@@ -37,6 +37,7 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const toast = useToast();
   const inputs = useRef<Array<TextInput | null>>([]);
   const hasSentRef = useRef(false);
 
@@ -180,12 +181,12 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
   const handleVerify = async () => {
     const otpCode = code.join('');
     if (otpCode.length !== 6) {
-      Alert.alert('Error', 'Please enter the complete 6-digit code.');
+      toast.error('Please enter the complete 6-digit code.');
       return;
     }
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Error', 'Missing or invalid email. Please sign in again.');
+      toast.error('Missing or invalid email. Please sign in again.');
       return;
     }
 
@@ -217,6 +218,7 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
         await AsyncStorage.setItem('has_onboarded', 'true');
       }
       await AsyncStorage.removeItem('pending_verification_email');
+      toast.success('Email verified successfully.');
       onVerified?.();
     } catch (error: any) {
       setErrorMessage(error?.message || 'Verification failed.');

@@ -264,7 +264,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             accountPreference: normalizePreference(preferredAccount) || undefined,
             accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
           } as User;
-          console.log("AuthProvider - Setting user from localStorage:", normalizedUser);
           setUser(normalizedUser);
           localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(normalizedUser));
         } catch {
@@ -288,7 +287,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     syncSessionFromStorage();
     const handleAuthUserUpdated = () => {
-      console.log("AuthProvider - auth_user_updated event received, re-syncing from storage");
       syncSessionFromStorage();
     };
     window.addEventListener("auth_user_updated", handleAuthUserUpdated);
@@ -567,39 +565,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const switchAccountType = (nextType: "employer" | "worker") => {
-    console.log("AuthContext - switchAccountType called with:", nextType);
-    console.log("AuthContext - Current user:", user?.accountType);
-    
     if (!user) {
-      console.log("AuthContext - Switch aborted: no user");
       return;
     }
-    
+
     const canSwitchByPreference = user.accountPreference === "both";
     const hasBothOptions =
       user.accountOptions.includes("worker") && user.accountOptions.includes("employer");
     const canSwitch = canSwitchByPreference || hasBothOptions;
-    
-    console.log("AuthContext - canSwitchByPreference:", canSwitchByPreference);
-    console.log("AuthContext - hasBothOptions:", hasBothOptions);
-    console.log("AuthContext - canSwitch:", canSwitch);
-    
+
     if (!canSwitch) {
-      console.log("AuthContext - Switch aborted: cannot switch");
       return;
     }
 
     const nextOptions: User["accountOptions"] =
       hasBothOptions || canSwitchByPreference ? ["worker", "employer"] : [...user.accountOptions];
     const updatedUser = { ...user, accountType: nextType, accountOptions: nextOptions };
-    
-    console.log("AuthContext - Setting user to:", updatedUser);
+
     setUser(updatedUser);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
-    console.log("AuthContext - localStorage updated");
     window.dispatchEvent(new Event("auth_user_updated"));
-    console.log("AuthContext - Event dispatched");
     toast.success(`Switched to ${nextType === "employer" ? "Employer" : "Worker"} account`);
   };
 

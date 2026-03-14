@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import PublicProfile from '../shared/PublicProfile';
+import { useToast } from '../../contexts/ToastContext';
 
 type EmployerPreview = {
   profile?: {
@@ -41,6 +43,7 @@ export default function JobDetails({
   onTabPress,
   messageBadgeCount = 0,
 }: JobDetailsProps) {
+  const insets = useSafeAreaInsets();
   const [saved, setSaved] = useState(isSaved);
   const [showSuccess, setShowSuccess] = useState(false);
   const [jobDetails, setJobDetails] = useState(job);
@@ -51,6 +54,7 @@ export default function JobDetails({
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [employerPreview, setEmployerPreview] = useState<EmployerPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const toast = useToast();
 
   const getCurrentUserId = async () => {
     const raw = await AsyncStorage.getItem('auth_user');
@@ -125,7 +129,7 @@ export default function JobDetails({
     const employerId = resolveEmployerId(jobDetails) || resolveEmployerId(job);
     
     if (!employerId) {
-      Alert.alert('Error', 'Employer information not available');
+      toast.error('Employer information not available.');
       return;
     }
     
@@ -146,7 +150,7 @@ export default function JobDetails({
         : `${recipientCandidate?.firstName || ''} ${recipientCandidate?.lastName || ''}`.trim() || 'Employer';
 
     if (!recipientId) {
-      Alert.alert('Unable to message employer', 'Employer details are not available for this job yet.');
+      toast.error('Employer details are not available for this job yet.');
       return;
     }
 
@@ -215,7 +219,7 @@ export default function JobDetails({
         setHasApplied(true);
       }
       setErrorMessage(message);
-      Alert.alert('Error', message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -271,7 +275,6 @@ export default function JobDetails({
   }
 
   if (showSuccess) {
-    console.log('Rendering success screen');
     return (
       <View style={{ flex: 1, backgroundColor: '#f5f7fa' }}>
         <View style={styles.successContainer}>
@@ -298,7 +301,16 @@ export default function JobDetails({
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          {
+            paddingTop: Math.max(insets.top, 20) + 24,
+            paddingBottom: 108 + Math.max(insets.bottom, 10),
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header Container with Light Blue Background */}
         <View style={styles.headerContainer}>
           {/* Job Title */}
@@ -435,7 +447,7 @@ export default function JobDetails({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
-  scroll: { paddingHorizontal: 20, paddingTop: 80, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 20 },
   headerContainer: {
     backgroundColor: '#c8d4d8',
     borderRadius: 12,

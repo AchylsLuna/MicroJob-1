@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
@@ -14,6 +13,7 @@ import AppHeader from '../../components/AppHeader';
 import { tokens } from '../../theme/tokens';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
+import { useToast } from '../../contexts/ToastContext';
 
 type MFAStatus = {
   enabled: boolean;
@@ -37,6 +37,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
   const [otpauthUrl, setOtpauthUrl] = useState('');
   const [code, setCode] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const toast = useToast();
 
   const authHeaders = async () => {
     const token = await AsyncStorage.getItem('auth_token');
@@ -66,7 +67,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
         setOtpauthUrl('');
       }
     } catch (error: any) {
-      Alert.alert('MFA', error?.message || 'Unable to load MFA status.');
+      toast.error(error?.message || 'Unable to load MFA status.');
     } finally {
       setIsLoading(false);
     }
@@ -93,10 +94,10 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
       setOtpauthUrl(payload.otpauthUrl || '');
       setBackupCodes([]);
       setCode('');
-      Alert.alert('MFA Setup', 'Use the secret key in your authenticator app, then enter your code below.');
+      toast.info('Use the secret key in your authenticator app, then enter your code below.');
       await loadStatus();
     } catch (error: any) {
-      Alert.alert('MFA', error?.message || 'Failed to start MFA setup.');
+      toast.error(error?.message || 'Failed to start MFA setup.');
     } finally {
       setIsSubmitting(false);
     }
@@ -104,7 +105,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   const handleEnable = async () => {
     if (!code.trim()) {
-      Alert.alert('MFA', 'Enter the verification code from your authenticator app.');
+      toast.error('Enter the verification code from your authenticator app.');
       return;
     }
 
@@ -131,10 +132,10 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
       setCode('');
       setSecret('');
       setOtpauthUrl('');
-      Alert.alert('MFA', 'MFA enabled successfully.');
+      toast.success('MFA enabled successfully.');
       await loadStatus();
     } catch (error: any) {
-      Alert.alert('MFA', error?.message || 'Failed to enable MFA.');
+      toast.error(error?.message || 'Failed to enable MFA.');
     } finally {
       setIsSubmitting(false);
     }
@@ -142,7 +143,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   const handleDisable = async () => {
     if (!code.trim()) {
-      Alert.alert('MFA', 'Enter your current authenticator or backup code.');
+      toast.error('Enter your current authenticator or backup code.');
       return;
     }
 
@@ -168,10 +169,10 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
       setBackupCodes([]);
       setSecret('');
       setOtpauthUrl('');
-      Alert.alert('MFA', 'MFA disabled.');
+      toast.success('MFA disabled.');
       await loadStatus();
     } catch (error: any) {
-      Alert.alert('MFA', error?.message || 'Failed to disable MFA.');
+      toast.error(error?.message || 'Failed to disable MFA.');
     } finally {
       setIsSubmitting(false);
     }
@@ -179,7 +180,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   const handleRegenerateCodes = async () => {
     if (!code.trim()) {
-      Alert.alert('MFA', 'Enter your current authenticator or backup code first.');
+      toast.error('Enter your current authenticator or backup code first.');
       return;
     }
 
@@ -204,10 +205,10 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setBackupCodes(Array.isArray(payload.backupCodes) ? payload.backupCodes : []);
       setCode('');
-      Alert.alert('MFA', 'Backup codes regenerated.');
+      toast.success('Backup codes regenerated.');
       await loadStatus();
     } catch (error: any) {
-      Alert.alert('MFA', error?.message || 'Failed to regenerate backup codes.');
+      toast.error(error?.message || 'Failed to regenerate backup codes.');
     } finally {
       setIsSubmitting(false);
     }

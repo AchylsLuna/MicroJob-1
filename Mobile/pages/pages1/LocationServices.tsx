@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import AppHeader from '../../components/AppHeader';
 import { tokens } from '../../theme/tokens';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function LocationServices({ onBack }: { onBack?: () => void }) {
   const [enabled, setEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [city, setCity] = useState('Not available');
   const [coordinates, setCoordinates] = useState('—');
+  const toast = useToast();
 
   const fetchCurrentLocation = async () => {
     setIsLoading(true);
@@ -18,7 +20,7 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
         setEnabled(false);
         setCity('Permission denied');
         setCoordinates('—');
-        Alert.alert('Location Services', 'Location permission was denied.');
+        toast.error('Location permission was denied.');
         return;
       }
 
@@ -39,12 +41,12 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
       }
 
       setEnabled(true);
-      Alert.alert('Location Services', 'Location enabled.');
+      toast.success('Location enabled.');
     } catch (error: any) {
       setEnabled(false);
       setCity('Not available');
       setCoordinates('—');
-      Alert.alert('Location Services', error?.message || 'Failed to get location.');
+      toast.error(error?.message || 'Failed to get location.');
     } finally {
       setIsLoading(false);
     }
@@ -55,7 +57,7 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
       setEnabled(false);
       setCity('Not available');
       setCoordinates('—');
-      Alert.alert('Location Services', 'Location disabled.');
+      toast.info('Location disabled.');
       return;
     }
 

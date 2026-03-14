@@ -158,7 +158,6 @@ export default function EmployerJobPosts({
       <EmployerNavigation
         activeTab={activeTab}
         onTabPress={onTabPress}
-        notificationsCount={totalApplicants}
       />
     </View>
   );

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -30,6 +31,7 @@ export default function SavedJobs({
   onViewAppliedJobs?: () => void;
   messageBadgeCount?: number;
 }) {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
 
   const handleTabPress = (tab: string) => {
@@ -39,7 +41,7 @@ export default function SavedJobs({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => {
@@ -59,7 +61,10 @@ export default function SavedJobs({
         <View style={styles.headerRightSpacer} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
+        showsVerticalScrollIndicator={false}
+      >
         {savedJobs.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>🔖</Text>
@@ -119,7 +124,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f3f4f6' },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 54,
     paddingBottom: 14,
     backgroundColor: '#0a2847',
     flexDirection: 'row',
@@ -140,7 +144,7 @@ const styles = StyleSheet.create({
   headerRightSpacer: { width: 42, height: 42 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', lineHeight: 26, letterSpacing: -0.3 },
   headerSubtitle: { fontSize: 13, color: '#cbd5f0', marginTop: 2, fontWeight: '500' },
-  scroll: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 90 },
+  scroll: { paddingHorizontal: 16, paddingTop: 14 },
   emptyState: {
     flex: 1,
     alignItems: 'center',

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AUTH_COLORS, clamp } from '../../theme/authTheme';
 
 type AuthScreenLayoutProps = {
@@ -21,9 +22,10 @@ type AuthScreenLayoutProps = {
 };
 
 export default function AuthScreenLayout({ title, subtitle, onBack, children }: AuthScreenLayoutProps) {
+  const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPadding = clamp(screenWidth * 0.05, 16, 24);
-  const topPadding = clamp(screenHeight * 0.07, 44, 62);
+  const topPadding = Math.max(insets.top, 10) + clamp(screenHeight * 0.04, 18, 28);
   const backButtonSize = clamp(screenWidth * 0.15, 52, 56);
   const backIconSize = clamp(screenWidth * 0.06, 18, 22);
   const titleFontSize = clamp(screenWidth * 0.106, 34, 42);
@@ -31,7 +33,11 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children }: 
   const contentMaxWidth = Math.min(460, screenWidth - horizontalPadding * 2);
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 0}
+    >
       <StatusBar style="light" />
       <View style={styles.backgroundOrbTop} />
       <View style={styles.backgroundOrbBottom} />
@@ -42,6 +48,7 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children }: 
           {
             paddingHorizontal: horizontalPadding,
             paddingTop: topPadding,
+            paddingBottom: 28 + Math.max(insets.bottom, 10),
             maxWidth: contentMaxWidth,
           },
         ]}
@@ -114,7 +121,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 52,
     paddingBottom: 28,
     width: '100%',
     maxWidth: 460,

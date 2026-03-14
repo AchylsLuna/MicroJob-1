@@ -4,6 +4,7 @@ import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getJobs } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
+import { useSavedJobs } from "../../hooks/useSavedJobs";
 
 interface Job {
   id: string;
@@ -49,6 +50,7 @@ export function FindJobs() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
+  const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -64,15 +66,13 @@ export function FindJobs() {
     setSortBy((prev) => (prev === "recent" ? "salary" : prev === "salary" ? "applicants" : "recent"));
   };
 
-  const handleSaveJob = (jobId: string) => {
-    setJobs((prevJobs) => {
-      const targetJob = prevJobs.find((job) => job.id === jobId);
-      const nextSaved = !targetJob?.saved;
+  const handleSaveJob = async (jobId: string) => {
+    try {
+      const nextSaved = await toggleSavedJob(jobId);
       toast.success(nextSaved ? "Job saved!" : "Job removed from saved");
-      return prevJobs.map((job) =>
-        job.id === jobId ? { ...job, saved: !job.saved } : job
-      );
-    });
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update saved jobs.");
+    }
   };
 
   const getExperienceLevelColor = (level: Job["experienceLevel"]) => {
@@ -246,7 +246,12 @@ export function FindJobs() {
     return `${postedDaysAgo}d ago`;
   };
 
-  const filteredJobs = jobs.filter(job => {
+  const jobsWithSavedState = jobs.map((job) => ({
+    ...job,
+    saved: savedJobIds.has(job.id),
+  }));
+
+  const filteredJobs = jobsWithSavedState.filter(job => {
     if (!searchQuery) {
       return true;
     }

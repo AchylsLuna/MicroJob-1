@@ -104,7 +104,6 @@ export function Dashboard() {
     const loadProfile = async () => {
       setProfileLoading(true);
       try {
-        console.log("Dashboard: Fetching profile...");
         const profile = await getProfile();
         if (!isMounted) return;
         
@@ -158,32 +157,36 @@ export function Dashboard() {
     const loadStats = async () => {
       setIsStatsLoading(true);
       try {
-        console.log("Dashboard: Fetching applications...");
         const applicationsResponse = await getUserApplications();
         if (!isMounted) return;
         
         const applications = Array.isArray(applicationsResponse) ? applicationsResponse : (applicationsResponse as any)?.data || [];
         const total = applications.length;
-        const interviews = applications.filter((app: any) => app.status === "Reviewed" || app.status === "Shortlisted").length;
+        const interviews = applications.filter((app: any) => ["Interview Scheduled", "Interviewed"].includes(app.status)).length;
         
         setApplicationCount(total);
         setInterviewCount(interviews);
 
         // Build recent activities from applications
         const activities = applications.slice(0, 4).map((app: any) => {
-          const status = app.status || "Pending";
+          const status = app.status || "Applied";
           const statusMap: Record<string, { text: string; type: string }> = {
-            "Pending": { text: "Application submitted", type: "info" },
-            "Reviewed": { text: "Application reviewed", type: "info" },
+            "Applied": { text: "Application submitted", type: "info" },
             "Shortlisted": { text: "Application shortlisted", type: "success" },
-            "Terms": { text: "Offered position", type: "success" },
+            "Interview Scheduled": { text: "Interview scheduled", type: "info" },
+            "Interviewed": { text: "Interview completed", type: "info" },
+            "Offer Sent": { text: "Offer received", type: "success" },
             "Hired": { text: "Application accepted", type: "success" },
             "Rejected": { text: "Application rejected", type: "view" },
+            "Withdrawn": { text: "Application withdrawn", type: "view" },
+            "Pending": { text: "Application submitted", type: "info" },
+            "Reviewed": { text: "Application reviewed", type: "info" },
+            "Terms": { text: "Offer received", type: "success" },
           };
           const statusInfo = statusMap[status] || { text: "Application updated", type: "info" };
           return {
             text: `${statusInfo.text} for ${app.job?.title || "a job"}`,
-            time: app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "Just now",
+            time: app.updatedAt ? new Date(app.updatedAt).toLocaleDateString() : app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "Just now",
             type: statusInfo.type,
             activity: app,
           };
@@ -201,13 +204,11 @@ export function Dashboard() {
     const loadJobs = async () => {
       setJobsLoading(true);
       try {
-        console.log("Dashboard: Fetching recommended jobs...");
         const jobsResponse = await jobsAPI.getJobs({ excludeOwn: true });
         if (!isMounted) return;
         
         const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data?.data || [];
-        console.log("Dashboard: Jobs loaded:", jobs.length);
-        
+
         // Transform jobs for display
         const transformedJobs = jobs.slice(0, 3).map((job: any) => ({
           id: job._id,

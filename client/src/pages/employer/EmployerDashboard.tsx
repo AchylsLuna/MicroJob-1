@@ -77,9 +77,7 @@ export function EmployerDashboard() {
       if (stored) {
         try {
           const parsed = JSON.parse(stored);
-          console.log("EmployerDashboard - accountType from localStorage:", parsed.accountType);
           if (parsed.accountType === "worker") {
-            console.log("EmployerDashboard - User switched to worker, redirecting...");
             navigate(ROUTES.worker.dashboard, { replace: true });
           }
         } catch (e) {

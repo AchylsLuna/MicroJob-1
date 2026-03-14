@@ -1,23 +1,23 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  ToastAndroid,
   TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../config';
 import { apiRequest } from '../lib/api';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import { useToast } from '../contexts/ToastContext';
 
 const SIGNUP_COLORS = {
   background: AUTH_COLORS.background,
@@ -130,9 +130,10 @@ const getStrength = (passCount: number): StrengthLevel => {
 };
 
 export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify }: Props) {
+  const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPadding = clamp(screenWidth * 0.052, 18, 24);
-  const topPadding = clamp(screenHeight * 0.07, 46, 64);
+  const topPadding = Math.max(insets.top, 10) + clamp(screenHeight * 0.04, 18, 28);
   const backButtonSize = clamp(screenWidth * 0.12, 40, 44);
   const backIconSize = clamp(screenWidth * 0.056, 20, 22);
   const titleFontSize = clamp(screenWidth * 0.104, 34, 40);
@@ -160,20 +161,13 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
   const passwordRules = useMemo(
     () => getPasswordRules(password, confirmPassword),
     [password, confirmPassword]
   );
   const passCount = passwordRules.filter((rule) => rule.passes).length;
   const strength = getStrength(passCount);
-
-  const showToast = (message: string) => {
-    if (Platform.OS === 'android') {
-      ToastAndroid.show(message, ToastAndroid.SHORT);
-      return;
-    }
-    Alert.alert('Notice', message);
-  };
 
   const handlePhoneNumberChange = (value: string) => {
     setPhoneNumber(sanitizePhoneInput(value));
@@ -182,39 +176,39 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
   const handleSignUp = async () => {
     const parsedName = parseFullName(fullName);
     if (!parsedName) {
-      Alert.alert('Error', 'Please enter your full name (first and last name)');
+      toast.error('Please enter your full name (first and last name).');
       return;
     }
 
     const normalizedEmail = email.toLowerCase().trim();
     if (!normalizedEmail) {
-      Alert.alert('Error', 'Please enter your email');
+      toast.error('Please enter your email.');
       return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      toast.error('Please enter a valid email address.');
       return;
     }
 
     const normalizedPhone = normalizePhilippineMobile(phoneNumber);
     if (!normalizedPhone) {
-      Alert.alert('Error', 'Please enter a valid Philippine mobile number (09XXXXXXXXX).');
+      toast.error('Please enter a valid Philippine mobile number (09XXXXXXXXX).');
       return;
     }
 
     if (!password) {
-      Alert.alert('Error', 'Please enter a password');
+      toast.error('Please enter a password.');
       return;
     }
 
     if (!isStrongPassword(password)) {
-      Alert.alert('Error', PASSWORD_POLICY_MESSAGE);
+      toast.error(PASSWORD_POLICY_MESSAGE);
       return;
     }
 
     if (password !== confirmPassword) {
-      showToast('Passwords do not match.');
+      toast.error('Passwords do not match.');
       return;
     }
 
@@ -239,21 +233,25 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 
       if (result.ok) {
         await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
-        Alert.alert('Success', 'Account created! Please verify your email.');
+        toast.success('Account created! Please verify your email.');
         onNavigateToVerify();
       } else {
-        Alert.alert('Error', `${result.message || 'Registration failed'} (HTTP ${result.status})`);
+        toast.error(`${result.message || 'Registration failed'} (HTTP ${result.status})`);
       }
     } catch (error) {
       console.error('Registration error:', error);
-      Alert.alert('Error', 'Network error. Please check your connection and server status.');
+      toast.error('Network error. Please check your connection and server status.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 0}
+    >
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -261,6 +259,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
           {
             paddingHorizontal: horizontalPadding,
             paddingTop: topPadding,
+            paddingBottom: 24 + Math.max(insets.bottom, 10),
             maxWidth: contentMaxWidth,
           },
         ]}
@@ -521,7 +520,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 52,
     paddingBottom: 24,
     width: '100%',
     maxWidth: 440,

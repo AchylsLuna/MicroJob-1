@@ -23,10 +23,72 @@ export type PaymentTransaction = {
   receiver?: { _id?: string; firstName?: string; lastName?: string; email?: string } | null;
   amount: number;
   type: 'TOP_UP' | 'ESCROW' | 'PAYOUT' | 'REFUND';
+  status?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  balanceTarget?: 'EMPLOYER' | 'WORKER' | 'ESCROW' | 'SYSTEM';
   reference?: string | null;
+  provider?: string | null;
+  providerReference?: string | null;
+  relatedEntityType?: string | null;
+  relatedEntityId?: string | null;
   label?: string | null;
   meta?: Record<string, unknown>;
+  payoutRequest?: PayoutRequest | null;
+  linkedTransaction?: Partial<PaymentTransaction> | null;
   createdAt?: string;
+};
+export type ApplicationStatus =
+  | 'Applied'
+  | 'Shortlisted'
+  | 'Interview Scheduled'
+  | 'Interviewed'
+  | 'Offer Sent'
+  | 'Hired'
+  | 'Rejected'
+  | 'Withdrawn';
+export type SavedJobRecord = {
+  _id: string;
+  job: any;
+  savedAt?: string;
+  createdAt?: string;
+};
+export type SupportTicket = {
+  _id: string;
+  requester?: any;
+  subject: string;
+  category?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  status: 'open' | 'in_progress' | 'waiting_user' | 'resolved' | 'closed';
+  messages?: Array<{
+    _id: string;
+    author?: any;
+    actorRole: 'user' | 'admin';
+    body: string;
+    createdAt: string;
+  }>;
+  updatedAt?: string;
+  createdAt?: string;
+  messageCount?: number;
+};
+export type PayoutRequest = {
+  _id: string;
+  amount: number;
+  status: 'requested' | 'approved' | 'rejected' | 'paid' | 'cancelled';
+  destinationSnapshot: {
+    methodType: string;
+    institutionName: string;
+    accountName: string;
+    accountNumber?: string;
+    accountNumberMasked?: string | null;
+  };
+  reviewNotes?: string | null;
+  reviewedAt?: string | null;
+  paidAt?: string | null;
+  cancelledAt?: string | null;
+  user?: any;
+  reviewer?: any;
+  transaction?: PaymentTransaction | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type RequestInitInput = Omit<RequestInit, 'body' | 'method'>;
@@ -192,9 +254,28 @@ export function withdrawApplication(applicationId: string) {
 
 export function updateApplicationStatus(
   applicationId: string,
-  status: 'Shortlisted' | 'Interviewed' | 'Terms' | 'Hired' | 'Pending' | 'Reviewed' | 'Accepted' | 'Rejected'
+  status: ApplicationStatus | 'Terms' | 'Pending' | 'Reviewed' | 'Accepted'
 ) {
   return request(`/applications/${applicationId}/status`, { method: 'PUT', body: { status } });
+}
+
+export function hideEmployerApplication(applicationId: string) {
+  return request(`/applications/${applicationId}/employer/remove`, { method: 'PATCH' });
+}
+
+export function scheduleInterview(
+  applicationId: string,
+  payload: { scheduledAt: string; location?: string; mode?: string; notes?: string }
+) {
+  return request(`/applications/${applicationId}/interviews`, { method: 'POST', body: payload });
+}
+
+export function updateInterview(
+  applicationId: string,
+  interviewId: string,
+  payload: { scheduledAt?: string; location?: string; mode?: string; notes?: string }
+) {
+  return request(`/applications/${applicationId}/interviews/${interviewId}`, { method: 'PATCH', body: payload });
 }
 
 // User APIs
@@ -208,6 +289,13 @@ export function updateUserStatus(userId: string, status: 'active' | 'pending' | 
 
 export function deleteUser(userId: string) {
   return request(`/users/${userId}`, { method: 'DELETE' });
+}
+
+export function requestAccountDeletion(payload: { currentPassword: string; confirm: string }) {
+  return request<{ message: string; blockers?: Array<{ code: string; message: string; count: number }> }>(
+    '/auth/me/delete',
+    { method: 'POST', body: payload }
+  );
 }
 
 // Profile APIs
@@ -261,6 +349,14 @@ export function deleteNotification(notificationId: string) {
 
 export function deleteReadNotifications() {
   return request(`/notifications/read`, { method: 'DELETE' });
+}
+
+export function registerPushDevice(payload: { token: string; deviceName?: string; platform?: 'expo' }) {
+  return request<{ message: string; device: any }>('/notifications/devices', { method: 'POST', body: payload });
+}
+
+export function removePushDevice(deviceId: string) {
+  return request<{ message: string }>(`/notifications/devices/${deviceId}`, { method: 'DELETE' });
 }
 
 // Social sign-in
@@ -369,6 +465,68 @@ export function getPaymentTransactions() {
 
 export function getPaymentAudit() {
   return request<{ transactions: PaymentTransaction[] }>('/payment/audit', { method: 'GET' });
+}
+
+export function getPayoutRequests() {
+  return request<{ payoutRequests: PayoutRequest[] }>('/payment/payout-requests', { method: 'GET' });
+}
+
+export function createPayoutRequest(payload: {
+  amount: number;
+  destinationSnapshot: {
+    methodType: string;
+    institutionName: string;
+    accountName: string;
+    accountNumber: string;
+  };
+}) {
+  return request<{ message: string; payoutRequest: PayoutRequest }>('/payment/payout-requests', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function cancelPayoutRequest(payoutRequestId: string) {
+  return request<{ message: string; payoutRequest: PayoutRequest }>(
+    `/payment/payout-requests/${payoutRequestId}/cancel`,
+    { method: 'POST' }
+  );
+}
+
+export function getSupportTickets() {
+  return request<{ tickets: SupportTicket[] }>('/support/tickets', { method: 'GET' });
+}
+
+export function getSupportTicket(ticketId: string) {
+  return request<{ ticket: SupportTicket }>(`/support/tickets/${ticketId}`, { method: 'GET' });
+}
+
+export function createSupportTicket(payload: {
+  subject: string;
+  category?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  message: string;
+}) {
+  return request<{ message: string; ticket: SupportTicket }>('/support/tickets', { method: 'POST', body: payload });
+}
+
+export function replyToSupportTicket(ticketId: string, payload: { message: string }) {
+  return request<{ message: string; ticket: SupportTicket }>(`/support/tickets/${ticketId}/replies`, {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function getSavedJobs() {
+  return request<{ savedJobs: SavedJobRecord[] }>('/saved-jobs', { method: 'GET' });
+}
+
+export function saveJobForLater(jobId: string) {
+  return request<{ savedJob: SavedJobRecord }>('/saved-jobs', { method: 'POST', body: { jobId } });
+}
+
+export function removeSavedJob(jobId: string) {
+  return request<{ jobId: string }>(`/saved-jobs/${jobId}`, { method: 'DELETE' });
 }
 
 // Message APIs
@@ -490,4 +648,43 @@ export function getAdminRecentPayouts() {
 
 export function getAdminTransactions() {
   return request<any[]>('/admin/transactions', { method: 'GET' });
+}
+
+export function getAdminPayoutRequests(params?: QueryParams) {
+  return request<{ payoutRequests: PayoutRequest[] }>(`/admin/payout-requests${buildQuery(params)}`, { method: 'GET' });
+}
+
+export function updateAdminPayoutRequest(
+  payoutRequestId: string,
+  payload: { status: 'approved' | 'rejected' | 'paid'; reviewNotes?: string }
+) {
+  return request<{ payoutRequest: PayoutRequest }>(`/admin/payout-requests/${payoutRequestId}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
+export function getAdminSupportTickets(params?: QueryParams) {
+  return request<{ tickets: SupportTicket[] }>(`/admin/support/tickets${buildQuery(params)}`, { method: 'GET' });
+}
+
+export function getAdminSupportTicket(ticketId: string) {
+  return request<{ ticket: SupportTicket }>(`/admin/support/tickets/${ticketId}`, { method: 'GET' });
+}
+
+export function updateAdminSupportTicket(
+  ticketId: string,
+  payload: { status?: SupportTicket['status']; priority?: SupportTicket['priority']; reviewNotes?: string }
+) {
+  return request<{ ticket: SupportTicket }>(`/admin/support/tickets/${ticketId}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
+export function replyToAdminSupportTicket(ticketId: string, payload: { message: string }) {
+  return request<{ ticket: SupportTicket }>(`/admin/support/tickets/${ticketId}/replies`, {
+    method: 'POST',
+    body: payload,
+  });
 }

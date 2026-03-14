@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import { useToast } from '../contexts/ToastContext';
 
 type Props = {
   onBackToLogin?: () => void;
@@ -27,6 +27,7 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
 
   const fieldHeight = clamp(screenHeight * 0.082, 64, 74);
   const fieldRadius = clamp(fieldHeight * 0.24, 16, 18);
@@ -68,18 +69,15 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
   const handleReset = async () => {
     const normalizedCode = code.trim();
     if (!/^\d{6}$/.test(normalizedCode)) {
-      Alert.alert('Error', 'Please enter the 6-digit reset code sent to your email.');
+      toast.error('Please enter the 6-digit reset code sent to your email.');
       return;
     }
     if (!rules.len || !rules.upperLower || !rules.number || !rules.special) {
-      Alert.alert(
-        'Error',
-        'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.',
-      );
+      toast.error('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.');
       return;
     }
     if (!passwordsMatch) {
-      Alert.alert('Error', 'Passwords do not match.');
+      toast.error('Passwords do not match.');
       return;
     }
 
@@ -91,7 +89,7 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
         confirm,
       });
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Unable to reset password.');
+      toast.error(error?.message || 'Unable to reset password.');
     } finally {
       setIsLoading(false);
     }

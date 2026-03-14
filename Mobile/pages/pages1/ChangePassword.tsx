@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import { tokens } from '../../theme/tokens';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
+import { useToast } from '../../contexts/ToastContext';
 
 export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -17,6 +18,7 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const toast = useToast();
 
   const getAuthHeader = async () => {
     const token = await AsyncStorage.getItem('auth_token');
@@ -28,7 +30,7 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
 
   const handleRequestOtp = async () => {
     if (!currentPassword) {
-      Alert.alert('Missing field', 'Enter your current password first.');
+      toast.error('Enter your current password first.');
       return;
     }
 
@@ -53,9 +55,9 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
       }
 
       setOtpRequested(true);
-      Alert.alert('OTP Sent', 'Check your email for the password change OTP code.');
+      toast.success('Check your email for the password change OTP code.');
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Failed to request OTP.');
+      toast.error(error?.message || 'Failed to request OTP.');
     } finally {
       setIsSubmitting(false);
     }
@@ -63,15 +65,15 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
 
   const handleSave = () => {
     if (!currentPassword || !otpCode || !newPassword || !confirmPassword) {
-      Alert.alert('Missing fields', 'Complete all fields to continue.');
+      toast.error('Complete all fields to continue.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert('Password mismatch', 'New password and confirmation do not match.');
+      toast.error('New password and confirmation do not match.');
       return;
     }
     if (newPassword === currentPassword) {
-      Alert.alert('Invalid password', 'New password must be different from your current password.');
+      toast.error('New password must be different from your current password.');
       return;
     }
 
@@ -100,14 +102,10 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
           throw new Error(result.message || 'Failed to change password.');
         }
 
-        Alert.alert('Password updated', 'Your password has been updated.', [
-          {
-            text: 'OK',
-            onPress: () => onBack?.(),
-          },
-        ]);
+        toast.success('Your password has been updated.');
+        onBack?.();
       } catch (error: any) {
-        Alert.alert('Error', error?.message || 'Failed to change password.');
+        toast.error(error?.message || 'Failed to change password.');
       } finally {
         setIsSubmitting(false);
       }

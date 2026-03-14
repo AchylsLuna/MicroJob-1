@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type AddEducationProps = {
   visible: boolean;
@@ -8,6 +9,7 @@ type AddEducationProps = {
 };
 
 export default function AddEducation({ visible, onClose, onAdd }: AddEducationProps) {
+  const insets = useSafeAreaInsets();
   const [schoolName, setSchoolName] = useState('');
   const [degree, setDegree] = useState('');
   const [fieldOfStudy, setFieldOfStudy] = useState('');
@@ -45,10 +47,10 @@ export default function AddEducation({ visible, onClose, onAdd }: AddEducationPr
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <View style={styles.overlay} />
-        <View style={styles.modal}>
+        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]}>
           <Text style={styles.modalTitle}>Add Education</Text>
 
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

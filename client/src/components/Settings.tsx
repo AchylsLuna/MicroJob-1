@@ -313,9 +313,7 @@ export function Settings() {
         
         const response = await getSessions();
         const sessionsData = response?.sessions || [];
-        
-        console.log("Loaded sessions:", sessionsData); // Debug log
-        
+
         const mapped = sessionsData.map((s: any) => ({
           id: s._id,
           current: s.isCurrent === true,

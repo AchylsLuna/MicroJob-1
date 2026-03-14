@@ -1,55 +1,101 @@
 import mongoose from 'mongoose';
 
-
-const TransactionSchema = new mongoose.Schema({
-    sender: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User',
-        default: null,
-    }, // null if from external provider
-    receiver: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User',
-        default: null,
-    }, // null if held in escrow or system-level
-    amount: { 
-        type: Number, 
-        required: true 
+const TransactionSchema = new mongoose.Schema(
+  {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
-    type: { 
-        type: String, 
-        enum: ['TOP_UP', 'ESCROW', 'PAYOUT', 'REFUND'], 
-        required: true 
+    receiver: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
     },
-    jobReference: { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'Job',
-        default: null,
+    amount: {
+      type: Number,
+      required: true,
     },
-    // optional reference string for external systems or internal traceability
+    type: {
+      type: String,
+      enum: ['TOP_UP', 'ESCROW', 'PAYOUT', 'REFUND'],
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['PENDING', 'COMPLETED', 'FAILED', 'CANCELLED'],
+      default: 'COMPLETED',
+      index: true,
+    },
+    balanceTarget: {
+      type: String,
+      enum: ['EMPLOYER', 'WORKER', 'ESCROW', 'SYSTEM'],
+      default: 'SYSTEM',
+      index: true,
+    },
+    jobReference: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Job',
+      default: null,
+    },
+    payoutRequest: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'PayoutRequest',
+      default: null,
+      index: true,
+    },
     reference: {
-        type: String,
-        default: null,
+      type: String,
+      default: null,
+      index: true,
     },
-    // Human-friendly label to display in transaction lists
+    provider: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    providerReference: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
     label: {
-        type: String,
-        default: null,
+      type: String,
+      default: null,
     },
-    // free-form metadata for auditing (payment provider ids, webhook payloads, etc.)
+    relatedEntityType: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    relatedEntityId: {
+      type: String,
+      default: null,
+      trim: true,
+      index: true,
+    },
+    linkedTransaction: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Transaction',
+      default: null,
+    },
     meta: {
-        type: mongoose.Schema.Types.Mixed,
-        default: {}
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
-    // who triggered the transaction (if applicable)
     actor: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        default: null,
-    }
-}, { timestamps: true });
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+  },
+  { timestamps: true, versionKey: false }
+);
 
-// index to speed up queries by creation time
 TransactionSchema.index({ createdAt: -1 });
+TransactionSchema.index({ sender: 1, createdAt: -1 });
+TransactionSchema.index({ receiver: 1, createdAt: -1 });
 
 export default mongoose.model('Transaction', TransactionSchema);

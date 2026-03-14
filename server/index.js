@@ -266,6 +266,9 @@ import paymentRoutes from './routes/PaymentRoute.js';
 import AlertRoute from './routes/AlertRoute.js';
 import NotificationRoute from './routes/NotificationRoute.js';
 import AdminRoute from './routes/AdminRoute.js';
+import SavedJobRoute from './routes/SavedJobRoute.js';
+import SupportRoute from './routes/SupportRoute.js';
+import { runDataBackfills } from './lib/backfills.js';
 
 
 app.get('/', (req, res) => {
@@ -285,6 +288,8 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/alerts', AlertRoute);
 app.use('/api/notifications', NotificationRoute);
 app.use('/api/admin', AdminRoute);
+app.use('/api/saved-jobs', SavedJobRoute);
+app.use('/api/support', SupportRoute);
 
 const truthy = (value = '') => ['1', 'true', 'yes'].includes(String(value).toLowerCase());
 
@@ -427,6 +432,7 @@ const startServer = async () => {
 
         await ensureDevSuperAdmin();
         await ensureDevDemoUser();
+        await runDataBackfills();
 
 
         // initialize socket.io

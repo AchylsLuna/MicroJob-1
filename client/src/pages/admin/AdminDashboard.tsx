@@ -342,7 +342,7 @@ function AdminDashboardContent() {
   };
 
   const getPosterName = (job: (typeof recentPayouts)[number]) => {
-    const poster = job.jobPoster;
+    const poster = job.user;
     if (!poster || typeof poster === "string") return "—";
     return `${poster.firstName || ""} ${poster.lastName || ""}`.trim() || poster.email || "—";
   };
@@ -636,24 +636,25 @@ function AdminDashboardContent() {
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <div>
             <h3 className="text-[18px] font-semibold text-[#111827]">Recent Completed Payouts</h3>
-            <p className="text-[13px] text-[#6B7280] mt-1">Latest jobs marked as completed.</p>
+            <p className="text-[13px] text-[#6B7280] mt-1">Latest paid payout requests with destination snapshots and transaction references.</p>
           </div>
 
           <div className="mt-6 overflow-x-auto">
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                  <th className="py-3 pr-4 font-medium">Job</th>
-                  <th className="py-3 pr-4 font-medium">Poster</th>
+                  <th className="py-3 pr-4 font-medium">User</th>
+                  <th className="py-3 pr-4 font-medium">Destination</th>
                   <th className="py-3 pr-4 font-medium">Amount</th>
                   <th className="py-3 pr-4 font-medium">Status</th>
+                  <th className="py-3 pr-4 font-medium">Reference</th>
                   <th className="py-3 font-medium">Completed</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={6} className="py-6 text-center text-[#9CA3AF]">
                       Loading payouts...
                     </td>
                   </tr>
@@ -661,7 +662,7 @@ function AdminDashboardContent() {
 
                 {!isLoading && recentPayouts.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={6} className="py-6 text-center text-[#9CA3AF]">
                       No completed payouts yet.
                     </td>
                   </tr>
@@ -669,23 +670,27 @@ function AdminDashboardContent() {
 
                 {!isLoading &&
                   recentPayouts.map((job) => {
-                    const dateLabel = job.createdAt
-                      ? new Date(job.createdAt).toLocaleDateString()
-                      : formatDateFromObjectId(job._id);
+                    const dateLabel = job.paidAt
+                      ? new Date(job.paidAt).toLocaleDateString()
+                      : job.createdAt
+                        ? new Date(job.createdAt).toLocaleDateString()
+                        : formatDateFromObjectId(job._id);
                     return (
                       <tr key={job._id} className="border-b border-[#F3F4F6]">
-                        <td className="py-3 pr-4 text-[#111827] font-medium">{job.title}</td>
-                        <td className="py-3 pr-4 text-[#6B7280]">{getPosterName(job)}</td>
-                        <td className="py-3 pr-4 text-[#111827]">{formatSalary(job.salary)}</td>
+                        <td className="py-3 pr-4 text-[#111827] font-medium">{getPosterName(job)}</td>
+                        <td className="py-3 pr-4 text-[#6B7280]">
+                          <div>{job.destinationSnapshot?.institutionName || "—"}</div>
+                          <div className="text-[12px] text-[#9CA3AF] mt-1">
+                            {job.destinationSnapshot?.accountNumberMasked || job.destinationSnapshot?.accountNumber || "-"}
+                          </div>
+                        </td>
+                        <td className="py-3 pr-4 text-[#111827]">{formatCurrency(Number(job.amount || 0))}</td>
                         <td className="py-3 pr-4">
-                          <span
-                            className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold ${
-                              getJobStatusColor(job.status)
-                            }`}
-                          >
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-[#DCFCE7] text-[#15803D]">
                             {job.status || "Completed"}
                           </span>
                         </td>
+                        <td className="py-3 pr-4 text-[#6B7280]">{job.transaction?._id || "—"}</td>
                         <td className="py-3 text-[#6B7280]">{dateLabel}</td>
                       </tr>
                     );

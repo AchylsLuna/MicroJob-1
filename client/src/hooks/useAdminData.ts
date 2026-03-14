@@ -9,6 +9,7 @@ import {
   getAdminWalletStats,
   getAdminRecentPayouts,
   updateUserStatus,
+  type PayoutRequest,
 } from "../services/api";
 
 export type AdminUser = {
@@ -18,7 +19,9 @@ export type AdminUser = {
   email: string;
   phoneNumber?: string | null;
   role?: "user" | "employer" | "admin" | "doctor" | "hire" | "work" | "both" | "superadmin";
-  status?: "active" | "pending" | "disabled";
+  status?: "active" | "pending" | "disabled" | "deleted";
+  deletedAt?: string | null;
+  redactedAt?: string | null;
 };
 
 export type AdminJob = {
@@ -43,12 +46,15 @@ type AdminStats = {
   activeUsers: number;
   pendingUsers: number;
   disabledUsers: number;
+  deletedUsers: number;
   totalJobs: number;
   availableJobs: number;
   completedJobs: number;
   totalTransactions: number;
   totalRevenue: number;
   totalCategories: number;
+  pendingPayouts: number;
+  openSupportTickets: number;
 };
 
 type AdminWalletStats = {
@@ -64,12 +70,15 @@ const DEFAULT_ADMIN_STATS: AdminStats = {
   activeUsers: 0,
   pendingUsers: 0,
   disabledUsers: 0,
+  deletedUsers: 0,
   totalJobs: 0,
   availableJobs: 0,
   completedJobs: 0,
   totalTransactions: 0,
   totalRevenue: 0,
   totalCategories: 0,
+  pendingPayouts: 0,
+  openSupportTickets: 0,
 };
 
 const DEFAULT_ADMIN_WALLET_STATS: AdminWalletStats = {
@@ -86,7 +95,7 @@ export function useAdminData() {
   const [categories, setCategories] = useState<AdminCategory[]>([]);
   const [stats, setStats] = useState<AdminStats>(DEFAULT_ADMIN_STATS);
   const [walletStats, setWalletStats] = useState<AdminWalletStats>(DEFAULT_ADMIN_WALLET_STATS);
-  const [recentPayouts, setRecentPayouts] = useState<AdminJob[]>([]);
+  const [recentPayouts, setRecentPayouts] = useState<PayoutRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -241,6 +250,8 @@ export function useAdminData() {
         return "bg-[#D1FAE5] text-[#065F46]";
       case "disabled":
         return "bg-[#FEE2E2] text-[#991B1B]";
+      case "deleted":
+        return "bg-[#E5E7EB] text-[#374151]";
       case "pending":
         return "bg-[#FEF3C7] text-[#92400E]";
       default:
@@ -312,10 +323,15 @@ export function useAdminData() {
 
   const handleDeleteUser = async (u: AdminUser) => {
     const label = getUserDisplayName(u);
-    if (!window.confirm(`Delete ${label}? This cannot be undone.`)) return;
+    if (!window.confirm(`Delete ${label}? This will redact the account when blockers are clear.`)) return;
     try {
       await deleteUser(u._id);
-      setUsers((prev) => prev.filter((item) => item._id !== u._id));
+      const now = new Date().toISOString();
+      setUsers((prev) =>
+        prev.map((item) =>
+          item._id === u._id ? { ...item, status: "deleted", deletedAt: now, redactedAt: now } : item
+        )
+      );
       toast.success(`User ${label} deleted`);
     } catch (error: any) {
       toast.error(error?.message || "Failed to delete user");

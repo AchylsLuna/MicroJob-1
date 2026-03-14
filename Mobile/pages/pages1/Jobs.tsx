@@ -205,10 +205,10 @@ export default function Jobs(props: JobsProps) {
             <Text style={styles.toolbarButtonText}>Refresh</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.toolbarButtonMuted}>
+          <View style={styles.toolbarButtonMuted}>
             <Text style={styles.toolbarButtonText}>Most Relevant</Text>
             <Ionicons name="chevron-down-outline" size={14} color={tokens.colors.textMuted} />
-          </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.quickActionsRow}>

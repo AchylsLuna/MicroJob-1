@@ -4,7 +4,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   TextInput,
-  Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -16,7 +15,9 @@ import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import { useToast } from '../contexts/ToastContext';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,9 +34,10 @@ export default function SignIn({
   onNavigateToVerify?: () => void;
   onLogin?: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPadding = clamp(screenWidth * 0.052, 18, 24);
-  const topPadding = clamp(screenHeight * 0.07, 46, 64);
+  const topPadding = Math.max(insets.top, 10) + clamp(screenHeight * 0.04, 18, 28);
   const cardMaxWidth = Math.min(420, screenWidth - horizontalPadding * 2);
   const cardRadius = clamp(screenWidth * 0.085, 26, 32);
   const cardVerticalPadding = clamp(screenHeight * 0.032, 22, 28);
@@ -64,6 +66,7 @@ export default function SignIn({
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const toast = useToast();
 
   const shouldRequireOtpForRole = (user: any) => {
     const role = String(user?.role || '').toLowerCase();
@@ -102,12 +105,8 @@ export default function SignIn({
       setMfaToken('');
       setMfaCode('');
       await sendLoginOtp(user?.email || email);
-      Alert.alert('OTP Required', 'Enter the 6-digit code sent to your email to finish login.', [
-        {
-          text: 'Continue',
-          onPress: () => onNavigateToVerify?.(),
-        },
-      ]);
+      toast.info('Enter the 6-digit code sent to your email to finish login.');
+      onNavigateToVerify?.();
       return;
     }
 
@@ -123,24 +122,24 @@ export default function SignIn({
     setRequiresMfa(false);
     setMfaToken('');
     setMfaCode('');
-    Alert.alert('Success', 'Login successful!');
+    toast.success('Login successful.');
     onLogin?.();
   };
 
   const handleSignIn = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      Alert.alert('Error', 'Please enter your email address');
+      toast.error('Please enter your email address.');
       return;
     }
 
     if (!EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      toast.error('Please enter a valid email address.');
       return;
     }
 
     if (!password) {
-      Alert.alert('Error', 'Please enter your password');
+      toast.error('Please enter your password.');
       return;
     }
 
@@ -169,30 +168,24 @@ export default function SignIn({
         setRequiresMfa(true);
         setMfaToken(nextMfaToken);
         setMfaCode('');
-        Alert.alert('MFA Required', 'Enter your authenticator or backup code to continue.');
+        toast.info('Enter your authenticator or backup code to continue.');
       } else if (result.ok && token) {
         await continueAfterPrimaryAuth(token, user);
       } else {
         const serverMessage = result.message || 'Unable to sign in.';
         if (result.status === 401 && /verify your email/i.test(serverMessage)) {
           await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
-          Alert.alert(
-            'Email verification required',
-            serverMessage,
-            [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Verify now', onPress: () => onNavigateToVerify?.() },
-            ]
-          );
+          toast.info(serverMessage);
+          onNavigateToVerify?.();
         } else if (result.status === 401 && /invalid credentials/i.test(serverMessage)) {
-          Alert.alert('Error', 'Invalid credentials. Check your email and password.');
+          toast.error('Invalid credentials. Check your email and password.');
         } else {
-          Alert.alert('Error', `${serverMessage} (HTTP ${result.status})`);
+          toast.error(`${serverMessage} (HTTP ${result.status})`);
         }
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Error', error?.message || 'Network error. Please check your connection and server status.');
+      toast.error(error?.message || 'Network error. Please check your connection and server status.');
     } finally {
       setIsLoading(false);
     }
@@ -200,11 +193,11 @@ export default function SignIn({
 
   const handleVerifyMfa = async () => {
     if (!requiresMfa || !mfaToken) {
-      Alert.alert('Error', 'Start sign in first.');
+      toast.error('Start sign in first.');
       return;
     }
     if (!mfaCode.trim()) {
-      Alert.alert('Error', 'Enter your MFA code.');
+      toast.error('Enter your MFA code.');
       return;
     }
 
@@ -231,21 +224,29 @@ export default function SignIn({
         return;
       }
 
-      Alert.alert('Error', `${result.message || 'Invalid MFA code.'} (HTTP ${result.status})`);
+      toast.error(`${result.message || 'Invalid MFA code.'} (HTTP ${result.status})`);
     } catch (error) {
-      Alert.alert('Error', 'Network error while verifying MFA.');
+      toast.error('Network error while verifying MFA.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 0}
+    >
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          { paddingHorizontal: horizontalPadding, paddingTop: topPadding },
+          {
+            paddingHorizontal: horizontalPadding,
+            paddingTop: topPadding,
+            paddingBottom: 24 + Math.max(insets.bottom, 10),
+          },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -396,7 +397,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 24,
-    paddingTop: 52,
     paddingBottom: 24,
   },
   backButton: {

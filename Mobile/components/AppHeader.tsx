@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 
 type AppHeaderProps = {
@@ -20,10 +21,11 @@ export default function AppHeader({
   onRightPress,
   rightIconName,
 }: AppHeaderProps) {
+  const insets = useSafeAreaInsets();
   const showRightAction = Boolean(rightLabel && onRightPress);
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
       <View style={styles.row}>
         <View style={styles.side}>
           {onBack ? (
@@ -60,7 +62,6 @@ export default function AppHeader({
 const styles = StyleSheet.create({
   wrapper: {
     backgroundColor: '#0a2847',
-    paddingTop: 54,
     paddingBottom: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.lg,
   },

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
 import { tokens } from '../../theme/tokens';
 import PersonalInformation from './PersonalInformation';
@@ -42,6 +43,7 @@ export default function Settings({
   onNavigateSupport,
   currentRole = 'worker',
 }: SettingsProps) {
+  const insets = useSafeAreaInsets();
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
   const [profileName, setProfileName] = useState('Account User');
   const [profileEmail, setProfileEmail] = useState('No email set');
@@ -197,15 +199,19 @@ export default function Settings({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.88}>
-          <Ionicons name="chevron-back" size={22} color="#4B5563" />
+          <Ionicons name="chevron-back" size={22} color="#E2E8F0" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
+        <View style={styles.headerCopy}>
+          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerSubtitle}>Manage profile, security, support, and account controls.</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <TouchableOpacity style={styles.profileCard} onPress={handleOpenPersonalInfo} activeOpacity={0.9}>
+          <View style={styles.profileGlow} />
           <View style={styles.profileLeft}>
             {avatarSource ? (
               <Image source={avatarSource} style={styles.avatar} />
@@ -215,6 +221,9 @@ export default function Settings({
               </View>
             )}
             <View style={styles.profileMeta}>
+              <View style={styles.profileBadge}>
+                <Text style={styles.profileBadgeText}>{currentRole === 'employer' ? 'Employer settings' : 'Worker settings'}</Text>
+              </View>
               <Text style={styles.profileName} numberOfLines={1}>
                 {profileName}
               </Text>
@@ -224,7 +233,7 @@ export default function Settings({
             </View>
           </View>
           <View style={styles.editButton}>
-            <Text style={styles.editButtonText}>Edit</Text>
+            <Text style={styles.editButtonText}>Open</Text>
           </View>
         </TouchableOpacity>
 
@@ -252,31 +261,38 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F5F9',
   },
   header: {
-    paddingTop: 56,
     paddingHorizontal: 22,
     paddingBottom: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#F8FAFC',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8ECF3',
+    backgroundColor: '#0a2847',
   },
   backButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#D7DEE8',
-    backgroundColor: '#EEF2F7',
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerCopy: {
+    flex: 1,
+    gap: 4,
+  },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-    letterSpacing: -0.2,
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#CBD5F0',
+    fontWeight: '500',
   },
   scroll: {
     paddingHorizontal: 16,
@@ -285,17 +301,27 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   profileCard: {
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: '#0F2954',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#E5EAF1',
+    borderColor: 'rgba(148,163,184,0.2)',
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 102,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    overflow: 'hidden',
     ...tokens.shadow.card,
+  },
+  profileGlow: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(37,99,235,0.22)',
+    top: -28,
+    right: -24,
   },
   profileLeft: {
     flexDirection: 'row',
@@ -310,33 +336,50 @@ const styles = StyleSheet.create({
     height: 62,
     borderRadius: 31,
     backgroundColor: '#CBD5E1',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.22)',
   },
   avatarFallback: {
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: '#CBD5E1',
+    backgroundColor: '#DCE6F7',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.18)',
   },
   avatarInitials: {
     fontSize: 22,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#0F172A',
   },
   profileMeta: {
     flex: 1,
     minWidth: 0,
+    gap: 3,
+  },
+  profileBadge: {
+    alignSelf: 'flex-start',
+    minHeight: 26,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  profileBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#BFDBFE',
   },
   profileName: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: 2,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   profileEmail: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#CBD5F0',
     fontWeight: '500',
   },
   editButton: {
@@ -344,16 +387,16 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D1D8E3',
-    backgroundColor: '#F8FAFC',
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 14,
   },
   editButtonText: {
     fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
   sectionLabel: {
     marginTop: 12,

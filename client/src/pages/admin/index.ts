@@ -3,6 +3,8 @@ export { AdminDashboard } from "./AdminDashboard";
 export { AdminAnalytics } from "./AdminAnalytics";
 export { AdminReports } from "./AdminReports";
 export { AdminEWalletMonitoring } from "./AdminEWalletMonitoring";
+export { AdminPayoutRequests } from "./AdminPayoutRequests";
+export { AdminSupportTickets } from "./AdminSupportTickets";
 export { AdminJobMonitoring } from "./AdminJobMonitoring";
 export { AdminSecurity } from "./AdminSecurity";
 export { AdminUserManagement } from "./AdminUserManagement";

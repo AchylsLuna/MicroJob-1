@@ -18,6 +18,7 @@ export default function WorkerInbox({
   notificationBadgeCount = 0,
   messageBadgeCount = 0,
   initialChatTarget = null,
+  onConsumeInitialChatTarget,
 }: {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
@@ -26,13 +27,15 @@ export default function WorkerInbox({
   notificationBadgeCount?: number;
   messageBadgeCount?: number;
   initialChatTarget?: ChatTarget | null;
+  onConsumeInitialChatTarget?: () => void;
 }) {
   const [selectedUser, setSelectedUser] = useState<ChatTarget | null>(null);
 
   useEffect(() => {
     if (!initialChatTarget?.id) return;
     setSelectedUser(initialChatTarget);
-  }, [initialChatTarget]);
+    onConsumeInitialChatTarget?.();
+  }, [initialChatTarget, onConsumeInitialChatTarget]);
 
   return (
     <View style={styles.container}>

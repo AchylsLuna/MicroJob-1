@@ -22,6 +22,7 @@ import {
   resetPasswordWithOtp,
   requestPasswordChangeOtp,
   changePasswordWithOtp,
+  requestSelfDelete,
 } from '../controllers/UserController.js';
 import {
   isValidName,
@@ -578,6 +579,9 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
     }
+    if (user.status === 'deleted') {
+      return sendError(res, 401, 'Account has been deleted.');
+    }
     if (user.mfaEnabled) {
       const mfaToken = createMfaChallengeToken(String(user._id), includePhone);
       return sendSuccess(
@@ -647,6 +651,9 @@ router.post('/login/mfa', loginLimiter, async (req, res) => {
     }
     if (user.status === 'disabled') {
       return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user.status === 'deleted') {
+      return sendError(res, 401, 'Account has been deleted.');
     }
 
     const verification = await verifyMfaCodeForUser(user, code, true);
@@ -1020,7 +1027,7 @@ router.post('/logout', verifyToken, async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      'firstName lastName email phoneNumber role city country province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance'
+      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance'
     );
     if (!user) {
       return sendError(res, 404, 'User not found');
@@ -1307,6 +1314,7 @@ const deleteAvatar = async (req, res) => {
 router.get(['/profile', '/me'], verifyToken, getProfile);
 router.get('/profiles/:userId', verifyToken, getPublicProfile);
 router.patch(['/profile', '/me'], verifyToken, updateMe);
+router.post('/me/delete', verifyToken, requestSelfDelete);
 router.post('/profile/avatar', verifyToken, multerAvatar.single('avatar'), uploadAvatar);
 router.delete('/profile/avatar', verifyToken, deleteAvatar);
 router.post('/profile/resume', verifyToken, multerResume.single('resume'), uploadResume);

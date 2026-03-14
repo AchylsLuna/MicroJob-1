@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Alert, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../../theme/tokens';
+import { useToast } from '../../contexts/ToastContext';
 
 interface Message {
   _id: string;
@@ -31,6 +33,8 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  const insets = useSafeAreaInsets();
+  const toast = useToast();
 
   const getEntityId = (value: any) => {
     if (!value) return '';
@@ -116,7 +120,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       }, 'Unable to send message');
       if (!result.ok) {
         console.warn('Send message failed', result.status, result.raw);
-        Alert && Alert.alert && Alert.alert('Send failed', result.message || 'Unable to send message');
+        toast.error(result.message || 'Unable to send message.');
         return;
       }
       setInput('');
@@ -124,7 +128,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       fetchMessages();
     } catch (err) {
       console.warn('Send message error', err);
-      Alert && Alert.alert && Alert.alert('Send failed', 'Network error');
+      toast.error('Network error.');
     }
   };
 
@@ -148,14 +152,16 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerText}>{displayName || 'Chat'}</Text>
-          <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications}>
-            <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
-            {notificationBadgeCount > 0 ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
+          {onOpenNotifications ? (
+            <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications}>
+              <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
+              {notificationBadgeCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
+                </View>
+              ) : null}
+            </TouchableOpacity>
+          ) : null}
         </View>
         <FlatList
           ref={flatListRef}
@@ -173,7 +179,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           }}
           contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         />
-      <View style={styles.inputRow}>
+      <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <TextInput
           style={styles.input}
           value={input}

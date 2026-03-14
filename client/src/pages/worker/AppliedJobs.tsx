@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowRight, BriefcaseBusiness, ClipboardList } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
+import type { ApplicationStatus } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 
 interface JobData {
@@ -17,19 +19,30 @@ interface JobData {
 
 interface Application {
   _id: string;
-  status: "Pending" | "Shortlisted" | "Terms" | "Hired";
+  status: ApplicationStatus;
   appliedDate: string;
+  createdAt?: string;
   job: JobData;
 }
 
+const FILTER_OPTIONS: Array<"All" | ApplicationStatus> = [
+  "All",
+  "Applied",
+  "Shortlisted",
+  "Interview Scheduled",
+  "Interviewed",
+  "Offer Sent",
+  "Hired",
+  "Rejected",
+  "Withdrawn",
+];
+
 const AppliedJobs: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedFilter, setSelectedFilter] = useState<string>("All");
+  const [selectedFilter, setSelectedFilter] = useState<"All" | ApplicationStatus>("All");
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const filterOptions = ["All", "Pending", "Shortlisted", "Terms", "Hired"];
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -51,20 +64,32 @@ const AppliedJobs: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Pending": return "bg-yellow-100 text-yellow-700";
+      case "Applied": return "bg-slate-100 text-slate-700";
       case "Shortlisted": return "bg-blue-100 text-blue-700";
-      case "Terms": return "bg-indigo-100 text-indigo-700";
+      case "Interview Scheduled": return "bg-cyan-100 text-cyan-700";
+      case "Interviewed": return "bg-indigo-100 text-indigo-700";
+      case "Offer Sent": return "bg-fuchsia-100 text-fuchsia-700";
       case "Hired": return "bg-green-100 text-green-700";
+      case "Rejected": return "bg-red-100 text-red-700";
+      case "Withdrawn": return "bg-gray-100 text-gray-600";
       default: return "bg-gray-100 text-gray-700";
     }
   };
 
   const filteredApplications = applications;
+  const emptyStateLabel =
+    selectedFilter === "All" ? "Application tracker" : `${selectedFilter} stage`;
+  const emptyStateTitle =
+    selectedFilter === "All" ? "No applications yet" : `No applications in ${selectedFilter}`;
+  const emptyStateDescription =
+    selectedFilter === "All"
+      ? "Once you apply for jobs, they will appear here with status updates, interview progress, and hiring decisions."
+      : `You do not have any applications in the ${selectedFilter} stage right now. Browse more roles or switch back to all applications.`;
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       <div className="flex flex-wrap items-center gap-2">
-        {filterOptions.map((filter) => (
+        {FILTER_OPTIONS.map((filter) => (
           <button
             key={filter}
             onClick={() => setSelectedFilter(filter)}
@@ -149,7 +174,7 @@ const AppliedJobs: React.FC = () => {
 
                     <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200">
                       <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>🕒 Applied {new Date(application.appliedDate).toLocaleDateString()}</span>
+                        <span>🕒 Applied {new Date(application.appliedDate || application.createdAt || Date.now()).toLocaleDateString()}</span>
                         <span>👥 {application.job?.applicants?.length || 0} applicants</span>
                         <span>📅 Deadline: {application.job?.deadline ? new Date(application.job.deadline).toLocaleDateString() : "N/A"}</span>
                       </div>
@@ -173,18 +198,44 @@ const AppliedJobs: React.FC = () => {
 
           {/* Empty State */}
           {!loading && filteredApplications.length === 0 && (
-            <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-              <div className="text-6xl mb-4">📋</div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Applications Found</h3>
-              <p className="text-gray-600 mb-6">
-                You haven't applied to any jobs with this status yet.
-              </p>
-              <button
-                onClick={() => navigate(ROUTES.worker.findJobs)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition"
-              >
-                Browse Jobs
-              </button>
+            <div className="rounded-[20px] border border-[#E5E7EB] bg-white px-8 py-12 text-center shadow-sm sm:px-12">
+              <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
+                <div className="mb-4 flex h-18 w-18 items-center justify-center rounded-[20px] bg-[#EFF6FF] text-[#1C4D8D]">
+                  <ClipboardList className="h-8 w-8" />
+                </div>
+
+                <div className="mb-4 inline-flex items-center rounded-full bg-[#F8FAFC] px-3 py-1 text-[12px] font-medium text-[#64748B]">
+                  {emptyStateLabel}
+                </div>
+
+                <h3 className="max-w-xl text-[28px] font-bold tracking-[-0.02em] text-[#111827] sm:text-[32px]">
+                  {emptyStateTitle}
+                </h3>
+
+                <p className="mt-3 max-w-xl text-[16px] leading-7 text-[#6B7280]">
+                  {emptyStateDescription}
+                </p>
+
+                <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={() => navigate(ROUTES.worker.findJobs)}
+                    className="inline-flex items-center gap-2 rounded-[14px] bg-[#1C4D8D] px-5 py-3 text-[15px] font-semibold text-white transition hover:bg-[#163d6f]"
+                  >
+                    <BriefcaseBusiness className="h-4 w-4" />
+                    Browse Jobs
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+
+                  {selectedFilter !== "All" ? (
+                    <button
+                      onClick={() => setSelectedFilter("All")}
+                      className="inline-flex items-center gap-2 rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-3 text-[15px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
+                    >
+                      Show All Applications
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
           )}
       </div>

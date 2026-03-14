@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,10 +12,12 @@ import {
   View,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
 import TabTopNav from '../../components/TabTopNav';
+import { useToast } from '../../contexts/ToastContext';
 
 type Category = { _id: string; name: string };
 
@@ -45,6 +46,7 @@ export default function EmployerPostJob({
   activeTab,
   onTabPress,
 }: PostJobProps) {
+  const insets = useSafeAreaInsets();
   const [formData, setFormData] = useState<FormData>({
     title: '',
     category: '',
@@ -68,6 +70,7 @@ export default function EmployerPostJob({
   const [submitting, setSubmitting] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const toast = useToast();
 
   const isEditing = Boolean(jobToEdit?._id);
 
@@ -250,7 +253,7 @@ export default function EmployerPostJob({
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.message || 'Failed to post job.');
 
-      Alert.alert('Success', isEditing ? 'Job updated successfully.' : 'Job posted successfully.');
+      toast.success(isEditing ? 'Job updated successfully.' : 'Job posted successfully.');
       onPosted?.();
       setFormData({
         title: '',
@@ -281,10 +284,10 @@ export default function EmployerPostJob({
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -506,7 +509,7 @@ export default function EmployerPostJob({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f7fb' },
   flex: { flex: 1 },
-  scroll: { padding: 20, paddingBottom: 90 },
+  scroll: { padding: 20 },
   card: {
     backgroundColor: '#ffffff',
     borderRadius: 18,

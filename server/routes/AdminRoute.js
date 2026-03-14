@@ -10,16 +10,19 @@ import {
   getAdminRecentPayouts,
   getAdminTransactions,
 } from '../controllers/AdminController.js';
+import { listAdminPayoutRequests, updateAdminPayoutRequest } from '../controllers/PaymentController.js';
+import {
+  listAdminSupportTickets,
+  updateAdminSupportTicket,
+  getSupportTicketById,
+  replyToSupportTicket,
+} from '../controllers/SupportController.js';
 
 const router = Router();
 
-// Protect all admin routes with auth and admin middleware
 router.use(auth);
 router.use(requireAdmin);
 
-/**
- * ADMIN ENDPOINTS
- */
 router.get('/stats', getAdminStats);
 router.get('/users', getAdminUsers);
 router.get('/jobs', getAdminJobs);
@@ -27,5 +30,11 @@ router.get('/categories', getAdminCategories);
 router.get('/wallets', getAdminWalletStats);
 router.get('/recent-payouts', getAdminRecentPayouts);
 router.get('/transactions', getAdminTransactions);
+router.get('/payout-requests', listAdminPayoutRequests);
+router.patch('/payout-requests/:payoutRequestId', updateAdminPayoutRequest);
+router.get('/support/tickets', listAdminSupportTickets);
+router.get('/support/tickets/:ticketId', getSupportTicketById);
+router.patch('/support/tickets/:ticketId', updateAdminSupportTicket);
+router.post('/support/tickets/:ticketId/replies', replyToSupportTicket);
 
 export default router;

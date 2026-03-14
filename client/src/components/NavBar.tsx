@@ -9,30 +9,9 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "../services/api";
+import { mapNotificationRecord, type FeedNotification } from "../utils/notificationFeed";
 import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-  link?: string;
-  source: "global" | "application";
-  applicationId?: string;
-}
-
-const formatTimeLabel = (value?: string) => {
-  if (!value) return "just now";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "just now";
-  const diff = Date.now() - date.getTime();
-  if (diff < 60_000) return "just now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return date.toLocaleDateString();
-};
 
 export function NavBar() {
   const navigate = useNavigate();
@@ -41,7 +20,7 @@ export function NavBar() {
   const { logout, user, switchAccountType } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<FeedNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
   
@@ -56,22 +35,12 @@ export function NavBar() {
     user.role !== "admin" &&
     (user.role === "both" || (user as any)?.accountPreference === "both" || hasBothOptions);
   const canSwitchAccount = isBothRole;
-
-  // Log for debugging
-  useEffect(() => {
-    console.log("NavBar - User:", user);
-    console.log("NavBar - hasBothOptions:", hasBothOptions);
-    console.log("NavBar - isBothRole:", isBothRole);
-    console.log("NavBar - canSwitchAccount:", canSwitchAccount);
-  }, [user, hasBothOptions, isBothRole, canSwitchAccount]);
-
-  // Log when menu opens
-  useEffect(() => {
-    if (showUserMenu) {
-      console.log("NavBar - User menu opened, canSwitchAccount:", canSwitchAccount);
-      console.log("NavBar - User object:", user);
-    }
-  }, [showUserMenu, canSwitchAccount, user]);
+  const normalizedRole = String(user?.role || "").toLowerCase();
+  const isEmployerView =
+    user?.accountType === "employer" ||
+    normalizedRole === "employer" ||
+    normalizedRole === "doctor" ||
+    normalizedRole === "hire";
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -106,50 +75,18 @@ export function NavBar() {
   }, [isAppliedJobsPage, path]);
 
   const loadNotifications = async () => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
     setNotificationsLoading(true);
     try {
-      const [globalData, applicationData] = await Promise.all([
-        getNotifications({ limit: 10 }).catch(() => [] as any[]),
-        jobsAPI.getUserApplications().then((res) => res.data || []).catch(() => [] as any[]),
-      ]);
-
-      const globalNotifications = (Array.isArray(globalData) ? globalData : []).map((item: any) => ({
-        id: item._id || item.id,
-        title: item.title || "Notification",
-        message: item.message || "",
-        time: formatTimeLabel(item.createdAt),
-        read: Boolean(item.readAt),
-        link: item.link || undefined,
-        source: "global" as const,
-        sortTime: item.createdAt ? new Date(item.createdAt).getTime() : 0,
-      }));
-
-      const applicationNotifications = (Array.isArray(applicationData) ? applicationData : [])
-        .filter((item: any) => ["Shortlisted", "Terms", "Hired", "Accepted"].includes(item?.status))
-        .map((item: any) => {
-          const status = item?.status || "Updated";
-          const jobTitle = item?.job?.title || "a job";
-          const title = status === "Shortlisted" ? "Application Shortlisted" : `Application ${status}`;
-          const message = `Your application for "${jobTitle}" is now ${String(status).toLowerCase()}.`;
-          const sourceTime = item?.updatedAt || item?.createdAt;
-          return {
-            id: `app-${item?._id || Math.random().toString(36).slice(2)}`,
-            applicationId: item?._id,
-            title,
-            message,
-            time: formatTimeLabel(sourceTime),
-            read: Boolean(item?.applicantReadAt),
-            link: item?.job?._id ? ROUTES.worker.jobDetails(item.job._id) : ROUTES.notifications,
-            source: "application" as const,
-            sortTime: sourceTime ? new Date(sourceTime).getTime() : 0,
-          };
-        });
-
-      const merged = [...globalNotifications, ...applicationNotifications]
-        .sort((a, b) => b.sortTime - a.sortTime)
-        .map(({ sortTime, ...notification }) => notification) as Notification[];
-
-      setNotifications(merged);
+      const data = await getNotifications({ limit: 10 }).catch(() => [] as any[]);
+      const nextNotifications = (Array.isArray(data) ? data : [])
+        .map((item: any) => mapNotificationRecord(item, isEmployerView, "relative"))
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setNotifications(nextNotifications);
     } catch {
       // avoid noisy toast when user is not authenticated
     } finally {
@@ -226,11 +163,21 @@ export function NavBar() {
         ROUTES.legacyDashboard.eWallet,
         ROUTES.legacyShortcuts.eWallet,
         ROUTES.employer.eWallet,
+        ROUTES.admin.payouts,
+        ROUTES.admin.support,
         ROUTES.doctor.eWallet,
+        ROUTES.legacyDashboard.admin.payouts,
+        ROUTES.legacyDashboard.admin.support,
         ROUTES.legacyDashboard.employer.eWallet,
         ROUTES.legacyDashboard.doctor.eWallet,
       )
     ) {
+      if (isPath(ROUTES.admin.payouts, ROUTES.legacyDashboard.admin.payouts)) {
+        return { title: "Payout Requests" };
+      }
+      if (isPath(ROUTES.admin.support, ROUTES.legacyDashboard.admin.support)) {
+        return { title: "Support Tickets" };
+      }
       return { title: "E-Wallet" };
     }
 
@@ -408,7 +355,7 @@ export function NavBar() {
 
   useEffect(() => {
     loadNotifications();
-  }, []);
+  }, [user, isEmployerView]);
 
   // Reload notifications when location changes (e.g., user marks notifications as read on a different page)
   useEffect(() => {
@@ -446,14 +393,11 @@ export function NavBar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const markAsRead = async (notification: Notification) => {
+  const markAsRead = async (notification: FeedNotification) => {
     setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
     try {
-      if (notification.source === "application" && notification.applicationId) {
-        await jobsAPI.markApplicantRead(notification.applicationId);
-      } else {
-        await markNotificationRead(notification.id);
-      }
+      await markNotificationRead(notification.id);
+      window.dispatchEvent(new Event("notification-refresh"));
     } catch (error: any) {
       toast.error(error?.message || "Failed to mark notification.");
     }
@@ -462,17 +406,8 @@ export function NavBar() {
   const markAllAsRead = async () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      const unreadApplicationNotifications = notifications.filter(
-        (notification) =>
-          !notification.read && notification.source === "application" && notification.applicationId,
-      );
-
-      await Promise.all([
-        ...unreadApplicationNotifications.map((notification) =>
-          jobsAPI.markApplicantRead(notification.applicationId as string).catch(() => null),
-        ),
-        markAllNotificationsRead().catch(() => null),
-      ]);
+      await markAllNotificationsRead();
+      window.dispatchEvent(new Event("notification-refresh"));
       toast.success("All notifications marked as read");
     } catch (error: any) {
       toast.error(error?.message || "Failed to mark all as read.");
@@ -487,20 +422,14 @@ export function NavBar() {
   };
 
   const handleSwitchTo = (nextType: "worker" | "employer") => {
-    console.log("NavBar - handleSwitchTo called with nextType:", nextType);
-    console.log("NavBar - Current user.accountType:", user?.accountType);
-    
     if (!user || user.accountType === nextType) {
-      console.log("NavBar - Switch aborted: user missing or already on this type");
       return;
     }
-    
-    console.log("NavBar - Calling switchAccountType...");
+
     switchAccountType(nextType);
     setShowUserMenu(false);
-    
+
     const targetRoute = nextType === "employer" ? ROUTES.employer.dashboard : ROUTES.worker.dashboard;
-    console.log("NavBar - Navigating to:", targetRoute);
     navigate(targetRoute);
   };
 
@@ -585,11 +514,7 @@ export function NavBar() {
                         }`}
                         onClick={async () => {
                           await markAsRead(notification);
-                          if (notification.link) {
-                            navigate(notification.link);
-                          } else {
-                            navigate(ROUTES.notifications);
-                          }
+                          navigate(notification.link || ROUTES.notifications);
                           setShowNotifications(false);
                         }}
                       >
@@ -623,8 +548,6 @@ export function NavBar() {
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => {
-                console.log("NavBar - Profile button clicked. Current canSwitchAccount:", canSwitchAccount);
-                console.log("NavBar - Current user:", user);
                 setShowUserMenu(!showUserMenu);
                 setShowNotifications(false);
               }}

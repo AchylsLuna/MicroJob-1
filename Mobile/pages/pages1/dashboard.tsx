@@ -175,8 +175,8 @@ export default function Dashboard({
               <Text style={styles.uploadTitle}>Upload your resume</Text>
             </View>
             <Text style={styles.uploadSubtitle}>Get matched with top companies automatically.</Text>
-            <TouchableOpacity style={styles.checkButton} activeOpacity={0.9}>
-              <Text style={styles.checkButtonText}>Check Applied</Text>
+            <TouchableOpacity style={styles.checkButton} activeOpacity={0.9} onPress={onNavigateToJobs}>
+              <Text style={styles.checkButtonText}>Explore jobs</Text>
             </TouchableOpacity>
           </View>
         ) : null}

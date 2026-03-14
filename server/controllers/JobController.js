@@ -4,6 +4,7 @@ import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
+import { createNotification } from '../lib/notificationService.js';
 
 const getRequesterId = (req) => req.user?.id || req.user?.userId || null;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
@@ -227,8 +228,13 @@ export async function createJob(req, res){
             receiver: null, // Escrow
             amount: totalEscrow,
             type: 'ESCROW',
+            status: 'COMPLETED',
+            balanceTarget: 'ESCROW',
             jobReference: newJob._id,
-            label: `Escrow (Job ${newJob._id})`
+            label: `Escrow (Job ${newJob._id})`,
+            relatedEntityType: 'job',
+            relatedEntityId: String(newJob._id),
+            actor: poster._id,
         });
         try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_escrow', ip: req.ip || null, userAgent: req.get('user-agent'), amount: totalEscrow, status: 'success', meta: { job: newJob._id } }); } catch (e) {}
 
@@ -270,13 +276,28 @@ export async function changeJobStatus(req, res){
                     worker.workerBalance = (worker.workerBalance || 0) + job.salary;
                     await worker.save();
 
-                    await Transaction.create({
+                    const payoutTx = await Transaction.create({
                         sender: null, // From escrow
                         receiver: worker._id,
                         amount: job.salary,
                         type: 'PAYOUT',
+                        status: 'COMPLETED',
+                        balanceTarget: 'WORKER',
                         jobReference: job._id,
-                        label: `Payout (Job ${job._id})`
+                        label: `Payout (Job ${job._id})`,
+                        relatedEntityType: 'job',
+                        relatedEntityId: String(job._id),
+                    });
+                    await createNotification({
+                        userId: worker._id,
+                        type: 'payment',
+                        title: 'Job payout completed',
+                        message: `A payout of PHP ${Number(job.salary || 0).toFixed(2)} was added to your worker balance.`,
+                        entityType: 'job',
+                        entityId: job._id,
+                        actor: job.jobPoster || null,
+                        push: true,
+                        socketPayload: { transactionId: String(payoutTx._id), jobId: String(job._id), amount: job.salary },
                     });
                     try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: null, action: 'job_payout', ip: req.ip || null, userAgent: req.get('user-agent'), amount: job.salary, status: 'success', meta: { job: job._id, worker: worker._id } }); } catch (e) {}
                 } catch (e) {
@@ -310,8 +331,13 @@ export async function changeJobStatus(req, res){
                         receiver: poster._id,
                         amount: refundAmount,
                         type: 'REFUND',
+                        status: 'COMPLETED',
+                        balanceTarget: 'EMPLOYER',
                         jobReference: job._id,
-                        label: `Refund (Job ${job._id})`
+                        label: `Refund (Job ${job._id})`,
+                        relatedEntityType: 'job',
+                        relatedEntityId: String(job._id),
+                        actor: poster._id,
                     });
                     try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_refund', ip: req.ip || null, userAgent: req.get('user-agent'), amount: refundAmount, status: 'success', meta: { job: job._id } }); } catch (e) {}
                 }

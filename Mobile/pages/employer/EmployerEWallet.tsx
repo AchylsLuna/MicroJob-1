@@ -7,16 +7,17 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Alert,
   ActivityIndicator,
   Linking,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import EmployerNavigation from '../../components/employerNavigation';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { useToast } from '../../contexts/ToastContext';
 
 type EmployerEWalletProps = {
   onBack?: () => void;
@@ -34,44 +35,22 @@ type WalletTransaction = {
   status: 'Completed' | 'Pending';
 };
 
-const fallbackTransactions: WalletTransaction[] = [
-  {
-    id: '1',
-    title: 'Job Posted - Tech Solutions',
-    date: 'Feb 10, 2026',
-    amount: 25000,
-    status: 'Completed',
-  },
-  {
-    id: '2',
-    title: 'Job Posted - Innovation Labs',
-    date: 'Feb 06, 2026',
-    amount: 18000,
-    status: 'Completed',
-  },
-  {
-    id: '3',
-    title: 'Job Posted - Digital Ventures',
-    date: 'Feb 02, 2026',
-    amount: 32000,
-    status: 'Pending',
-  },
-];
-
 export default function EmployerEWallet({
   onBack,
   activeTab = 'EWallet',
   onTabPress,
 }: EmployerEWalletProps) {
+  const insets = useSafeAreaInsets();
   const [topupAmount, setTopupAmount] = useState('');
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const [liveBalance, setLiveBalance] = useState(0);
   const [walletTarget, setWalletTarget] = useState<'EMPLOYER' | 'WORKER' | 'BOTH'>('EMPLOYER');
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(fallbackTransactions);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const appStateRef = useRef(AppState.currentState);
   const refreshAfterBrowserRef = useRef(false);
   const pendingTopupRef = useRef<{ referenceNumber?: string; checkoutId?: string; provider?: string } | null>(null);
+  const toast = useToast();
 
   const parsedTopupAmount = Number(String(topupAmount || '').replace(/[^0-9.]/g, ''));
   const canCreatePayment = !isCreatingPayment && Number.isFinite(parsedTopupAmount) && parsedTopupAmount >= 100;
@@ -136,9 +115,7 @@ export default function EmployerEWallet({
       if (txResult.ok) {
         const txPayload = asObject<any>(txResult.data) || asObject<any>(txResult.raw) || {};
         const list = Array.isArray(txPayload?.transactions) ? txPayload.transactions : [];
-        if (list.length > 0) {
-          setTransactions(list.map(mapTxToUi));
-        }
+        setTransactions(list.map(mapTxToUi));
       }
     } catch {
       // Keep existing values when refresh fails.
@@ -220,7 +197,7 @@ export default function EmployerEWallet({
 
   const handleTestPayment = async () => {
     if (!canCreatePayment) {
-      Alert.alert('Invalid amount', 'Enter a valid top-up amount (minimum PHP 100).');
+      toast.error('Enter a valid top-up amount (minimum PHP 100).');
       return;
     }
 
@@ -228,7 +205,7 @@ export default function EmployerEWallet({
       setIsCreatingPayment(true);
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        Alert.alert('Sign in required', 'Please sign in first before topping up.');
+        toast.error('Please sign in first before topping up.');
         return;
       }
 
@@ -254,7 +231,7 @@ export default function EmployerEWallet({
         payload.url;
 
       if (!result.ok || !checkoutUrl) {
-        Alert.alert('Top up failed', result.message || 'No payment link was returned by the server.');
+        toast.error(result.message || 'No payment link was returned by the server.');
         return;
       }
 
@@ -268,15 +245,15 @@ export default function EmployerEWallet({
 
       const supported = await Linking.canOpenURL(String(checkoutUrl));
       if (!supported) {
-        Alert.alert('Open link failed', 'Unable to open payment link on this device.');
+        toast.error('Unable to open payment link on this device.');
         return;
       }
 
       await Linking.openURL(String(checkoutUrl));
       refreshAfterBrowserRef.current = true;
-      Alert.alert('Redirecting', 'Opening payment link in your browser. Complete payment to top up your wallet.');
+      toast.info('Opening payment link in your browser. Complete payment to top up your wallet.');
     } catch (error: any) {
-      Alert.alert('Top up failed', error?.message || 'Unable to start top up right now.');
+      toast.error(error?.message || 'Unable to start top up right now.');
     } finally {
       setIsCreatingPayment(false);
     }
@@ -284,7 +261,7 @@ export default function EmployerEWallet({
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
         <TouchableOpacity style={styles.headerButton} onPress={onBack}>
           <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
         </TouchableOpacity>
@@ -292,7 +269,10 @@ export default function EmployerEWallet({
         <View style={styles.headerButtonPlaceholder} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 120 + Math.max(insets.bottom, 10) }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.balanceCard}>
           <Text style={styles.balanceLabel}>Employer Balance</Text>
           <Text style={styles.balanceValue}>PHP {liveBalance.toLocaleString()}</Text>
@@ -302,30 +282,30 @@ export default function EmployerEWallet({
               <Ionicons name="arrow-up-outline" size={14} color={tokens.colors.onBrand} />
               <Text style={styles.balanceActionText}>Top Up</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.balanceAction}>
-              <Ionicons name="arrow-down-outline" size={14} color={tokens.colors.onBrand} />
-              <Text style={styles.balanceActionText}>Cash Out</Text>
-            </TouchableOpacity>
+            <View style={[styles.balanceAction, styles.balanceActionMuted]}>
+              <Ionicons name="wallet-outline" size={14} color={tokens.colors.onBrandMuted} />
+              <Text style={styles.balanceActionTextMuted}>Employer wallet only</Text>
+            </View>
           </View>
         </View>
 
         <View style={styles.quickIconRow}>
-          <TouchableOpacity style={styles.quickIconCard}>
+          <View style={styles.quickIconCard}>
             <Ionicons name="phone-portrait-outline" size={22} color="#2563EB" />
             <Text style={styles.quickIconLabel}>Scan</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickIconCard}>
+          </View>
+          <View style={styles.quickIconCard}>
             <Ionicons name="arrow-up-outline" size={22} color="#059669" />
             <Text style={styles.quickIconLabel}>Send</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickIconCard}>
+          </View>
+          <View style={styles.quickIconCard}>
             <Ionicons name="card-outline" size={22} color="#D97706" />
             <Text style={styles.quickIconLabel}>Bills</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickIconCard}>
+          </View>
+          <View style={styles.quickIconCard}>
             <Ionicons name="add-outline" size={22} color="#7C3AED" />
             <Text style={styles.quickIconLabel}>More</Text>
-          </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.card}>
@@ -360,36 +340,41 @@ export default function EmployerEWallet({
         <View style={styles.card}>
           <View style={styles.transactionsHeader}>
             <Text style={styles.cardTitle}>Transactions</Text>
-            <TouchableOpacity>
-              <Text style={styles.fullReport}>Full Report</Text>
-            </TouchableOpacity>
+            <Text style={styles.fullReport}>Recent activity</Text>
           </View>
           <Text style={styles.cardSubtitle}>Latest wallet activity.</Text>
 
-          {transactions.map((txn, index) => (
-            <View
-              key={txn.id}
-              style={[styles.transactionRow, index === transactions.length - 1 ? styles.transactionRowLast : undefined]}
-            >
-              <View style={styles.transactionIcon}>
-                <Ionicons
-                  name={txn.status === 'Completed' ? 'arrow-down-outline' : 'time-outline'}
-                  size={18}
-                  color={txn.status === 'Completed' ? tokens.colors.success : tokens.colors.warning}
-                />
-              </View>
-              <View style={styles.transactionLeft}>
-                <Text style={styles.transactionTitle}>{txn.title}</Text>
-                <Text style={styles.transactionDate}>{txn.date}</Text>
-              </View>
-              <View style={styles.transactionRight}>
-                <Text style={styles.transactionAmount}>±PHP {txn.amount.toLocaleString()}</Text>
-                <Text style={txn.status === 'Completed' ? styles.transactionStatusComplete : styles.transactionStatusPending}>
-                  {txn.status}
-                </Text>
-              </View>
+          {transactions.length === 0 ? (
+            <View style={styles.emptyTransactions}>
+              <Ionicons name="receipt-outline" size={38} color={tokens.colors.textMuted} />
+              <Text style={styles.emptyTransactionsText}>No employer wallet transactions yet</Text>
             </View>
-          ))}
+          ) : (
+            transactions.map((txn, index) => (
+              <View
+                key={txn.id}
+                style={[styles.transactionRow, index === transactions.length - 1 ? styles.transactionRowLast : undefined]}
+              >
+                <View style={styles.transactionIcon}>
+                  <Ionicons
+                    name={txn.status === 'Completed' ? 'arrow-down-outline' : 'time-outline'}
+                    size={18}
+                    color={txn.status === 'Completed' ? tokens.colors.success : tokens.colors.warning}
+                  />
+                </View>
+                <View style={styles.transactionLeft}>
+                  <Text style={styles.transactionTitle}>{txn.title}</Text>
+                  <Text style={styles.transactionDate}>{txn.date}</Text>
+                </View>
+                <View style={styles.transactionRight}>
+                  <Text style={styles.transactionAmount}>±PHP {txn.amount.toLocaleString()}</Text>
+                  <Text style={txn.status === 'Completed' ? styles.transactionStatusComplete : styles.transactionStatusPending}>
+                    {txn.status}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
         </View>
       </ScrollView>
 
@@ -404,7 +389,6 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.background,
   },
   header: {
-    paddingTop: 54,
     paddingBottom: 14,
     paddingHorizontal: 16,
     backgroundColor: '#0a2847',
@@ -435,7 +419,6 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
     gap: 14,
   },
   balanceCard: {
@@ -480,8 +463,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: 'rgba(255,255,255,0.12)',
   },
+  balanceActionMuted: {
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
   balanceActionText: {
     color: tokens.colors.onBrand,
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  balanceActionTextMuted: {
+    color: tokens.colors.onBrandMuted,
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -537,6 +531,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
     color: tokens.colors.textMuted,
     fontSize: 12,
+  },
+  emptyTransactions: {
+    marginTop: 18,
+    marginBottom: 6,
+    alignItems: 'center',
+    paddingVertical: 18,
+    gap: 8,
+  },
+  emptyTransactionsText: {
+    color: tokens.colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   formField: {
     marginTop: 12,

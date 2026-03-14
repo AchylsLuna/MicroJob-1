@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 
 type Role = 'worker' | 'employer';
@@ -28,11 +29,12 @@ export default function TabTopNav({
   showSettings = false,
   showNotifications = false,
 }: TabTopNavProps) {
+  const insets = useSafeAreaInsets();
   const nextRole: Role = currentRole === 'worker' ? 'employer' : 'worker';
   const shouldShowActions = showModeSwitch || showSettings || showNotifications;
 
   return (
-    <View style={styles.topHeader}>
+    <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
       <Text style={styles.topHeaderTitle} numberOfLines={1}>
         {title}
       </Text>
@@ -95,7 +97,6 @@ const styles = StyleSheet.create({
   topHeader: {
     backgroundColor: '#0a2847',
     paddingHorizontal: 18,
-    paddingTop: 54,
     paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',

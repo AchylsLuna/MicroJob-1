@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const YEAR_OPTIONS = [
   '1 year',
@@ -22,6 +23,7 @@ type AddExperienceProps = {
 };
 
 export default function AddExperience({ visible, onClose, onAdd, initialTotalExperience = '' }: AddExperienceProps) {
+  const insets = useSafeAreaInsets();
   const [selectedYears, setSelectedYears] = useState(initialTotalExperience);
 
   useEffect(() => {
@@ -49,10 +51,10 @@ export default function AddExperience({ visible, onClose, onAdd, initialTotalExp
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <View style={styles.overlay} />
-        <View style={styles.modal}>
+        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]}>
           <Text style={styles.modalTitle}>Add Experience</Text>
 
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>

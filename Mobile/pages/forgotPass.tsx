@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +12,7 @@ import { Feather } from '@expo/vector-icons';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import { useToast } from '../contexts/ToastContext';
 
 type Props = {
   onBack?: () => void;
@@ -26,6 +26,7 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const toast = useToast();
 
   const fieldHeight = clamp(screenHeight * 0.082, 64, 74);
   const fieldRadius = clamp(fieldHeight * 0.24, 16, 18);
@@ -42,11 +43,11 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
   const handleSendReset = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      Alert.alert('Error', 'Please enter your email address.');
+      toast.error('Please enter your email address.');
       return;
     }
     if (!EMAIL_REGEX.test(normalizedEmail)) {
-      Alert.alert('Error', 'Please enter a valid email address.');
+      toast.error('Please enter a valid email address.');
       return;
     }
 
@@ -54,7 +55,7 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
     try {
       await onSendReset?.(normalizedEmail);
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Unable to send reset code.');
+      toast.error(error?.message || 'Unable to send reset code.');
     } finally {
       setIsLoading(false);
     }

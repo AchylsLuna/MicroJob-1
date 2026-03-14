@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -15,9 +14,11 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { useToast } from '../../contexts/ToastContext';
 
 type PersonalInformationProps = {
   onBack?: () => void;
@@ -25,6 +26,7 @@ type PersonalInformationProps = {
 };
 
 export default function PersonalInformation({ onBack }: PersonalInformationProps) {
+  const insets = useSafeAreaInsets();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -37,6 +39,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [originalEmail, setOriginalEmail] = useState('');
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
+  const toast = useToast();
 
   useEffect(() => {
     loadProfile();
@@ -72,7 +75,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        Alert.alert('Session Expired', 'Please log in again to continue.');
+        toast.error('Please log in again to continue.');
         setIsLoading(false);
         return;
       }
@@ -88,7 +91,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       if (!result.ok) {
         const errorText = JSON.stringify(result.raw || {});
         if (errorText.includes('401') || errorText.includes('Unauthorized')) {
-          Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+          toast.error('Your session has expired. Please log in again.');
           await AsyncStorage.removeItem('auth_token');
           await AsyncStorage.removeItem('auth_user');
         }
@@ -126,7 +129,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert('Permission required', 'Please allow photo access to update your profile picture.');
+        toast.error('Please allow photo access to update your profile picture.');
         return;
       }
 
@@ -144,7 +147,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       const asset = picked.assets[0];
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        Alert.alert('Session Expired', 'Please log in again.');
+        toast.error('Please log in again.');
         return;
       }
 
@@ -192,7 +195,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         }
       }
     } catch (error: any) {
-      Alert.alert('Error', error?.message || 'Failed to upload profile picture.');
+      toast.error(error?.message || 'Failed to upload profile picture.');
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -205,7 +208,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        Alert.alert('Error', 'Authentication token not found');
+        toast.error('Authentication token not found.');
         return;
       }
 
@@ -251,7 +254,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
           errorMessage = 'This email is already in use. Please use a different email.';
         }
 
-        Alert.alert('Error', errorMessage);
+        toast.error(errorMessage);
         return;
       }
 
@@ -271,18 +274,18 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         console.log('Failed to update cached user', cacheError);
       }
 
-      Alert.alert('Success', 'Profile updated successfully');
+      toast.success('Profile updated successfully.');
       await loadProfile();
     } catch (error) {
       console.log('Error saving personal information:', error);
-      Alert.alert('Error', 'Failed to save personal information');
+      toast.error('Failed to save personal information.');
     } finally {
       setIsSaving(false);
     }
   };
 
   const renderHeader = () => (
-    <View style={styles.header}>
+    <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10, minHeight: Math.max(insets.top, 10) + 64 }]}>
       <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.9}>
         <Ionicons name="chevron-back" size={22} color="#4B5563" />
       </TouchableOpacity>
@@ -298,7 +301,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 24 : 0}
       >
         {renderHeader()}
         <View style={styles.loadingContainer}>
@@ -312,11 +315,14 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 24 : 0}
     >
       {renderHeader()}
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 32 + Math.max(insets.bottom, 16) }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.avatarSection}>
           <View style={styles.avatarFrame}>
             {avatarSource ? (
@@ -431,8 +437,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F5F9',
   },
   header: {
-    height: 108,
-    paddingTop: 50,
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../config';
@@ -33,6 +34,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     onTabPress: externalOnTabPress,
     messageBadgeCount = 0,
   } = props;
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [selectedFilter, setSelectedFilter] = useState<'All' | ApplicationStatus>('All');
   const [applications, setApplications] = useState<AppliedJob[]>([]);
@@ -86,7 +88,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')}>
           <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
         </TouchableOpacity>
@@ -98,9 +100,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
       </View>
 
       <View style={styles.toggleContainer}>
-        <TouchableOpacity style={[styles.toggleBtn, styles.toggleBtnActive]}>
+        <View style={[styles.toggleBtn, styles.toggleBtnActive]}>
           <Text style={styles.toggleBtnTextActive}>Applied Job details</Text>
-        </TouchableOpacity>
+        </View>
         <TouchableOpacity
           style={[styles.toggleBtn, styles.toggleBtnInactive]}
           onPress={onViewSavedJobs}
@@ -130,7 +132,11 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         })}
       </ScrollView>
 
-      <ScrollView style={styles.mainScroll} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.mainScroll}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
+        showsVerticalScrollIndicator={false}
+      >
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         {isLoading ? (
           <View style={styles.loadingRow}>
@@ -182,7 +188,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#e5e7eb' },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 54,
     paddingBottom: 14,
     backgroundColor: '#0a2847',
     flexDirection: 'row',

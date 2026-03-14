@@ -16,6 +16,7 @@ import {
 import { toast } from "../lib/toast";
 import { applyForJob, getJobDetails } from "../services/api";
 import { ROUTES } from "../utils/routes";
+import { useSavedJobs } from "../hooks/useSavedJobs";
 
 type ApiJob = {
   _id: string;
@@ -133,6 +134,7 @@ export function JobDetails() {
   const navigate = useNavigate();
   const location = useLocation();
   const { jobId } = useParams();
+  const { isJobSaved, toggleSavedJob } = useSavedJobs();
   const [isSaved, setIsSaved] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [job, setJob] = useState<ApiJob | null>(null);
@@ -165,8 +167,12 @@ export function JobDetails() {
   useEffect(() => {
     const state = (location.state as JobDetailsLocationState | null) || null;
     setHasApplied(Boolean(state?.isApplied));
-    setIsSaved(false);
-  }, [jobId, location.state]);
+    setIsSaved(jobId ? isJobSaved(jobId) : false);
+  }, [isJobSaved, jobId, location.state]);
+
+  useEffect(() => {
+    setIsSaved(jobId ? isJobSaved(jobId) : false);
+  }, [isJobSaved, jobId]);
 
   const handleApply = async () => {
     if (!job?._id) return;
@@ -179,12 +185,15 @@ export function JobDetails() {
     }
   };
 
-  const handleSave = () => {
-    setIsSaved((prev) => {
-      const nextSaved = !prev;
+  const handleSave = async () => {
+    if (!job?._id) return;
+    try {
+      const nextSaved = await toggleSavedJob(job._id);
+      setIsSaved(nextSaved);
       toast.success(nextSaved ? "Job saved successfully!" : "Job removed from saved");
-      return nextSaved;
-    });
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update saved jobs.");
+    }
   };
 
   const handleMessageEmployer = () => {

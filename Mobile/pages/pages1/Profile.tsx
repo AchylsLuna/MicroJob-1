@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Linking,
   Modal,
@@ -24,6 +23,7 @@ import AddExperience from './AddExperience';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { useToast } from '../../contexts/ToastContext';
 
 type ProfileProps = {
   activeTab?: string;
@@ -56,8 +56,7 @@ export default function Profile({
   const [profile, setProfile] = useState<any>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [showGovernmentScanModal, setShowGovernmentScanModal] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [isToastVisible, setIsToastVisible] = useState(false);
+  const toast = useToast();
 
   const API_ORIGIN = API_URL.replace(/\/api$/, '');
   const apiPort = (() => {
@@ -113,7 +112,7 @@ export default function Profile({
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'We need access to your photo library to upload a profile picture.');
+        toast.error('We need access to your photo library to upload a profile picture.');
         return;
       }
 
@@ -129,7 +128,7 @@ export default function Profile({
       }
     } catch (error) {
       console.log('Error picking image:', error);
-      Alert.alert('Error', 'Failed to pick image');
+      toast.error('Failed to pick image.');
     }
   };
 
@@ -138,7 +137,7 @@ export default function Profile({
       setIsUploadingAvatar(true);
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        Alert.alert('Error', 'Authentication token not found');
+        toast.error('Authentication token not found.');
         return;
       }
 
@@ -207,10 +206,10 @@ export default function Profile({
       }
 
       await loadProfile();
-      Alert.alert('Success', 'Profile picture updated successfully');
+      toast.success('Profile picture updated successfully.');
     } catch (error) {
       console.log('Error uploading profile picture:', error);
-      Alert.alert('Upload Failed', 'Could not upload profile picture. Please try again.');
+      toast.error('Could not upload profile picture. Please try again.');
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -264,14 +263,6 @@ export default function Profile({
       loadProfile();
     }
   }, [activeTab]);
-
-  useEffect(() => {
-    if (!isToastVisible) return;
-    const timeout = setTimeout(() => {
-      setIsToastVisible(false);
-    }, 2600);
-    return () => clearTimeout(timeout);
-  }, [isToastVisible, toastMessage]);
 
   const displayName = [firstName, lastName].filter(Boolean).join(' ') || 'Jonas';
   const locationLabel = [profile?.city, profile?.province, profile?.country].filter(Boolean).join(', ') || 'Location not set';
@@ -377,7 +368,7 @@ export default function Profile({
 
   const handleOpenResume = async () => {
     if (!absoluteResumeUrl) {
-      Alert.alert('No document', 'Upload a CV in Documents first.');
+      toast.info('Upload a CV in Documents first.');
       return;
     }
 
@@ -388,14 +379,13 @@ export default function Profile({
       }
       await Linking.openURL(absoluteResumeUrl);
     } catch {
-      Alert.alert('Unable to open', 'Could not open the uploaded document.');
+      toast.error('Could not open the uploaded document.');
     }
   };
 
   const showGovernmentIdUnavailableToast = () => {
     setShowGovernmentScanModal(false);
-    setToastMessage('Still not available. This will be improved in Capstone 2.');
-    setIsToastVisible(true);
+    toast.info('Still not available. This will be improved in Capstone 2.');
   };
 
   const handleGovernmentIdAction = () => {
@@ -619,15 +609,6 @@ export default function Profile({
           </View>
         </View>
       </Modal>
-
-      {isToastVisible ? (
-        <View style={styles.toastWrapper}>
-          <View style={styles.toastCard}>
-            <Ionicons name="information-circle-outline" size={18} color="#FFFFFF" />
-            <Text style={styles.toastText}>{toastMessage}</Text>
-          </View>
-        </View>
-      ) : null}
 
       <Navigation
         activeTab={profileTab}

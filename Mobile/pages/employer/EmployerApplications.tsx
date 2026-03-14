@@ -46,15 +46,28 @@ type ApplicationItem = {
 type EmployerApplicationsProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
-  onMessageWorker?: (workerId: string, jobId: string) => void;
+  onMessageWorker?: (payload: { workerId: string; workerName?: string; jobId: string }) => void;
 };
 
 const STATUS_OPTIONS: ApplicationStatus[] = APPLICATION_STATUSES;
 
 const getApiStatusCandidates = (status: ApplicationStatus): string[] => {
-  // Support both newer (Interviewed) and older (Terms) backend status enums.
-  if (status === 'To Be Interview') return ['Interviewed', 'Terms'];
-  return [status];
+  switch (status) {
+    case 'Applied':
+      return ['Applied', 'Pending'];
+    case 'Shortlisted':
+      return ['Shortlisted', 'Reviewed'];
+    case 'Interview Scheduled':
+      return ['Interview Scheduled', 'Interviewed', 'Terms'];
+    case 'Interviewed':
+      return ['Interviewed', 'Interview Scheduled', 'Terms'];
+    case 'Offer Sent':
+      return ['Offer Sent', 'Terms'];
+    case 'Hired':
+      return ['Hired', 'Accepted'];
+    default:
+      return [status];
+  }
 };
 
 const toApiFilterStatus = (status: 'All' | ApplicationStatus): string | null => {
@@ -104,20 +117,26 @@ export default function EmployerApplications({
         },
       }, 'Failed to load applications.');
 
-      if (
-        !result.ok &&
-        statusFilter === 'To Be Interview' &&
-        (result.message || '').includes('Invalid status')
-      ) {
-        params.set('status', 'Terms');
-        result = await apiRequest(buildUrl(), {
-          headers: {
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-        }, 'Failed to load applications.');
+      if (!result.ok && (result.message || '').includes('Invalid status') && apiStatusFilter) {
+        const fallbackStatuses = getApiStatusCandidates(statusFilter as ApplicationStatus).slice(1);
+        let fallbackResult = result;
+        for (const fallbackStatus of fallbackStatuses) {
+          params.set('status', fallbackStatus);
+          fallbackResult = await apiRequest(buildUrl(), {
+            headers: {
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }, 'Failed to load applications.');
+          if (fallbackResult.ok) {
+            result = fallbackResult;
+            break;
+          }
+        }
       }
 
-      if (!result.ok) throw new Error(result.message || 'Failed to load applications.');
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to load applications.');
+      }
       const mapped = asList<any>(result.raw, ['applications']).map((item) => ({
         ...item,
         status: normalizeApplicationStatus(item?.status),
@@ -324,11 +343,19 @@ export default function EmployerApplications({
                 <TouchableOpacity onPress={() => handleRemoveApplication(app._id)}>
                   <Text style={styles.removeText}>Remove</Text>
                 </TouchableOpacity>
-                {onMessageWorker && (
-                  <TouchableOpacity onPress={() => onMessageWorker(app.applicant._id, app.job._id)}>
+                {onMessageWorker ? (
+                  <TouchableOpacity
+                    onPress={() =>
+                      onMessageWorker({
+                        workerId: app.applicant._id,
+                        workerName: `${app.applicant?.firstName || ''} ${app.applicant?.lastName || ''}`.trim(),
+                        jobId: app.job._id,
+                      })
+                    }
+                  >
                     <Text style={styles.linkText}>Message</Text>
                   </TouchableOpacity>
-                )}
+                ) : null}
               </View>
             </View>
 

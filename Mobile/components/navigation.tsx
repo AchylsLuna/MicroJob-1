@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 
 type WorkerTab = 'Home' | 'Jobs' | 'EWallet' | 'Messages' | 'Profile';
@@ -35,9 +36,18 @@ export default function Navigation({
   messageBadgeCount = 0,
   profileInitials = 'JD',
 }: Props) {
+  const insets = useSafeAreaInsets();
   return (
     <View style={styles.navWrapper}>
-      <View style={styles.tabBar}>
+      <View
+        style={[
+          styles.tabBar,
+          {
+            paddingBottom: Math.max(insets.bottom, 10) + 4,
+            minHeight: 82 + Math.max(insets.bottom, 10),
+          },
+        ]}
+      >
         {NAV_ITEMS.map((item) => {
           const isEWalletSelected = item.screen === 'EWallet' && (activeTab === 'EWallet' || activeTab === 'E-Wallet');
           const isActive = activeTab === item.screen || isEWalletSelected;
@@ -92,8 +102,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E6EAF2',
     paddingTop: 12,
-    paddingBottom: 14,
-    minHeight: 96,
     borderRadius: 30,
     paddingHorizontal: 10,
     marginHorizontal: 8,

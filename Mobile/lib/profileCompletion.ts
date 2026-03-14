@@ -81,18 +81,12 @@ export const calculateProfileCompletion = (profile: ProfileData): CompletionStat
     if (isFilled) {
       completedFields.push(field.label);
       completedWeight += field.weight;
-      console.log(`✅ ${field.label}: filled (value: ${JSON.stringify(value).substring(0, 50)})`);
     } else {
       incompleteFields.push(field.label);
-      console.log(`❌ ${field.label}: empty (value: ${JSON.stringify(value).substring(0, 50)})`);
     }
   });
 
   const percentage = Math.round((completedWeight / totalWeight) * 100);
-
-  console.log(`\n📊 Profile Completion: ${percentage}% (${completedFields.length}/${PROFILE_FIELDS.length} fields)`);
-  console.log(`Completed: ${completedFields.join(', ')}`);
-  console.log(`Incomplete: ${incompleteFields.join(', ')}\n`);
 
   return {
     percentage: Math.min(percentage, 100),
