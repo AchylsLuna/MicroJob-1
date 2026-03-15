@@ -59,6 +59,91 @@ function PipelineRow({ label, count, colorClass }: { label: string; count: numbe
   );
 }
 
+type Application = {
+  _id: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+  applicant?: { firstName?: string; lastName?: string };
+  job?: { title?: string };
+};
+
+const formatRelativeTime = (value?: string) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const diffMs = Date.now() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  const diffHrs = Math.floor(diffMins / 60);
+  if (diffHrs < 24) return `${diffHrs}h ago`;
+  const diffDays = Math.floor(diffHrs / 24);
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 30) return `${diffDays} days ago`;
+  return date.toLocaleDateString();
+};
+
+const getActivityConfig = (status: string) => {
+  switch (status) {
+    case "Hired":
+      return {
+        icon: <CheckCircle className="h-4 w-4 text-[#10B981]" />,
+        bg: "bg-[#D1FAE5]",
+        label: (name: string, title: string) => (
+          <p className="text-sm text-[#111827]">
+            <span className="font-semibold">{name}</span> was hired for{" "}
+            <span className="font-semibold">{title}</span>
+          </p>
+        ),
+      };
+    case "Rejected":
+      return {
+        icon: <XCircle className="h-4 w-4 text-[#EF4444]" />,
+        bg: "bg-[#FEE2E2]",
+        label: (name: string, title: string) => (
+          <p className="text-sm text-[#111827]">
+            <span className="font-semibold">{name}</span> was rejected for{" "}
+            <span className="font-semibold">{title}</span>
+          </p>
+        ),
+      };
+    case "Shortlisted":
+      return {
+        icon: <Clock className="h-4 w-4 text-[#F59E0B]" />,
+        bg: "bg-[#FEF3C7]",
+        label: (name: string, title: string) => (
+          <p className="text-sm text-[#111827]">
+            <span className="font-semibold">{name}</span> shortlisted for{" "}
+            <span className="font-semibold">{title}</span>
+          </p>
+        ),
+      };
+    case "Interviewed":
+      return {
+        icon: <MessageSquare className="h-4 w-4 text-[#3B82F6]" />,
+        bg: "bg-[#DBEAFE]",
+        label: (name: string, title: string) => (
+          <p className="text-sm text-[#111827]">
+            <span className="font-semibold">{name}</span> scheduled for interview —{" "}
+            <span className="font-semibold">{title}</span>
+          </p>
+        ),
+      };
+    default:
+      return {
+        icon: <Users className="h-4 w-4 text-[#6366F1]" />,
+        bg: "bg-[#EEF2FF]",
+        label: (name: string, title: string) => (
+          <p className="text-sm text-[#111827]">
+            New application from <span className="font-semibold">{name}</span> for{" "}
+            <span className="font-semibold">{title}</span>
+          </p>
+        ),
+      };
+  }
+};
+
 export function EmployerDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
@@ -68,6 +153,7 @@ export function EmployerDashboard() {
     hired: 0,
     rejected: 0,
   });
+  const [recentActivity, setRecentActivity] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Watch for account type changes and redirect if needed
@@ -98,20 +184,19 @@ export function EmployerDashboard() {
         const applications = await getEmployerApplications();
         if (!isMounted) return;
 
-        const total = Array.isArray(applications) ? applications.length : 0;
-        const shortlisted = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Shortlisted").length
-          : 0;
-        const interviewed = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Interviewed").length
-          : 0;
-        const hired = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Hired").length
-          : 0;
-        const rejected = Array.isArray(applications)
-          ? applications.filter((app: any) => app.status === "Rejected").length
-          : 0;
+        const list: Application[] = Array.isArray(applications) ? (applications as Application[]) : [];
+        const total = list.length;
+        const shortlisted = list.filter((app) => app.status === "Shortlisted").length;
+        const interviewed = list.filter((app) => app.status === "Interviewed").length;
+        const hired = list.filter((app) => app.status === "Hired").length;
+        const rejected = list.filter((app) => app.status === "Rejected").length;
 
+        const sorted = [...list].sort((a, b) => {
+          const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
+          const bTime = new Date(b.updatedAt || b.createdAt || 0).getTime();
+          return bTime - aTime;
+        });
+        setRecentActivity(sorted.slice(0, 5));
         setStats({ total, shortlisted, interviewed, hired, rejected });
       } catch (error: any) {
         if (!isMounted) return;
@@ -217,43 +302,39 @@ export function EmployerDashboard() {
 
       <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
         <h3 className="mb-5 text-lg font-semibold text-[#111827]">Recent Activity</h3>
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 border-b border-[#EEF2F7] pb-4">
-            <div className="rounded-full bg-[#D1FAE5] p-2">
-              <CheckCircle className="h-4 w-4 text-[#10B981]" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-[#111827]">
-                <span className="font-semibold">Sarah Chen</span> application accepted for Senior Frontend Developer
-              </p>
-              <p className="mt-1 text-xs text-[#64748B]">2 hours ago</p>
-            </div>
+        {isLoading ? (
+          <p className="text-sm text-[#64748B]">Loading activity...</p>
+        ) : recentActivity.length === 0 ? (
+          <p className="text-sm text-[#64748B]">No recent activity yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {recentActivity.map((app, index) => {
+              const name = [
+                app.applicant?.firstName,
+                app.applicant?.lastName,
+              ]
+                .filter(Boolean)
+                .join(" ") || "Applicant";
+              const jobTitle = app.job?.title || "a position";
+              const config = getActivityConfig(app.status);
+              const isLast = index === recentActivity.length - 1;
+              return (
+                <div
+                  key={app._id}
+                  className={`flex items-start gap-3 ${isLast ? "" : "border-b border-[#EEF2F7] pb-4"}`}
+                >
+                  <div className={`rounded-full ${config.bg} p-2 shrink-0`}>{config.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    {config.label(name, jobTitle)}
+                    <p className="mt-1 text-xs text-[#64748B]">
+                      {formatRelativeTime(app.updatedAt || app.createdAt)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          <div className="flex items-start gap-3 border-b border-[#EEF2F7] pb-4">
-            <div className="rounded-full bg-[#DBEAFE] p-2">
-              <MessageSquare className="h-4 w-4 text-[#3B82F6]" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-[#111827]">
-                New application from <span className="font-semibold">Michael Rodriguez</span>
-              </p>
-              <p className="mt-1 text-xs text-[#64748B]">5 hours ago</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <div className="rounded-full bg-[#FEE2E2] p-2">
-              <XCircle className="h-4 w-4 text-[#EF4444]" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm text-[#111827]">
-                <span className="font-semibold">{isLoading ? "—" : stats.rejected} applications</span> rejected this week
-              </p>
-              <p className="mt-1 text-xs text-[#64748B]">1 day ago</p>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

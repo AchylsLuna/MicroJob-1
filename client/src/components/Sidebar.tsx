@@ -104,6 +104,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     label: "Post a Job",
     path: ROUTES.employer.postJob,
     children: [
+        { icon: "jobs-management", label: "Jobs Management", path: ROUTES.employer.jobs },
       { icon: "applications", label: "Applications", path: ROUTES.employer.applications },
     ],
   };
@@ -167,6 +168,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     reports: <FileText className="h-5 w-5" />,
     payouts: <Wallet className="h-5 w-5" />,
     "jobs-monitoring": <Briefcase className="h-5 w-5" />,
+    "jobs-management": <Briefcase className="h-5 w-5" />,
     security: <ShieldCheck className="h-5 w-5" />,
     "user-management": <Users className="h-5 w-5" />,
     messages: <MessageSquare className="h-5 w-5" />,

@@ -109,9 +109,14 @@ export function EWallet() {
 
   const accountType = user?.accountType || "worker";
   const accountOptions = user?.accountOptions || ["worker"];
-  const canUseWorkerWallet = accountOptions.includes("worker") || accountType === "worker";
-  const isEmployerWalletView = accountType === "employer";
-  const isWorkerWalletView = !isEmployerWalletView && canUseWorkerWallet;
+  const isBothRole =
+    user?.role === "both" ||
+    (accountOptions.includes("worker") && accountOptions.includes("employer"));
+  const isEmployerWalletView = !isBothRole && accountType === "employer";
+  const canUseWorkerWallet =
+    isBothRole ||
+    (!isEmployerWalletView && (accountOptions.includes("worker") || accountType === "worker"));
+  const isWorkerWalletView = isBothRole || (!isEmployerWalletView && canUseWorkerWallet);
 
   const loadWallet = async (skipLoader = false) => {
     if (!skipLoader) setIsLoading(true);
@@ -119,7 +124,7 @@ export function EWallet() {
       const [profileResponse, txResponse, payoutResponse] = await Promise.all([
         getProfile(),
         getPaymentTransactions().catch(() => ({ transactions: [] as PaymentTransaction[] })),
-        canUseWorkerWallet
+        isWorkerWalletView
           ? getPayoutRequests().catch(() => ({ payoutRequests: [] as PayoutRequest[] }))
           : Promise.resolve({ payoutRequests: [] as PayoutRequest[] }),
       ]);
@@ -169,9 +174,13 @@ export function EWallet() {
       isActive = false;
       window.clearInterval(pollInterval);
     };
-  }, [canUseWorkerWallet]);
+  }, [isWorkerWalletView]);
 
-  const activeBalance = isEmployerWalletView ? employerBalance : workerBalance;
+  const activeBalance = isBothRole
+    ? employerBalance + workerBalance
+    : isEmployerWalletView
+    ? employerBalance
+    : workerBalance;
 
   const totalCredits = useMemo(
     () => transactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + toAmount(tx.amount), 0),
@@ -195,7 +204,7 @@ export function EWallet() {
   );
 
   const handleTopUpSubmit = async () => {
-    if (!isEmployerWalletView) {
+    if (!(isEmployerWalletView || isBothRole)) {
       return;
     }
 
@@ -224,7 +233,7 @@ export function EWallet() {
   };
 
   const handlePayoutSubmit = async () => {
-    if (!canUseWorkerWallet) return;
+    if (!isWorkerWalletView) return;
 
     const amount = Number(payoutForm.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -297,15 +306,17 @@ export function EWallet() {
           <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
             <div>
               <p className="text-[14px] opacity-80 mb-2">
-                Current Balance ({isEmployerWalletView ? "employer" : "worker"})
+                {isBothRole ? "Combined Balance" : `Current Balance (${isEmployerWalletView ? "employer" : "worker"})`}
               </p>
               <h2 className="text-[42px] font-bold tracking-tight">
                 {isLoading ? "Loading..." : currency.format(activeBalance)}
               </h2>
               <p className="text-[14px] text-white/75 mt-3">
-                {isEmployerWalletView
+                {isBothRole
+                  ? "Your combined employer and worker balance. Top up your employer wallet to fund jobs, and withdraw your earned worker balance."
+                  : isEmployerWalletView
                   ? "Employers add funds here to pay into escrow and cover worker earnings."
-                  : "Workers can only withdraw completed earnings here. Employers send the money from their employer wallet."}
+                  : "Workers can only withdraw completed earnings here once payouts are available."}
               </p>
             </div>
             <div className="bg-white/20 backdrop-blur-sm rounded-[16px] p-4">
@@ -313,14 +324,24 @@ export function EWallet() {
             </div>
           </div>
 
-          <div className={`grid grid-cols-1 ${isEmployerWalletView ? "md:grid-cols-3" : "md:grid-cols-3"} gap-4 mb-6`}>
-            {isEmployerWalletView ? (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {isBothRole ? (
+              <>
+                <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
+                  <p className="text-[12px] opacity-80">Employer Balance</p>
+                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : currency.format(employerBalance)}</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
+                  <p className="text-[12px] opacity-80">Worker Balance</p>
+                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : currency.format(workerBalance)}</p>
+                </div>
+              </>
+            ) : isEmployerWalletView ? (
               <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
                 <p className="text-[12px] opacity-80">Employer Balance</p>
                 <p className="text-[20px] font-semibold mt-1">{currency.format(employerBalance)}</p>
               </div>
-            ) : null}
-            {isEmployerWalletView ? null : (
+            ) : (
               <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
                 <p className="text-[12px] opacity-80">Worker Balance</p>
                 <p className="text-[20px] font-semibold mt-1">{currency.format(workerBalance)}</p>
@@ -330,13 +351,32 @@ export function EWallet() {
               <p className="text-[12px] opacity-80">Pending Withdrawals</p>
               <p className="text-[20px] font-semibold mt-1">{currency.format(pendingPayoutTotal)}</p>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
-              <p className="text-[12px] opacity-80">Total Transactions</p>
-              <p className="text-[20px] font-semibold mt-1">{transactions.length}</p>
-            </div>
+            {!isBothRole && (
+              <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
+                <p className="text-[12px] opacity-80">Total Transactions</p>
+                <p className="text-[20px] font-semibold mt-1">{transactions.length}</p>
+              </div>
+            )}
           </div>
 
-          {isEmployerWalletView ? (
+          {isBothRole ? (
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => setIsTopUpOpen(true)}
+                className="w-full md:w-auto bg-white text-[#1C4D8D] font-semibold py-3 px-6 rounded-[12px] hover:bg-gray-100 transition"
+              >
+                Top Up Employer Wallet
+              </button>
+              <button
+                type="button"
+                onClick={handleWithdrawClick}
+                className="w-full md:w-auto bg-white/20 text-white font-semibold py-3 px-6 rounded-[12px] hover:bg-white/30 transition"
+              >
+                Withdraw Worker Funds
+              </button>
+            </div>
+          ) : isEmployerWalletView ? (
             <button
               type="button"
               onClick={() => setIsTopUpOpen(true)}
@@ -382,7 +422,7 @@ export function EWallet() {
         </div>
       </div>
 
-      {isWorkerWalletView ? (
+      {(isWorkerWalletView || isBothRole) ? (
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] gap-6">
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
             <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
@@ -532,11 +572,7 @@ export function EWallet() {
             </div>
           </div>
         </div>
-      ) : (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 text-[14px] text-[#6B7280]">
-          This employer wallet is for funding jobs. Switch to your worker account to request a withdrawal from earned balance.
-        </div>
-      )}
+      ) : null}
 
       <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
         <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
@@ -595,7 +631,7 @@ export function EWallet() {
         )}
       </div>
 
-      {isEmployerWalletView && isTopUpOpen ? (
+      {(isEmployerWalletView || isBothRole) && isTopUpOpen ? (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="w-full max-w-md bg-white rounded-[16px] p-6 shadow-xl">
             <div className="flex items-center gap-2 mb-4">

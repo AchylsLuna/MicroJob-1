@@ -14,6 +14,16 @@ const TOPUP_TARGET = {
   BOTH: 'BOTH',
 };
 
+const canTopUpEmployerWallet = (role) => {
+  const normalizedRole = String(role || '').toLowerCase();
+  return normalizedRole === 'hire' || normalizedRole === 'both' || normalizedRole === 'admin' || normalizedRole === 'superadmin';
+};
+
+const canWithdrawWorkerBalance = (role) => {
+  const normalizedRole = String(role || '').toLowerCase();
+  return normalizedRole === 'work' || normalizedRole === 'both';
+};
+
 const normalizeTarget = (value) => {
   const normalized = String(value || TOPUP_TARGET.EMPLOYER).toUpperCase();
   if (normalized === TOPUP_TARGET.WORKER || normalized === TOPUP_TARGET.BOTH) return normalized;
@@ -252,15 +262,17 @@ export async function createTopUpSession(req, res) {
       return res.status(400).json({ message: `Invalid amount; must be between ${minAmount} and ${maxAmount}` });
     }
 
-    const allowedTargets = new Set(Object.values(TOPUP_TARGET));
-    let effectiveTarget = target ? String(target).toUpperCase() : '';
-    if (effectiveTarget && !allowedTargets.has(effectiveTarget)) {
-      return res.status(400).json({ message: 'Invalid target' });
+    const requestingUser = await User.findById(userId).select('role firstName lastName email');
+    if (!requestingUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    if (!canTopUpEmployerWallet(requestingUser.role)) {
+      return res.status(403).json({ message: 'Only employer accounts can top up wallets' });
     }
 
-    const requestingUser = await User.findById(userId).select('role firstName lastName email');
-    if (!effectiveTarget) {
-      effectiveTarget = requestingUser?.role === 'both' ? TOPUP_TARGET.BOTH : TOPUP_TARGET.EMPLOYER;
+    let effectiveTarget = TOPUP_TARGET.EMPLOYER;
+    if (target && String(target).toUpperCase() !== TOPUP_TARGET.EMPLOYER) {
+      return res.status(400).json({ message: 'Invalid target. Top-up target must be EMPLOYER.' });
     }
 
     await monitor.audit({
@@ -682,6 +694,9 @@ export async function createPayoutRequest(req, res) {
 
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
+    if (!canWithdrawWorkerBalance(user.role)) {
+      return res.status(403).json({ message: 'Only worker accounts can request withdrawals' });
+    }
     if ((user.workerBalance || 0) < numericAmount) {
       return res.status(400).json({ message: 'Insufficient worker balance' });
     }

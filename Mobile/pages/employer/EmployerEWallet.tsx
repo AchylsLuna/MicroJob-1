@@ -45,7 +45,8 @@ export default function EmployerEWallet({
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const [liveBalance, setLiveBalance] = useState(0);
-  const [walletTarget, setWalletTarget] = useState<'EMPLOYER' | 'WORKER' | 'BOTH'>('EMPLOYER');
+  const [workerBalance, setWorkerBalance] = useState(0);
+  const [profileRole, setProfileRole] = useState('');
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const appStateRef = useRef(AppState.currentState);
   const refreshAfterBrowserRef = useRef(false);
@@ -97,19 +98,14 @@ export default function EmployerEWallet({
       if (profileResult.ok) {
         const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
         const nextEmployer = Number(profilePayload?.employerBalance || 0);
+        const nextWorker = Number(profilePayload?.workerBalance || 0);
         const role = String(profilePayload?.role || '').toLowerCase();
 
-        const effectiveTarget: 'EMPLOYER' | 'WORKER' | 'BOTH' =
-          role === 'both' ? 'BOTH' : role === 'work' ? 'WORKER' : 'EMPLOYER';
-
-        setWalletTarget(effectiveTarget);
-
-        // For employer view, show employer balance or combined if both role
-        const nextBalance = effectiveTarget === 'BOTH'
-          ? (Number.isFinite(nextEmployer) ? nextEmployer : 0)
-          : (Number.isFinite(nextEmployer) ? nextEmployer : 0);
+        const nextBalance = Number.isFinite(nextEmployer) ? nextEmployer : 0;
 
         setLiveBalance(Number.isFinite(nextBalance) ? nextBalance : 0);
+        setWorkerBalance(Number.isFinite(nextWorker) ? nextWorker : 0);
+        setProfileRole(role);
       }
 
       if (txResult.ok) {
@@ -217,7 +213,7 @@ export default function EmployerEWallet({
         },
         body: JSON.stringify({
           amount: parsedTopupAmount,
-          target: walletTarget,
+          target: 'EMPLOYER',
         }),
       }, 'Failed to create top-up session.');
 
@@ -274,8 +270,18 @@ export default function EmployerEWallet({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Employer Balance</Text>
+          <Text style={styles.balanceLabel}>{profileRole === 'both' ? 'Employer Balance' : 'Employer Balance'}</Text>
           <Text style={styles.balanceValue}>PHP {liveBalance.toLocaleString()}</Text>
+          {profileRole === 'both' ? (
+            <Text style={[styles.balanceLabel, { marginTop: 10, fontSize: 11 }]}>
+              Worker Balance: PHP {workerBalance.toLocaleString()}
+            </Text>
+          ) : null}
+          {profileRole === 'both' ? (
+            <Text style={[styles.balanceLabel, { marginTop: 4, fontSize: 13, color: 'rgba(255,255,255,0.55)' }]}>
+              Combined: PHP {(liveBalance + workerBalance).toLocaleString()}
+            </Text>
+          ) : null}
           {isRefreshingWallet ? <Text style={styles.balanceRefreshing}>Refreshing wallet…</Text> : null}
           <View style={styles.balanceActionsRow}>
             <TouchableOpacity style={styles.balanceAction} onPress={handleTestPayment} disabled={isCreatingPayment}>
@@ -293,10 +299,6 @@ export default function EmployerEWallet({
           <View style={styles.quickIconCard}>
             <Ionicons name="phone-portrait-outline" size={22} color="#2563EB" />
             <Text style={styles.quickIconLabel}>Scan</Text>
-          </View>
-          <View style={styles.quickIconCard}>
-            <Ionicons name="arrow-up-outline" size={22} color="#059669" />
-            <Text style={styles.quickIconLabel}>Send</Text>
           </View>
           <View style={styles.quickIconCard}>
             <Ionicons name="card-outline" size={22} color="#D97706" />

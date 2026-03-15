@@ -305,7 +305,8 @@ const MessageController = {
       const { otherUserId, jobId, archive } = req.body;
       if (!userId) return sendError(res, 401, 'Authentication required.');
       if (!otherUserId) return sendError(res, 400, 'otherUserId required');
-      const convId = `${otherUserId}::${jobId || 'general'}`;
+      const normalizedJobId = normalizeOptionalJobId(jobId);
+      const convId = `${otherUserId}::${normalizedJobId || 'general'}`;
       if (archive) {
         await User.updateOne({ _id: userId }, { $addToSet: { archivedConversations: convId } });
         return sendSuccess(res, 200, 'Conversation archived', { conversationId: convId });
@@ -356,10 +357,12 @@ const MessageController = {
 
         const lastMsg = await withMessagePopulate(Message.find(filter)).sort({ createdAt: -1 }).limit(1);
         const msg = Array.isArray(lastMsg) && lastMsg[0] ? lastMsg[0] : null;
+        const senderId = toIdString(msg?.sender);
+        const counterparty = msg ? (senderId === String(otherUserId) ? msg.sender : msg.receiver) : null;
         results.push({
           conversationId: convId,
           otherUserId,
-          otherUserName: getDisplayName(msg ? (msg.sender && msg.sender._id === otherUserId ? msg.sender : msg.receiver) : null),
+          otherUserName: getDisplayName(counterparty),
           jobId: jobId || null,
           jobTitle: msg?.job?.title || null,
           lastMessage: msg?.content || '',

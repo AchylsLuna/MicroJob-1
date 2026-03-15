@@ -142,7 +142,9 @@ async function notifyEmployerOfNewApplication({ application, job, userId }) {
 }
 
 async function notifyApplicantStatusChange(application, actorId, title, message) {
-  const applicantId = application.applicant?.toString() || application.applicant;
+  const applicant = application.applicant;
+  // applicant may be a populated Document (has ._id) or a raw ObjectId — handle both
+  const applicantId = applicant?._id ? String(applicant._id) : (applicant ? String(applicant) : null);
   if (!applicantId) return;
 
   await createNotification({
@@ -376,6 +378,7 @@ export const updateApplicationStatus = async (req, res) => {
 
     await syncJobHiringState(application, previousStatus, canonicalStatus);
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
+    if (!populated) return sendError(res, 404, 'Application not found after save');
 
     await notifyApplicantStatusChange(
       populated,
@@ -563,6 +566,7 @@ export const scheduleInterview = async (req, res) => {
     await application.save();
 
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
+    if (!populated) return sendError(res, 404, 'Application not found after save');
     await notifyApplicantStatusChange(
       populated,
       getUserId(req),

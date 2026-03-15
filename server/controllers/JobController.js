@@ -263,45 +263,93 @@ export async function changeJobStatus(req, res){
         }
 
         if (status === 'Completed' && job.status !== 'Completed') {
-            // When completing a job, pay out all applicants that were marked as Hired
+            // When completing a job, pay out applicants marked as Hired exactly once per application.
             const hiredApplications = await JobApplication.find({ job: job._id, status: 'Hired' });
             if (!hiredApplications || hiredApplications.length === 0) {
                 return res.status(400).json({ message: 'No hired applicants to pay out.' });
             }
 
+            const totalEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
+            const paidAgg = await Transaction.aggregate([
+                { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
+                { $group: { _id: null, totalPaid: { $sum: '$amount' } } }
+            ]);
+            let remainingEscrow = Math.max(0, totalEscrow - ((paidAgg[0] && paidAgg[0].totalPaid) || 0));
+
+            if (remainingEscrow <= 0) {
+                return res.status(400).json({ message: 'Escrow for this job has already been fully paid out.' });
+            }
+
             for (const app of hiredApplications) {
                 try {
+                    const alreadyPaid = await Transaction.findOne({
+                        jobReference: job._id,
+                        type: 'PAYOUT',
+                        status: 'COMPLETED',
+                        relatedEntityType: 'job_application',
+                        relatedEntityId: String(app._id),
+                    }).select('_id');
+                    if (alreadyPaid) continue;
+
+                    const payoutAmount = Math.min(Number(job.salary || 0), remainingEscrow);
+                    if (payoutAmount <= 0) break;
+
                     const worker = await User.findById(app.applicant);
                     if (!worker) continue;
-                    worker.workerBalance = (worker.workerBalance || 0) + job.salary;
+                    worker.workerBalance = (worker.workerBalance || 0) + payoutAmount;
                     await worker.save();
 
                     const payoutTx = await Transaction.create({
                         sender: null, // From escrow
                         receiver: worker._id,
-                        amount: job.salary,
+                        amount: payoutAmount,
                         type: 'PAYOUT',
                         status: 'COMPLETED',
                         balanceTarget: 'WORKER',
                         jobReference: job._id,
                         label: `Payout (Job ${job._id})`,
-                        relatedEntityType: 'job',
-                        relatedEntityId: String(job._id),
+                        relatedEntityType: 'job_application',
+                        relatedEntityId: String(app._id),
                     });
+                    remainingEscrow = Number((remainingEscrow - payoutAmount).toFixed(2));
+
                     await createNotification({
                         userId: worker._id,
                         type: 'payment',
                         title: 'Job payout completed',
-                        message: `A payout of PHP ${Number(job.salary || 0).toFixed(2)} was added to your worker balance.`,
+                        message: `A payout of PHP ${Number(payoutAmount || 0).toFixed(2)} was added to your worker balance.`,
                         entityType: 'job',
                         entityId: job._id,
                         actor: job.jobPoster || null,
                         push: true,
-                        socketPayload: { transactionId: String(payoutTx._id), jobId: String(job._id), amount: job.salary },
+                        socketPayload: { transactionId: String(payoutTx._id), jobId: String(job._id), amount: payoutAmount },
                     });
-                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: null, action: 'job_payout', ip: req.ip || null, userAgent: req.get('user-agent'), amount: job.salary, status: 'success', meta: { job: job._id, worker: worker._id } }); } catch (e) {}
+                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: null, action: 'job_payout', ip: req.ip || null, userAgent: req.get('user-agent'), amount: payoutAmount, status: 'success', meta: { job: job._id, worker: worker._id, application: app._id } }); } catch (e) {}
                 } catch (e) {
                     console.warn('Failed to payout worker for job completion', e);
+                }
+            }
+
+            // Return any unused escrow back to employer when job is finalized as completed.
+            if (remainingEscrow > 0) {
+                const poster = await User.findById(job.jobPoster);
+                if (poster) {
+                    poster.employerBalance = (poster.employerBalance || 0) + remainingEscrow;
+                    await poster.save();
+
+                    await Transaction.create({
+                        sender: null,
+                        receiver: poster._id,
+                        amount: remainingEscrow,
+                        type: 'REFUND',
+                        status: 'COMPLETED',
+                        balanceTarget: 'EMPLOYER',
+                        jobReference: job._id,
+                        label: `Unused escrow refund (Job ${job._id})`,
+                        relatedEntityType: 'job',
+                        relatedEntityId: String(job._id),
+                        actor: poster._id,
+                    });
                 }
             }
         }

@@ -1,6 +1,21 @@
 import { handleInvalidSession, isInvalidTokenError } from "../utils/authSession";
 
 const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+const API_PROXY_TARGET = import.meta.env.VITE_API_PROXY_TARGET || 'http://localhost:5000';
+const DIRECT_API_BASE = `${String(API_PROXY_TARGET).replace(/\/$/, '')}/api`;
+
+function buildApiCandidates(path: string) {
+  const primary = `${API_BASE}${path}`;
+  // If API_BASE is relative (proxy mode), keep a direct localhost fallback for dev.
+  if (!String(API_BASE).startsWith('/')) {
+    return [primary];
+  }
+  const direct = `${DIRECT_API_BASE}${path}`;
+  if (direct === primary) {
+    return [primary];
+  }
+  return [primary, direct];
+}
 
 export type AuthUser = {
   id: string;
@@ -121,16 +136,27 @@ async function request<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}${path}`, {
-      method: options.method || 'GET',
-      headers,
-      credentials: 'include',
-      body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
-    });
-  } catch {
-    throw new Error('Unable to reach the server. Make sure the backend is running.');
+  let res: Response | null = null;
+  const candidates = buildApiCandidates(path);
+  let networkError: unknown = null;
+
+  for (const url of candidates) {
+    try {
+      res = await fetch(url, {
+        method: options.method || 'GET',
+        headers,
+        credentials: 'include',
+        body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      });
+      networkError = null;
+      break;
+    } catch (error) {
+      networkError = error;
+    }
+  }
+
+  if (!res) {
+    throw new Error('Unable to reach the server at /api or http://localhost:5000/api. Make sure backend is running on port 5000.');
   }
 
   const data = (await res.json().catch(() => ({}))) as any;

@@ -7,14 +7,17 @@ import {
   MapPin,
   CalendarDays,
   TrendingUp,
-  ArrowRight
+  ArrowRight,
+  Loader2,
+  CheckCircle2
 } from "lucide-react";
-import { getMyJobs } from "../../services/api";
+import { changeJobStatus, getMyJobs } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 
 interface JobPosting {
   id: string;
+  backendStatus: "Available" | "In Progress" | "Completed" | "Cancelled" | "Closed";
   title: string;
   department: string;
   location: string;
@@ -38,6 +41,8 @@ export function JobsManagement() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [markingDoneJobId, setMarkingDoneJobId] = useState<string | null>(null);
+  const [confirmDoneJob, setConfirmDoneJob] = useState<JobPosting | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const mapStatus = (status?: string): JobPosting["status"] => {
@@ -82,6 +87,7 @@ export function JobsManagement() {
 
     return {
       id: job._id,
+      backendStatus: (job.status || "Available") as JobPosting["backendStatus"],
       title: job.title || "Untitled Job",
       department: job.category?.name || "General",
       location: job.location || "Remote",
@@ -102,31 +108,51 @@ export function JobsManagement() {
     };
   };
 
+  const loadJobs = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const data = await getMyJobs();
+      const mapped = Array.isArray(data) ? data.map(mapJob) : [];
+      setJobs(mapped);
+    } catch (error: any) {
+      const message = error?.message || "Failed to load job postings.";
+      setLoadError(message);
+      toast.error(message);
+      setJobs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let isMounted = true;
-    const loadJobs = async () => {
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const data = await getMyJobs();
-        if (!isMounted) return;
-        const mapped = Array.isArray(data) ? data.map(mapJob) : [];
-        setJobs(mapped);
-      } catch (error: any) {
-        if (!isMounted) return;
-        const message = error?.message || "Failed to load job postings.";
-        setLoadError(message);
-        toast.error(message);
-        setJobs([]);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-    loadJobs();
-    return () => {
-      isMounted = false;
-    };
+    void loadJobs();
   }, []);
+
+  const handleMarkJobDone = async (job: JobPosting) => {
+    if (job.backendStatus === "Completed") {
+      toast.info("This job is already marked as completed.");
+      return;
+    }
+
+    setConfirmDoneJob(job);
+  };
+
+  const confirmMarkJobDone = async () => {
+    if (!confirmDoneJob) return;
+
+    setMarkingDoneJobId(confirmDoneJob.id);
+    try {
+      await changeJobStatus(confirmDoneJob.id, "Completed");
+      toast.success("Job marked as done. Worker payouts were triggered automatically from escrow.");
+      setConfirmDoneJob(null);
+      await loadJobs();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to mark job as done.");
+    } finally {
+      setMarkingDoneJobId(null);
+    }
+  };
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -297,18 +323,41 @@ export function JobsManagement() {
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-sm text-slate-500">
                     Created by <span className="font-semibold text-slate-900">{job.createdBy}</span>
                   </span>
-                  <button
-                    onClick={() => navigate(ROUTES.employer.applications)}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#1C4D8D] hover:text-[#0F2954]"
-                  >
-                    View details
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => void handleMarkJobDone(job)}
+                      disabled={job.status === "Closed" || markingDoneJobId === job.id}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8] disabled:opacity-60"
+                      title="Mark done and auto-pay workers from escrow"
+                    >
+                      {markingDoneJobId === job.id ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Marking...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Mark as Done
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => navigate(ROUTES.employer.applications)}
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-[#1C4D8D] hover:text-[#0F2954]"
+                    >
+                      View details
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
+                <p className="mt-3 text-[11px] text-[#64748B]">
+                  Completing the job automatically releases escrow to hired workers' e-wallets.
+                </p>
           </div>
         ))}
         {!isLoading && !loadError && jobs.length === 0 && (
@@ -317,6 +366,49 @@ export function JobsManagement() {
           </div>
         )}
       </div>
+
+      {confirmDoneJob ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900">Mark Job as Done</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              You are about to complete <span className="font-semibold text-slate-900">{confirmDoneJob.title}</span>.
+            </p>
+            <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700 border border-blue-100">
+              Once completed, escrow funds are automatically released to hired workers' e-wallets.
+            </p>
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDoneJob(null)}
+                disabled={markingDoneJobId === confirmDoneJob.id}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmMarkJobDone()}
+                disabled={markingDoneJobId === confirmDoneJob.id}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#1C4D8D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {markingDoneJobId === confirmDoneJob.id ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Marking...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Confirm Done
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

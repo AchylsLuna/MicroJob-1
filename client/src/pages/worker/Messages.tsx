@@ -130,6 +130,13 @@ const getCurrentUserIdFromStorage = () => {
   return parsed?.id || parsed?._id || "";
 };
 
+const getUserName = (user: unknown): string => {
+  if (!user || typeof user !== "object") return "";
+  const record = user as { firstName?: string; lastName?: string };
+  const fullName = `${String(record.firstName || "").trim()} ${String(record.lastName || "").trim()}`.trim();
+  return fullName;
+};
+
 export function Messages() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -195,17 +202,19 @@ export function Messages() {
       const otherUserId = senderId === currentUserId ? receiverId : senderId;
       const messageJobId = message?.job?._id || message?.job || null;
       const conversationId = `${otherUserId}::${messageJobId || "general"}`;
+      const senderName = getUserName(message?.sender);
+      const receiverName = getUserName(message?.receiver);
 
       setContacts((prev) => {
         const existing = prev.find((item) => item.conversationId === conversationId);
+        const otherUserName =
+          senderId === currentUserId
+            ? receiverName || existing?.otherUserName || "User"
+            : senderName || existing?.otherUserName || "User";
         const updated: Contact = {
           conversationId,
           otherUserId,
-          otherUserName:
-            existing?.otherUserName ||
-            [message?.sender?.firstName, message?.sender?.lastName].filter(Boolean).join(" ") ||
-            [message?.receiver?.firstName, message?.receiver?.lastName].filter(Boolean).join(" ") ||
-            "User",
+          otherUserName,
           jobId: messageJobId,
           jobTitle: message?.job?.title || existing?.jobTitle || null,
           lastMessage: message?.content || existing?.lastMessage || "",

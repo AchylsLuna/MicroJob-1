@@ -146,6 +146,7 @@ export default function EWallet({
   const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
   const [payoutFormOffsetY, setPayoutFormOffsetY] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
+  const [employerBalance, setEmployerBalance] = useState(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [payoutRequests, setPayoutRequests] = useState<PayoutRequest[]>([]);
   const [accountOptions, setAccountOptions] = useState<Array<'worker' | 'employer'>>(['worker']);
@@ -160,7 +161,8 @@ export default function EWallet({
   const toast = useToast();
 
   const hasWorkerWallet = accountOptions.includes('worker') || profileRole === 'worker' || profileRole === 'both';
-  const activeBalance = workerBalance;
+  const isBothRole = profileRole === 'both' || (accountOptions.includes('worker') && accountOptions.includes('employer'));
+  const activeBalance = isBothRole ? workerBalance + employerBalance : workerBalance;
 
   const pendingPayoutTotal = useMemo(
     () => payoutRequests
@@ -192,10 +194,12 @@ export default function EWallet({
         const normalizedRole = String(profilePayload?.role || '').toLowerCase();
         const normalizedOptions = normalizeAccountOptions(profilePayload?.accountOptions || []);
         const nextWorkerBalance = Number(profilePayload?.workerBalance || 0);
+        const nextEmployerBalance = Number(profilePayload?.employerBalance || 0);
 
         setProfileRole(normalizedRole || 'worker');
         setAccountOptions(normalizedOptions.length > 0 ? normalizedOptions : normalizedRole === 'employer' ? ['employer'] : normalizedRole === 'both' ? ['worker', 'employer'] : ['worker']);
         setWorkerBalance(Number.isFinite(nextWorkerBalance) ? nextWorkerBalance : 0);
+        setEmployerBalance(Number.isFinite(nextEmployerBalance) ? nextEmployerBalance : 0);
       }
 
       if (transactionsResult.ok) {
@@ -324,7 +328,7 @@ export default function EWallet({
         <View style={styles.balanceCard}>
           <View style={styles.balanceHeader}>
             <View>
-              <Text style={styles.balanceLabel}>Available to withdraw</Text>
+              <Text style={styles.balanceLabel}>{isBothRole ? 'Combined Balance' : 'Available to withdraw'}</Text>
               <Text style={styles.balanceValue}>{formatCurrency(activeBalance)}</Text>
             </View>
             <TouchableOpacity style={styles.refreshButton} onPress={() => void refreshWalletData()} disabled={isRefreshingWallet}>
@@ -337,14 +341,29 @@ export default function EWallet({
           </View>
 
           <Text style={styles.balanceNote}>
-            Workers cannot top up here. Employers fund jobs from their employer wallet, and completed earnings land in your worker balance for withdrawal.
+            {isBothRole
+              ? 'Your combined employer and worker balance. Top up from the employer wallet tab to fund jobs, and withdraw your earned worker balance here.'
+              : 'Workers cannot top up here. Employers fund jobs from their employer wallet, and completed earnings land in your worker balance for withdrawal.'}
           </Text>
 
           <View style={styles.balanceMetricsRow}>
-            <View style={styles.balanceMetricCard}>
-              <Text style={styles.balanceMetricLabel}>Worker Balance</Text>
-              <Text style={styles.balanceMetricValue}>{formatCurrency(workerBalance)}</Text>
-            </View>
+            {isBothRole ? (
+              <>
+                <View style={styles.balanceMetricCard}>
+                  <Text style={styles.balanceMetricLabel}>Employer Balance</Text>
+                  <Text style={styles.balanceMetricValue}>{formatCurrency(employerBalance)}</Text>
+                </View>
+                <View style={styles.balanceMetricCard}>
+                  <Text style={styles.balanceMetricLabel}>Worker Balance</Text>
+                  <Text style={styles.balanceMetricValue}>{formatCurrency(workerBalance)}</Text>
+                </View>
+              </>
+            ) : (
+              <View style={styles.balanceMetricCard}>
+                <Text style={styles.balanceMetricLabel}>Worker Balance</Text>
+                <Text style={styles.balanceMetricValue}>{formatCurrency(workerBalance)}</Text>
+              </View>
+            )}
             <View style={styles.balanceMetricCard}>
               <Text style={styles.balanceMetricLabel}>Pending Withdrawals</Text>
               <Text style={styles.balanceMetricValue}>{formatCurrency(pendingPayoutTotal)}</Text>
