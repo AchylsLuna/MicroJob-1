@@ -249,8 +249,8 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 24}
     >
       <ScrollView
         style={styles.scroll}
@@ -264,6 +264,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity

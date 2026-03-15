@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 const net = require('net');
-const path = require('path');
 const { spawn, spawnSync } = require('child_process');
 
 const extraArgs = process.argv.slice(2);
@@ -130,14 +129,10 @@ async function main() {
     console.warn('xcrun simctl is unavailable; starting Expo without iOS simulator integration.');
   }
 
-  const expoBin = path.join(
-    process.cwd(),
-    'node_modules',
-    '.bin',
-    process.platform === 'win32' ? 'expo.cmd' : 'expo'
-  );
+  const expoCli = require.resolve('expo/bin/cli');
 
-  const child = spawn(expoBin, ['start', '--port', String(port), ...modeArgs, ...forwardedArgs], {
+  // Use Node to execute Expo CLI directly to avoid Windows .cmd spawn issues.
+  const child = spawn(process.execPath, [expoCli, 'start', '--port', String(port), ...modeArgs, ...forwardedArgs], {
     stdio: 'inherit',
     env: childEnv,
   });

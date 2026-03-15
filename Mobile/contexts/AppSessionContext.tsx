@@ -7,23 +7,12 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import io from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '../config';
 import { apiRequest, asList, asObject } from '../lib/api';
 import { useToast } from './ToastContext';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
 
 type ViewMode = 'worker' | 'employer';
 type ChatTarget = { id: string; name?: string } | null;
@@ -83,7 +72,6 @@ const AppSessionContext = createContext<AppSessionContextValue | undefined>(unde
 const HAS_ONBOARDED_KEY = 'has_onboarded';
 const ACTIVE_VIEW_MODE_KEY = 'active_view_mode';
 const SAVED_JOBS_CACHE_KEY = 'saved_jobs_server_cache';
-const PUSH_DEVICE_ID_KEY = 'push_device_id';
 const AUTH_TOKEN_KEY = 'auth_token';
 const AUTH_USER_KEY = 'auth_user';
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -157,14 +145,6 @@ const readSavedJobsCache = async (): Promise<SavedJobItem[]> => {
   } catch {
     return [];
   }
-};
-
-const getPushProjectId = () => {
-  return (
-    Constants.expoConfig?.extra?.eas?.projectId ||
-    (Constants as any).easConfig?.projectId ||
-    null
-  );
 };
 
 export function AppSessionProvider({ children }: { children: React.ReactNode }) {
@@ -318,7 +298,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser));
       await AsyncStorage.setItem(ACTIVE_VIEW_MODE_KEY, nextViewMode);
     } catch (error) {
-      await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, PUSH_DEVICE_ID_KEY]);
+      await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
       setUser(null);
       setUserRole(null);
       currentUserIdRef.current = null;
@@ -336,81 +316,30 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     socketErrorLogRef.current = { message: '', at: 0 };
   }, []);
 
-  const removeRegisteredPushDevice = useCallback(async () => {
-    try {
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-      const deviceId = await AsyncStorage.getItem(PUSH_DEVICE_ID_KEY);
-      if (!token || !deviceId) return;
-      await apiRequest(`${API_URL}/notifications/devices/${deviceId}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      }, 'Failed to remove push device.');
-      await AsyncStorage.removeItem(PUSH_DEVICE_ID_KEY);
-    } catch {
-      // ignore cleanup failures on logout
-    }
-  }, []);
-
-  const registerPushDevice = useCallback(async () => {
-    const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
-    if (!token) return;
-
-    try {
-      const projectId = getPushProjectId();
-      const existing = await Notifications.getPermissionsAsync();
-      let finalStatus = existing.status;
-      if (finalStatus !== 'granted') {
-        const requested = await Notifications.requestPermissionsAsync();
-        finalStatus = requested.status;
-      }
-      if (finalStatus !== 'granted') return;
-      if (!projectId) return;
-
-      const pushToken = await Notifications.getExpoPushTokenAsync({ projectId });
-      if (!pushToken?.data) return;
-
-      const result = await apiRequest(`${API_URL}/notifications/devices`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          token: pushToken.data,
-          platform: 'expo',
-          deviceName: `${Platform.OS}-${Constants.deviceName || 'mobile'}`,
-        }),
-      }, 'Failed to register push device.');
-
-      if (result.ok) {
-        const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
-        const device = payload?.device || payload?.data?.device || null;
-        if (device?._id || device?.id) {
-          await AsyncStorage.setItem(PUSH_DEVICE_ID_KEY, String(device._id || device.id));
-        }
-      }
-    } catch {
-      // push registration must not break the main session flow
-    }
-  }, []);
-
   const loadSession = useCallback(async () => {
-    const [onboardedFlag] = await Promise.all([
-      AsyncStorage.getItem(HAS_ONBOARDED_KEY),
-    ]);
-    setHasOnboarded(onboardedFlag === 'true');
+    try {
+      const [onboardedFlag] = await Promise.all([
+        AsyncStorage.getItem(HAS_ONBOARDED_KEY),
+      ]);
+      setHasOnboarded(onboardedFlag === 'true');
 
-    const cachedSavedJobs = await readSavedJobsCache();
-    if (cachedSavedJobs.length > 0) {
-      setSavedJobs(cachedSavedJobs);
-    }
+      const cachedSavedJobs = await readSavedJobsCache();
+      if (cachedSavedJobs.length > 0) {
+        setSavedJobs(cachedSavedJobs);
+      }
 
-    await refreshProfile();
-    if (await AsyncStorage.getItem(AUTH_TOKEN_KEY)) {
-      await refreshSavedJobs();
-      await refreshNotifications();
+      await refreshProfile();
+      setIsReady(true);
+
+      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      if (token) {
+        void refreshSavedJobs();
+        void refreshNotifications();
+      }
+    } catch (error) {
+      console.warn('Session bootstrap failed', error);
+      setIsReady(true);
     }
-    setIsReady(true);
   }, [refreshNotifications, refreshProfile, refreshSavedJobs]);
 
   useEffect(() => {
@@ -539,11 +468,6 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     return disconnectSocket;
   }, [disconnectSocket, isAuthenticated]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    void registerPushDevice();
-  }, [isAuthenticated, registerPushDevice]);
-
   const handleAuthSuccess = useCallback(async () => {
     await AsyncStorage.setItem(HAS_ONBOARDED_KEY, 'true');
     setHasOnboarded(true);
@@ -568,9 +492,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       // local logout still proceeds
     }
 
-    await removeRegisteredPushDevice();
     disconnectSocket();
-    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, PUSH_DEVICE_ID_KEY, ACTIVE_VIEW_MODE_KEY]);
+    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY]);
     currentUserIdRef.current = null;
     setUser(null);
     setUserRole(null);
@@ -583,7 +506,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setInitialWorkerChatTarget(null);
     setInitialEmployerChatTarget(null);
     setIsAuthenticated(false);
-  }, [disconnectSocket, removeRegisteredPushDevice]);
+  }, [disconnectSocket]);
 
   const switchViewMode = useCallback(async (nextView: ViewMode) => {
     if (nextView === 'employer' && !canAccessEmployer) {

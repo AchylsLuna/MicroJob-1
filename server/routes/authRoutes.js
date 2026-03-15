@@ -141,7 +141,7 @@ const multerAvatar = multer({
 
 const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
 const cookieSecurityOptions = {
-  sameSite: 'strict',
+  sameSite: 'lax',
   secure: process.env.NODE_ENV === 'production',
 };
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;

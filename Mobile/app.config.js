@@ -13,7 +13,6 @@ const expo = {
   },
   plugins: [
     '@react-native-community/datetimepicker',
-    'expo-notifications',
     'expo-font',
   ],
 };

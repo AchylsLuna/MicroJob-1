@@ -57,7 +57,6 @@ export default function SignIn({
   const buttonRadius = clamp(buttonHeight * 0.23, 12, 14);
   const buttonFontSize = clamp(screenWidth * 0.043, 15, 16);
   const helperFontSize = clamp(screenWidth * 0.039, 13, 14);
-  const ROLE_REQUIRING_LOGIN_OTP = new Set(['hire', 'work', 'both', 'employer', 'worker']);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -68,46 +67,9 @@ export default function SignIn({
   const [isLoading, setIsLoading] = useState(false);
   const toast = useToast();
 
-  const shouldRequireOtpForRole = (user: any) => {
-    const role = String(user?.role || '').toLowerCase();
-    return ROLE_REQUIRING_LOGIN_OTP.has(role);
-  };
-
-  const sendLoginOtp = async (emailAddress: string) => {
-    const normalizedEmail = String(emailAddress || '').trim().toLowerCase();
-    if (!normalizedEmail) {
-      throw new Error('No email found for OTP verification.');
-    }
-
-    const result = await apiRequest(`${API_URL}/auth/otp/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email: normalizedEmail }),
-    }, 'Unable to send OTP.');
-
-    if (!result.ok) {
-      throw new Error(`${result.message || 'Unable to send OTP.'} (HTTP ${result.status})`);
-    }
-
-    await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
-    await AsyncStorage.setItem('pending_verification_skip_send', '1');
-  };
-
   const continueAfterPrimaryAuth = async (token: string, user: any) => {
     if (!token || !user) {
       throw new Error('Invalid login response.');
-    }
-
-    if (shouldRequireOtpForRole(user)) {
-      setRequiresMfa(false);
-      setMfaToken('');
-      setMfaCode('');
-      await sendLoginOtp(user?.email || email);
-      toast.info('Enter the 6-digit code sent to your email to finish login.');
-      onNavigateToVerify?.();
-      return;
     }
 
     await completeLogin(token, user);
@@ -235,8 +197,8 @@ export default function SignIn({
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 24}
     >
       <ScrollView
         style={styles.scroll}
@@ -249,6 +211,7 @@ export default function SignIn({
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity

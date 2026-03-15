@@ -1,8 +1,42 @@
 import { handleInvalidSession, isInvalidTokenError } from "../utils/authSession";
 
-const API_BASE = import.meta.env.VITE_API_BASE || '/api';
-const API_PROXY_TARGET = import.meta.env.VITE_API_PROXY_TARGET || 'http://localhost:5000';
-const DIRECT_API_BASE = `${String(API_PROXY_TARGET).replace(/\/$/, '')}/api`;
+const trimTrailingSlash = (value: string) => value.replace(/\/$/, '');
+
+const normalizeOriginLikeValue = (value: unknown): string | null => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (/^\d+$/.test(raw)) {
+    return `http://localhost:${raw}`;
+  }
+  if (/^https?:\/\//i.test(raw)) {
+    return trimTrailingSlash(raw);
+  }
+  if (/^[a-z0-9.-]+:\d+$/i.test(raw)) {
+    return `http://${raw}`;
+  }
+  return null;
+};
+
+const normalizeApiBase = (value: unknown, fallbackOrigin: string): string => {
+  const raw = String(value || '').trim();
+  if (!raw) return '/api';
+  if (raw.startsWith('/')) {
+    return trimTrailingSlash(raw) || '/api';
+  }
+
+  const normalizedOrigin = normalizeOriginLikeValue(raw);
+  if (normalizedOrigin) {
+    return raw.toLowerCase().includes('/api')
+      ? trimTrailingSlash(raw)
+      : `${normalizedOrigin}/api`;
+  }
+
+  return `${fallbackOrigin}/api`;
+};
+
+const API_PROXY_TARGET = normalizeOriginLikeValue(import.meta.env.VITE_API_PROXY_TARGET) || 'http://localhost:5000';
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE, API_PROXY_TARGET);
+const DIRECT_API_BASE = `${API_PROXY_TARGET}/api`;
 
 function buildApiCandidates(path: string) {
   const primary = `${API_BASE}${path}`;
@@ -110,6 +144,88 @@ type RequestInitInput = Omit<RequestInit, 'body' | 'method'>;
 
 type QueryParams = Record<string, string | number | boolean | null | undefined>;
 
+const AUTH_PATHS_WITHOUT_REFRESH = new Set([
+  '/auth/login',
+  '/auth/register',
+  '/auth/otp/send',
+  '/auth/otp/verify',
+  '/auth/refresh',
+]);
+
+const normalizeApiPath = (value: string) => {
+  const withoutHost = String(value || '').replace(/^https?:\/\/[^/]+/i, '');
+  const withoutApiPrefix = withoutHost.replace(/^\/api/, '');
+  return withoutApiPrefix.split('?')[0];
+};
+
+const getCsrfToken = () => {
+  if (typeof document === 'undefined') return '';
+  const cookie = document.cookie || '';
+  const match = cookie.match(/(?:^|; )csrfToken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+};
+
+const shouldAttachCsrfHeader = (method: string) => {
+  const normalizedMethod = method.toUpperCase();
+  return normalizedMethod !== 'GET' && normalizedMethod !== 'HEAD' && normalizedMethod !== 'OPTIONS';
+};
+
+async function performRequest(
+  path: string,
+  method: string,
+  headers: Headers,
+  body: unknown,
+  isFormData: boolean
+) {
+  let res: Response | null = null;
+  const candidates = buildApiCandidates(path);
+
+  for (const url of candidates) {
+    try {
+      res = await fetch(url, {
+        method,
+        headers,
+        credentials: 'include',
+        body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+      });
+      break;
+    } catch {
+      // Try next candidate URL when network fails.
+    }
+  }
+
+  if (!res) {
+    throw new Error('Unable to reach the server at /api or http://localhost:5000/api. Make sure backend is running on port 5000.');
+  }
+
+  const data = (await res.json().catch(() => ({}))) as any;
+  return { res, data };
+}
+
+async function tryRefreshSession() {
+  const csrfToken = getCsrfToken();
+  if (!csrfToken) return false;
+
+  const refreshCandidates = buildApiCandidates('/auth/refresh');
+  for (const url of refreshCandidates) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+      });
+      if (response.ok) return true;
+    } catch {
+      // Try the next refresh candidate on network failure.
+    }
+  }
+
+  return false;
+}
+
 function buildQuery(params?: QueryParams) {
   if (!params) return '';
   const search = new URLSearchParams();
@@ -126,6 +242,8 @@ async function request<T>(
   path: string,
   options: RequestInitInput & { body?: unknown; method?: string } = {}
 ): Promise<T> {
+  const method = options.method || 'GET';
+  const normalizedPath = normalizeApiPath(path);
   const hasLocalSession = Boolean(
     localStorage.getItem('auth_user') || localStorage.getItem('current_user')
   );
@@ -135,31 +253,32 @@ async function request<T>(
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-
-  let res: Response | null = null;
-  const candidates = buildApiCandidates(path);
-  let networkError: unknown = null;
-
-  for (const url of candidates) {
-    try {
-      res = await fetch(url, {
-        method: options.method || 'GET',
-        headers,
-        credentials: 'include',
-        body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
-      });
-      networkError = null;
-      break;
-    } catch (error) {
-      networkError = error;
+  if (shouldAttachCsrfHeader(method) && !headers.has('x-csrf-token')) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers.set('x-csrf-token', csrfToken);
     }
   }
 
-  if (!res) {
-    throw new Error('Unable to reach the server at /api or http://localhost:5000/api. Make sure backend is running on port 5000.');
+  let { res, data } = await performRequest(path, method, headers, body, isFormData);
+
+  if (!res.ok) {
+    const message = data?.message || 'Request failed';
+    const canAttemptRefresh =
+      res.status === 401 &&
+      hasLocalSession &&
+      !AUTH_PATHS_WITHOUT_REFRESH.has(normalizedPath);
+
+    if (canAttemptRefresh) {
+      const refreshed = await tryRefreshSession();
+      if (refreshed) {
+        const retryResult = await performRequest(path, method, headers, body, isFormData);
+        res = retryResult.res;
+        data = retryResult.data;
+      }
+    }
   }
 
-  const data = (await res.json().catch(() => ({}))) as any;
   if (!res.ok) {
     const message = data?.message || 'Request failed';
     if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession })) {

@@ -35,8 +35,8 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children }: 
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 24}
     >
       <StatusBar style="light" />
       <View style={styles.backgroundOrbTop} />
@@ -53,6 +53,7 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children }: 
           },
         ]}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
       >
         {onBack ? (

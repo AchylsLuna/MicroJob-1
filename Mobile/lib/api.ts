@@ -6,6 +6,8 @@ export type APIResult<T = unknown> = {
   raw: unknown;
 };
 
+const DEFAULT_REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS || 8000);
+
 const LIST_KEYS = [
   'items',
   'jobs',
@@ -46,8 +48,27 @@ export async function apiRequest<T = unknown>(
   init?: RequestInit,
   fallbackMessage = 'Request failed.'
 ): Promise<APIResult<T>> {
+  const controller = new AbortController();
+  const timeoutMs = Number.isFinite(DEFAULT_REQUEST_TIMEOUT_MS) && DEFAULT_REQUEST_TIMEOUT_MS > 0
+    ? DEFAULT_REQUEST_TIMEOUT_MS
+    : 8000;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  if (init?.signal) {
+    if (init.signal.aborted) {
+      controller.abort();
+    } else {
+      init.signal.addEventListener('abort', () => controller.abort(), { once: true });
+    }
+  }
+
+  const requestInit: RequestInit = {
+    ...init,
+    signal: controller.signal,
+  };
+
   try {
-    const response = await fetch(url, init);
+    const response = await fetch(url, requestInit);
     const contentType = response.headers.get('content-type') || '';
 
     let raw: unknown = null;
@@ -73,6 +94,8 @@ export async function apiRequest<T = unknown>(
       data: null,
       raw: { error: error instanceof Error ? error.message : String(error) },
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
