@@ -41,6 +41,12 @@ export function NavBar() {
     normalizedRole === "employer" ||
     normalizedRole === "doctor" ||
     normalizedRole === "hire";
+  const notificationAudience: "admin" | "employer" | "worker" =
+    normalizedRole === "admin" || normalizedRole === "superadmin"
+      ? "admin"
+      : isEmployerView
+      ? "employer"
+      : "worker";
 
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -84,7 +90,7 @@ export function NavBar() {
     try {
       const data = await getNotifications({ limit: 10 }).catch(() => [] as any[]);
       const nextNotifications = (Array.isArray(data) ? data : [])
-        .map((item: any) => mapNotificationRecord(item, isEmployerView, "relative"))
+        .map((item: any) => mapNotificationRecord(item, notificationAudience, "relative"))
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       setNotifications(nextNotifications);
     } catch {

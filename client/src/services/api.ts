@@ -82,6 +82,7 @@ export type PaymentTransaction = {
   label?: string | null;
   meta?: Record<string, unknown>;
   payoutRequest?: PayoutRequest | null;
+  jobReference?: { _id?: string; title?: string; status?: string } | null;
   linkedTransaction?: Partial<PaymentTransaction> | null;
   createdAt?: string;
 };
@@ -362,6 +363,10 @@ export function getJobDetails(jobId: string) {
 
 export function createJob(payload: any) {
   return request('/jobs', { method: 'POST', body: payload });
+}
+
+export function deleteJob(jobId: string) {
+  return request<{ message?: string }>(`/jobs/${jobId}`, { method: 'DELETE' });
 }
 
 export function applyForJob(jobId: string, payload?: { resume?: string; coverLetter?: string }) {

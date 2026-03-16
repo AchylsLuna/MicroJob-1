@@ -20,6 +20,12 @@ export default function NotificationsPage() {
     normalizedRole === 'employer' ||
     normalizedRole === 'doctor' ||
     normalizedRole === 'hire';
+  const notificationAudience: 'admin' | 'employer' | 'worker' =
+    normalizedRole === 'admin' || normalizedRole === 'superadmin'
+      ? 'admin'
+      : isEmployerView
+      ? 'employer'
+      : 'worker';
 
   const fetchNotifications = async () => {
     if (!user) {
@@ -32,7 +38,7 @@ export default function NotificationsPage() {
     try {
       const data = await getNotifications({ limit: 100 });
       const nextNotifications = (Array.isArray(data) ? data : [])
-        .map((item: any) => mapNotificationRecord(item, isEmployerView, 'full'))
+        .map((item: any) => mapNotificationRecord(item, notificationAudience, 'full'))
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       setNotifications(nextNotifications);
     } catch (err: any) {
@@ -46,7 +52,7 @@ export default function NotificationsPage() {
     fetchNotifications();
     // Also refresh the global notification count in NavBar
     window.dispatchEvent(new Event('notification-refresh'));
-  }, [isEmployerView]);
+  }, [notificationAudience]);
 
   const markRead = async (notificationId: string) => {
     try {

@@ -8,8 +8,10 @@ import {
   getAdminCategories,
   getAdminWalletStats,
   getAdminRecentPayouts,
+  getAdminTransactions,
   updateUserStatus,
   type PayoutRequest,
+  type PaymentTransaction,
 } from "../services/api";
 
 export type AdminUser = {
@@ -96,6 +98,7 @@ export function useAdminData() {
   const [stats, setStats] = useState<AdminStats>(DEFAULT_ADMIN_STATS);
   const [walletStats, setWalletStats] = useState<AdminWalletStats>(DEFAULT_ADMIN_WALLET_STATS);
   const [recentPayouts, setRecentPayouts] = useState<PayoutRequest[]>([]);
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -106,13 +109,14 @@ export function useAdminData() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult] = await Promise.all([
+        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult] = await Promise.all([
           getAdminStats(),
           getAdminUsers(),
           getAdminJobs(),
           getAdminCategories(),
           getAdminWalletStats(),
           getAdminRecentPayouts(),
+          getAdminTransactions().catch(() => [] as PaymentTransaction[]),
         ]);
         
         if (!isActive) return;
@@ -129,6 +133,7 @@ export function useAdminData() {
           ...(walletResult && typeof walletResult === "object" ? walletResult : {}),
         });
         setRecentPayouts(Array.isArray(payoutsResult) ? payoutsResult : []);
+        setTransactions(Array.isArray(txResult) ? txResult : []);
       } catch (error: any) {
         if (!isActive) return;
         const message = error?.message || "Failed to load admin data.";
@@ -349,6 +354,7 @@ export function useAdminData() {
     recentActivity,
     walletStats,
     recentPayouts,
+    transactions,
     jobsByUser,
     categoriesById,
     getStatusColor,

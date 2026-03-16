@@ -123,7 +123,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const adminMenuItems: MenuItem[] = [
     { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics },
     { icon: "reports", label: "Reports", path: ROUTES.admin.reports },
-    { icon: "payouts", label: "Payouts", path: ROUTES.admin.payouts },
     { icon: "support", label: "Support", path: ROUTES.admin.support },
     { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet },
     { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs },
@@ -155,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       : [
           { icon: "notifications", label: "Notifications", path: ROUTES.notifications, notification: true },
           { icon: "settings", label: "Settings", path: ROUTES.settings },
-          { icon: "support", label: "Support", path: ROUTES.support },
+          { icon: "support", label: "Support", path: ROUTES.worker.support },
         ];
 
   const iconMap: Record<string, React.ReactNode> = {

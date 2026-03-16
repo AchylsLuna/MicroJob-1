@@ -29,7 +29,6 @@ import {
   AdminDashboard,
   AdminEWalletMonitoring,
   AdminJobMonitoring,
-  AdminPayoutRequests,
   AdminReports,
   AdminSecurity,
   AdminSignIn,
@@ -343,7 +342,6 @@ const App: React.FC = () => {
             />
             <Route path={ROUTES.admin.dashboard} element={<AdminDashboard />} />
             <Route path={ROUTES.admin.messages} element={<WorkerMessages />} />
-            <Route path={ROUTES.admin.payouts} element={<AdminPayoutRequests />} />
             <Route path={ROUTES.admin.support} element={<AdminSupportTickets />} />
             <Route path={ROUTES.admin.analytics} element={<AdminAnalytics />} />
             <Route path={ROUTES.admin.reports} element={<AdminReports />} />

@@ -120,8 +120,9 @@ export function Support() {
     [selectedTicketId, tickets],
   );
 
-  const loadTickets = async (selectedId?: string | null) => {
-    setIsLoadingTickets(true);
+  const loadTickets = async (selectedId?: string | null, options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+    if (!silent) setIsLoadingTickets(true);
     try {
       const response = await getSupportTickets();
       const nextTickets = Array.isArray((response as any)?.tickets)
@@ -134,13 +135,16 @@ export function Support() {
         setSelectedTicketId(null);
       }
     } catch (error: any) {
-      toast.error(error?.message || "Failed to load support tickets.");
+      if (!silent) {
+        toast.error(error?.message || "Failed to load support tickets.");
+      }
     } finally {
-      setIsLoadingTickets(false);
+      if (!silent) setIsLoadingTickets(false);
     }
   };
 
-  const loadTicketDetails = async (ticketId: string) => {
+  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
     try {
       const response = await getSupportTicket(ticketId);
       const ticket = (response as any)?.ticket as SupportTicket | undefined;
@@ -149,7 +153,9 @@ export function Support() {
         current.map((item) => (item._id === ticketId ? ticket : item)),
       );
     } catch (error: any) {
-      toast.error(error?.message || "Failed to load ticket details.");
+      if (!silent) {
+        toast.error(error?.message || "Failed to load ticket details.");
+      }
     }
   };
 
@@ -166,6 +172,21 @@ export function Support() {
     if (selectedTicketId) {
       loadTicketDetails(selectedTicketId);
     }
+  }, [selectedTicketId]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      loadTickets(selectedTicketId, { silent: true });
+    }, 10000);
+    return () => window.clearInterval(id);
+  }, [selectedTicketId]);
+
+  useEffect(() => {
+    if (!selectedTicketId) return;
+    const id = window.setInterval(() => {
+      loadTicketDetails(selectedTicketId, { silent: true });
+    }, 5000);
+    return () => window.clearInterval(id);
   }, [selectedTicketId]);
 
   const filteredFAQs = faqs.filter((faq) => {

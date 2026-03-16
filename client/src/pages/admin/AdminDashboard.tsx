@@ -9,7 +9,6 @@ import {
   FileText,
   MapPin,
   MoreHorizontal,
-  Pencil,
   Search,
   Trash2,
   TrendingUp,
@@ -20,6 +19,7 @@ import { Link } from "react-router-dom";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
+import { deleteJob } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 
 const CHART_MONTHS = 6;
@@ -48,6 +48,8 @@ function AdminDashboardContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deletedJobIds, setDeletedJobIds] = useState<Record<string, boolean>>({});
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
 
   const parseSalary = (value?: string | number) => {
     if (value === undefined || value === null) return 0;
@@ -280,28 +282,10 @@ function AdminDashboardContent() {
       accent: "from-[#CCFBF1] to-[#99F6E4]",
     },
     {
-      label: "Pending Payouts",
-      value: isLoading ? "—" : walletStats.pendingCount,
-      icon: <Clock className="w-6 h-6 text-[#1D4ED8]" />,
-      accent: "from-[#DBEAFE] to-[#BFDBFE]",
-    },
-    {
       label: "Completed Total",
       value: isLoading ? "—" : formatCurrency(walletStats.completedTotal),
       icon: <DollarSign className="w-6 h-6 text-[#047857]" />,
       accent: "from-[#D1FAE5] to-[#A7F3D0]",
-    },
-    {
-      label: "Pending Total",
-      value: isLoading ? "—" : formatCurrency(walletStats.pendingTotal),
-      icon: <TrendingUp className="w-6 h-6 text-[#B45309]" />,
-      accent: "from-[#FEF3C7] to-[#FDE68A]",
-    },
-    {
-      label: "Avg. Completed",
-      value: isLoading ? "—" : formatCurrency(walletStats.averageCompleted),
-      icon: <BarChart3 className="w-6 h-6 text-[#7C3AED]" />,
-      accent: "from-[#E9D5FF] to-[#DDD6FE]",
     },
   ];
 
@@ -316,6 +300,7 @@ function AdminDashboardContent() {
   const filteredJobs = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return jobs.filter((job) => {
+      if (deletedJobIds[job._id]) return false;
       const matchesSearch =
         !normalizedSearch ||
         job.title.toLowerCase().includes(normalizedSearch) ||
@@ -323,7 +308,7 @@ function AdminDashboardContent() {
       const matchesStatus = statusFilter === "all" || job.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-  }, [jobs, searchTerm, statusFilter]);
+  }, [jobs, searchTerm, statusFilter, deletedJobIds]);
 
   const visibleJobs = useMemo(() => {
     return [...filteredJobs].sort((a, b) => {
@@ -353,6 +338,21 @@ function AdminDashboardContent() {
     window.addEventListener("click", handleWindowClick);
     return () => window.removeEventListener("click", handleWindowClick);
   }, [openMenuId]);
+
+  const handleDeleteJob = async (jobId: string, title: string) => {
+    if (!window.confirm(`Delete job \"${title}\"? This action cannot be undone.`)) return;
+    setDeletingJobId(jobId);
+    try {
+      await deleteJob(jobId);
+      setDeletedJobIds((prev) => ({ ...prev, [jobId]: true }));
+      setOpenMenuId(null);
+      toast.success("Job deleted successfully.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete job.");
+    } finally {
+      setDeletingJobId(null);
+    }
+  };
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
@@ -617,7 +617,7 @@ function AdminDashboardContent() {
           <h2 className="text-[20px] font-semibold text-[#111827]">E-Wallet Monitoring</h2>
           <p className="text-[13px] text-[#6B7280] mt-1">Track payouts, pending balances, and recent completions.</p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {walletCards.map((card) => (
             <div key={card.label} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
               <div className="flex items-center justify-between mb-4">
@@ -831,25 +831,12 @@ function AdminDashboardContent() {
                                 </Link>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    toast.info("Edit job is coming soon.");
-                                    setOpenMenuId(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
-                                >
-                                  <Pencil className="w-4 h-4 text-[#64748B]" />
-                                  Edit Job
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    toast.info("Delete job is coming soon.");
-                                    setOpenMenuId(null);
-                                  }}
+                                  onClick={() => handleDeleteJob(job._id, job.title)}
+                                  disabled={deletingJobId === job._id}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[#DC2626] hover:bg-[#FEF2F2]"
                                 >
                                   <Trash2 className="w-4 h-4" />
-                                  Delete Job
+                                  {deletingJobId === job._id ? "Deleting..." : "Delete Job"}
                                 </button>
                               </div>
                             )}

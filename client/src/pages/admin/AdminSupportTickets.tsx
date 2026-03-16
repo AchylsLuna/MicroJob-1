@@ -44,9 +44,12 @@ function AdminSupportTicketsContent() {
     [selectedTicketId, tickets],
   );
 
-  const loadTickets = async () => {
-    setIsLoading(true);
-    setLoadError(null);
+  const loadTickets = async (options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
+    if (!silent) {
+      setIsLoading(true);
+      setLoadError(null);
+    }
     try {
       const response = await getAdminSupportTickets({
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
@@ -62,13 +65,18 @@ function AdminSupportTicketsContent() {
         setSelectedTicketId(null);
       }
     } catch (error: any) {
-      setLoadError(error?.message || "Failed to load support tickets.");
+      if (!silent) {
+        setLoadError(error?.message || "Failed to load support tickets.");
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
-  const loadTicketDetails = async (ticketId: string) => {
+  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean }) => {
+    const silent = Boolean(options?.silent);
     try {
       const response = await getAdminSupportTicket(ticketId);
       const ticket = (response as any)?.ticket as SupportTicket | undefined;
@@ -78,7 +86,9 @@ function AdminSupportTicketsContent() {
       setPriority(ticket.priority || "medium");
       setReviewNotes("");
     } catch (error: any) {
-      toast.error(error?.message || "Failed to load ticket details.");
+      if (!silent) {
+        toast.error(error?.message || "Failed to load ticket details.");
+      }
     }
   };
 
@@ -90,6 +100,21 @@ function AdminSupportTicketsContent() {
     if (selectedTicketId) {
       loadTicketDetails(selectedTicketId);
     }
+  }, [selectedTicketId]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      loadTickets({ silent: true });
+    }, 10000);
+    return () => window.clearInterval(id);
+  }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (!selectedTicketId) return;
+    const id = window.setInterval(() => {
+      loadTicketDetails(selectedTicketId, { silent: true });
+    }, 5000);
+    return () => window.clearInterval(id);
   }, [selectedTicketId]);
 
   const handleUpdateTicket = async () => {

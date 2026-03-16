@@ -17,6 +17,7 @@ import { toast } from "../lib/toast";
 import { applyForJob, getJobDetails } from "../services/api";
 import { ROUTES } from "../utils/routes";
 import { useSavedJobs } from "../hooks/useSavedJobs";
+import { useAuth } from "../hooks/useAuth";
 
 type ApiJob = {
   _id: string;
@@ -134,6 +135,7 @@ export function JobDetails() {
   const navigate = useNavigate();
   const location = useLocation();
   const { jobId } = useParams();
+  const { user } = useAuth();
   const { isJobSaved, toggleSavedJob } = useSavedJobs();
   const [isSaved, setIsSaved] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
@@ -233,6 +235,7 @@ export function JobDetails() {
   const companyName = job?.jobPoster
     ? `${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim() || job.jobPoster.email || "MicroJobs"
     : "MicroJobs";
+  const isAdminViewer = ["admin", "superadmin"].includes(String(user?.role || "").toLowerCase());
   const companyLogo = companyName.charAt(0) || "M";
   const jobTypeLabel = getJobTypeLabel(job?.jobType);
   const workModeLabel = getWorkModeLabel(job || undefined);
@@ -327,41 +330,49 @@ export function JobDetails() {
               </div>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                {hasApplied ? (
-                  <button
-                    disabled
-                    className="flex-1 min-w-[240px] bg-[#D1FAE5] text-[#065F46] font-semibold py-4 px-6 rounded-[14px] flex items-center justify-center gap-2 cursor-not-allowed"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    Application Submitted
-                  </button>
+                {isAdminViewer ? (
+                  <div className="w-full rounded-[14px] border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-[13px] text-[#64748B]">
+                    Read-only admin view. Use Admin Job Monitoring to delete this job.
+                  </div>
                 ) : (
-                  <button
-                    onClick={handleApply}
-                    className="flex-1 min-w-[240px] bg-[#4169E1] text-white font-semibold py-4 px-6 rounded-[14px] hover:bg-[#365CCE] transition-colors"
-                  >
-                    Apply Now
-                  </button>
-                )}
+                  <>
+                    {hasApplied ? (
+                      <button
+                        disabled
+                        className="flex-1 min-w-[240px] bg-[#D1FAE5] text-[#065F46] font-semibold py-4 px-6 rounded-[14px] flex items-center justify-center gap-2 cursor-not-allowed"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        Application Submitted
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleApply}
+                        className="flex-1 min-w-[240px] bg-[#4169E1] text-white font-semibold py-4 px-6 rounded-[14px] hover:bg-[#365CCE] transition-colors"
+                      >
+                        Apply Now
+                      </button>
+                    )}
 
-                <button
-                  onClick={handleMessageEmployer}
-                  className="w-[64px] h-[64px] rounded-[14px] flex items-center justify-center bg-[#4169E1] text-white hover:bg-[#365CCE] transition-colors"
-                  title="Message employer"
-                >
-                  <MessageCircle className="w-6 h-6" />
-                </button>
-                <button
-                  onClick={handleSave}
-                  className={`w-[64px] h-[64px] rounded-[14px] border flex items-center justify-center transition-colors ${
-                    isSaved
-                      ? "bg-[#4169E1] text-white border-[#4169E1]"
-                      : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
-                  }`}
-                  title={isSaved ? "Remove from saved" : "Save job"}
-                >
-                  <Bookmark className={`w-6 h-6 ${isSaved ? "fill-current" : ""}`} />
-                </button>
+                    <button
+                      onClick={handleMessageEmployer}
+                      className="w-[64px] h-[64px] rounded-[14px] flex items-center justify-center bg-[#4169E1] text-white hover:bg-[#365CCE] transition-colors"
+                      title="Message employer"
+                    >
+                      <MessageCircle className="w-6 h-6" />
+                    </button>
+                    <button
+                      onClick={handleSave}
+                      className={`w-[64px] h-[64px] rounded-[14px] border flex items-center justify-center transition-colors ${
+                        isSaved
+                          ? "bg-[#4169E1] text-white border-[#4169E1]"
+                          : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
+                      }`}
+                      title={isSaved ? "Remove from saved" : "Save job"}
+                    >
+                      <Bookmark className={`w-6 h-6 ${isSaved ? "fill-current" : ""}`} />
+                    </button>
+                  </>
+                )}
               </div>
             </section>
 

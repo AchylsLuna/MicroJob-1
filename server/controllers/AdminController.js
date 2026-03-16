@@ -184,7 +184,7 @@ export async function getAdminTransactions(req, res) {
     const transactions = await Transaction.find({})
       .populate('sender', '_id firstName lastName email role status')
       .populate('receiver', '_id firstName lastName email role status')
-      .populate('jobReference', '_id title status')
+      .populate({ path: 'jobReference', select: '_id title status jobPoster', populate: { path: 'jobPoster', select: '_id firstName lastName email' } })
       .populate('payoutRequest', '_id status amount destinationSnapshot reviewedAt paidAt')
       .populate('linkedTransaction', '_id type status amount createdAt reference')
       .sort({ createdAt: -1 })

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Eye, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { AdminGate } from "./admin/AdminGate";
+import { toast } from "../../lib/toast";
 import { useAdminData } from "../../hooks/useAdminData";
+import { deleteJob } from "../../services/api";
+import { ROUTES } from "../../utils/routes";
 
 function AdminJobMonitoringContent() {
   const {
@@ -14,17 +19,21 @@ function AdminJobMonitoringContent() {
   } = useAdminData();
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletedJobIds, setDeletedJobIds] = useState<Record<string, boolean>>({});
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const pageSize = 10;
 
   const sortedJobs = useMemo(
     () =>
-      [...jobs].sort((a, b) => {
+      [...jobs]
+      .filter((job) => !deletedJobIds[job._id])
+      .sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         if (aTime && bTime) return bTime - aTime;
         return b._id.localeCompare(a._id);
       }),
-    [jobs]
+    [jobs, deletedJobIds]
   );
 
   const totalPages = Math.max(1, Math.ceil(sortedJobs.length / pageSize));
@@ -57,6 +66,20 @@ function AdminJobMonitoringContent() {
     return job.category.name || "—";
   };
 
+  const handleDeleteJob = async (jobId: string, title: string) => {
+    if (!window.confirm(`Delete job \"${title}\"? This action cannot be undone.`)) return;
+    setDeletingJobId(jobId);
+    try {
+      await deleteJob(jobId);
+      setDeletedJobIds((prev) => ({ ...prev, [jobId]: true }));
+      toast.success("Job deleted successfully.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete job.");
+    } finally {
+      setDeletingJobId(null);
+    }
+  };
+
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
@@ -84,12 +107,13 @@ function AdminJobMonitoringContent() {
                 <th className="py-3 pr-4 font-medium">Posted By</th>
                 <th className="py-3 pr-4 font-medium">Posted</th>
                 <th className="py-3 font-medium">Salary</th>
+                <th className="py-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-[#9CA3AF]">
+                  <td colSpan={8} className="py-6 text-center text-[#9CA3AF]">
                     Loading job postings...
                   </td>
                 </tr>
@@ -97,7 +121,7 @@ function AdminJobMonitoringContent() {
 
               {!isLoading && sortedJobs.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-6 text-center text-[#9CA3AF]">
+                  <td colSpan={8} className="py-6 text-center text-[#9CA3AF]">
                     No job postings available.
                   </td>
                 </tr>
@@ -126,7 +150,27 @@ function AdminJobMonitoringContent() {
                       </td>
                       <td className="py-3 pr-4 text-[#6B7280]">{getPosterName(job)}</td>
                       <td className="py-3 pr-4 text-[#6B7280]">{postedDate}</td>
-                      <td className="py-3 text-[#111827]">{formatSalary(job.salary)}</td>
+                      <td className="py-3 pr-4 text-[#111827]">{formatSalary(job.salary)}</td>
+                      <td className="py-3 min-w-[180px]">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={ROUTES.worker.jobDetails(job._id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#EFF6FF] text-[#1D4ED8] hover:bg-[#DBEAFE]"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteJob(job._id, job.title)}
+                            disabled={deletingJobId === job._id}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-60"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            {deletingJobId === job._id ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
