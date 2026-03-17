@@ -2,6 +2,7 @@ import SupportTicket from '../models/SupportTicket.js';
 import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
+import nodemailer from 'nodemailer';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 const getRole = (req) => {
@@ -14,6 +15,90 @@ const populateTicket = (query) =>
     .populate('requester', 'firstName lastName email role status avatarUrl')
     .populate('messages.author', 'firstName lastName email role status');
 
+const getEmailTransporter = () => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 0);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !port || !user || !pass) return null;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+};
+
+const getSupportAlertEmailList = () => {
+  const configured = String(process.env.SUPPORT_ALERT_EMAILS || '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  return new Set(configured);
+};
+
+const isDeliverableEmail = (value) => {
+  const email = String(value || '').trim().toLowerCase();
+  if (!email) return false;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false;
+  const domain = email.split('@')[1] || '';
+  // Skip local/dev-only domains that cause bounce emails in production SMTP.
+  if (domain.endsWith('.local') || domain.endsWith('.invalid') || domain === 'localhost') return false;
+  return true;
+};
+
+const findAdminRecipients = async () =>
+  User.find({
+    role: { $regex: /^(admin|superadmin)$/i },
+    status: { $ne: 'deleted' },
+  })
+    .select('_id email firstName lastName role')
+    .lean();
+
+const notifyAdminsByEmail = async ({ ticket, requester, eventType = 'created' }) => {
+  const transporter = getEmailTransporter();
+  if (!transporter) return;
+
+  const admins = await findAdminRecipients();
+  const emailSet = getSupportAlertEmailList();
+  admins.forEach((admin) => {
+    if (admin?.email) emailSet.add(String(admin.email).toLowerCase().trim());
+  });
+
+  const recipients = Array.from(emailSet).filter(isDeliverableEmail);
+
+  if (!recipients.length) return;
+
+  const requesterName = `${requester?.firstName || ''} ${requester?.lastName || ''}`.trim() || requester?.email || 'User';
+  const requesterRole = String(requester?.role || 'user').toLowerCase();
+  const subjectPrefix = eventType === 'reply' ? 'Support ticket reply' : 'New support ticket';
+  const mailSubject = `[MicroJobs] ${subjectPrefix}: ${ticket.subject}`;
+  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const ticketId = String(ticket._id || '');
+  const appBase = process.env.ORIGIN || 'http://localhost:5173';
+  const ticketUrl = `${String(appBase).replace(/\/$/, '')}/admin/support`;
+
+  const text = [
+    `${subjectPrefix}`,
+    '',
+    `Ticket ID: ${ticketId}`,
+    `Subject: ${ticket.subject}`,
+    `Category: ${ticket.category}`,
+    `Priority: ${ticket.priority}`,
+    `Status: ${ticket.status}`,
+    `Submitted by: ${requesterName} (${requesterRole})`,
+    `Requester email: ${requester?.email || 'N/A'}`,
+    '',
+    `Open in admin panel: ${ticketUrl}`,
+  ].join('\n');
+
+  await Promise.allSettled(
+    recipients.map((to) => transporter.sendMail({ from, to, subject: mailSubject, text }))
+  );
+};
+
 function shapeTicket(ticket) {
   if (!ticket) return null;
   const doc = ticket.toObject ? ticket.toObject() : ticket;
@@ -21,6 +106,31 @@ function shapeTicket(ticket) {
     ...doc,
     messageCount: Array.isArray(doc.messages) ? doc.messages.length : 0,
   };
+}
+
+export async function listSupportAgents(req, res) {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return sendError(res, 401, 'Authentication required.');
+
+    const admins = await findAdminRecipients();
+    const agents = admins.map((admin) => ({
+      _id: String(admin._id),
+      firstName: admin.firstName || '',
+      lastName: admin.lastName || '',
+      email: admin.email || '',
+      role: String(admin.role || '').toLowerCase(),
+      displayName:
+        `${admin.firstName || ''} ${admin.lastName || ''}`.trim() ||
+        admin.email ||
+        'Support Admin',
+    }));
+
+    return sendSuccess(res, 200, 'Support agents retrieved.', agents, { agents });
+  } catch (error) {
+    console.error('List support agents error:', error);
+    return sendError(res, 500, 'Failed to load support agents.');
+  }
 }
 
 export async function listMySupportTickets(req, res) {
@@ -66,9 +176,7 @@ export async function createSupportTicket(req, res) {
 
     const populated = await populateTicket(SupportTicket.findById(ticket._id));
 
-    const admins = await User.find({ role: { $in: ['admin', 'superadmin'] }, status: { $ne: 'deleted' } })
-      .select('_id')
-      .lean();
+    const admins = await findAdminRecipients();
     await Promise.all(
       admins.map((admin) =>
         createNotification({
@@ -84,6 +192,12 @@ export async function createSupportTicket(req, res) {
         })
       )
     );
+
+    await notifyAdminsByEmail({
+      ticket,
+      requester: populated?.requester,
+      eventType: 'created',
+    });
 
     return sendSuccess(res, 201, 'Support ticket created.', shapeTicket(populated), {
       ticket: shapeTicket(populated),
@@ -156,9 +270,7 @@ export async function replyToSupportTicket(req, res) {
         socketPayload: { ticketId: String(ticket._id), subject: ticket.subject, status: ticket.status },
       });
     } else {
-      const admins = await User.find({ role: { $in: ['admin', 'superadmin'] }, status: { $ne: 'deleted' } })
-        .select('_id')
-        .lean();
+      const admins = await findAdminRecipients();
       await Promise.all(
         admins.map((admin) =>
           createNotification({
@@ -174,6 +286,12 @@ export async function replyToSupportTicket(req, res) {
           })
         )
       );
+
+      await notifyAdminsByEmail({
+        ticket,
+        requester: populated?.requester,
+        eventType: 'reply',
+      });
     }
 
     return sendSuccess(res, 200, 'Support ticket updated.', shapeTicket(populated), { ticket: shapeTicket(populated) });

@@ -9,9 +9,11 @@ import {
   TrendingUp,
   ArrowRight,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw,
+  Trash2
 } from "lucide-react";
-import { changeJobStatus, getMyJobs } from "../../services/api";
+import { changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as apiReopenJob } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 
@@ -31,7 +33,6 @@ interface JobPosting {
   tags: {
     workLocation: string;
     workType: string;
-    experience: string;
     positions: string;
   };
   createdBy: string;
@@ -43,6 +44,10 @@ export function JobsManagement() {
   const [isLoading, setIsLoading] = useState(false);
   const [markingDoneJobId, setMarkingDoneJobId] = useState<string | null>(null);
   const [confirmDoneJob, setConfirmDoneJob] = useState<JobPosting | null>(null);
+  const [confirmReopenJob, setConfirmReopenJob] = useState<JobPosting | null>(null);
+  const [reopeningJobId, setReopeningJobId] = useState<string | null>(null);
+  const [confirmDeleteJob, setConfirmDeleteJob] = useState<JobPosting | null>(null);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const mapStatus = (status?: string): JobPosting["status"] => {
@@ -53,6 +58,7 @@ export function JobsManagement() {
         return "Hold";
       case "Completed":
       case "Cancelled":
+      case "Closed":
         return "Closed";
       default:
         return "Open";
@@ -101,8 +107,7 @@ export function JobsManagement() {
       tags: {
         workLocation: workLocationLabel,
         workType: workTypeLabel,
-        experience: "Entry level",
-        positions: "1 Position",
+        positions: `${job.positionsNeeded || 1} Position${(job.positionsNeeded || 1) > 1 ? 's' : ''}`,
       },
       createdBy: "You",
     };
@@ -151,6 +156,52 @@ export function JobsManagement() {
       toast.error(error?.message || "Failed to mark job as done.");
     } finally {
       setMarkingDoneJobId(null);
+    }
+  };
+
+  const handleReopenJob = (job: JobPosting) => {
+    if (job.backendStatus === "Available") {
+      toast.info("This job is already open.");
+      return;
+    }
+    if (job.backendStatus === "In Progress") {
+      toast.info("Cannot reopen a job that is currently in progress.");
+      return;
+    }
+    setConfirmReopenJob(job);
+  };
+
+  const confirmReopenJobFn = async () => {
+    if (!confirmReopenJob) return;
+    setReopeningJobId(confirmReopenJob.id);
+    try {
+      await apiReopenJob(confirmReopenJob.id);
+      toast.success("Job reopened successfully. Workers can now apply again.");
+      setConfirmReopenJob(null);
+      await loadJobs();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to reopen job.");
+    } finally {
+      setReopeningJobId(null);
+    }
+  };
+
+  const handleDeleteJob = (job: JobPosting) => {
+    setConfirmDeleteJob(job);
+  };
+
+  const confirmDeleteJobFn = async () => {
+    if (!confirmDeleteJob) return;
+    setDeletingJobId(confirmDeleteJob.id);
+    try {
+      await apiDeleteJob(confirmDeleteJob.id);
+      toast.success("Job deleted successfully.");
+      setConfirmDeleteJob(null);
+      await loadJobs();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to delete job.");
+    } finally {
+      setDeletingJobId(null);
     }
   };
 
@@ -314,9 +365,6 @@ export function JobsManagement() {
                   <span className="rounded px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700">
                     {job.tags.workType}
                   </span>
-                  <span className="rounded px-2 py-1 text-xs font-medium bg-green-100 text-green-700">
-                    {job.tags.experience}
-                  </span>
                   <span className="rounded px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700">
                     {job.tags.positions}
                   </span>
@@ -328,6 +376,20 @@ export function JobsManagement() {
                     Created by <span className="font-semibold text-slate-900">{job.createdBy}</span>
                   </span>
                   <div className="flex items-center gap-2">
+                    {job.status === "Closed" && (
+                      <button
+                        onClick={() => void handleReopenJob(job)}
+                        disabled={reopeningJobId === job.id}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#15803D] disabled:opacity-60"
+                        title="Reopen this job so workers can apply again"
+                      >
+                        {reopeningJobId === job.id ? (
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" />Reopening...</>
+                        ) : (
+                          <><RefreshCw className="w-3.5 h-3.5" />Reopen</>  
+                        )}
+                      </button>
+                    )}
                     <button
                       onClick={() => void handleMarkJobDone(job)}
                       disabled={job.status === "Closed" || markingDoneJobId === job.id}
@@ -335,15 +397,21 @@ export function JobsManagement() {
                       title="Mark done and auto-pay workers from escrow"
                     >
                       {markingDoneJobId === job.id ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Marking...
-                        </>
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />Marking...</>
                       ) : (
-                        <>
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Mark as Done
-                        </>
+                        <><CheckCircle2 className="w-3.5 h-3.5" />Mark as Done</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => void handleDeleteJob(job)}
+                      disabled={deletingJobId === job.id}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-1.5 text-xs font-semibold text-[#B91C1C] disabled:opacity-60"
+                      title="Delete this job"
+                    >
+                      {deletingJobId === job.id ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />Deleting...</>
+                      ) : (
+                        <><Trash2 className="w-3.5 h-3.5" />Delete</>
                       )}
                     </button>
                     <button
@@ -377,7 +445,6 @@ export function JobsManagement() {
             <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700 border border-blue-100">
               Once completed, escrow funds are automatically released to hired workers' e-wallets.
             </p>
-
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
                 type="button"
@@ -394,15 +461,83 @@ export function JobsManagement() {
                 className="inline-flex items-center gap-2 rounded-lg bg-[#1C4D8D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {markingDoneJobId === confirmDoneJob.id ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Marking...
-                  </>
+                  <><Loader2 className="h-4 w-4 animate-spin" />Marking...</>
                 ) : (
-                  <>
-                    <CheckCircle2 className="h-4 w-4" />
-                    Confirm Done
-                  </>
+                  <><CheckCircle2 className="h-4 w-4" />Confirm Done</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmReopenJob ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900">Reopen Job</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              You are about to reopen <span className="font-semibold text-slate-900">{confirmReopenJob.title}</span>.
+            </p>
+            <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700 border border-green-100">
+              {confirmReopenJob.backendStatus === "Completed" || confirmReopenJob.backendStatus === "Cancelled"
+                ? "Reopening will re-collect the escrow from your employer balance. Workers will be able to apply again."
+                : "The job will be set back to open and workers will be able to apply again."}
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmReopenJob(null)}
+                disabled={reopeningJobId === confirmReopenJob.id}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmReopenJobFn()}
+                disabled={reopeningJobId === confirmReopenJob.id}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#15803D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {reopeningJobId === confirmReopenJob.id ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Reopening...</>
+                ) : (
+                  <><RefreshCw className="h-4 w-4" />Reopen Job</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {confirmDeleteJob ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-lg font-semibold text-slate-900">Delete Job</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Are you sure you want to delete <span className="font-semibold text-slate-900">{confirmDeleteJob.title}</span>? This action cannot be undone.
+            </p>
+            <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-100">
+              All applications for this job will also be removed. Any unspent escrow will be refunded to your employer balance.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteJob(null)}
+                disabled={deletingJobId === confirmDeleteJob.id}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void confirmDeleteJobFn()}
+                disabled={deletingJobId === confirmDeleteJob.id}
+                className="inline-flex items-center gap-2 rounded-lg bg-[#B91C1C] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {deletingJobId === confirmDeleteJob.id ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" />Deleting...</>
+                ) : (
+                  <><Trash2 className="h-4 w-4" />Delete Job</>
                 )}
               </button>
             </div>

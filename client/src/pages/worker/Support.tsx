@@ -18,6 +18,7 @@ import { toast } from "../../lib/toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
   createSupportTicket,
+  getSupportAgents,
   getSupportTicket,
   getSupportTickets,
   replyToSupportTicket,
@@ -95,6 +96,21 @@ const getPriorityClasses = (priority?: SupportTicket["priority"]) => {
   }
 };
 
+const extractTickets = (response: any): SupportTicket[] => {
+  if (Array.isArray(response?.tickets)) return response.tickets as SupportTicket[];
+  if (Array.isArray(response?.data)) return response.data as SupportTicket[];
+  if (Array.isArray(response)) return response as SupportTicket[];
+  return [];
+};
+
+const extractTicket = (response: any): SupportTicket | undefined => {
+  if (response?.ticket && typeof response.ticket === "object") return response.ticket as SupportTicket;
+  if (response?.data && typeof response.data === "object" && !Array.isArray(response.data)) {
+    return response.data as SupportTicket;
+  }
+  return undefined;
+};
+
 export function Support() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -108,6 +124,7 @@ export function Support() {
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
+  const [isOpeningMessages, setIsOpeningMessages] = useState(false);
   const [supportForm, setSupportForm] = useState({
     subject: "",
     category: "general",
@@ -125,9 +142,7 @@ export function Support() {
     if (!silent) setIsLoadingTickets(true);
     try {
       const response = await getSupportTickets();
-      const nextTickets = Array.isArray((response as any)?.tickets)
-        ? ((response as any).tickets as SupportTicket[])
-        : [];
+      const nextTickets = extractTickets(response as any);
       setTickets(nextTickets);
       if (nextTickets.length > 0) {
         setSelectedTicketId(selectedId || nextTickets[0]._id);
@@ -147,7 +162,7 @@ export function Support() {
     const silent = Boolean(options?.silent);
     try {
       const response = await getSupportTicket(ticketId);
-      const ticket = (response as any)?.ticket as SupportTicket | undefined;
+      const ticket = extractTicket(response as any);
       if (!ticket) return;
       setTickets((current) =>
         current.map((item) => (item._id === ticketId ? ticket : item)),
@@ -212,7 +227,7 @@ export function Support() {
         priority: supportForm.priority,
         message: supportForm.message.trim(),
       });
-      const ticket = (response as any)?.ticket as SupportTicket | undefined;
+      const ticket = extractTicket(response as any);
       if (ticket) {
         setTickets((current) => [ticket, ...current.filter((item) => item._id !== ticket._id)]);
         setSelectedTicketId(ticket._id);
@@ -233,7 +248,7 @@ export function Support() {
     setIsReplying(true);
     try {
       const response = await replyToSupportTicket(selectedTicketId, { message: replyDraft.trim() });
-      const updatedTicket = (response as any)?.ticket as SupportTicket | undefined;
+      const updatedTicket = extractTicket(response as any);
       if (updatedTicket) {
         setTickets((current) =>
           current.map((item) => (item._id === updatedTicket._id ? updatedTicket : item)),
@@ -247,6 +262,42 @@ export function Support() {
       toast.error(error?.message || "Failed to send reply.");
     } finally {
       setIsReplying(false);
+    }
+  };
+
+  const handleOpenSupportMessages = async () => {
+    setIsOpeningMessages(true);
+    try {
+      const response = await getSupportAgents();
+      const agents = Array.isArray((response as any)?.agents)
+        ? ((response as any).agents as Array<{ _id: string; displayName?: string; firstName?: string; lastName?: string; email?: string }>)
+        : Array.isArray((response as any)?.data)
+        ? ((response as any).data as Array<{ _id: string; displayName?: string; firstName?: string; lastName?: string; email?: string }>)
+        : [];
+
+      const target = agents[0];
+      if (!target?._id) {
+        toast.error("No support admin is available right now.");
+        return;
+      }
+
+      const displayName = "Admin Support";
+
+      const messageRoute = window.location.pathname.startsWith("/employer")
+        ? ROUTES.employer.messages
+        : ROUTES.worker.messages;
+
+      const params = new URLSearchParams({
+        contact: `${target._id}::general`,
+        startUser: target._id,
+        startName: displayName,
+        source: "support-center",
+      });
+      navigate(`${messageRoute}?${params.toString()}`);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to open support messages.");
+    } finally {
+      setIsOpeningMessages(false);
     }
   };
 
@@ -281,10 +332,11 @@ export function Support() {
               <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Message Support</h3>
               <p className="text-[14px] text-[#6B7280] mb-4">Use the messaging workspace for urgent conversations with the support team.</p>
               <button
-                onClick={() => navigate(`${ROUTES.worker.messages}?contact=support`)}
-                className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:bg-[#0F2954] transition-all text-[14px]"
+                onClick={() => void handleOpenSupportMessages()}
+                disabled={isOpeningMessages}
+                className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:bg-[#0F2954] transition-all text-[14px] disabled:opacity-60"
               >
-                Open Messages
+                {isOpeningMessages ? "Opening..." : "Open Messages"}
               </button>
             </div>
 

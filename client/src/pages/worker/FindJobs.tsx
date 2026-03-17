@@ -14,7 +14,6 @@ interface Job {
   applicants: number;
   type: "Full-Time" | "Part-Time" | "Contract" | "Project Work";
   workMode: "Remote" | "Hybrid" | "On-site";
-  experienceLevel: "Entry Level" | "Mid-Level" | "Senior";
   description: string;
   salary: string;
   postedDaysAgo: number;
@@ -75,19 +74,6 @@ export function FindJobs() {
     }
   };
 
-  const getExperienceLevelColor = (level: Job["experienceLevel"]) => {
-    switch (level) {
-      case "Entry Level":
-        return "bg-[#DCFCE7] text-[#15803D]";
-      case "Mid-Level":
-        return "bg-[#DBEAFE] text-[#1D4ED8]";
-      case "Senior":
-        return "bg-[#F3E8FF] text-[#7E22CE]";
-      default:
-        return "bg-[#F3F4F6] text-[#6B7280]";
-    }
-  };
-
   const getJobTypeLabel = (jobType?: string): Job["type"] => {
     const normalized = (jobType || "").toLowerCase();
     switch (true) {
@@ -107,17 +93,6 @@ export function FindJobs() {
     if (source.includes("remote")) return "Remote";
     if (source.includes("hybrid")) return "Hybrid";
     return "On-site";
-  };
-
-  const getExperienceLevel = (job: ApiJob): Job["experienceLevel"] => {
-    const details = `${job.title || ""} ${(job.requirements || []).join(" ")}`.toLowerCase();
-    if (/(senior|lead|principal|architect|manager|[5-9]\+?\s*years?)/.test(details)) {
-      return "Senior";
-    }
-    if (/(mid|intermediate|[3-4]\+?\s*years?)/.test(details)) {
-      return "Mid-Level";
-    }
-    return "Entry Level";
   };
 
   const getPostedDays = (createdAt?: string) => {
@@ -162,7 +137,6 @@ export function FindJobs() {
       applicants: job.applicants?.length || 0,
       type: getJobTypeLabel(job.jobType),
       workMode: getWorkModeLabel(job.jobType, job.location, job.description),
-      experienceLevel: getExperienceLevel(job),
       description: job.description,
       salary: salaryLabel,
       postedDaysAgo: getPostedDays(job.createdAt),
@@ -353,9 +327,6 @@ export function FindJobs() {
               </div>
 
               <div className="flex flex-wrap gap-2 mt-4">
-                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getExperienceLevelColor(job.experienceLevel)}`}>
-                  {job.experienceLevel}
-                </span>
                 <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getJobTypeColor(job.type)}`}>
                   {job.type}
                 </span>

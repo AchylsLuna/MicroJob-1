@@ -152,7 +152,13 @@ export function JobDetails() {
       try {
         const data = await getJobDetails(jobId);
         if (!isMounted) return;
-        setJob(data as ApiJob);
+        const jobData = data as ApiJob;
+        setJob(jobData);
+        // Check if the current user has already applied by inspecting the applicants array
+        if (user?.id && Array.isArray(jobData.applicants)) {
+          const alreadyApplied = jobData.applicants.map(String).includes(String(user.id));
+          if (alreadyApplied) setHasApplied(true);
+        }
       } catch (error: any) {
         if (!isMounted) return;
         setLoadError(error?.message || "Failed to load job details.");
@@ -164,11 +170,12 @@ export function JobDetails() {
     return () => {
       isMounted = false;
     };
-  }, [jobId]);
+  }, [jobId, user?.id]);
 
   useEffect(() => {
     const state = (location.state as JobDetailsLocationState | null) || null;
-    setHasApplied(Boolean(state?.isApplied));
+    // Only set hasApplied from state if it's explicitly true (don't reset it to false)
+    if (state?.isApplied) setHasApplied(true);
     setIsSaved(jobId ? isJobSaved(jobId) : false);
   }, [isJobSaved, jobId, location.state]);
 

@@ -161,6 +161,13 @@ export function Messages() {
   const startChatHandledRef = useRef(false);
   const prefilledDraftHandledRef = useRef(false);
   const socketRef = useRef<Socket | null>(null);
+  const supportSource = searchParams.get("source") || "";
+  const supportStartUserId = supportSource === "support-center" ? (searchParams.get("startUser") || "") : "";
+
+  const supportDisplayNameFor = (otherUserId: string, fallbackName: string) =>
+    supportStartUserId && String(otherUserId) === String(supportStartUserId)
+      ? "Admin Support"
+      : fallbackName;
 
   useEffect(() => {
     setCurrentUserId(getCurrentUserIdFromStorage());
@@ -207,10 +214,11 @@ export function Messages() {
 
       setContacts((prev) => {
         const existing = prev.find((item) => item.conversationId === conversationId);
-        const otherUserName =
+        const resolvedName =
           senderId === currentUserId
             ? receiverName || existing?.otherUserName || "User"
             : senderName || existing?.otherUserName || "User";
+        const otherUserName = supportDisplayNameFor(otherUserId, resolvedName);
         const updated: Contact = {
           conversationId,
           otherUserId,
@@ -352,7 +360,7 @@ export function Messages() {
       const fallbackContact: Contact = {
         conversationId: fallbackConversationId,
         otherUserId: startUserId,
-        otherUserName: startName,
+        otherUserName: supportDisplayNameFor(startUserId, startName),
         jobId: startJobId || null,
         jobTitle: null,
         lastMessage: '',
@@ -410,8 +418,12 @@ export function Messages() {
         response?.data,
         response
       );
+      const namedConversations = conversationsArray.map((contact) => ({
+        ...contact,
+        otherUserName: supportDisplayNameFor(contact.otherUserId, contact.otherUserName || "User"),
+      }));
       const archivedSet = new Set(archivedContacts.map((contact) => contact.conversationId));
-      const inboxOnly = conversationsArray.filter((contact) => !archivedSet.has(contact.conversationId));
+      const inboxOnly = namedConversations.filter((contact) => !archivedSet.has(contact.conversationId));
       setContacts(inboxOnly);
       
       // Select first contact by default if none selected

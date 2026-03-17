@@ -25,6 +25,21 @@ const statusClasses: Record<SupportTicket["status"], string> = {
   closed: "bg-[#F3F4F6] text-[#6B7280]",
 };
 
+const extractTickets = (response: any): SupportTicket[] => {
+  if (Array.isArray(response?.tickets)) return response.tickets as SupportTicket[];
+  if (Array.isArray(response?.data)) return response.data as SupportTicket[];
+  if (Array.isArray(response)) return response as SupportTicket[];
+  return [];
+};
+
+const extractTicket = (response: any): SupportTicket | undefined => {
+  if (response?.ticket && typeof response.ticket === "object") return response.ticket as SupportTicket;
+  if (response?.data && typeof response.data === "object" && !Array.isArray(response.data)) {
+    return response.data as SupportTicket;
+  }
+  return undefined;
+};
+
 function AdminSupportTicketsContent() {
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -55,9 +70,7 @@ function AdminSupportTicketsContent() {
         ...(statusFilter !== "all" ? { status: statusFilter } : {}),
         ...(search.trim() ? { search: search.trim() } : {}),
       });
-      const nextTickets = Array.isArray((response as any)?.tickets)
-        ? ((response as any).tickets as SupportTicket[])
-        : [];
+      const nextTickets = extractTickets(response as any);
       setTickets(nextTickets);
       if (nextTickets.length > 0) {
         setSelectedTicketId((current) => current || nextTickets[0]._id);
@@ -79,7 +92,7 @@ function AdminSupportTicketsContent() {
     const silent = Boolean(options?.silent);
     try {
       const response = await getAdminSupportTicket(ticketId);
-      const ticket = (response as any)?.ticket as SupportTicket | undefined;
+      const ticket = extractTicket(response as any);
       if (!ticket) return;
       setTickets((current) => current.map((item) => (item._id === ticketId ? ticket : item)));
       setStatus(ticket.status);
@@ -126,7 +139,7 @@ function AdminSupportTicketsContent() {
         priority,
         reviewNotes: reviewNotes.trim() || undefined,
       });
-      const ticket = (response as any)?.ticket as SupportTicket | undefined;
+      const ticket = extractTicket(response as any);
       if (ticket) {
         setTickets((current) => current.map((item) => (item._id === ticket._id ? ticket : item)));
       } else {
@@ -145,7 +158,7 @@ function AdminSupportTicketsContent() {
     setIsReplying(true);
     try {
       const response = await replyToAdminSupportTicket(selectedTicketId, { message: replyDraft.trim() });
-      const ticket = (response as any)?.ticket as SupportTicket | undefined;
+      const ticket = extractTicket(response as any);
       if (ticket) {
         setTickets((current) => current.map((item) => (item._id === ticket._id ? ticket : item)));
       } else {
@@ -357,7 +370,7 @@ function AdminSupportTicketsContent() {
 
 export function AdminSupportTickets() {
   return (
-    <AdminGate allowedRoles={["admin"]}>
+    <AdminGate allowedRoles={["admin", "superadmin"]}>
       <AdminSupportTicketsContent />
     </AdminGate>
   );

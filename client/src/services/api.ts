@@ -119,6 +119,14 @@ export type SupportTicket = {
   createdAt?: string;
   messageCount?: number;
 };
+export type SupportAgent = {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
+  displayName?: string;
+};
 export type PayoutRequest = {
   _id: string;
   amount: number;
@@ -385,6 +393,10 @@ export function changeJobStatus(jobId: string, status: string) {
   return request(`/jobs/${jobId}/status`, { method: 'PATCH', body: { status } });
 }
 
+export function reopenJob(jobId: string) {
+  return request<{ message?: string }>(`/jobs/${jobId}/reopen`, { method: 'PATCH' });
+}
+
 export function getMyJobs() {
   return request<any[]>('/jobs/mine', { method: 'GET' });
 }
@@ -645,6 +657,10 @@ export function cancelPayoutRequest(payoutRequestId: string) {
 
 export function getSupportTickets() {
   return request<{ tickets: SupportTicket[] }>('/support/tickets', { method: 'GET' });
+}
+
+export function getSupportAgents() {
+  return request<{ agents: SupportAgent[] }>('/support/agents', { method: 'GET' });
 }
 
 export function getSupportTicket(ticketId: string) {

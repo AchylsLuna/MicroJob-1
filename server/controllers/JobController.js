@@ -265,20 +265,27 @@ export async function changeJobStatus(req, res){
         if (status === 'Completed' && job.status !== 'Completed') {
             // When completing a job, pay out applicants marked as Hired exactly once per application.
             const hiredApplications = await JobApplication.find({ job: job._id, status: 'Hired' });
-            if (!hiredApplications || hiredApplications.length === 0) {
-                return res.status(400).json({ message: 'No hired applicants to pay out.' });
-            }
 
-            const totalEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
-            const paidAgg = await Transaction.aggregate([
-                { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
-                { $group: { _id: null, totalPaid: { $sum: '$amount' } } }
+            // Net remaining escrow = all ESCROW collected - all PAYOUT made - all REFUND issued.
+            // Using the net correctly handles jobs that were reopened (multiple escrow cycles).
+            const [escrowAgg, paidAgg, refundAgg] = await Promise.all([
+                Transaction.aggregate([
+                    { $match: { jobReference: job._id, type: 'ESCROW', status: 'COMPLETED' } },
+                    { $group: { _id: null, total: { $sum: '$amount' } } },
+                ]),
+                Transaction.aggregate([
+                    { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
+                    { $group: { _id: null, total: { $sum: '$amount' } } },
+                ]),
+                Transaction.aggregate([
+                    { $match: { jobReference: job._id, type: 'REFUND', status: 'COMPLETED' } },
+                    { $group: { _id: null, total: { $sum: '$amount' } } },
+                ]),
             ]);
-            let remainingEscrow = Math.max(0, totalEscrow - ((paidAgg[0] && paidAgg[0].totalPaid) || 0));
-
-            if (remainingEscrow <= 0) {
-                return res.status(400).json({ message: 'Escrow for this job has already been fully paid out.' });
-            }
+            const totalEscrowed = (escrowAgg[0] && escrowAgg[0].total) || 0;
+            const totalPaid    = (paidAgg[0]   && paidAgg[0].total)   || 0;
+            const totalRefunded = (refundAgg[0] && refundAgg[0].total) || 0;
+            let remainingEscrow = Math.max(0, totalEscrowed - totalPaid - totalRefunded);
 
             for (const app of hiredApplications) {
                 try {
@@ -358,17 +365,26 @@ export async function changeJobStatus(req, res){
         if (status === 'Cancelled' && job.status !== 'Cancelled' && job.status !== 'Completed') {
             const poster = await User.findById(job.jobPoster);
             if (poster) {
-                // Calculate total escrow originally held for this job
-                const totalEscrow = job.salary * (job.positionsNeeded || 1);
-
-                // Sum payouts already made for this job
-                const payouts = await Transaction.aggregate([
-                    { $match: { jobReference: job._id, type: 'PAYOUT' } },
-                    { $group: { _id: null, totalPaid: { $sum: '$amount' } } }
+                // Net remaining escrow across all cycles
+                const [escrowAggC, paidAggC, refundAggC] = await Promise.all([
+                    Transaction.aggregate([
+                        { $match: { jobReference: job._id, type: 'ESCROW', status: 'COMPLETED' } },
+                        { $group: { _id: null, total: { $sum: '$amount' } } },
+                    ]),
+                    Transaction.aggregate([
+                        { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
+                        { $group: { _id: null, total: { $sum: '$amount' } } },
+                    ]),
+                    Transaction.aggregate([
+                        { $match: { jobReference: job._id, type: 'REFUND', status: 'COMPLETED' } },
+                        { $group: { _id: null, total: { $sum: '$amount' } } },
+                    ]),
                 ]);
-                const totalPaid = (payouts[0] && payouts[0].totalPaid) || 0;
+                const totalEscrowed = (escrowAggC[0] && escrowAggC[0].total) || 0;
+                const totalCPaid    = (paidAggC[0]   && paidAggC[0].total)   || 0;
+                const totalCRefunded = (refundAggC[0] && refundAggC[0].total) || 0;
 
-                const refundAmount = Math.max(0, totalEscrow - totalPaid);
+                const refundAmount = Math.max(0, totalEscrowed - totalCPaid - totalCRefunded);
                 if (refundAmount > 0) {
                     // Always refund to employer balance since escrow is job-posting related
                     poster.employerBalance = (poster.employerBalance || 0) + refundAmount;
@@ -558,14 +574,47 @@ export async function deleteJob(req, res) {
     try {
         const { id } = req.params;
         const userId = req.user?.id;
+        const requesterRole = getRequesterRole(req);
 
         const job = await Job.findById(id);
         if (!job) {
             return res.status(404).json({ message: 'Job not found.' });
         }
 
-        if (job.jobPoster.toString() !== userId) {
+        if (job.jobPoster.toString() !== userId && !isAdminRole(requesterRole)) {
             return res.status(403).json({ message: 'You are not allowed to delete this job.' });
+        }
+
+        // Refund any unspent escrow before deleting (for Active / Closed jobs)
+        const nonRefundedStatuses = ['Completed', 'Cancelled'];
+        if (!nonRefundedStatuses.includes(job.status)) {
+            const poster = await User.findById(job.jobPoster);
+            if (poster) {
+                const totalEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
+                const payouts = await Transaction.aggregate([
+                    { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
+                    { $group: { _id: null, totalPaid: { $sum: '$amount' } } },
+                ]);
+                const totalPaid = (payouts[0] && payouts[0].totalPaid) || 0;
+                const refundAmount = Math.max(0, totalEscrow - totalPaid);
+                if (refundAmount > 0) {
+                    poster.employerBalance = (poster.employerBalance || 0) + refundAmount;
+                    await poster.save();
+                    await Transaction.create({
+                        sender: null,
+                        receiver: poster._id,
+                        amount: refundAmount,
+                        type: 'REFUND',
+                        status: 'COMPLETED',
+                        balanceTarget: 'EMPLOYER',
+                        jobReference: job._id,
+                        label: `Escrow refund on job delete (Job ${job._id})`,
+                        relatedEntityType: 'job',
+                        relatedEntityId: String(job._id),
+                        actor: poster._id,
+                    });
+                }
+            }
         }
 
         // Delete associated applications
@@ -581,5 +630,95 @@ export async function deleteJob(req, res) {
     } catch (error) {
         console.error('Delete job error:', error);
         return res.status(500).json({ message: 'Failed to delete job.', error: error.message });
+    }
+}
+
+export async function reopenJob(req, res) {
+    try {
+        const { id } = req.params;
+        const userId = req.user?.id;
+        const requesterRole = getRequesterRole(req);
+
+        const job = await Job.findById(id);
+        if (!job) {
+            return res.status(404).json({ message: 'Job not found.' });
+        }
+
+        if (job.jobPoster.toString() !== userId && !isAdminRole(requesterRole)) {
+            return res.status(403).json({ message: 'You are not allowed to reopen this job.' });
+        }
+
+        if (job.status === 'Available') {
+            return res.status(400).json({ message: 'Job is already open.' });
+        }
+
+        if (job.status === 'In Progress') {
+            return res.status(400).json({ message: 'Cannot reopen a job that is currently in progress.' });
+        }
+
+        // For Completed or Cancelled jobs the escrow was already released/refunded.
+        // We need to re-collect the escrow from the employer.
+        const needsReEscrow = job.status === 'Completed' || job.status === 'Cancelled';
+
+        if (needsReEscrow) {
+            const totalEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
+            const poster = await User.findById(job.jobPoster);
+            if (!poster) {
+                return res.status(404).json({ message: 'Job poster not found.' });
+            }
+
+            const availableBalance =
+                poster.role === 'both'
+                    ? (poster.employerBalance || 0) + (poster.workerBalance || 0)
+                    : (poster.employerBalance || 0);
+
+            if (availableBalance < totalEscrow) {
+                return res.status(400).json({
+                    message: `Insufficient balance to reopen this job. You need PHP ${totalEscrow.toFixed(2)} in escrow.`,
+                });
+            }
+
+            if (poster.role === 'both') {
+                const employerPortion = Math.min(poster.employerBalance || 0, totalEscrow);
+                const workerPortion = totalEscrow - employerPortion;
+                poster.employerBalance = (poster.employerBalance || 0) - employerPortion;
+                poster.workerBalance = (poster.workerBalance || 0) - workerPortion;
+            } else {
+                poster.employerBalance = (poster.employerBalance || 0) - totalEscrow;
+            }
+            await poster.save();
+
+            await Transaction.create({
+                sender: poster._id,
+                receiver: null,
+                amount: totalEscrow,
+                type: 'ESCROW',
+                status: 'COMPLETED',
+                balanceTarget: 'ESCROW',
+                jobReference: job._id,
+                label: `Re-escrow on job reopen (Job ${job._id})`,
+                relatedEntityType: 'job',
+                relatedEntityId: String(job._id),
+                actor: poster._id,
+            });
+        }
+
+        // Reset applicants so fresh applications can be collected
+        job.applicants = [];
+        job.selectedApplicant = null;
+        job.status = 'Available';
+        await job.save();
+
+        // Remove old JobApplication records so workers can apply again fresh
+        try {
+            await JobApplication.deleteMany({ job: job._id });
+        } catch (e) {
+            console.warn('Failed to remove old applications on reopen', e);
+        }
+
+        return res.status(200).json({ message: 'Job reopened successfully.', job });
+    } catch (error) {
+        console.error('Reopen job error:', error);
+        return res.status(500).json({ message: 'Failed to reopen job.', error: error.message });
     }
 }
