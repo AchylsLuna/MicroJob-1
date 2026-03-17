@@ -453,6 +453,15 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         };
         setWorkerNotifications(append);
         setEmployerNotifications(append);
+        // If this notification is about a payment/payout, refresh profile to update balances
+        try {
+          const nType = String(notification?.type || '').toLowerCase();
+          const hasTx = Boolean(notification?.socketPayload?.transactionId || notification?.transactionId || notification?.payload?.transactionId);
+          if (nType === 'payment' || nType === 'payout' || hasTx) {
+            void refreshProfile();
+            void refreshNotifications();
+          }
+        } catch (e) {}
       });
 
       socket.on('new_message', (payload: any) => {

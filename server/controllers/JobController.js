@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
@@ -263,61 +264,134 @@ export async function changeJobStatus(req, res){
         }
 
         if (status === 'Completed' && job.status !== 'Completed') {
-            // When completing a job, pay out applicants marked as Hired exactly once per application.
-            const hiredApplications = await JobApplication.find({ job: job._id, status: 'Hired' });
+            // Atomic payout/refund flow: compute remaining escrow and pay payable candidates inside
+            // a MongoDB transaction to avoid partial state where refunds are issued but payouts failed.
+            const session = await mongoose.startSession();
+            session.startTransaction();
+            try {
+                // Support both canonical and legacy hired states before releasing remaining escrow.
+                const hiredApplications = await JobApplication.find({
+                    job: job._id,
+                    status: { $in: ['Hired', 'Accepted'] },
+                }).select('_id applicant').session(session);
 
-            // Net remaining escrow = all ESCROW collected - all PAYOUT made - all REFUND issued.
-            // Using the net correctly handles jobs that were reopened (multiple escrow cycles).
-            const [escrowAgg, paidAgg, refundAgg] = await Promise.all([
-                Transaction.aggregate([
-                    { $match: { jobReference: job._id, type: 'ESCROW', status: 'COMPLETED' } },
-                    { $group: { _id: null, total: { $sum: '$amount' } } },
-                ]),
-                Transaction.aggregate([
-                    { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
-                    { $group: { _id: null, total: { $sum: '$amount' } } },
-                ]),
-                Transaction.aggregate([
-                    { $match: { jobReference: job._id, type: 'REFUND', status: 'COMPLETED' } },
-                    { $group: { _id: null, total: { $sum: '$amount' } } },
-                ]),
-            ]);
-            const totalEscrowed = (escrowAgg[0] && escrowAgg[0].total) || 0;
-            const totalPaid    = (paidAgg[0]   && paidAgg[0].total)   || 0;
-            const totalRefunded = (refundAgg[0] && refundAgg[0].total) || 0;
-            let remainingEscrow = Math.max(0, totalEscrowed - totalPaid - totalRefunded);
+                const payoutCandidates = [];
+                const seenApplicantIds = new Set();
 
-            for (const app of hiredApplications) {
-                try {
-                    const alreadyPaid = await Transaction.findOne({
-                        jobReference: job._id,
-                        type: 'PAYOUT',
-                        status: 'COMPLETED',
-                        relatedEntityType: 'job_application',
-                        relatedEntityId: String(app._id),
-                    }).select('_id');
-                    if (alreadyPaid) continue;
+                for (const app of hiredApplications) {
+                    const applicantId = String(app.applicant);
+                    if (seenApplicantIds.has(applicantId)) continue;
+                    seenApplicantIds.add(applicantId);
+                    payoutCandidates.push({ applicant: app.applicant, applicationId: String(app._id) });
+                }
 
+                if (job.selectedApplicant) {
+                    const selectedApplicantId = String(job.selectedApplicant);
+                    if (!seenApplicantIds.has(selectedApplicantId)) {
+                        const selectedApplicantApplication = await JobApplication.findOne({
+                            job: job._id,
+                            applicant: job.selectedApplicant,
+                        }).select('_id applicant').session(session);
+
+                        if (selectedApplicantApplication) {
+                            payoutCandidates.push({
+                                applicant: selectedApplicantApplication.applicant,
+                                applicationId: String(selectedApplicantApplication._id),
+                            });
+                        } else {
+                            payoutCandidates.push({ applicant: job.selectedApplicant, applicationId: null });
+                        }
+                        seenApplicantIds.add(selectedApplicantId);
+                    }
+                }
+
+                // Net remaining escrow = all ESCROW collected - all PAYOUT made - all REFUND issued.
+                const [escrowAgg, paidAgg, refundAgg] = await Promise.all([
+                    Transaction.aggregate([
+                        { $match: { jobReference: job._id, type: 'ESCROW', status: 'COMPLETED' } },
+                        { $group: { _id: null, total: { $sum: '$amount' } } },
+                    ]).session(session),
+                    Transaction.aggregate([
+                        { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
+                        { $group: { _id: null, total: { $sum: '$amount' } } },
+                    ]).session(session),
+                    Transaction.aggregate([
+                        { $match: { jobReference: job._id, type: 'REFUND', status: 'COMPLETED' } },
+                        { $group: { _id: null, total: { $sum: '$amount' } } },
+                    ]).session(session),
+                ]);
+                const totalEscrowed = (escrowAgg[0] && escrowAgg[0].total) || 0;
+                const totalPaid    = (paidAgg[0]   && paidAgg[0].total)   || 0;
+                const totalRefunded = (refundAgg[0] && refundAgg[0].total) || 0;
+                const totalPaidBefore = totalPaid;
+                let remainingEscrow = Math.max(0, totalEscrowed - totalPaid - totalRefunded);
+
+                // Determine already paid receivers to avoid double paying
+                const paidReceivers = await Transaction.find({
+                    jobReference: job._id,
+                    type: 'PAYOUT',
+                    status: 'COMPLETED',
+                }).select('receiver').lean().session(session);
+                const paidReceiverIds = new Set(
+                    paidReceivers
+                        .map((tx) => (tx.receiver ? String(tx.receiver) : null))
+                        .filter(Boolean)
+                );
+
+                const candidateUserIds = Array.from(new Set(payoutCandidates.map((c) => String(c.applicant))));
+                const existingUsers = candidateUserIds.length
+                    ? await User.find({ _id: { $in: candidateUserIds } }).select('_id').lean().session(session)
+                    : [];
+                const existingUserIds = new Set(existingUsers.map((u) => String(u._id)));
+
+                const payableCandidates = payoutCandidates.filter((candidate) =>
+                    existingUserIds.has(String(candidate.applicant)) && !paidReceiverIds.has(String(candidate.applicant))
+                );
+
+                // Debug: log payout decision variables to help diagnose why payouts may not run
+                console.debug('JobCompletionDebug: totals', { totalEscrowed, totalPaid, totalRefunded, remainingEscrow });
+                console.debug('JobCompletionDebug: payoutCandidates', payoutCandidates.map((c) => ({ applicant: String(c.applicant), applicationId: c.applicationId })));
+                console.debug('JobCompletionDebug: paidReceiverIds', Array.from(paidReceiverIds));
+                console.debug('JobCompletionDebug: existingUserIds', Array.from(existingUserIds));
+                console.debug('JobCompletionDebug: payableCandidates', payableCandidates.map((c) => ({ applicant: String(c.applicant), applicationId: c.applicationId })));
+
+                if (totalPaidBefore <= 0 && payableCandidates.length === 0) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    console.warn('JobCompletionDebug: no payable candidates, aborting - employer must hire at least one worker');
+                    return res.status(400).json({
+                        message: 'Cannot mark job as done yet. Move at least one worker application to Hired first.',
+                    });
+                }
+
+                let payoutsProcessed = 0;
+                for (const candidate of payableCandidates) {
                     const payoutAmount = Math.min(Number(job.salary || 0), remainingEscrow);
                     if (payoutAmount <= 0) break;
 
-                    const worker = await User.findById(app.applicant);
+                    const worker = await User.findById(candidate.applicant).session(session);
                     if (!worker) continue;
                     worker.workerBalance = (worker.workerBalance || 0) + payoutAmount;
-                    await worker.save();
+                    await worker.save({ session });
 
-                    const payoutTx = await Transaction.create({
-                        sender: null, // From escrow
-                        receiver: worker._id,
-                        amount: payoutAmount,
-                        type: 'PAYOUT',
-                        status: 'COMPLETED',
-                        balanceTarget: 'WORKER',
-                        jobReference: job._id,
-                        label: `Payout (Job ${job._id})`,
-                        relatedEntityType: 'job_application',
-                        relatedEntityId: String(app._id),
-                    });
+                    const relatedEntityType = candidate.applicationId ? 'job_application' : 'job_worker';
+                    const relatedEntityId = candidate.applicationId || String(worker._id);
+
+                    const payoutTx = await Transaction.create([
+                        {
+                            sender: null, // From escrow
+                            receiver: worker._id,
+                            amount: payoutAmount,
+                            type: 'PAYOUT',
+                            status: 'COMPLETED',
+                            balanceTarget: 'WORKER',
+                            jobReference: job._id,
+                            label: `Payout (Job ${job._id})`,
+                            relatedEntityType,
+                            relatedEntityId,
+                        },
+                    ], { session });
+                    payoutsProcessed += 1;
                     remainingEscrow = Number((remainingEscrow - payoutAmount).toFixed(2));
 
                     await createNotification({
@@ -329,35 +403,52 @@ export async function changeJobStatus(req, res){
                         entityId: job._id,
                         actor: job.jobPoster || null,
                         push: true,
-                        socketPayload: { transactionId: String(payoutTx._id), jobId: String(job._id), amount: payoutAmount },
+                        socketPayload: { transactionId: String(payoutTx[0]._id), jobId: String(job._id), amount: payoutAmount },
                     });
-                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: null, action: 'job_payout', ip: req.ip || null, userAgent: req.get('user-agent'), amount: payoutAmount, status: 'success', meta: { job: job._id, worker: worker._id, application: app._id } }); } catch (e) {}
-                } catch (e) {
-                    console.warn('Failed to payout worker for job completion', e);
+                    try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: null, action: 'job_payout', ip: req.ip || null, userAgent: req.get('user-agent'), amount: payoutAmount, status: 'success', meta: { job: job._id, worker: worker._id, application: candidate.applicationId || null } }); } catch (e) {}
                 }
-            }
 
-            // Return any unused escrow back to employer when job is finalized as completed.
-            if (remainingEscrow > 0) {
-                const poster = await User.findById(job.jobPoster);
-                if (poster) {
-                    poster.employerBalance = (poster.employerBalance || 0) + remainingEscrow;
-                    await poster.save();
-
-                    await Transaction.create({
-                        sender: null,
-                        receiver: poster._id,
-                        amount: remainingEscrow,
-                        type: 'REFUND',
-                        status: 'COMPLETED',
-                        balanceTarget: 'EMPLOYER',
-                        jobReference: job._id,
-                        label: `Unused escrow refund (Job ${job._id})`,
-                        relatedEntityType: 'job',
-                        relatedEntityId: String(job._id),
-                        actor: poster._id,
+                if (totalPaidBefore <= 0 && payoutsProcessed <= 0) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(500).json({
+                        message: 'Unable to process worker payout. Job was not marked as done.',
                     });
                 }
+
+                // Return any unused escrow back to employer when job is finalized as completed.
+                if (remainingEscrow > 0) {
+                    console.debug('JobCompletionDebug: issuing refund for remainingEscrow', remainingEscrow);
+                    const poster = await User.findById(job.jobPoster).session(session);
+                    if (poster) {
+                        poster.employerBalance = (poster.employerBalance || 0) + remainingEscrow;
+                        await poster.save({ session });
+
+                        await Transaction.create([
+                            {
+                                sender: null,
+                                receiver: poster._id,
+                                amount: remainingEscrow,
+                                type: 'REFUND',
+                                status: 'COMPLETED',
+                                balanceTarget: 'EMPLOYER',
+                                jobReference: job._id,
+                                label: `Unused escrow refund (Job ${job._id})`,
+                                relatedEntityType: 'job',
+                                relatedEntityId: String(job._id),
+                                actor: poster._id,
+                            },
+                        ], { session });
+                    }
+                }
+
+                await session.commitTransaction();
+                session.endSession();
+            } catch (err) {
+                console.error('Job completion payout error:', err);
+                try { await session.abortTransaction(); } catch(e){}
+                session.endSession();
+                return res.status(500).json({ message: 'Failed to process payouts for job completion.' });
             }
         }
 

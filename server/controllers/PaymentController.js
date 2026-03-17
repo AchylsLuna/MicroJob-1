@@ -1,5 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import PayoutRequest from '../models/PayoutRequest.js';
@@ -107,52 +108,91 @@ async function applyTopUpToUser({ user, amount, target, reference, source, check
     throw new Error('Invalid top-up amount');
   }
 
-  if (normalizedTarget === TOPUP_TARGET.WORKER) {
-    user.workerBalance = (user.workerBalance || 0) + numericAmount;
-  }
-  if (normalizedTarget === TOPUP_TARGET.EMPLOYER) {
-    user.employerBalance = (user.employerBalance || 0) + numericAmount;
-  }
-  if (normalizedTarget === TOPUP_TARGET.BOTH) {
-    const workerShare = Number((numericAmount / 2).toFixed(2));
-    const employerShare = Number((numericAmount - workerShare).toFixed(2));
-    user.workerBalance = (user.workerBalance || 0) + workerShare;
-    user.employerBalance = (user.employerBalance || 0) + employerShare;
-  }
+  // Use a mongoose transaction to guarantee idempotent, atomic application of top-up.
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    // Idempotency: if a transaction with the same reference or providerReference already exists, return it
+    const existingQuery = reference ? { reference } : null;
+    let existing = null;
+    if (existingQuery) existing = await Transaction.findOne(existingQuery).session(session);
+    if (!existing && checkoutId) existing = await Transaction.findOne({ providerReference: checkoutId }).session(session);
+    if (existing) {
+      await session.abortTransaction();
+      session.endSession();
+      return {
+        target: normalizedTarget,
+        transaction: existing,
+        transactions: [existing],
+        user: {
+          _id: user._id,
+          employerBalance: user.employerBalance,
+          workerBalance: user.workerBalance,
+        },
+      };
+    }
 
-  await user.save();
+    // Refresh user inside session to avoid race
+    const userDoc = await User.findById(user._id).session(session);
+    if (!userDoc) throw new Error('User not found');
 
-  const transaction = await Transaction.create({
-    sender: null,
-    receiver: user._id,
-    amount: numericAmount,
-    type: 'TOP_UP',
-    status: 'COMPLETED',
-    balanceTarget: normalizedTarget === TOPUP_TARGET.BOTH ? 'SYSTEM' : normalizedTarget,
-    reference,
-    provider: source || null,
-    providerReference: checkoutId || reference || null,
-    label: buildTopUpLabel(normalizedTarget),
-    relatedEntityType: 'wallet_topup',
-    relatedEntityId: reference,
-    meta: {
-      source,
-      checkout_id: checkoutId || null,
+    if (normalizedTarget === TOPUP_TARGET.WORKER) {
+      userDoc.workerBalance = (userDoc.workerBalance || 0) + numericAmount;
+    }
+    if (normalizedTarget === TOPUP_TARGET.EMPLOYER) {
+      userDoc.employerBalance = (userDoc.employerBalance || 0) + numericAmount;
+    }
+    if (normalizedTarget === TOPUP_TARGET.BOTH) {
+      const workerShare = Number((numericAmount / 2).toFixed(2));
+      const employerShare = Number((numericAmount - workerShare).toFixed(2));
+      userDoc.workerBalance = (userDoc.workerBalance || 0) + workerShare;
+      userDoc.employerBalance = (userDoc.employerBalance || 0) + employerShare;
+    }
+
+    await userDoc.save({ session });
+
+    const tx = await Transaction.create([
+      {
+        sender: null,
+        receiver: userDoc._id,
+        amount: numericAmount,
+        type: 'TOP_UP',
+        status: 'COMPLETED',
+        balanceTarget: normalizedTarget === TOPUP_TARGET.BOTH ? 'SYSTEM' : normalizedTarget,
+        reference,
+        provider: source || null,
+        providerReference: checkoutId || reference || null,
+        label: buildTopUpLabel(normalizedTarget),
+        relatedEntityType: 'wallet_topup',
+        relatedEntityId: reference,
+        meta: {
+          source,
+          checkout_id: checkoutId || null,
+          target: normalizedTarget,
+        },
+        actor: actor || null,
+      },
+    ], { session });
+
+    await session.commitTransaction();
+    session.endSession();
+
+    const transaction = Array.isArray(tx) ? tx[0] : tx;
+    return {
       target: normalizedTarget,
-    },
-    actor: actor || null,
-  });
-
-  return {
-    target: normalizedTarget,
-    transaction,
-    transactions: [transaction],
-    user: {
-      _id: user._id,
-      employerBalance: user.employerBalance,
-      workerBalance: user.workerBalance,
-    },
-  };
+      transaction,
+      transactions: [transaction],
+      user: {
+        _id: userDoc._id,
+        employerBalance: userDoc.employerBalance,
+        workerBalance: userDoc.workerBalance,
+      },
+    };
+  } catch (err) {
+    try { await session.abortTransaction(); } catch (e) {}
+    session.endSession();
+    throw err;
+  }
 }
 
 async function createPayoutRefund({ payoutRequest, actorId, reason, status }) {

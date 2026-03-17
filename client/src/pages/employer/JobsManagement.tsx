@@ -13,7 +13,7 @@ import {
   RefreshCw,
   Trash2
 } from "lucide-react";
-import { changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as apiReopenJob } from "../../services/api";
+import { changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as apiReopenJob, getEmployerApplications } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 
@@ -36,6 +36,7 @@ interface JobPosting {
     positions: string;
   };
   createdBy: string;
+  hasHired?: boolean;
 }
 
 export function JobsManagement() {
@@ -110,6 +111,7 @@ export function JobsManagement() {
         positions: `${job.positionsNeeded || 1} Position${(job.positionsNeeded || 1) > 1 ? 's' : ''}`,
       },
       createdBy: "You",
+      hasHired: false,
     };
   };
 
@@ -119,7 +121,31 @@ export function JobsManagement() {
     try {
       const data = await getMyJobs();
       const mapped = Array.isArray(data) ? data.map(mapJob) : [];
-      setJobs(mapped);
+
+      // Fetch all employer applications once and compute hired flags per job to avoid per-job requests
+      let allApps: any[] = [];
+      try {
+        allApps = await getEmployerApplications();
+      } catch (e) {
+        // If we fail to fetch apps, fall back to conservative defaults (no hired)
+        allApps = [];
+      }
+
+      const appsByJob = allApps.reduce<Record<string, any[]>>((acc, app) => {
+        const jobId = app.job?._id || String(app.job);
+        if (!acc[jobId]) acc[jobId] = [];
+        acc[jobId].push(app);
+        return acc;
+      }, {} as Record<string, any[]>);
+
+      const withFlags = mapped.map((m) => {
+        const apps = appsByJob[m.id as string] || [];
+        const hasHired = apps.some((a: any) => a.status === 'Hired' || a.status === 'Accepted');
+        const selectedApplicant = (data || []).find((j: any) => String(j._id) === String(m.id))?.selectedApplicant;
+        return { ...m, hasHired: Boolean(hasHired || selectedApplicant) };
+      });
+
+      setJobs(withFlags);
     } catch (error: any) {
       const message = error?.message || "Failed to load job postings.";
       setLoadError(message);
@@ -392,9 +418,9 @@ export function JobsManagement() {
                     )}
                     <button
                       onClick={() => void handleMarkJobDone(job)}
-                      disabled={job.status === "Closed" || markingDoneJobId === job.id}
+                      disabled={job.backendStatus === "Completed" || markingDoneJobId === job.id || !(job as any).hasHired}
                       className="inline-flex items-center gap-1 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8] disabled:opacity-60"
-                      title="Mark done and auto-pay workers from escrow"
+                      title={!((job as any).hasHired) ? "Move at least one worker application to Hired first" : "Mark done and auto-pay workers from escrow"}
                     >
                       {markingDoneJobId === job.id ? (
                         <><Loader2 className="w-3.5 h-3.5 animate-spin" />Marking...</>
@@ -457,7 +483,7 @@ export function JobsManagement() {
               <button
                 type="button"
                 onClick={() => void confirmMarkJobDone()}
-                disabled={markingDoneJobId === confirmDoneJob.id}
+                disabled={markingDoneJobId === confirmDoneJob.id || !(confirmDoneJob as any).hasHired}
                 className="inline-flex items-center gap-2 rounded-lg bg-[#1C4D8D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {markingDoneJobId === confirmDoneJob.id ? (

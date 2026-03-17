@@ -43,7 +43,9 @@ export async function createNotification({
   });
 
   const leanNotification = notification.toObject();
-  emitToUser(String(userId), socketEvent, socketPayload || { notification: leanNotification });
+  // Always emit the full notification object and include any socketPayload
+  const emitPayload = { notification: leanNotification, socketPayload: socketPayload || null };
+  emitToUser(String(userId), socketEvent, emitPayload);
 
   if (push) {
     try {
