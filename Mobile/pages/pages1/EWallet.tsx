@@ -545,7 +545,8 @@ export default function EWallet({
                       </View>
                     </View>
                     <Text style={styles.metaText}>Reference: {transaction.reference || transaction.providerReference || 'N/A'}</Text>
-                    <Text style={styles.metaText}>Linked entity: {transaction.relatedEntityType || transaction.balanceTarget || 'N/A'}</Text>
+                    {/* Hide sensitive linked entity details for job applications */}
+                    <Text style={styles.metaText}>Linked entity: {transaction.relatedEntityType === 'job_application' ? 'Hidden' : (transaction.relatedEntityType || transaction.balanceTarget || 'N/A')}</Text>
                     <Text style={styles.metaDate}>{formatDate(transaction.createdAt)}</Text>
                   </View>
                 );
