@@ -30,18 +30,195 @@ import { jobsAPI } from "../../services/jobs";
 import { ROUTES } from "../../utils/routes";
 import { calculateProfileCompletion, getCompletionColor } from "../../lib/profileCompletion";
 
-const vacancyData = [
-  { month: "Week 01", accepted: 4, interviews: 3, rejected: 1 },
-  { month: "Week 02", accepted: 7, interviews: 5, rejected: 2 },
-  { month: "Week 03", accepted: 11, interviews: 8, rejected: 3 },
-  { month: "Week 04", accepted: 14, interviews: 10, rejected: 4 },
-  { month: "Week 05", accepted: 19, interviews: 14, rejected: 5 },
-  { month: "Week 06", accepted: 24, interviews: 18, rejected: 6 },
-  { month: "Week 07", accepted: 29, interviews: 22, rejected: 7 },
-  { month: "Week 08", accepted: 27, interviews: 20, rejected: 6 },
-  { month: "Week 09", accepted: 31, interviews: 24, rejected: 8 },
-  { month: "Week 10", accepted: 36, interviews: 28, rejected: 9 },
+type VacancyFilter = "accepted" | "interviews" | "rejected";
+type VacancyPeriod = "thisMonth" | "lastMonth" | "last3Months";
+
+type ApplicationTimelineItem = {
+  status?: string;
+  createdAt?: string;
+};
+
+type DashboardApplication = {
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  appliedDate?: string;
+  timeline?: ApplicationTimelineItem[];
+  job?: {
+    title?: string;
+  };
+};
+
+type VacancyChartPoint = {
+  label: string;
+  accepted: number;
+  interviews: number;
+  rejected: number;
+};
+
+type VacancyBucket = {
+  label: string;
+  start: Date;
+  endExclusive: Date;
+};
+
+const VACANCY_PERIOD_OPTIONS: Array<{ value: VacancyPeriod; label: string }> = [
+  { value: "thisMonth", label: "This Month" },
+  { value: "lastMonth", label: "Last Month" },
+  { value: "last3Months", label: "Last 3 Months" },
 ];
+
+const ACCEPTED_STATUSES = new Set(["Hired", "Accepted"]);
+const INTERVIEW_STATUSES = new Set(["Interview Scheduled", "Interviewed"]);
+const REJECTED_STATUSES = new Set(["Rejected"]);
+
+function parseDateValue(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function findFirstStatusDate(application: DashboardApplication, statuses: Set<string>) {
+  const timeline = Array.isArray(application.timeline) ? application.timeline : [];
+  const timelineMatch = timeline
+    .map((item) => ({
+      status: String(item?.status || "").trim(),
+      createdAt: parseDateValue(item?.createdAt),
+    }))
+    .filter((item): item is { status: string; createdAt: Date } => Boolean(item.status && item.createdAt))
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime())
+    .find((item) => statuses.has(item.status));
+
+  if (timelineMatch) {
+    return timelineMatch.createdAt;
+  }
+
+  const currentStatus = String(application.status || "").trim();
+  if (!statuses.has(currentStatus)) {
+    return null;
+  }
+
+  return (
+    parseDateValue(application.updatedAt) ??
+    parseDateValue(application.appliedDate) ??
+    parseDateValue(application.createdAt)
+  );
+}
+
+function buildWeeklyBuckets(monthDate: Date): VacancyBucket[] {
+  const monthStart = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+  const nextMonthStart = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 1);
+  const buckets: VacancyBucket[] = [];
+
+  let cursor = monthStart;
+  let weekIndex = 1;
+
+  while (cursor < nextMonthStart) {
+    const endExclusive = new Date(cursor);
+    endExclusive.setDate(endExclusive.getDate() + 7);
+
+    if (endExclusive > nextMonthStart) {
+      endExclusive.setTime(nextMonthStart.getTime());
+    }
+
+    buckets.push({
+      label: `Week ${String(weekIndex).padStart(2, "0")}`,
+      start: new Date(cursor),
+      endExclusive,
+    });
+
+    cursor = endExclusive;
+    weekIndex += 1;
+  }
+
+  return buckets;
+}
+
+function buildMonthlyBuckets(now: Date): VacancyBucket[] {
+  return Array.from({ length: 3 }, (_, index) => {
+    const bucketStart = new Date(now.getFullYear(), now.getMonth() - (2 - index), 1);
+    return {
+      label: bucketStart.toLocaleDateString(undefined, { month: "short" }),
+      start: bucketStart,
+      endExclusive: new Date(bucketStart.getFullYear(), bucketStart.getMonth() + 1, 1),
+    };
+  });
+}
+
+function buildVacancyChartData(applications: DashboardApplication[], period: VacancyPeriod) {
+  const now = new Date();
+  const buckets =
+    period === "last3Months"
+      ? buildMonthlyBuckets(now)
+      : buildWeeklyBuckets(
+          period === "lastMonth"
+            ? new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            : new Date(now.getFullYear(), now.getMonth(), 1)
+        );
+
+  if (!buckets.length) {
+    return {
+      data: [] as VacancyChartPoint[],
+      totals: { accepted: 0, interviews: 0, rejected: 0 },
+    };
+  }
+
+  const rangeStartMs = buckets[0].start.getTime();
+  const rangeEndMs = buckets[buckets.length - 1].endExclusive.getTime();
+
+  const acceptedTimes = applications
+    .map((application) => findFirstStatusDate(application, ACCEPTED_STATUSES)?.getTime() ?? null)
+    .filter((value): value is number => value !== null && value >= rangeStartMs && value < rangeEndMs)
+    .sort((left, right) => left - right);
+
+  const interviewTimes = applications
+    .map((application) => findFirstStatusDate(application, INTERVIEW_STATUSES)?.getTime() ?? null)
+    .filter((value): value is number => value !== null && value >= rangeStartMs && value < rangeEndMs)
+    .sort((left, right) => left - right);
+
+  const rejectedTimes = applications
+    .map((application) => findFirstStatusDate(application, REJECTED_STATUSES)?.getTime() ?? null)
+    .filter((value): value is number => value !== null && value >= rangeStartMs && value < rangeEndMs)
+    .sort((left, right) => left - right);
+
+  let acceptedIndex = 0;
+  let interviewIndex = 0;
+  let rejectedIndex = 0;
+
+  const totals = {
+    accepted: 0,
+    interviews: 0,
+    rejected: 0,
+  };
+
+  const data = buckets.map((bucket) => {
+    const bucketEndMs = bucket.endExclusive.getTime();
+
+    while (acceptedIndex < acceptedTimes.length && acceptedTimes[acceptedIndex] < bucketEndMs) {
+      totals.accepted += 1;
+      acceptedIndex += 1;
+    }
+
+    while (interviewIndex < interviewTimes.length && interviewTimes[interviewIndex] < bucketEndMs) {
+      totals.interviews += 1;
+      interviewIndex += 1;
+    }
+
+    while (rejectedIndex < rejectedTimes.length && rejectedTimes[rejectedIndex] < bucketEndMs) {
+      totals.rejected += 1;
+      rejectedIndex += 1;
+    }
+
+    return {
+      label: bucket.label,
+      accepted: totals.accepted,
+      interviews: totals.interviews,
+      rejected: totals.rejected,
+    };
+  });
+
+  return { data, totals };
+}
 
 interface StatCardProps {
   icon: ReactNode;
@@ -86,17 +263,17 @@ export function Dashboard() {
 
   const navigate = useNavigate();
   const [applicationCount, setApplicationCount] = useState(0);
+  const [applications, setApplications] = useState<DashboardApplication[]>([]);
   const [interviewCount, setInterviewCount] = useState(0);
   const [isStatsLoading, setIsStatsLoading] = useState(false);
   const [jobsLoading, setJobsLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState<"accepted" | "interviews" | "rejected">("accepted");
-  const [selectedPeriod, setSelectedPeriod] = useState("This Month");
+  const [selectedFilter, setSelectedFilter] = useState<VacancyFilter>("accepted");
+  const [selectedPeriod, setSelectedPeriod] = useState<VacancyPeriod>("thisMonth");
   const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [isProfileVerified, setIsProfileVerified] = useState(false);
-  const latestVacancy = vacancyData[vacancyData.length - 1];
 
   // Fetch profile data
   useEffect(() => {
@@ -160,15 +337,18 @@ export function Dashboard() {
         const applicationsResponse = await getUserApplications();
         if (!isMounted) return;
         
-        const applications = Array.isArray(applicationsResponse) ? applicationsResponse : (applicationsResponse as any)?.data || [];
+        const applications = (
+          Array.isArray(applicationsResponse) ? applicationsResponse : (applicationsResponse as any)?.data || []
+        ) as DashboardApplication[];
         const total = applications.length;
-        const interviews = applications.filter((app: any) => ["Interview Scheduled", "Interviewed"].includes(app.status)).length;
+        const interviews = applications.filter((app) => ["Interview Scheduled", "Interviewed"].includes(String(app.status || ""))).length;
         
+        setApplications(applications);
         setApplicationCount(total);
         setInterviewCount(interviews);
 
         // Build recent activities from applications
-        const activities = applications.slice(0, 4).map((app: any) => {
+        const activities = applications.slice(0, 4).map((app) => {
           const status = app.status || "Applied";
           const statusMap: Record<string, { text: string; type: string }> = {
             "Applied": { text: "Application submitted", type: "info" },
@@ -195,6 +375,7 @@ export function Dashboard() {
       } catch (error: any) {
         if (!isMounted) return;
         console.error("Failed to load applications:", error);
+        setApplications([]);
         toast.error(error?.message || "Failed to load dashboard stats.");
       } finally {
         if (isMounted) setIsStatsLoading(false);
@@ -276,6 +457,9 @@ export function Dashboard() {
         return;
     }
   };
+
+  const vacancyStats = buildVacancyChartData(applications, selectedPeriod);
+  const vacancyAxisMax = Math.max(1, ...vacancyStats.data.map((point) => point[selectedFilter]));
 
   return (
     <div className="space-y-6">
@@ -441,24 +625,34 @@ export function Dashboard() {
                 <select
                   className="h-10 rounded-[10px] border border-[#E5E7EB] px-3 text-[13px] text-[#6B7280]"
                   value={selectedPeriod}
-                  onChange={(e) => setSelectedPeriod(e.target.value)}
+                  onChange={(e) => setSelectedPeriod(e.target.value as VacancyPeriod)}
                 >
-                  <option>This Month</option>
-                  <option>Last Month</option>
-                  <option>Last 3 Months</option>
+                  {VACANCY_PERIOD_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
 
             <ResponsiveContainer width="100%" height={282}>
-              <LineChart data={vacancyData}>
+              <LineChart data={vacancyStats.data}>
                 <CartesianGrid strokeDasharray="4 4" stroke="#E5E7EB" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#6B7280" }} />
-                <YAxis tick={{ fontSize: 12, fill: "#6B7280" }} />
+                <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#6B7280" }} />
+                <YAxis allowDecimals={false} domain={[0, vacancyAxisMax]} tick={{ fontSize: 12, fill: "#6B7280" }} />
                 <Tooltip />
                 <Legend />
                 {selectedFilter === "accepted" && (
-                  <Line type="monotone" dataKey="accepted" stroke="#6366F1" strokeWidth={2.5} name="Accepted" />
+                  <Line
+                    type="monotone"
+                    dataKey="accepted"
+                    stroke="#6366F1"
+                    strokeWidth={2.5}
+                    name="Accepted"
+                    dot={{ r: 4, strokeWidth: 3, fill: "#FFFFFF" }}
+                    activeDot={{ r: 5 }}
+                  />
                 )}
                 {selectedFilter === "interviews" && (
                   <Line
@@ -467,10 +661,20 @@ export function Dashboard() {
                     stroke="#10B981"
                     strokeWidth={2.5}
                     name="Interviews"
+                    dot={{ r: 4, strokeWidth: 3, fill: "#FFFFFF" }}
+                    activeDot={{ r: 5 }}
                   />
                 )}
                 {selectedFilter === "rejected" && (
-                  <Line type="monotone" dataKey="rejected" stroke="#EF4444" strokeWidth={2.5} name="Rejected" />
+                  <Line
+                    type="monotone"
+                    dataKey="rejected"
+                    stroke="#EF4444"
+                    strokeWidth={2.5}
+                    name="Rejected"
+                    dot={{ r: 4, strokeWidth: 3, fill: "#FFFFFF" }}
+                    activeDot={{ r: 5 }}
+                  />
                 )}
               </LineChart>
             </ResponsiveContainer>
@@ -478,17 +682,17 @@ export function Dashboard() {
             <div className="mt-4 flex flex-wrap items-center justify-end gap-4 text-[12px]">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-[#6366F1]" />
-                <span className="font-semibold text-[#111827]">{latestVacancy.accepted}</span>
+                <span className="font-semibold text-[#111827]">{vacancyStats.totals.accepted}</span>
                 <span className="text-[#6B7280]">Accepted</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-[#10B981]" />
-                <span className="font-semibold text-[#111827]">{latestVacancy.interviews}</span>
+                <span className="font-semibold text-[#111827]">{vacancyStats.totals.interviews}</span>
                 <span className="text-[#6B7280]">Interviews</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 rounded-full bg-[#EF4444]" />
-                <span className="font-semibold text-[#111827]">{latestVacancy.rejected}</span>
+                <span className="font-semibold text-[#111827]">{vacancyStats.totals.rejected}</span>
                 <span className="text-[#6B7280]">Rejected</span>
               </div>
             </div>
