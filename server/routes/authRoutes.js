@@ -146,6 +146,7 @@ const cookieSecurityOptions = {
   secure: process.env.NODE_ENV === 'production',
 };
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ').toLowerCase();
 const normalizeDisplayName = (value = '') => String(value).trim().replace(/\s+/g, ' ');
@@ -189,7 +190,7 @@ const createSessionWithTokens = async (req, user) => {
   const forwardedFor = String(req.headers['x-forwarded-for'] || '');
   const requestIp = forwardedFor.split(',')[0]?.trim() || req.socket.remoteAddress || '';
   const userAgent = req.get('User-Agent') || '';
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
   // Check for existing active session from same device (userAgent + IP combination)
   let session = await Session.findOne({
@@ -921,8 +922,10 @@ router.post('/refresh', csrfProtection, async (req, res) => {
     const newHash = crypto.createHash('sha256').update(newRefresh).digest('hex');
     session.token = newAccess;
     session.refreshTokenHash = newHash;
-    // extend session expiry by 7 days from now
-    session.expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    // Keep a hard 7-day session lifetime from session creation time.
+    // Refresh rotates tokens but does not extend the session window.
+    const sessionStart = session.createdAt ? new Date(session.createdAt).getTime() : Date.now();
+    session.expiresAt = new Date(sessionStart + SESSION_TTL_MS);
     await session.save();
 
     // set cookies
