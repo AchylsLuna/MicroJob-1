@@ -28,6 +28,7 @@ type EmployerProfileProps = {
   onOpenSettings?: () => void;
   currentRole?: 'worker' | 'employer';
   onSwitchRole?: (role: 'worker' | 'employer') => void;
+  canSwitchRole?: boolean;
 };
 
 export default function EmployerProfile({
@@ -38,6 +39,7 @@ export default function EmployerProfile({
   onOpenSettings,
   currentRole = 'employer',
   onSwitchRole,
+  canSwitchRole = false,
 }: EmployerProfileProps) {
   const [firstName, setFirstName] = useState(employer?.firstName || '');
   const [lastName, setLastName] = useState(employer?.lastName || '');
@@ -243,7 +245,7 @@ export default function EmployerProfile({
         currentRole={currentRole}
         onSwitchRole={onSwitchRole}
         onOpenSettings={onOpenSettings}
-        showModeSwitch
+        showModeSwitch={canSwitchRole}
         showSettings
       />
 

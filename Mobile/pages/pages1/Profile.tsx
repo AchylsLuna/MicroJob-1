@@ -31,6 +31,7 @@ type ProfileProps = {
   onOpenSettings?: () => void;
   currentRole?: 'worker' | 'employer';
   onSwitchRole?: (role: 'worker' | 'employer') => void;
+  canSwitchRole?: boolean;
   messageBadgeCount?: number;
 };
 
@@ -46,6 +47,7 @@ export default function Profile({
   onOpenSettings,
   currentRole = 'worker',
   onSwitchRole,
+  canSwitchRole = false,
   messageBadgeCount = 0,
 }: ProfileProps) {
   const [profileTab, setProfileTab] = useState(activeTab || 'Profile');
@@ -399,7 +401,7 @@ export default function Profile({
         currentRole={currentRole}
         onSwitchRole={onSwitchRole}
         onOpenSettings={onOpenSettings}
-        showModeSwitch
+        showModeSwitch={canSwitchRole}
         showSettings
       />
 

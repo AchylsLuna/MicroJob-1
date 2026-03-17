@@ -31,7 +31,7 @@ export default function SignIn({
   onBack: () => void;
   onNavigateToSignUp?: () => void;
   onNavigateToForgot?: () => void;
-  onNavigateToVerify?: () => void;
+  onNavigateToVerify?: (params?: { mode?: 'emailVerification' | 'loginOtp'; email?: string; otpToken?: string }) => void;
   onLogin?: () => void;
 }) {
   const insets = useSafeAreaInsets();
@@ -116,6 +116,7 @@ export default function SignIn({
         body: JSON.stringify({
           emailOrUsername: normalizedEmail,
           password,
+          requireOtp: true,
         }),
       }, 'Unable to sign in.');
 
@@ -125,12 +126,16 @@ export default function SignIn({
       const user = responseData?.user || responseRaw?.user;
       const nextMfaRequired = Boolean(responseData?.mfaRequired || responseRaw?.mfaRequired);
       const nextMfaToken = responseData?.mfaToken || responseRaw?.mfaToken;
+      const nextOtpRequired = Boolean(responseData?.otpRequired || responseRaw?.otpRequired);
+      const nextOtpToken = responseData?.otpToken || responseRaw?.otpToken;
 
       if (result.ok && nextMfaRequired && nextMfaToken) {
         setRequiresMfa(true);
         setMfaToken(nextMfaToken);
         setMfaCode('');
         toast.info('Enter your authenticator or backup code to continue.');
+      } else if (result.ok && nextOtpRequired && nextOtpToken) {
+        onNavigateToVerify?.({ mode: 'loginOtp', email: normalizedEmail, otpToken: nextOtpToken });
       } else if (result.ok && token) {
         await continueAfterPrimaryAuth(token, user);
       } else {

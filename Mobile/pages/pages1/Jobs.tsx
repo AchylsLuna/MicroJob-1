@@ -61,8 +61,31 @@ export default function Jobs(props: JobsProps) {
   const [errorMessage, setErrorMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
+  const [workerLocation, setWorkerLocation] = useState({ province: '', city: '', barangay: '' });
 
   const jobTypes = ['All', 'Remote', 'Fulltime', 'Part-time', 'Freelance'];
+
+  const normalizeToken = (value?: string) =>
+    String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const locationScore = (jobLocation: string) => {
+    const text = normalizeToken(jobLocation);
+    if (!text) return 0;
+
+    const province = normalizeToken(workerLocation.province);
+    const city = normalizeToken(workerLocation.city);
+    const barangay = normalizeToken(workerLocation.barangay);
+
+    let score = 0;
+    if (province && text.includes(province)) score += 1;
+    if (city && text.includes(city)) score += 2;
+    if (barangay && text.includes(barangay)) score += 3;
+    return score;
+  };
 
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -76,6 +99,15 @@ export default function Jobs(props: JobsProps) {
         .some((value) => value.toLowerCase().includes(query));
     });
   }, [jobs, searchQuery, appliedJobIds]);
+
+  const nearestJobs = useMemo(
+    () =>
+      [...filteredJobs]
+        .filter((job) => locationScore(job.location) > 0)
+        .sort((a, b) => locationScore(b.location) - locationScore(a.location))
+        .slice(0, 4),
+    [filteredJobs, workerLocation.province, workerLocation.city, workerLocation.barangay],
+  );
 
   const fetchCategories = async () => {
     try {
@@ -155,6 +187,34 @@ export default function Jobs(props: JobsProps) {
       }
     };
     loadCurrentUserId();
+  }, []);
+
+  useEffect(() => {
+    const loadWorkerLocation = async () => {
+      try {
+        const token = await AsyncStorage.getItem('auth_token');
+        const profileResult = await apiRequest<any>(
+          `${API_URL}/auth/me`,
+          {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          },
+          'Failed to load profile location.',
+        );
+
+        const raw = (profileResult.raw || {}) as any;
+        const profile = (raw?.data && typeof raw.data === 'object' ? raw.data : raw?.user || raw) as any;
+
+        setWorkerLocation({
+          province: String(profile?.province || ''),
+          city: String(profile?.city || ''),
+          barangay: String(profile?.barangay || ''),
+        });
+      } catch {
+        setWorkerLocation({ province: '', city: '', barangay: '' });
+      }
+    };
+
+    loadWorkerLocation();
   }, []);
 
   useEffect(() => {
@@ -263,6 +323,26 @@ export default function Jobs(props: JobsProps) {
         </ScrollView>
 
         <Text style={styles.jobsCount}>{filteredJobs.length} Jobs Available</Text>
+
+        {nearestJobs.length > 0 ? (
+          <View style={styles.nearestCard}>
+            <Text style={styles.nearestTitle}>Suggested Near You</Text>
+            <View style={styles.nearestList}>
+              {nearestJobs.map((job) => (
+                <TouchableOpacity
+                  key={`near-${job._id}`}
+                  style={styles.nearestItem}
+                  onPress={() => onViewDetails?.(job)}
+                >
+                  <Ionicons name="navigate-outline" size={14} color={tokens.colors.brand} />
+                  <Text numberOfLines={1} style={styles.nearestText}>
+                    {job.title} - {job.location}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
@@ -510,6 +590,40 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.colors.text,
     marginTop: 4,
+  },
+  nearestCard: {
+    marginTop: 4,
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    padding: 10,
+    gap: 8,
+  },
+  nearestTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1D4ED8',
+  },
+  nearestList: {
+    gap: 6,
+  },
+  nearestItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  nearestText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#1E3A8A',
+    fontWeight: '600',
   },
   errorText: {
     marginTop: 8,

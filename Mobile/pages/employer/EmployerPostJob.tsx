@@ -36,9 +36,50 @@ type FormData = {
   responsibilities: string;
   skills: string;
   salary: string;
-  location: string;
+  province: string;
+  city: string;
+  barangay: string;
+  addressType: 'home' | 'office' | 'place';
+  address: string;
   jobType: string;
 };
+
+type ProvinceOption = { code: string; name: string };
+type CityOption = { code: string; name: string; provinceCode?: string };
+type BarangayOption = { code: string; name: string };
+
+const PSGC_BASE_URL = 'https://psgc.gitlab.io/api';
+
+const parseLocationToParts = (locationText?: string) => {
+  const raw = String(locationText || '').trim();
+  if (!raw) {
+    return { address: '', barangay: '', city: '', province: '' };
+  }
+
+  const parts = raw.split(',').map((item) => item.trim()).filter(Boolean);
+  if (parts.length >= 4) {
+    return {
+      address: parts.slice(0, parts.length - 3).join(', '),
+      barangay: parts[parts.length - 3],
+      city: parts[parts.length - 2],
+      province: parts[parts.length - 1],
+    };
+  }
+
+  if (parts.length === 3) {
+    return {
+      address: '',
+      barangay: parts[0],
+      city: parts[1],
+      province: parts[2],
+    };
+  }
+
+  return { address: raw, barangay: '', city: '', province: '' };
+};
+
+const composeLocation = (form: FormData) =>
+  [form.address.trim(), form.barangay.trim(), form.city.trim(), form.province.trim()].filter(Boolean).join(', ');
 
 export default function EmployerPostJob({
   onPosted,
@@ -55,7 +96,11 @@ export default function EmployerPostJob({
     responsibilities: '',
     skills: '',
     salary: '',
-    location: '',
+    province: '',
+    city: '',
+    barangay: '',
+    addressType: 'place',
+    address: '',
     jobType: 'Fulltime',
   });
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
@@ -67,6 +112,17 @@ export default function EmployerPostJob({
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryQuery, setCategoryQuery] = useState('');
   const [showCategoryOptions, setShowCategoryOptions] = useState(false);
+  const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
+  const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
+  const [provinceQuery, setProvinceQuery] = useState('');
+  const [cityQuery, setCityQuery] = useState('');
+  const [barangayQuery, setBarangayQuery] = useState('');
+  const [showProvinceOptions, setShowProvinceOptions] = useState(false);
+  const [showCityOptions, setShowCityOptions] = useState(false);
+  const [showBarangayOptions, setShowBarangayOptions] = useState(false);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -79,6 +135,7 @@ export default function EmployerPostJob({
     const categoryName = typeof jobToEdit.category === 'object' ? jobToEdit.category?.name : '';
     const categoryId = typeof jobToEdit.category === 'object' ? jobToEdit.category?._id : jobToEdit.category;
     const deadline = jobToEdit.deadline ? new Date(jobToEdit.deadline) : null;
+    const locationParts = parseLocationToParts(jobToEdit.location);
     const salaryMatch = typeof jobToEdit.salary === 'string'
       ? jobToEdit.salary.match(/\d[\d,]*/g)
       : null;
@@ -91,9 +148,16 @@ export default function EmployerPostJob({
       responsibilities: Array.isArray(jobToEdit.responsibilities) ? jobToEdit.responsibilities.join('\n') : '',
       skills: Array.isArray(jobToEdit.skills) ? jobToEdit.skills.join(', ') : '',
       salary: salaryValue,
-      location: jobToEdit.location || '',
+      province: locationParts.province,
+      city: locationParts.city,
+      barangay: locationParts.barangay,
+      addressType: 'place',
+      address: locationParts.address,
       jobType: jobToEdit.jobType || 'Fulltime',
     });
+    setProvinceQuery(locationParts.province);
+    setCityQuery(locationParts.city);
+    setBarangayQuery(locationParts.barangay);
     setCategoryQuery(categoryName || '');
     setDeadlineDate(deadline);
     setDeadlineTime(deadline);
@@ -117,6 +181,121 @@ export default function EmployerPostJob({
     };
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadLocationData = async () => {
+      setIsLoadingLocations(true);
+      try {
+        const [provinceResponse, cityResponse] = await Promise.all([
+          fetch(`${PSGC_BASE_URL}/provinces/`),
+          fetch(`${PSGC_BASE_URL}/cities-municipalities/`),
+        ]);
+
+        const provinceJson = await provinceResponse.json().catch(() => []);
+        const cityJson = await cityResponse.json().catch(() => []);
+
+        if (!provinceResponse.ok || !cityResponse.ok) {
+          throw new Error('Failed to load location options.');
+        }
+
+        if (!isMounted) return;
+
+        const provinces: ProvinceOption[] = (provinceJson || [])
+          .map((item: any) => ({ code: String(item.code || ''), name: String(item.name || '').trim() }))
+          .filter((item: ProvinceOption) => item.code && item.name)
+          .sort((a: ProvinceOption, b: ProvinceOption) => a.name.localeCompare(b.name));
+
+        const cities: CityOption[] = (cityJson || [])
+          .map((item: any) => ({
+            code: String(item.code || ''),
+            name: String(item.name || '').trim(),
+            provinceCode: item.provinceCode ? String(item.provinceCode) : undefined,
+          }))
+          .filter((item: CityOption) => item.code && item.name)
+          .sort((a: CityOption, b: CityOption) => a.name.localeCompare(b.name));
+
+        setProvinceOptions(provinces);
+        setCityOptions(cities);
+      } catch (error: any) {
+        if (isMounted) {
+          setErrorMessage(error?.message || 'Failed to load location options.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingLocations(false);
+        }
+      }
+    };
+
+    loadLocationData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const selectedProvince = useMemo(
+    () => provinceOptions.find((item) => item.name.toLowerCase() === provinceQuery.trim().toLowerCase()),
+    [provinceOptions, provinceQuery],
+  );
+
+  const filteredCities = useMemo(() => {
+    if (selectedProvince?.code) {
+      return cityOptions.filter((item) => item.provinceCode === selectedProvince.code);
+    }
+    return cityOptions;
+  }, [cityOptions, selectedProvince?.code]);
+
+  const selectedCity = useMemo(
+    () => filteredCities.find((item) => item.name.toLowerCase() === cityQuery.trim().toLowerCase()),
+    [filteredCities, cityQuery],
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBarangays = async () => {
+      if (!selectedCity?.code) {
+        setBarangayOptions([]);
+        return;
+      }
+
+      setIsLoadingBarangays(true);
+      try {
+        const response = await fetch(`${PSGC_BASE_URL}/cities-municipalities/${selectedCity.code}/barangays/`);
+        const json = await response.json().catch(() => []);
+
+        if (!response.ok) {
+          throw new Error('Failed to load barangays.');
+        }
+
+        if (!isMounted) return;
+
+        const items: BarangayOption[] = (json || [])
+          .map((item: any) => ({ code: String(item.code || ''), name: String(item.name || '').trim() }))
+          .filter((item: BarangayOption) => item.code && item.name)
+          .sort((a: BarangayOption, b: BarangayOption) => a.name.localeCompare(b.name));
+
+        setBarangayOptions(items);
+      } catch {
+        if (isMounted) {
+          setBarangayOptions([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingBarangays(false);
+        }
+      }
+    };
+
+    loadBarangays();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCity?.code]);
 
   useEffect(() => {
     if (!categoryQuery) {
@@ -181,7 +360,7 @@ export default function EmployerPostJob({
     try {
       const trimmedTitle = formData.title.trim();
       const trimmedDescription = formData.description.trim();
-      const trimmedLocation = formData.location.trim();
+      const composedLocation = composeLocation(formData);
       const deadlineValue = deadlineDate;
       const rawSalary = formData.salary.replace(/[^0-9]/g, '');
       const normalizedSalary = rawSalary ? Number(rawSalary) : 0;
@@ -189,7 +368,7 @@ export default function EmployerPostJob({
       const missingFields: string[] = [];
       if (!trimmedTitle) missingFields.push('title');
       if (!trimmedDescription) missingFields.push('description');
-      if (!trimmedLocation) missingFields.push('location');
+      if (!formData.province || !formData.city || !formData.barangay) missingFields.push('location');
       if (!rawSalary) missingFields.push('salary');
       if (!formData.jobType) missingFields.push('job type');
       if (!deadlineValue) missingFields.push('application deadline');
@@ -234,7 +413,7 @@ export default function EmployerPostJob({
           ? formData.skills.split(',').map((item) => item.trim()).filter(Boolean)
           : [],
         salary: normalizedSalary,
-        location: trimmedLocation,
+        location: composedLocation,
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),
         urgent: isUrgent,
@@ -263,13 +442,20 @@ export default function EmployerPostJob({
         responsibilities: '',
         skills: '',
         salary: '',
-        location: '',
+        province: '',
+        city: '',
+        barangay: '',
+        addressType: 'place',
+        address: '',
         jobType: 'Fulltime',
       });
       setDeadlineDate(null);
       setDeadlineTime(null);
       setIsUrgent(false);
       setCategoryQuery('');
+      setProvinceQuery('');
+      setCityQuery('');
+      setBarangayQuery('');
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to post job.');
     } finally {
@@ -402,14 +588,168 @@ export default function EmployerPostJob({
             keyboardType="numeric"
           />
 
-          <Text style={styles.label}>Location</Text>
+          <Text style={styles.label}>Location Type</Text>
+          <View style={styles.chipRow}>
+            {[
+              { value: 'home', label: 'Home' },
+              { value: 'office', label: 'Office' },
+              { value: 'place', label: 'Place' },
+            ].map((item) => (
+              <TouchableOpacity
+                key={item.value}
+                style={[styles.chip, formData.addressType === item.value && styles.chipActive]}
+                onPress={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    addressType: item.value as FormData['addressType'],
+                  }))
+                }
+              >
+                <Text style={[styles.chipText, formData.addressType === item.value && styles.chipTextActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.label}>Province</Text>
+          <View style={styles.categoryInputWrapper}>
+            <TextInput
+              style={styles.input}
+              value={provinceQuery}
+              onChangeText={(value) => {
+                setProvinceQuery(value);
+                setShowProvinceOptions(true);
+              }}
+              onFocus={() => setShowProvinceOptions(true)}
+              placeholder={isLoadingLocations ? 'Loading provinces...' : 'Type or select province'}
+              placeholderTextColor="#9ca3af"
+            />
+            {showProvinceOptions ? (
+              <View style={styles.categoryDropdown}>
+                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                  {provinceOptions
+                    .filter((item) => item.name.toLowerCase().includes(provinceQuery.trim().toLowerCase()))
+                    .slice(0, 80)
+                    .map((item) => (
+                      <TouchableOpacity
+                        key={item.code}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setProvinceQuery(item.name);
+                          setFormData((prev) => ({
+                            ...prev,
+                            province: item.name,
+                            city: '',
+                            barangay: '',
+                          }));
+                          setCityQuery('');
+                          setBarangayQuery('');
+                          setShowProvinceOptions(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownText}>{item.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={styles.label}>City / Municipality</Text>
+          <View style={styles.categoryInputWrapper}>
+            <TextInput
+              style={styles.input}
+              value={cityQuery}
+              editable={Boolean(formData.province)}
+              onChangeText={(value) => {
+                setCityQuery(value);
+                setShowCityOptions(true);
+              }}
+              onFocus={() => setShowCityOptions(true)}
+              placeholder={!formData.province ? 'Select province first' : 'Type or select city'}
+              placeholderTextColor="#9ca3af"
+            />
+            {showCityOptions ? (
+              <View style={styles.categoryDropdown}>
+                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                  {filteredCities
+                    .filter((item) => item.name.toLowerCase().includes(cityQuery.trim().toLowerCase()))
+                    .slice(0, 120)
+                    .map((item) => (
+                      <TouchableOpacity
+                        key={item.code}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setCityQuery(item.name);
+                          setFormData((prev) => ({
+                            ...prev,
+                            city: item.name,
+                            barangay: '',
+                          }));
+                          setBarangayQuery('');
+                          setShowCityOptions(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownText}>{item.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={styles.label}>Barangay</Text>
+          <View style={styles.categoryInputWrapper}>
+            <TextInput
+              style={styles.input}
+              value={barangayQuery}
+              editable={Boolean(formData.city)}
+              onChangeText={(value) => {
+                setBarangayQuery(value);
+                setShowBarangayOptions(true);
+              }}
+              onFocus={() => setShowBarangayOptions(true)}
+              placeholder={!formData.city ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
+              placeholderTextColor="#9ca3af"
+            />
+            {showBarangayOptions ? (
+              <View style={styles.categoryDropdown}>
+                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                  {barangayOptions
+                    .filter((item) => item.name.toLowerCase().includes(barangayQuery.trim().toLowerCase()))
+                    .slice(0, 200)
+                    .map((item) => (
+                      <TouchableOpacity
+                        key={item.code}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setBarangayQuery(item.name);
+                          setFormData((prev) => ({
+                            ...prev,
+                            barangay: item.name,
+                          }));
+                          setShowBarangayOptions(false);
+                        }}
+                      >
+                        <Text style={styles.dropdownText}>{item.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                </ScrollView>
+              </View>
+            ) : null}
+          </View>
+
+          <Text style={styles.label}>Address / Place</Text>
           <TextInput
             style={styles.input}
-            value={formData.location}
-            onChangeText={(value) => setFormData((prev) => ({ ...prev, location: value }))}
-            placeholder="Dagupan City"
+            value={formData.address}
+            onChangeText={(value) => setFormData((prev) => ({ ...prev, address: value }))}
+            placeholder={formData.addressType === 'place' ? 'e.g. Near City Hall' : 'House no., street, subdivision'}
             placeholderTextColor="#9ca3af"
           />
+
+          <Text style={styles.helperText}>Location preview: {composeLocation(formData) || 'Select province, city, and barangay'}</Text>
 
           <Text style={styles.label}>Positions Needed</Text>
           <TextInput

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Heart, Clock, SlidersHorizontal } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getJobs } from "../../services/api";
+import { getJobs, getProfile } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface Job {
   id: string;
@@ -15,6 +16,7 @@ interface Job {
   type: "Full-Time" | "Part-Time" | "Contract" | "Project Work";
   workMode: "Remote" | "Hybrid" | "On-site";
   description: string;
+  location: string;
   salary: string;
   postedDaysAgo: number;
   saved: boolean;
@@ -49,20 +51,57 @@ export function FindJobs() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
+  const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<"recent" | "salary" | "applicants">("recent");
+  const [sortBy, setSortBy] = useState<"recent" | "salary" | "applicants" | "nearest">("nearest");
+  const [workerLocation, setWorkerLocation] = useState({
+    province: "",
+    city: "",
+    barangay: "",
+  });
 
   const sortLabels = {
     recent: "Most recent",
     salary: "Highest salary",
     applicants: "Most applicants",
+    nearest: "Nearest to you",
   } as const;
 
   const handleSortChange = () => {
-    setSortBy((prev) => (prev === "recent" ? "salary" : prev === "salary" ? "applicants" : "recent"));
+    setSortBy((prev) =>
+      prev === "nearest"
+        ? "recent"
+        : prev === "recent"
+        ? "salary"
+        : prev === "salary"
+        ? "applicants"
+        : "nearest",
+    );
+  };
+
+  const normalizeToken = (value?: string) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const locationScore = (jobLocation: string) => {
+    const text = normalizeToken(jobLocation);
+    if (!text) return 0;
+
+    const province = normalizeToken(workerLocation.province);
+    const city = normalizeToken(workerLocation.city);
+    const barangay = normalizeToken(workerLocation.barangay);
+
+    let score = 0;
+    if (province && text.includes(province)) score += 1;
+    if (city && text.includes(city)) score += 2;
+    if (barangay && text.includes(barangay)) score += 3;
+    return score;
   };
 
   const handleSaveJob = async (jobId: string) => {
@@ -138,12 +177,42 @@ export function FindJobs() {
       type: getJobTypeLabel(job.jobType),
       workMode: getWorkModeLabel(job.jobType, job.location, job.description),
       description: job.description,
+      location: job.location || "Location not specified",
       salary: salaryLabel,
       postedDaysAgo: getPostedDays(job.createdAt),
       saved: false,
       category: categoryName,
     };
   };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadWorkerLocation = async () => {
+      try {
+        const profile = await getProfile();
+        if (!isMounted) return;
+        setWorkerLocation({
+          province: String((profile as any)?.province || ""),
+          city: String((profile as any)?.city || user?.city || ""),
+          barangay: String((profile as any)?.barangay || ""),
+        });
+      } catch {
+        if (!isMounted) return;
+        setWorkerLocation({
+          province: "",
+          city: String(user?.city || ""),
+          barangay: "",
+        });
+      }
+    };
+
+    loadWorkerLocation();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.city]);
 
   useEffect(() => {
     let isMounted = true;
@@ -236,6 +305,8 @@ export function FindJobs() {
   // Sort jobs
   const sortedJobs = [...filteredJobs].sort((a, b) => {
     switch (sortBy) {
+      case "nearest":
+        return locationScore(b.location) - locationScore(a.location);
       case "recent":
         return a.postedDaysAgo - b.postedDaysAgo;
       case "salary":
@@ -246,6 +317,15 @@ export function FindJobs() {
         return 0;
     }
   });
+
+  const nearestJobs = useMemo(
+    () =>
+      [...jobsWithSavedState]
+        .filter((job) => locationScore(job.location) > 0)
+        .sort((a, b) => locationScore(b.location) - locationScore(a.location))
+        .slice(0, 3),
+    [jobsWithSavedState, workerLocation.province, workerLocation.city, workerLocation.barangay],
+  );
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-5 font-sans">
@@ -264,6 +344,24 @@ export function FindJobs() {
           <span className="text-[14px] font-semibold sm:hidden">Filters</span>
         </button>
       </div>
+
+      {nearestJobs.length > 0 && (
+        <div className="bg-[#EFF6FF] rounded-[14px] border border-[#BFDBFE] px-4 py-3">
+          <p className="text-[13px] font-semibold text-[#1D4ED8]">Suggested near your location</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {nearestJobs.map((job) => (
+              <button
+                key={`near-${job.id}`}
+                type="button"
+                onClick={() => navigate(ROUTES.worker.jobDetails(job.id))}
+                className="rounded-full bg-white border border-[#BFDBFE] px-3 py-1 text-[12px] text-[#1E3A8A] hover:bg-[#DBEAFE]"
+              >
+                {job.title} - {job.location}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="bg-white rounded-[18px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
@@ -338,6 +436,8 @@ export function FindJobs() {
               <p className="text-[14px] text-[#6B7280] leading-relaxed mt-4 line-clamp-2">
                 {job.description}
               </p>
+
+              <p className="mt-2 text-[12px] text-[#6B7280] line-clamp-1">{job.location}</p>
 
               <div className="flex items-center justify-between mt-5">
                 <p className="text-[18px] font-bold text-[#111827]">

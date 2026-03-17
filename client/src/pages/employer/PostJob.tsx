@@ -31,7 +31,11 @@ type FormState = {
   skills: string;
   salaryMin: string;
   salaryMax: string;
-  location: string;
+  province: string;
+  city: string;
+  barangay: string;
+  addressType: "home" | "office" | "place";
+  address: string;
   jobType: string;
   deadline: string;
   positionsNeeded: string;
@@ -65,11 +69,76 @@ const createEmptyForm = (): FormState => ({
   skills: "",
   salaryMin: "",
   salaryMax: "",
-  location: "",
+  province: "",
+  city: "",
+  barangay: "",
+  addressType: "place",
+  address: "",
   jobType: "Fulltime",
   deadline: "",
   positionsNeeded: "1",
 });
+
+interface ProvinceOption {
+  code: string;
+  name: string;
+}
+
+interface CityOption {
+  code: string;
+  name: string;
+  provinceCode?: string;
+}
+
+interface BarangayOption {
+  code: string;
+  name: string;
+}
+
+const PSGC_BASE_URL = "https://psgc.gitlab.io/api";
+
+const parseLocationToParts = (locationText?: string) => {
+  const raw = String(locationText || "").trim();
+  if (!raw) {
+    return {
+      address: "",
+      barangay: "",
+      city: "",
+      province: "",
+    };
+  }
+
+  const parts = raw.split(",").map((item) => item.trim()).filter(Boolean);
+  if (parts.length >= 4) {
+    return {
+      address: parts.slice(0, parts.length - 3).join(", "),
+      barangay: parts[parts.length - 3],
+      city: parts[parts.length - 2],
+      province: parts[parts.length - 1],
+    };
+  }
+
+  if (parts.length === 3) {
+    return {
+      address: "",
+      barangay: parts[0],
+      city: parts[1],
+      province: parts[2],
+    };
+  }
+
+  return {
+    address: raw,
+    barangay: "",
+    city: "",
+    province: "",
+  };
+};
+
+const composeLocation = (form: FormState) => {
+  const chunks = [form.address.trim(), form.barangay.trim(), form.city.trim(), form.province.trim()].filter(Boolean);
+  return chunks.join(", ");
+};
 
 const extractSalaryValue = (value: unknown): string => {
   const raw = String(value ?? "").replace(/[^0-9]/g, "");
@@ -85,6 +154,7 @@ const formatCurrency = (value: unknown): string => {
 const buildFormFromJob = (job: JobEdit): FormState => {
   const categoryId = typeof job.category === "object" ? job.category?._id : job.category;
   const salary = extractSalaryValue(job.salary);
+  const locationParts = parseLocationToParts(job.location);
   return {
     title: job.title || "",
     category: categoryId || "",
@@ -94,7 +164,11 @@ const buildFormFromJob = (job: JobEdit): FormState => {
     skills: job.skills?.join(", ") || "",
     salaryMin: salary,
     salaryMax: salary,
-    location: job.location || "",
+    province: locationParts.province,
+    city: locationParts.city,
+    barangay: locationParts.barangay,
+    addressType: "place",
+    address: locationParts.address,
     jobType: job.jobType || "Fulltime",
     deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
     positionsNeeded: job.positionsNeeded ? String(job.positionsNeeded) : "1",
@@ -120,6 +194,23 @@ const PostJob: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
+  const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
+  const [isLoadingLocationData, setIsLoadingLocationData] = useState(false);
+  const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
+
+  const selectedProvince = provinceOptions.find(
+    (item) => item.name.toLowerCase() === formData.province.trim().toLowerCase(),
+  );
+
+  const selectedCity = cityOptions.find(
+    (item) => item.name.toLowerCase() === formData.city.trim().toLowerCase(),
+  );
+
+  const filteredCityOptions = selectedProvince?.code
+    ? cityOptions.filter((item) => item.provinceCode === selectedProvince.code)
+    : cityOptions;
 
   const totalPostings = jobs.length;
   const activePostings = useMemo(
@@ -221,6 +312,93 @@ const PostJob: React.FC = () => {
   }, [loadJobs]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    const loadLocationData = async () => {
+      setIsLoadingLocationData(true);
+      try {
+        const [provinceResponse, cityResponse] = await Promise.all([
+          fetch(`${PSGC_BASE_URL}/provinces/`),
+          fetch(`${PSGC_BASE_URL}/cities-municipalities/`),
+        ]);
+
+        if (!provinceResponse.ok || !cityResponse.ok) {
+          throw new Error("Failed to load location options");
+        }
+
+        const [provinceJson, cityJson] = await Promise.all([provinceResponse.json(), cityResponse.json()]);
+
+        if (!isMounted) return;
+
+        const provinces: ProvinceOption[] = (provinceJson || [])
+          .map((item: any) => ({ code: String(item.code || ""), name: String(item.name || "").trim() }))
+          .filter((item: ProvinceOption) => item.code && item.name)
+          .sort((a: ProvinceOption, b: ProvinceOption) => a.name.localeCompare(b.name));
+
+        const cities: CityOption[] = (cityJson || [])
+          .map((item: any) => ({
+            code: String(item.code || ""),
+            name: String(item.name || "").trim(),
+            provinceCode: item.provinceCode ? String(item.provinceCode) : undefined,
+          }))
+          .filter((item: CityOption) => item.code && item.name)
+          .sort((a: CityOption, b: CityOption) => a.name.localeCompare(b.name));
+
+        setProvinceOptions(provinces);
+        setCityOptions(cities);
+      } catch (error) {
+        console.error("Failed to load PH location data:", error);
+      } finally {
+        if (isMounted) setIsLoadingLocationData(false);
+      }
+    };
+
+    loadLocationData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBarangays = async () => {
+      if (!selectedCity?.code) {
+        setBarangayOptions([]);
+        return;
+      }
+      setIsLoadingBarangays(true);
+      try {
+        const response = await fetch(`${PSGC_BASE_URL}/cities-municipalities/${selectedCity.code}/barangays/`);
+        if (!response.ok) {
+          throw new Error("Failed to load barangays");
+        }
+        const json = await response.json();
+        if (!isMounted) return;
+
+        const items: BarangayOption[] = (json || [])
+          .map((item: any) => ({ code: String(item.code || ""), name: String(item.name || "").trim() }))
+          .filter((item: BarangayOption) => item.code && item.name)
+          .sort((a: BarangayOption, b: BarangayOption) => a.name.localeCompare(b.name));
+
+        setBarangayOptions(items);
+      } catch (error) {
+        console.error("Failed to load barangays:", error);
+        if (isMounted) setBarangayOptions([]);
+      } finally {
+        if (isMounted) setIsLoadingBarangays(false);
+      }
+    };
+
+    loadBarangays();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCity?.code]);
+
+  useEffect(() => {
     if (!incomingJobToEdit?._id) return;
     openEditModal(incomingJobToEdit);
     navigate(location.pathname, { replace: true, state: {} });
@@ -240,7 +418,7 @@ const PostJob: React.FC = () => {
     try {
       const trimmedTitle = formData.title.trim();
       const trimmedDescription = formData.description.trim();
-      const trimmedLocation = formData.location.trim();
+      const composedLocation = composeLocation(formData);
       const deadlineValue = formData.deadline;
       const salaryMin = Number(formData.salaryMin.replace(/[^0-9]/g, "") || 0);
       const salaryMax = Number(formData.salaryMax.replace(/[^0-9]/g, "") || 0);
@@ -249,7 +427,7 @@ const PostJob: React.FC = () => {
 
       if (!trimmedTitle) missingFields.push("title");
       if (!trimmedDescription) missingFields.push("description");
-      if (!trimmedLocation) missingFields.push("location");
+      if (!formData.province || !formData.city || !formData.barangay) missingFields.push("location");
       if (!salaryAmount) missingFields.push("salary");
       if (!formData.jobType) missingFields.push("jobType");
       if (!deadlineValue) missingFields.push("deadline");
@@ -314,7 +492,7 @@ const PostJob: React.FC = () => {
           ? formData.skills.split(",").map((item) => item.trim()).filter(Boolean)
           : [],
         salary: salaryAmount,
-        location: trimmedLocation,
+        location: composedLocation,
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),
         positionsNeeded: Number(formData.positionsNeeded) || 1,
@@ -615,21 +793,6 @@ const PostJob: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
-                        Location <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        data-field="location"
-                        value={formData.location}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                        placeholder="e.g. Manila or Remote"
-                        required
-                      />
-                    </div>
-
-                    <div>
                       <label className="mb-2 block text-sm font-semibold text-slate-700">Job Type</label>
                       <select
                         data-field="jobType"
@@ -645,7 +808,135 @@ const PostJob: React.FC = () => {
                         <option value="Part-time">Part-time</option>
                       </select>
                     </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">Location Type</label>
+                      <select
+                        value={formData.addressType}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            addressType: e.target.value as FormState["addressType"],
+                          }))
+                        }
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      >
+                        <option value="home">Home Address</option>
+                        <option value="office">Office Address</option>
+                        <option value="place">Landmark / Place</option>
+                      </select>
+                    </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Province <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        data-field="location"
+                        value={formData.province}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            province: e.target.value,
+                            city: "",
+                            barangay: "",
+                          }))
+                        }
+                        disabled={isLoadingLocationData}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        required
+                      >
+                        <option value="">
+                          {isLoadingLocationData ? "Loading provinces..." : "Select province"}
+                        </option>
+                        {provinceOptions.map((province) => (
+                          <option key={province.code} value={province.name}>
+                            {province.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        City / Municipality <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.city}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            city: e.target.value,
+                            barangay: "",
+                          }))
+                        }
+                        disabled={isLoadingLocationData || !formData.province}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        required
+                      >
+                        <option value="">
+                          {!formData.province
+                            ? "Select province first"
+                            : isLoadingLocationData
+                            ? "Loading cities..."
+                            : "Select city/municipality"}
+                        </option>
+                        {filteredCityOptions.map((city) => (
+                          <option key={city.code} value={city.name}>
+                            {city.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                        Barangay <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={formData.barangay}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            barangay: e.target.value,
+                          }))
+                        }
+                        disabled={isLoadingBarangays || !formData.city}
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        required
+                      >
+                        <option value="">
+                          {!formData.city
+                            ? "Select city first"
+                            : isLoadingBarangays
+                            ? "Loading barangays..."
+                            : "Select barangay"}
+                        </option>
+                        {barangayOptions.map((barangay) => (
+                          <option key={barangay.code} value={barangay.name}>
+                            {barangay.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-slate-700">Address / Place</label>
+                    <input
+                      type="text"
+                      value={formData.address}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
+                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      placeholder={formData.addressType === "place" ? "e.g. Near City Hall" : "House no., street, subdivision"}
+                    />
+                  </div>
+
+                  <p className="text-xs text-slate-500">
+                    Final location preview: {composeLocation(formData) || "Select province, city, and barangay"}
+                  </p>
 
                   <div>
                     <label className="mb-2 block text-sm font-semibold text-slate-700">

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
 import speakeasy from 'speakeasy';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
@@ -149,9 +150,33 @@ const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ').toLowerCase();
 const normalizeDisplayName = (value = '') => String(value).trim().replace(/\s+/g, ' ');
 const MFA_LOGIN_PURPOSE = 'mfa-login';
+const LOGIN_OTP_PURPOSE = 'login-otp';
 const MFA_METHOD = 'authenticator';
-const MFA_CHALLENGE_TTL = '5m';
+const MFA_CHALLENGE_TTL = '1m';
+const LOGIN_OTP_CHALLENGE_TTL = '5m';
+const LOGIN_OTP_TTL_MS = 5 * 60 * 1000;
+const LOGIN_OTP_MAX_ATTEMPTS = 5;
 const MFA_BACKUP_CODES_COUNT = 8;
+const loginOtpStore = new Map();
+
+const getEmailTransporter = () => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 0);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !port || !user || !pass) {
+    return null;
+  }
+
+  const secure = port === 465;
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+};
 
 const createAccessToken = (user, sessionId) =>
   jwt.sign(
@@ -276,6 +301,10 @@ const buildLoginPayload = (user, includePhone = false) => {
     avatarUrl: user.avatarUrl,
     city: user.city,
     country: user.country,
+    province: user.province,
+    barangay: user.barangay,
+    addressType: user.addressType,
+    address: user.address,
     linkedin: user.linkedin,
   };
 };
@@ -289,6 +318,55 @@ const createMfaChallengeToken = (userId, includePhone = false) =>
     getJwtSecret(),
     { expiresIn: MFA_CHALLENGE_TTL }
   );
+
+const createLoginOtpChallengeToken = (userId, challengeId, includePhone = false) =>
+  jwt.sign(
+    { userId, challengeId, purpose: LOGIN_OTP_PURPOSE, includePhone: Boolean(includePhone) },
+    getJwtSecret(),
+    { expiresIn: LOGIN_OTP_CHALLENGE_TTL }
+  );
+
+const issueLoginOtpChallenge = async (user, includePhone = false) => {
+  const challengeId = crypto.randomBytes(18).toString('hex');
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  const otpToken = createLoginOtpChallengeToken(String(user._id), challengeId, includePhone);
+  const expiresAt = Date.now() + LOGIN_OTP_TTL_MS;
+
+  loginOtpStore.set(challengeId, {
+    userId: String(user._id),
+    includePhone: Boolean(includePhone),
+    email: String(user.email || '').toLowerCase().trim(),
+    code,
+    attempts: 0,
+    expiresAt,
+  });
+
+  const transporter = getEmailTransporter();
+  if (!transporter) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Email service is not configured.');
+    }
+    console.warn(`SMTP is not configured. Development login OTP for ${user.email}: ${code}`);
+    return { otpToken, code };
+  }
+
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const displayName = user.firstName || 'there';
+  await transporter.sendMail({
+    from: `MicroJobs <${fromAddress}>`,
+    to: user.email,
+    subject: 'MicroJobs login verification code',
+    text: `Hi ${displayName},\n\nUse this code to continue logging in to MicroJobs: ${code}\n\nThis code expires in 5 minutes.`,
+    html: `
+      <p>Hi ${displayName},</p>
+      <p>Use this code to continue logging in to MicroJobs:</p>
+      <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
+      <p>This code expires in 5 minutes.</p>
+    `,
+  });
+
+  return { otpToken };
+};
 
 const generateBackupCodes = (count = MFA_BACKUP_CODES_COUNT) =>
   Array.from({ length: count }, () => {
@@ -539,7 +617,7 @@ const loginLimiter = rateLimit({
 
 router.post('/login', loginLimiter, async (req, res) => {
   try {
-    const { emailOrUsername, password, phoneNumber } = req.body;
+    const { emailOrUsername, password, phoneNumber, requireOtp } = req.body;
     if (!password) {
       return sendError(res, 400, 'Password is required');
     }
@@ -582,6 +660,21 @@ router.post('/login', loginLimiter, async (req, res) => {
     if (user.status === 'deleted') {
       return sendError(res, 401, 'Account has been deleted.');
     }
+
+    if (Boolean(requireOtp)) {
+      const loginOtp = await issueLoginOtpChallenge(user, includePhone);
+      return sendSuccess(
+        res,
+        200,
+        'OTP verification required',
+        {
+          otpRequired: true,
+          otpToken: loginOtp.otpToken,
+          ...(loginOtp.code && process.env.NODE_ENV !== 'production' ? { code: loginOtp.code } : {}),
+        }
+      );
+    }
+
     if (user.mfaEnabled) {
       const mfaToken = createMfaChallengeToken(String(user._id), includePhone);
       return sendSuccess(
@@ -685,6 +778,119 @@ router.post('/login/mfa', loginLimiter, async (req, res) => {
   } catch (error) {
     console.error('Login MFA error:', error);
     return sendError(res, 500, 'Server error during MFA verification');
+  }
+});
+
+router.post('/login/otp/verify', loginLimiter, async (req, res) => {
+  try {
+    const token = req.body?.otpToken || req.body?.token;
+    const code = String(req.body?.code || '').trim();
+    if (!token || !code) {
+      return sendError(res, 400, 'otpToken and code are required.');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(String(token), getJwtSecret());
+    } catch {
+      return sendError(res, 401, 'Invalid or expired OTP token.');
+    }
+
+    if (decoded?.purpose !== LOGIN_OTP_PURPOSE || !decoded?.challengeId) {
+      return sendError(res, 401, 'Invalid OTP challenge token.');
+    }
+
+    const challenge = loginOtpStore.get(decoded.challengeId);
+    if (!challenge) {
+      return sendError(res, 401, 'OTP challenge not found or expired.');
+    }
+    if (challenge.expiresAt <= Date.now()) {
+      loginOtpStore.delete(decoded.challengeId);
+      return sendError(res, 401, 'OTP challenge expired.');
+    }
+
+    challenge.attempts = (challenge.attempts || 0) + 1;
+    if (challenge.attempts > LOGIN_OTP_MAX_ATTEMPTS) {
+      loginOtpStore.delete(decoded.challengeId);
+      return sendError(res, 429, 'Too many OTP attempts. Please login again.');
+    }
+
+    if (challenge.code !== code) {
+      return sendError(res, 401, 'Invalid OTP code.');
+    }
+
+    const user = await User.findById(challenge.userId);
+    loginOtpStore.delete(decoded.challengeId);
+    if (!user) {
+      return sendError(res, 404, 'User not found.');
+    }
+    if (user.status === 'pending') {
+      return sendError(res, 401, 'Please verify your email before signing in.');
+    }
+    if (user.status === 'disabled') {
+      return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user.status === 'deleted') {
+      return sendError(res, 401, 'Account has been deleted.');
+    }
+
+    const includePhone = challenge.includePhone || false;
+    const authSession = await createSessionWithTokens(req, user);
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    setSessionCookies(res, {
+      refreshToken: authSession.refreshToken,
+      sessionId: authSession.sessionId,
+      accessToken: authSession.accessToken,
+      accessTokenExpiresAt: authSession.accessTokenExpiresAt,
+      expiresAt: authSession.expiresAt,
+      csrfToken,
+    });
+
+    const payload = buildLoginPayload(user, includePhone);
+    return sendSuccess(res, 200, 'Login successful', { token: authSession.accessToken, user: payload });
+  } catch (e) {
+    console.error('Login OTP verify error:', e);
+    return sendError(res, 500, 'Server error');
+  }
+});
+
+router.post('/login/otp/resend', loginLimiter, async (req, res) => {
+  try {
+    const token = req.body?.otpToken || req.body?.token;
+    if (!token) {
+      return sendError(res, 400, 'otpToken is required.');
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(String(token), getJwtSecret());
+    } catch {
+      return sendError(res, 401, 'Invalid or expired OTP token.');
+    }
+    if (decoded?.purpose !== LOGIN_OTP_PURPOSE || !decoded?.challengeId) {
+      return sendError(res, 401, 'Invalid OTP challenge token.');
+    }
+
+    const challenge = loginOtpStore.get(decoded.challengeId);
+    if (!challenge) {
+      return sendError(res, 401, 'OTP challenge not found or expired.');
+    }
+
+    const user = await User.findById(challenge.userId);
+    if (!user) {
+      return sendError(res, 404, 'User not found.');
+    }
+
+    const renewed = await issueLoginOtpChallenge(user, challenge.includePhone || false);
+    loginOtpStore.delete(decoded.challengeId);
+    return sendSuccess(res, 200, 'OTP resent', {
+      otpRequired: true,
+      otpToken: renewed.otpToken,
+      ...(renewed.code && process.env.NODE_ENV !== 'production' ? { code: renewed.code } : {}),
+    });
+  } catch (e) {
+    console.error('Login OTP resend error:', e);
+    return sendError(res, 500, 'Server error');
   }
 });
 
@@ -1027,7 +1233,7 @@ router.post('/logout', verifyToken, async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance'
+      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance'
     );
     if (!user) {
       return sendError(res, 404, 'User not found');

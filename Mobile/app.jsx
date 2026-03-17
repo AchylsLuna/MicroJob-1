@@ -105,7 +105,7 @@ function SignInScreen() {
       onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Onboarding')}
       onNavigateToSignUp={() => navigation.navigate('SignUp')}
       onNavigateToForgot={() => navigation.navigate('ForgotPassword')}
-      onNavigateToVerify={() => navigation.navigate('VerifyEmail')}
+      onNavigateToVerify={(params) => navigation.navigate('VerifyEmail', params || {})}
       onLogin={async () => {
         await handleAuthSuccess();
       }}
@@ -126,9 +126,14 @@ function SignUpScreen() {
 
 function VerifyEmailScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const { handleAuthSuccess } = useAppSession();
+  const routeParams = route?.params || {};
   return (
     <VerifyEmail
+      mode={routeParams.mode || 'emailVerification'}
+      email={routeParams.email}
+      otpToken={routeParams.otpToken}
       onBack={() => navigation.navigate('SignIn')}
       onVerified={async () => {
         await handleAuthSuccess();
@@ -345,6 +350,7 @@ function WorkerProfileScreen() {
   const navigation = useNavigation();
   const workerTabPress = useWorkerTabNavigation();
   const session = useAppSession();
+  const canSwitchRole = String(session.userRole || '').toLowerCase() === 'both';
   return (
     <Profile
       activeTab="Profile"
@@ -352,6 +358,7 @@ function WorkerProfileScreen() {
       onOpenSettings={() => navigation.navigate('WorkerSettings')}
       currentRole={session.viewMode}
       onSwitchRole={session.switchViewMode}
+      canSwitchRole={canSwitchRole}
       messageBadgeCount={session.unreadMessageCount}
     />
   );
@@ -588,6 +595,7 @@ function EmployerProfileScreen() {
   const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
   const session = useAppSession();
+  const canSwitchRole = String(session.userRole || '').toLowerCase() === 'both';
   return (
     <EmployerProfile
       activeTab="Profile"
@@ -596,6 +604,7 @@ function EmployerProfileScreen() {
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
       currentRole="employer"
       onSwitchRole={session.switchViewMode}
+      canSwitchRole={canSwitchRole}
     />
   );
 }

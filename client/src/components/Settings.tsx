@@ -91,6 +91,33 @@ const verificationStatusLabels: Record<VerificationStatus, string> = {
   pending: "Pending",
 };
 
+const addressSuggestions = [
+  "Near City Hall",
+  "Near Public Market",
+  "Near Barangay Hall",
+  "Near Transport Terminal",
+  "Near School Zone",
+  "Near Business District",
+];
+
+interface ProvinceOption {
+  code: string;
+  name: string;
+}
+
+interface CityOption {
+  code: string;
+  name: string;
+  provinceCode?: string;
+}
+
+interface BarangayOption {
+  code: string;
+  name: string;
+}
+
+const PSGC_BASE_URL = "https://psgc.gitlab.io/api";
+
 interface SkillItem {
   id: string;
   name: string;
@@ -146,10 +173,11 @@ export function Settings() {
     companyName: "",
     city: "Manila",
     province: "",
+    barangay: "",
+    addressType: "home",
     address: "",
     phone: "+63 912 345 6789",
     email: "jonas.delacruz@email.com",
-    linkedin: "linkedin.com/in/jonasdelacruz",
     about: "",
     photo: null as File | null,
   });
@@ -206,7 +234,25 @@ export function Settings() {
   const [isConfirmingPhoneCode, setIsConfirmingPhoneCode] = useState(false);
   const [phoneCodeHint, setPhoneCodeHint] = useState<string | null>(null);
 
+  const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
+  const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
+  const [isLoadingLocationData, setIsLoadingLocationData] = useState(false);
+  const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
+
   const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
+
+  const selectedProvince = provinceOptions.find(
+    (item) => item.name.toLowerCase() === personalInfo.province.trim().toLowerCase(),
+  );
+
+  const selectedCity = cityOptions.find(
+    (item) => item.name.toLowerCase() === personalInfo.city.trim().toLowerCase(),
+  );
+
+  const filteredCityOptions = selectedProvince?.code
+    ? cityOptions.filter((item) => item.provinceCode === selectedProvince.code)
+    : cityOptions;
 
   const visibleMainTabs = isAdminRole
     ? mainTabConfig.filter((tab) => tab.id !== "payments")
@@ -351,7 +397,29 @@ export function Settings() {
   }, [activeTab, isAdminRole]);
 
   const handlePersonalInfoChange = (field: string, value: string) => {
-    setPersonalInfo({ ...personalInfo, [field]: value });
+    if (field === "province") {
+      setPersonalInfo((prev) => ({
+        ...prev,
+        province: value,
+        city: "",
+        barangay: "",
+      }));
+      return;
+    }
+
+    if (field === "city") {
+      setPersonalInfo((prev) => ({
+        ...prev,
+        city: value,
+        barangay: "",
+      }));
+      return;
+    }
+
+    setPersonalInfo((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -395,8 +463,9 @@ export function Settings() {
       phone: user.phoneNumber || prev.phone,
       city: user.city || prev.city,
       province: (user as any).province || prev.province,
+      barangay: (user as any).barangay || prev.barangay,
+      addressType: (user as any).addressType || prev.addressType,
       address: (user as any).address || prev.address,
-      linkedin: user.linkedin || prev.linkedin,
       about: user.about || prev.about,
     }));
     setExperienceStats({
@@ -416,6 +485,107 @@ export function Settings() {
 
   useEffect(() => {
     let isMounted = true;
+
+    const loadLocationData = async () => {
+      setIsLoadingLocationData(true);
+      try {
+        const [provinceResponse, cityResponse] = await Promise.all([
+          fetch(`${PSGC_BASE_URL}/provinces/`),
+          fetch(`${PSGC_BASE_URL}/cities-municipalities/`),
+        ]);
+
+        if (!provinceResponse.ok || !cityResponse.ok) {
+          throw new Error("Failed to load Philippine address data");
+        }
+
+        const [provinceJson, cityJson] = await Promise.all([provinceResponse.json(), cityResponse.json()]);
+
+        if (!isMounted) return;
+
+        const normalizedProvinces: ProvinceOption[] = (provinceJson || [])
+          .map((item: any) => ({
+            code: String(item.code || ""),
+            name: String(item.name || "").trim(),
+          }))
+          .filter((item: ProvinceOption) => item.code && item.name)
+          .sort((a: ProvinceOption, b: ProvinceOption) => a.name.localeCompare(b.name));
+
+        const normalizedCities: CityOption[] = (cityJson || [])
+          .map((item: any) => ({
+            code: String(item.code || ""),
+            name: String(item.name || "").trim(),
+            provinceCode: item.provinceCode ? String(item.provinceCode) : undefined,
+          }))
+          .filter((item: CityOption) => item.code && item.name)
+          .sort((a: CityOption, b: CityOption) => a.name.localeCompare(b.name));
+
+        setProvinceOptions(normalizedProvinces);
+        setCityOptions(normalizedCities);
+      } catch (error) {
+        console.error("Failed to load Philippine location data:", error);
+      } finally {
+        if (isMounted) {
+          setIsLoadingLocationData(false);
+        }
+      }
+    };
+
+    loadLocationData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBarangays = async () => {
+      if (!selectedCity?.code) {
+        setBarangayOptions([]);
+        return;
+      }
+
+      setIsLoadingBarangays(true);
+      try {
+        const response = await fetch(`${PSGC_BASE_URL}/cities-municipalities/${selectedCity.code}/barangays/`);
+        if (!response.ok) {
+          throw new Error("Failed to load barangays");
+        }
+
+        const json = await response.json();
+        if (!isMounted) return;
+
+        const normalized: BarangayOption[] = (json || [])
+          .map((item: any) => ({
+            code: String(item.code || ""),
+            name: String(item.name || "").trim(),
+          }))
+          .filter((item: BarangayOption) => item.code && item.name)
+          .sort((a: BarangayOption, b: BarangayOption) => a.name.localeCompare(b.name));
+
+        setBarangayOptions(normalized);
+      } catch (error) {
+        console.error("Failed to load barangays:", error);
+        if (isMounted) {
+          setBarangayOptions([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingBarangays(false);
+        }
+      }
+    };
+
+    loadBarangays();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCity?.code]);
+
+  useEffect(() => {
+    let isMounted = true;
     const loadProfile = async () => {
       setIsProfileLoading(true);
       try {
@@ -431,8 +601,9 @@ export function Settings() {
           phone: profile.phoneNumber || prev.phone,
           city: profile.city || prev.city,
           province: profile.province || prev.province,
+          barangay: profile.barangay || prev.barangay,
+          addressType: profile.addressType || prev.addressType,
           address: profile.address || prev.address,
-          linkedin: profile.linkedin || prev.linkedin,
           about: profile.about || prev.about,
         }));
         if (profile.skills && Array.isArray(profile.skills)) {
@@ -461,7 +632,6 @@ export function Settings() {
           email: profile.email,
           phoneNumber: profile.phoneNumber,
           city: profile.city,
-          linkedin: profile.linkedin,
           about: profile.about,
           totalExperience: profile.totalExperience,
           projectsCompleted: profile.projectsCompleted,
@@ -491,11 +661,12 @@ export function Settings() {
         companyName: personalInfo.companyName,
         city: personalInfo.city,
         province: personalInfo.province,
+        barangay: personalInfo.barangay,
+        addressType: personalInfo.addressType,
         address: personalInfo.address,
       };
       if (!isAdminRole) {
         profilePayload.phoneNumber = personalInfo.phone;
-        profilePayload.linkedin = personalInfo.linkedin;
         profilePayload.about = personalInfo.about;
         profilePayload.totalExperience = experienceStats.totalExperience;
       }
@@ -519,7 +690,6 @@ export function Settings() {
         email: updated.email,
         phoneNumber: updated.phoneNumber,
         city: updated.city,
-        linkedin: updated.linkedin,
         about: updated.about || personalInfo.about,
         totalExperience: updated.totalExperience || experienceStats.totalExperience,
         projectsCompleted: updated.projectsCompleted || 0,
@@ -884,28 +1054,29 @@ export function Settings() {
             ))}
           </div>
         </div>
-        <section className="p-6 space-y-6">
-          {activeTab === "account" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB]">
-                <div className="p-6">
-                  <div className="flex flex-wrap gap-2 border-b border-[#E5E7EB] pb-4 mb-6">
-                    {visibleAccountTabs.map((subTab) => (
-                      <button
-                        key={subTab.id}
-                        onClick={() => handleAccountTabChange(subTab.id)}
-                        className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
-                          accountTab === subTab.id
-                            ? "bg-[#EEF2FF] text-[#1D4ED8]"
-                            : "text-[#64748B] hover:bg-[#F8FAFC]"
-                        }`}
-                      >
-                        {subTab.label}
-                      </button>
-                    ))}
-                  </div>
-                  {accountTab === "personal" && (
-                    <div className="space-y-6">
+
+        {activeTab === "account" && (
+          <div className="p-6">
+            <div className="mb-6">
+              <div className="flex flex-wrap gap-2">
+                {visibleAccountTabs.map((subTab) => (
+                  <button
+                    key={subTab.id}
+                    onClick={() => handleAccountTabChange(subTab.id)}
+                    className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
+                      accountTab === subTab.id
+                        ? "bg-[#EEF2FF] text-[#1D4ED8]"
+                        : "text-[#64748B] hover:bg-[#F8FAFC]"
+                    }`}
+                  >
+                    {subTab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {accountTab === "personal" && (
+              <div className="space-y-6">
                       <div>
                         <h2 className="text-[18px] font-semibold text-[#111827]">Personal Information</h2>
                         <p className="text-[13px] text-[#6B7280]">Update your profile information.</p>
@@ -971,37 +1142,115 @@ export function Settings() {
                         </div>
                       )}
 
-                      <div>
-                        <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
-                        <input
-                          type="text"
-                          value={personalInfo.city}
-                          onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
-                          className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                        />
-                      </div>
+                      {!isAdminRole ? (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div>
+                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
+                              <select
+                                value={personalInfo.city}
+                                onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
+                                disabled={isLoadingLocationData}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              >
+                                <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
+                                {filteredCityOptions.map((city) => (
+                                  <option key={city.code} value={city.name}>
+                                    {city.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
 
-                      {isEmployerRole && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
-                            <input
-                              type="text"
-                              value={personalInfo.province}
-                              onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                            />
+                            <div>
+                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
+                              <select
+                                value={personalInfo.province}
+                                onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
+                                disabled={isLoadingLocationData}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              >
+                                <option value="">{isLoadingLocationData ? "Loading provinces..." : "Select province"}</option>
+                                {provinceOptions.map((province) => (
+                                  <option key={province.code} value={province.name}>
+                                    {province.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
+                              <select
+                                value={personalInfo.barangay}
+                                onChange={(e) => handlePersonalInfoChange("barangay", e.target.value)}
+                                disabled={isLoadingBarangays || !personalInfo.city}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              >
+                                <option value="">
+                                  {!personalInfo.city
+                                    ? "Select city first"
+                                    : isLoadingBarangays
+                                    ? "Loading barangays..."
+                                    : "Select barangay"}
+                                </option>
+                                {barangayOptions.map((barangay) => (
+                                  <option key={barangay.code} value={barangay.name}>
+                                    {barangay.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </div>
-                          <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Address</label>
-                            <input
-                              type="text"
-                              value={personalInfo.address}
-                              onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
-                              placeholder="Office address"
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                            />
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Location type</label>
+                              <select
+                                value={personalInfo.addressType}
+                                onChange={(e) => handlePersonalInfoChange("addressType", e.target.value)}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              >
+                                <option value="home">Home address</option>
+                                <option value="office">Office / Business address</option>
+                                <option value="place">Landmark / Place</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Address / Place</label>
+                              <input
+                                type="text"
+                                list="settings-address-options"
+                                value={personalInfo.address}
+                                onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
+                                placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              />
+                            </div>
                           </div>
+
+                          <datalist id="settings-address-options">
+                            {addressSuggestions.map((item) => (
+                              <option key={item} value={item} />
+                            ))}
+                          </datalist>
+                        </>
+                      ) : (
+                        <div>
+                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
+                          <select
+                            value={personalInfo.city}
+                            onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
+                            disabled={isLoadingLocationData}
+                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                          >
+                            <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
+                            {cityOptions.map((city) => (
+                              <option key={city.code} value={city.name}>
+                                {city.name}
+                              </option>
+                            ))}
+                          </select>
                         </div>
                       )}
 
@@ -1013,6 +1262,7 @@ export function Settings() {
                               type="tel"
                               value={personalInfo.phone}
                               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
+                              placeholder="e.g., 0917 123 4567"
                               className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
                             />
                           </div>
@@ -1042,16 +1292,6 @@ export function Settings() {
 
                       {!isAdminRole && (
                         <>
-                          <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">LinkedIn</label>
-                            <input
-                              type="text"
-                              value={personalInfo.linkedin}
-                              onChange={(e) => handlePersonalInfoChange("linkedin", e.target.value)}
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
-                            />
-                          </div>
-
                           <div>
                             <label className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
                             <textarea
@@ -1449,8 +1689,6 @@ export function Settings() {
                     </div>
                   )}
                 </div>
-              </div>
-            </div>
           )}
 
           {activeTab === "privacy" && (
@@ -2043,7 +2281,6 @@ export function Settings() {
             </div>
           )}
 
-        </section>
       </div>
     </div>
   );

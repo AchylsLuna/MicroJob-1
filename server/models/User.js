@@ -99,6 +99,16 @@ const UserSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    barangay: {
+      type: String,
+      trim: true,
+    },
+    addressType: {
+      type: String,
+      enum: ['home', 'office', 'place'],
+      default: 'home',
+      trim: true,
+    },
     address: {
       type: String,
       trim: true,

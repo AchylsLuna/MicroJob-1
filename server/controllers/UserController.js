@@ -117,6 +117,8 @@ export async function anonymizeAndDeleteUser(userId) {
     user.username = `deleted_${String(user._id).slice(-12)}`;
     user.city = undefined;
     user.province = undefined;
+    user.barangay = undefined;
+    user.addressType = undefined;
     user.address = undefined;
     user.facebook = undefined;
     user.profilePhotoName = undefined;
@@ -260,6 +262,8 @@ export async function updateProfile(req, res) {
             "lastName",
             "city",
             "province",
+            "barangay",
+            "addressType",
             "address",
             "phoneNumber",
             "email",
@@ -354,7 +358,7 @@ export async function updateProfile(req, res) {
             new: true,
             runValidators: true,
         }).select(
-            "firstName lastName email phoneNumber role city province address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName about linkedin totalExperience projectsCompleted jobsApplied successRate"
+            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName about linkedin totalExperience projectsCompleted jobsApplied successRate"
         );
 
         if (!user) {
@@ -415,7 +419,7 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName role city province address about totalExperience companyName avatarUrl skills jobsApplied projectsCompleted successRate"
+            "firstName lastName role city province barangay addressType address about totalExperience companyName avatarUrl skills jobsApplied projectsCompleted successRate"
         );
 
         if (!user) {
@@ -446,6 +450,8 @@ export async function getPublicProfile(req, res) {
                 role: user.role,
                 city: user.city,
                 province: user.province,
+                barangay: user.barangay,
+                addressType: user.addressType,
                 address: user.address,
                 about: user.about,
                 totalExperience: user.totalExperience,

@@ -25,12 +25,20 @@ type PersonalInformationProps = {
   currentRole?: 'worker' | 'employer' | 'both';
 };
 
+type ProvinceOption = { code: string; name: string };
+type CityOption = { code: string; name: string; provinceCode?: string };
+type BarangayOption = { code: string; name: string };
+
+const PSGC_BASE_URL = 'https://psgc.gitlab.io/api';
+
 export default function PersonalInformation({ onBack }: PersonalInformationProps) {
   const insets = useSafeAreaInsets();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [city, setCity] = useState('');
+  const [province, setProvince] = useState('');
+  const [barangay, setBarangay] = useState('');
   const [about, setAbout] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -39,11 +47,134 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [originalEmail, setOriginalEmail] = useState('');
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
+  const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
+  const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
+  const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
+  const [showProvinceOptions, setShowProvinceOptions] = useState(false);
+  const [showCityOptions, setShowCityOptions] = useState(false);
+  const [showBarangayOptions, setShowBarangayOptions] = useState(false);
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
+  const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
   const toast = useToast();
+
+  const selectedProvince = useMemo(
+    () => provinceOptions.find((item) => item.name.toLowerCase() === province.trim().toLowerCase()),
+    [provinceOptions, province],
+  );
+
+  const filteredCities = useMemo(() => {
+    if (selectedProvince?.code) {
+      return cityOptions.filter((item) => item.provinceCode === selectedProvince.code);
+    }
+    return cityOptions;
+  }, [cityOptions, selectedProvince?.code]);
+
+  const selectedCity = useMemo(
+    () => filteredCities.find((item) => item.name.toLowerCase() === city.trim().toLowerCase()),
+    [filteredCities, city],
+  );
 
   useEffect(() => {
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadLocationData = async () => {
+      setIsLoadingLocations(true);
+      try {
+        const [provinceResponse, cityResponse] = await Promise.all([
+          fetch(`${PSGC_BASE_URL}/provinces/`),
+          fetch(`${PSGC_BASE_URL}/cities-municipalities/`),
+        ]);
+
+        const provinceJson = await provinceResponse.json().catch(() => []);
+        const cityJson = await cityResponse.json().catch(() => []);
+
+        if (!provinceResponse.ok || !cityResponse.ok) {
+          throw new Error('Failed to load location options.');
+        }
+
+        if (!isMounted) return;
+
+        const provinces: ProvinceOption[] = (provinceJson || [])
+          .map((item: any) => ({ code: String(item.code || ''), name: String(item.name || '').trim() }))
+          .filter((item: ProvinceOption) => item.code && item.name)
+          .sort((a: ProvinceOption, b: ProvinceOption) => a.name.localeCompare(b.name));
+
+        const cities: CityOption[] = (cityJson || [])
+          .map((item: any) => ({
+            code: String(item.code || ''),
+            name: String(item.name || '').trim(),
+            provinceCode: item.provinceCode ? String(item.provinceCode) : undefined,
+          }))
+          .filter((item: CityOption) => item.code && item.name)
+          .sort((a: CityOption, b: CityOption) => a.name.localeCompare(b.name));
+
+        setProvinceOptions(provinces);
+        setCityOptions(cities);
+      } catch {
+        if (isMounted) {
+          toast.error('Failed to load location options.');
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingLocations(false);
+        }
+      }
+    };
+
+    loadLocationData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [toast]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBarangays = async () => {
+      if (!selectedCity?.code) {
+        setBarangayOptions([]);
+        return;
+      }
+
+      setIsLoadingBarangays(true);
+      try {
+        const response = await fetch(`${PSGC_BASE_URL}/cities-municipalities/${selectedCity.code}/barangays/`);
+        const json = await response.json().catch(() => []);
+
+        if (!response.ok) {
+          throw new Error('Failed to load barangays.');
+        }
+
+        if (!isMounted) return;
+
+        const items: BarangayOption[] = (json || [])
+          .map((item: any) => ({ code: String(item.code || ''), name: String(item.name || '').trim() }))
+          .filter((item: BarangayOption) => item.code && item.name)
+          .sort((a: BarangayOption, b: BarangayOption) => a.name.localeCompare(b.name));
+
+        setBarangayOptions(items);
+      } catch {
+        if (isMounted) {
+          setBarangayOptions([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingBarangays(false);
+        }
+      }
+    };
+
+    loadBarangays();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedCity?.code]);
 
   const avatarSource = useMemo(() => {
     if (!avatarUrl) return null;
@@ -105,6 +236,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       setEmail(profile.email || '');
       setPhoneNumber(profile.phoneNumber || '');
       setCity(profile.city || '');
+      setProvince(profile.province || '');
+      setBarangay(profile.barangay || '');
       setAbout(profile.about || '');
       setAvatarUrl(profile.avatarUrl || '');
       setOriginalEmail(profile.email || '');
@@ -217,6 +350,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         firstName: parsedName.firstName,
         lastName: parsedName.lastName,
         city: city.trim(),
+        province: province.trim(),
+        barangay: barangay.trim(),
         about: about.trim(),
       };
 
@@ -267,6 +402,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
           parsed.email = email.trim();
           parsed.phoneNumber = phoneNumber.trim();
           parsed.city = city.trim();
+          parsed.province = province.trim();
+          parsed.barangay = barangay.trim();
           parsed.about = about.trim();
           await AsyncStorage.setItem('auth_user', JSON.stringify(parsed));
         }
@@ -389,15 +526,120 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Location</Text>
+          <Text style={styles.label}>Province</Text>
           <TextInput
             style={styles.input}
-            placeholder="City, Country"
-            value={city}
-            onChangeText={setCity}
+            placeholder={isLoadingLocations ? 'Loading provinces...' : 'Type or select province'}
+            value={province}
+            onChangeText={(value) => {
+              setProvince(value);
+              setCity('');
+              setBarangay('');
+              setShowProvinceOptions(true);
+            }}
             editable={!isSaving}
+            onFocus={() => setShowProvinceOptions(true)}
             placeholderTextColor="#9CA3AF"
           />
+          {showProvinceOptions ? (
+            <View style={styles.optionsDropdown}>
+              <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
+                {provinceOptions
+                  .filter((item) => item.name.toLowerCase().includes(province.trim().toLowerCase()))
+                  .slice(0, 80)
+                  .map((item) => (
+                    <TouchableOpacity
+                      key={item.code}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setProvince(item.name);
+                        setCity('');
+                        setBarangay('');
+                        setShowProvinceOptions(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>City / Municipality</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={!province ? 'Select province first' : 'Type or select city'}
+            value={city}
+            onChangeText={(value) => {
+              setCity(value);
+              setBarangay('');
+              setShowCityOptions(true);
+            }}
+            editable={!isSaving && Boolean(province)}
+            onFocus={() => setShowCityOptions(true)}
+            placeholderTextColor="#9CA3AF"
+          />
+          {showCityOptions ? (
+            <View style={styles.optionsDropdown}>
+              <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
+                {filteredCities
+                  .filter((item) => item.name.toLowerCase().includes(city.trim().toLowerCase()))
+                  .slice(0, 120)
+                  .map((item) => (
+                    <TouchableOpacity
+                      key={item.code}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setCity(item.name);
+                        setBarangay('');
+                        setShowCityOptions(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Barangay</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={!city ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
+            value={barangay}
+            onChangeText={(value) => {
+              setBarangay(value);
+              setShowBarangayOptions(true);
+            }}
+            editable={!isSaving && Boolean(city)}
+            onFocus={() => setShowBarangayOptions(true)}
+            placeholderTextColor="#9CA3AF"
+          />
+          {showBarangayOptions ? (
+            <View style={styles.optionsDropdown}>
+              <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
+                {barangayOptions
+                  .filter((item) => item.name.toLowerCase().includes(barangay.trim().toLowerCase()))
+                  .slice(0, 150)
+                  .map((item) => (
+                    <TouchableOpacity
+                      key={item.code}
+                      style={styles.optionItem}
+                      onPress={() => {
+                        setBarangay(item.name);
+                        setShowBarangayOptions(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{item.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.fieldGroup}>
@@ -478,6 +720,25 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  optionsDropdown: {
+    marginTop: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    maxHeight: 180,
+  },
+  optionsScroll: {
+    maxHeight: 180,
+  },
+  optionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  optionText: {
+    fontSize: 13,
+    color: '#111827',
   },
   scroll: {
     paddingHorizontal: 24,

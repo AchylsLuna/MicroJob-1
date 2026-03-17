@@ -24,11 +24,13 @@ const formatSeconds = (value: number) => `0:${Math.max(value, 0).toString().padS
 
 type Props = {
   email?: string;
+  mode?: 'emailVerification' | 'loginOtp';
+  otpToken?: string;
   onVerified?: () => void;
   onBack?: () => void;
 };
 
-export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Props) {
+export default function VerifyEmail({ email: emailProp, mode = 'emailVerification', otpToken: initialOtpToken = '', onVerified, onBack }: Props) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [code, setCode] = useState(Array(6).fill(''));
   const [email, setEmail] = useState(emailProp || '');
@@ -37,6 +39,7 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [otpToken, setOtpToken] = useState(initialOtpToken);
   const toast = useToast();
   const inputs = useRef<Array<TextInput | null>>([]);
   const hasSentRef = useRef(false);
@@ -105,14 +108,27 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
         setEmail(emailProp);
         return;
       }
+      if (mode === 'loginOtp') {
+        setEmail('');
+        return;
+      }
       const storedEmail = await AsyncStorage.getItem('pending_verification_email');
       setEmail(storedEmail || '');
     };
 
     loadEmail();
-  }, [emailProp]);
+  }, [emailProp, mode]);
 
   useEffect(() => {
+    setOtpToken(initialOtpToken || '');
+  }, [initialOtpToken]);
+
+  useEffect(() => {
+    if (mode === 'loginOtp') {
+      setTimer(TIMER_SECONDS);
+      setCanResend(false);
+      return;
+    }
     if (!email || hasSentRef.current) return;
     const maybeAutoSend = async () => {
       const skipSend = await AsyncStorage.getItem('pending_verification_skip_send');
@@ -125,7 +141,7 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
       sendOtp();
     };
     maybeAutoSend();
-  }, [email]);
+  }, [email, mode]);
 
   useEffect(() => {
     if (!canResend && timer > 0) {
@@ -143,6 +159,49 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
   }, [timer, canResend]);
 
   const sendOtp = async () => {
+    if (mode === 'loginOtp') {
+      if (!otpToken) {
+        setErrorMessage('Your login verification session expired. Please sign in again.');
+        return;
+      }
+
+      setIsLoading(true);
+      setErrorMessage('');
+      try {
+        const result = await apiRequest(
+          `${API_URL}/auth/login/otp/resend`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ otpToken }),
+          },
+          'Failed to resend OTP.',
+        );
+
+        if (!result.ok) {
+          throw new Error(`${result.message || 'Failed to resend OTP.'} (HTTP ${result.status})`);
+        }
+
+        const dataPayload = asObject<any>(result.data) || {};
+        const rawPayload = asObject<any>(result.raw) || {};
+        const renewedToken = dataPayload?.otpToken || rawPayload?.otpToken;
+        if (renewedToken) {
+          setOtpToken(String(renewedToken));
+        }
+
+        setTimer(TIMER_SECONDS);
+        setCanResend(false);
+        setCode(Array(6).fill(''));
+        setFocusedIndex(0);
+        inputs.current[0]?.focus();
+      } catch (error: any) {
+        setErrorMessage(error?.message || 'Failed to resend OTP.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     const normalizedEmail = String(email || '').trim().toLowerCase();
     if (!EMAIL_REGEX.test(normalizedEmail)) {
       setErrorMessage('Missing or invalid email. Please sign up again.');
@@ -184,24 +243,41 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
       toast.error('Please enter the complete 6-digit code.');
       return;
     }
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
-      toast.error('Missing or invalid email. Please sign in again.');
-      return;
-    }
-
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const result = await apiRequest(
-        `${API_URL}/auth/otp/verify`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: normalizedEmail, code: otpCode }),
-        },
-        'Verification failed.',
-      );
+      let result;
+      if (mode === 'loginOtp') {
+        if (!otpToken) {
+          throw new Error('Your login verification session expired. Please sign in again.');
+        }
+        result = await apiRequest(
+          `${API_URL}/auth/login/otp/verify`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ otpToken, code: otpCode }),
+          },
+          'Verification failed.',
+        );
+      } else {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        if (!EMAIL_REGEX.test(normalizedEmail)) {
+          toast.error('Missing or invalid email. Please sign in again.');
+          setIsLoading(false);
+          return;
+        }
+
+        result = await apiRequest(
+          `${API_URL}/auth/otp/verify`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: normalizedEmail, code: otpCode }),
+          },
+          'Verification failed.',
+        );
+      }
 
       if (!result.ok) {
         throw new Error(`${result.message || 'Verification failed.'} (HTTP ${result.status})`);
@@ -217,8 +293,12 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
         await AsyncStorage.setItem('auth_user', JSON.stringify(user));
         await AsyncStorage.setItem('has_onboarded', 'true');
       }
-      await AsyncStorage.removeItem('pending_verification_email');
-      toast.success('Email verified successfully.');
+      if (mode === 'emailVerification') {
+        await AsyncStorage.removeItem('pending_verification_email');
+        toast.success('Email verified successfully.');
+      } else {
+        toast.success('Login verified successfully.');
+      }
       onVerified?.();
     } catch (error: any) {
       setErrorMessage(error?.message || 'Verification failed.');
@@ -228,7 +308,11 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
   };
 
   return (
-    <AuthScreenLayout title="Verify Email" subtitle="Enter the 6-digit code sent to your inbox." onBack={onBack}>
+    <AuthScreenLayout
+      title={mode === 'loginOtp' ? 'Verify Login' : 'Verify Email'}
+      subtitle={mode === 'loginOtp' ? 'Enter the 6-digit login code sent to your email.' : 'Enter the 6-digit code sent to your inbox.'}
+      onBack={onBack}
+    >
       <View style={[styles.heroBadge, { width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2 }]}>
         <Feather name="mail" size={badgeIconSize} color={AUTH_COLORS.primaryText} />
       </View>
@@ -242,7 +326,7 @@ export default function VerifyEmail({ email: emailProp, onVerified, onBack }: Pr
       <AuthStepCard
         step={1}
         title="Verification Code"
-        subtitle="Use the OTP from your email."
+        subtitle={mode === 'loginOtp' ? 'Use the login OTP from your email.' : 'Use the OTP from your email.'}
         style={styles.primaryCard}
       >
         {errorMessage ? (
