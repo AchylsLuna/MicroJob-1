@@ -17,6 +17,7 @@ import {
   Star,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { getNotifications } from "../services/api";
@@ -27,6 +28,8 @@ import { MicroJobsLogo } from "./MicroJobsLogo";
 interface SidebarProps {
   userName?: string;
   userRole?: "user" | "employer" | "admin" | "doctor";
+  mobile?: boolean;
+  onClose?: () => void;
 }
 
 type RoleType = "user" | "employer" | "admin";
@@ -48,6 +51,8 @@ type EmployerMenuGroup = {
 const Sidebar: React.FC<SidebarProps> = ({
   userName = "User",
   userRole = "user",
+  mobile = false,
+  onClose,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -283,10 +288,12 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
+      id={mobile ? "mobile-dashboard-navigation" : undefined}
+      aria-label="Primary navigation"
       className={`${webUi.sidebar.root} transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-64"
+        mobile ? "w-full" : isCollapsed ? "w-20" : "w-64"
       }`}
-      style={{ padding: isCollapsed ? "12px" : "24px" }}
+      style={{ padding: mobile || !isCollapsed ? "24px" : "12px" }}
     >
       <div className="flex items-center justify-between mb-8">
         <button
@@ -294,21 +301,34 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="flex items-center gap-2 cursor-pointer min-w-0"
           onClick={() => navigate(ROUTES.home)}
         >
-          <MicroJobsLogo className={isCollapsed ? "[&>span]:hidden" : ""} />
+          <MicroJobsLogo className={!mobile && isCollapsed ? "[&>span]:hidden" : ""} />
         </button>
-        <button
-          type="button"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="text-gray-600 hover:text-gray-900 transition text-lg"
-          title={isCollapsed ? "Expand" : "Collapse"}
-        >
-          {isCollapsed ? "›" : "‹"}
-        </button>
+        {mobile ? (
+          <button
+            type="button"
+            onClick={onClose}
+            autoFocus
+            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            aria-label="Close navigation menu"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
+            title={isCollapsed ? "Expand" : "Collapse"}
+          >
+            <span aria-hidden="true">{isCollapsed ? "›" : "‹"}</span>
+          </button>
+        )}
       </div>
 
       <nav className="space-y-1 flex-1 flex flex-col">
         <div className={`space-y-1 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
-          {!isCollapsed && (
+          {(mobile || !isCollapsed) && (
             <div className="mb-3">
               <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold border border-sky-100">
                 <span>{roleLabel}</span>
@@ -322,7 +342,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             title={isCollapsed ? "Dashboard" : ""}
           >
             {renderIcon("dashboard")}
-            {!isCollapsed && <span>Dashboard</span>}
+            {(mobile || !isCollapsed) && <span>Dashboard</span>}
           </button>
 
           {effectiveRole === "employer" && (
@@ -337,7 +357,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   {!isCollapsed && <span>{employerMenuGroup.label}</span>}
                 </button>
 
-                {!isCollapsed && (
+                {(mobile || !isCollapsed) && (
                   <button
                     type="button"
                     onClick={(event) => {
@@ -356,7 +376,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 )}
               </div>
 
-              {!isCollapsed && isEmployerGroupOpen && (
+              {(mobile || !isCollapsed) && isEmployerGroupOpen && (
                 <div className="mt-1 space-y-1">
                   {employerMenuGroup.children.map((child) => (
                     <button
@@ -380,7 +400,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               title={isCollapsed ? item.label : ""}
             >
               {renderIcon(item.icon)}
-              {!isCollapsed && <span>{item.label}</span>}
+              {(mobile || !isCollapsed) && <span>{item.label}</span>}
               {item.notification &&
                 (item.path === ROUTES.notifications ? (
                   <span
@@ -410,7 +430,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               title={isCollapsed ? item.label : ""}
             >
               {renderIcon(item.icon)}
-              {!isCollapsed && <span>{item.label}</span>}
+              {(mobile || !isCollapsed) && <span>{item.label}</span>}
               {item.notification &&
                 (item.path === ROUTES.notifications ? (
                   <span
@@ -446,14 +466,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                 👨
               </div>
             )}
-            {!isCollapsed && (
+            {(mobile || !isCollapsed) && (
               <div className="text-left">
                 <p className="text-gray-600 text-xs">Welcome back 👋</p>
                 <p className="font-bold text-gray-900 text-sm">{displayUserName}</p>
               </div>
             )}
           </div>
-          {!isCollapsed && <span className="text-gray-400">›</span>}
+          {(mobile || !isCollapsed) && <span className="text-gray-400">›</span>}
         </button>
       </div>
     </aside>

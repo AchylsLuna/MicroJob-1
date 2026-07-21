@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, type ReactNode } from "react";
-import { Bell, Search } from "lucide-react";
+import { Bell, Menu, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -13,7 +13,12 @@ import { mapNotificationRecord, type FeedNotification } from "../utils/notificat
 import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 
-export function NavBar() {
+interface NavBarProps {
+  isNavigationOpen?: boolean;
+  onOpenNavigation?: () => void;
+}
+
+export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -380,6 +385,18 @@ export function NavBar() {
   }, []);
 
   useEffect(() => {
+    if (!showNotifications && !showUserMenu) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowNotifications(false);
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [showNotifications, showUserMenu]);
+
+  useEffect(() => {
     if (showNotifications) {
       loadNotifications();
     }
@@ -442,7 +459,17 @@ export function NavBar() {
   return (
     <div className={webUi.navbar.root}>
       <div className={webUi.navbar.container}>
-        <div className="min-w-0 shrink-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={onOpenNavigation}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 lg:hidden"
+            aria-label="Open navigation menu"
+            aria-controls="mobile-dashboard-navigation"
+            aria-expanded={isNavigationOpen}
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           {pageMeta.title && (
             <div className="flex items-center gap-3">
               {pageMeta.icon && (
@@ -458,29 +485,34 @@ export function NavBar() {
           )}
         </div>
 
-        <div className="flex-1 flex items-center justify-center">
+        <div className="hidden min-w-0 items-center justify-center sm:flex">
           {pageMeta.search && (
-            <div className="relative w-full max-w-[460px] min-w-[220px] h-10">
+            <div className="relative h-10 w-full max-w-[460px] min-w-0">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9CA3AF]" />
               <input
                 type="text"
                 value={searchValue}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 placeholder={pageMeta.search.placeholder}
+                aria-label={pageMeta.search.placeholder}
                 className={webUi.navbar.searchInput}
               />
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-4 shrink-0">
+        <div className="flex shrink-0 items-center justify-end gap-1 sm:gap-3">
           <div className="relative" ref={notificationsRef}>
             <button
+              type="button"
               onClick={() => {
                 setShowNotifications(!showNotifications);
                 setShowUserMenu(false);
               }}
               className={webUi.navbar.iconButton}
+              aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+              aria-expanded={showNotifications}
+              aria-haspopup="menu"
             >
               <Bell className="w-5 h-5 text-[#6B7280]" />
               {unreadCount > 0 && (
@@ -491,7 +523,7 @@ export function NavBar() {
             </button>
 
             {showNotifications && (
-              <div className={`absolute right-0 mt-2 w-[380px] overflow-hidden z-50 ${webUi.navbar.popover}`}>
+              <div role="menu" aria-label="Notifications" className={`fixed left-4 right-4 top-16 max-h-[calc(100dvh-5rem)] overflow-hidden z-50 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[380px] ${webUi.navbar.popover}`}>
                 <div className="flex items-center justify-between p-4 border-b border-[#E5E7EB]">
                   <h3 className="font-semibold text-[16px] text-[#111827]">
                     Notifications {unreadCount > 0 && `(${unreadCount})`}
@@ -513,9 +545,10 @@ export function NavBar() {
                     </div>
                   ) : notifications.length > 0 ? (
                     notifications.map((notification) => (
-                      <div
+                      <button
+                        type="button"
                         key={notification.id}
-                        className={`p-4 border-b border-[#E5E7EB] last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
+                        className={`block w-full p-4 text-left border-b border-[#E5E7EB] last:border-b-0 hover:bg-gray-50 transition-colors ${
                           !notification.read ? "bg-[#EEF2FF]" : ""
                         }`}
                         onClick={async () => {
@@ -538,7 +571,7 @@ export function NavBar() {
                             <p className="text-[11px] text-[#9CA3AF]">{notification.time}</p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))
                   ) : (
                     <div className="p-8 text-center">
@@ -553,11 +586,15 @@ export function NavBar() {
 
           <div className="relative" ref={userMenuRef}>
             <button
+              type="button"
               onClick={() => {
                 setShowUserMenu(!showUserMenu);
                 setShowNotifications(false);
               }}
               className="hover:opacity-80 transition-opacity"
+              aria-label="Open account menu"
+              aria-expanded={showUserMenu}
+              aria-haspopup="menu"
             >
               <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center">
                 <span className="text-[#3B82F6] font-semibold text-[16px]">
@@ -568,7 +605,7 @@ export function NavBar() {
             </button>
 
             {showUserMenu && (
-              <div className={`absolute right-0 mt-2 w-[300px] overflow-hidden z-50 ${webUi.navbar.popover}`}>
+              <div role="menu" aria-label="Account" className={`fixed left-4 right-4 top-16 overflow-hidden z-50 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[300px] ${webUi.navbar.popover}`}>
                 <div className="p-4 border-b border-[#E5E7EB]">
                   <p className="text-[18px] font-semibold text-[#111827]">
                     {user ? `${user.firstName} ${user.lastName}` : "User"}

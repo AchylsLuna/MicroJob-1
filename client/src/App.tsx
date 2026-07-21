@@ -151,11 +151,11 @@ const InactivityHandler: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-gray-900 mb-2">Session timeout</h3>
-        <p className="text-sm text-gray-900 mb-6">
-          Your session will end due to inactivity. Press OK to continue.
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="presentation">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="session-timeout-title" aria-describedby="session-timeout-description" className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+        <h3 id="session-timeout-title" className="text-lg font-bold text-gray-900 mb-2">Session ending soon</h3>
+        <p id="session-timeout-description" className="text-sm text-gray-700 mb-6">
+          Your session will end in about 30 seconds because of inactivity. Continue working to keep your session active.
         </p>
         <div className="flex gap-3">
           <button
@@ -164,10 +164,12 @@ const InactivityHandler: React.FC = () => {
               markActivity();
               handleActivity(true);
             }}
-            className="flex-1 rounded-lg bg-red-500 py-2 text-sm font-semibold text-black hover:bg-red-600"
+            autoFocus
+            className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
-            OK
+            Continue working
           </button>
+          <button type="button" onClick={performLogout} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Sign out</button>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { X } from "lucide-react";
 
 type ToastType = "success" | "error" | "info";
 
@@ -94,16 +95,20 @@ export function Toaster({ position = "top-right" }: { position?: "top-right" | "
   }
 
   return (
-    <div className={`fixed z-[9999] pointer-events-none flex flex-col gap-3 ${positionClasses}`}>
+    <div aria-live="polite" aria-relevant="additions" className={`fixed left-4 right-4 z-[9999] pointer-events-none flex flex-col gap-3 sm:left-auto ${positionClasses}`}>
       {toasts.map((toastItem) => (
         <div
           key={toastItem.id}
-          className={`pointer-events-auto w-[320px] border rounded-[12px] px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ${toastStyles[toastItem.type]}`}
+          role={toastItem.type === "error" ? "alert" : "status"}
+          className={`pointer-events-auto relative w-full border rounded-[12px] px-4 py-3 pr-10 shadow-[0_10px_30px_rgba(15,23,42,0.08)] sm:w-[320px] ${toastStyles[toastItem.type]}`}
         >
           <p className="text-[14px] font-semibold">{toastItem.title}</p>
           {toastItem.description && (
             <p className="text-[12px] mt-1 text-[#475569]">{toastItem.description}</p>
           )}
+          <button type="button" onClick={() => removeToast(toastItem.id)} aria-label="Dismiss notification" className="absolute right-2 top-2 rounded-md p-1 hover:bg-black/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current">
+            <X className="h-4 w-4" />
+          </button>
         </div>
       ))}
     </div>
