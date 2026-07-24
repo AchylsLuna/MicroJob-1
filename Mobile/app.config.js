@@ -8,13 +8,6 @@ const expo = {
       projectId: 'd1b2d617-2132-4db6-828e-92b06ae42e6f',
     },
   },
-  android: {
-    package: 'com.bananas1.mobile',
-  },
-  plugins: [
-    '@react-native-community/datetimepicker',
-    'expo-font',
-  ],
 };
 
 module.exports = () => {
