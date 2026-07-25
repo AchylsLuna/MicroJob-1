@@ -313,7 +313,7 @@ export function EWallet() {
               </h2>
               <p className="text-[14px] text-white/75 mt-3">
                 {isBothRole
-                  ? "Your combined employer and worker balance. Top up your employer wallet to fund jobs, and withdraw your earned worker balance."
+                  ? "Your combined employer and worker balance. Top up your wallet to fund jobs, and withdraw your earned balance."
                   : isEmployerWalletView
                   ? "Employers add funds here to pay into escrow and cover worker earnings."
                   : "Workers can only withdraw completed earnings here once payouts are available."}
@@ -366,7 +366,7 @@ export function EWallet() {
                 onClick={() => setIsTopUpOpen(true)}
                 className="w-full md:w-auto bg-white text-[#1C4D8D] font-semibold py-3 px-6 rounded-[12px] hover:bg-gray-100 transition"
               >
-                Top Up Employer Wallet
+                Top Up
               </button>
               <button
                 type="button"
@@ -382,7 +382,7 @@ export function EWallet() {
               onClick={() => setIsTopUpOpen(true)}
               className="w-full md:w-auto bg-white text-[#1C4D8D] font-semibold py-3 px-6 rounded-[12px] hover:bg-gray-100 transition"
             >
-              Top Up Employer Wallet
+              Top Up
             </button>
           ) : isWorkerWalletView ? (
             <button
@@ -636,7 +636,7 @@ export function EWallet() {
           <div className="w-full max-w-md bg-white rounded-[16px] p-6 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
               <Wallet className="w-5 h-5 text-[#1D4ED8]" />
-              <h4 className="text-[18px] font-semibold text-[#111827]">Top Up Employer Wallet</h4>
+              <h4 className="text-[18px] font-semibold text-[#111827]">Top Up</h4>
             </div>
 
             <label className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
