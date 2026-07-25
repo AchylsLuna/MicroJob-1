@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Mail, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { ROUTES } from "../utils/routes";
 
 interface OTPVerificationProps {
   onClose: () => void;
@@ -9,7 +11,8 @@ interface OTPVerificationProps {
 }
 
 export function OTPVerification({ onClose, email }: OTPVerificationProps) {
-  const { verifyOTP, resendOTP } = useAuth();
+  const navigate = useNavigate();
+  const { verifyOTP, resendOTP, pendingVerification } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyInFlightRef = useRef(false);
@@ -17,6 +20,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
   const resendInFlightRef = useRef(false);
   const [countdown, setCountdown] = useState(60);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const verificationFlow = pendingVerification?.flow || (localStorage.getItem("pending_verification_flow") === "signup" ? "signup" : "signin");
 
   useEffect(() => {
     // Focus first input on mount
@@ -144,6 +148,14 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
       );
 
       if (success || (hasSessionUser && nextUser && typeof nextUser === "object")) {
+        if (verificationFlow === "signup") {
+          sessionStorage.removeItem("post_verify_redirect");
+          navigate(ROUTES.signIn, {
+            replace: true,
+            state: { message: "Email verified successfully. You can sign in now." },
+          });
+          return;
+        }
         const computedDestination = getDefaultDashboardPath(
           nextUser && typeof nextUser === "object" ? (nextUser as any) : null,
         );

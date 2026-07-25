@@ -54,7 +54,7 @@ interface User {
     _id?: string;
     id?: string;
     name: string;
-    level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
+    description?: string;
     endorsements?: number;
     createdAt?: string;
   }>;
@@ -358,7 +358,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       await sendOtp({ email: normalizedEmail });
-      toast.success("OTP sent to your email!");
+      toast.success("Verification code sent to your email.");
     } catch (error: any) {
       setPendingVerification(null);
       localStorage.removeItem("pending_account_preference");
@@ -401,6 +401,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!apiUser) {
         throw new Error("Invalid verification response from server.");
       }
+
+      if (verificationFlow === "signup") {
+        localStorage.removeItem("pending_account_preference");
+        localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
+        localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
+        localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
+        setPendingVerification(null);
+        setIsLoading(false);
+        toast.success("Email verified successfully.");
+        return true;
+      }
+
       const role = normalizeRole(getRoleCandidate(apiUser));
       const preferredAccount = accountPreference ?? normalizePreference(getPreferenceCandidate(apiUser));
       const { accountType, accountOptions } = normalizeAccount(role, preferredAccount);

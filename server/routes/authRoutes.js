@@ -1290,32 +1290,34 @@ const getProfile = async (req, res) => {
   }
 };
 
+const normalizeSkillDescription = (value = '') => String(value || '').trim();
+
 const addSkill = async (req, res) => {
   try {
     const userId = req.user?.id;
-    const { name, level } = req.body || {};
+    const { name, description, experience } = req.body || {};
 
     if (!name || !name.trim()) {
       return sendError(res, 400, 'Skill name is required');
     }
 
-    const validLevels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-    const skillLevel = level && validLevels.includes(level) ? level : 'Intermediate';
+    const skillDescription = normalizeSkillDescription(description || experience || '');
 
     const user = await User.findById(userId);
     if (!user) {
       return sendError(res, 404, 'User not found');
     }
 
-    // Check if skill already exists
     const existingSkill = user.skills?.find((s) => s.name.toLowerCase() === name.toLowerCase());
     if (existingSkill) {
-      return sendError(res, 400, 'Skill already exists');
+      existingSkill.description = skillDescription;
+      await user.save();
+      return sendSuccess(res, 200, 'Skill description updated successfully', { skills: user.skills });
     }
 
     const newSkill = {
       name: name.trim(),
-      level: skillLevel,
+      description: skillDescription,
       endorsements: 0,
       createdAt: new Date(),
     };
@@ -1326,7 +1328,7 @@ const addSkill = async (req, res) => {
     user.skills.push(newSkill);
     await user.save();
 
-    return sendSuccess(res, 201, 'Skill added successfully', { data: { skills: user.skills } });
+    return sendSuccess(res, 201, 'Skill added successfully', { skills: user.skills });
   } catch (error) {
     console.error('Add skill error:', error);
     return sendError(res, 500, 'Failed to add skill');
@@ -1355,26 +1357,21 @@ const deleteSkill = async (req, res) => {
     user.skills.splice(skillIndex, 1);
     await user.save();
 
-    return sendSuccess(res, 200, 'Skill deleted successfully', { data: { skills: user.skills } });
+    return sendSuccess(res, 200, 'Skill deleted successfully', { skills: user.skills });
   } catch (error) {
     console.error('Delete skill error:', error);
     return sendError(res, 500, 'Failed to delete skill');
   }
 };
 
-const updateSkillLevel = async (req, res) => {
+const updateSkillDescription = async (req, res) => {
   try {
     const userId = req.user?.id;
     const { skillId } = req.params;
-    const { level } = req.body || {};
+    const { description, experience } = req.body || {};
 
     if (!skillId) {
       return sendError(res, 400, 'Skill ID is required');
-    }
-
-    const validLevels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-    if (!level || !validLevels.includes(level)) {
-      return sendError(res, 400, 'Invalid proficiency level');
     }
 
     const user = await User.findById(userId);
@@ -1387,13 +1384,13 @@ const updateSkillLevel = async (req, res) => {
       return sendError(res, 404, 'Skill not found');
     }
 
-    skill.level = level;
+    skill.description = normalizeSkillDescription(description || experience || '');
     await user.save();
 
-    return sendSuccess(res, 200, 'Skill level updated successfully', { skills: user.skills });
+    return sendSuccess(res, 200, 'Skill description updated successfully', { skills: user.skills });
   } catch (error) {
-    console.error('Update skill level error:', error);
-    return sendError(res, 500, 'Failed to update skill level');
+    console.error('Update skill description error:', error);
+    return sendError(res, 500, 'Failed to update skill description');
   }
 };
 
@@ -1553,7 +1550,7 @@ router.post('/profile/resume', verifyToken, multerResume.single('resume'), uploa
 router.delete('/profile/resume', verifyToken, deleteResume);
 router.post('/profile/skills', verifyToken, addSkill);
 router.delete('/profile/skills/:skillId', verifyToken, deleteSkill);
-router.patch('/profile/skills/:skillId', verifyToken, updateSkillLevel);
+router.patch('/profile/skills/:skillId', verifyToken, updateSkillDescription);
 
 // Verification endpoints
 router.get('/verification/status', verifyToken, async (req, res) => {

@@ -184,10 +184,10 @@ const UserSchema = new mongoose.Schema(
           trim: true,
           required: true,
         },
-        level: {
+        description: {
           type: String,
-          enum: ['Beginner', 'Intermediate', 'Advanced', 'Expert'],
-          default: 'Intermediate',
+          trim: true,
+          default: '',
         },
         endorsements: {
           type: Number,

@@ -36,7 +36,7 @@ type SignUpDraft = {
 
 export function SignUp() {
   const navigate = useNavigate();
-  const { register, pendingVerification, isAuthenticated, user } = useAuth();
+  const { register, isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -49,6 +49,7 @@ export function SignUp() {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const submitInFlightRef = useRef(false);
   const [userType, setUserType] = useState<"employer" | "worker" | "both">("both");
   const showPasswordStrength = Boolean(formData.password || formData.confirmPassword);
@@ -176,6 +177,9 @@ export function SignUp() {
       setIsSubmitting(true);
       await register(normalizedEmail, formData.password, normalizedFullName, userType, normalizedPhone);
       sessionStorage.removeItem(SIGN_UP_DRAFT_KEY);
+      const nextMessage = "Verification code sent. Please verify your email to continue.";
+      setSuccessMessage(nextMessage);
+      toast.success(nextMessage);
       setShowOTP(true);
     } catch (error: any) {
       const message = error?.message || "Registration failed";
@@ -250,6 +254,18 @@ export function SignUp() {
 
         {/* Right Side - Sign Up Form */}
         <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10 self-start">
+          {successMessage ? (
+            <div className="mb-6 rounded-[16px] border border-[#86efac] bg-[#f0fdf4] p-4 text-[#166534]">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold">Registration successful</p>
+                  <p className="text-[14px]">{successMessage}</p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           {/* Back Button */}
           <button
             onClick={() => navigate(ROUTES.home)}
@@ -543,13 +559,13 @@ export function SignUp() {
         </div>
       </div>
 
-      {/* OTP Verification Modal */}
-      {showOTP && pendingVerification && (
+      {showOTP && (
         <OTPVerification
-          email={pendingVerification.email}
+          email={normalizedEmail}
           onClose={() => setShowOTP(false)}
         />
       )}
+
     </div>
   );
 }

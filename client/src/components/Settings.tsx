@@ -121,7 +121,7 @@ const PSGC_BASE_URL = "https://psgc.gitlab.io/api";
 interface SkillItem {
   id: string;
   name: string;
-  level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
+  description?: string;
   endorsements?: number;
 }
 
@@ -192,8 +192,11 @@ export function Settings() {
   });
 
   const [newSkillName, setNewSkillName] = useState("");
+  const [newSkillDescription, setNewSkillDescription] = useState("");
   const [skillSelectionMode, setSkillSelectionMode] = useState<"predefined" | "custom">("predefined");
   const [selectedPredefinedSkill, setSelectedPredefinedSkill] = useState("");
+  const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
+  const [editingSkillDescription, setEditingSkillDescription] = useState("");
 
   const [securityData, setSecurityData] = useState({
     currentPassword: "",
@@ -707,6 +710,7 @@ export function Settings() {
 
   const handleAddSkill = async () => {
     const skillName = skillSelectionMode === "predefined" ? selectedPredefinedSkill : newSkillName.trim();
+    const skillDescription = newSkillDescription.trim();
     
     if (!skillName) {
       toast.error("Please select or enter a skill name");
@@ -721,10 +725,13 @@ export function Settings() {
         credentials: "include",
         body: JSON.stringify({
           name: skillName,
+          description: skillDescription,
         }),
       });
-      if (!response.ok) throw new Error("Failed to add skill");
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to add skill");
+      }
       const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
         ...skill,
         id: skill.id || skill._id || "",
@@ -732,11 +739,40 @@ export function Settings() {
       setSkills(mappedSkills);
       updateAuthProfile({ skills: mappedSkills });
       setNewSkillName("");
+      setNewSkillDescription("");
       setSelectedPredefinedSkill("");
       setSkillSelectionMode("predefined");
-      toast.success(`${skillName} added to your skills!`);
+      toast.success(data?.message || `${skillName} saved to your skills!`);
     } catch (error: any) {
       toast.error(error.message || "Failed to add skill");
+    }
+  };
+
+  const handleEditSkillDescription = async (id: string) => {
+    try {
+      const response = await fetch(`/api/auth/profile/skills/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          description: editingSkillDescription,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.message || "Failed to update skill description");
+      const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
+        ...skill,
+        id: skill.id || skill._id || "",
+      })) as SkillItem[];
+      setSkills(mappedSkills);
+      updateAuthProfile({ skills: mappedSkills });
+      setEditingSkillId(null);
+      setEditingSkillDescription("");
+      toast.success("Skill description updated successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update skill description");
     }
   };
 
@@ -1580,6 +1616,18 @@ export function Settings() {
                               />
                             )}
                           </div>
+
+                          <div>
+                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Description or experience note</label>
+                            <textarea
+                              value={newSkillDescription}
+                              onChange={(e) => setNewSkillDescription(e.target.value)}
+                              placeholder="Optional: describe what you can do or your experience with this skill"
+                              className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
+                              rows={3}
+                            />
+                          </div>
+
                           <button
                             onClick={handleAddSkill}
                             className="w-full bg-[#2563EB] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:bg-[#1D4ED8] transition-all"
@@ -1600,24 +1648,54 @@ export function Settings() {
                               >
                                 <div className="flex-1">
                                   <p className="text-[14px] font-semibold text-[#111827]">{skill.name}</p>
-                                  <div className="flex items-center gap-2 mt-2">
-                                    <span
-                                      className={`px-3 py-1 rounded-[6px] text-[12px] font-semibold ${
-                                        skill.level === "Expert"
-                                          ? "bg-[#dbeafe] text-[#0c4a6e]"
-                                          : skill.level === "Advanced"
-                                          ? "bg-[#dcfce7] text-[#065f46]"
-                                          : skill.level === "Intermediate"
-                                          ? "bg-[#fef3c7] text-[#92400e]"
-                                          : "bg-[#f3f4f6] text-[#4b5563]"
-                                      }`}
-                                    >
-                                      {skill.level}
-                                    </span>
-                                    {skill.endorsements ? (
-                                      <span className="text-[12px] text-[#64748B]">{skill.endorsements} endorsements</span>
-                                    ) : null}
-                                  </div>
+                                  {editingSkillId === skill.id ? (
+                                    <div className="mt-3 space-y-3">
+                                      <textarea
+                                        value={editingSkillDescription}
+                                        onChange={(e) => setEditingSkillDescription(e.target.value)}
+                                        placeholder="Describe your experience with this skill"
+                                        className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] text-[#111827] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
+                                        rows={3}
+                                      />
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => handleEditSkillDescription(skill.id)}
+                                          className="bg-[#2563EB] text-white text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:bg-[#1D4ED8] transition-all"
+                                        >
+                                          Save note
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditingSkillId(null);
+                                            setEditingSkillDescription("");
+                                          }}
+                                          className="bg-[#F3F4F6] text-[#374151] text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:bg-[#E5E7EB] transition-all"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <p className="mt-2 text-[13px] text-[#64748B]">
+                                        {skill.description?.trim() || "No description added"}
+                                      </p>
+                                      <div className="flex items-center gap-2 mt-3">
+                                        <button
+                                          onClick={() => {
+                                            setEditingSkillId(skill.id);
+                                            setEditingSkillDescription(skill.description || "");
+                                          }}
+                                          className="text-[12px] font-semibold text-[#2563EB] hover:text-[#1D4ED8]"
+                                        >
+                                          Edit description
+                                        </button>
+                                        {skill.endorsements ? (
+                                          <span className="text-[12px] text-[#64748B]">{skill.endorsements} endorsements</span>
+                                        ) : null}
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                                 <button
                                   onClick={() => handleDeleteSkill(skill.id)}

@@ -21,7 +21,7 @@ import { ROUTES } from "../../utils/routes";
 interface Skill {
   id: string;
   name: string;
-  level: "Beginner" | "Intermediate" | "Advanced" | "Expert";
+  description?: string;
   endorsements?: number;
 }
 
@@ -344,15 +344,18 @@ export function Profile() {
                   {/* Skills */}
                   <div>
                     <h2 className="text-[20px] font-semibold text-[#1e293b] mb-4">Skills</h2>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-3">
                       {skills.length > 0 ? (
                         skills.map((skill) => (
-                          <span
+                          <div
                             key={skill.id}
-                            className="px-4 py-2 bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] text-[#2563eb] rounded-[10px] text-[13px] font-semibold border border-[#bfdbfe]"
+                            className="rounded-[12px] border border-[#bfdbfe] bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] px-4 py-3"
                           >
-                            {skill.name}
-                          </span>
+                            <p className="text-[14px] font-semibold text-[#2563eb]">{skill.name}</p>
+                            <p className="mt-1 text-[13px] text-[#475569]">
+                              {skill.description?.trim() || "No description added"}
+                            </p>
+                          </div>
                         ))
                       ) : (
                         <span className="text-[13px] text-[#94a3b8]">No skills added yet</span>
@@ -452,27 +455,15 @@ export function Profile() {
                     >
                       <div>
                         <h3 className="text-[16px] font-bold text-[#1e293b] mb-1">{skill.name}</h3>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-3 py-1 rounded-[8px] text-[12px] font-semibold ${
-                              skill.level === "Expert"
-                                ? "bg-[#dbeafe] text-[#0c4a6e]"
-                                : skill.level === "Advanced"
-                                ? "bg-[#dcfce7] text-[#065f46]"
-                                : skill.level === "Intermediate"
-                                ? "bg-[#fef3c7] text-[#92400e]"
-                                : "bg-[#f3f4f6] text-[#4b5563]"
-                            }`}
-                          >
-                            {skill.level}
+                        <p className="text-[13px] text-[#64748b] mt-2">
+                          {skill.description?.trim() || "No description added"}
+                        </p>
+                        {skill.endorsements ? (
+                          <span className="text-[12px] text-[#64748b] flex items-center gap-1 mt-2">
+                            <Award className="w-3 h-3" />
+                            {skill.endorsements} endorsements
                           </span>
-                          {skill.endorsements ? (
-                            <span className="text-[12px] text-[#64748b] flex items-center gap-1">
-                              <Award className="w-3 h-3" />
-                              {skill.endorsements} endorsements
-                            </span>
-                          ) : null}
-                        </div>
+                        ) : null}
                       </div>
                     </div>
                   ))}

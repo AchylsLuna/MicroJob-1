@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Award, Users, TrendingUp, ArrowLeft } from "lucide-react";
 import { toast } from "../lib/toast";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
@@ -10,7 +10,8 @@ import { OTPVerification } from "./OTPVerification";
 
 export function SignIn() {
   const navigate = useNavigate();
-  const { login, isAuthenticated, user, pendingVerification } = useAuth();
+  const location = useLocation();
+  const { login, isAuthenticated, user } = useAuth();
   const dashboardPath = getDefaultDashboardPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -18,6 +19,7 @@ export function SignIn() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
+  const successMessage = (location.state as { message?: string } | null)?.message;
 
   if (!isLoading && isAuthenticated && user?.role) {
     return <Navigate to={dashboardPath} replace />;
@@ -116,6 +118,13 @@ export function SignIn() {
 
         {/* Right Side - Sign In Form */}
         <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10 self-start">
+          {successMessage ? (
+            <div className="mb-6 rounded-[16px] border border-[#86efac] bg-[#f0fdf4] p-4 text-[#166534]">
+              <p className="font-semibold">Success</p>
+              <p className="text-[14px]">{successMessage}</p>
+            </div>
+          ) : null}
+
           {/* Back Button */}
           <button
             onClick={() => navigate(ROUTES.home)}
@@ -223,12 +232,13 @@ export function SignIn() {
         </div>
       </div>
 
-      {showOTP && pendingVerification?.email && (
+      {showOTP && (
         <OTPVerification
-          email={pendingVerification.email}
+          email={email}
           onClose={() => setShowOTP(false)}
         />
       )}
+
     </div>
   );
 }
