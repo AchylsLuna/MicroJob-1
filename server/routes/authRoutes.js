@@ -429,8 +429,30 @@ const mfaStatusPayload = (user) => ({
   hasPendingSetup: Boolean(user?.mfaPendingSecret),
 });
 
+const buildAuthRateLimitKey = (req) => {
+  const body = req.body || {};
+  const identifier = String(
+    body.emailOrUsername || body.email || body.username || body.phoneNumber || ''
+  ).trim().toLowerCase();
+
+  if (identifier) {
+    return `auth:${identifier}`;
+  }
+
+  return `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`;
+};
+
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { message: 'Too many registration attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
+});
+
 // Register a new user (supports both email/username and phone-based registration)
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   try {
     const { username, email, password, phoneNumber, firstName, lastName, role } = req.body;
     const normalizedEmail = normalizeEmail(email);
@@ -607,13 +629,14 @@ router.post('/password-change/request', verifyToken, passwordChangeLimiter, requ
 router.post('/password-change/confirm', verifyToken, passwordChangeLimiter, changePasswordWithOtp);
 
 // Login an existing user (supports email/username and phone)
-// Apply a login rate limiter to mitigate brute-force attacks
+// Key the limiter by account identifier so shared IPs do not throttle each other.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 6, // limit each IP to 6 login requests per windowMs
+  max: 20,
   message: { message: 'Too many login attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 router.post('/login', loginLimiter, async (req, res) => {

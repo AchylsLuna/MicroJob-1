@@ -331,7 +331,7 @@ export function FindJobs() {
     <div className="max-w-[1341px] mx-auto space-y-5 font-sans">
       <div className="flex items-center justify-between gap-3">
         <p className="text-[24px] leading-none font-semibold text-[#111827]">
-          {sortedJobs.length} {sortedJobs.length === 1 ? "job" : "jobs"} found
+          {sortedJobs.length} {sortedJobs.length === 1 ? "job" : "Jobs"} Found
         </p>
         <button
           type="button"
@@ -377,7 +377,7 @@ export function FindJobs() {
 
       {!isLoading && !loadError && sortedJobs.length === 0 && (
         <div className="bg-white rounded-[18px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
-          No jobs found. Try another search.
+          No Jobs Found. Try Another Search.
         </div>
       )}
 

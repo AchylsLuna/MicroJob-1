@@ -9,7 +9,6 @@ import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { initSocket } from './lib/socket.js';
@@ -80,17 +79,6 @@ const allowedOrigins = buildAllowedOrigins({
     extraOrigins: process.env.ADDITIONAL_CORS_ORIGINS || '',
 });
 
-const globalApiLimiter = rateLimit({
-    windowMs: Number(process.env.GLOBAL_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
-    max: Number(process.env.GLOBAL_RATE_LIMIT_MAX || 300),
-    standardHeaders: true,
-    legacyHeaders: false,
-    message: { message: 'Too many requests. Please try again later.' },
-    skip: (req) =>
-      req.method === 'OPTIONS' ||
-      req.originalUrl === '/api/payment/webhook',
-});
-
 app.use(
     helmet({
         // API serves uploaded files cross-origin in dev; keep resource policy permissive.
@@ -126,8 +114,6 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
     preflightContinue: false,
 }));
-
-app.use('/api', globalApiLimiter);
 
 // Ensure OPTIONS preflight is handled for all routes
 // No explicit app.options needed because CORS middleware is applied globally
