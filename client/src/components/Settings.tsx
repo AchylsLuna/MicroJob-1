@@ -205,6 +205,7 @@ export function Settings() {
   });
   const [passwordOtp, setPasswordOtp] = useState("");
   const [passwordOtpRequested, setPasswordOtpRequested] = useState(false);
+  const [isOtpSending, setIsOtpSending] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
 
   const [resume, setResume] = useState<File | null>(null);
@@ -827,7 +828,7 @@ export function Settings() {
       return;
     }
 
-    setIsPasswordSubmitting(true);
+    setIsOtpSending(true);
     try {
       await requestPasswordChangeOtp({ currentPassword: securityData.currentPassword });
       setPasswordOtpRequested(true);
@@ -835,7 +836,7 @@ export function Settings() {
     } catch (error: any) {
       toast.error(error?.message || "Failed to send OTP");
     } finally {
-      setIsPasswordSubmitting(false);
+      setIsOtpSending(false);
     }
   };
 
@@ -1806,10 +1807,10 @@ export function Settings() {
                   <div>
                     <button
                       onClick={handleRequestPasswordOtp}
-                      disabled={isPasswordSubmitting}
+                      disabled={isOtpSending}
                       className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-[13px] font-semibold disabled:opacity-60"
                     >
-                      {isPasswordSubmitting ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
+                      {isOtpSending ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
                     </button>
                   </div>
 

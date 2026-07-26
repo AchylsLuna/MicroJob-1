@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
+import { getJobs } from "../services/api";
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
   if (!value) return null;
@@ -84,7 +85,14 @@ export function LandingPageBlue() {
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.8]);
 
-  const jobCards = [
+  const [jobCards, setJobCards] = useState<Array<{
+    title: string;
+    company: string;
+    location: string;
+    salary: string;
+    color: string;
+    icon: string;
+  }>>([
     {
       title: "Sneaker Designer",
       company: "Nike Cooperation",
@@ -133,7 +141,91 @@ export function LandingPageBlue() {
       color: "bg-gradient-to-br from-[#E8F9FF] to-[#D0EFFF]",
       icon: "🧹",
     },
-  ];
+  ]);
+  const [isJobsLoading, setIsJobsLoading] = useState(false);
+  const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
+
+  const getJobsPath = isAuthenticated
+    ? user?.accountType === "employer"
+      ? ROUTES.employer.jobs
+      : ROUTES.worker.findJobs
+    : ROUTES.signIn;
+  const startJourneyPath = getJobsPath;
+
+  const getCategoryGradient = (category?: string) => {
+    const normalized = String(category || "").toLowerCase();
+    if (normalized.includes("design")) return "bg-gradient-to-br from-[#FFE8E8] to-[#FFCFCF]";
+    if (normalized.includes("developer") || normalized.includes("tech")) return "bg-gradient-to-br from-[#E8F4FF] to-[#D0E8FF]";
+    if (normalized.includes("marketing") || normalized.includes("sales")) return "bg-gradient-to-br from-[#FFF9E8] to-[#FFE8C0]";
+    if (normalized.includes("service") || normalized.includes("chef") || normalized.includes("cleaning"))
+      return "bg-gradient-to-br from-[#E8FFE8] to-[#CFEFCF]";
+    return "bg-gradient-to-br from-[#E8F9FF] to-[#D0EFFF]";
+  };
+
+  const normalizeCadenceLabel = (raw: string) => {
+    const source = raw.toLowerCase();
+    if (source.includes("/mo") || source.includes("/month") || source.includes("per month")) return "/month";
+    if (source.includes("/yr") || source.includes("/year") || source.includes("per year")) return "/year";
+    if (source.includes("/week") || source.includes("per week")) return "/week";
+    if (source.includes("/day") || source.includes("per day")) return "/day";
+    if (source.includes("/hr") || source.includes("/hour") || source.includes("per hour")) return "/hour";
+    return "";
+  };
+
+  const formatJobSalary = (rawSalary?: string | number) => {
+    if (!rawSalary && rawSalary !== 0) return "—";
+    const salaryString = typeof rawSalary === "number" ? rawSalary.toString() : String(rawSalary);
+    const numeric = Number.parseFloat(salaryString.replace(/,/g, "").replace(/[^0-9.]/g, ""));
+    if (Number.isFinite(numeric) && numeric > 0) {
+      const cadence = normalizeCadenceLabel(salaryString);
+      return `₱${numeric.toLocaleString()}${cadence ? ` ${cadence}` : ""}`;
+    }
+    return salaryString.replace(/\$/g, "₱").replace(/\s{2,}/g, " ").trim();
+  };
+
+  const getCompanyName = (job: any) => {
+    if (typeof job.company === "string" && job.company.trim()) {
+      return job.company;
+    }
+    if (job.jobPoster && typeof job.jobPoster === "object") {
+      const name = `${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim();
+      return name || job.jobPoster.email || "MicroJobs";
+    }
+    return "MicroJobs";
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadLandingJobs = async () => {
+      setIsJobsLoading(true);
+      setJobsLoadError(null);
+      try {
+        const data = await getJobs({ limit: 6 });
+        if (!isMounted) return;
+        if (Array.isArray(data) && data.length > 0) {
+          setJobCards(
+            data.slice(0, 6).map((job: any) => ({
+              title: job.title || "Job Title",
+              company: getCompanyName(job),
+              location: job.location || "Location not specified",
+              salary: formatJobSalary(job.salary),
+              color: "bg-gradient-to-br from-[#E8F4FF] to-[#D0E8FF]",
+              icon: "💼",
+            })),
+          );
+        }
+      } catch (error: any) {
+        if (!isMounted) return;
+        setJobsLoadError(error?.message || "Unable to load jobs yet.");
+      } finally {
+        if (isMounted) setIsJobsLoading(false);
+      }
+    };
+    loadLandingJobs();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const steps = [
     {
@@ -662,7 +754,7 @@ export function LandingPageBlue() {
             <motion.button
               whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
               whileTap={{ scale: 0.95 }}
-              onClick={() => navigate(ROUTES.signUp)}
+              onClick={() => navigate(startJourneyPath)}
               className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#4988C4] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
             >
               Start Your Journey
@@ -701,6 +793,7 @@ export function LandingPageBlue() {
                   rotateY: 5
                 }}
                 className="bg-white rounded-[24px] p-6 border border-gray-100 hover:shadow-xl transition-all cursor-pointer group"
+              onClick={() => navigate(getJobsPath)}
               >
                 <motion.div 
                   whileHover={{ scale: 1.1, rotate: 10 }}
@@ -726,7 +819,7 @@ export function LandingPageBlue() {
                   <motion.button
                     whileHover={{ scale: 1.2, rotate: 90 }}
                     whileTap={{ scale: 0.9 }}
-                    onClick={() => navigate(ROUTES.worker.findJobs)}
+                    onClick={() => navigate(getJobsPath)}
                     className="w-10 h-10 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white group-hover:shadow-lg transition-all"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -744,7 +837,7 @@ export function LandingPageBlue() {
           >
             <motion.button
               whileHover={{ scale: 1.1 }}
-              onClick={() => navigate(ROUTES.worker.findJobs)}
+              onClick={() => navigate(getJobsPath)}
               className="text-[14px] font-semibold text-[#4988C4] hover:text-[#1C4D8D] transition-colors"
             >
               Show More →

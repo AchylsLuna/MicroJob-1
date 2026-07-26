@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import { LEGAL_INFO } from "../constants/legal";
 import { ROUTES } from "../utils/routes";
 
@@ -37,25 +38,33 @@ const cookieSections = [
 ] as const;
 
 export function CookiePolicy() {
+  const navigate = useNavigate();
+
+  const handleBack = () => {
+    navigate(ROUTES.home);
+  };
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-10">
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-[24px] border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-10">
-          <div className="mb-8 flex flex-col gap-4 border-b border-[#E5E7EB] pb-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="mb-8 flex flex-col gap-4 border-b border-[#E5E7EB] pb-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-[30px] font-bold leading-tight text-[#111827]">Cookie Policy</h1>
               <p className="mt-2 text-[14px] text-[#6B7280]">Effective date: {effectiveDate}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Link
-                to={ROUTES.signUp}
-                className="rounded-lg border border-[#D1D5DB] px-4 py-2 text-[13px] font-semibold text-[#374151] hover:bg-[#F9FAFB]"
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#D1D5DB] bg-white px-4 py-2 text-[13px] font-semibold text-[#374151] hover:bg-[#F9FAFB] transition-colors"
               >
-                Back to Sign Up
-              </Link>
+                <ChevronLeft className="w-4 h-4" />
+                Back
+              </button>
               <Link
                 to={ROUTES.privacy}
-                className="rounded-lg bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#153d70]"
+                className="inline-flex items-center justify-center rounded-lg bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#153d70] transition-colors"
               >
                 Privacy Policy
               </Link>
