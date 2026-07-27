@@ -1259,7 +1259,7 @@ router.post('/logout', verifyToken, async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance'
+      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance hideHiredCandidates'
     );
     if (!user) {
       return sendError(res, 404, 'User not found');

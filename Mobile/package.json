@@ -6,7 +6,8 @@
     "start": "node scripts/startExpo.cjs",
     "android": "node scripts/startExpo.cjs --android",
     "ios": "node scripts/startExpo.cjs --ios",
-    "web": "node scripts/startExpo.cjs --web"
+    "web": "node scripts/startExpo.cjs --web",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@expo/metro-runtime": "~55.0.6",

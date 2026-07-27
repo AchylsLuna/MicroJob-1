@@ -354,17 +354,18 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   }, [clearIdleTimers, scheduleIdleTimers]);
 
   useEffect(() => {
-    const originalFetch = global.fetch;
-    global.fetch = async (
-      input: Parameters<typeof fetch>[0],
-      init?: Parameters<typeof fetch>[1]
+    const originalFetch = globalThis.fetch;
+    const trackedFetch: typeof globalThis.fetch = async (
+      input: RequestInfo | URL,
+      init?: RequestInit
     ) => {
       registerActivity();
       return originalFetch(input, init);
     };
+    globalThis.fetch = trackedFetch;
 
     return () => {
-      global.fetch = originalFetch;
+      globalThis.fetch = originalFetch;
     };
   }, [registerActivity]);
 

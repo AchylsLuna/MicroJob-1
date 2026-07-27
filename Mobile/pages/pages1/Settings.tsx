@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Switch } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
+import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { useToast } from '../../contexts/ToastContext';
 import PersonalInformation from './PersonalInformation';
 
 type SettingsProps = {
@@ -18,6 +20,7 @@ type SettingsProps = {
   onNavigateAbout?: () => void;
   onNavigateDeleteAccount?: () => void;
   onNavigateSupport?: () => void;
+  onNavigatePaymentMethods?: () => void;
   currentRole?: 'worker' | 'employer' | 'both';
 };
 
@@ -41,13 +44,18 @@ export default function Settings({
   onNavigateAbout,
   onNavigateDeleteAccount,
   onNavigateSupport,
+  onNavigatePaymentMethods,
   currentRole = 'worker',
 }: SettingsProps) {
   const insets = useSafeAreaInsets();
+  const toast = useToast();
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
   const [profileName, setProfileName] = useState('Account User');
   const [profileEmail, setProfileEmail] = useState('No email set');
   const [profileAvatar, setProfileAvatar] = useState('');
+  const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
+  const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
+  const isEmployer = currentRole === 'employer';
 
   const handleLogout = () => {
     onLogout?.();
@@ -56,9 +64,22 @@ export default function Settings({
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const storedUser = await AsyncStorage.getItem('auth_user');
-        if (!storedUser) return;
-        const parsed = JSON.parse(storedUser);
+        const [storedUser, token] = await Promise.all([
+          AsyncStorage.getItem('auth_user'),
+          AsyncStorage.getItem('auth_token'),
+        ]);
+        let parsed = storedUser ? JSON.parse(storedUser) : {};
+
+        if (token) {
+          const result = await apiRequest(
+            `${API_URL}/auth/me`,
+            { headers: { Authorization: `Bearer ${token}` } },
+            'Failed to refresh settings.'
+          );
+          if (result.ok) {
+            parsed = asObject<any>(result.data) || parsed;
+          }
+        }
         const name =
           [parsed?.firstName, parsed?.lastName].filter(Boolean).join(' ').trim() ||
           parsed?.name ||
@@ -72,6 +93,9 @@ export default function Settings({
         setProfileName(name);
         setProfileEmail(email);
         setProfileAvatar(avatar);
+        if (typeof parsed?.hideHiredCandidates === 'boolean') {
+          setHideHiredCandidates(parsed.hideHiredCandidates);
+        }
       } catch (error) {
         console.log('Failed to load settings profile', error);
       }
@@ -110,26 +134,71 @@ export default function Settings({
     setShowPersonalInfo(true);
   };
 
+  const handleToggleEmployerPrivacy = async (nextValue: boolean) => {
+    setHideHiredCandidates(nextValue);
+    setIsSavingPrivacy(true);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) throw new Error('Not authenticated. Please sign in again.');
+      const result = await apiRequest(
+        `${API_URL}/auth/me`,
+        {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ hideHiredCandidates: nextValue }),
+        },
+        'Failed to save employer privacy setting.'
+      );
+      if (!result.ok) throw new Error(result.message);
+      toast.success('Employer privacy setting saved.');
+    } catch (error: any) {
+      setHideHiredCandidates(!nextValue);
+      toast.error(error?.message || 'Failed to save employer privacy setting.');
+    } finally {
+      setIsSavingPrivacy(false);
+    }
+  };
+
   if (showPersonalInfo) {
     return <PersonalInformation key="personal-info" onBack={() => setShowPersonalInfo(false)} currentRole={currentRole} />;
   }
 
-  const accountMenus: SettingsItem[] = [
-    {
-      title: 'Personal Information',
-      onPress: handleOpenPersonalInfo,
-      icon: 'person-outline',
-      iconColor: '#2563EB',
-      iconBackground: '#EAF2FF',
-    },
-    {
-      title: 'Resume & Documents',
-      onPress: handleOpenResumeDocuments,
-      icon: 'document-text-outline',
-      iconColor: '#2563EB',
-      iconBackground: '#EAF2FF',
-    },
-  ];
+  const accountMenus: SettingsItem[] = isEmployer
+    ? [
+        {
+          title: 'Business Information',
+          onPress: handleOpenPersonalInfo,
+          icon: 'business-outline',
+          iconColor: '#2563EB',
+          iconBackground: '#EAF2FF',
+        },
+        {
+          title: 'Payment Methods',
+          onPress: onNavigatePaymentMethods,
+          icon: 'card-outline',
+          iconColor: '#2563EB',
+          iconBackground: '#EAF2FF',
+        },
+      ]
+    : [
+        {
+          title: 'Personal Information',
+          onPress: handleOpenPersonalInfo,
+          icon: 'person-outline',
+          iconColor: '#2563EB',
+          iconBackground: '#EAF2FF',
+        },
+        {
+          title: 'Resume & Documents',
+          onPress: handleOpenResumeDocuments,
+          icon: 'document-text-outline',
+          iconColor: '#2563EB',
+          iconBackground: '#EAF2FF',
+        },
+      ];
 
   const securityMenus: SettingsItem[] = [
     { title: 'Change Password', onPress: onNavigateChangePassword, icon: 'lock-closed-outline' as const },
@@ -141,7 +210,7 @@ export default function Settings({
   }));
 
   const preferencesMenus: SettingsItem[] = [
-    { title: 'Notifications', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
+    { title: 'Notification Inbox', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
     { title: 'Location Services', onPress: onNavigateLocation, icon: 'location-outline' as const },
   ].map((item) => ({
     ...item,
@@ -242,6 +311,28 @@ export default function Settings({
 
         <Text style={styles.sectionLabel}>SECURITY</Text>
         {renderMenuCard(securityMenus)}
+
+        {isEmployer ? (
+          <>
+            <Text style={styles.sectionLabel}>EMPLOYER PRIVACY</Text>
+            <View style={styles.preferenceCard}>
+              <View style={styles.preferenceCopy}>
+                <Text style={styles.preferenceTitle}>Hide number of hired candidates</Text>
+                <Text style={styles.preferenceDescription}>
+                  Keep your hiring count private across web and mobile.
+                </Text>
+              </View>
+              <Switch
+                value={hideHiredCandidates}
+                onValueChange={handleToggleEmployerPrivacy}
+                disabled={isSavingPrivacy}
+                trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
+                thumbColor={hideHiredCandidates ? '#16A34A' : '#F8FAFC'}
+                accessibilityLabel="Hide number of hired candidates"
+              />
+            </View>
+          </>
+        ) : null}
 
         <Text style={styles.sectionLabel}>PREFERENCES</Text>
         {renderMenuCard(preferencesMenus)}
@@ -445,5 +536,33 @@ const styles = StyleSheet.create({
   },
   footerActionsWrap: {
     marginTop: 10,
+  },
+  preferenceCard: {
+    minHeight: 104,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#E5EAF1',
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
+    ...tokens.shadow.card,
+  },
+  preferenceCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  preferenceTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  preferenceDescription: {
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#64748B',
   },
 });

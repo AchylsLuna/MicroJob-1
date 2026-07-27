@@ -39,6 +39,7 @@ import EmployerProfile from './pages/employer/EmployerProfile';
 import EmployerEWallet from './pages/employer/EmployerEWallet';
 import EmployerNotifications from './pages/employer/EmployerNotifications';
 import EmployerInbox from './pages/employer/EmployerInbox';
+import EmployerPaymentMethods from './pages/employer/EmployerPaymentMethods';
 import { AppSessionProvider, useAppSession } from './contexts/AppSessionContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 
@@ -637,6 +638,7 @@ function EmployerSettingsScreen() {
       onNavigateAbout={() => navigation.navigate('EmployerAbout')}
       onNavigateDeleteAccount={() => navigation.navigate('EmployerDeleteAccount')}
       onNavigateSupport={() => navigation.navigate('EmployerSupport')}
+      onNavigatePaymentMethods={() => navigation.navigate('EmployerPaymentMethods')}
       currentRole="employer"
     />
   );
@@ -651,6 +653,11 @@ function EmployerEWalletScreen() {
       onTabPress={(tab) => navigation.navigate('EmployerTabs', { screen: tab })}
     />
   );
+}
+
+function EmployerPaymentMethodsScreen() {
+  const navigation = useNavigation();
+  return <EmployerPaymentMethods onBack={() => navigation.goBack()} />;
 }
 
 function EmployerLocationServicesScreen() {
@@ -691,6 +698,7 @@ function EmployerStackNavigator() {
       <EmployerStack.Screen name="EmployerPostJobScreen" component={EmployerPostJobScreen} />
       <EmployerStack.Screen name="EmployerEWallet" component={EmployerEWalletScreen} />
       <EmployerStack.Screen name="EmployerSettings" component={EmployerSettingsScreen} />
+      <EmployerStack.Screen name="EmployerPaymentMethods" component={EmployerPaymentMethodsScreen} />
       <EmployerStack.Screen name="EmployerLocationServices" component={EmployerLocationServicesScreen} />
       <EmployerStack.Screen name="EmployerMfa" component={EmployerMfaScreen} />
       <EmployerStack.Screen name="EmployerAbout" component={EmployerAboutScreen} />

@@ -91,6 +91,10 @@ const UserSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    hideHiredCandidates: {
+      type: Boolean,
+      default: true,
+    },
     city: {
       type: String,
       trim: true,

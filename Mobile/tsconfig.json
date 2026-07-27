@@ -2,9 +2,10 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "target": "esnext",
-    "module": "esnext",
+    "module": "preserve",
     "lib": [
-      "esnext"
+      "DOM",
+      "ESNext"
     ],
     "jsx": "react-native",
     "moduleResolution": "bundler",

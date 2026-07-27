@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle, Download } from "lucide-react";
+import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
 import {
   getProfile,
   updateProfile,
-  uploadResume,
-  deleteResume,
   uploadAvatar,
   deleteAvatar,
   requestPasswordChangeOtp,
@@ -22,6 +20,11 @@ import {
   uploadAddressDocument,
 } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
+import { DeleteAccountCard } from "./settings/DeleteAccountCard";
+import { EmployerPaymentMethodsSection } from "./settings/EmployerPaymentMethodsSection";
+import { EmployerPrivacyCard } from "./settings/EmployerPrivacyCard";
+import { MfaSettingsCard } from "./settings/MfaSettingsCard";
+import { WorkerResumeSection } from "./settings/WorkerResumeSection";
 
 const toAbsoluteAssetUrl = (value?: string | null): string | null => {
   if (!value) return null;
@@ -47,7 +50,7 @@ const accountTabConfig: { id: AccountTab; label: string }[] = [
 
 const mainTabConfig: { id: TabType; label: string }[] = [
   { id: "account", label: "Account" },
-  { id: "privacy", label: "Privacy" },
+  { id: "privacy", label: "Security & Privacy" },
   { id: "payments", label: "Payments" },
 ];
 
@@ -125,14 +128,6 @@ interface SkillItem {
   endorsements?: number;
 }
 
-interface PaymentMethod {
-  id: string;
-  brand: "Visa" | "Mastercard" | "Card";
-  last4: string;
-  expiry: string;
-  status: "default" | "active" | "expired";
-}
-
 interface SessionInfo {
   id: string;
   current: boolean;
@@ -152,11 +147,6 @@ export function Settings() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [mfaEnabled, setMfaEnabled] = useState(false);
-  const [mfaMethod, setMfaMethod] = useState<"authenticator" | "sms" | "email">("authenticator");
-  const [mfaSetupKey, setMfaSetupKey] = useState<string | null>(null);
-  const [backupCodes, setBackupCodes] = useState<string[]>([]);
-  const [showBackupCodes, setShowBackupCodes] = useState(false);
   const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
   const { user, updateProfile: updateAuthProfile } = useAuth();
   const roleValue = String((user as any)?.role || "").toLowerCase();
@@ -208,23 +198,9 @@ export function Settings() {
   const [isOtpSending, setIsOtpSending] = useState(false);
   const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
 
-  const [resume, setResume] = useState<File | null>(null);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const resolvedAvatarUrl = toAbsoluteAssetUrl(avatarUrl);
-
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    { id: "visa-1", brand: "Visa", last4: "1234", expiry: "01/26", status: "default" },
-    { id: "mc-1", brand: "Mastercard", last4: "1234", expiry: "01/26", status: "active" },
-    { id: "mc-2", brand: "Mastercard", last4: "1234", expiry: "01/26", status: "expired" },
-  ]);
-
-  const [newCard, setNewCard] = useState({
-    name: "",
-    number: "",
-    expiry: "",
-    cvv: "",
-  });
 
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
@@ -258,13 +234,18 @@ export function Settings() {
     ? cityOptions.filter((item) => item.provinceCode === selectedProvince.code)
     : cityOptions;
 
-  const visibleMainTabs = isAdminRole
-    ? mainTabConfig.filter((tab) => tab.id !== "payments")
-    : mainTabConfig;
+  const visibleMainTabs = isEmployerRole
+    ? mainTabConfig
+    : mainTabConfig.filter((tab) => tab.id !== "payments");
 
-  const visibleAccountTabs = isAdminRole || isEmployerRole
+  const visibleAccountTabs = (isAdminRole || isEmployerRole
     ? accountTabConfig.filter((tab) => tab.id === "personal")
-    : accountTabConfig;
+    : accountTabConfig
+  ).map((tab) =>
+    isEmployerRole && tab.id === "personal"
+      ? { ...tab, label: "Business Information" }
+      : tab
+  );
 
   useEffect(() => {
     if (!visibleMainTabs.some((tab) => tab.id === activeTab)) {
@@ -629,6 +610,9 @@ export function Settings() {
         if (profile.avatarUrl) {
           setAvatarUrl(toAbsoluteAssetUrl(profile.avatarUrl));
         }
+        if (typeof profile.hideHiredCandidates === "boolean") {
+          setHideHiredCandidates(profile.hideHiredCandidates);
+        }
         const normalizedAvatarUrl: string | undefined = toAbsoluteAssetUrl(profile.avatarUrl) || undefined;
         updateAuthProfile({
           firstName: profile.firstName,
@@ -797,31 +781,6 @@ export function Settings() {
     }
   };
 
-  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const response = await uploadResume(file);
-      setResumeUrl(response?.data?.resumeUrl || null);
-      setResume(file);
-      toast.success("Resume uploaded successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to upload resume");
-    }
-  };
-
-  const handleDeleteResume = async () => {
-    try {
-      await deleteResume();
-      setResume(null);
-      setResumeUrl(null);
-      toast.success("Resume deleted successfully!");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete resume");
-    }
-  };
-
   const handleRequestPasswordOtp = async () => {
     if (!securityData.currentPassword) {
       toast.error("Please enter your current password");
@@ -892,96 +851,6 @@ export function Settings() {
     setPasswordOtp("");
     setPasswordOtpRequested(false);
     toast.info("Changes discarded");
-  };
-
-  const generateMfaSetupKey = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const group = () =>
-      Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-    return `${group()}-${group()}-${group()}-${group()}`;
-  };
-
-  const generateBackupCodes = () => {
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    const makeCode = () =>
-      `${Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("")}-${Array.from(
-        { length: 4 },
-        () => chars[Math.floor(Math.random() * chars.length)],
-      ).join("")}`;
-    const codes = Array.from({ length: 8 }, makeCode);
-    setBackupCodes(codes);
-    setShowBackupCodes(true);
-    toast.success("Backup codes generated");
-  };
-
-  const handleToggleMfa = () => {
-    if (mfaEnabled) {
-      setMfaEnabled(false);
-      setMfaSetupKey(null);
-      setBackupCodes([]);
-      setShowBackupCodes(false);
-      toast.info("Two-factor authentication disabled");
-      return;
-    }
-    setMfaEnabled(true);
-    setMfaSetupKey(generateMfaSetupKey());
-    toast.success("Two-factor authentication enabled");
-  };
-
-  const handleSendTestCode = () => {
-    if (mfaMethod === "authenticator") {
-      toast.info("Open your authenticator app and add the setup key.");
-      return;
-    }
-    if (mfaMethod === "sms") {
-      toast.info("Test code sent to your phone.");
-      return;
-    }
-    toast.info("Test code sent to your email.");
-  };
-
-  const getBrand = (number: string): PaymentMethod["brand"] => {
-    const trimmed = number.replace(/\s+/g, "");
-    if (trimmed.startsWith("4")) return "Visa";
-    if (trimmed.startsWith("5")) return "Mastercard";
-    return "Card";
-  };
-
-  const handleAddCard = () => {
-    if (!newCard.name || !newCard.number || !newCard.expiry || !newCard.cvv) {
-      toast.error("Please fill in all card fields");
-      return;
-    }
-    const last4 = newCard.number.replace(/\s+/g, "").slice(-4);
-    const method: PaymentMethod = {
-      id: Date.now().toString(),
-      brand: getBrand(newCard.number),
-      last4,
-      expiry: newCard.expiry,
-      status: "active",
-    };
-    setPaymentMethods([method, ...paymentMethods]);
-    setNewCard({ name: "", number: "", expiry: "", cvv: "" });
-    toast.success("Payment method added");
-  };
-
-  const handleSetDefault = (id: string) => {
-    setPaymentMethods(
-      paymentMethods.map((method) => ({
-        ...method,
-        status: method.id === id ? "default" : method.status === "expired" ? "expired" : "active",
-      })),
-    );
-    toast.success("Default payment method updated");
-  };
-
-  const handleRemoveCard = (id: string) => {
-    setPaymentMethods(paymentMethods.filter((method) => method.id !== id));
-    toast.success("Payment method removed");
-  };
-
-  const handleDeleteAccount = () => {
-    toast.error("Account deletion request submitted");
   };
 
   const handleRevokeSession = async (sessionId: string) => {
@@ -1115,8 +984,12 @@ export function Settings() {
             {accountTab === "personal" && (
               <div className="space-y-6">
                       <div>
-                        <h2 className="text-[18px] font-semibold text-[#111827]">Personal Information</h2>
-                        <p className="text-[13px] text-[#6B7280]">Update your profile information.</p>
+                        <h2 className="text-[18px] font-semibold text-[#111827]">
+                          {isEmployerRole ? "Business Information" : "Personal Information"}
+                        </h2>
+                        <p className="text-[13px] text-[#6B7280]">
+                          Update your {isEmployerRole ? "employer profile" : "profile information"}.
+                        </p>
                         {isProfileLoading && (
                           <p className="text-[12px] text-[#6B7280] mt-1">Loading profile...</p>
                         )}
@@ -1421,7 +1294,7 @@ export function Settings() {
                     </div>
                   )}
 
-                  {accountTab === "experience" && (
+                  {accountTab === "experience" && !isEmployerRole && (
                     <div className="space-y-6">
                       <div>
                         <h2 className="text-[18px] font-semibold text-[#111827]">Skills & Experience</h2>
@@ -1717,55 +1590,8 @@ export function Settings() {
                     </div>
                   )}
 
-                  {accountTab === "resume" && (
-                    <div className="space-y-6">
-                      <div>
-                        <h2 className="text-[18px] font-semibold text-[#111827]">CV/Resume</h2>
-                        <p className="text-[13px] text-[#6B7280]">Upload your latest resume.</p>
-                      </div>
-                      {resumeUrl ? (
-                        <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] p-4 flex items-center justify-between">
-                          <div>
-                            <p className="text-[14px] font-semibold text-[#111827]">{resume?.name || "Resume uploaded"}</p>
-                            <p className="text-[12px] text-[#64748B]">
-                              {resume ? (resume.size / 1024).toFixed(2) + " KB" : "View your uploaded resume"}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={resumeUrl}
-                              download
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[#2563EB] hover:bg-[#EFF6FF] p-2 rounded-[8px]"
-                              title="Download resume"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
-                            <button
-                              onClick={handleDeleteResume}
-                              className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px]"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed border-[#CBD5E1] rounded-[12px] p-8 text-center">
-                          <p className="text-[14px] text-[#64748B] mb-4">Upload your resume (PDF, DOC)</p>
-                          <label className="bg-[#2563EB] text-white font-semibold px-6 py-3 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer inline-flex items-center gap-2">
-                            <Upload className="w-4 h-4" />
-                            Choose file
-                            <input
-                              type="file"
-                              accept=".pdf,.doc,.docx"
-                              onChange={handleResumeUpload}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-                      )}
-                    </div>
+                  {accountTab === "resume" && !isEmployerRole && (
+                    <WorkerResumeSection initialResumeUrl={resumeUrl} />
                   )}
                 </div>
           )}
@@ -1883,172 +1709,11 @@ export function Settings() {
                 </div>
               </div>
 
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-[16px] font-semibold text-[#111827]">Two-Factor Authentication</h3>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[12px] text-[#6B7280]">{mfaEnabled ? "Enabled" : "Disabled"}</span>
-                    <button
-                      type="button"
-                      onClick={handleToggleMfa}
-                      className={`w-12 h-6 rounded-full flex items-center p-1 transition-colors ${
-                        mfaEnabled ? "bg-green-500" : "bg-gray-200"
-                      }`}
-                    >
-                      <span
-                        className={`h-4 w-4 bg-white rounded-full transition-transform ${mfaEnabled ? "translate-x-6" : ""}`}
-                      />
-                    </button>
-                  </div>
-                </div>
-                <p className="text-[13px] text-[#6B7280] mt-2">
-                  Add an extra verification step to protect your account.
-                </p>
+              <MfaSettingsCard />
 
-                {mfaEnabled && (
-                  <div className="mt-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <label className="flex items-center gap-2 border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] cursor-pointer hover:bg-[#F8FAFC]">
-                        <input
-                          type="radio"
-                          name="mfa-method"
-                          checked={mfaMethod === "authenticator"}
-                          onChange={() => setMfaMethod("authenticator")}
-                        />
-                        Authenticator app
-                      </label>
-                      <label className="flex items-center gap-2 border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] cursor-pointer hover:bg-[#F8FAFC]">
-                        <input
-                          type="radio"
-                          name="mfa-method"
-                          checked={mfaMethod === "sms"}
-                          onChange={() => setMfaMethod("sms")}
-                        />
-                        SMS code
-                      </label>
-                      <label className="flex items-center gap-2 border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] cursor-pointer hover:bg-[#F8FAFC]">
-                        <input
-                          type="radio"
-                          name="mfa-method"
-                          checked={mfaMethod === "email"}
-                          onChange={() => setMfaMethod("email")}
-                        />
-                        Email code
-                      </label>
-                    </div>
+              {isEmployerRole && <EmployerPrivacyCard initialValue={hideHiredCandidates} />}
 
-                    <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] p-4">
-                      <p className="text-[12px] font-semibold text-[#475569] mb-2">Setup key</p>
-                      <div className="flex items-center justify-between gap-3">
-                        <code className="text-[13px] text-[#0F172A] bg-white border border-[#E5E7EB] rounded px-2 py-1">
-                          {mfaSetupKey || "Generating..."}
-                        </code>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (mfaSetupKey) {
-                              navigator.clipboard.writeText(mfaSetupKey);
-                              toast.success("Setup key copied");
-                            }
-                          }}
-                          className="text-[12px] text-[#2563EB] font-medium hover:text-[#1D4ED8]"
-                        >
-                          Copy
-                        </button>
-                      </div>
-                      <p className="text-[12px] text-[#64748B] mt-2">
-                        Use this key in your authenticator app to finish setup.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={handleSendTestCode}
-                        className="px-4 py-2 rounded-[10px] text-[13px] font-semibold bg-[#E2E8F0] text-[#1E293B] hover:bg-[#CBD5F5]"
-                      >
-                        Send test code
-                      </button>
-                      <button
-                        type="button"
-                        onClick={generateBackupCodes}
-                        className="px-4 py-2 rounded-[10px] text-[13px] font-semibold bg-[#0F172A] text-white hover:bg-[#1E293B]"
-                      >
-                        Generate backup codes
-                      </button>
-                    </div>
-
-                    {backupCodes.length > 0 && showBackupCodes && (
-                      <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] p-4">
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-[13px] font-semibold text-[#1E293B]">Backup codes</p>
-                          <button
-                            type="button"
-                            onClick={() => setShowBackupCodes(false)}
-                            className="text-[12px] text-[#64748B] hover:text-[#1E293B]"
-                          >
-                            Hide
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[12px] text-[#0F172A] font-mono">
-                          {backupCodes.map((code) => (
-                            <div key={code} className="bg-white border border-[#E5E7EB] rounded px-2 py-1">
-                              {code}
-                            </div>
-                          ))}
-                        </div>
-                        <p className="text-[12px] text-[#64748B] mt-2">
-                          Store these in a safe place. Each code can be used once.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                <h3 className="text-[16px] font-semibold text-[#111827]">Profile Privacy</h3>
-                <p className="text-[13px] text-[#6B7280] mt-1">
-                  You can make some details of your jobs on the marketplace private.
-                </p>
-                <div className="mt-4 flex items-center justify-between border border-[#E5E7EB] rounded-[12px] px-4 py-4">
-                  <div>
-                    <p className="text-[15px] font-semibold text-[#111827]">Hide number of hired candidates</p>
-                    <p className="text-[12px] text-[#6B7280]">Keep your hiring stats private.</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[12px] text-[#6B7280]">{hideHiredCandidates ? "Enable" : "Disabled"}</span>
-                    <button
-                      type="button"
-                      onClick={() => setHideHiredCandidates(!hideHiredCandidates)}
-                      className={`w-12 h-6 rounded-full flex items-center p-1 transition-colors ${
-                        hideHiredCandidates ? "bg-green-500" : "bg-gray-200"
-                      }`}
-                    >
-                      <span
-                        className={`h-4 w-4 bg-white rounded-full transition-transform ${
-                          hideHiredCandidates ? "translate-x-6" : ""
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                <h3 className="text-[16px] font-semibold text-[#111827] mb-2">Delete My Account</h3>
-                <p className="text-[13px] text-[#6B7280] mb-4">
-                  You can delete your account here.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={handleDeleteAccount}
-                    className="px-6 py-3 rounded-full border border-[#FCA5A5] text-[#B91C1C] text-[14px] font-semibold hover:bg-[#FEF2F2]"
-                  >
-                    Delete Account
-                  </button>
-                </div>
-              </div>
+              <DeleteAccountCard />
 
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
                 <div className="flex items-center justify-between mb-2">
@@ -2259,106 +1924,7 @@ export function Settings() {
             </div>
           )}
 
-          {activeTab === "payments" && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-[20px] font-semibold text-[#111827]">Credit Card</h2>
-                    <p className="text-[13px] text-[#6B7280]">Manage your credit cards and payment options.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => toast.info("Add new card")}
-                    className="text-[14px] text-[#2563EB] font-medium hover:text-[#1D4ED8]"
-                  >
-                    &gt; Add New Card
-                  </button>
-                </div>
-
-                <div className="space-y-4">
-                  {paymentMethods.map((method) => (
-                    <div key={method.id} className="border border-[#E5E7EB] rounded-[14px] p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-14 h-10 rounded-[10px] border border-[#E5E7EB] flex items-center justify-center text-[12px] font-semibold">
-                          {method.brand}
-                        </div>
-                        <div>
-                          <p className="text-[14px] font-semibold text-[#111827]">{method.brand} ending in {method.last4}</p>
-                          <p className="text-[12px] text-[#6B7280]">Exp. Date {method.expiry}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {method.status === "default" && (
-                          <span className="px-3 py-1 rounded-full bg-[#0F172A] text-white text-[11px] font-semibold">DEFAULT</span>
-                        )}
-                        {method.status === "expired" && (
-                          <span className="px-3 py-1 rounded-full bg-[#FEE2E2] text-[#B91C1C] text-[11px] font-semibold">EXPIRED</span>
-                        )}
-                        {method.status === "active" && (
-                          <button
-                            type="button"
-                            onClick={() => handleSetDefault(method.id)}
-                            className="text-[13px] text-[#2563EB] hover:text-[#1D4ED8]"
-                          >
-                            Set as Default
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCard(method.id)}
-                          className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px]"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                <h3 className="text-[16px] font-semibold text-[#111827] mb-4">Add New Payment Method</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input
-                    type="text"
-                    value={newCard.name}
-                    onChange={(e) => setNewCard({ ...newCard, name: e.target.value })}
-                    placeholder="Name on Card"
-                    className="w-full bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px]"
-                  />
-                  <input
-                    type="text"
-                    value={newCard.expiry}
-                    onChange={(e) => setNewCard({ ...newCard, expiry: e.target.value })}
-                    placeholder="Expiry"
-                    className="w-full bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px]"
-                  />
-                  <input
-                    type="text"
-                    value={newCard.number}
-                    onChange={(e) => setNewCard({ ...newCard, number: e.target.value })}
-                    placeholder="Card Number"
-                    className="w-full bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px]"
-                  />
-                  <input
-                    type="text"
-                    value={newCard.cvv}
-                    onChange={(e) => setNewCard({ ...newCard, cvv: e.target.value })}
-                    placeholder="CVV"
-                    className="w-full bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px]"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAddCard}
-                  className="mt-4 bg-[#2563EB] text-white font-semibold px-6 py-3 rounded-[12px] hover:bg-[#1D4ED8]"
-                >
-                  Save card
-                </button>
-              </div>
-            </div>
-          )}
+          {activeTab === "payments" && isEmployerRole && <EmployerPaymentMethodsSection />}
 
       </div>
     </div>
