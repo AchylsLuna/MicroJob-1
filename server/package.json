@@ -4,6 +4,9 @@
   "description": "MicroJobs backend server",
   "type": "module",
   "main": "index.js",
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
+  },
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
