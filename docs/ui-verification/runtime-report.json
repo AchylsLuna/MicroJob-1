@@ -1,0 +1,173 @@
+{
+  "generatedAt": "2026-07-27T16:59:24.946Z",
+  "login": {
+    "passed": true,
+    "destination": "http://127.0.0.1:5173/worker/dashboard"
+  },
+  "viewports": [
+    {
+      "width": 320,
+      "screenshot": "find-jobs-320px.png",
+      "viewportWidth": 320,
+      "documentWidth": 320,
+      "horizontalOverflow": false,
+      "title": "MicroJobs",
+      "h1": "Find Jobs",
+      "focusableCount": 16
+    },
+    {
+      "width": 375,
+      "screenshot": "find-jobs-375px.png",
+      "viewportWidth": 375,
+      "documentWidth": 375,
+      "horizontalOverflow": false,
+      "title": "MicroJobs",
+      "h1": "Find Jobs",
+      "focusableCount": 16
+    },
+    {
+      "width": 768,
+      "screenshot": "find-jobs-768px.png",
+      "viewportWidth": 768,
+      "documentWidth": 768,
+      "horizontalOverflow": false,
+      "title": "MicroJobs",
+      "h1": "Find Jobs",
+      "focusableCount": 16
+    },
+    {
+      "width": 1024,
+      "screenshot": "find-jobs-1024px.png",
+      "viewportWidth": 1024,
+      "documentWidth": 1024,
+      "horizontalOverflow": false,
+      "title": "MicroJobs",
+      "h1": "Find Jobs",
+      "focusableCount": 16
+    },
+    {
+      "width": 1440,
+      "screenshot": "find-jobs-1440px.png",
+      "viewportWidth": 1440,
+      "documentWidth": 1440,
+      "horizontalOverflow": false,
+      "title": "MicroJobs",
+      "h1": "Find Jobs",
+      "focusableCount": 16
+    }
+  ],
+  "keyboard": {
+    "focusOrder": [
+      {
+        "tag": "button",
+        "text": "Open navigation menu",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Notifications",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Open account menu",
+        "visible": true
+      },
+      {
+        "tag": "select",
+        "text": "Sort jobs",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Open navigation menu",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Notifications",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Open account menu",
+        "visible": true
+      },
+      {
+        "tag": "select",
+        "text": "Sort jobs",
+        "visible": true
+      },
+      {
+        "tag": "body",
+        "text": "Micro Jobs‹WorkerDashboardFind JobsApplied JobsMessagesE-WalletNotificationsSett",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Open navigation menu",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Notifications",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Open account menu",
+        "visible": true
+      },
+      {
+        "tag": "select",
+        "text": "Sort jobs",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Open navigation menu",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Notifications",
+        "visible": true
+      },
+      {
+        "tag": "button",
+        "text": "Open account menu",
+        "visible": true
+      },
+      {
+        "tag": "select",
+        "text": "Sort jobs",
+        "visible": true
+      },
+      {
+        "tag": "body",
+        "text": "Micro Jobs‹WorkerDashboardFind JobsApplied JobsMessagesE-WalletNotificationsSett",
+        "visible": true
+      }
+    ],
+    "allVisible": true,
+    "allNamed": true
+  },
+  "drawerKeyboard": {
+    "opensWithEnter": true,
+    "initialFocusInside": true,
+    "focusRemainsInside": true,
+    "closesWithEscape": true,
+    "focusReturnedToTrigger": true
+  },
+  "accessibility": {
+    "violationCount": 0,
+    "violations": [],
+    "passes": 33
+  },
+  "apiFailure": {
+    "controlledStatus": 503,
+    "errorVisible": true,
+    "retryControlVisible": true,
+    "bodyExcerpt": "Find Jobs DU 0 Jobs Found Sort jobs Most recent Highest salary Most applicants Nearest to you Jobs could not be loaded Runtime verification outage Try again"
+  }
+}

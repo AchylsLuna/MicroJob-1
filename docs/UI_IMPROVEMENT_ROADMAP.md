@@ -132,6 +132,34 @@ A UI task is done only when all applicable items are true:
 
 This assumes a small student team working alongside other capstone responsibilities. A solo developer can treat each week as a milestone and extend it as needed.
 
+## Week 1–3 implementation acceptance register
+
+This register is the source of truth for the current implementation. `Implemented` means the code and automated checks pass. `Verified` means the scoped runtime evidence was captured. `Runtime review` means the implementation exists but still requires the listed browser/device evidence before the phase can be marked fully done.
+
+| ID | Priority | Acceptance criterion | Status | Evidence or remaining gate |
+| --- | --- | --- | --- | --- |
+| W1-01 | P1 | At widths below `lg`, the persistent sidebar is replaced by a labeled menu button and dismissible overlay drawer | Verified | Authenticated worker screenshots captured at 320px and 375px; see `docs/ui-verification/` |
+| W1-02 | P1 | Mobile drawer closes on route change, backdrop click, close button, and Escape | Verified | Browser keyboard test confirms Enter open, trapped focus, Escape close, and focus return; pointer/route-close behavior remains implemented |
+| W1-03 | P1 | Main content can shrink without page-level horizontal overflow | Verified | No overflow at 320, 375, 768, 1024, or 1440px on the representative worker route |
+| W1-04 | P1 | Navbar title, controls, search, notification panel, and account panel stay within the viewport | Verified | Five-width screenshot set and width measurements captured; broader cross-role regression remains in Week 6 |
+| W1-05 | P1 | Notification and account controls expose accessible names and expanded state | Implemented | Static and TypeScript verification pass |
+| W2-01 | P1 | Reusable Button, IconButton, Input, Select, Textarea, Card, Badge, state, Dialog, and ConfirmDialog patterns exist | Implemented | `client/src/components/ui/index.tsx` |
+| W2-02 | P1 | Global toasts announce status/error messages, fit narrow screens, and can be dismissed | Implemented | `aria-live`, status/alert roles, responsive width, dismiss button |
+| W2-03 | P1 | Session timeout identifies itself as an alert dialog and offers clear Continue and Sign out actions | Implemented | Build verified; screen-reader/focus review pending |
+| W2-04 | P1 | Notification entries are semantic keyboard-operable controls | Implemented | Converted to buttons with menu semantics |
+| W2-05 | P1 | Shared dialogs support close control, backdrop dismissal, initial focus, and Escape | Implemented | Runtime focus-order review pending |
+| W3-01 | P1 | Job discovery has explicit loading, error/retry, no-results, and result-count states | Verified | Empty state captured; controlled HTTP 503 displays themed error and Try again action |
+| W3-02 | P1 | Job sorting is explicit and selected directly instead of cycling through hidden states | Implemented | Native labeled select |
+| W3-03 | P1 | Job cards and save controls are keyboard-operable and expose saved state | Implemented | Web semantic state and mobile accessibility state added |
+| W3-04 | P1 | Job-detail Apply, Message, and Save actions fit narrow screens and expose accessible state | Implemented | Web and mobile code/type checks pass; device review pending |
+| W3-05 | P1 | Applied and saved-job filters expose selected state; cards/actions remain usable on narrow screens | Implemented | Web/mobile code checks pass; device review pending |
+| W3-06 | P1 | Worker messaging has no visible placeholder composer actions and supports phone-height layouts | Implemented | Placeholder actions removed; `dvh` layout and labels added |
+| W3-07 | P1 | Mobile job, application, saved-job, profile, and messaging controls expose important labels/roles/states | Implemented | Mobile TypeScript passes; VoiceOver/TalkBack review pending |
+| W3-08 | P1 | Worker profile/settings forms have visible labels and clear validation | Partial | Existing visible labels reviewed; systematic label association and field-level validation remain for Week 5 |
+| W3-09 | P1 | Worker happy path and one failure path complete using a real test account on web and mobile | Runtime review | Isolated OTP sign-in, authenticated job discovery, and web HTTP 503 path passed; job open/save/apply/message plus Android/iOS execution remain |
+
+Weeks 1–3 cannot be marked fully `Done` until every `Runtime review` gate has evidence. Automated compilation alone is not accepted as visual or assistive-technology proof.
+
 ### Week 1: Baseline and shared responsive shell
 
 Outcome: every dashboard route is usable on a phone without the sidebar or navbar blocking content.
@@ -374,9 +402,9 @@ Update this table at the end of each week:
 
 | Phase | Status | Owner | Target date | Evidence/notes |
 | --- | --- | --- | --- | --- |
-| Week 1: Responsive shell | Not started | TBD | TBD | |
-| Week 2: UI and accessibility foundation | Not started | TBD | TBD | |
-| Week 3: Worker journeys | Not started | TBD | TBD | |
+| Week 1: Responsive shell | In review | TBD | TBD | Implementation and build complete; viewport screenshots and keyboard review pending |
+| Week 2: UI and accessibility foundation | In review | TBD | TBD | Shared patterns complete; live focus and screen-reader review pending |
+| Week 3: Worker journeys | In review | TBD | TBD | Core web/mobile changes compile; authenticated journey and device review pending |
 | Week 4: Employer and admin journeys | Not started | TBD | TBD | |
 | Week 5: Forms and mobile accessibility | Not started | TBD | TBD | |
 | Week 6: Performance and capstone readiness | Not started | TBD | TBD | |

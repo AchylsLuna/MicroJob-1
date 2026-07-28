@@ -92,7 +92,9 @@ const AppliedJobs: React.FC = () => {
         {FILTER_OPTIONS.map((filter) => (
           <button
             key={filter}
+            type="button"
             onClick={() => setSelectedFilter(filter)}
+            aria-pressed={selectedFilter === filter}
             className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
               selectedFilter === filter
                 ? "bg-blue-600 text-white"
@@ -120,12 +122,9 @@ const AppliedJobs: React.FC = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {filteredApplications.map((application) => (
-              <div
+              <article
                 key={application._id}
-                className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition cursor-pointer border border-gray-200"
-                onClick={() => navigate(ROUTES.worker.jobDetails(application.job?._id), { 
-                  state: { isApplied: true, status: application.status }
-                })}
+                className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg transition border border-gray-200 sm:p-6"
               >
                 <div className="flex items-start gap-4">
                   {/* Company Logo */}
@@ -172,8 +171,8 @@ const AppliedJobs: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-200">
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <div className="flex flex-col gap-4 mt-5 pt-4 border-t border-gray-200 sm:flex-row sm:items-end sm:justify-between">
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
                         <span>🕒 Applied {new Date(application.appliedDate || application.createdAt || Date.now()).toLocaleDateString()}</span>
                         <span>👥 {application.job?.applicants?.length || 0} applicants</span>
                         <span>📅 Deadline: {application.job?.deadline ? new Date(application.job.deadline).toLocaleDateString() : "N/A"}</span>
@@ -192,7 +191,7 @@ const AppliedJobs: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              </div>
+              </article>
             ))}
           </div>
 

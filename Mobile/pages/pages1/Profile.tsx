@@ -413,7 +413,7 @@ export default function Profile({
       >
         <View style={styles.profileHero}>
           <View style={styles.avatarFrame}>
-            <TouchableOpacity style={styles.avatar} onPress={handlePickProfilePicture} disabled={isUploadingAvatar}>
+            <TouchableOpacity style={styles.avatar} onPress={handlePickProfilePicture} disabled={isUploadingAvatar} accessibilityRole="button" accessibilityLabel="Change profile picture" accessibilityState={{ disabled: isUploadingAvatar }}>
               {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarImage} /> : <Text style={styles.avatarInitials}>{initials}</Text>}
               {isUploadingAvatar ? (
                 <View style={styles.avatarLoadingOverlay}>
@@ -425,6 +425,9 @@ export default function Profile({
             <TouchableOpacity
               style={styles.editAvatarButton}
               onPress={handlePickProfilePicture}
+              accessibilityRole="button"
+              accessibilityLabel="Upload profile picture"
+              accessibilityState={{ disabled: isUploadingAvatar }}
               disabled={isUploadingAvatar}
               activeOpacity={0.9}
               accessibilityLabel="Edit profile photo"
@@ -496,7 +499,7 @@ export default function Profile({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Work Experience</Text>
-            <TouchableOpacity style={styles.sectionAction} onPress={() => setShowAddExperience(true)} activeOpacity={0.9}>
+            <TouchableOpacity style={styles.sectionAction} onPress={() => setShowAddExperience(true)} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Add work experience">
               <Ionicons name="add" size={20} color="#64748B" />
             </TouchableOpacity>
           </View>
@@ -528,7 +531,7 @@ export default function Profile({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Documents</Text>
-            <TouchableOpacity style={styles.sectionAction} onPress={() => setShowAddCV(true)} activeOpacity={0.9}>
+            <TouchableOpacity style={styles.sectionAction} onPress={() => setShowAddCV(true)} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Add CV or resume">
               <Ionicons name="add" size={20} color="#64748B" />
             </TouchableOpacity>
           </View>
@@ -545,7 +548,7 @@ export default function Profile({
               </View>
 
               {absoluteResumeUrl ? (
-                <TouchableOpacity style={styles.downloadButton} onPress={handleOpenResume} activeOpacity={0.9}>
+                <TouchableOpacity style={styles.downloadButton} onPress={handleOpenResume} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Open resume">
                   <Ionicons name="download-outline" size={20} color="#E11D48" />
                 </TouchableOpacity>
               ) : null}
@@ -562,7 +565,7 @@ export default function Profile({
                   <Text style={styles.listSubtitle}>{hasGovernmentId ? 'Identity verified' : 'Verify your identity'}</Text>
                 </View>
 
-                <TouchableOpacity style={styles.identityActionButton} onPress={handleGovernmentIdAction} activeOpacity={0.9}>
+                <TouchableOpacity style={styles.identityActionButton} onPress={handleGovernmentIdAction} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Manage government ID">
                   <Ionicons name={hasGovernmentId ? 'checkmark-circle-outline' : 'scan-outline'} size={20} color="#2563EB" />
                 </TouchableOpacity>
               </View>

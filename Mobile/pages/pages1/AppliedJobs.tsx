@@ -89,7 +89,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')} accessibilityRole="button" accessibilityLabel="Back to jobs">
           <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
@@ -106,6 +106,8 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         <TouchableOpacity
           style={[styles.toggleBtn, styles.toggleBtnInactive]}
           onPress={onViewSavedJobs}
+          accessibilityRole="button"
+          accessibilityLabel="Open saved jobs"
         >
           <Text style={styles.toggleBtnTextInactive}>Save job</Text>
         </TouchableOpacity>
@@ -125,6 +127,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
               key={filter}
               style={[styles.filterPill, isActive && styles.filterPillActive, { borderColor: color }]}
               onPress={() => setSelectedFilter(filter)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={`Filter applications by ${filter}`}
             >
               <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive, { color }]}>{filter}</Text>
             </TouchableOpacity>

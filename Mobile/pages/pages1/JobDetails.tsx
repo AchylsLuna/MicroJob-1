@@ -286,10 +286,10 @@ export default function JobDetails({
             <Text style={styles.successMessage}>
               Congratulations, your application has been sent. Good luck!
             </Text>
-            <TouchableOpacity style={styles.findJobsBtn} onPress={handleFindMoreJobs}>
+            <TouchableOpacity style={styles.findJobsBtn} onPress={handleFindMoreJobs} accessibilityRole="button" accessibilityLabel="Find more jobs">
               <Text style={styles.findJobsBtnText}>Find more jobs</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleBackToHome}>
+            <TouchableOpacity onPress={handleBackToHome} accessibilityRole="button" accessibilityLabel="Back to home">
               <Text style={styles.backToHomeText}>Back to home</Text>
             </TouchableOpacity>
           </View>
@@ -380,7 +380,7 @@ export default function JobDetails({
             </View>
           ) : null}
 
-          <TouchableOpacity onPress={handleViewEmployerProfile} style={styles.viewProfileBtn}>
+          <TouchableOpacity onPress={handleViewEmployerProfile} style={styles.viewProfileBtn} accessibilityRole="button" accessibilityLabel="View employer profile">
             <Text style={styles.viewProfileText}>View Profile</Text>
           </TouchableOpacity>
         </View>
@@ -418,6 +418,9 @@ export default function JobDetails({
           <TouchableOpacity 
             style={[styles.actionBtn, styles.saveBtn, saved && styles.savedBtn]} 
             onPress={handleSave}
+            accessibilityRole="button"
+            accessibilityLabel={saved ? "Remove job from saved jobs" : "Save job"}
+            accessibilityState={{ selected: saved }}
           >
             <Text style={[styles.actionBtnText, styles.saveBtnText, saved && styles.savedBtnText]}>
               {saved ? 'Saved ✓' : 'Saved job'}
@@ -427,6 +430,9 @@ export default function JobDetails({
             style={[styles.actionBtn, styles.applyBtn, hasApplied && styles.appliedBtn]}
             onPress={handleApply}
             disabled={isLoading || hasApplied}
+            accessibilityRole="button"
+            accessibilityLabel={hasApplied ? "Application already submitted" : "Apply for this job"}
+            accessibilityState={{ disabled: isLoading || hasApplied }}
           >
             <Text style={styles.actionBtnText}>
               {hasApplied ? 'Already submitted' : isLoading ? 'Applying...' : 'Apply now'}
@@ -434,7 +440,7 @@ export default function JobDetails({
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.actionBtn, styles.messageBtn]} onPress={handleMessageEmployer}>
+        <TouchableOpacity style={[styles.actionBtn, styles.messageBtn]} onPress={handleMessageEmployer} accessibilityRole="button" accessibilityLabel="Message employer">
           <Text style={[styles.actionBtnText, styles.messageBtnText]}>Message Employer</Text>
         </TouchableOpacity>
       </ScrollView>

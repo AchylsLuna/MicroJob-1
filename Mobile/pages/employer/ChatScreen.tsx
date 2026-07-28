@@ -148,12 +148,12 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
     <SafeAreaView style={{ flex: 1, backgroundColor: tokens.colors.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backTouch}>
+          <TouchableOpacity onPress={onBack} style={styles.backTouch} accessibilityRole="button" accessibilityLabel="Back to conversations">
             <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerText}>{displayName || 'Chat'}</Text>
           {onOpenNotifications ? (
-            <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications}>
+            <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} accessibilityRole="button" accessibilityLabel={`Open notifications${notificationBadgeCount ? `, ${notificationBadgeCount} unread` : ''}`}>
               <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
               {notificationBadgeCount > 0 ? (
                 <View style={styles.badge}>
@@ -186,8 +186,11 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           onChangeText={setInput}
           placeholder="Type a message..."
           placeholderTextColor={tokens.colors.textSubtle}
+          accessibilityLabel="Message"
+          returnKeyType="send"
+          onSubmitEditing={sendMessage}
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+        <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !input.trim() }} disabled={!input.trim()}>
           <Ionicons name="send" size={15} color={tokens.colors.onBrand} />
           <Text style={styles.sendBtnText}>Send</Text>
         </TouchableOpacity>

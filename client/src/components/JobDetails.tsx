@@ -282,7 +282,7 @@ export function JobDetails() {
       {!isLoading && !loadError && job && (
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6">
           <div className="space-y-6">
-            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
+            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-4 sm:p-8">
               <div className="flex items-start gap-4">
                 <div className="w-[74px] h-[74px] rounded-[18px] bg-[#E7ECF8] text-[#365CCE] flex items-center justify-center text-[36px] font-semibold shrink-0">
                   {companyLogo}
@@ -336,7 +336,7 @@ export function JobDetails() {
                 </p>
               </div>
 
-              <div className="mt-8 flex flex-wrap items-center gap-3">
+              <div className="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
                 {isAdminViewer ? (
                   <div className="w-full rounded-[14px] border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-[13px] text-[#64748B]">
                     Read-only admin view. Use Admin Job Monitoring to delete this job.
@@ -346,7 +346,7 @@ export function JobDetails() {
                     {hasApplied ? (
                       <button
                         disabled
-                        className="flex-1 min-w-[240px] bg-[#D1FAE5] text-[#065F46] font-semibold py-4 px-6 rounded-[14px] flex items-center justify-center gap-2 cursor-not-allowed"
+                        className="col-span-2 flex min-h-14 w-full flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#D1FAE5] px-6 py-4 font-semibold text-[#065F46] sm:min-w-[240px]"
                       >
                         <CheckCircle2 className="w-5 h-5" />
                         Application Submitted
@@ -354,7 +354,7 @@ export function JobDetails() {
                     ) : (
                       <button
                         onClick={handleApply}
-                        className="flex-1 min-w-[240px] bg-[#4169E1] text-white font-semibold py-4 px-6 rounded-[14px] hover:bg-[#365CCE] transition-colors"
+                        className="col-span-2 min-h-14 w-full flex-1 rounded-[14px] bg-[#4169E1] px-6 py-4 font-semibold text-white transition-colors hover:bg-[#365CCE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:min-w-[240px]"
                       >
                         Apply Now
                       </button>
@@ -362,19 +362,22 @@ export function JobDetails() {
 
                     <button
                       onClick={handleMessageEmployer}
-                      className="w-[64px] h-[64px] rounded-[14px] flex items-center justify-center bg-[#4169E1] text-white hover:bg-[#365CCE] transition-colors"
+                      className="min-h-12 rounded-[14px] bg-[#EEF2FF] px-4 text-[#365CCE] transition-colors hover:bg-[#DBEAFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0"
                       title="Message employer"
+                      aria-label="Message employer"
                     >
                       <MessageCircle className="w-6 h-6" />
                     </button>
                     <button
                       onClick={handleSave}
-                      className={`w-[64px] h-[64px] rounded-[14px] border flex items-center justify-center transition-colors ${
+                      className={`min-h-12 rounded-[14px] border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0 ${
                         isSaved
                           ? "bg-[#4169E1] text-white border-[#4169E1]"
                           : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
                       }`}
                       title={isSaved ? "Remove from saved" : "Save job"}
+                      aria-label={isSaved ? "Remove job from saved jobs" : "Save job"}
+                      aria-pressed={isSaved}
                     >
                       <Bookmark className={`w-6 h-6 ${isSaved ? "fill-current" : ""}`} />
                     </button>

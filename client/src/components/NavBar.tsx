@@ -457,7 +457,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   };
 
   return (
-    <div className={webUi.navbar.root}>
+    <header className={webUi.navbar.root}>
       <div className={webUi.navbar.container}>
         <div className="flex min-w-0 items-center gap-2">
           <button
@@ -597,7 +597,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
               aria-haspopup="menu"
             >
               <div className="w-10 h-10 rounded-full bg-[#DBEAFE] flex items-center justify-center">
-                <span className="text-[#3B82F6] font-semibold text-[16px]">
+                <span className="text-[#1D4ED8] font-semibold text-[16px]">
                   {user?.firstName?.[0] ?? "U"}
                   {user?.lastName?.[0] ?? "S"}
                 </span>
@@ -640,6 +640,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }

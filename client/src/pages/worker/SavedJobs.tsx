@@ -153,7 +153,9 @@ export function SavedJobs() {
           {(["all", "Remote", "Hybrid", "On-site"] as const).map((item) => (
             <button
               key={item}
+              type="button"
               onClick={() => setFilter(item)}
+              aria-pressed={filter === item}
               className={`px-4 py-2 rounded-[10px] text-[14px] font-medium transition-all ${
                 filter === item
                   ? "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white shadow-md"
@@ -237,9 +239,11 @@ export function SavedJobs() {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => handleUnsave(job.id)}
                   className="p-2 hover:bg-[#FEE2E2] rounded-lg transition-colors"
                   title="Remove from saved"
+                  aria-label={`Remove ${job.title} from saved jobs`}
                 >
                   <Trash2 className="w-5 h-5 text-[#6B7280] hover:text-[#EF4444]" />
                 </button>

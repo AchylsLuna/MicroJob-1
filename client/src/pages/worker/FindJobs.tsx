@@ -6,6 +6,7 @@ import { getJobs, getProfile } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../contexts/AuthContext";
+import { Button, StatusState } from "../../components/ui";
 
 interface Job {
   id: string;
@@ -62,6 +63,7 @@ export function FindJobs() {
     city: "",
     barangay: "",
   });
+  const [reloadKey, setReloadKey] = useState(0);
 
   const sortLabels = {
     recent: "Most recent",
@@ -69,18 +71,6 @@ export function FindJobs() {
     applicants: "Most applicants",
     nearest: "Nearest to you",
   } as const;
-
-  const handleSortChange = () => {
-    setSortBy((prev) =>
-      prev === "nearest"
-        ? "recent"
-        : prev === "recent"
-        ? "salary"
-        : prev === "salary"
-        ? "applicants"
-        : "nearest",
-    );
-  };
 
   const normalizeToken = (value?: string) =>
     String(value || "")
@@ -236,7 +226,7 @@ export function FindJobs() {
     return () => {
       isMounted = false;
     };
-  }, [searchQuery]);
+  }, [searchQuery, reloadKey]);
 
   const getJobTypeColor = (type: string) => {
     switch (type) {
@@ -329,20 +319,17 @@ export function FindJobs() {
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-5 font-sans">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[24px] leading-none font-semibold text-[#111827]">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xl font-semibold leading-tight text-[#111827] sm:text-2xl" aria-live="polite">
           {sortedJobs.length} {sortedJobs.length === 1 ? "job" : "Jobs"} Found
         </p>
-        <button
-          type="button"
-          onClick={handleSortChange}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-[12px] border border-[#D1D5DB] bg-white text-[#4B5563] hover:bg-[#F9FAFB] transition-colors"
-          title={`Sort by ${sortLabels[sortBy]}`}
-        >
+        <label className="flex min-h-11 items-center gap-2 rounded-xl border border-[#D1D5DB] bg-white px-3 text-[#4B5563] focus-within:ring-2 focus-within:ring-blue-600">
           <SlidersHorizontal className="w-4 h-4" />
-          <span className="text-[14px] font-semibold hidden sm:inline">{sortLabels[sortBy]}</span>
-          <span className="text-[14px] font-semibold sm:hidden">Filters</span>
-        </button>
+          <span className="sr-only">Sort jobs</span>
+          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="min-h-10 bg-transparent text-sm font-semibold outline-none" aria-label="Sort jobs">
+            {Object.entries(sortLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+        </label>
       </div>
 
       {nearestJobs.length > 0 && (
@@ -364,21 +351,15 @@ export function FindJobs() {
       )}
 
       {isLoading && (
-        <div className="bg-white rounded-[18px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
-          Loading jobs...
-        </div>
+        <StatusState tone="loading" title="Loading jobs" description="Finding current opportunities for you." />
       )}
 
       {loadError && !isLoading && (
-        <div className="bg-[#FEF2F2] rounded-[18px] border border-[#FECACA] p-6 text-center text-[#B91C1C]">
-          {loadError}
-        </div>
+        <StatusState tone="error" title="Jobs could not be loaded" description={loadError} action={<Button onClick={() => setReloadKey((value) => value + 1)}>Try again</Button>} />
       )}
 
       {!isLoading && !loadError && sortedJobs.length === 0 && (
-        <div className="bg-white rounded-[18px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
-          No Jobs Found. Try Another Search.
-        </div>
+        <StatusState title={searchQuery ? "No jobs match your search" : "No jobs are available"} description={searchQuery ? "Try a different title, company, or category." : "Please check again later for new opportunities."} />
       )}
 
       {!isLoading && !loadError && sortedJobs.length > 0 && (
@@ -395,7 +376,8 @@ export function FindJobs() {
                   navigate(ROUTES.worker.jobDetails(job.id));
                 }
               }}
-              className="bg-white rounded-[18px] border border-[#E5E7EB] p-6 transition-all cursor-pointer hover:shadow-[0_8px_30px_rgba(15,23,42,0.06)] hover:-translate-y-0.5"
+              className="bg-white rounded-[18px] border border-[#E5E7EB] p-4 transition-all cursor-pointer hover:shadow-[0_8px_30px_rgba(15,23,42,0.06)] hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:p-6"
+              aria-label={`View ${job.title} at ${job.company}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-start gap-4 min-w-0">
@@ -419,6 +401,8 @@ export function FindJobs() {
                   }}
                   className="text-[#9CA3AF] hover:text-[#EF4444] transition-colors"
                   title={job.saved ? "Remove from saved" : "Save job"}
+                  aria-label={job.saved ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}
+                  aria-pressed={job.saved}
                 >
                   <Heart className={`w-6 h-6 ${job.saved ? "fill-[#EF4444] text-[#EF4444]" : ""}`} />
                 </button>

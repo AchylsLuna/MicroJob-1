@@ -251,32 +251,34 @@ export default function Jobs(props: JobsProps) {
             placeholderTextColor={tokens.colors.textSubtle}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            accessibilityLabel="Search jobs"
+            accessibilityHint="Search by job title, company, or location"
+            returnKeyType="search"
           />
           {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel="Clear job search">
               <Ionicons name="close-circle" size={18} color={tokens.colors.textSubtle} />
             </TouchableOpacity>
           ) : null}
         </View>
 
         <View style={styles.toolbarRow}>
-          <TouchableOpacity style={styles.toolbarButton} onPress={() => fetchJobs()}>
+          <TouchableOpacity style={styles.toolbarButton} onPress={() => fetchJobs()} accessibilityRole="button" accessibilityLabel="Refresh jobs">
             <Ionicons name="refresh-outline" size={15} color={tokens.colors.textMuted} />
             <Text style={styles.toolbarButtonText}>Refresh</Text>
           </TouchableOpacity>
 
           <View style={styles.toolbarButtonMuted}>
-            <Text style={styles.toolbarButtonText}>Most Relevant</Text>
-            <Ionicons name="chevron-down-outline" size={14} color={tokens.colors.textMuted} />
+            <Text style={styles.toolbarButtonText}>Sorted by relevance</Text>
           </View>
         </View>
 
         <View style={styles.quickActionsRow}>
-          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenSavedJobs}>
+          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenSavedJobs} accessibilityRole="button" accessibilityLabel="Open saved jobs">
             <Ionicons name="bookmark-outline" size={15} color={tokens.colors.brand} />
             <Text style={styles.quickActionText}>Saved Jobs</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenAppliedJobs}>
+          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenAppliedJobs} accessibilityRole="button" accessibilityLabel="Open applied jobs">
             <Ionicons name="checkmark-done-outline" size={15} color={tokens.colors.brand} />
             <Text style={styles.quickActionText}>Applied Jobs</Text>
           </TouchableOpacity>
@@ -289,6 +291,9 @@ export default function Jobs(props: JobsProps) {
           <TouchableOpacity
             style={[styles.filterChip, selectedCategory === 'All' && styles.filterChipActive]}
             onPress={() => setSelectedCategory('All')}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedCategory === 'All' }}
+            accessibilityLabel="All categories"
           >
             <Text style={[styles.filterChipText, selectedCategory === 'All' && styles.filterChipTextActive]}>All</Text>
           </TouchableOpacity>
@@ -297,6 +302,9 @@ export default function Jobs(props: JobsProps) {
               key={category._id}
               style={[styles.filterChip, selectedCategory === category._id && styles.filterChipActive]}
               onPress={() => setSelectedCategory(category._id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedCategory === category._id }}
+              accessibilityLabel={`${category.name} category`}
             >
               <Text style={[styles.filterChipText, selectedCategory === category._id && styles.filterChipTextActive]}>
                 {category.name}
@@ -314,6 +322,9 @@ export default function Jobs(props: JobsProps) {
               key={type}
               style={[styles.filterChip, selectedJobType === type && styles.filterChipActive]}
               onPress={() => setSelectedJobType(type)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: selectedJobType === type }}
+              accessibilityLabel={`${type} job type`}
             >
               <Text style={[styles.filterChipText, selectedJobType === type && styles.filterChipTextActive]}>
                 {type}
@@ -333,6 +344,8 @@ export default function Jobs(props: JobsProps) {
                   key={`near-${job._id}`}
                   style={styles.nearestItem}
                   onPress={() => onViewDetails?.(job)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`View ${job.title} near ${job.location}`}
                 >
                   <Ionicons name="navigate-outline" size={14} color={tokens.colors.brand} />
                   <Text numberOfLines={1} style={styles.nearestText}>
@@ -359,6 +372,8 @@ export default function Jobs(props: JobsProps) {
               style={styles.jobCard}
               onPress={() => onViewDetails?.(job)}
               activeOpacity={0.86}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${job.title}${job.location ? ` in ${job.location}` : ''}`}
             >
               <View style={styles.jobCardHeader}>
                 <View style={styles.jobInfo}>
@@ -380,6 +395,9 @@ export default function Jobs(props: JobsProps) {
                     e?.stopPropagation?.();
                     handleToggleSave(job);
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={savedJobIds.includes(job._id) ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}
+                  accessibilityState={{ selected: savedJobIds.includes(job._id) }}
                 >
                   <Ionicons
                     name={savedJobIds.includes(job._id) ? 'bookmark' : 'bookmark-outline'}

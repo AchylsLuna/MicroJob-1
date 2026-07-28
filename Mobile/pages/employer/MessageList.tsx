@@ -279,6 +279,7 @@ export default function MessageList({
           onChangeText={setSearchQuery}
           placeholder="Search conversations..."
           placeholderTextColor="#94A3B8"
+          accessibilityLabel="Search conversations"
         />
       </View>
 
@@ -296,6 +297,9 @@ export default function MessageList({
               onPress={() => (item.userId ? onOpenChat(item.userId, item.name) : toast.info('Cannot open this conversation.'))}
               onLongPress={() => (item.userId ? showOptions(item.userId) : null)}
               delayLongPress={400}
+              accessibilityRole="button"
+              accessibilityLabel={`Open conversation with ${item.name}${unread ? `, ${unread} unread messages` : ''}`}
+              accessibilityHint="Long press for conversation options"
             >
               <View style={styles.avatarWrap}>
                 <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />

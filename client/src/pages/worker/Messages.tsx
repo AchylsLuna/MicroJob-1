@@ -7,7 +7,6 @@ import {
   MoreVertical,
   Search,
   Send,
-  Smile,
   SquarePen,
   Trash2,
 } from "lucide-react";
@@ -659,10 +658,6 @@ export function Messages() {
     }
   };
 
-  const handleAttachment = () => {
-    toast.info("More composer actions coming soon...");
-  };
-
   const toggleArchiveMode = async () => {
     const next = !showArchived;
     setShowArchived(next);
@@ -738,7 +733,7 @@ export function Messages() {
 
   if (loading) {
     return (
-      <div className="mx-auto flex h-[calc(100vh-160px)] min-h-[640px] max-w-[1341px] items-center justify-center">
+      <div className="mx-auto flex h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] items-center justify-center lg:h-[calc(100dvh-160px)]">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#1C4D8D] border-t-transparent" />
           <p className="text-[#6B7280]">Loading conversations...</p>
@@ -748,7 +743,7 @@ export function Messages() {
   }
 
   return (
-    <div className="mx-auto h-[calc(100vh-160px)] min-h-[640px] max-w-[1341px] pt-1">
+    <div className="mx-auto h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] pt-1 lg:h-[calc(100dvh-160px)]">
       <div className="flex h-full overflow-hidden rounded-[20px] border border-[#DDE2EB] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
         <div className={`${selectedContact ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-[#E5E7EB] bg-white md:w-[34%] md:min-w-[320px] md:max-w-[460px]`}>
           <div className="border-b border-[#E5E7EB] px-4 py-4">
@@ -803,6 +798,7 @@ export function Messages() {
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search conversations"
                 className="w-full rounded-full border border-[#D8DEE8] bg-white py-3 pl-11 pr-4 text-[14px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#4E8FD1] focus:ring-2 focus:ring-[#4E8FD1]/20"
               />
             </div>
@@ -884,6 +880,7 @@ export function Messages() {
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB] md:hidden"
                     title="Back"
+                    aria-label="Back to conversations"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
@@ -930,6 +927,8 @@ export function Messages() {
                       onClick={() => setShowMoreMenu((prev) => !prev)}
                       className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#374151] transition hover:bg-[#F5F7FB]"
                       title="More options"
+                      aria-label="Open conversation options"
+                      aria-expanded={showMoreMenu}
                     >
                       <MoreVertical className="h-4 w-4" />
                     </button>
@@ -1070,27 +1069,10 @@ export function Messages() {
                     }
                   }}
                   disabled={sending}
+                  aria-label="Message"
                   className="min-h-[88px] w-full resize-none rounded-[12px] border border-[#DDE2EB] bg-[#FBFCFE] px-4 py-3 text-[15px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#4E8FD1] focus:ring-2 focus:ring-[#4E8FD1]/20 disabled:opacity-60"
                 />
-                <div className="mt-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={handleAttachment}
-                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
-                      title="Emoji"
-                    >
-                      <Smile className="h-5 w-5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAttachment}
-                      className="flex h-11 w-11 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
-                      title="More actions"
-                    >
-                      <Ellipsis className="h-5 w-5" />
-                    </button>
-                  </div>
+                <div className="mt-3 flex items-center justify-end">
                   <button
                     type="button"
                     onClick={handleSendMessage}

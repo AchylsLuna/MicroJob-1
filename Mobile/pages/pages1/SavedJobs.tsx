@@ -51,6 +51,8 @@ export default function SavedJobs({
             }
             handleTabPress('Jobs');
           }}
+          accessibilityRole="button"
+          accessibilityLabel="Back to jobs"
         >
           <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
         </TouchableOpacity>
@@ -78,6 +80,8 @@ export default function SavedJobs({
                 key={job._id}
                 style={styles.jobCard}
                 onPress={() => onViewDetails?.(job)}
+                accessibilityRole="button"
+                accessibilityLabel={`View saved job ${job.title}`}
               >
                 <View style={styles.waveOne} />
                 <View style={styles.waveTwo} />
@@ -93,6 +97,8 @@ export default function SavedJobs({
                   <TouchableOpacity
                     style={styles.deleteBtn}
                     onPress={() => onRemoveJob?.(job._id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Remove ${job.title} from saved jobs`}
                   >
                     <Text style={styles.deleteText}>Remove</Text>
                   </TouchableOpacity>
