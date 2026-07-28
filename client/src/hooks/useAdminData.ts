@@ -9,7 +9,6 @@ import {
   getAdminRecentPayouts,
   getAdminTransactions,
   updateUserStatus,
-  inviteUser,
   updateUserByAdmin,
   type PayoutRequest,
   type PaymentTransaction,
@@ -328,12 +327,6 @@ export function useAdminData() {
     }
   };
 
-  const handleInviteUser = async (payload: { firstName: string; lastName: string; email: string; role: 'work' | 'hire' | 'both' | 'admin' | 'superadmin' }) => {
-    const result = await inviteUser(payload);
-    setUsers((current) => [result.user, ...current]);
-    return result.user as AdminUser;
-  };
-
   const handleEditUser = async (userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' }) => {
     const result = await updateUserByAdmin(userId, payload);
     setUsers((current) => current.map((item) => item._id === userId ? result.user : item));
@@ -362,7 +355,6 @@ export function useAdminData() {
     formatSalary,
     handleApproveUser,
     handleToggleUserStatus,
-    handleInviteUser,
     handleEditUser,
     reload: () => setReloadKey((current) => current + 1),
   };

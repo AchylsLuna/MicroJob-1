@@ -8,7 +8,6 @@ import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import crypto from "crypto";
 import { getJwtSecret } from "../lib/jwtSecret.js";
 import {
     EMAIL_VALIDATION_MESSAGE,
@@ -207,56 +206,6 @@ async function wouldDisableLastSuperAdmin(target, nextRole, nextStatus) {
     if (nextRole === "superadmin" && nextStatus === "active") return false;
     const activeSuperadmins = await User.countDocuments({ role: "superadmin", status: "active" });
     return activeSuperadmins <= 1 && target.status === "active";
-}
-
-export async function inviteUser(req, res) {
-    const transporter = getEmailTransporter();
-    if (!transporter) {
-        return res.status(503).json({ message: "Email service is not configured; no invitation was created." });
-    }
-    try {
-        const firstName = normalizeName(req.body?.firstName || "");
-        const lastName = normalizeName(req.body?.lastName || "");
-        const email = normalizeEmail(req.body?.email || "");
-        const role = String(req.body?.role || "work").toLowerCase();
-        if (!isValidName(firstName) || !isValidName(lastName)) {
-            return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
-        }
-        if (!isValidEmail(email)) {
-            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
-        }
-        if (!STANDARD_ROLES.has(role) && !PRIVILEGED_ROLES.has(role)) {
-            return res.status(400).json({ message: "Invalid role value." });
-        }
-        if (PRIVILEGED_ROLES.has(role) && !isSuperAdmin(req)) {
-            return res.status(403).json({ message: "Only a superadmin can invite privileged users." });
-        }
-        if (await User.exists({ email })) {
-            return res.status(409).json({ message: "Email is already registered." });
-        }
-
-        const temporaryPassword = `${crypto.randomBytes(12).toString("base64url")}Aa1!`;
-        const user = new User({ firstName, lastName, email, role, status: "active", passwordChangeRequired: true });
-        await user.setPassword(temporaryPassword);
-        await user.save();
-        try {
-            const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
-            await transporter.sendMail({
-                from: `MicroJobs <${fromAddress}>`,
-                to: email,
-                subject: "Your MicroJobs invitation",
-                text: `Hi ${firstName},\n\nYou were invited to MicroJobs. Sign in with ${email} and this temporary password: ${temporaryPassword}\n\nYou must choose a new password after signing in.`,
-            });
-        } catch (mailError) {
-            await User.deleteOne({ _id: user._id });
-            throw mailError;
-        }
-        return res.status(201).json({ message: "Invitation sent.", user: await User.findById(user._id).select(PUBLIC_USER_SELECT) });
-    } catch (error) {
-        if (error?.code === 11000) return res.status(409).json({ message: "Email is already registered." });
-        console.error("Invite user error:", error);
-        return res.status(500).json({ message: "Failed to send invitation." });
-    }
 }
 
 export async function updateUserByAdmin(req, res) {
@@ -854,6 +803,44 @@ export async function requestPasswordResetOtp(req, res) {
         console.error("Request password reset OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";
         return res.status(500).json({ message: `Failed to send password reset OTP.${detail}`.trim() });
+    }
+}
+
+export async function verifyPasswordResetOtp(req, res) {
+    try {
+        const { email, code } = req.body || {};
+        const normalizedEmail = String(email || "").toLowerCase().trim();
+        const normalizedCode = String(code || "").trim();
+
+        if (!normalizedEmail || !/^\d{6}$/.test(normalizedCode)) {
+            return res.status(400).json({ message: "Email and a valid 6-digit code are required." });
+        }
+
+        const record = passwordResetOtpStore.get(normalizedEmail);
+        if (!record) {
+            return res.status(400).json({ message: "Reset code not found or expired." });
+        }
+        if (record.expiresAt < Date.now()) {
+            passwordResetOtpStore.delete(normalizedEmail);
+            return res.status(400).json({ message: "Reset code expired." });
+        }
+        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
+            passwordResetOtpStore.delete(normalizedEmail);
+            return res.status(429).json({ message: "Too many invalid attempts. Request a new reset code." });
+        }
+        if (record.code !== normalizedCode) {
+            passwordResetOtpStore.set(normalizedEmail, {
+                ...record,
+                attempts: (record.attempts || 0) + 1,
+            });
+            return res.status(400).json({ message: "Invalid reset code." });
+        }
+
+        passwordResetOtpStore.set(normalizedEmail, { ...record, verifiedAt: Date.now() });
+        return res.status(200).json({ message: "Reset code verified." });
+    } catch (error) {
+        console.error("Verify password reset OTP error:", error);
+        return res.status(500).json({ message: "Failed to verify reset code." });
     }
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { MoreHorizontal, Search, UserPlus } from "lucide-react";
+import { MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
@@ -18,15 +18,15 @@ function AdminUserManagementContent() {
     getStatusColor,
     handleApproveUser,
     handleToggleUserStatus,
-    handleInviteUser,
     handleEditUser,
   } = useAdminData();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | "privileged" | "work" | "hire" | "both">("all");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [formMode, setFormMode] = useState<"invite" | "edit" | null>(null);
+  const [formMode, setFormMode] = useState<"edit" | null>(null);
   const [formUserId, setFormUserId] = useState<string | null>(null);
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", role: "work", status: "active" });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -38,14 +38,18 @@ function AdminUserManagementContent() {
     return users.filter((user) => {
       const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
       const phone = user.phoneNumber ? String(user.phoneNumber).toLowerCase() : "";
-      return (
+      const role = String(user.role || "work").toLowerCase();
+      const matchesRole = roleFilter === "all"
+        || (roleFilter === "privileged" && (role === "admin" || role === "superadmin"))
+        || role === roleFilter;
+      return matchesRole && (
         !normalizedSearch ||
         name.toLowerCase().includes(normalizedSearch) ||
         user.email.toLowerCase().includes(normalizedSearch) ||
         phone.includes(normalizedSearch)
       );
     });
-  }, [users, searchTerm]);
+  }, [users, searchTerm, roleFilter]);
 
   const getUserName = (user: typeof users[number]) =>
     `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email;
@@ -79,6 +83,8 @@ function AdminUserManagementContent() {
     return createdAt >= weekAgo;
   }).length;
   const activeToday = users.filter((user) => user.status === "active").length;
+  const adminCount = users.filter((user) => user.role === "admin" || user.role === "superadmin").length;
+  const pendingCount = users.filter((user) => user.status === "pending").length;
 
   useEffect(() => {
     if (!openMenuId) return;
@@ -89,7 +95,7 @@ function AdminUserManagementContent() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, roleFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
@@ -97,12 +103,10 @@ function AdminUserManagementContent() {
   const pageEnd = Math.min(pageStart + pageSize, filteredUsers.length);
   const paginatedUsers = filteredUsers.slice(pageStart, pageStart + pageSize);
   const canManagePrivilegedRoles = currentUser?.systemRole === "superadmin";
-
-  const openInvite = () => {
-    setForm({ firstName: "", lastName: "", email: "", role: "work", status: "active" });
-    setFormErrors({});
-    setFormUserId(null);
-    setFormMode("invite");
+  const canManageUser = (user: typeof users[number]) => {
+    const privileged = user.role === "admin" || user.role === "superadmin";
+    const isSelf = user._id === currentUser?.id;
+    return !isSelf && (!privileged || canManagePrivilegedRoles);
   };
 
   const openEdit = (user: typeof users[number]) => {
@@ -116,15 +120,11 @@ function AdminUserManagementContent() {
     const errors: Record<string, string> = {};
     if (!form.firstName.trim()) errors.firstName = "First name is required.";
     if (!form.lastName.trim()) errors.lastName = "Last name is required.";
-    if (formMode === "invite" && !/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.email = "Enter a valid email address.";
     setFormErrors(errors);
     if (Object.keys(errors).length) return;
     setIsSaving(true);
     try {
-      if (formMode === "invite") {
-        await handleInviteUser({ firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim().toLowerCase(), role: form.role as 'work' | 'hire' | 'both' | 'admin' | 'superadmin' });
-        toast.success("Invitation sent successfully.");
-      } else if (formUserId) {
+      if (formUserId) {
         await handleEditUser(formUserId, { firstName: form.firstName.trim(), lastName: form.lastName.trim(), role: form.role, status: form.status as 'active' | 'pending' | 'disabled' });
         toast.success("User updated successfully.");
       }
@@ -151,26 +151,31 @@ function AdminUserManagementContent() {
       )}
 
       <section className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-5">
-            <p className="text-[13px] text-[#6B7280]">Total Users</p>
-            <p className="text-[28px] font-semibold text-[#111827] mt-2">{isLoading ? "—" : totalUsers}</p>
-          </div>
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-5">
-            <p className="text-[13px] text-[#6B7280]">New This Week</p>
-            <p className="text-[28px] font-semibold text-[#111827] mt-2">{isLoading ? "—" : newThisWeek}</p>
-          </div>
-          <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-5">
-            <p className="text-[13px] text-[#6B7280]">Active Today</p>
-            <p className="text-[28px] font-semibold text-[#111827] mt-2">
-              {isLoading ? "—" : activeToday || "—"}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            { label: "Total accounts", value: totalUsers, detail: `${newThisWeek} joined this week`, icon: Users, tone: "bg-blue-50 text-blue-700" },
+            { label: "Administrators", value: adminCount, detail: "Admins and superadmins", icon: ShieldCheck, tone: "bg-violet-50 text-violet-700" },
+            { label: "Active accounts", value: activeToday, detail: "Currently enabled", icon: UserCheck, tone: "bg-emerald-50 text-emerald-700" },
+            { label: "Pending review", value: pendingCount, detail: "Awaiting approval", icon: UserPlus, tone: "bg-amber-50 text-amber-700" },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <article key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></div>
+                <p className="mt-4 text-sm font-medium text-slate-500">{card.label}</p>
+                <p className="mt-1 text-2xl font-bold text-slate-950">{isLoading ? "—" : card.value}</p>
+                <p className="mt-2 text-xs text-slate-500">{card.detail}</p>
+              </article>
+            );
+          })}
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 space-y-6">
+        <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <h4 className="text-[18px] font-semibold text-[#111827]">All Users</h4>
+            <div>
+              <h2 className="text-lg font-bold text-slate-950">Manage accounts</h2>
+              <p className="mt-1 text-sm text-slate-500">Review users, administrators, roles, and account access.</p>
+            </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative min-w-[240px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
@@ -183,14 +188,19 @@ function AdminUserManagementContent() {
                   className="w-full h-10 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                 />
               </div>
-              <button
-                type="button"
-                onClick={openInvite}
-                className="inline-flex items-center gap-2 rounded-[12px] bg-[#2563EB] text-white px-4 py-2 text-[13px] font-semibold shadow-sm hover:bg-[#1D4ED8]"
+              <label className="sr-only" htmlFor="admin-role-filter">Filter accounts by role</label>
+              <select
+                id="admin-role-filter"
+                value={roleFilter}
+                onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
+                className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-600"
               >
-                <UserPlus className="w-4 h-4" />
-                Invite User
-              </button>
+                <option value="all">All roles</option>
+                <option value="privileged">Administrators</option>
+                <option value="work">Workers</option>
+                <option value="hire">Employers</option>
+                <option value="both">Worker & employer</option>
+              </select>
             </div>
           </div>
 
@@ -205,7 +215,7 @@ function AdminUserManagementContent() {
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">Role</dt><dd className="mt-1 capitalize text-slate-900">{user.role || "work"}</dd></div><div><dt className="text-slate-500">Joined</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>View</Button>
-                  <Button onClick={() => openEdit(user)}>Edit</Button>
+                  <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? "Edit" : "Restricted"}</Button>
                 </div>
               </article>
             ))}
@@ -216,6 +226,7 @@ function AdminUserManagementContent() {
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
                   <th className="py-3 pr-4 font-medium">User</th>
+                  <th className="py-3 pr-4 font-medium">Role</th>
                   <th className="py-3 pr-4 font-medium">Status</th>
                   <th className="py-3 pr-4 font-medium">Joined</th>
                   <th className="py-3 font-medium text-right">Actions</th>
@@ -224,7 +235,7 @@ function AdminUserManagementContent() {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
                       Loading users...
                     </td>
                   </tr>
@@ -232,7 +243,7 @@ function AdminUserManagementContent() {
 
                 {!isLoading && filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="py-6 text-center text-[#9CA3AF]">
+                    <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
                       No users found for the selected filters.
                     </td>
                   </tr>
@@ -253,6 +264,11 @@ function AdminUserManagementContent() {
                             </div>
                           </div>
                         </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${user.role === "superadmin" ? "bg-violet-100 text-violet-800" : user.role === "admin" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
+                          {user.role === "superadmin" ? "Superadmin" : user.role === "admin" ? "Admin" : user.role === "hire" ? "Employer" : user.role === "both" ? "Both" : "Worker"}
+                        </span>
                       </td>
                       <td className="py-3 pr-4">
                         <span
@@ -281,7 +297,7 @@ function AdminUserManagementContent() {
                             <div
                               className="absolute right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg z-10 text-left"
                             >
-                              <button
+                              {canManageUser(user) && <button
                                 type="button"
                                 onClick={() => {
                                   setSelectedUserId(user._id);
@@ -290,7 +306,7 @@ function AdminUserManagementContent() {
                                 className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 View Profile
-                              </button>
+                              </button>}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -313,7 +329,7 @@ function AdminUserManagementContent() {
                               >
                                 Message User
                               </button>
-                              {user.status === "pending" && (
+                              {user.status === "pending" && canManageUser(user) && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -325,7 +341,7 @@ function AdminUserManagementContent() {
                                   Approve User
                                 </button>
                               )}
-                              <button
+                              {canManageUser(user) && <button
                                 type="button"
                                 onClick={() => {
                                   handleToggleUserStatus(user);
@@ -336,7 +352,7 @@ function AdminUserManagementContent() {
                                 } hover:bg-[#FEF2F2]`}
                               >
                                 {user.status === "disabled" ? "Activate User" : "Suspend User"}
-                              </button>
+                              </button>}
                             </div>
                           )}
                         </div>
@@ -455,44 +471,46 @@ function AdminUserManagementContent() {
               >
                 Close
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  handleToggleUserStatus(selectedUser);
-                  setSelectedUserId(null);
-                }}
-                className={`px-4 py-2 rounded-[12px] text-[13px] font-semibold ${
-                  selectedUser.status === "disabled"
-                    ? "bg-[#E5E7EB] text-[#111827]"
-                    : "bg-[#DC2626] text-white"
-                }`}
-              >
-                {selectedUser.status === "disabled" ? "Activate" : "Suspend"}
-              </button>
+              {canManageUser(selectedUser) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleToggleUserStatus(selectedUser);
+                    setSelectedUserId(null);
+                  }}
+                  className={`min-h-11 rounded-xl px-4 py-2 text-sm font-semibold ${
+                    selectedUser.status === "disabled"
+                      ? "bg-slate-200 text-slate-900"
+                      : "bg-red-700 text-white"
+                  }`}
+                >
+                  {selectedUser.status === "disabled" ? "Activate" : "Suspend"}
+                </button>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      <Dialog open={formMode !== null} title={formMode === "invite" ? "Invite user" : "Edit user"} description={formMode === "invite" ? "A temporary password will be emailed and must be changed after sign-in." : "Email addresses cannot be changed by administrators."} onClose={() => !isSaving && setFormMode(null)}>
+      <Dialog open={formMode !== null} title="Edit user" description="Email addresses cannot be changed by administrators." onClose={() => !isSaving && setFormMode(null)}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="First name" autoComplete="given-name" value={form.firstName} error={formErrors.firstName} onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))} />
           <Input label="Last name" autoComplete="family-name" value={form.lastName} error={formErrors.lastName} onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))} />
         </div>
         <div className="mt-4">
-          <Input label="Email" type="email" autoComplete="email" value={form.email} error={formErrors.email} disabled={formMode === "edit"} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+          <Input label="Email" type="email" autoComplete="email" value={form.email} disabled />
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Select label="Role" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
             <option value="work">Worker</option><option value="hire">Employer</option><option value="both">Worker and employer</option>
             {canManagePrivilegedRoles && <><option value="admin">Admin</option><option value="superadmin">Superadmin</option></>}
           </Select>
-          {formMode === "edit" && <Select label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></Select>}
+          <Select label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></Select>
         </div>
         {formErrors.form && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{formErrors.form}</p>}
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" disabled={isSaving} onClick={() => setFormMode(null)}>Cancel</Button>
-          <Button disabled={isSaving} onClick={submitUserForm}>{isSaving ? "Saving…" : formMode === "invite" ? "Send invitation" : "Save changes"}</Button>
+          <Button disabled={isSaving} onClick={submitUserForm}>{isSaving ? "Saving…" : "Save changes"}</Button>
         </div>
       </Dialog>
     </div>

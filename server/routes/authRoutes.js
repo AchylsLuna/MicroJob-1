@@ -20,6 +20,7 @@ import {
   updateMe,
   getPublicProfile,
   requestPasswordResetOtp,
+  verifyPasswordResetOtp,
   resetPasswordWithOtp,
   requestPasswordChangeOtp,
   changePasswordWithOtp,
@@ -626,6 +627,7 @@ const verificationPhoneConfirmLimiter = rateLimit({
 router.post('/otp/send', otpSendLimiter, sendOtp);
 router.post('/otp/verify', otpVerifyLimiter, verifyOtp);
 router.post('/password-reset/request', passwordResetRequestLimiter, requestPasswordResetOtp);
+router.post('/password-reset/verify', passwordResetConfirmLimiter, verifyPasswordResetOtp);
 router.post('/password-reset/confirm', passwordResetConfirmLimiter, resetPasswordWithOtp);
 router.post('/password-change/request', verifyToken, passwordChangeLimiter, requestPasswordChangeOtp);
 router.post('/password-change/confirm', verifyToken, passwordChangeLimiter, changePasswordWithOtp);

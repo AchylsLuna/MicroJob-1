@@ -7,6 +7,7 @@ import {
   verifyOtp,
   logoutUser,
   requestPasswordResetOtp,
+  verifyPasswordResetOtp,
   resetPasswordWithOtp,
 } from "../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
@@ -79,6 +80,7 @@ interface AuthContextType {
   verifyOTP: (otp: string) => Promise<boolean>;
   resendOTP: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
+  verifyPasswordResetCode: (code: string) => Promise<void>;
   resetPassword: (code: string, newPassword: string) => Promise<void>;
   pendingVerification: { email: string; name: string; flow?: "signup" | "signin" } | null;
   updateProfile: (updates: Partial<User>) => void;
@@ -448,7 +450,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
       window.dispatchEvent(new Event("auth_user_updated"));
-      sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, newUser.passwordChangeRequired ? "/change-initial-password" : getDefaultDashboardPath(newUser));
+      sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, getDefaultDashboardPath(newUser));
 
       localStorage.removeItem("pending_account_preference");
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
@@ -659,6 +661,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const verifyPasswordResetCode = async (code: string) => {
+    const pendingEmail = localStorage.getItem("pending_reset_email");
+    if (!pendingEmail) {
+      throw new Error("Reset session expired. Please request a new code.");
+    }
+    await verifyPasswordResetOtp({ email: pendingEmail, code });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -672,6 +682,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         verifyOTP,
         resendOTP,
         requestPasswordReset,
+        verifyPasswordResetCode,
         resetPassword,
         pendingVerification,
         updateProfile,

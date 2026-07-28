@@ -18,11 +18,11 @@ export const webUi = {
     popover: "bg-white rounded-[14px] shadow-lg border border-[#E5E7EB]",
   },
   sidebar: {
-    root: "dashboard-sidebar bg-white text-gray-800 shadow-lg h-screen h-[100dvh] overflow-hidden flex flex-col",
+    root: "dashboard-sidebar h-screen h-[100dvh] overflow-hidden border-r border-slate-200 bg-white text-slate-800 shadow-[8px_0_28px_rgba(15,23,42,0.05)] flex flex-col",
     navButton:
-      "w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold transition relative",
-    navButtonActive: "text-blue-600 bg-blue-50",
-    navButtonIdle: "text-gray-700 hover:bg-gray-100",
+      "w-full flex min-h-11 items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-xl font-semibold transition-colors relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600",
+    navButtonActive: "text-blue-700 bg-blue-50 shadow-sm ring-1 ring-blue-100",
+    navButtonIdle: "text-slate-700 hover:bg-slate-100 hover:text-slate-950",
     sectionDivider: "border-gray-200",
   },
   surfaces: {

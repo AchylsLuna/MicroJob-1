@@ -25,7 +25,6 @@ const JobDetails = lazy(() => import("./components/JobDetails").then((module) =>
 const InitialPasswordChange = lazy(() => import("./components/InitialPasswordChange").then((module) => ({ default: module.InitialPasswordChange })));
 const LandingPage = lazy(() => import("./components/LandingPage").then((module) => ({ default: module.LandingPage })));
 const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy").then((module) => ({ default: module.PrivacyPolicy })));
-const ResetPassword = lazy(() => import("./components/ResetPassword").then((module) => ({ default: module.ResetPassword })));
 const Settings = lazy(() => import("./components/Settings").then((module) => ({ default: module.Settings })));
 const SignIn = lazy(() => import("./components/SignIn").then((module) => ({ default: module.SignIn })));
 const SignUp = lazy(() => import("./components/SignUp").then((module) => ({ default: module.SignUp })));
@@ -262,7 +261,7 @@ const App: React.FC = () => {
         <Route path={ROUTES.emailVerification} element={<EmailVerification />} />
         <Route path={ROUTES.topUpSuccess} element={<TopUpSuccess />} />
         <Route path={ROUTES.forgotPassword} element={<ForgotPassword />} />
-        <Route path={ROUTES.resetPassword} element={<ResetPassword />} />
+        <Route path={ROUTES.resetPassword} element={<PreserveRedirect to={ROUTES.forgotPassword} />} />
         <Route path={ROUTES.changeInitialPassword} element={<InitialPasswordChange />} />
         <Route path={ROUTES.terms} element={<TermsAndConditions />} />
         <Route path={ROUTES.privacy} element={<PrivacyPolicy />} />

@@ -18,7 +18,7 @@ Use isolated presentation accounts and seeded sample data. Confirm email deliver
 ## Admin
 
 1. Sign in through the admin route and open User Management at phone width.
-2. Invite a standard worker account and explain the forced temporary-password replacement.
+2. Invite a standard worker account and show the normal sign-in flow without forced password replacement.
 3. Edit a standard user’s identity, role, and status; show that privileged changes are server protected.
 4. Review jobs, reports, and wallet monitoring, then demonstrate a destructive confirmation.
 

@@ -341,6 +341,10 @@ export function requestPasswordResetOtp(payload: { email: string }) {
   return request<{ message: string }>('/auth/password-reset/request', { method: 'POST', body: payload });
 }
 
+export function verifyPasswordResetOtp(payload: { email: string; code: string }) {
+  return request<{ message: string }>('/auth/password-reset/verify', { method: 'POST', body: payload });
+}
+
 export function resetPasswordWithOtp(payload: { email: string; code: string; newPassword: string }) {
   return request<{ message: string }>('/auth/password-reset/confirm', { method: 'POST', body: payload });
 }
@@ -469,10 +473,6 @@ export function getUserList() {
 
 export function updateUserStatus(userId: string, status: 'active' | 'pending' | 'disabled') {
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
-}
-
-export function inviteUser(payload: { firstName: string; lastName: string; email: string; role: 'work' | 'hire' | 'both' | 'admin' | 'superadmin' }) {
-  return request<{ message: string; user: any }>('/users/invitations', { method: 'POST', body: payload });
 }
 
 export function updateUserByAdmin(userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' }) {

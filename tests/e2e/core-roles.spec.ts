@@ -99,18 +99,25 @@ test("admin user management is real and responsive", async ({ page }) => {
   const dashboardAxeResults = await new AxeBuilder({ page }).analyze();
   expect(dashboardAxeResults.violations).toEqual([]);
   await page.goto("/admin/user-management");
-  await expect(page.getByRole("button", { name: /Invite User/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Manage accounts/i })).toBeVisible();
   await expect(page.getByText(/Loading users/i).first()).toBeHidden();
+  const roleFilter = page.getByLabel("Filter accounts by role");
+  await roleFilter.selectOption("privileged");
+  await expect(page.getByText("Superadmin").first()).toBeVisible();
+  await roleFilter.selectOption("all");
   await page.setViewportSize({ width: 320, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: "docs/ui-verification/week6-admin-users-320px.png", fullPage: true });
-  await page.getByRole("button", { name: /Invite User/i }).click();
-  const dialog = page.getByRole("dialog", { name: /Invite user/i });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const workerRow = page.getByRole("row").filter({ hasText: "e2e-user@microjobs.local" });
+  await workerRow.getByRole("button", { name: "Open user actions" }).click();
+  await page.getByRole("button", { name: "Edit User" }).click();
+  const dialog = page.getByRole("dialog", { name: /Edit user/i });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(page.getByRole("button", { name: /Invite User/i })).toBeFocused();
+  await expect(workerRow.getByRole("button", { name: "Open user actions" })).toBeFocused();
 });
 
 test("worker API failure exposes recovery UI", async ({ page }) => {
