@@ -86,6 +86,25 @@ export type PaymentTransaction = {
   linkedTransaction?: Partial<PaymentTransaction> | null;
   createdAt?: string;
 };
+export type SavedPaymentMethod = {
+  id: string;
+  cardholderName: string;
+  brand: 'Visa' | 'Mastercard' | 'Card';
+  last4: string;
+  expiry: string;
+  status: 'default' | 'active' | 'expired';
+};
+export type MfaStatus = {
+  enabled: boolean;
+  method: string | null;
+  backupCodesRemaining: number;
+  hasPendingSetup: boolean;
+};
+export type MfaSetup = {
+  method: string;
+  secret: string;
+  otpauthUrl: string;
+};
 export type ApplicationStatus =
   | 'Applied'
   | 'Shortlisted'
@@ -481,6 +500,7 @@ export function updateProfile(payload: {
   about?: string;
   avatarUrl?: string;
   totalExperience?: string;
+  hideHiredCandidates?: boolean;
   // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated by backend
 }) {
   return request<any>('/auth/me', { method: 'PATCH', body: payload }).then((response: any) => {
@@ -490,6 +510,38 @@ export function updateProfile(payload: {
 
 export function getPublicProfile(userId: string, viewAs: 'worker' | 'employer' = 'worker') {
   return request<any>(`/auth/profiles/${userId}${buildQuery({ viewAs })}`, { method: 'GET' });
+}
+
+// Multi-factor authentication APIs
+export function getMfaStatus() {
+  return request<{ data?: MfaStatus } & Partial<MfaStatus>>('/auth/mfa/status', { method: 'GET' })
+    .then((response) => (response.data ?? response) as MfaStatus);
+}
+
+export function startMfaSetup() {
+  return request<{ data?: MfaSetup } & Partial<MfaSetup>>('/auth/mfa/setup', { method: 'POST' })
+    .then((response) => (response.data ?? response) as MfaSetup);
+}
+
+export function enableMfa(code: string) {
+  return request<{ data?: MfaStatus & { backupCodes: string[] } } & Partial<MfaStatus> & { backupCodes?: string[] }>(
+    '/auth/mfa/enable',
+    { method: 'POST', body: { code } }
+  ).then((response) => (response.data ?? response) as MfaStatus & { backupCodes: string[] });
+}
+
+export function disableMfa(code: string) {
+  return request<{ data?: MfaStatus } & Partial<MfaStatus>>('/auth/mfa/disable', {
+    method: 'POST',
+    body: { code },
+  }).then((response) => (response.data ?? response) as MfaStatus);
+}
+
+export function regenerateMfaBackupCodes(code: string) {
+  return request<{ data?: MfaStatus & { backupCodes: string[] } } & Partial<MfaStatus> & { backupCodes?: string[] }>(
+    '/auth/mfa/backup-codes/regenerate',
+    { method: 'POST', body: { code } }
+  ).then((response) => (response.data ?? response) as MfaStatus & { backupCodes: string[] });
 }
 
 // Notifications APIs
@@ -606,6 +658,37 @@ export function uploadAddressDocument(file: File) {
 }
 
 // Payments APIs
+export function getPaymentMethods() {
+  return request<{ paymentMethods: SavedPaymentMethod[] }>('/payment/methods', { method: 'GET' });
+}
+
+export function addPaymentMethod(payload: {
+  cardholderName: string;
+  brand: SavedPaymentMethod['brand'];
+  last4: string;
+  expiryMonth: number;
+  expiryYear: number;
+}) {
+  return request<{ message: string; paymentMethod: SavedPaymentMethod }>('/payment/methods', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function setDefaultPaymentMethod(paymentMethodId: string) {
+  return request<{ message: string; paymentMethods: SavedPaymentMethod[] }>(
+    `/payment/methods/${paymentMethodId}/default`,
+    { method: 'PATCH' }
+  );
+}
+
+export function removePaymentMethod(paymentMethodId: string) {
+  return request<{ message: string; paymentMethods: SavedPaymentMethod[] }>(
+    `/payment/methods/${paymentMethodId}`,
+    { method: 'DELETE' }
+  );
+}
+
 export function createTopUpSession(payload: { amount: number; target?: PaymentTarget }) {
   return request<{ checkoutUrl: string; referenceNumber: string; checkoutId: string }>(
     '/payment/topup',

@@ -24,7 +24,7 @@ const hostCandidates = [
 ];
 
 const host = hostCandidates.map(extractHost).find(Boolean) || '';
-const defaultApiPort = process.env.EXPO_PUBLIC_API_PORT || '5055';
+const defaultApiPort = process.env.EXPO_PUBLIC_API_PORT || '5000';
 
 // Uses EXPO_PUBLIC_API_URL if provided, otherwise auto-detects the Expo host IP.
 // This keeps mobile working across different networks without editing this file.

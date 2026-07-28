@@ -87,10 +87,13 @@ export async function apiRequest<T = unknown>(
       raw,
     };
   } catch (error) {
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
     return {
       ok: false,
       status: 0,
-      message: fallbackMessage,
+      message: isTimeout
+        ? `The request timed out while connecting to ${url}.`
+        : `Unable to reach the server at ${url}.`,
       data: null,
       raw: { error: error instanceof Error ? error.message : String(error) },
     };

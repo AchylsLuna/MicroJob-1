@@ -146,6 +146,8 @@ export default function SignIn({
           onNavigateToVerify?.();
         } else if (result.status === 401 && /invalid credentials/i.test(serverMessage)) {
           toast.error('Invalid credentials. Check your email and password.');
+        } else if (result.status === 0) {
+          toast.error(serverMessage);
         } else {
           toast.error(`${serverMessage} (HTTP ${result.status})`);
         }

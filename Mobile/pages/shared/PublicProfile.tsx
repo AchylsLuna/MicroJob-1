@@ -39,10 +39,11 @@ type PublicProfileResponse = {
   };
   rating?: {
     viewAs?: 'worker' | 'employer';
-    stars?: number;
-    percentage?: number;
-    completedCount?: number;
-    totalCount?: number;
+    hidden?: boolean;
+    stars?: number | null;
+    percentage?: number | null;
+    completedCount?: number | null;
+    totalCount?: number | null;
   };
   stats?: {
     worker?: {
@@ -53,8 +54,9 @@ type PublicProfileResponse = {
     employer?: {
       jobsPosted?: number;
       totalApplicants?: number;
-      hires?: number;
-      successRate?: number;
+      hires?: number | null;
+      hiresHidden?: boolean;
+      successRate?: number | null;
     };
   };
 };
@@ -252,20 +254,30 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
 
           {/* Rating Section */}
           <View style={styles.ratingContainer}>
-            <View style={styles.ratingBox}>
-              <Text style={styles.ratingLabel}>Rating</Text>
-              <View style={styles.starsRow}>{renderStars()}</View>
-              <Text style={styles.ratingValue}>{ratingStars.toFixed(1)}/5</Text>
-              <Text style={styles.successRate}>{ratingPercentage}% success</Text>
-            </View>
+            {data.rating?.hidden ? (
+              <View style={styles.ratingBox}>
+                <Text style={styles.ratingLabel}>Hiring performance</Text>
+                <Text style={styles.completedCount}>Private</Text>
+                <Text style={styles.totalJobs}>This employer does not share hiring totals.</Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.ratingBox}>
+                  <Text style={styles.ratingLabel}>Rating</Text>
+                  <View style={styles.starsRow}>{renderStars()}</View>
+                  <Text style={styles.ratingValue}>{ratingStars.toFixed(1)}/5</Text>
+                  <Text style={styles.successRate}>{ratingPercentage}% success</Text>
+                </View>
 
-            <View style={styles.ratingBox}>
-              <Text style={styles.ratingLabel}>Completed</Text>
-              <Text style={styles.completedCount}>{data.rating?.completedCount || 0}</Text>
-              <Text style={styles.totalJobs}>
-                out of {data.rating?.totalCount || 0} records
-              </Text>
-            </View>
+                <View style={styles.ratingBox}>
+                  <Text style={styles.ratingLabel}>Completed</Text>
+                  <Text style={styles.completedCount}>{data.rating?.completedCount || 0}</Text>
+                  <Text style={styles.totalJobs}>
+                    out of {data.rating?.totalCount || 0} records
+                  </Text>
+                </View>
+              </>
+            )}
           </View>
 
           {/* Stats Section */}
@@ -299,7 +311,9 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
                       <Text style={styles.statLabel}>Total Applicants</Text>
                     </View>
                     <View style={styles.statBox}>
-                      <Text style={styles.statValue}>{(stats as any).hires || 0}</Text>
+                      <Text style={styles.statValue}>
+                        {(stats as any).hiresHidden ? 'Private' : (stats as any).hires || 0}
+                      </Text>
                       <Text style={styles.statLabel}>Hires</Text>
                     </View>
                   </>

@@ -23,10 +23,11 @@ type PublicProfileResponse = {
   };
   rating?: {
     viewAs?: "worker" | "employer";
-    stars?: number;
-    percentage?: number;
-    completedCount?: number;
-    totalCount?: number;
+    hidden?: boolean;
+    stars?: number | null;
+    percentage?: number | null;
+    completedCount?: number | null;
+    totalCount?: number | null;
   };
   stats?: {
     worker?: {
@@ -37,8 +38,9 @@ type PublicProfileResponse = {
     employer?: {
       jobsPosted?: number;
       totalApplicants?: number;
-      hires?: number;
-      successRate?: number;
+      hires?: number | null;
+      hiresHidden?: boolean;
+      successRate?: number | null;
     };
   };
 };
@@ -148,25 +150,37 @@ export function PublicProfile() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="text-xs text-[#64748B] mb-1">Rating</p>
-                <div className="flex items-center gap-2 mb-2">
-                  {Array.from({ length: 5 }).map((_, idx) => (
-                    <Star
-                      key={idx}
-                      className={`w-4 h-4 ${idx < Math.round(ratingStars) ? "text-[#F59E0B] fill-[#F59E0B]" : "text-[#CBD5E1]"}`}
-                    />
-                  ))}
-                  <span className="text-sm font-semibold text-[#0F172A]">{ratingStars.toFixed(1)}/5</span>
+              {data.rating?.hidden ? (
+                <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 md:col-span-2">
+                  <p className="text-xs text-[#64748B] mb-1">Hiring performance</p>
+                  <p className="text-sm font-semibold text-[#334155]">Private</p>
+                  <p className="mt-1 text-xs text-[#64748B]">
+                    This employer has chosen not to share hiring totals.
+                  </p>
                 </div>
-                <p className="text-sm text-[#334155]">{ratingPercentage}% success</p>
-              </div>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-[#E2E8F0] p-4">
+                    <p className="text-xs text-[#64748B] mb-1">Rating</p>
+                    <div className="flex items-center gap-2 mb-2">
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <Star
+                          key={idx}
+                          className={`w-4 h-4 ${idx < Math.round(ratingStars) ? "text-[#F59E0B] fill-[#F59E0B]" : "text-[#CBD5E1]"}`}
+                        />
+                      ))}
+                      <span className="text-sm font-semibold text-[#0F172A]">{ratingStars.toFixed(1)}/5</span>
+                    </div>
+                    <p className="text-sm text-[#334155]">{ratingPercentage}% success</p>
+                  </div>
 
-              <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="text-xs text-[#64748B] mb-1">Completed</p>
-                <p className="text-xl font-bold text-[#0F172A]">{data.rating?.completedCount || 0}</p>
-                <p className="text-sm text-[#334155]">out of {data.rating?.totalCount || 0} records</p>
-              </div>
+                  <div className="rounded-xl border border-[#E2E8F0] p-4">
+                    <p className="text-xs text-[#64748B] mb-1">Completed</p>
+                    <p className="text-xl font-bold text-[#0F172A]">{data.rating?.completedCount || 0}</p>
+                    <p className="text-sm text-[#334155]">out of {data.rating?.totalCount || 0} records</p>
+                  </div>
+                </>
+              )}
 
               <div className="rounded-xl border border-[#E2E8F0] p-4">
                 <p className="text-xs text-[#64748B] mb-1">Location</p>

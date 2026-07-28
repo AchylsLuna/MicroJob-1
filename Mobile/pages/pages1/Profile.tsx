@@ -67,7 +67,7 @@ export default function Profile({
       if (parsed.port) return parsed.port;
       return parsed.protocol === 'https:' ? '443' : '80';
     } catch {
-      return '5055';
+      return '5000';
     }
   })();
   const apiProtocol = (() => {

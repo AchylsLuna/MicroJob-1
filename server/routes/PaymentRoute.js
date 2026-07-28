@@ -10,6 +10,12 @@ import {
   listMyPayoutRequests,
   cancelPayoutRequest,
 } from '../controllers/PaymentController.js';
+import {
+  addPaymentMethod,
+  listPaymentMethods,
+  removePaymentMethod,
+  setDefaultPaymentMethod,
+} from '../controllers/PaymentMethodController.js';
 import verifyToken from '../middleware/auth.js';
 import requireAdmin from '../middleware/admin.js';
 
@@ -18,6 +24,10 @@ const router = express.Router();
 router.post('/topup', verifyToken, createTopUpSession);
 router.get('/transactions', verifyToken, getUserTransactions);
 router.post('/topup/confirm', verifyToken, confirmTopUp);
+router.get('/methods', verifyToken, listPaymentMethods);
+router.post('/methods', verifyToken, addPaymentMethod);
+router.patch('/methods/:paymentMethodId/default', verifyToken, setDefaultPaymentMethod);
+router.delete('/methods/:paymentMethodId', verifyToken, removePaymentMethod);
 router.get('/payout-requests', verifyToken, listMyPayoutRequests);
 router.post('/payout-requests', verifyToken, createPayoutRequest);
 router.post('/payout-requests/:payoutRequestId/cancel', verifyToken, cancelPayoutRequest);

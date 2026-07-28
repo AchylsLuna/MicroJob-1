@@ -252,7 +252,7 @@ export async function updateProfile(req, res) {
             return res.status(401).json({ message: "Authentication required." });
         }
 
-        const existingUser = await User.findById(userId).select("phoneNumber verification.phoneVerified");
+        const existingUser = await User.findById(userId).select("phoneNumber role verification.phoneVerified");
         if (!existingUser) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -277,6 +277,7 @@ export async function updateProfile(req, res) {
             "about",
             "linkedin",
             "totalExperience",
+            "hideHiredCandidates",
             // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated
         ];
 
@@ -322,6 +323,15 @@ export async function updateProfile(req, res) {
                 return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
             }
         }
+        if (updates.hideHiredCandidates !== undefined && typeof updates.hideHiredCandidates !== "boolean") {
+            return res.status(400).json({ message: "hideHiredCandidates must be a boolean." });
+        }
+        if (
+            updates.hideHiredCandidates !== undefined &&
+            !["hire", "both"].includes(String(existingUser.role || "").toLowerCase())
+        ) {
+            return res.status(403).json({ message: "Employer access is required to update this setting." });
+        }
 
         const existingPhone = normalizePhone(existingUser.phoneNumber || "");
         const incomingPhoneProvided = updates.phoneNumber !== undefined;
@@ -358,7 +368,7 @@ export async function updateProfile(req, res) {
             new: true,
             runValidators: true,
         }).select(
-            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName about linkedin totalExperience projectsCompleted jobsApplied successRate"
+            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName about linkedin totalExperience projectsCompleted jobsApplied successRate hideHiredCandidates"
         );
 
         if (!user) {
@@ -419,7 +429,7 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName role city province barangay addressType address about totalExperience companyName avatarUrl skills jobsApplied projectsCompleted successRate"
+            "firstName lastName role city province barangay addressType address about totalExperience companyName avatarUrl skills jobsApplied projectsCompleted successRate hideHiredCandidates"
         );
 
         if (!user) {
@@ -441,6 +451,8 @@ export async function getPublicProfile(req, res) {
         const workerRating = toRatingSummary(workerHiredCount, workerAppliedCount);
         const employerRating = toRatingSummary(employerHiredCount, employerApplicantsCount);
         const selectedRating = viewer === "employer" ? employerRating : workerRating;
+        const employerHiringStatsHidden =
+            viewer === "employer" && user.hideHiredCandidates !== false;
 
         return res.status(200).json({
             profile: {
@@ -461,10 +473,11 @@ export async function getPublicProfile(req, res) {
             },
             rating: {
                 viewAs: viewer,
-                stars: selectedRating.stars,
-                percentage: selectedRating.percentage,
-                completedCount: selectedRating.completedCount,
-                totalCount: selectedRating.totalCount,
+                hidden: employerHiringStatsHidden,
+                stars: employerHiringStatsHidden ? null : selectedRating.stars,
+                percentage: employerHiringStatsHidden ? null : selectedRating.percentage,
+                completedCount: employerHiringStatsHidden ? null : selectedRating.completedCount,
+                totalCount: employerHiringStatsHidden ? null : selectedRating.totalCount,
             },
             stats: {
                 worker: {
@@ -475,8 +488,9 @@ export async function getPublicProfile(req, res) {
                 employer: {
                     jobsPosted: postedJobIds.length,
                     totalApplicants: employerApplicantsCount,
-                    hires: employerHiredCount,
-                    successRate: employerRating.percentage,
+                    hires: employerHiringStatsHidden ? null : employerHiredCount,
+                    hiresHidden: employerHiringStatsHidden,
+                    successRate: employerHiringStatsHidden ? null : employerRating.percentage,
                 },
             },
         });
