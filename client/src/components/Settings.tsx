@@ -638,7 +638,7 @@ export function Settings() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [updateAuthProfile]);
 
   const handleSavePersonalInfo = async () => {
     setIsProfileSaving(true);
@@ -1020,8 +1020,9 @@ export function Settings() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">First name</label>
+                          <label htmlFor="settings-first-name" className="text-[14px] font-medium text-[#475569] mb-2 block">First name</label>
                           <input
+                            id="settings-first-name"
                             type="text"
                             value={personalInfo.firstName}
                             onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
@@ -1029,8 +1030,9 @@ export function Settings() {
                           />
                         </div>
                         <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Last name</label>
+                          <label htmlFor="settings-last-name" className="text-[14px] font-medium text-[#475569] mb-2 block">Last name</label>
                           <input
+                            id="settings-last-name"
                             type="text"
                             value={personalInfo.lastName}
                             onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
@@ -1041,8 +1043,9 @@ export function Settings() {
 
                       {isEmployerRole && (
                         <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Company name</label>
+                          <label htmlFor="settings-company-name" className="text-[14px] font-medium text-[#475569] mb-2 block">Company name</label>
                           <input
+                            id="settings-company-name"
                             type="text"
                             value={personalInfo.companyName}
                             onChange={(e) => handlePersonalInfoChange("companyName", e.target.value)}
@@ -1056,8 +1059,9 @@ export function Settings() {
                         <>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
+                              <label htmlFor="settings-employer-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
                               <select
+                                id="settings-employer-city"
                                 value={personalInfo.city}
                                 onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
                                 disabled={isLoadingLocationData}
@@ -1073,8 +1077,9 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
+                              <label htmlFor="settings-employer-province" className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
                               <select
+                                id="settings-employer-province"
                                 value={personalInfo.province}
                                 onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
                                 disabled={isLoadingLocationData}
@@ -1090,8 +1095,9 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
+                              <label htmlFor="settings-employer-barangay" className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
                               <select
+                                id="settings-employer-barangay"
                                 value={personalInfo.barangay}
                                 onChange={(e) => handlePersonalInfoChange("barangay", e.target.value)}
                                 disabled={isLoadingBarangays || !personalInfo.city}
@@ -1115,8 +1121,9 @@ export function Settings() {
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Location type</label>
+                              <label htmlFor="settings-location-type" className="text-[14px] font-medium text-[#475569] mb-2 block">Location type</label>
                               <select
+                                id="settings-location-type"
                                 value={personalInfo.addressType}
                                 onChange={(e) => handlePersonalInfoChange("addressType", e.target.value)}
                                 className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
@@ -1127,8 +1134,9 @@ export function Settings() {
                               </select>
                             </div>
                             <div>
-                              <label className="text-[14px] font-medium text-[#475569] mb-2 block">Address / Place</label>
+                              <label htmlFor="settings-address" className="text-[14px] font-medium text-[#475569] mb-2 block">Address / Place</label>
                               <input
+                                id="settings-address"
                                 type="text"
                                 list="settings-address-options"
                                 value={personalInfo.address}
@@ -1147,8 +1155,9 @@ export function Settings() {
                         </>
                       ) : (
                         <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
+                          <label htmlFor="settings-worker-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
                           <select
+                            id="settings-worker-city"
                             value={personalInfo.city}
                             onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
                             disabled={isLoadingLocationData}
@@ -1167,8 +1176,9 @@ export function Settings() {
                       {!isAdminRole && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Phone number</label>
+                            <label htmlFor="settings-phone" className="text-[14px] font-medium text-[#475569] mb-2 block">Phone number</label>
                             <input
+                              id="settings-phone"
                               type="tel"
                               value={personalInfo.phone}
                               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
@@ -1177,8 +1187,9 @@ export function Settings() {
                             />
                           </div>
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
+                            <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
                             <input
+                              id="settings-employer-email"
                               type="email"
                               value={personalInfo.email}
                               disabled
@@ -1190,8 +1201,9 @@ export function Settings() {
 
                       {isAdminRole && (
                         <div>
-                          <label className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
+                          <label htmlFor="settings-worker-email" className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
                           <input
+                            id="settings-worker-email"
                             type="email"
                             value={personalInfo.email}
                             disabled
@@ -1203,8 +1215,9 @@ export function Settings() {
                       {!isAdminRole && (
                         <>
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
+                            <label htmlFor="settings-about" className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
                             <textarea
+                              id="settings-about"
                               value={personalInfo.about}
                               onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
                               placeholder="Tell us about yourself, your experience, and what you're passionate about..."
@@ -1214,8 +1227,9 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Total Experience</label>
+                            <label htmlFor="settings-experience" className="text-[14px] font-medium text-[#475569] mb-2 block">Total Experience</label>
                             <select
+                              id="settings-experience"
                               value={experienceStats.totalExperience}
                               onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
                               className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
@@ -1236,7 +1250,7 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</label>
+                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</p>
                             {resolvedAvatarUrl ? (
                               <div className="flex items-center gap-4">
                                 <img
@@ -1347,7 +1361,7 @@ export function Settings() {
                         <div className="space-y-4">
                           {/* Skill Selection Mode */}
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Choose Option</label>
+                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">Choose Option</p>
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -1374,9 +1388,10 @@ export function Settings() {
 
                           {/* Skill Name Input */}
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Skill Name</label>
+                            <p id="settings-skill-name-label" className="text-[14px] font-medium text-[#475569] mb-2 block">Skill Name</p>
                             {skillSelectionMode === "predefined" ? (
                               <select
+                                aria-labelledby="settings-skill-name-label"
                                 value={selectedPredefinedSkill}
                                 onChange={(e) => setSelectedPredefinedSkill(e.target.value)}
                                 className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
@@ -1481,6 +1496,7 @@ export function Settings() {
                               </select>
                             ) : (
                               <input
+                                aria-labelledby="settings-skill-name-label"
                                 type="text"
                                 value={newSkillName}
                                 onChange={(e) => setNewSkillName(e.target.value)}
@@ -1492,8 +1508,9 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label className="text-[14px] font-medium text-[#475569] mb-2 block">Description or experience note</label>
+                            <label htmlFor="settings-skill-description" className="text-[14px] font-medium text-[#475569] mb-2 block">Description or experience note</label>
                             <textarea
+                              id="settings-skill-description"
                               value={newSkillDescription}
                               onChange={(e) => setNewSkillDescription(e.target.value)}
                               placeholder="Optional: describe what you can do or your experience with this skill"
@@ -1608,9 +1625,10 @@ export function Settings() {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-[13px] text-[#6B7280]">Current Password</label>
+                    <label htmlFor="settings-current-password" className="text-[13px] text-[#6B7280]">Current Password</label>
                     <div className="relative">
                       <input
+                        id="settings-current-password"
                         type={showCurrentPassword ? "text" : "password"}
                         value={securityData.currentPassword}
                         onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
@@ -1641,8 +1659,9 @@ export function Settings() {
                   </div>
 
                   <div>
-                    <label className="text-[13px] text-[#6B7280]">OTP Code</label>
+                    <label htmlFor="settings-password-otp" className="text-[13px] text-[#6B7280]">OTP Code</label>
                     <input
+                      id="settings-password-otp"
                       type="text"
                       value={passwordOtp}
                       onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -1653,9 +1672,10 @@ export function Settings() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[13px] text-[#6B7280]">New Password</label>
+                      <label htmlFor="settings-new-password" className="text-[13px] text-[#6B7280]">New Password</label>
                       <div className="relative">
                         <input
+                          id="settings-new-password"
                           type={showNewPassword ? "text" : "password"}
                           value={securityData.newPassword}
                           onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
@@ -1672,9 +1692,10 @@ export function Settings() {
                     </div>
 
                     <div>
-                      <label className="text-[13px] text-[#6B7280]">Confirm Password</label>
+                      <label htmlFor="settings-confirm-password" className="text-[13px] text-[#6B7280]">Confirm Password</label>
                       <div className="relative">
                         <input
+                          id="settings-confirm-password"
                           type={showConfirmPassword ? "text" : "password"}
                           value={securityData.confirmPassword}
                           onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}

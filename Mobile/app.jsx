@@ -5,7 +5,7 @@ import { NavigationContainer, useFocusEffect, useNavigation, useRoute } from '@r
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from './lib/storage';
 import { API_URL } from './config';
 import { apiRequest } from './lib/api';
 import { tokens } from './theme/tokens';

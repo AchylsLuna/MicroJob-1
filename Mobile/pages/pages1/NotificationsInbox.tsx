@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
@@ -44,7 +44,7 @@ export default function NotificationsInbox({
     });
   };
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -64,11 +64,11 @@ export default function NotificationsInbox({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session, toast]);
 
   useEffect(() => {
     void loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (!Array.isArray(liveNotifications) || liveNotifications.length === 0) return;

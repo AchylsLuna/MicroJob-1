@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Calendar,
   CheckSquare,
@@ -22,6 +22,7 @@ import {
   type ApplicationStatus,
 } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
+import { safeExternalUrl } from "../../utils/safeExternalUrl";
 
 const PIPELINE_STATUSES: ApplicationStatus[] = [
   "Applied",
@@ -81,15 +82,10 @@ type EmployerApplication = {
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
   if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return value;
-  if (value.startsWith("/")) {
-    const apiBase = import.meta.env.VITE_API_BASE || "/api";
-    const origin = apiBase.startsWith("http")
-      ? apiBase.replace(/\/api\/?$/, "")
-      : window.location.origin;
-    return `${origin}${value}`;
-  }
-  return value;
+  const apiBase = import.meta.env.VITE_API_BASE || "/api";
+  const origin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : window.location.origin;
+  const candidate = value.startsWith("/") ? `${origin}${value}` : value;
+  return safeExternalUrl(candidate, { purpose: "asset", trustedOrigins: [origin] });
 };
 
 const formatDate = (value?: string) => {
@@ -291,7 +287,7 @@ export function ApplicationsManagement() {
   });
   const [isScheduling, setIsScheduling] = useState(false);
 
-  const loadApplications = async () => {
+  const loadApplications = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
@@ -309,12 +305,12 @@ export function ApplicationsManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [jobFilter, searchTerm, statusFilter]);
 
   useEffect(() => {
     const timer = window.setTimeout(loadApplications, 250);
     return () => window.clearTimeout(timer);
-  }, [jobFilter, searchTerm, statusFilter]);
+  }, [loadApplications]);
 
   const groupedApplications = useMemo(
     () =>
@@ -358,26 +354,28 @@ export function ApplicationsManagement() {
 
   const handleHideApplications = async (applicationIds: string[]) => {
     if (applicationIds.length === 0) return;
-    try {
-      await Promise.all(applicationIds.map((applicationId) => hideEmployerApplication(applicationId)));
-      setApplications((current) => current.filter((item) => !applicationIds.includes(item._id)));
-      setSelectedIds((current) => current.filter((id) => !applicationIds.includes(id)));
-      toast.success(applicationIds.length === 1 ? "Application hidden." : "Applications hidden.");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to hide applications.");
-    }
+    const results = await Promise.allSettled(applicationIds.map((applicationId) => hideEmployerApplication(applicationId)));
+    const succeeded = applicationIds.filter((_, index) => results[index].status === "fulfilled");
+    const failed = applicationIds.length - succeeded.length;
+    setApplications((current) => current.filter((item) => !succeeded.includes(item._id)));
+    setSelectedIds((current) => current.filter((id) => !succeeded.includes(id)));
+    if (succeeded.length) toast.success(`${succeeded.length} application${succeeded.length === 1 ? "" : "s"} hidden.`);
+    if (failed) toast.error(`${failed} application${failed === 1 ? "" : "s"} could not be hidden. Try again.`);
   };
 
   const handleBulkStatusChange = async () => {
     if (selectedIds.length === 0) return;
     setIsBulkUpdating(true);
     try {
-      await Promise.all(selectedIds.map((applicationId) => updateApplicationStatus(applicationId, bulkStatus)));
+      const results = await Promise.allSettled(selectedIds.map((applicationId) => updateApplicationStatus(applicationId, bulkStatus)));
+      const succeeded = new Set(selectedIds.filter((_, index) => results[index].status === "fulfilled"));
+      const failed = selectedIds.length - succeeded.size;
       setApplications((current) =>
-        current.map((item) => (selectedSet.has(item._id) ? { ...item, status: bulkStatus } : item)),
+        current.map((item) => (succeeded.has(item._id) ? { ...item, status: bulkStatus } : item)),
       );
-      setSelectedIds([]);
-      toast.success(`Updated ${selectedIds.length} application${selectedIds.length === 1 ? "" : "s"}.`);
+      setSelectedIds((current) => current.filter((id) => !succeeded.has(id)));
+      if (succeeded.size) toast.success(`Updated ${succeeded.size} application${succeeded.size === 1 ? "" : "s"}.`);
+      if (failed) toast.error(`${failed} application${failed === 1 ? "" : "s"} could not be updated and remain selected.`);
     } catch (error: any) {
       toast.error(error?.message || "Failed to update selected applications.");
     } finally {
@@ -475,6 +473,7 @@ export function ApplicationsManagement() {
             <button
               type="button"
               onClick={() => setViewMode("board")}
+              aria-pressed={viewMode === "board"}
               className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold ${viewMode === "board" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-white text-[#475569]"}`}
             >
               <Grid2X2 className="w-4 h-4" />
@@ -483,6 +482,7 @@ export function ApplicationsManagement() {
             <button
               type="button"
               onClick={() => setViewMode("table")}
+              aria-pressed={viewMode === "table"}
               className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-white text-[#475569]"}`}
             >
               <LayoutList className="w-4 h-4" />
@@ -499,10 +499,12 @@ export function ApplicationsManagement() {
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               placeholder="Search by applicant, email, or job title"
+              aria-label="Search applications"
               className="w-full h-11 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
             />
           </div>
           <select
+            aria-label="Filter applications by stage"
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
             className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
@@ -515,6 +517,7 @@ export function ApplicationsManagement() {
             ))}
           </select>
           <select
+            aria-label="Filter applications by job"
             value={jobFilter}
             onChange={(event) => setJobFilter(event.target.value)}
             className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
@@ -535,6 +538,7 @@ export function ApplicationsManagement() {
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <select
+                aria-label="Bulk application stage"
                 value={bulkStatus}
                 onChange={(event) => setBulkStatus(event.target.value as ApplicationStatus)}
                 className="h-10 rounded-[10px] border border-[#BFDBFE] px-3 text-[13px] text-[#111827]"
@@ -584,9 +588,9 @@ export function ApplicationsManagement() {
       ) : null}
 
       {!isLoading && applications.length > 0 && viewMode === "board" ? (
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div className="flex flex-col gap-4 pb-2 md:flex-row md:overflow-x-auto">
           {PIPELINE_STATUSES.map((status) => (
-            <div key={status} className="min-w-[320px] max-w-[320px] rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4">
+            <div key={status} className="w-full rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4 md:min-w-[320px] md:max-w-[320px]">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-[16px] font-semibold text-[#111827]">{status}</h3>
@@ -734,8 +738,9 @@ export function ApplicationsManagement() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[13px] text-[#374151] mb-2">Date and time</label>
+                <label htmlFor="interview-date" className="block text-[13px] text-[#374151] mb-2">Date and time</label>
                 <input
+                  id="interview-date"
                   type="datetime-local"
                   value={scheduleForm.scheduledAt}
                   onChange={(event) => setScheduleForm((current) => ({ ...current, scheduledAt: event.target.value }))}
@@ -743,8 +748,9 @@ export function ApplicationsManagement() {
                 />
               </div>
               <div>
-                <label className="block text-[13px] text-[#374151] mb-2">Mode</label>
+                <label htmlFor="interview-mode" className="block text-[13px] text-[#374151] mb-2">Mode</label>
                 <select
+                  id="interview-mode"
                   value={scheduleForm.mode}
                   onChange={(event) => setScheduleForm((current) => ({ ...current, mode: event.target.value }))}
                   className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
@@ -758,8 +764,9 @@ export function ApplicationsManagement() {
             </div>
 
             <div>
-              <label className="block text-[13px] text-[#374151] mb-2">Location or meeting link</label>
+              <label htmlFor="interview-location" className="block text-[13px] text-[#374151] mb-2">Location or meeting link</label>
               <input
+                id="interview-location"
                 type="text"
                 value={scheduleForm.location}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, location: event.target.value }))}
@@ -769,8 +776,9 @@ export function ApplicationsManagement() {
             </div>
 
             <div>
-              <label className="block text-[13px] text-[#374151] mb-2">Notes</label>
+              <label htmlFor="interview-notes" className="block text-[13px] text-[#374151] mb-2">Notes</label>
               <textarea
+                id="interview-notes"
                 rows={4}
                 value={scheduleForm.notes}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, notes: event.target.value }))}

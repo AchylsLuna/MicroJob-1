@@ -66,7 +66,7 @@ export function SignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center px-6 py-10 lg:py-14">
+    <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center px-6 py-10 lg:py-14">
       <div className="w-full max-w-[1200px] grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left Side - Branding */}
         <div className="text-white space-y-8 flex flex-col justify-start">
@@ -135,19 +135,20 @@ export function SignIn() {
           </button>
 
           <div className="mb-8">
-            <h2 className="text-[28px] font-bold text-[#111827] mb-2">Welcome Back!</h2>
+            <h1 className="text-[28px] font-bold text-[#111827] mb-2">Welcome Back!</h1>
             <p className="text-[14px] text-[#6B7280]">Enter your credentials to access your account</p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-5">
             {/* Email */}
             <div>
-              <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+              <label htmlFor="signin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">
                 Email Address
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
                 <input
+                  id="signin-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -162,12 +163,13 @@ export function SignIn() {
 
             {/* Password */}
             <div>
-              <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+              <label htmlFor="signin-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
                 Password
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
                 <input
+                  id="signin-password"
                   ref={passwordInputRef}
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
@@ -179,6 +181,7 @@ export function SignIn() {
                 />
                 <button
                   type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
                 >
@@ -239,6 +242,6 @@ export function SignIn() {
         />
       )}
 
-    </div>
+    </main>
   );
 }

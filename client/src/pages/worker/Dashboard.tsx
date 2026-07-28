@@ -256,11 +256,10 @@ function StatCard({ icon, title, count, bgColor, change, onClick }: StatCardProp
 
 export function Dashboard() {
   const { user } = useAuth();
+  return user?.accountType === "employer" ? <EmployerDashboard /> : <WorkerDashboardContent />;
+}
 
-  if (user?.accountType === "employer") {
-    return <EmployerDashboard />;
-  }
-
+function WorkerDashboardContent() {
   const navigate = useNavigate();
   const [applicationCount, setApplicationCount] = useState(0);
   const [applications, setApplications] = useState<DashboardApplication[]>([]);

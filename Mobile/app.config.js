@@ -3,6 +3,7 @@ const expo = {
   slug: 'mobile',
   version: '1.0.0',
   platforms: ['ios', 'android', 'web'],
+  plugins: ['expo-secure-store'],
   extra: {
     eas: {
       projectId: 'd1b2d617-2132-4db6-828e-92b06ae42e6f',

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MessageSquare, Search, Send, ShieldCheck } from "lucide-react";
 import { toast } from "../../lib/toast";
 import {
@@ -59,7 +59,7 @@ function AdminSupportTicketsContent() {
     [selectedTicketId, tickets],
   );
 
-  const loadTickets = async (options?: { silent?: boolean }) => {
+  const loadTickets = useCallback(async (options?: { silent?: boolean }) => {
     const silent = Boolean(options?.silent);
     if (!silent) {
       setIsLoading(true);
@@ -86,7 +86,7 @@ function AdminSupportTicketsContent() {
         setIsLoading(false);
       }
     }
-  };
+  }, [search, statusFilter]);
 
   const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean }) => {
     const silent = Boolean(options?.silent);
@@ -107,7 +107,7 @@ function AdminSupportTicketsContent() {
 
   useEffect(() => {
     loadTickets();
-  }, [search, statusFilter]);
+  }, [loadTickets, search, statusFilter]);
 
   useEffect(() => {
     if (selectedTicketId) {
@@ -120,7 +120,7 @@ function AdminSupportTicketsContent() {
       loadTickets({ silent: true });
     }, 10000);
     return () => window.clearInterval(id);
-  }, [search, statusFilter]);
+  }, [loadTickets, search, statusFilter]);
 
   useEffect(() => {
     if (!selectedTicketId) return;
@@ -266,8 +266,9 @@ function AdminSupportTicketsContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[13px] text-[#374151] mb-2">Status</label>
+                  <label htmlFor="ticket-status" className="block text-[13px] text-[#374151] mb-2">Status</label>
                   <select
+                    id="ticket-status"
                     value={status}
                     onChange={(event) => setStatus(event.target.value as SupportTicket["status"])}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
@@ -280,8 +281,9 @@ function AdminSupportTicketsContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[13px] text-[#374151] mb-2">Priority</label>
+                  <label htmlFor="ticket-priority" className="block text-[13px] text-[#374151] mb-2">Priority</label>
                   <select
+                    id="ticket-priority"
                     value={priority}
                     onChange={(event) => setPriority(event.target.value as SupportTicket["priority"])}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
@@ -305,8 +307,9 @@ function AdminSupportTicketsContent() {
               </div>
 
               <div>
-                <label className="block text-[13px] text-[#374151] mb-2">Review Note</label>
+                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">Review Note</label>
                 <textarea
+                  id="ticket-review-note"
                   rows={3}
                   value={reviewNotes}
                   onChange={(event) => setReviewNotes(event.target.value)}

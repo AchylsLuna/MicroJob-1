@@ -38,6 +38,10 @@ export function RoleRoute({ requiredRole }: { requiredRole: RouteRole }) {
     return <Navigate to={getSignInRouteForPath(location.pathname)} replace />;
   }
 
+  if (user.passwordChangeRequired) {
+    return <Navigate to="/change-initial-password" replace />;
+  }
+
   const hasAccess =
     requiredRole === "admin"
       ? isAdmin(user)

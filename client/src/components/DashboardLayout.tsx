@@ -52,7 +52,7 @@ export function DashboardLayout() {
 
   return (
     <div className={webUi.layout.shell}>
-      <div className="hidden shrink-0 lg:block">
+      <div className="hidden h-full shrink-0 lg:block">
         <Sidebar />
       </div>
       {isMobileSidebarOpen && (

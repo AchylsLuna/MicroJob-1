@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { BriefcaseBusiness, Filter, Plus, Search, X } from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
+import { ConfirmDialog } from "../../components/ui";
 
 type JobEdit = {
   _id: string;
@@ -194,6 +195,7 @@ const PostJob: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobTypeFilter, setJobTypeFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState<JobEdit | null>(null);
   const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
   const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
   const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
@@ -515,11 +517,11 @@ const PostJob: React.FC = () => {
   };
 
   const handleDeleteJob = async (job: JobEdit) => {
-    const ok = window.confirm(`Delete "${job.title || "this job"}"?`);
-    if (!ok || !job._id) return;
+    if (!job._id) return;
     try {
       await jobsAPI.deleteJob(job._id);
       await loadJobs();
+      setDeleteTarget(null);
     } catch (err: any) {
       setJobsError(err?.response?.data?.message || "Failed to delete job.");
     }
@@ -694,7 +696,7 @@ const PostJob: React.FC = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDeleteJob(job)}
+                    onClick={() => setDeleteTarget(job)}
                     className="h-10 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 hover:bg-red-100"
                   >
                     Delete
@@ -756,10 +758,11 @@ const PostJob: React.FC = () => {
                 <form onSubmit={handleSubmit} noValidate className="space-y-5">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label htmlFor="job-title" className="mb-2 block text-sm font-semibold text-slate-700">
                         Job Title <span className="text-red-500">*</span>
                       </label>
                       <input
+                        id="job-title"
                         type="text"
                         data-field="title"
                         value={formData.title}
@@ -771,10 +774,11 @@ const PostJob: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label htmlFor="job-category" className="mb-2 block text-sm font-semibold text-slate-700">
                         Category <span className="text-red-500">*</span>
                       </label>
                       <select
+                        id="job-category"
                         data-field="category"
                         value={formData.category}
                         onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
@@ -793,8 +797,9 @@ const PostJob: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">Job Type</label>
+                      <label htmlFor="job-type" className="mb-2 block text-sm font-semibold text-slate-700">Job Type</label>
                       <select
+                        id="job-type"
                         data-field="jobType"
                         value={formData.jobType}
                         onChange={(e) => setFormData((prev) => ({ ...prev, jobType: e.target.value }))}
@@ -810,8 +815,9 @@ const PostJob: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">Location Type</label>
+                      <label htmlFor="job-location-type" className="mb-2 block text-sm font-semibold text-slate-700">Location Type</label>
                       <select
+                        id="job-location-type"
                         value={formData.addressType}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -830,10 +836,11 @@ const PostJob: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label htmlFor="job-province" className="mb-2 block text-sm font-semibold text-slate-700">
                         Province <span className="text-red-500">*</span>
                       </label>
                       <select
+                        id="job-province"
                         data-field="location"
                         value={formData.province}
                         onChange={(e) =>
@@ -860,10 +867,11 @@ const PostJob: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label htmlFor="job-city" className="mb-2 block text-sm font-semibold text-slate-700">
                         City / Municipality <span className="text-red-500">*</span>
                       </label>
                       <select
+                        id="job-city"
                         value={formData.city}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -892,10 +900,11 @@ const PostJob: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label htmlFor="job-barangay" className="mb-2 block text-sm font-semibold text-slate-700">
                         Barangay <span className="text-red-500">*</span>
                       </label>
                       <select
+                        id="job-barangay"
                         value={formData.barangay}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -924,8 +933,9 @@ const PostJob: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">Address / Place</label>
+                    <label htmlFor="job-address" className="mb-2 block text-sm font-semibold text-slate-700">Address / Place</label>
                     <input
+                      id="job-address"
                       type="text"
                       value={formData.address}
                       onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
@@ -939,11 +949,13 @@ const PostJob: React.FC = () => {
                   </p>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    <p id="job-salary-label" className="mb-2 block text-sm font-semibold text-slate-700">
                       Salary Range (PHP / month) <span className="text-red-500">*</span>
-                    </label>
+                    </p>
                     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
                       <input
+                        aria-labelledby="job-salary-label"
+                        aria-label="Minimum monthly salary"
                         type="text"
                         data-field="salary"
                         inputMode="numeric"
@@ -959,6 +971,8 @@ const PostJob: React.FC = () => {
                       />
                       <span className="text-slate-400 text-xl leading-none">-</span>
                       <input
+                        aria-labelledby="job-salary-label"
+                        aria-label="Maximum monthly salary"
                         type="text"
                         data-field="salary"
                         inputMode="numeric"
@@ -977,10 +991,11 @@ const PostJob: React.FC = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">
+                      <label htmlFor="job-deadline" className="mb-2 block text-sm font-semibold text-slate-700">
                         Deadline <span className="text-red-500">*</span>
                       </label>
                       <input
+                        id="job-deadline"
                         type="date"
                         data-field="deadline"
                         value={formData.deadline}
@@ -991,8 +1006,9 @@ const PostJob: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-sm font-semibold text-slate-700">Positions Needed</label>
+                      <label htmlFor="job-positions" className="mb-2 block text-sm font-semibold text-slate-700">Positions Needed</label>
                       <input
+                        id="job-positions"
                         type="number"
                         min={1}
                         value={formData.positionsNeeded}
@@ -1005,10 +1021,11 @@ const PostJob: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    <label htmlFor="job-description" className="mb-2 block text-sm font-semibold text-slate-700">
                       Job Description <span className="text-red-500">*</span>
                     </label>
                     <textarea
+                      id="job-description"
                       data-field="description"
                       value={formData.description}
                       onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
@@ -1019,8 +1036,9 @@ const PostJob: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">Requirements</label>
+                    <label htmlFor="job-requirements" className="mb-2 block text-sm font-semibold text-slate-700">Requirements</label>
                     <textarea
+                      id="job-requirements"
                       value={formData.requirements}
                       onChange={(e) =>
                         setFormData((prev) => ({ ...prev, requirements: e.target.value }))
@@ -1031,8 +1049,9 @@ const PostJob: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">Responsibilities</label>
+                    <label htmlFor="job-responsibilities" className="mb-2 block text-sm font-semibold text-slate-700">Responsibilities</label>
                     <textarea
+                      id="job-responsibilities"
                       value={formData.responsibilities}
                       onChange={(e) =>
                         setFormData((prev) => ({ ...prev, responsibilities: e.target.value }))
@@ -1043,8 +1062,9 @@ const PostJob: React.FC = () => {
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-sm font-semibold text-slate-700">Skills (comma-separated)</label>
+                    <label htmlFor="job-skills" className="mb-2 block text-sm font-semibold text-slate-700">Skills (comma-separated)</label>
                     <input
+                      id="job-skills"
                       type="text"
                       value={formData.skills}
                       onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
@@ -1082,6 +1102,15 @@ const PostJob: React.FC = () => {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete job"
+        description={`Delete “${deleteTarget?.title || "this job"}”? This action cannot be undone.`}
+        confirmLabel="Delete job"
+        destructive
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDeleteJob(deleteTarget)}
+      />
     </div>
   );
 };

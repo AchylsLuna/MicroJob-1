@@ -10,13 +10,8 @@ export function MicroJobsLogo({ className = "", variant = "dark", onClick }: Mic
   const textColor = variant === "light" ? "text-white" : "text-[#111827]";
   const iconColor = variant === "light" ? "#ffffff" : "#1C4D8D";
 
-  return (
-    <div
-      className={`flex items-center gap-3 ${className}`}
-      onClick={onClick}
-      role="img"
-      aria-label="Micro Jobs"
-    >
+  const content = (
+    <>
       <div className="relative shrink-0 w-10 h-10">
         <svg className="block w-full h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
           <path clipRule="evenodd" d={svgPaths.pb82c00} fill={iconColor} fillRule="evenodd" />
@@ -24,6 +19,12 @@ export function MicroJobsLogo({ className = "", variant = "dark", onClick }: Mic
         </svg>
       </div>
       <span className={`text-[22px] md:text-[24px] font-semibold tracking-tight ${textColor}`}>Micro Jobs</span>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return <button type="button" className={`flex items-center gap-3 ${className}`} onClick={onClick} aria-label="Micro Jobs home">{content}</button>;
+  }
+
+  return <div className={`flex items-center gap-3 ${className}`} role="img" aria-label="Micro Jobs">{content}</div>;
 }

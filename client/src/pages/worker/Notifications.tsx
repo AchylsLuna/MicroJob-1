@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
 import { deleteNotification, getNotifications, markAllNotificationsRead, markNotificationRead } from '../../services/api';
-import { ROUTES } from '../../utils/routes';
 import { toast } from '../../lib/toast';
 import { useAuth } from '../../hooks/useAuth';
 import { mapNotificationRecord, type FeedNotification, type NotificationFeedType } from '../../utils/notificationFeed';
@@ -27,7 +26,7 @@ export default function NotificationsPage() {
       ? 'employer'
       : 'worker';
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     if (!user) {
       setNotifications([]);
       return;
@@ -46,13 +45,13 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [notificationAudience, user]);
 
   useEffect(() => {
     fetchNotifications();
     // Also refresh the global notification count in NavBar
     window.dispatchEvent(new Event('notification-refresh'));
-  }, [notificationAudience]);
+  }, [fetchNotifications, notificationAudience]);
 
   const markRead = async (notificationId: string) => {
     try {

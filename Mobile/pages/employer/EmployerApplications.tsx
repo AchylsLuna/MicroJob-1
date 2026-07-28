@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
 import TabTopNav from '../../components/TabTopNav';
@@ -99,7 +99,7 @@ export default function EmployerApplications({
     return Array.from(unique.entries()).map(([id, title]) => ({ id, title }));
   }, [applications]);
 
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
     setLoading(true);
     setErrorMessage('');
     try {
@@ -147,12 +147,12 @@ export default function EmployerApplications({
     } finally {
       setLoading(false);
     }
-  };
+  }, [jobFilter, search, statusFilter]);
 
   useEffect(() => {
     const debounce = setTimeout(fetchApplications, 300);
     return () => clearTimeout(debounce);
-  }, [statusFilter, jobFilter, search]);
+  }, [statusFilter, jobFilter, search, fetchApplications]);
 
   const handleStatusChange = async (applicationId: string, status: ApplicationStatus) => {
     setUpdatingId(applicationId);

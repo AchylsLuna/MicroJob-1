@@ -8,7 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import AppHeader from '../../components/AppHeader';
 import { tokens } from '../../theme/tokens';
 import { API_URL } from '../../config';
@@ -71,7 +71,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     loadStatus();

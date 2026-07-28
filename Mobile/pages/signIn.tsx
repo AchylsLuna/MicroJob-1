@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { API_URL } from '../config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../lib/storage';
 import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

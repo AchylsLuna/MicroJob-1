@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import PublicProfile from '../shared/PublicProfile';
@@ -225,7 +225,7 @@ export default function JobDetails({
     }
   };
 
-  const fetchDetails = async () => {
+  const fetchDetails = useCallback(async () => {
     if (!job?._id) return;
     setIsLoading(true);
     setErrorMessage('');
@@ -250,16 +250,16 @@ export default function JobDetails({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [job?._id]);
 
   useEffect(() => {
     fetchDetails();
-  }, [job?._id]);
+  }, [fetchDetails, job._id]);
 
   useEffect(() => {
     const employerId = resolveEmployerId(jobDetails) || resolveEmployerId(job);
     fetchEmployerPreview(employerId);
-  }, [jobDetails?._id, jobDetails?.jobPoster, job?._id]);
+  }, [jobDetails._id, jobDetails.jobPoster, job._id, jobDetails, job]);
 
   if (showProfile && profileUserId) {
     return (

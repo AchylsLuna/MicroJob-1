@@ -291,7 +291,6 @@ async function request<T>(
   let { res, data } = await performRequest(path, method, headers, body, isFormData);
 
   if (!res.ok) {
-    const message = data?.message || 'Request failed';
     const canAttemptRefresh =
       res.status === 401 &&
       hasLocalSession &&
@@ -352,6 +351,10 @@ export function requestPasswordChangeOtp(payload: { currentPassword: string }) {
 
 export function confirmPasswordChangeWithOtp(payload: { currentPassword: string; code: string; newPassword: string }) {
   return request<{ message: string }>('/auth/password-change/confirm', { method: 'POST', body: payload });
+}
+
+export function changeInitialPassword(payload: { currentPassword: string; newPassword: string }) {
+  return request<{ message: string }>('/auth/password/initial-change', { method: 'POST', body: payload });
 }
 
 // Category APIs
@@ -466,6 +469,14 @@ export function getUserList() {
 
 export function updateUserStatus(userId: string, status: 'active' | 'pending' | 'disabled') {
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
+}
+
+export function inviteUser(payload: { firstName: string; lastName: string; email: string; role: 'work' | 'hire' | 'both' | 'admin' | 'superadmin' }) {
+  return request<{ message: string; user: any }>('/users/invitations', { method: 'POST', body: payload });
+}
+
+export function updateUserByAdmin(userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' }) {
+  return request<{ message: string; user: any }>(`/users/${userId}`, { method: 'PATCH', body: payload });
 }
 
 export function deleteUser(userId: string) {

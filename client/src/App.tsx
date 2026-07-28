@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter as Router,
   Navigate,
@@ -8,50 +8,9 @@ import {
   useNavigate,
   useParams,
 } from "react-router-dom";
-import { CookiePolicy } from "./components/CookiePolicy";
-import { ForgotPassword } from "./components/ForgotPassword";
-import { JobDetails } from "./components/JobDetails";
-import { LandingPage } from "./components/LandingPage";
-import { PrivacyPolicy } from "./components/PrivacyPolicy";
-import { ResetPassword } from "./components/ResetPassword";
-import { Settings } from "./components/Settings";
-import { SignIn } from "./components/SignIn";
-import { SignUp } from "./components/SignUp";
-import { TermsAndConditions } from "./components/TermsAndConditions";
 import SidebarLayout from "./components/layout/SidebarLayout";
 import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
-import EmailVerification from "./pages/emailVerification";
-import { TopUpSuccess } from "./pages/TopUpSuccess";
-import { PublicProfile } from "./pages/shared/PublicProfile";
-import {
-  AdminAnalytics,
-  AdminDashboard,
-  AdminEWalletMonitoring,
-  AdminJobMonitoring,
-  AdminReports,
-  AdminSecurity,
-  AdminSignIn,
-  AdminSupportTickets,
-  AdminUserManagement,
-} from "./pages/admin";
-import { ApplicationsManagement as Applications } from "./pages/employer/ApplicationsManagement";
-import { EmployerDashboard } from "./pages/employer/EmployerDashboard";
-import { JobsManagement } from "./pages/employer/JobsManagement";
-import PostJob from "./pages/employer/PostJob";
-import NotificationsRouter from "./pages/NotificationsRouter";
-import SupportRouter from "./pages/SupportRouter";
-import {
-  AppliedJobs,
-  FindJobs,
-  SavedJobs,
-  WorkerDashboard,
-  WorkerEWallet,
-  WorkerMessages,
-  WorkerNotifications,
-  WorkerProfile,
-  WorkerSupport,
-} from "./pages/worker";
 import { Toaster } from "./lib/toast";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { getDefaultDashboardPath } from "./utils/dashboardRoutes";
@@ -60,11 +19,60 @@ import { ROUTES } from "./utils/routes";
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 30 * 1000;
 
+const CookiePolicy = lazy(() => import("./components/CookiePolicy").then((module) => ({ default: module.CookiePolicy })));
+const ForgotPassword = lazy(() => import("./components/ForgotPassword").then((module) => ({ default: module.ForgotPassword })));
+const JobDetails = lazy(() => import("./components/JobDetails").then((module) => ({ default: module.JobDetails })));
+const InitialPasswordChange = lazy(() => import("./components/InitialPasswordChange").then((module) => ({ default: module.InitialPasswordChange })));
+const LandingPage = lazy(() => import("./components/LandingPage").then((module) => ({ default: module.LandingPage })));
+const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy").then((module) => ({ default: module.PrivacyPolicy })));
+const ResetPassword = lazy(() => import("./components/ResetPassword").then((module) => ({ default: module.ResetPassword })));
+const Settings = lazy(() => import("./components/Settings").then((module) => ({ default: module.Settings })));
+const SignIn = lazy(() => import("./components/SignIn").then((module) => ({ default: module.SignIn })));
+const SignUp = lazy(() => import("./components/SignUp").then((module) => ({ default: module.SignUp })));
+const TermsAndConditions = lazy(() => import("./components/TermsAndConditions").then((module) => ({ default: module.TermsAndConditions })));
+const EmailVerification = lazy(() => import("./pages/emailVerification"));
+const TopUpSuccess = lazy(() => import("./pages/TopUpSuccess").then((module) => ({ default: module.TopUpSuccess })));
+const PublicProfile = lazy(() => import("./pages/shared/PublicProfile").then((module) => ({ default: module.PublicProfile })));
+const NotificationsRouter = lazy(() => import("./pages/NotificationsRouter"));
+const SupportRouter = lazy(() => import("./pages/SupportRouter"));
+
+const WorkerDashboard = lazy(() => import("./pages/worker/Dashboard").then((module) => ({ default: module.Dashboard })));
+const FindJobs = lazy(() => import("./pages/worker/FindJobs").then((module) => ({ default: module.FindJobs })));
+const AppliedJobs = lazy(() => import("./pages/worker/AppliedJobs"));
+const SavedJobs = lazy(() => import("./pages/worker/SavedJobs").then((module) => ({ default: module.SavedJobs })));
+const WorkerMessages = lazy(() => import("./pages/worker/Messages").then((module) => ({ default: module.Messages })));
+const WorkerEWallet = lazy(() => import("./pages/worker/EWallet").then((module) => ({ default: module.EWallet })));
+const WorkerNotifications = lazy(() => import("./pages/worker/Notifications"));
+const WorkerProfile = lazy(() => import("./pages/worker/Profile").then((module) => ({ default: module.Profile })));
+const WorkerSupport = lazy(() => import("./pages/worker/Support").then((module) => ({ default: module.Support })));
+
+const EmployerDashboard = lazy(() => import("./pages/employer/EmployerDashboard").then((module) => ({ default: module.EmployerDashboard })));
+const PostJob = lazy(() => import("./pages/employer/PostJob"));
+const Applications = lazy(() => import("./pages/employer/ApplicationsManagement").then((module) => ({ default: module.ApplicationsManagement })));
+const JobsManagement = lazy(() => import("./pages/employer/JobsManagement").then((module) => ({ default: module.JobsManagement })));
+
+const AdminSignIn = lazy(() => import("./pages/admin/AdminSignIn").then((module) => ({ default: module.AdminSignIn })));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
+const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics").then((module) => ({ default: module.AdminAnalytics })));
+const AdminReports = lazy(() => import("./pages/admin/AdminReports").then((module) => ({ default: module.AdminReports })));
+const AdminEWalletMonitoring = lazy(() => import("./pages/admin/AdminEWalletMonitoring").then((module) => ({ default: module.AdminEWalletMonitoring })));
+const AdminJobMonitoring = lazy(() => import("./pages/admin/AdminJobMonitoring").then((module) => ({ default: module.AdminJobMonitoring })));
+const AdminSecurity = lazy(() => import("./pages/admin/AdminSecurity").then((module) => ({ default: module.AdminSecurity })));
+const AdminSupportTickets = lazy(() => import("./pages/admin/AdminSupportTickets").then((module) => ({ default: module.AdminSupportTickets })));
+const AdminUserManagement = lazy(() => import("./pages/admin/AdminUserManagement").then((module) => ({ default: module.AdminUserManagement })));
+
+const RouteLoading = () => <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-600"><span className="mr-3 h-6 w-6 animate-spin rounded-full border-4 border-blue-200 border-t-blue-700" aria-hidden="true" />Loading page…</div>;
+
 const InactivityHandler: React.FC = () => {
   const navigate = useNavigate();
   const [showWarning, setShowWarning] = useState(false);
   const warningTimerRef = useRef<number | null>(null);
   const logoutTimerRef = useRef<number | null>(null);
+  const continueButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (showWarning) continueButtonRef.current?.focus();
+  }, [showWarning]);
 
   const clearTimers = useCallback(() => {
     if (warningTimerRef.current) {
@@ -159,12 +167,12 @@ const InactivityHandler: React.FC = () => {
         </p>
         <div className="flex gap-3">
           <button
+            ref={continueButtonRef}
             type="button"
             onClick={() => {
               markActivity();
               handleActivity(true);
             }}
-            autoFocus
             className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
           >
             Continue working
@@ -242,6 +250,7 @@ const App: React.FC = () => {
     <Router>
       <InactivityHandler />
       <Toaster position="top-right" />
+      <Suspense fallback={<RouteLoading />}>
       <Routes>
         <Route path={ROUTES.home} element={<LandingPage />} />
         <Route path={ROUTES.signInLegacy} element={<SignIn />} />
@@ -254,6 +263,7 @@ const App: React.FC = () => {
         <Route path={ROUTES.topUpSuccess} element={<TopUpSuccess />} />
         <Route path={ROUTES.forgotPassword} element={<ForgotPassword />} />
         <Route path={ROUTES.resetPassword} element={<ResetPassword />} />
+        <Route path={ROUTES.changeInitialPassword} element={<InitialPasswordChange />} />
         <Route path={ROUTES.terms} element={<TermsAndConditions />} />
         <Route path={ROUTES.privacy} element={<PrivacyPolicy />} />
         <Route path={ROUTES.cookiePolicy} element={<CookiePolicy />} />
@@ -543,6 +553,7 @@ const App: React.FC = () => {
 
         <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
       </Routes>
+      </Suspense>
     </Router>
   );
 };

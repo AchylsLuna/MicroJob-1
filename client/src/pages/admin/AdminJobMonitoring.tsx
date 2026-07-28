@@ -6,6 +6,7 @@ import { toast } from "../../lib/toast";
 import { useAdminData } from "../../hooks/useAdminData";
 import { deleteJob } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
+import { ConfirmDialog } from "../../components/ui";
 
 function AdminJobMonitoringContent() {
   const {
@@ -21,6 +22,7 @@ function AdminJobMonitoringContent() {
   const [currentPage, setCurrentPage] = useState(1);
   const [deletedJobIds, setDeletedJobIds] = useState<Record<string, boolean>>({});
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
   const pageSize = 10;
 
   const sortedJobs = useMemo(
@@ -66,13 +68,13 @@ function AdminJobMonitoringContent() {
     return job.category.name || "—";
   };
 
-  const handleDeleteJob = async (jobId: string, title: string) => {
-    if (!window.confirm(`Delete job \"${title}\"? This action cannot be undone.`)) return;
+  const handleDeleteJob = async (jobId: string) => {
     setDeletingJobId(jobId);
     try {
       await deleteJob(jobId);
       setDeletedJobIds((prev) => ({ ...prev, [jobId]: true }));
       toast.success("Job deleted successfully.");
+      setDeleteTarget(null);
     } catch (error: any) {
       toast.error(error?.message || "Failed to delete job.");
     } finally {
@@ -162,7 +164,7 @@ function AdminJobMonitoringContent() {
                           </Link>
                           <button
                             type="button"
-                            onClick={() => handleDeleteJob(job._id, job.title)}
+                          onClick={() => setDeleteTarget({ id: job._id, title: job.title })}
                             disabled={deletingJobId === job._id}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-60"
                           >
@@ -220,6 +222,7 @@ function AdminJobMonitoringContent() {
           </div>
         )}
       </section>
+      <ConfirmDialog open={Boolean(deleteTarget)} title="Delete job" description={`Delete “${deleteTarget?.title || "this job"}”? This action cannot be undone.`} confirmLabel="Delete job" destructive onClose={() => setDeleteTarget(null)} onConfirm={() => deleteTarget && handleDeleteJob(deleteTarget.id)} />
     </div>
   );
 }

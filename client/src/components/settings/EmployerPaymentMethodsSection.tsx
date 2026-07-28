@@ -8,6 +8,7 @@ import {
   setDefaultPaymentMethod,
   type SavedPaymentMethod,
 } from "../../services/api";
+import { ConfirmDialog, Input } from "../ui";
 
 const normalizeCardNumber = (value: string) => value.replace(/\D/g, "");
 
@@ -53,6 +54,8 @@ export function EmployerPaymentMethodsSection() {
   const [isSaving, setIsSaving] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [newCard, setNewCard] = useState({ name: "", number: "", expiry: "", cvv: "" });
+  const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
+  const [removeTarget, setRemoveTarget] = useState<SavedPaymentMethod | null>(null);
   const formRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -78,24 +81,15 @@ export function EmployerPaymentMethodsSection() {
   };
 
   const handleAdd = async () => {
-    if (!newCard.name || !newCard.number || !newCard.expiry || !newCard.cvv) {
-      toast.error("Please fill in all card fields.");
-      return;
-    }
+    const errors: Record<string, string> = {};
+    if (!newCard.name.trim()) errors.name = "Name on card is required.";
     const digits = normalizeCardNumber(newCard.number);
-    if (!isValidCardNumber(digits)) {
-      toast.error("Please enter a valid card number.");
-      return;
-    }
+    if (!isValidCardNumber(digits)) errors.number = "Enter a valid card number.";
     const parsedExpiry = parseCardExpiry(newCard.expiry);
-    if (!parsedExpiry) {
-      toast.error("Please enter a valid future expiry date in MM/YY format.");
-      return;
-    }
-    if (!/^\d{3,4}$/.test(newCard.cvv.trim())) {
-      toast.error("Please enter a valid CVV.");
-      return;
-    }
+    if (!parsedExpiry) errors.expiry = "Enter a future expiry in MM/YY format.";
+    if (!/^\d{3,4}$/.test(newCard.cvv.trim())) errors.cvv = "Enter a valid 3 or 4 digit security code.";
+    setCardErrors(errors);
+    if (Object.keys(errors).length || !parsedExpiry) return;
 
     setIsSaving(true);
     try {
@@ -107,6 +101,7 @@ export function EmployerPaymentMethodsSection() {
       });
       setPaymentMethods((current) => [response.paymentMethod, ...current]);
       setNewCard({ name: "", number: "", expiry: "", cvv: "" });
+      setCardErrors({});
       setIsFormOpen(false);
       toast.success(response.message || "Payment method added.");
     } catch (error: any) {
@@ -221,7 +216,7 @@ export function EmployerPaymentMethodsSection() {
                   )}
                   <button
                     type="button"
-                    onClick={() => handleRemove(method.id)}
+                    onClick={() => setRemoveTarget(method)}
                     disabled={actionId === method.id}
                     aria-label={`Remove ${method.brand} ending in ${method.last4}`}
                     className="rounded-[8px] p-2 text-[#EF4444] hover:bg-[#FEE2E2] disabled:opacity-50"
@@ -253,28 +248,31 @@ export function EmployerPaymentMethodsSection() {
             </button>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <input
+            <Input
+              label="Name on card"
               type="text"
               value={newCard.name}
               onChange={(event) => setNewCard({ ...newCard, name: event.target.value })}
-              placeholder="Name on Card"
-              aria-label="Name on card"
+              placeholder="Juan Dela Cruz"
+              error={cardErrors.name}
               autoComplete="cc-name"
               maxLength={80}
               className="w-full rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px]"
             />
-            <input
+            <Input
+              label="Expiry date"
               type="text"
               value={newCard.expiry}
               onChange={(event) => setNewCard({ ...newCard, expiry: event.target.value })}
               placeholder="Expiry (MM/YY)"
-              aria-label="Card expiry date"
+              error={cardErrors.expiry}
               autoComplete="cc-exp"
               inputMode="numeric"
               maxLength={7}
               className="w-full rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px]"
             />
-            <input
+            <Input
+              label="Card number"
               type="text"
               value={newCard.number}
               onChange={(event) => {
@@ -282,20 +280,21 @@ export function EmployerPaymentMethodsSection() {
                 setNewCard({ ...newCard, number: digits.match(/.{1,4}/g)?.join(" ") || "" });
               }}
               placeholder="Card Number"
-              aria-label="Card number"
+              error={cardErrors.number}
               autoComplete="cc-number"
               inputMode="numeric"
               maxLength={23}
               className="w-full rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px]"
             />
-            <input
+            <Input
+              label="Security code"
               type="password"
               value={newCard.cvv}
               onChange={(event) =>
                 setNewCard({ ...newCard, cvv: event.target.value.replace(/\D/g, "").slice(0, 4) })
               }
               placeholder="CVV"
-              aria-label="Card security code"
+              error={cardErrors.cvv}
               autoComplete="cc-csc"
               inputMode="numeric"
               maxLength={4}
@@ -312,6 +311,7 @@ export function EmployerPaymentMethodsSection() {
           </button>
         </div>
       )}
+      <ConfirmDialog open={Boolean(removeTarget)} title="Remove payment method" description={`Remove ${removeTarget?.brand || "card"} ending in ${removeTarget?.last4 || "••••"}? Existing transaction records will remain available.`} confirmLabel="Remove card" destructive onClose={() => setRemoveTarget(null)} onConfirm={async () => { if (!removeTarget) return; await handleRemove(removeTarget.id); setRemoveTarget(null); }} />
     </div>
   );
 }

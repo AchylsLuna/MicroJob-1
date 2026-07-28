@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { Ionicons } from '@expo/vector-icons';
@@ -43,7 +43,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
     return String(value);
   };
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const result = await apiRequest(`${API_URL}/messages/conversation/${userId}`, {
@@ -67,9 +67,9 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
         }
       } catch {}
     } catch {}
-  };
+  }, [userId]);
 
-  useEffect(() => { fetchMessages(); }, [userId]);
+  useEffect(() => { fetchMessages(); }, [fetchMessages, userId]);
 
   // Merge incoming live messages for this conversation
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       if (toAdd.length === 0) return prev;
       return [...prev, ...toAdd].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
     });
-  }, [liveMessages]);
+  }, [liveMessages, userId]);
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -136,7 +136,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
     // Optionally, poll for new messages every 10s
     const interval = setInterval(fetchMessages, 10000);
     return () => clearInterval(interval);
-  }, [userId]);
+  }, [fetchMessages, userId]);
 
   useEffect(() => {
     if (messages.length > 0) {

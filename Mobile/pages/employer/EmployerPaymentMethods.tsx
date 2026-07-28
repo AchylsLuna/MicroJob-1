@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,9 +8,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import ConfirmModal from '../../components/ConfirmModal';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
@@ -70,6 +70,8 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<PaymentMethod | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', number: '', expiry: '', cvv: '' });
 
   const authHeaders = async () => {
@@ -186,26 +188,34 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
       const payload = asObject<any>(result.data) || {};
       setMethods(asList<PaymentMethod>(payload, ['paymentMethods']));
       toast.success('Payment method removed.');
+      setRemoveTarget(null);
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to remove payment method.');
+      const message = error?.message || 'Failed to remove payment method.';
+      setRemoveError(message);
+      toast.error(message);
     } finally {
       setActionId(null);
     }
   };
 
   const confirmRemove = (method: PaymentMethod) => {
-    Alert.alert(
-      'Remove payment method?',
-      `${method.brand} ending in ${method.last4} will be removed from your employer account.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Remove', style: 'destructive', onPress: () => void removeMethod(method.id) },
-      ]
-    );
+    setRemoveError(null);
+    setRemoveTarget(method);
   };
 
   return (
     <View style={styles.container}>
+      <ConfirmModal
+        visible={Boolean(removeTarget)}
+        title="Remove payment method?"
+        description={`${removeTarget?.brand || 'Card'} ending in ${removeTarget?.last4 || '••••'} will be removed from your employer account.`}
+        confirmLabel="Remove"
+        destructive
+        pending={Boolean(removeTarget && actionId === removeTarget.id)}
+        error={removeError}
+        onCancel={() => { if (!actionId) { setRemoveTarget(null); setRemoveError(null); } }}
+        onConfirm={() => { if (removeTarget && !actionId) void removeMethod(removeTarget.id); }}
+      />
       <AppHeader title="Payment Methods" subtitle="Employer billing methods" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.introCard}>
@@ -216,7 +226,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
             <Text style={styles.title}>Saved cards</Text>
             <Text style={styles.subtitle}>New accounts stay empty until you add a payment method.</Text>
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={() => setIsFormOpen((value) => !value)}>
+          <TouchableOpacity style={styles.addButton} onPress={() => setIsFormOpen((value) => !value)} accessibilityRole="button" accessibilityLabel={isFormOpen ? "Cancel adding payment method" : "Add payment method"}>
             <Text style={styles.addButtonText}>{isFormOpen ? 'Cancel' : 'Add'}</Text>
           </TouchableOpacity>
         </View>
@@ -227,13 +237,17 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
             <Text style={styles.helper}>
               Only the brand, last four digits, cardholder name, and expiry are sent and saved.
             </Text>
+            <Text style={styles.inputLabel}>Name on card</Text>
             <TextInput
               style={styles.input}
               value={form.name}
               onChangeText={(name: string) => setForm({ ...form, name })}
               placeholder="Name on card"
               autoCapitalize="words"
+              accessibilityLabel="Name on card"
+              autoComplete="cc-name"
             />
+            <Text style={styles.inputLabel}>Card number</Text>
             <TextInput
               style={styles.input}
               value={form.number}
@@ -244,30 +258,19 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
               placeholder="Card number"
               keyboardType="number-pad"
               maxLength={23}
+              accessibilityLabel="Card number"
+              autoComplete="cc-number"
             />
             <View style={styles.inputRow}>
-              <TextInput
-                style={[styles.input, styles.halfInput]}
-                value={form.expiry}
-                onChangeText={(expiry: string) => setForm({ ...form, expiry })}
-                placeholder="MM/YY"
-                keyboardType="number-pad"
-                maxLength={7}
-              />
-              <TextInput
-                style={[styles.input, styles.halfInput]}
-                value={form.cvv}
-                onChangeText={(cvv: string) => setForm({ ...form, cvv: digitsOnly(cvv).slice(0, 4) })}
-                placeholder="CVV"
-                keyboardType="number-pad"
-                secureTextEntry
-                maxLength={4}
-              />
+              <View style={styles.halfInput}><Text style={styles.inputLabel}>Expiry</Text><TextInput style={styles.input} value={form.expiry} onChangeText={(expiry: string) => setForm({ ...form, expiry })} placeholder="MM/YY" keyboardType="number-pad" maxLength={7} accessibilityLabel="Card expiry date" autoComplete="cc-exp" /></View>
+              <View style={styles.halfInput}><Text style={styles.inputLabel}>Security code</Text><TextInput style={styles.input} value={form.cvv} onChangeText={(cvv: string) => setForm({ ...form, cvv: digitsOnly(cvv).slice(0, 4) })} placeholder="CVV" keyboardType="number-pad" secureTextEntry maxLength={4} accessibilityLabel="Card security code" autoComplete="cc-csc" /></View>
             </View>
             <TouchableOpacity
               style={[styles.primaryButton, isSaving && styles.disabled]}
               onPress={handleAdd}
               disabled={isSaving}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: isSaving, busy: isSaving }}
             >
               <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save card'}</Text>
             </TouchableOpacity>
@@ -366,6 +369,7 @@ const styles = StyleSheet.create({
   },
   inputRow: { flexDirection: 'row', gap: 10 },
   halfInput: { flex: 1 },
+  inputLabel: { marginBottom: 6, color: tokens.colors.textMuted, fontSize: 13, fontWeight: '600' },
   primaryButton: {
     minHeight: 50,
     borderRadius: 14,

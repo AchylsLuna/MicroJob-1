@@ -103,7 +103,7 @@ export function TermsAndConditions() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] py-10">
+    <main className="min-h-screen bg-[#F8FAFC] py-10">
       <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
         <div className="rounded-[24px] border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-10">
           <div className="mb-8 flex flex-col gap-4 border-b border-[#E5E7EB] pb-6 sm:flex-row sm:items-center sm:justify-between">
@@ -160,6 +160,6 @@ export function TermsAndConditions() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

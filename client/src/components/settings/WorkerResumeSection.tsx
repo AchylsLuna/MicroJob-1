@@ -2,11 +2,16 @@ import { useEffect, useState } from "react";
 import { Download, Trash2, Upload } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { deleteResume, uploadResume } from "../../services/api";
+import { safeExternalUrl } from "../../utils/safeExternalUrl";
 
 export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: string | null }) {
   const [resume, setResume] = useState<File | null>(null);
   const [resumeUrl, setResumeUrl] = useState(initialResumeUrl);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const apiBase = import.meta.env.VITE_API_BASE || "/api";
+  const assetOrigin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : window.location.origin;
+  const resumeCandidate = resumeUrl?.startsWith("/") ? `${assetOrigin}${resumeUrl}` : resumeUrl;
+  const safeResumeUrl = safeExternalUrl(resumeCandidate, { purpose: "asset", trustedOrigins: [assetOrigin] });
 
   useEffect(() => {
     setResumeUrl(initialResumeUrl);
@@ -49,7 +54,7 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
         <h2 className="text-[18px] font-semibold text-[#111827]">CV/Resume</h2>
         <p className="text-[13px] text-[#6B7280]">Upload the resume used for worker applications.</p>
       </div>
-      {resumeUrl ? (
+      {safeResumeUrl ? (
         <div className="flex items-center justify-between rounded-[12px] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
           <div>
             <p className="text-[14px] font-semibold text-[#111827]">{resume?.name || "Resume uploaded"}</p>
@@ -59,7 +64,7 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
           </div>
           <div className="flex items-center gap-2">
             <a
-              href={resumeUrl}
+              href={safeResumeUrl}
               download
               target="_blank"
               rel="noopener noreferrer"

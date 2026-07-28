@@ -7,6 +7,48 @@
 	will-change: opacity, transform;
 }
 
+/* Keep the desktop dashboard rail fully visible on short laptop viewports.
+   The main content pane owns page scrolling; mobile drawers retain menu scrolling. */
+@media (min-width: 1024px) and (max-height: 800px) {
+	.dashboard-sidebar {
+		padding: 0.5rem 0.75rem !important;
+	}
+
+	.dashboard-sidebar-header {
+		margin-bottom: 0.25rem;
+	}
+
+	.dashboard-sidebar-nav button {
+		min-height: 2.75rem;
+		padding-top: 0.625rem;
+		padding-bottom: 0.625rem;
+	}
+
+	.dashboard-sidebar-nav,
+	.dashboard-sidebar-nav > div {
+		row-gap: 0;
+	}
+
+	.dashboard-sidebar-nav > :not([hidden]) ~ :not([hidden]),
+	.dashboard-sidebar-nav > div > :not([hidden]) ~ :not([hidden]) {
+		margin-top: 0;
+	}
+
+	.dashboard-sidebar-nav > div:first-child {
+		padding-bottom: 0.125rem;
+	}
+
+	.dashboard-sidebar-nav > div:last-child {
+		padding-top: 0.125rem;
+		padding-bottom: 0.125rem;
+	}
+
+	.dashboard-sidebar-footer {
+		margin-top: 0.125rem;
+		padding-top: 0.25rem;
+	}
+}
+
 @keyframes page-slide-left {
 	from {
 		opacity: 0;

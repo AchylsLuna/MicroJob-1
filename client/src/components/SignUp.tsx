@@ -197,7 +197,7 @@ export function SignUp() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-start lg:items-center justify-center px-4 py-8 lg:px-6 lg:py-10 overflow-x-hidden">
+    <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-start lg:items-center justify-center px-4 py-8 lg:px-6 lg:py-10 overflow-x-hidden">
       <div className="w-full max-w-[1240px] grid grid-cols-1 lg:grid-cols-[0.55fr_0.45fr] gap-10 items-start lg:items-stretch min-w-0">
         {/* Left Side - Branding */}
         <div className="text-white space-y-8 flex flex-col justify-start max-w-full min-w-0 overflow-hidden">
@@ -278,19 +278,20 @@ export function SignUp() {
               </button>
 
               <div className="mb-6">
-                <h2 className="text-[28px] font-bold text-[#111827] mb-2">Get Started!</h2>
+                <h1 className="text-[28px] font-bold text-[#111827] mb-2">Get Started!</h1>
                 <p className="text-[14px] text-[#6B7280]">Create your account to start your journey</p>
               </div>
 
               <form onSubmit={handleSignUp} className="space-y-4">
                 {/* Full Name */}
                 <div>
-                  <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+                  <label htmlFor="signup-full-name" className="text-[14px] font-medium text-[#111827] mb-2 block">
                     Full Name <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
                     <input
+                      id="signup-full-name"
                       type="text"
                       value={formData.fullName}
                       onChange={(e) => handleChange("fullName", e.target.value)}
@@ -310,12 +311,13 @@ export function SignUp() {
 
                 {/* Email */}
                 <div>
-                  <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+                  <label htmlFor="signup-email" className="text-[14px] font-medium text-[#111827] mb-2 block">
                     Email Address <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
                     <input
+                      id="signup-email"
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}
@@ -335,12 +337,13 @@ export function SignUp() {
 
                 {/* Phone */}
                 <div>
-                  <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+                  <label htmlFor="signup-phone" className="text-[14px] font-medium text-[#111827] mb-2 block">
                     Phone Number
                   </label>
                   <div className="relative">
                     <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
                     <input
+                      id="signup-phone"
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => handleChange("phone", e.target.value)}
@@ -362,12 +365,13 @@ export function SignUp() {
 
                 {/* Password */}
                 <div>
-                  <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+                  <label htmlFor="signup-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
                     Password <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
                     <input
+                      id="signup-password"
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={(e) => handleChange("password", e.target.value)}
@@ -376,6 +380,7 @@ export function SignUp() {
                     />
                     <button
                       type="button"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
                     >
@@ -386,12 +391,13 @@ export function SignUp() {
 
                 {/* Confirm Password */}
                 <div>
-                  <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+                  <label htmlFor="signup-confirm-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
                     Confirm Password <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
                     <input
+                      id="signup-confirm-password"
                       type={showConfirmPassword ? "text" : "password"}
                       value={formData.confirmPassword}
                       onChange={(e) => handleChange("confirmPassword", e.target.value)}
@@ -405,6 +411,7 @@ export function SignUp() {
                     />
                     <button
                       type="button"
+                      aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
                     >
@@ -461,9 +468,9 @@ export function SignUp() {
 
                 {/* I want to selection */}
                 <div className="pt-2">
-                  <label className="text-[14px] font-medium text-[#111827] mb-3 block">
+                  <p className="text-[14px] font-medium text-[#111827] mb-3 block">
                     I want to:
-                  </label>
+                  </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <button
                       type="button"
@@ -515,12 +522,13 @@ export function SignUp() {
                 {/* Terms & Conditions */}
                 <div className="flex items-start gap-2">
                   <input
+                    id="signup-terms"
                     type="checkbox"
                     checked={agreeToTerms}
                     onChange={(e) => setAgreeToTerms(e.target.checked)}
                     className="w-4 h-4 rounded border-[#E5E7EB] text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D] cursor-pointer mt-0.5"
                   />
-                  <label className="text-[13px] text-[#6B7280]">
+                  <label htmlFor="signup-terms" className="text-[13px] text-[#6B7280]">
                     I agree to the{" "}
                     <Link to={ROUTES.terms} className="text-[#1C4D8D] hover:text-[#0F2954] font-medium">
                       Terms and Conditions
@@ -565,6 +573,6 @@ export function SignUp() {
         />
       )}
 
-    </div>
+    </main>
   );
 }

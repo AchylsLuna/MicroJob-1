@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, type ReactNode } from "react";
+import { useCallback, useState, useRef, useEffect, type ReactNode } from "react";
 import { Bell, Menu, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -85,7 +85,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     };
   }, [isAppliedJobsPage, path]);
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     if (!user) {
       setNotifications([]);
       return;
@@ -103,7 +103,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     } finally {
       setNotificationsLoading(false);
     }
-  };
+  }, [notificationAudience, user]);
 
   type PageMeta =
     | { title: string; subtitle?: string; icon?: ReactNode; search?: undefined }
@@ -366,12 +366,12 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
 
   useEffect(() => {
     loadNotifications();
-  }, [user, isEmployerView]);
+  }, [user, isEmployerView, loadNotifications]);
 
   // Reload notifications when location changes (e.g., user marks notifications as read on a different page)
   useEffect(() => {
     loadNotifications();
-  }, [location.pathname]);
+  }, [loadNotifications, location.pathname]);
 
   // Listen for custom notification refresh events from notification pages
   useEffect(() => {
@@ -382,7 +382,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     return () => {
       window.removeEventListener('notification-refresh', handleNotificationRefresh);
     };
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (!showNotifications && !showUserMenu) return;
@@ -400,7 +400,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     if (showNotifications) {
       loadNotifications();
     }
-  }, [showNotifications]);
+  }, [loadNotifications, showNotifications]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

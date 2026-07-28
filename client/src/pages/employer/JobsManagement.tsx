@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Users, 
@@ -79,7 +79,7 @@ export function JobsManagement() {
     return date.toLocaleDateString();
   };
 
-  const mapJob = (job: any): JobPosting => {
+  const mapJob = useCallback((job: any): JobPosting => {
     const applicantsCount = Array.isArray(job.applicants) ? job.applicants.length : 0;
     const matchPercentage = Math.min(100, applicantsCount * 7 + 30);
     const workTypeLabel =
@@ -113,9 +113,9 @@ export function JobsManagement() {
       createdBy: "You",
       hasHired: false,
     };
-  };
+  }, []);
 
-  const loadJobs = async () => {
+  const loadJobs = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
@@ -154,11 +154,11 @@ export function JobsManagement() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [mapJob]);
 
   useEffect(() => {
     void loadJobs();
-  }, []);
+  }, [loadJobs]);
 
   const handleMarkJobDone = async (job: JobPosting) => {
     if (job.backendStatus === "Completed") {

@@ -11,6 +11,7 @@ export const ROUTES = {
   topUpSuccess: "/topup-success",
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
+  changeInitialPassword: "/change-initial-password",
   terms: "/terms",
   privacy: "/privacy",
   cookiePolicy: "/cookie-policy",

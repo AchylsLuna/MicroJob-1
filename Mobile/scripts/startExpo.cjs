@@ -79,7 +79,7 @@ function isPortFree(port) {
 async function findFreePort(startPort, maxOffset) {
   for (let offset = 0; offset <= maxOffset; offset += 1) {
     const candidate = startPort + offset;
-    // eslint-disable-next-line no-await-in-loop
+
     if (await isPortFree(candidate)) {
       return candidate;
     }

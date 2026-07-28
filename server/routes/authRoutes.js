@@ -24,6 +24,7 @@ import {
   requestPasswordChangeOtp,
   changePasswordWithOtp,
   requestSelfDelete,
+  changeInitialPassword,
 } from '../controllers/UserController.js';
 import {
   isValidName,
@@ -307,6 +308,7 @@ const buildLoginPayload = (user, includePhone = false) => {
     addressType: user.addressType,
     address: user.address,
     linkedin: user.linkedin,
+    passwordChangeRequired: Boolean(user.passwordChangeRequired),
   };
 };
 
@@ -627,6 +629,7 @@ router.post('/password-reset/request', passwordResetRequestLimiter, requestPassw
 router.post('/password-reset/confirm', passwordResetConfirmLimiter, resetPasswordWithOtp);
 router.post('/password-change/request', verifyToken, passwordChangeLimiter, requestPasswordChangeOtp);
 router.post('/password-change/confirm', verifyToken, passwordChangeLimiter, changePasswordWithOtp);
+router.post('/password/initial-change', verifyToken, passwordChangeLimiter, changeInitialPassword);
 
 // Login an existing user (supports email/username and phone)
 // Key the limiter by account identifier so shared IPs do not throttle each other.
@@ -685,7 +688,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       return sendError(res, 401, 'Account has been deleted.');
     }
 
-    if (Boolean(requireOtp)) {
+    if (requireOtp) {
       const loginOtp = await issueLoginOtpChallenge(user, includePhone);
       return sendSuccess(
         res,
@@ -748,7 +751,7 @@ router.post('/login/mfa', loginLimiter, async (req, res) => {
     let decoded;
     try {
       decoded = jwt.verify(String(mfaToken), getJwtSecret());
-    } catch (error) {
+    } catch {
       return sendError(res, 401, 'MFA challenge expired. Please sign in again.');
     }
 

@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import TabTopNav from '../../components/TabTopNav';
@@ -398,6 +398,7 @@ export default function EWallet({
               placeholder="1000"
               placeholderTextColor={tokens.colors.textSubtle}
               keyboardType="numeric"
+              accessibilityLabel="Withdrawal amount in Philippine pesos"
             />
 
             <Text style={styles.inputLabel}>Method</Text>
@@ -413,6 +414,9 @@ export default function EWallet({
                     key={method.value}
                     style={[styles.segmentChip, isActive && styles.segmentChipActive]}
                     onPress={() => setPayoutForm((current) => ({ ...current, methodType: method.value }))}
+                    accessibilityRole="radio"
+                    accessibilityLabel={`${method.label} withdrawal method`}
+                    accessibilityState={{ selected: isActive }}
                   >
                     <Text style={[styles.segmentChipText, isActive && styles.segmentChipTextActive]}>{method.label}</Text>
                   </TouchableOpacity>
@@ -427,6 +431,7 @@ export default function EWallet({
               onChangeText={(institutionName) => setPayoutForm((current) => ({ ...current, institutionName }))}
               placeholder="BDO, GCash, Maya"
               placeholderTextColor={tokens.colors.textSubtle}
+              accessibilityLabel="Financial institution"
             />
 
             <Text style={styles.inputLabel}>Account Name</Text>
@@ -436,6 +441,7 @@ export default function EWallet({
               onChangeText={(accountName) => setPayoutForm((current) => ({ ...current, accountName }))}
               placeholder="Juan Dela Cruz"
               placeholderTextColor={tokens.colors.textSubtle}
+              accessibilityLabel="Account holder name"
             />
 
             <Text style={styles.inputLabel}>Account Number</Text>
@@ -445,12 +451,16 @@ export default function EWallet({
               onChangeText={(accountNumber) => setPayoutForm((current) => ({ ...current, accountNumber }))}
               placeholder="09171234567 or bank account number"
               placeholderTextColor={tokens.colors.textSubtle}
+              accessibilityLabel="Bank or mobile wallet account number"
             />
 
             <TouchableOpacity
               style={[styles.primaryButton, isSubmittingPayout && styles.primaryButtonDisabled]}
               onPress={handleCreatePayout}
               disabled={isSubmittingPayout}
+              accessibilityRole="button"
+              accessibilityLabel="Submit withdrawal request"
+              accessibilityState={{ disabled: isSubmittingPayout, busy: isSubmittingPayout }}
             >
               {isSubmittingPayout ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>Withdraw Funds</Text>}
             </TouchableOpacity>

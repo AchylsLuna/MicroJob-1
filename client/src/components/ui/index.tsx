@@ -1,10 +1,12 @@
 import {
   forwardRef,
   useEffect,
+  useId,
   useRef,
   type ButtonHTMLAttributes,
   type HTMLAttributes,
   type InputHTMLAttributes,
+  type RefObject,
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -126,34 +128,51 @@ export function StatusState({ title, description, action, tone = "neutral" }: { 
   );
 }
 
-export function Dialog({ open, title, description, children, onClose }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void }) {
+export function Dialog({ open, title, description, children, onClose, initialFocusRef, closeDisabled = false }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
   useEffect(() => {
     if (!open) return;
-    closeRef.current?.focus();
-    const handleKey = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    (initialFocusRef?.current || closeRef.current)?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !closeDisabled) onClose();
+      if (event.key !== "Tab") return;
+      const dialog = closeRef.current?.closest('[role="dialog"]');
+      const focusable = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
     document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open, onClose]);
+    return () => {
+      document.removeEventListener("keydown", handleKey);
+      previouslyFocused?.focus();
+    };
+  }, [closeDisabled, initialFocusRef, open, onClose]);
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section role="dialog" aria-modal="true" aria-labelledby="shared-dialog-title" aria-describedby={description ? "shared-dialog-description" : undefined} className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
-        <IconButton ref={closeRef} label="Close dialog" onClick={onClose} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
-        <h2 id="shared-dialog-title" className="pr-12 text-xl font-bold text-slate-900">{title}</h2>
-        {description ? <p id="shared-dialog-description" className="mt-2 text-sm text-slate-600">{description}</p> : null}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
+      <section role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <IconButton ref={closeRef} label="Close dialog" onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
+        <h2 id={titleId} className="pr-12 text-xl font-bold text-slate-900">{title}</h2>
+        {description ? <p id={descriptionId} className="mt-2 text-sm text-slate-600">{description}</p> : null}
         <div className="mt-6">{children}</div>
       </section>
     </div>
   );
 }
 
-export function ConfirmDialog({ open, title, description, confirmLabel = "Confirm", cancelLabel = "Cancel", destructive = false, onConfirm, onClose }: { open: boolean; title: string; description: string; confirmLabel?: string; cancelLabel?: string; destructive?: boolean; onConfirm: () => void; onClose: () => void }) {
+export function ConfirmDialog({ open, title, description, confirmLabel = "Confirm", cancelLabel = "Cancel", destructive = false, pending = false, error, onConfirm, onClose }: { open: boolean; title: string; description: string; confirmLabel?: string; cancelLabel?: string; destructive?: boolean; pending?: boolean; error?: string | null; onConfirm: () => unknown; onClose: () => void }) {
   return (
-    <Dialog open={open} title={title} description={description} onClose={onClose}>
+    <Dialog open={open} title={title} description={description} onClose={onClose} closeDisabled={pending}>
+      {error ? <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</p> : null}
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-        <Button className="bg-white text-slate-700 ring-1 ring-slate-300 hover:bg-slate-50" onClick={onClose}>{cancelLabel}</Button>
-        <Button className={destructive ? "bg-red-700 hover:bg-red-800" : undefined} onClick={onConfirm}>{confirmLabel}</Button>
+        <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" onClick={onClose} disabled={pending}>{cancelLabel}</Button>
+        <Button className={destructive ? "bg-red-700 hover:bg-red-800" : undefined} onClick={() => void onConfirm()} disabled={pending} aria-busy={pending}>{pending ? "Working…" : confirmLabel}</Button>
       </div>
     </Dialog>
   );

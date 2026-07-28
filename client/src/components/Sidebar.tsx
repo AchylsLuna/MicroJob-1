@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -60,6 +60,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const [, setAuthUpdateTrigger] = useState(0); // Force re-render on auth updates
   const { user: authUser } = useAuth();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (mobile) closeButtonRef.current?.focus();
+  }, [mobile]);
 
   const loadProfilePhoto = () => {
     try {
@@ -185,7 +190,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [notifCount, setNotifCount] = useState<number>(0);
   const [isEmployerGroupOpen, setIsEmployerGroupOpen] = useState<boolean>(true);
 
-  const loadNotifCount = async () => {
+  const loadNotifCount = useCallback(async () => {
     try {
       if (effectiveRole === "admin") {
         setNotifCount(0);
@@ -197,7 +202,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     } catch {
       // ignore notification count errors
     }
-  };
+  }, [effectiveRole]);
 
   useEffect(() => {
     loadNotifCount();
@@ -208,7 +213,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       window.removeEventListener("auth_user_updated", handler);
       window.removeEventListener("notification-refresh", handler);
     };
-  }, [effectiveRole]);
+  }, [effectiveRole, loadNotifCount]);
 
   const renderIcon = (iconKey: string) => (
     <span aria-hidden="true" className="text-current">
@@ -292,23 +297,22 @@ const Sidebar: React.FC<SidebarProps> = ({
       aria-label="Primary navigation"
       className={`${webUi.sidebar.root} transition-all duration-300 ${
         mobile ? "w-full" : isCollapsed ? "w-20" : "w-64"
-      }`}
-      style={{ padding: mobile || !isCollapsed ? "24px" : "12px" }}
+      } ${mobile ? "p-4 sm:p-6" : isCollapsed ? "p-3" : "p-6"}`}
     >
-      <div className="flex items-center justify-between mb-8">
+      <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between">
         <button
           type="button"
-          className="flex items-center gap-2 cursor-pointer min-w-0"
+          className="flex min-h-11 min-w-0 items-center gap-2 cursor-pointer"
           onClick={() => navigate(ROUTES.home)}
         >
           <MicroJobsLogo className={!mobile && isCollapsed ? "[&>span]:hidden" : ""} />
         </button>
         {mobile ? (
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            autoFocus
-            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             aria-label="Close navigation menu"
           >
             <X className="h-5 w-5" />
@@ -317,7 +321,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
             title={isCollapsed ? "Expand" : "Collapse"}
           >
@@ -326,16 +330,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
 
-      <nav className="space-y-1 flex-1 flex flex-col">
-        <div className={`space-y-1 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
-          {(mobile || !isCollapsed) && (
-            <div className="mb-3">
-              <div className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-sky-50 text-sky-700 font-semibold border border-sky-100">
-                <span>{roleLabel}</span>
-              </div>
-            </div>
-          )}
-
+      <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 lg:overflow-visible lg:pr-0" aria-label={`${roleLabel} menu`}>
+        <div className={`space-y-2 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
           <button
             onClick={() => navigate(dashboardPath)}
             className={getNavButtonClass(isPathActive(dashboardPath))}
@@ -377,7 +373,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               {(mobile || !isCollapsed) && isEmployerGroupOpen && (
-                <div className="mt-1 space-y-1">
+                <div className="mt-2 space-y-2">
                   {employerMenuGroup.children.map((child) => (
                     <button
                       key={child.path}
@@ -421,7 +417,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           ))}
         </div>
 
-        <div className={`space-y-1 py-4 border-b ${webUi.sidebar.sectionDivider}`}>
+        <div className={`space-y-2 py-4 border-b ${webUi.sidebar.sectionDivider}`}>
           {bottomMenuItems.map((item) => (
             <button
               key={item.path}
@@ -452,8 +448,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </nav>
 
-      <div className={`border-t ${webUi.sidebar.sectionDivider} pt-6`}>
-        <button className="w-full flex items-center justify-between lg:justify-start gap-3 hover:opacity-80 transition">
+      <div className={`dashboard-sidebar-footer mt-4 shrink-0 border-t ${webUi.sidebar.sectionDivider} pt-4`}>
+        <button className="flex min-h-11 w-full items-center justify-between gap-3 transition hover:opacity-80 lg:justify-start">
           <div className="flex items-center gap-3">
             {profilePhotoPreview ? (
               <img

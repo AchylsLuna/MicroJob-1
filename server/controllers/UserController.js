@@ -8,6 +8,7 @@ import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import crypto from "crypto";
 import { getJwtSecret } from "../lib/jwtSecret.js";
 import {
     EMAIL_VALIDATION_MESSAGE,
@@ -22,6 +23,7 @@ import {
 } from "../lib/authValidation.js";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
+import { getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 
 const otpStore = new Map();
 const passwordResetOtpStore = new Map();
@@ -180,13 +182,154 @@ function getEmailTransporter() {
     });
 }
 
+const PUBLIC_USER_SELECT = "-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes";
+const STANDARD_ROLES = new Set(["work", "hire", "both"]);
+const PRIVILEGED_ROLES = new Set(["admin", "superadmin"]);
+const EDITABLE_STATUSES = new Set(["active", "pending", "disabled"]);
+
+const getActorId = (req) => String(req.user?.id || req.user?.userId || "");
+const isSuperAdmin = (req) => req.user?.role === "superadmin";
+
+async function assertPrivilegedMutationAllowed(req, target, nextRole) {
+    const actorId = getActorId(req);
+    const privilegedMutation = PRIVILEGED_ROLES.has(target?.role) || PRIVILEGED_ROLES.has(nextRole);
+    if (privilegedMutation && !isSuperAdmin(req)) {
+        return { status: 403, message: "Only a superadmin can manage privileged accounts." };
+    }
+    if (actorId && actorId === String(target?._id) && nextRole && nextRole !== target.role) {
+        return { status: 403, message: "You cannot change your own role." };
+    }
+    return null;
+}
+
+async function wouldDisableLastSuperAdmin(target, nextRole, nextStatus) {
+    if (target.role !== "superadmin") return false;
+    if (nextRole === "superadmin" && nextStatus === "active") return false;
+    const activeSuperadmins = await User.countDocuments({ role: "superadmin", status: "active" });
+    return activeSuperadmins <= 1 && target.status === "active";
+}
+
+export async function inviteUser(req, res) {
+    const transporter = getEmailTransporter();
+    if (!transporter) {
+        return res.status(503).json({ message: "Email service is not configured; no invitation was created." });
+    }
+    try {
+        const firstName = normalizeName(req.body?.firstName || "");
+        const lastName = normalizeName(req.body?.lastName || "");
+        const email = normalizeEmail(req.body?.email || "");
+        const role = String(req.body?.role || "work").toLowerCase();
+        if (!isValidName(firstName) || !isValidName(lastName)) {
+            return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+        }
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+        }
+        if (!STANDARD_ROLES.has(role) && !PRIVILEGED_ROLES.has(role)) {
+            return res.status(400).json({ message: "Invalid role value." });
+        }
+        if (PRIVILEGED_ROLES.has(role) && !isSuperAdmin(req)) {
+            return res.status(403).json({ message: "Only a superadmin can invite privileged users." });
+        }
+        if (await User.exists({ email })) {
+            return res.status(409).json({ message: "Email is already registered." });
+        }
+
+        const temporaryPassword = `${crypto.randomBytes(12).toString("base64url")}Aa1!`;
+        const user = new User({ firstName, lastName, email, role, status: "active", passwordChangeRequired: true });
+        await user.setPassword(temporaryPassword);
+        await user.save();
+        try {
+            const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+            await transporter.sendMail({
+                from: `MicroJobs <${fromAddress}>`,
+                to: email,
+                subject: "Your MicroJobs invitation",
+                text: `Hi ${firstName},\n\nYou were invited to MicroJobs. Sign in with ${email} and this temporary password: ${temporaryPassword}\n\nYou must choose a new password after signing in.`,
+            });
+        } catch (mailError) {
+            await User.deleteOne({ _id: user._id });
+            throw mailError;
+        }
+        return res.status(201).json({ message: "Invitation sent.", user: await User.findById(user._id).select(PUBLIC_USER_SELECT) });
+    } catch (error) {
+        if (error?.code === 11000) return res.status(409).json({ message: "Email is already registered." });
+        console.error("Invite user error:", error);
+        return res.status(500).json({ message: "Failed to send invitation." });
+    }
+}
+
+export async function updateUserByAdmin(req, res) {
+    try {
+        const target = await User.findById(req.params.userId);
+        if (!target) return res.status(404).json({ message: "User not found." });
+        const allowedKeys = new Set(["firstName", "lastName", "role", "status"]);
+        const suppliedKeys = Object.keys(req.body || {});
+        if (!suppliedKeys.length || suppliedKeys.some((key) => !allowedKeys.has(key))) {
+            return res.status(400).json({ message: "Only firstName, lastName, role, and status may be edited." });
+        }
+        const nextRole = req.body.role === undefined ? target.role : String(req.body.role).toLowerCase();
+        const nextStatus = req.body.status === undefined ? target.status : String(req.body.status).toLowerCase();
+        if (!STANDARD_ROLES.has(nextRole) && !PRIVILEGED_ROLES.has(nextRole)) {
+            return res.status(400).json({ message: "Invalid role value." });
+        }
+        if (!EDITABLE_STATUSES.has(nextStatus)) return res.status(400).json({ message: "Invalid status value." });
+        const activeSuperadminCount = target.role === "superadmin" ? await User.countDocuments({ role: "superadmin", status: "active" }) : 0;
+        const forbidden = getAdminUserMutationError({ actorRole: req.user?.role, actorId: getActorId(req), targetId: String(target._id), targetRole: target.role, nextRole, nextStatus, activeSuperadminCount });
+        if (forbidden) return res.status(forbidden.status).json({ message: forbidden.message });
+        if (req.body.firstName !== undefined) {
+            const value = normalizeName(req.body.firstName);
+            if (!isValidName(value)) return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+            target.firstName = value;
+        }
+        if (req.body.lastName !== undefined) {
+            const value = normalizeName(req.body.lastName);
+            if (!isValidName(value)) return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+            target.lastName = value;
+        }
+        target.role = nextRole;
+        target.status = nextStatus;
+        await target.save();
+        return res.status(200).json({ message: "User updated.", user: await User.findById(target._id).select(PUBLIC_USER_SELECT) });
+    } catch (error) {
+        console.error("Admin update user error:", error);
+        return res.status(500).json({ message: "Failed to update user." });
+    }
+}
+
+export async function changeInitialPassword(req, res) {
+    try {
+        const userId = getActorId(req);
+        const currentPassword = String(req.body?.currentPassword || "");
+        const newPassword = String(req.body?.newPassword || "");
+        const user = await User.findById(userId).select("+passwordHashed passwordChangeRequired");
+        if (!user) return res.status(404).json({ message: "User not found." });
+        if (!user.passwordChangeRequired) return res.status(409).json({ message: "An initial password change is not required." });
+        if (!(await user.validatePassword(currentPassword))) return res.status(400).json({ message: "Temporary password is incorrect." });
+        if (!isStrongPassword(newPassword)) return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+        if (await user.validatePassword(newPassword)) return res.status(400).json({ message: "Choose a password different from the temporary password." });
+        await user.setPassword(newPassword);
+        user.passwordChangeRequired = false;
+        await user.save();
+        const currentSessionId = String(req.user?.sessionId || "");
+        await Session.updateMany(
+            { user: user._id, active: true, ...(currentSessionId ? { _id: { $ne: currentSessionId } } : {}) },
+            { $set: { active: false, endedAt: new Date() } },
+        );
+        return res.status(200).json({ message: "Password changed successfully." });
+    } catch (error) {
+        console.error("Initial password change error:", error);
+        return res.status(500).json({ message: "Failed to change password." });
+    }
+}
+
 export async function getUserList(req, res) {
     try {
         const users = await User.find({}).select(
             "-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes"
         );
         res.status(200).json(users);
-    } catch (error) {
+    } catch {
         res.status(500).json({ message: "Failed to retrieve users." });
     }
 }
@@ -197,7 +340,7 @@ export async function getAdminUsers(req, res) {
             "-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes"
         );
         res.status(200).json(users);
-    } catch (error) {
+    } catch {
         res.status(500).json({ message: "Failed to retrieve admin users." });
     }
 }
@@ -211,14 +354,21 @@ export async function updateUserStatus(req, res) {
             return res.status(400).json({ message: "Invalid status value." });
         }
 
-        const updated = await User.findByIdAndUpdate(
-            userId,
-            { status },
-            { new: true, runValidators: true }
-        ).select("-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes");
-        if (!updated) {
+        const target = await User.findById(userId);
+        if (!target) {
             return res.status(404).json({ message: "User not found." });
         }
+        const forbidden = await assertPrivilegedMutationAllowed(req, target, target.role);
+        if (forbidden) return res.status(forbidden.status).json({ message: forbidden.message });
+        if (getActorId(req) === String(target._id) && status !== "active") {
+            return res.status(403).json({ message: "You cannot disable your own account." });
+        }
+        if (await wouldDisableLastSuperAdmin(target, target.role, status)) {
+            return res.status(409).json({ message: "The last active superadmin cannot be disabled." });
+        }
+        target.status = status;
+        await target.save();
+        const updated = await User.findById(target._id).select(PUBLIC_USER_SELECT);
         return res.status(200).json({ message: "User status updated.", user: updated });
     } catch (error) {
         console.error("Update user status error:", error);
@@ -644,6 +794,7 @@ export async function verifyOtp(req, res) {
                 phoneNumber: user.phoneNumber,
                 email: user.email,
                 role: user.role,
+                passwordChangeRequired: Boolean(user.passwordChangeRequired),
             },
         });
     } catch (error) {

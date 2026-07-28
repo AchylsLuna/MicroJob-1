@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import TabTopNav from '../../components/TabTopNav';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
@@ -103,7 +103,7 @@ export default function Dashboard({
     return Boolean(resumeFileName || resumeUrl || resume);
   };
 
-  const syncResumeStatus = async () => {
+  const syncResumeStatus = useCallback(async () => {
     try {
       const storedUserRaw = await AsyncStorage.getItem('auth_user');
       if (storedUserRaw) {
@@ -135,13 +135,13 @@ export default function Dashboard({
     } catch (error) {
       // Keep UI functional even when profile sync fails.
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCategories();
     fetchJobs();
     syncResumeStatus();
-  }, []);
+  }, [syncResumeStatus]);
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);

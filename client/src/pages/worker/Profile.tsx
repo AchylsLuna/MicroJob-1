@@ -17,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { getProfile } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
+import { safeExternalUrl } from "../../utils/safeExternalUrl";
 
 interface Skill {
   id: string;
@@ -48,6 +49,10 @@ export function Profile() {
   const [jobsApplied, setJobsApplied] = useState(0);
   const [successRate, setSuccessRate] = useState("0%");
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const apiBase = import.meta.env.VITE_API_BASE || "/api";
+  const assetOrigin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : window.location.origin;
+  const resumeCandidate = resumeUrl?.startsWith("/") ? `${assetOrigin}${resumeUrl}` : resumeUrl;
+  const safeResumeUrl = safeExternalUrl(resumeCandidate, { purpose: "asset", trustedOrigins: [assetOrigin] });
 
   useEffect(() => {
     if (user) {
@@ -369,7 +374,7 @@ export function Profile() {
                   {/* CV/Resume Card */}
                   <div className="bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#bfdbfe] rounded-[16px] p-6">
                     <h3 className="text-[18px] font-semibold text-[#1e293b] mb-4">CV/Resume</h3>
-                    {resumeUrl ? (
+                    {safeResumeUrl ? (
                       <div className="space-y-4">
                         <div className="bg-white rounded-[12px] p-4 border border-[#bfdbfe]">
                           <div className="flex items-center gap-3 mb-3">
@@ -382,7 +387,7 @@ export function Profile() {
                             </div>
                           </div>
                           <a
-                            href={resumeUrl}
+                            href={safeResumeUrl}
                             download
                             target="_blank"
                             rel="noopener noreferrer"

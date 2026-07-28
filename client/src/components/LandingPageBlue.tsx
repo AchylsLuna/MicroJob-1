@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, CheckCircle, Briefcase, TrendingUp, Star, ChevronRight, MapPin, Sparkles } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { motion, useScroll, useTransform } from "motion/react";
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
@@ -142,8 +142,8 @@ export function LandingPageBlue() {
       icon: "🧹",
     },
   ]);
-  const [isJobsLoading, setIsJobsLoading] = useState(false);
-  const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
+  const [, setIsJobsLoading] = useState(false);
+  const [, setJobsLoadError] = useState<string | null>(null);
 
   const getJobsPath = isAuthenticated
     ? user?.accountType === "employer"
@@ -152,17 +152,7 @@ export function LandingPageBlue() {
     : ROUTES.signIn;
   const startJourneyPath = getJobsPath;
 
-  const getCategoryGradient = (category?: string) => {
-    const normalized = String(category || "").toLowerCase();
-    if (normalized.includes("design")) return "bg-gradient-to-br from-[#FFE8E8] to-[#FFCFCF]";
-    if (normalized.includes("developer") || normalized.includes("tech")) return "bg-gradient-to-br from-[#E8F4FF] to-[#D0E8FF]";
-    if (normalized.includes("marketing") || normalized.includes("sales")) return "bg-gradient-to-br from-[#FFF9E8] to-[#FFE8C0]";
-    if (normalized.includes("service") || normalized.includes("chef") || normalized.includes("cleaning"))
-      return "bg-gradient-to-br from-[#E8FFE8] to-[#CFEFCF]";
-    return "bg-gradient-to-br from-[#E8F9FF] to-[#D0EFFF]";
-  };
-
-  const normalizeCadenceLabel = (raw: string) => {
+  const normalizeCadenceLabel = useCallback((raw: string) => {
     const source = raw.toLowerCase();
     if (source.includes("/mo") || source.includes("/month") || source.includes("per month")) return "/month";
     if (source.includes("/yr") || source.includes("/year") || source.includes("per year")) return "/year";
@@ -170,9 +160,9 @@ export function LandingPageBlue() {
     if (source.includes("/day") || source.includes("per day")) return "/day";
     if (source.includes("/hr") || source.includes("/hour") || source.includes("per hour")) return "/hour";
     return "";
-  };
+  }, []);
 
-  const formatJobSalary = (rawSalary?: string | number) => {
+  const formatJobSalary = useCallback((rawSalary?: string | number) => {
     if (!rawSalary && rawSalary !== 0) return "—";
     const salaryString = typeof rawSalary === "number" ? rawSalary.toString() : String(rawSalary);
     const numeric = Number.parseFloat(salaryString.replace(/,/g, "").replace(/[^0-9.]/g, ""));
@@ -181,7 +171,7 @@ export function LandingPageBlue() {
       return `₱${numeric.toLocaleString()}${cadence ? ` ${cadence}` : ""}`;
     }
     return salaryString.replace(/\$/g, "₱").replace(/\s{2,}/g, " ").trim();
-  };
+  }, [normalizeCadenceLabel]);
 
   const getCompanyName = (job: any) => {
     if (typeof job.company === "string" && job.company.trim()) {
@@ -225,7 +215,7 @@ export function LandingPageBlue() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [formatJobSalary]);
 
   const steps = [
     {
@@ -354,6 +344,8 @@ export function LandingPageBlue() {
         </div>
       </motion.nav>
 
+      <main>
+
       {/* Hero Section */}
       <section className="pt-32 pb-20 px-6 relative overflow-hidden">
         {/* Animated Background Gradient */}
@@ -430,7 +422,7 @@ export function LandingPageBlue() {
                     <Sparkles className="w-6 h-6 text-white" />
                   </motion.div>
                   <div>
-                    <h3 className="text-[16px] font-bold text-gray-900">Ready to Get Started?</h3>
+                    <p className="text-[16px] font-bold text-gray-900">Ready to Get Started?</p>
                     <p className="text-[13px] text-gray-600">Join over 10,000+ active job seekers</p>
                   </div>
                 </div>
@@ -820,6 +812,7 @@ export function LandingPageBlue() {
                     whileHover={{ scale: 1.2, rotate: 90 }}
                     whileTap={{ scale: 0.9 }}
                     onClick={() => navigate(getJobsPath)}
+                    aria-label={`View ${job.title}`}
                     className="w-10 h-10 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white group-hover:shadow-lg transition-all"
                   >
                     <ChevronRight className="w-5 h-5" />
@@ -891,7 +884,7 @@ export function LandingPageBlue() {
                     className={`w-16 h-16 rounded-full bg-gradient-to-br ${testimonial.gradient}`}
                   />
                   <div>
-                    <h4 className="text-[16px] font-bold text-gray-900">{testimonial.name}</h4>
+                    <p className="text-[16px] font-bold text-gray-900">{testimonial.name}</p>
                     <p className="text-[13px] text-gray-600">{testimonial.role}</p>
                   </div>
                 </div>
@@ -974,6 +967,8 @@ export function LandingPageBlue() {
         </div>
       </section>
 
+      </main>
+
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12 px-6 scroll-mt-24" id="contact">
         <div className="max-w-7xl mx-auto">
@@ -1001,7 +996,7 @@ export function LandingPageBlue() {
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
             >
-              <h4 className="text-[14px] font-semibold mb-4">Resources</h4>
+              <h3 className="text-[14px] font-semibold mb-4">Resources</h3>
               <ul className="space-y-2">
                 <li><a href="#jobs" className="text-[13px] text-gray-400 hover:text-white transition-colors">Jobs</a></li>
                 <li><a href="#employers" className="text-[13px] text-gray-400 hover:text-white transition-colors">Employers</a></li>
@@ -1015,7 +1010,7 @@ export function LandingPageBlue() {
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
             >
-              <h4 className="text-[14px] font-semibold mb-4">Company</h4>
+              <h3 className="text-[14px] font-semibold mb-4">Company</h3>
               <ul className="space-y-2">
                 <li><a href="#features" className="text-[13px] text-gray-400 hover:text-white transition-colors">About Us</a></li>
                 <li><a href="#contact" className="text-[13px] text-gray-400 hover:text-white transition-colors">Contact</a></li>
@@ -1029,7 +1024,7 @@ export function LandingPageBlue() {
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
-              <h4 className="text-[14px] font-semibold mb-4">Legal</h4>
+              <h3 className="text-[14px] font-semibold mb-4">Legal</h3>
               <ul className="space-y-2">
                 <li>
                   <button

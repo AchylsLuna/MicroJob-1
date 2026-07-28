@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
 import { apiRequest } from '../lib/api';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';

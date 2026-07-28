@@ -36,8 +36,8 @@ export function AnalyticsOverview({
     return Number.isFinite(amount) ? amount : 0;
   };
 
-  const now = new Date();
   const monthBuckets = useMemo(() => {
+    const now = new Date();
     return Array.from({ length: CHART_MONTHS }, (_, index) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (CHART_MONTHS - 1 - index), 1);
       const key = `${date.getFullYear()}-${date.getMonth()}`;
@@ -48,7 +48,7 @@ export function AnalyticsOverview({
         year: date.getFullYear(),
       };
     });
-  }, [now]);
+  }, []);
 
   const getDateFromId = (id?: string) => {
     if (!id || id.length < 8) return null;

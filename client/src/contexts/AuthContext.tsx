@@ -29,6 +29,7 @@ interface User {
   firstName: string;
   lastName: string;
   role: "user" | "employer" | "admin" | "both";
+  systemRole?: string;
   accountType: "worker" | "employer";
   accountOptions: ("worker" | "employer")[];
   accountPreference?: "worker" | "employer" | "both";
@@ -50,6 +51,7 @@ interface User {
   projectsCompleted?: number;
   jobsApplied?: number;
   successRate?: string;
+  passwordChangeRequired?: boolean;
   skills?: Array<{
     _id?: string;
     id?: string;
@@ -428,6 +430,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firstName: apiUser.firstName || splitName(verificationName).firstName,
         lastName: apiUser.lastName || splitName(verificationName).lastName,
         role,
+        systemRole: String(apiUser.role || role),
         accountType,
         accountPreference: normalizePreference(preferredAccount) || undefined,
         accountOptions: [...accountOptions],
@@ -437,6 +440,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         country: apiUser.country,
         linkedin: apiUser.linkedin,
         avatarUrl: apiUser.avatarUrl,
+        passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
         createdAt: new Date().toISOString(),
       };
 
@@ -444,7 +448,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
       window.dispatchEvent(new Event("auth_user_updated"));
-      sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, getDefaultDashboardPath(newUser));
+      sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, newUser.passwordChangeRequired ? "/change-initial-password" : getDefaultDashboardPath(newUser));
 
       localStorage.removeItem("pending_account_preference");
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
@@ -510,6 +514,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firstName: apiUser.firstName || "User",
         lastName: apiUser.lastName || "User",
         role,
+        systemRole: String(apiUser.role || role),
         accountType,
         accountPreference: normalizePreference(preferredAccount) || undefined,
         accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
@@ -519,6 +524,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         country: apiUser.country,
         linkedin: apiUser.linkedin,
         avatarUrl: apiUser.avatarUrl,
+        passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
         createdAt: new Date().toISOString(),
       };
 

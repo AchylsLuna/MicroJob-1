@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -8,6 +8,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { toast } from "../../lib/toast";
+import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { useAuth } from "../../hooks/useAuth";
 import {
   cancelPayoutRequest,
@@ -118,7 +119,7 @@ export function EWallet() {
     (!isEmployerWalletView && (accountOptions.includes("worker") || accountType === "worker"));
   const isWorkerWalletView = isBothRole || (!isEmployerWalletView && canUseWorkerWallet);
 
-  const loadWallet = async (skipLoader = false) => {
+  const loadWallet = useCallback(async (skipLoader = false) => {
     if (!skipLoader) setIsLoading(true);
     try {
       const [profileResponse, txResponse, payoutResponse] = await Promise.all([
@@ -152,7 +153,7 @@ export function EWallet() {
     } finally {
       if (!skipLoader) setIsLoading(false);
     }
-  };
+  }, [isWorkerWalletView]);
 
   useEffect(() => {
     let isActive = true;
@@ -174,7 +175,7 @@ export function EWallet() {
       isActive = false;
       window.clearInterval(pollInterval);
     };
-  }, [isWorkerWalletView]);
+  }, [isWorkerWalletView, loadWallet]);
 
   const activeBalance = isBothRole
     ? employerBalance + workerBalance
@@ -217,15 +218,14 @@ export function EWallet() {
     setIsCreatingTopUp(true);
     try {
       const response = await createTopUpSession({ amount, target: "EMPLOYER" });
-      if (!response?.checkoutUrl) {
-        throw new Error("Payment checkout URL was not returned.");
-      }
+      const checkoutUrl = safeExternalUrl(response?.checkoutUrl, { purpose: "payment" });
+      if (!checkoutUrl) throw new Error("The payment provider returned an unsafe checkout link.");
 
       if (response?.checkoutId) {
         sessionStorage.setItem("topup_checkout_id", response.checkoutId);
       }
 
-      window.location.assign(response.checkoutUrl);
+      window.location.assign(checkoutUrl);
     } catch (error: any) {
       toast.error(error?.message || "Failed to initialize top-up.");
       setIsCreatingTopUp(false);
@@ -503,8 +503,9 @@ export function EWallet() {
 
             <div className="space-y-4">
               <div>
-                <label className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
+                <label htmlFor="payout-amount" className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
                 <input
+                  id="payout-amount"
                   type="number"
                   min="1"
                   step="0.01"
@@ -516,8 +517,9 @@ export function EWallet() {
               </div>
 
               <div>
-                <label className="text-[13px] text-[#374151] mb-2 block">Method</label>
+                <label htmlFor="payout-method" className="text-[13px] text-[#374151] mb-2 block">Method</label>
                 <select
+                  id="payout-method"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.methodType}
                   onChange={(event) => setPayoutForm((current) => ({ ...current, methodType: event.target.value }))}
@@ -529,8 +531,9 @@ export function EWallet() {
               </div>
 
               <div>
-                <label className="text-[13px] text-[#374151] mb-2 block">Institution</label>
+                <label htmlFor="payout-institution" className="text-[13px] text-[#374151] mb-2 block">Institution</label>
                 <input
+                  id="payout-institution"
                   type="text"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.institutionName}
@@ -540,8 +543,9 @@ export function EWallet() {
               </div>
 
               <div>
-                <label className="text-[13px] text-[#374151] mb-2 block">Account Name</label>
+                <label htmlFor="payout-account-name" className="text-[13px] text-[#374151] mb-2 block">Account Name</label>
                 <input
+                  id="payout-account-name"
                   type="text"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.accountName}
@@ -551,8 +555,9 @@ export function EWallet() {
               </div>
 
               <div>
-                <label className="text-[13px] text-[#374151] mb-2 block">Account Number</label>
+                <label htmlFor="payout-account-number" className="text-[13px] text-[#374151] mb-2 block">Account Number</label>
                 <input
+                  id="payout-account-number"
                   type="text"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.accountNumber}
@@ -639,8 +644,9 @@ export function EWallet() {
               <h4 className="text-[18px] font-semibold text-[#111827]">Top Up</h4>
             </div>
 
-            <label className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
+            <label htmlFor="topup-amount" className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
             <input
+              id="topup-amount"
               type="number"
               min="1"
               step="0.01"

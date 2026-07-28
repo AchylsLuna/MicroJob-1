@@ -6,3 +6,5 @@ node_modules
 Mobile/.expo/
 client/dist/
 Mobile/dist/
+playwright-report/
+test-results/

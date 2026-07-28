@@ -8,7 +8,7 @@ import React, {
   useState,
 } from 'react';
 import { Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../lib/storage';
 import io from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '../config';
 import { apiRequest, asList, asObject } from '../lib/api';
@@ -168,6 +168,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   const socketRef = useRef<any>(null);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logoutRef = useRef<() => Promise<void>>(async () => undefined);
   const socketFailureCountRef = useRef(0);
   const socketErrorLogRef = useRef({ message: '', at: 0 });
   const currentUserIdRef = useRef<string | null>(null);
@@ -199,7 +200,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     }
     warningTimerRef.current = setTimeout(() => setShowIdleWarning(true), Math.max(IDLE_TIMEOUT_MS - WARNING_DURATION_MS, 0));
     logoutTimerRef.current = setTimeout(() => {
-      void logout();
+      void logoutRef.current();
     }, IDLE_TIMEOUT_MS);
   }, [clearIdleTimers, isAuthenticated]);
 
@@ -476,7 +477,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     });
 
     return disconnectSocket;
-  }, [disconnectSocket, isAuthenticated]);
+  }, [disconnectSocket, isAuthenticated, refreshNotifications, refreshProfile]);
 
   const handleAuthSuccess = useCallback(async () => {
     await AsyncStorage.setItem(HAS_ONBOARDED_KEY, 'true');
@@ -517,6 +518,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setInitialEmployerChatTarget(null);
     setIsAuthenticated(false);
   }, [disconnectSocket]);
+  logoutRef.current = logout;
 
   const switchViewMode = useCallback(async (nextView: ViewMode) => {
     if (nextView === 'employer' && !canAccessEmployer) {

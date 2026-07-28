@@ -11,11 +11,12 @@ import {
   Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import EmployerNavigation from '../../components/employerNavigation';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
+import { safeExternalUrl } from '../../lib/safeExternalUrl';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -56,7 +57,7 @@ export default function EmployerEWallet({
   const parsedTopupAmount = Number(String(topupAmount || '').replace(/[^0-9.]/g, ''));
   const canCreatePayment = !isCreatingPayment && Number.isFinite(parsedTopupAmount) && parsedTopupAmount >= 100;
 
-  const formatDate = (value?: string) => {
+  const formatDate = useCallback((value?: string) => {
     if (!value) return '—';
     const parsed = new Date(value);
     if (Number.isNaN(parsed.getTime())) return '—';
@@ -65,9 +66,9 @@ export default function EmployerEWallet({
       day: '2-digit',
       year: 'numeric',
     });
-  };
+  }, []);
 
-  const mapTxToUi = (tx: any): WalletTransaction => {
+  const mapTxToUi = useCallback((tx: any): WalletTransaction => {
     const type = String(tx?.type || '').toUpperCase();
     const defaultTitle = type ? type.replace(/_/g, ' ') : 'Transaction';
     const isPending = type === 'ESCROW';
@@ -78,7 +79,7 @@ export default function EmployerEWallet({
       amount: Number(tx?.amount || 0),
       status: isPending ? 'Pending' : 'Completed',
     };
-  };
+  }, [formatDate]);
 
   const refreshWalletData = useCallback(async () => {
     try {
@@ -118,7 +119,7 @@ export default function EmployerEWallet({
     } finally {
       setIsRefreshingWallet(false);
     }
-  }, []);
+  }, [mapTxToUi]);
 
   const confirmPendingTopup = useCallback(async () => {
     try {
@@ -226,7 +227,8 @@ export default function EmployerEWallet({
         payload.paymentUrl ||
         payload.url;
 
-      if (!result.ok || !checkoutUrl) {
+      const safeCheckoutUrl = safeExternalUrl(checkoutUrl, { purpose: 'payment' });
+      if (!result.ok || !safeCheckoutUrl) {
         toast.error(result.message || 'No payment link was returned by the server.');
         return;
       }
@@ -239,13 +241,13 @@ export default function EmployerEWallet({
       pendingTopupRef.current = pendingPayload;
       await AsyncStorage.setItem(PENDING_TOPUP_KEY, JSON.stringify(pendingPayload));
 
-      const supported = await Linking.canOpenURL(String(checkoutUrl));
+      const supported = await Linking.canOpenURL(safeCheckoutUrl);
       if (!supported) {
         toast.error('Unable to open payment link on this device.');
         return;
       }
 
-      await Linking.openURL(String(checkoutUrl));
+      await Linking.openURL(safeCheckoutUrl);
       refreshAfterBrowserRef.current = true;
       toast.info('Opening payment link in your browser. Complete payment to top up your wallet.');
     } catch (error: any) {

@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,6 +21,7 @@ import TabTopNav from '../../components/TabTopNav';
 import AddCV from './AddCV';
 import AddExperience from './AddExperience';
 import { API_URL } from '../../config';
+import { safeExternalUrl } from '../../lib/safeExternalUrl';
 import { apiRequest } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
@@ -283,11 +284,15 @@ export default function Profile({
       : 0;
 
   const resumeUrl = profile?.resumeUrl || profile?.cvUrl || '';
-  const absoluteResumeUrl = resumeUrl
+  const resumeCandidate = resumeUrl
     ? String(resumeUrl).startsWith('http')
       ? resumeUrl
       : `${API_ORIGIN}${resumeUrl}`
     : '';
+  const absoluteResumeUrl = safeExternalUrl(resumeCandidate, {
+    purpose: 'asset',
+    trustedOrigins: [API_ORIGIN],
+  });
   const resumeName = profile?.resumeFileName || 'No document uploaded';
   const resumeExtension = useMemo(() => {
     if (!resumeName || !resumeName.includes('.')) return 'FILE';
@@ -426,7 +431,6 @@ export default function Profile({
               style={styles.editAvatarButton}
               onPress={handlePickProfilePicture}
               accessibilityRole="button"
-              accessibilityLabel="Upload profile picture"
               accessibilityState={{ disabled: isUploadingAvatar }}
               disabled={isUploadingAvatar}
               activeOpacity={0.9}

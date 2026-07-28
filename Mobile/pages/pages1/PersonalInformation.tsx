@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -12,7 +12,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
@@ -32,6 +32,7 @@ type BarangayOption = { code: string; name: string };
 const PSGC_BASE_URL = 'https://psgc.gitlab.io/api';
 
 export default function PersonalInformation({ onBack }: PersonalInformationProps) {
+  const loadProfileRef = useRef<() => Promise<void>>(async () => undefined);
   const insets = useSafeAreaInsets();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -75,7 +76,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   );
 
   useEffect(() => {
-    loadProfile();
+    void loadProfileRef.current();
   }, []);
 
   useEffect(() => {
@@ -202,7 +203,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     return { firstName, lastName: rest.join(' ') };
   };
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
@@ -247,7 +248,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+  loadProfileRef.current = loadProfile;
 
   const validateFields = (): boolean => {
     const nextErrors: Record<string, string> = {};

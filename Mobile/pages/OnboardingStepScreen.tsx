@@ -72,7 +72,7 @@ export default function OnboardingStepScreen({
     }).start();
   }, [activeIndex, introAnim]);
 
-  const animateAndNavigate = (toValue: number, onDone: () => void) => {
+  const animateAndNavigate = useCallback((toValue: number, onDone: () => void) => {
     if (isNavigatingRef.current) {
       return;
     }
@@ -87,12 +87,12 @@ export default function OnboardingStepScreen({
       onDone();
       isNavigatingRef.current = false;
     });
-  };
+  }, [swipeX]);
 
   const handleNext = useCallback(() => {
     navDirection.current = 1;
     animateAndNavigate(-exitOffsetX, onNext);
-  }, [exitOffsetX, onNext]);
+  }, [animateAndNavigate, exitOffsetX, onNext]);
 
   const handlePrevious = useCallback(() => {
     if (!onPrevious) {
@@ -100,7 +100,7 @@ export default function OnboardingStepScreen({
     }
     navDirection.current = -1;
     animateAndNavigate(exitOffsetX, onPrevious);
-  }, [exitOffsetX, onPrevious]);
+  }, [animateAndNavigate, exitOffsetX, onPrevious]);
 
   const panResponder = useMemo(
     () =>

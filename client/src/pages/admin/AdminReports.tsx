@@ -216,9 +216,9 @@ function AdminReportsContent() {
 
     let content = "";
     if (format === "JSON") {
-      content = JSON.stringify(data.map(({ date, ...rest }) => rest), null, 2);
+      content = JSON.stringify(data.map(({ date: _date, ...rest }) => rest), null, 2);
     } else {
-      const rows = data.map(({ date, ...rest }) => rest);
+      const rows = data.map(({ date: _date, ...rest }) => rest);
       const headers = Object.keys(rows[0] || {});
       content = [headers.join(",")]
         .concat(
@@ -305,10 +305,11 @@ function AdminReportsContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div>
-            <label className="text-[12px] text-[#6B7280] block mb-2">From Date</label>
+            <label htmlFor="report-from-date" className="text-[12px] text-[#6B7280] block mb-2">From Date</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
+                id="report-from-date"
                 type="date"
                 value={fromDate}
                 onChange={(event) => setFromDate(event.target.value)}
@@ -317,10 +318,11 @@ function AdminReportsContent() {
             </div>
           </div>
           <div>
-            <label className="text-[12px] text-[#6B7280] block mb-2">To Date</label>
+            <label htmlFor="report-to-date" className="text-[12px] text-[#6B7280] block mb-2">To Date</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
+                id="report-to-date"
                 type="date"
                 value={toDate}
                 onChange={(event) => setToDate(event.target.value)}
@@ -329,9 +331,10 @@ function AdminReportsContent() {
             </div>
           </div>
           <div>
-            <label className="text-[12px] text-[#6B7280] block mb-2">Export Format</label>
+            <span id="report-format-label" className="text-[12px] text-[#6B7280] block mb-2">Export Format</span>
             <div className="relative">
               <button
+                aria-labelledby="report-format-label"
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();

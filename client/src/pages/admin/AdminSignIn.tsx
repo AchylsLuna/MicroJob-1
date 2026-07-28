@@ -63,22 +63,26 @@ export function AdminSignIn() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
-      <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] p-4 sm:p-6">
+      <div className="pointer-events-none absolute -left-24 top-12 h-72 w-72 rounded-full bg-sky-300/20 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -bottom-28 right-0 h-80 w-80 rounded-full bg-blue-950/30 blur-3xl" aria-hidden="true" />
+      <div className="relative w-full max-w-[520px] rounded-[24px] border border-white/70 bg-white/95 p-6 shadow-[0_24px_80px_rgba(15,41,84,0.35)] backdrop-blur sm:p-8 lg:p-10">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-[16px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center mx-auto mb-4">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] shadow-lg shadow-blue-900/20">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-[28px] font-bold text-[#111827] mb-2">Admin Sign In</h2>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">MicroJobs control center</p>
+          <h1 className="mb-2 text-[28px] font-bold text-[#111827]">Admin Sign In</h1>
           <p className="text-[14px] text-[#6B7280]">Restricted access for platform administrators</p>
         </div>
 
         <form onSubmit={handleSignIn} className="space-y-5">
           <div>
-            <label className="text-[14px] font-medium text-[#111827] mb-2 block">Email</label>
+            <label htmlFor="admin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">Email</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
+                id="admin-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -93,10 +97,11 @@ export function AdminSignIn() {
           </div>
 
           <div>
-            <label className="text-[14px] font-medium text-[#111827] mb-2 block">Password</label>
+            <label htmlFor="admin-password" className="text-[14px] font-medium text-[#111827] mb-2 block">Password</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
+                id="admin-password"
                 ref={passwordInputRef}
                 type={showPassword ? "text" : "password"}
                 placeholder="Enter your password"
@@ -109,6 +114,7 @@ export function AdminSignIn() {
               />
               <button
                 type="button"
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
               >
@@ -127,6 +133,6 @@ export function AdminSignIn() {
         </form>
 
       </div>
-    </div>
+    </main>
   );
 }

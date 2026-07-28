@@ -253,6 +253,10 @@ const UserSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    passwordChangeRequired: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true, versionKey: false }
 );

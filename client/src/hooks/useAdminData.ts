@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "../lib/toast";
 import {
-  deleteUser,
   getAdminStats,
   getAdminUsers,
   getAdminJobs,
@@ -10,6 +9,8 @@ import {
   getAdminRecentPayouts,
   getAdminTransactions,
   updateUserStatus,
+  inviteUser,
+  updateUserByAdmin,
   type PayoutRequest,
   type PaymentTransaction,
 } from "../services/api";
@@ -101,6 +102,7 @@ export function useAdminData() {
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -151,7 +153,7 @@ export function useAdminData() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const jobsByUser = useMemo(() => {
     const map = new Map<string, number>();
@@ -326,21 +328,16 @@ export function useAdminData() {
     }
   };
 
-  const handleDeleteUser = async (u: AdminUser) => {
-    const label = getUserDisplayName(u);
-    if (!window.confirm(`Delete ${label}? This will redact the account when blockers are clear.`)) return;
-    try {
-      await deleteUser(u._id);
-      const now = new Date().toISOString();
-      setUsers((prev) =>
-        prev.map((item) =>
-          item._id === u._id ? { ...item, status: "deleted", deletedAt: now, redactedAt: now } : item
-        )
-      );
-      toast.success(`User ${label} deleted`);
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to delete user");
-    }
+  const handleInviteUser = async (payload: { firstName: string; lastName: string; email: string; role: 'work' | 'hire' | 'both' | 'admin' | 'superadmin' }) => {
+    const result = await inviteUser(payload);
+    setUsers((current) => [result.user, ...current]);
+    return result.user as AdminUser;
+  };
+
+  const handleEditUser = async (userId: string, payload: { firstName: string; lastName: string; role: string; status: 'active' | 'pending' | 'disabled' }) => {
+    const result = await updateUserByAdmin(userId, payload);
+    setUsers((current) => current.map((item) => item._id === userId ? result.user : item));
+    return result.user as AdminUser;
   };
 
   return {
@@ -365,6 +362,8 @@ export function useAdminData() {
     formatSalary,
     handleApproveUser,
     handleToggleUserStatus,
-    handleDeleteUser,
+    handleInviteUser,
+    handleEditUser,
+    reload: () => setReloadKey((current) => current + 1),
   };
 }

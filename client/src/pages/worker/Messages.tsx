@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   Ban,
@@ -160,13 +160,14 @@ export function Messages() {
   const startChatHandledRef = useRef(false);
   const prefilledDraftHandledRef = useRef(false);
   const socketRef = useRef<Socket | null>(null);
+  const loadConversationsRef = useRef<() => Promise<void>>(async () => undefined);
   const supportSource = searchParams.get("source") || "";
   const supportStartUserId = supportSource === "support-center" ? (searchParams.get("startUser") || "") : "";
 
-  const supportDisplayNameFor = (otherUserId: string, fallbackName: string) =>
+  const supportDisplayNameFor = useCallback((otherUserId: string, fallbackName: string) =>
     supportStartUserId && String(otherUserId) === String(supportStartUserId)
       ? "Admin Support"
-      : fallbackName;
+      : fallbackName, [supportStartUserId]);
 
   useEffect(() => {
     setCurrentUserId(getCurrentUserIdFromStorage());
@@ -177,7 +178,7 @@ export function Messages() {
     window.addEventListener("auth_user_updated", handleAuthUserUpdated);
 
     loadArchivedConversations();
-    loadConversations();
+    void loadConversationsRef.current();
 
     return () => {
       window.removeEventListener("auth_user_updated", handleAuthUserUpdated);
@@ -295,7 +296,7 @@ export function Messages() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, selectedContact]);
+  }, [currentUserId, selectedContact, supportDisplayNameFor]);
 
   useEffect(() => {
     if (!selectedContact) return;
@@ -320,7 +321,7 @@ export function Messages() {
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      loadConversations();
+      void loadConversationsRef.current();
       loadArchivedConversations();
     }, 10000);
     return () => window.clearInterval(interval);
@@ -385,7 +386,7 @@ export function Messages() {
       nextParams.delete("source");
       setSearchParams(nextParams, { replace: true });
     }
-  }, [searchParams, contacts]);
+  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor]);
 
   useEffect(() => {
     // Close menu when clicking outside
@@ -406,7 +407,7 @@ export function Messages() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       setLoading(true);
       const response: any = await getConversations();
@@ -436,7 +437,8 @@ export function Messages() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [archivedContacts, selectedContact, supportDisplayNameFor]);
+  loadConversationsRef.current = loadConversations;
 
   const loadArchivedConversations = async () => {
     try {
@@ -676,15 +678,27 @@ export function Messages() {
   };
 
   // Ensure contacts is always an array before filtering
-  const archivedSet = new Set(archivedContacts.map((contact) => contact.conversationId));
-  const contactsArray = Array.isArray(showArchived ? archivedContacts : contacts)
-    ? (showArchived ? archivedContacts : contacts.filter((contact) => !archivedSet.has(contact.conversationId)))
-    : [];
+  const archivedSet = useMemo(
+    () => new Set(archivedContacts.map((contact) => contact.conversationId)),
+    [archivedContacts],
+  );
+  const contactsArray = useMemo(
+    () =>
+      Array.isArray(showArchived ? archivedContacts : contacts)
+        ? showArchived
+          ? archivedContacts
+          : contacts.filter((contact) => !archivedSet.has(contact.conversationId))
+        : [],
+    [archivedContacts, archivedSet, contacts, showArchived],
+  );
   const canInjectSelectedContact =
     selectedContact &&
     !contactsArray.some((contact) => contact.conversationId === selectedContact.conversationId) &&
     (showArchived ? archivedSet.has(selectedContact.conversationId) : !archivedSet.has(selectedContact.conversationId));
-  const effectiveContacts = canInjectSelectedContact ? [selectedContact as Contact, ...contactsArray] : contactsArray;
+  const effectiveContacts = useMemo(
+    () => (canInjectSelectedContact ? [selectedContact as Contact, ...contactsArray] : contactsArray),
+    [canInjectSelectedContact, contactsArray, selectedContact],
+  );
 
   const filteredContacts = useMemo(
     () =>

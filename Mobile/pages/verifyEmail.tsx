@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -9,7 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../lib/storage';
 import { Feather } from '@expo/vector-icons';
 import { API_URL } from '../config';
 import { apiRequest, asObject } from '../lib/api';
@@ -31,6 +31,7 @@ type Props = {
 };
 
 export default function VerifyEmail({ email: emailProp, mode = 'emailVerification', otpToken: initialOtpToken = '', onVerified, onBack }: Props) {
+  const sendOtpRef = useRef<() => Promise<void>>(async () => undefined);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const [code, setCode] = useState(Array(6).fill(''));
   const [email, setEmail] = useState(emailProp || '');
@@ -138,7 +139,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
         return;
       }
       hasSentRef.current = true;
-      sendOtp();
+      void sendOtpRef.current();
     };
     maybeAutoSend();
   }, [email, mode]);
@@ -158,7 +159,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
     }
   }, [timer, canResend]);
 
-  const sendOtp = async () => {
+  const sendOtp = useCallback(async () => {
     if (mode === 'loginOtp') {
       if (!otpToken) {
         setErrorMessage('Your login verification session expired. Please sign in again.');
@@ -235,7 +236,8 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [email, mode, otpToken]);
+  sendOtpRef.current = sendOtp;
 
   const handleVerify = async () => {
     const otpCode = code.join('');

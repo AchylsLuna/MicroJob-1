@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import EmployerNavigation from '../../components/employerNavigation';
 import TabTopNav from '../../components/TabTopNav';
@@ -39,7 +39,7 @@ export default function EmployerNotifications({
     });
   };
 
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -59,11 +59,11 @@ export default function EmployerNotifications({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [session, toast]);
 
   useEffect(() => {
     void loadNotifications();
-  }, []);
+  }, [loadNotifications]);
 
   useEffect(() => {
     if (!Array.isArray(liveNotifications) || liveNotifications.length === 0) return;

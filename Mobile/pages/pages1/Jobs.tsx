@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import TabTopNav from '../../components/TabTopNav';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
@@ -65,14 +65,14 @@ export default function Jobs(props: JobsProps) {
 
   const jobTypes = ['All', 'Remote', 'Fulltime', 'Part-time', 'Freelance'];
 
-  const normalizeToken = (value?: string) =>
+  const normalizeToken = useCallback((value?: string) =>
     String(value || '')
       .toLowerCase()
       .replace(/[^a-z0-9\s]/gi, ' ')
       .replace(/\s+/g, ' ')
-      .trim();
+      .trim(), []);
 
-  const locationScore = (jobLocation: string) => {
+  const locationScore = useCallback((jobLocation: string) => {
     const text = normalizeToken(jobLocation);
     if (!text) return 0;
 
@@ -85,7 +85,7 @@ export default function Jobs(props: JobsProps) {
     if (city && text.includes(city)) score += 2;
     if (barangay && text.includes(barangay)) score += 3;
     return score;
-  };
+  }, [normalizeToken, workerLocation]);
 
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -106,7 +106,7 @@ export default function Jobs(props: JobsProps) {
         .filter((job) => locationScore(job.location) > 0)
         .sort((a, b) => locationScore(b.location) - locationScore(a.location))
         .slice(0, 4),
-    [filteredJobs, workerLocation.province, workerLocation.city, workerLocation.barangay],
+    [filteredJobs, locationScore],
   );
 
   const fetchCategories = async () => {
@@ -137,7 +137,7 @@ export default function Jobs(props: JobsProps) {
     }
   };
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     setIsLoading(true);
     setErrorMessage('');
     try {
@@ -169,7 +169,7 @@ export default function Jobs(props: JobsProps) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [searchQuery, selectedCategory, selectedJobType]);
 
   useEffect(() => {
     fetchCategories();
@@ -222,7 +222,7 @@ export default function Jobs(props: JobsProps) {
       fetchJobs();
     }, 300);
     return () => clearTimeout(timer);
-  }, [selectedCategory, selectedJobType, searchQuery]);
+  }, [selectedCategory, selectedJobType, searchQuery, fetchJobs]);
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);

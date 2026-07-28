@@ -54,7 +54,7 @@ export function ForgotPassword() {
 
   if (emailSent) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
+      <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
         <div className="w-full max-w-[480px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
           {/* Success Icon */}
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D1FAE5] to-[#A7F3D0] flex items-center justify-center mx-auto mb-6">
@@ -63,7 +63,7 @@ export function ForgotPassword() {
 
           {/* Header */}
           <div className="text-center mb-6">
-            <h2 className="text-[28px] font-bold text-[#111827] mb-3">Check Your Email</h2>
+            <h1 className="text-[28px] font-bold text-[#111827] mb-3">Check Your Email</h1>
             <p className="text-[14px] text-[#6B7280] leading-relaxed">
               We've sent a password reset code to<br />
               <span className="font-semibold text-[#111827]">{email}</span>
@@ -120,12 +120,12 @@ export function ForgotPassword() {
             </p>
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
+    <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
       <div className="w-full max-w-[480px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
         {/* Back Button */}
         <button
@@ -141,7 +141,7 @@ export function ForgotPassword() {
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-[28px] font-bold text-[#111827] mb-3">Forgot Password?</h2>
+          <h1 className="text-[28px] font-bold text-[#111827] mb-3">Forgot Password?</h1>
           <p className="text-[14px] text-[#6B7280]">
             No worries! Enter your email address and we'll send you a reset code.
           </p>
@@ -151,12 +151,13 @@ export function ForgotPassword() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email Input */}
           <div>
-            <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+            <label htmlFor="forgot-email" className="text-[14px] font-medium text-[#111827] mb-2 block">
               Email Address
             </label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
-              <input
+                <input
+                  id="forgot-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -190,6 +191,6 @@ export function ForgotPassword() {
           </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

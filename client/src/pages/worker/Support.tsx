@@ -436,8 +436,9 @@ export function Support() {
             <form onSubmit={handleSubmitTicket} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-[14px] font-medium text-[#111827] mb-2">Subject</label>
+                  <label htmlFor="support-subject" className="block text-[14px] font-medium text-[#111827] mb-2">Subject</label>
                   <input
+                    id="support-subject"
                     type="text"
                     value={supportForm.subject}
                     onChange={(event) => setSupportForm((current) => ({ ...current, subject: event.target.value }))}
@@ -446,8 +447,9 @@ export function Support() {
                   />
                 </div>
                 <div>
-                  <label className="block text-[14px] font-medium text-[#111827] mb-2">Category</label>
+                  <label htmlFor="support-category" className="block text-[14px] font-medium text-[#111827] mb-2">Category</label>
                   <select
+                    id="support-category"
                     value={supportForm.category}
                     onChange={(event) => setSupportForm((current) => ({ ...current, category: event.target.value }))}
                     className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
@@ -463,8 +465,9 @@ export function Support() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[14px] font-medium text-[#111827] mb-2">Priority</label>
+                  <label htmlFor="support-priority" className="block text-[14px] font-medium text-[#111827] mb-2">Priority</label>
                   <select
+                    id="support-priority"
                     value={supportForm.priority}
                     onChange={(event) =>
                       setSupportForm((current) => ({
@@ -487,8 +490,9 @@ export function Support() {
               </div>
 
               <div>
-                <label className="block text-[14px] font-medium text-[#111827] mb-2">Message</label>
+                <label htmlFor="support-message" className="block text-[14px] font-medium text-[#111827] mb-2">Message</label>
                 <textarea
+                  id="support-message"
                   value={supportForm.message}
                   onChange={(event) => setSupportForm((current) => ({ ...current, message: event.target.value }))}
                   placeholder="Describe the issue, the expected result, and any dates or references we should review."

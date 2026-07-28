@@ -78,7 +78,7 @@ export function useSavedJobs() {
 
   useEffect(() => {
     refreshSavedJobs(savedJobs.length === 0);
-  }, [refreshSavedJobs]);
+  }, [refreshSavedJobs, savedJobs.length]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;

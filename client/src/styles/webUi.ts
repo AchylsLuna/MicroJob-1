@@ -1,7 +1,7 @@
 export const webUi = {
   layout: {
-    shell: "bg-[#f8f8f8] flex min-h-dvh w-full overflow-x-hidden",
-    content: "min-w-0 flex-1 flex flex-col overflow-y-auto",
+    shell: "bg-[#f8f8f8] flex h-screen h-[100dvh] w-full overflow-hidden",
+    content: "h-full min-w-0 flex-1 flex flex-col overflow-y-auto overscroll-contain",
     main: "min-w-0 flex-1 px-4 pb-6 pt-3 sm:px-6 lg:pt-6",
     maxContainer: "w-full",
   },
@@ -18,7 +18,7 @@ export const webUi = {
     popover: "bg-white rounded-[14px] shadow-lg border border-[#E5E7EB]",
   },
   sidebar: {
-    root: "bg-white text-gray-800 shadow-lg h-dvh overflow-y-auto flex flex-col",
+    root: "dashboard-sidebar bg-white text-gray-800 shadow-lg h-screen h-[100dvh] overflow-hidden flex flex-col",
     navButton:
       "w-full flex items-center justify-center lg:justify-start gap-3 px-4 py-3 rounded-lg font-semibold transition relative",
     navButtonActive: "text-blue-600 bg-blue-50",

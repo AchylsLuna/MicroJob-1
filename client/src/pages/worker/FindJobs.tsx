@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Heart, Clock, SlidersHorizontal } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -72,14 +72,14 @@ export function FindJobs() {
     nearest: "Nearest to you",
   } as const;
 
-  const normalizeToken = (value?: string) =>
+  const normalizeToken = useCallback((value?: string) =>
     String(value || "")
       .toLowerCase()
       .replace(/[^a-z0-9\s]/gi, " ")
       .replace(/\s+/g, " ")
-      .trim();
+      .trim(), []);
 
-  const locationScore = (jobLocation: string) => {
+  const locationScore = useCallback((jobLocation: string) => {
     const text = normalizeToken(jobLocation);
     if (!text) return 0;
 
@@ -92,7 +92,7 @@ export function FindJobs() {
     if (city && text.includes(city)) score += 2;
     if (barangay && text.includes(barangay)) score += 3;
     return score;
-  };
+  }, [normalizeToken, workerLocation]);
 
   const handleSaveJob = async (jobId: string) => {
     try {
@@ -138,7 +138,7 @@ export function FindJobs() {
     return name || poster.email || "MicroJobs";
   };
 
-  const mapApiJob = (job: ApiJob): Job => {
+  const mapApiJob = useCallback((job: ApiJob): Job => {
     const companyName = getCompanyName(job.jobPoster);
     const categoryName =
       typeof job.category === "string" ? job.category : job.category?.name || "General";
@@ -173,7 +173,7 @@ export function FindJobs() {
       saved: false,
       category: categoryName,
     };
-  };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -226,7 +226,7 @@ export function FindJobs() {
     return () => {
       isMounted = false;
     };
-  }, [searchQuery, reloadKey]);
+  }, [searchQuery, reloadKey, mapApiJob]);
 
   const getJobTypeColor = (type: string) => {
     switch (type) {
@@ -314,7 +314,7 @@ export function FindJobs() {
         .filter((job) => locationScore(job.location) > 0)
         .sort((a, b) => locationScore(b.location) - locationScore(a.location))
         .slice(0, 3),
-    [jobsWithSavedState, workerLocation.province, workerLocation.city, workerLocation.barangay],
+    [jobsWithSavedState, locationScore],
   );
 
   return (

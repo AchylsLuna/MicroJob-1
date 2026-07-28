@@ -5,9 +5,12 @@ import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
+import { Button, Dialog, Input, Select } from "../../components/ui";
+import { useAuth } from "../../hooks/useAuth";
 
 function AdminUserManagementContent() {
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
   const {
     isLoading,
     loadError,
@@ -15,12 +18,19 @@ function AdminUserManagementContent() {
     getStatusColor,
     handleApproveUser,
     handleToggleUserStatus,
+    handleInviteUser,
+    handleEditUser,
   } = useAdminData();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [formMode, setFormMode] = useState<"invite" | "edit" | null>(null);
+  const [formUserId, setFormUserId] = useState<string | null>(null);
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", role: "work", status: "active" });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
   const pageSize = 5;
 
   const filteredUsers = useMemo(() => {
@@ -86,6 +96,45 @@ function AdminUserManagementContent() {
   const pageStart = (safePage - 1) * pageSize;
   const pageEnd = Math.min(pageStart + pageSize, filteredUsers.length);
   const paginatedUsers = filteredUsers.slice(pageStart, pageStart + pageSize);
+  const canManagePrivilegedRoles = currentUser?.systemRole === "superadmin";
+
+  const openInvite = () => {
+    setForm({ firstName: "", lastName: "", email: "", role: "work", status: "active" });
+    setFormErrors({});
+    setFormUserId(null);
+    setFormMode("invite");
+  };
+
+  const openEdit = (user: typeof users[number]) => {
+    setForm({ firstName: user.firstName || "", lastName: user.lastName || "", email: user.email, role: user.role || "work", status: user.status === "deleted" ? "disabled" : user.status || "active" });
+    setFormErrors({});
+    setFormUserId(user._id);
+    setFormMode("edit");
+  };
+
+  const submitUserForm = async () => {
+    const errors: Record<string, string> = {};
+    if (!form.firstName.trim()) errors.firstName = "First name is required.";
+    if (!form.lastName.trim()) errors.lastName = "Last name is required.";
+    if (formMode === "invite" && !/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.email = "Enter a valid email address.";
+    setFormErrors(errors);
+    if (Object.keys(errors).length) return;
+    setIsSaving(true);
+    try {
+      if (formMode === "invite") {
+        await handleInviteUser({ firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim().toLowerCase(), role: form.role as 'work' | 'hire' | 'both' | 'admin' | 'superadmin' });
+        toast.success("Invitation sent successfully.");
+      } else if (formUserId) {
+        await handleEditUser(formUserId, { firstName: form.firstName.trim(), lastName: form.lastName.trim(), role: form.role, status: form.status as 'active' | 'pending' | 'disabled' });
+        toast.success("User updated successfully.");
+      }
+      setFormMode(null);
+    } catch (error: any) {
+      setFormErrors({ form: error?.message || "Unable to save the user." });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   useEffect(() => {
     if (currentPage !== safePage) {
@@ -129,13 +178,14 @@ function AdminUserManagementContent() {
                   type="text"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
+                  aria-label="Search users"
                   placeholder="Search users..."
                   className="w-full h-10 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                 />
               </div>
               <button
                 type="button"
-                onClick={() => toast.info("Invite user is coming soon.")}
+                onClick={openInvite}
                 className="inline-flex items-center gap-2 rounded-[12px] bg-[#2563EB] text-white px-4 py-2 text-[13px] font-semibold shadow-sm hover:bg-[#1D4ED8]"
               >
                 <UserPlus className="w-4 h-4" />
@@ -144,7 +194,24 @@ function AdminUserManagementContent() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden" aria-label="Users">
+            {isLoading && <p className="py-6 text-center text-sm text-slate-500">Loading users…</p>}
+            {!isLoading && paginatedUsers.map((user) => (
+              <article key={user._id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0"><p className="font-semibold text-slate-900">{getUserName(user)}</p><p className="truncate text-xs text-slate-600">{user.email}</p></div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(user.status)}`}>{user.status || "active"}</span>
+                </div>
+                <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">Role</dt><dd className="mt-1 capitalize text-slate-900">{user.role || "work"}</dd></div><div><dt className="text-slate-500">Joined</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>View</Button>
+                  <Button onClick={() => openEdit(user)}>Edit</Button>
+                </div>
+              </article>
+            ))}
+            {!isLoading && paginatedUsers.length === 0 && <p className="py-6 text-center text-sm text-slate-500">No users found.</p>}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
@@ -213,7 +280,6 @@ function AdminUserManagementContent() {
                           {openMenuId === user._id && (
                             <div
                               className="absolute right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg z-10 text-left"
-                              onClick={(event) => event.stopPropagation()}
                             >
                               <button
                                 type="button"
@@ -228,7 +294,7 @@ function AdminUserManagementContent() {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  toast.info("Edit user is coming soon.");
+                                  openEdit(user);
                                   setOpenMenuId(null);
                                 }}
                                 className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
@@ -328,15 +394,18 @@ function AdminUserManagementContent() {
       {selectedUser && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
-          onClick={() => setSelectedUserId(null)}
+          role="presentation"
+          onClick={(event) => event.target === event.currentTarget && setSelectedUserId(null)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-user-details-title"
             className="w-full max-w-[520px] bg-white rounded-[20px] border border-[#E5E7EB] p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h4 className="text-[18px] font-semibold text-[#111827]">User Details</h4>
+                <h4 id="admin-user-details-title" className="text-[18px] font-semibold text-[#111827]">User Details</h4>
                 <p className="text-[13px] text-[#6B7280] mt-1">Review account information and access.</p>
               </div>
               <button
@@ -404,6 +473,28 @@ function AdminUserManagementContent() {
           </div>
         </div>
       )}
+
+      <Dialog open={formMode !== null} title={formMode === "invite" ? "Invite user" : "Edit user"} description={formMode === "invite" ? "A temporary password will be emailed and must be changed after sign-in." : "Email addresses cannot be changed by administrators."} onClose={() => !isSaving && setFormMode(null)}>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Input label="First name" autoComplete="given-name" value={form.firstName} error={formErrors.firstName} onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))} />
+          <Input label="Last name" autoComplete="family-name" value={form.lastName} error={formErrors.lastName} onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))} />
+        </div>
+        <div className="mt-4">
+          <Input label="Email" type="email" autoComplete="email" value={form.email} error={formErrors.email} disabled={formMode === "edit"} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Select label="Role" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
+            <option value="work">Worker</option><option value="hire">Employer</option><option value="both">Worker and employer</option>
+            {canManagePrivilegedRoles && <><option value="admin">Admin</option><option value="superadmin">Superadmin</option></>}
+          </Select>
+          {formMode === "edit" && <Select label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></Select>}
+        </div>
+        {formErrors.form && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{formErrors.form}</p>}
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" disabled={isSaving} onClick={() => setFormMode(null)}>Cancel</Button>
+          <Button disabled={isSaving} onClick={submitUserForm}>{isSaving ? "Saving…" : formMode === "invite" ? "Send invitation" : "Save changes"}</Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

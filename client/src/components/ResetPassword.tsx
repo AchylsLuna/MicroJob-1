@@ -169,10 +169,10 @@ export function ResetPassword() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Reset Code */}
           <div>
-            <label className="text-[14px] font-medium text-[#111827] mb-3 block">
+            <p id="reset-code-label" className="text-[14px] font-medium text-[#111827] mb-3 block">
               Reset Code
-            </label>
-            <div className="flex justify-center gap-3 mb-2">
+            </p>
+            <div className="flex justify-center gap-3 mb-2" role="group" aria-labelledby="reset-code-label">
               {resetCode.map((digit, index) => (
                 <input
                   key={index}
@@ -180,6 +180,7 @@ export function ResetPassword() {
                     inputRefs.current[index] = el;
                   }}
                   type="text"
+                  aria-label={`Reset code digit ${index + 1}`}
                   maxLength={1}
                   value={digit}
                   onChange={(e) => handleCodeChange(index, e.target.value)}
@@ -197,12 +198,13 @@ export function ResetPassword() {
 
           {/* New Password */}
           <div>
-            <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+            <label htmlFor="reset-new-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
               New Password
             </label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
+                id="reset-new-password"
                 type={showNewPassword ? "text" : "password"}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -212,6 +214,7 @@ export function ResetPassword() {
               />
               <button
                 type="button"
+                aria-label={showNewPassword ? "Hide new password" : "Show new password"}
                 onClick={() => setShowNewPassword(!showNewPassword)}
                 className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
               >
@@ -222,12 +225,13 @@ export function ResetPassword() {
 
           {/* Confirm Password */}
           <div>
-            <label className="text-[14px] font-medium text-[#111827] mb-2 block">
+            <label htmlFor="reset-confirm-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
               Confirm New Password
             </label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
+                id="reset-confirm-password"
                 type={showConfirmPassword ? "text" : "password"}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -242,6 +246,7 @@ export function ResetPassword() {
               />
               <button
                 type="button"
+                aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
               >

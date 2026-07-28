@@ -28,7 +28,7 @@ async function raiseAlert(type, description, metadata = {}) {
   }
 }
 
-export async function recordFailure({ key = 'global', userId = null, ip = null, device = null, reason = null } = {}) {
+export async function recordFailure({ key = 'global', userId = null, ip = null, device: _device = null, reason = null } = {}) {
   const now = Date.now();
   const mapKey = `${key}:${userId || 'anon'}:${ip || 'noip'}`;
   const list = windows.failures.get(mapKey) || [];
