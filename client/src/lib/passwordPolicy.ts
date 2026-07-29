@@ -25,10 +25,10 @@ export type PasswordStrength = {
 
 export const PASSWORD_RULES: Array<{ key: keyof PasswordChecks; label: string }> = [
   { key: "minLength", label: `At least ${MIN_PASSWORD_LENGTH} characters` },
-  { key: "uppercase", label: "At least 1 uppercase letter (A-Z)" },
-  { key: "lowercase", label: "At least 1 lowercase letter (a-z)" },
-  { key: "number", label: "At least 1 number (0-9)" },
-  { key: "special", label: "At least 1 special character" },
+  { key: "uppercase", label: "One uppercase letter (A-Z)" },
+  { key: "lowercase", label: "One lowercase letter (a-z)" },
+  { key: "number", label: "One number (0-9)" },
+  { key: "special", label: "One special character" },
 ];
 
 export function getPasswordStrength(password: string): PasswordStrength {

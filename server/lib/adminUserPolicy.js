@@ -2,6 +2,13 @@ const PRIVILEGED_ROLES = new Set(["admin", "superadmin"]);
 
 export const isPrivilegedRole = (role) => PRIVILEGED_ROLES.has(String(role || ""));
 
+export function getAdminUserCreationError({ actorRole, newRole }) {
+  if (isPrivilegedRole(newRole) && actorRole !== "superadmin") {
+    return { status: 403, message: "Only a superadmin can create administrator accounts." };
+  }
+  return null;
+}
+
 export function getAdminUserMutationError({ actorRole, actorId, targetId, targetRole, nextRole, nextStatus, activeSuperadminCount = 0 }) {
   if ((isPrivilegedRole(targetRole) || isPrivilegedRole(nextRole)) && actorRole !== "superadmin") {
     return { status: 403, message: "Only a superadmin can manage privileged accounts." };

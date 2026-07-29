@@ -90,7 +90,7 @@
 body {
 	margin: 0;
 	font-family: var(--app-font-family);
-	background-color: #f8f8f8;
+	background-color: #f8fafc;
 	color: #0f172a;
 	line-height: 1.5;
 	-webkit-font-smoothing: antialiased;
@@ -112,6 +112,12 @@ select {
 @layer components {
 	.dashboard-scope {
 		font-family: var(--app-font-family);
+		width: 100%;
+		overflow-x: clip;
+	}
+
+	.dashboard-scope > * {
+		min-width: 0;
 	}
 
 	.dashboard-scope .ui-page {
@@ -151,5 +157,16 @@ select {
 
 	.dashboard-scope label {
 		@apply text-sm font-semibold text-slate-700;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		scroll-behavior: auto !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
 	}
 }

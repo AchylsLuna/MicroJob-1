@@ -22,7 +22,7 @@ import {
 } from "../lib/authValidation.js";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
-import { getAdminUserMutationError } from "../lib/adminUserPolicy.js";
+import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 
 const otpStore = new Map();
 const passwordResetOtpStore = new Map();
@@ -208,6 +208,62 @@ async function wouldDisableLastSuperAdmin(target, nextRole, nextStatus) {
     return activeSuperadmins <= 1 && target.status === "active";
 }
 
+export async function createUserByAdmin(req, res) {
+    try {
+        const allowedKeys = new Set(["firstName", "lastName", "email", "password", "role"]);
+        const suppliedKeys = Object.keys(req.body || {});
+        if (!suppliedKeys.length || suppliedKeys.some((key) => !allowedKeys.has(key))) {
+            return res.status(400).json({ message: "First name, last name, email, temporary password, and role are required." });
+        }
+
+        const firstName = normalizeName(req.body.firstName);
+        const lastName = normalizeName(req.body.lastName);
+        const email = normalizeEmail(req.body.email);
+        const password = String(req.body.password || "");
+        const role = String(req.body.role || "").toLowerCase();
+
+        if (!isValidName(firstName) || !isValidName(lastName)) {
+            return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
+        }
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
+        }
+        if (!isStrongPassword(password)) {
+            return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
+        }
+        if (!["work", "hire", "admin"].includes(role)) {
+            return res.status(400).json({ message: "Role must be worker, employer, or admin." });
+        }
+        const forbidden = getAdminUserCreationError({ actorRole: req.user?.role, newRole: role });
+        if (forbidden) return res.status(forbidden.status).json({ message: forbidden.message });
+        if (await User.exists({ email })) {
+            return res.status(409).json({ message: "Email is already registered." });
+        }
+
+        const user = new User({
+            firstName,
+            lastName,
+            email,
+            role,
+            status: "active",
+            passwordChangeRequired: true,
+            verification: { emailVerified: true },
+        });
+        await user.setPassword(password);
+        await user.save();
+        return res.status(201).json({
+            message: "Account created. The user must change the temporary password at first sign-in.",
+            user: await User.findById(user._id).select(PUBLIC_USER_SELECT),
+        });
+    } catch (error) {
+        if (error?.code === 11000) {
+            return res.status(409).json({ message: "Email is already registered." });
+        }
+        console.error("Admin create user error:", error);
+        return res.status(500).json({ message: "Failed to create account." });
+    }
+}
+
 export async function updateUserByAdmin(req, res) {
     try {
         const target = await User.findById(req.params.userId);
@@ -328,15 +384,24 @@ export async function updateUserStatus(req, res) {
 export async function deleteUser(req, res) {
     try {
         const { userId } = req.params;
+        const target = await User.findById(userId);
+        if (!target) {
+            return res.status(404).json({ message: "User not found." });
+        }
+        if (getActorId(req) === String(target._id)) {
+            return res.status(403).json({ message: "You cannot delete your own account." });
+        }
+        const forbidden = await assertPrivilegedMutationAllowed(req, target, target.role);
+        if (forbidden) return res.status(forbidden.status).json({ message: forbidden.message });
+        if (await wouldDisableLastSuperAdmin(target, target.role, "deleted")) {
+            return res.status(409).json({ message: "The last active superadmin cannot be deleted." });
+        }
         const blockers = await getDeletionBlockers(userId);
         if (blockers.length > 0) {
             return res.status(400).json({ message: "User cannot be deleted until blockers are resolved.", blockers });
         }
 
         const deleted = await anonymizeAndDeleteUser(userId);
-        if (!deleted) {
-            return res.status(404).json({ message: "User not found." });
-        }
         return res.status(200).json({ message: "User deleted successfully.", user: deleted });
     } catch (error) {
         console.error("Delete user error:", error);

@@ -479,6 +479,10 @@ export function updateUserByAdmin(userId: string, payload: { firstName: string; 
   return request<{ message: string; user: any }>(`/users/${userId}`, { method: 'PATCH', body: payload });
 }
 
+export function createUserByAdmin(payload: { firstName: string; lastName: string; email: string; password: string; role: 'work' | 'hire' | 'admin' }) {
+  return request<{ message: string; user: any }>('/users', { method: 'POST', body: payload });
+}
+
 export function deleteUser(userId: string) {
   return request(`/users/${userId}`, { method: 'DELETE' });
 }

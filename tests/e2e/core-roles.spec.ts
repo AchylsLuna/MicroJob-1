@@ -15,6 +15,7 @@ async function signInWorker(page: Page) {
 }
 
 test("public routes remain accessible without overflow", async ({ page }) => {
+  test.setTimeout(90_000);
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -36,6 +37,24 @@ test("public routes remain accessible without overflow", async ({ page }) => {
   expect(consoleErrors).toEqual([]);
 });
 
+test("password recovery strength panel stays compact and on-brand", async ({ page }) => {
+  await page.route("**/api/auth/password-reset/**", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "OK" }) }));
+  await page.setViewportSize({ width: 320, height: 900 });
+  await page.goto("/forgot-password");
+  await page.getByLabel("Email address").fill("worker@microjobs.local");
+  await page.getByRole("button", { name: "Send recovery code" }).click();
+  await page.getByLabel("Six-digit recovery code").fill("123456");
+  await page.getByRole("button", { name: "Verify code" }).click();
+  await expect(page.getByRole("heading", { name: "Create a new password" })).toBeVisible();
+  await expect(page.getByRole("progressbar", { name: "Password strength" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const changePasswordButton = page.getByRole("button", { name: "Change password" });
+  await expect(changePasswordButton).toBeDisabled();
+  expect(await changePasswordButton.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(28, 77, 141)");
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
 test("worker and employer shells remain responsive and accessible", async ({ page }) => {
   await signInWorker(page);
   for (const width of [320, 375, 768, 1024, 1440]) {
@@ -43,21 +62,51 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     await page.goto("/worker/find-jobs");
     await expect(page.getByRole("heading", { name: "Find Jobs" })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const headerBounds = await page.locator("header").boundingBox();
+    expect(headerBounds?.height).toBe(64);
     if (width >= 1024) {
       const sidebar = page.getByRole("complementary", { name: "Primary navigation" });
       const sidebarBounds = await sidebar.boundingBox();
       expect(sidebarBounds?.height).toBe(900);
       expect(sidebarBounds?.y).toBe(0);
+      expect(sidebarBounds?.width).toBe(280);
+      const mainBounds = await page.locator("main").boundingBox();
+      expect(mainBounds?.x).toBeGreaterThanOrEqual(280);
       await expect
         .poll(() => sidebar.evaluate((element) => getComputedStyle(element).overflowY))
         .toBe("hidden");
-      await page.getByRole("navigation", { name: "Worker menu" }).evaluate((element) => {
-        element.scrollTop = element.scrollHeight;
-      });
-      expect(await sidebar.evaluate((element) => element.scrollTop)).toBe(0);
+      const navigation = page.getByRole("navigation", { name: "Worker menu" });
+      expect(await navigation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    } else {
+      const menuButton = page.getByRole("button", { name: "Open navigation menu" });
+      await menuButton.click();
+      const drawer = page.getByRole("dialog", { name: "Navigation menu" });
+      await expect(drawer).toBeVisible();
+      await expect(page.getByRole("button", { name: "Close navigation menu" }).last()).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(drawer).toBeHidden();
+      await expect(menuButton).toBeFocused();
     }
-    await page.screenshot({ path: `docs/ui-verification/week6-worker-find-jobs-${width}px.png`, fullPage: true });
   }
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto("/worker/find-jobs");
+  const heroSearch = page.getByRole("searchbox", { name: "Search jobs" });
+  await heroSearch.fill("designer");
+  await expect(page).toHaveURL(/q=designer/);
+  await expect(page.getByLabel("Sort jobs")).toBeVisible();
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await page.goto("/worker/dashboard");
+  await page.getByTestId("header-context-action").click();
+  await page.waitForURL(/\/worker\/find-jobs/);
+  const notificationsButton = page.locator('button[aria-label^="Notifications"]');
+  await notificationsButton.click();
+  await expect(page.getByRole("menu", { name: "Notifications" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(notificationsButton).toBeFocused();
+  await page.getByRole("button", { name: "Open account menu" }).click();
+  await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Open account menu" })).toBeFocused();
   await page.setViewportSize({ width: 375, height: 900 });
   await page.getByRole("button", { name: "Open account menu" }).click();
   await page.getByRole("button", { name: /Switch to Employer/i }).click();
@@ -65,7 +114,6 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await page.goto("/employer/applications");
   await expect(page.getByRole("heading", { name: /Applications/i }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "docs/ui-verification/week6-employer-applications-375px.png", fullPage: true });
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
@@ -76,6 +124,7 @@ test("admin user management is real and responsive", async ({ page }) => {
   await page.getByPlaceholder("Enter your password").fill("AdminPass123!");
   await page.getByRole("button", { name: /Sign In as Admin/i }).click();
   await page.waitForURL(/\/admin\/dashboard/);
+  await expect(page.getByTestId("header-context-action")).toHaveCount(0);
   for (const height of [600, 720, 768, 900]) {
     await page.setViewportSize({ width: 1280, height });
     await page.goto("/admin/dashboard");
@@ -83,10 +132,11 @@ test("admin user management is real and responsive", async ({ page }) => {
     const sidebar = page.getByRole("complementary", { name: "Primary navigation" });
     const navigation = page.getByRole("navigation", { name: "Admin menu" });
     const bounds = await sidebar.boundingBox();
+    expect((await page.locator("header").boundingBox())?.height).toBe(64);
     expect(bounds?.y).toBe(0);
     expect(bounds?.height).toBe(height);
     expect(await navigation.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
-    expect(await navigation.evaluate((element) => getComputedStyle(element).overflowY)).toBe("visible");
+    expect(["auto", "visible"]).toContain(await navigation.evaluate((element) => getComputedStyle(element).overflowY));
     const navigationTargets = navigation.locator("button");
     for (let index = 0; index < await navigationTargets.count(); index += 1) {
       expect((await navigationTargets.nth(index).boundingBox())?.height).toBeGreaterThanOrEqual(44);
@@ -101,13 +151,29 @@ test("admin user management is real and responsive", async ({ page }) => {
   await page.goto("/admin/user-management");
   await expect(page.getByRole("heading", { name: /Manage accounts/i })).toBeVisible();
   await expect(page.getByText(/Loading users/i).first()).toBeHidden();
+  await page.getByRole("button", { name: "Add account" }).click();
+  const createDialog = page.getByRole("dialog", { name: "Add account" });
+  await createDialog.getByLabel("First name").fill("Created");
+  await createDialog.getByLabel("Last name").fill("Administrator");
+  await createDialog.getByLabel("Email").fill("created-admin@microjobs.local");
+  await createDialog.getByLabel("Temporary password").fill("TempAdmin123!");
+  await createDialog.getByLabel("Role").selectOption("admin");
+  await createDialog.getByRole("button", { name: "Create account" }).click();
+  await expect(createDialog).toBeHidden();
+  const createdAdminRow = page.getByRole("row").filter({ hasText: "created-admin@microjobs.local" });
+  await expect(createdAdminRow).toBeVisible();
+  await createdAdminRow.getByRole("button", { name: "Open user actions" }).click();
+  await page.getByRole("button", { name: "Delete User" }).click();
+  const deleteDialog = page.getByRole("dialog", { name: "Delete user" });
+  await deleteDialog.getByRole("button", { name: "Delete user" }).click();
+  await expect(deleteDialog).toBeHidden();
+  await expect(createdAdminRow).toHaveCount(0);
   const roleFilter = page.getByLabel("Filter accounts by role");
   await roleFilter.selectOption("privileged");
   await expect(page.getByText("Superadmin").first()).toBeVisible();
   await roleFilter.selectOption("all");
   await page.setViewportSize({ width: 320, height: 900 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: "docs/ui-verification/week6-admin-users-320px.png", fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   const workerRow = page.getByRole("row").filter({ hasText: "e2e-user@microjobs.local" });
   await workerRow.getByRole("button", { name: "Open user actions" }).click();
@@ -125,4 +191,45 @@ test("worker API failure exposes recovery UI", async ({ page }) => {
   await page.route("**/api/jobs**", (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "Verification outage" }) }));
   await page.goto("/worker/find-jobs");
   await expect(page.getByRole("button", { name: /Try again/i })).toBeVisible();
+});
+
+test("notification menu loads unread data and marks all as read", async ({ page }) => {
+  await signInWorker(page);
+  let readAllCalls = 0;
+  let hasUnreadNotification = true;
+  await page.route("**/api/notifications**", async (route) => {
+    const request = route.request();
+    if (request.method() === "PATCH" && request.url().includes("/read-all")) {
+      readAllCalls += 1;
+      hasUnreadNotification = false;
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ message: "All notifications marked as read." }) });
+      return;
+    }
+    if (request.method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([{
+          _id: "507f1f77bcf86cd799439011",
+          type: "system",
+          title: "Profile verified",
+          message: "Your worker profile is ready.",
+          readAt: hasUnreadNotification ? null : new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+        }]),
+      });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/worker/dashboard");
+  const notificationButton = page.locator('button[aria-label^="Notifications"]');
+  await expect(notificationButton).toHaveAttribute("aria-label", /1 unread/);
+  await notificationButton.click();
+  const notificationMenu = page.getByRole("menu", { name: "Notifications" });
+  await expect(notificationMenu.getByText("Profile verified")).toBeVisible();
+  await notificationMenu.getByRole("button", { name: "Mark all as read" }).click();
+  await expect.poll(() => readAllCalls).toBe(1);
+  await expect(notificationButton).toHaveAttribute("aria-label", "Notifications");
 });

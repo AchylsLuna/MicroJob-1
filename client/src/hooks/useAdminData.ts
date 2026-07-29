@@ -10,6 +10,8 @@ import {
   getAdminTransactions,
   updateUserStatus,
   updateUserByAdmin,
+  createUserByAdmin,
+  deleteUser,
   type PayoutRequest,
   type PaymentTransaction,
 } from "../services/api";
@@ -333,6 +335,17 @@ export function useAdminData() {
     return result.user as AdminUser;
   };
 
+  const handleCreateUser = async (payload: { firstName: string; lastName: string; email: string; password: string; role: 'work' | 'hire' | 'admin' }) => {
+    const result = await createUserByAdmin(payload);
+    setUsers((current) => [result.user as AdminUser, ...current]);
+    return result.user as AdminUser;
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    await deleteUser(userId);
+    setUsers((current) => current.filter((item) => item._id !== userId));
+  };
+
   return {
     users,
     jobs,
@@ -356,6 +369,8 @@ export function useAdminData() {
     handleApproveUser,
     handleToggleUserStatus,
     handleEditUser,
+    handleCreateUser,
+    handleDeleteUser,
     reload: () => setReloadKey((current) => current + 1),
   };
 }
