@@ -1,10 +1,32 @@
+# Local environment files and credentials
 .env
+.env.*
+!**/.env.example
 server/serviceAccountKey.json
+*.pem
+*.key
+*.p12
+*.pfx
 
-node_modules
+# User-generated and sensitive uploads
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Dependencies and local tooling
+node_modules/
 .expo/
 Mobile/.expo/
+.vercel/
+
+# Build and test output
 client/dist/
 Mobile/dist/
+coverage/
 playwright-report/
 test-results/
+
+# Logs and operating-system files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
