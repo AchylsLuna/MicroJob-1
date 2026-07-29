@@ -298,7 +298,7 @@ function AdminUserManagementContent() {
                     <tr key={user._id} className="border-b border-[#F3F4F6]">
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#EEF2FF] text-[#2563EB] flex items-center justify-center font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
                             {getInitials(user)}
                           </div>
                           <div>
@@ -493,7 +493,7 @@ function AdminUserManagementContent() {
             </div>
 
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-full bg-[#EEF2FF] text-[#2563EB] flex items-center justify-center font-semibold text-[18px]">
+              <div className="w-14 h-14 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold text-[18px]">
                 {getInitials(selectedUser)}
               </div>
               <div>

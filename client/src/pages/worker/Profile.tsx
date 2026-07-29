@@ -198,7 +198,7 @@ export function Profile() {
       {/* Header Card */}
       <div className="bg-white rounded-[20px] border border-[#e2e8f0] shadow-sm overflow-hidden">
         {/* Cover Photo */}
-        <div className="h-[100px] bg-gradient-to-r from-[#3b82f6] via-[#2563eb] to-[#1d4ed8]"></div>
+        <div className="h-[100px] bg-[#1C4D8D]"></div>
         
         {/* Profile Info */}
         <div className="px-8 pb-6">
@@ -240,7 +240,7 @@ export function Profile() {
 
             <button
               onClick={handleEditProfile}
-              className="bg-[#2563eb] text-white font-semibold px-6 py-3 rounded-[12px] hover:bg-[#1d4ed8] transition-all flex items-center gap-2 mb-2"
+              className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[12px] hover:opacity-90 transition-all flex items-center gap-2 mb-2"
             >
               <Edit className="w-4 h-4" />
               Edit Profile
@@ -256,7 +256,7 @@ export function Profile() {
             onClick={() => setActiveTab("overview")}
             className={`flex items-center gap-2 px-6 py-4 text-[15px] font-medium transition-all ${
               activeTab === "overview"
-                ? "text-[#2563eb] border-b-2 border-[#2563eb]"
+                ? "text-[#1C4D8D] border-b-2 border-[#1C4D8D]"
                 : "text-[#64748b] hover:text-[#1e293b]"
             }`}
           >
@@ -267,7 +267,7 @@ export function Profile() {
             onClick={() => setActiveTab("skills")}
             className={`flex items-center gap-2 px-6 py-4 text-[15px] font-medium transition-all ${
               activeTab === "skills"
-                ? "text-[#2563eb] border-b-2 border-[#2563eb]"
+                ? "text-[#1C4D8D] border-b-2 border-[#1C4D8D]"
                 : "text-[#64748b] hover:text-[#1e293b]"
             }`}
           >
@@ -278,7 +278,7 @@ export function Profile() {
             onClick={() => setActiveTab("accepted")}
             className={`flex items-center gap-2 px-6 py-4 text-[15px] font-medium transition-all ${
               activeTab === "accepted"
-                ? "text-[#2563eb] border-b-2 border-[#2563eb]"
+                ? "text-[#1C4D8D] border-b-2 border-[#1C4D8D]"
                 : "text-[#64748b] hover:text-[#1e293b]"
             }`}
           >
@@ -305,8 +305,8 @@ export function Profile() {
                     <h2 className="text-[20px] font-semibold text-[#1e293b] mb-4">Contact Information</h2>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                        <div className="w-10 h-10 rounded-[10px] bg-[#dbeafe] flex items-center justify-center">
-                          <Mail className="w-5 h-5 text-[#2563eb]" />
+                        <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center">
+                          <Mail className="w-5 h-5 text-[#1C4D8D]" />
                         </div>
                         <div>
                           <p className="text-[12px] text-[#64748b] mb-0.5">Email</p>
@@ -325,7 +325,7 @@ export function Profile() {
                       </div>
 
                       <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                        <div className="w-10 h-10 rounded-[10px] bg-[#dbeafe] flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center">
                           <Linkedin className="w-5 h-5 text-[#0a66c2]" />
                         </div>
                         <div>
@@ -354,9 +354,9 @@ export function Profile() {
                         skills.map((skill) => (
                           <div
                             key={skill.id}
-                            className="rounded-[12px] border border-[#bfdbfe] bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] px-4 py-3"
+                            className="rounded-[12px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.08] px-4 py-3"
                           >
-                            <p className="text-[14px] font-semibold text-[#2563eb]">{skill.name}</p>
+                            <p className="text-[14px] font-semibold text-[#1C4D8D]">{skill.name}</p>
                             <p className="mt-1 text-[13px] text-[#475569]">
                               {skill.description?.trim() || "No description added"}
                             </p>
@@ -372,13 +372,13 @@ export function Profile() {
                 {/* Right Column - CV/Resume */}
                 <div className="space-y-6">
                   {/* CV/Resume Card */}
-                  <div className="bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#bfdbfe] rounded-[16px] p-6">
+                  <div className="bg-[#1C4D8D]/[0.08] border border-[#1C4D8D]/20 rounded-[16px] p-6">
                     <h3 className="text-[18px] font-semibold text-[#1e293b] mb-4">CV/Resume</h3>
                     {safeResumeUrl ? (
                       <div className="space-y-4">
-                        <div className="bg-white rounded-[12px] p-4 border border-[#bfdbfe]">
+                        <div className="bg-white rounded-[12px] p-4 border border-[#1C4D8D]/20">
                           <div className="flex items-center gap-3 mb-3">
-                            <div className="w-12 h-12 rounded-[10px] bg-[#2563eb] flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-[10px] bg-[#1C4D8D] flex items-center justify-center">
                               <FileText className="w-6 h-6 text-white" />
                             </div>
                             <div className="flex-1">
@@ -391,7 +391,7 @@ export function Profile() {
                             download
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="w-full bg-[#2563eb] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:bg-[#1d4ed8] transition-all flex items-center justify-center gap-2 block text-center no-underline"
+                            className="w-full bg-[#1C4D8D] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:opacity-90 transition-all flex items-center justify-center gap-2 block text-center no-underline"
                           >
                             <Download className="w-4 h-4" />
                             Download Resume
@@ -407,7 +407,7 @@ export function Profile() {
                         <p className="text-[14px] text-[#64748b] mb-3">No resume uploaded</p>
                         <button
                           onClick={() => navigate(ROUTES.settings)}
-                          className="bg-[#2563eb] text-white font-semibold py-2 px-4 rounded-[10px] hover:bg-[#1d4ed8] transition-all text-[13px]"
+                          className="bg-[#1C4D8D] text-white font-semibold py-2 px-4 rounded-[10px] hover:opacity-90 transition-all text-[13px]"
                         >
                           Upload Resume
                         </button>
@@ -429,7 +429,7 @@ export function Profile() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[14px] text-[#64748b]">Jobs Applied</span>
-                        <span className="text-[16px] font-bold text-[#2563eb]">{jobsApplied}</span>
+                        <span className="text-[16px] font-bold text-[#1C4D8D]">{jobsApplied}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[14px] text-[#64748b]">Success Rate</span>
@@ -495,7 +495,7 @@ export function Profile() {
                   <div key={work.id} className="bg-white border border-[#e2e8f0] rounded-[16px] p-6 hover:shadow-lg transition-all">
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-start gap-3">
-                        <div className="w-12 h-12 rounded-[12px] bg-gradient-to-br from-[#3b82f6] to-[#2563eb] flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
+                        <div className="w-12 h-12 rounded-[12px] bg-[#1C4D8D] flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
                           {work.companyLogo}
                         </div>
                         <div>

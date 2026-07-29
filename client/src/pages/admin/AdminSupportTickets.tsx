@@ -18,9 +18,9 @@ const formatDate = (value?: string) => {
 };
 
 const statusClasses: Record<SupportTicket["status"], string> = {
-  open: "bg-[#DBEAFE] text-[#1D4ED8]",
+  open: "bg-[#1C4D8D]/10 text-[#1C4D8D]",
   in_progress: "bg-[#FEF3C7] text-[#B45309]",
-  waiting_user: "bg-[#E0F2FE] text-[#0369A1]",
+  waiting_user: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
   resolved: "bg-[#DCFCE7] text-[#15803D]",
   closed: "bg-[#F3F4F6] text-[#6B7280]",
 };
@@ -223,7 +223,7 @@ function AdminSupportTicketsContent() {
                       key={ticket._id}
                       onClick={() => setSelectedTicketId(ticket._id)}
                       className={`w-full rounded-[14px] border p-4 text-left transition-colors ${
-                        selectedTicketId === ticket._id ? "border-[#1C4D8D] bg-[#EFF6FF]" : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                        selectedTicketId === ticket._id ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]" : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3 mb-2">
@@ -299,7 +299,7 @@ function AdminSupportTicketsContent() {
                     type="button"
                     onClick={handleUpdateTicket}
                     disabled={isUpdating}
-                    className="w-full h-11 rounded-[12px] bg-[#1D4ED8] text-white text-[14px] font-semibold disabled:opacity-60"
+                    className="w-full h-11 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
                   >
                     {isUpdating ? "Saving..." : "Save Ticket"}
                   </button>
@@ -325,13 +325,13 @@ function AdminSupportTicketsContent() {
                     <div
                       key={message._id}
                       className={`rounded-[14px] p-4 border ${
-                        isAdmin ? "bg-[#EFF6FF] border-[#BFDBFE]" : "bg-[#F9FAFB] border-[#E5E7EB]"
+                        isAdmin ? "bg-[#1C4D8D]/[0.06] border-[#1C4D8D]/20" : "bg-[#F9FAFB] border-[#E5E7EB]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex items-center gap-2">
                           {isAdmin ? (
-                            <ShieldCheck className="w-4 h-4 text-[#1D4ED8]" />
+                            <ShieldCheck className="w-4 h-4 text-[#1C4D8D]" />
                           ) : (
                             <MessageSquare className="w-4 h-4 text-[#6B7280]" />
                           )}
@@ -357,7 +357,7 @@ function AdminSupportTicketsContent() {
                   type="button"
                   onClick={handleReply}
                   disabled={isReplying || !replyDraft.trim()}
-                  className="inline-flex items-center gap-2 px-4 py-3 rounded-[12px] bg-[#1D4ED8] text-white text-[14px] font-semibold disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-4 py-3 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
                 >
                   <Send className="w-4 h-4" />
                   {isReplying ? "Sending..." : "Send Reply"}

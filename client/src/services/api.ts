@@ -794,7 +794,7 @@ export function removeSavedJob(jobId: string) {
 }
 
 // Message APIs
-export function sendMessage(payload: { receiverId: string; content: string; jobId?: string }) {
+export function sendMessage(payload: { receiverId: string; content: string; jobId?: string; clientMessageId?: string }) {
   return request<any>('/messages/send', { method: 'POST', body: payload });
 }
 

@@ -65,8 +65,8 @@ function AdminReportsContent() {
       id: "users" as const,
       title: "User Report",
       description: "Complete list of all registered users with their profiles and activity",
-      icon: <Users className="w-5 h-5 text-[#2563EB]" />,
-      accent: "bg-[#EFF6FF]",
+      icon: <Users className="w-5 h-5 text-[#1C4D8D]" />,
+      accent: "bg-[#1C4D8D]/[0.06]",
     },
     {
       id: "jobs" as const,
@@ -289,7 +289,7 @@ function AdminReportsContent() {
                 onClick={() => setReportType(card.id)}
                 className={`text-left border rounded-[16px] p-4 transition-all ${
                   isActive
-                    ? "border-[#2563EB] bg-[#EFF6FF]"
+                    ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]"
                     : "border-[#E5E7EB] bg-white hover:border-[#CBD5F5]"
                 }`}
               >
@@ -375,7 +375,7 @@ function AdminReportsContent() {
           type="button"
           onClick={() => generateFile()}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 rounded-[14px] bg-[#2563EB] text-white px-5 py-3 text-[13px] font-semibold shadow-sm hover:bg-[#1D4ED8] disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-[14px] bg-[#1C4D8D] text-white px-5 py-3 text-[13px] font-semibold shadow-sm hover:opacity-90 disabled:opacity-60"
         >
           <Download className="w-4 h-4" />
           Generate & Download

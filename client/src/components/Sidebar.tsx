@@ -24,6 +24,7 @@ import { getNotifications } from "../services/api";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 import { MicroJobsLogo } from "./MicroJobsLogo";
+import { workerMoreNavigation, workerPrimaryNavigation } from "./workerNavigation";
 
 interface SidebarProps {
   userName?: string;
@@ -105,8 +106,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       : "user";
 
   const workerMenuItems: MenuItem[] = [
-    { icon: "find-jobs", label: "Find Jobs", path: ROUTES.worker.findJobs },
-    { icon: "applied-jobs", label: "Applied Jobs", path: ROUTES.worker.appliedJobs },
+    ...workerPrimaryNavigation
+      .filter((item) => item.path !== ROUTES.worker.dashboard && item.path !== ROUTES.worker.messages)
+      .map((item) => ({
+        ...item,
+        icon: item.path === ROUTES.worker.findJobs ? "find-jobs" : "applied-jobs",
+      })),
+    ...workerMoreNavigation
+      .filter((item) => item.path === ROUTES.worker.savedJobs)
+      .map((item) => ({ ...item, icon: "saved-jobs" })),
   ];
 
   const employerMenuGroup: EmployerMenuGroup = {
@@ -173,6 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     dashboard: <Star className="h-5 w-5" />,
     "find-jobs": <Search className="h-5 w-5" />,
     "applied-jobs": <Mail className="h-5 w-5" />,
+    "saved-jobs": <Star className="h-5 w-5" />,
     "post-job": <Plus className="h-5 w-5" />,
     applications: <ClipboardList className="h-5 w-5" />,
     analytics: <BarChart3 className="h-5 w-5" />,
@@ -438,7 +447,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <span>{pinnedSettingsItem.label}</span>
           </button>
         )}
-        <button className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]">
+        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]">
           <div className="flex items-center gap-3">
             {profilePhotoPreview ? (
               <img

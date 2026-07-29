@@ -224,7 +224,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    inset: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modal: {

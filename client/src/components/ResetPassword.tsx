@@ -119,7 +119,7 @@ export function ResetPassword() {
 
   if (resetSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
+      <div className="min-h-screen bg-[#1C4D8D] flex items-center justify-center p-6">
         <div className="w-full max-w-[480px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
           {/* Success Icon */}
           <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#D1FAE5] to-[#A7F3D0] flex items-center justify-center mx-auto mb-6 animate-in zoom-in duration-300">
@@ -146,7 +146,7 @@ export function ResetPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
+    <div className="min-h-screen bg-[#1C4D8D] flex items-center justify-center p-6">
       <div className="w-full max-w-[520px] bg-white rounded-[24px] shadow-2xl p-8 lg:p-10">
         {/* Back Button */}
         <button
@@ -308,7 +308,7 @@ export function ResetPassword() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
           >
             {isLoading ? "Resetting Password..." : "Reset Password"}
           </button>
@@ -320,7 +320,7 @@ export function ResetPassword() {
             Didn't receive a code?{" "}
             <button
               onClick={() => navigate(ROUTES.forgotPassword)}
-              className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
+              className="text-[#1C4D8D] hover:opacity-80 font-semibold"
             >
               Request new code
             </button>

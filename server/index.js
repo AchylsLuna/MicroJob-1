@@ -68,7 +68,8 @@ if (process.env.NODE_ENV === 'production') {
 const config = {
     PORT: Number(process.env.PORT) || 5000,
     MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI,
-    ORIGIN: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+    ORIGIN: process.env.WEB_ORIGIN || process.env.CLIENT_ORIGIN ||
+        (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173'),
     DB_NAME: process.env.DB_NAME || 'MicroJob',
 };
 const isProduction = process.env.NODE_ENV === 'production';
@@ -77,7 +78,12 @@ let inMemoryMongoServer = null;
 const allowedOrigins = buildAllowedOrigins({
     clientOrigin: config.ORIGIN,
     extraOrigins: process.env.ADDITIONAL_CORS_ORIGINS || '',
+    defaults: isProduction ? [] : undefined,
 });
+
+if (isProduction && allowedOrigins.size === 0) {
+    throw new Error('WEB_ORIGIN or CLIENT_ORIGIN must be configured in production.');
+}
 
 app.use(
     helmet({
@@ -337,6 +343,8 @@ const ensureDevDemoUser = async () => {
     const allowedRoles = new Set(['work', 'hire', 'both']);
     const requestedRole = String(process.env.DEMO_USER_ROLE || 'work').toLowerCase();
     const role = allowedRoles.has(requestedRole) ? requestedRole : 'work';
+    const city = String(process.env.DEMO_USER_CITY || 'Quezon City').trim();
+    const province = String(process.env.DEMO_USER_PROVINCE || 'Metro Manila').trim();
 
     if (!email || !password) {
         return;
@@ -350,6 +358,8 @@ const ensureDevDemoUser = async () => {
             lastName: 'User',
             role,
             status: 'active',
+            city,
+            province,
         });
         await user.setPassword(password);
         await user.save();
@@ -364,6 +374,14 @@ const ensureDevDemoUser = async () => {
     }
     if (user.status !== 'active') {
         user.status = 'active';
+        changed = true;
+    }
+    if (!user.city && city) {
+        user.city = city;
+        changed = true;
+    }
+    if (!user.province && province) {
+        user.province = province;
         changed = true;
     }
     if (resetPassword) {

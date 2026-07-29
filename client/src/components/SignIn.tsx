@@ -66,7 +66,7 @@ export function SignIn() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center px-6 py-10 lg:py-14">
+    <main className="min-h-screen bg-[#1C4D8D] flex items-center justify-center px-6 py-10 lg:py-14">
       <div className="w-full max-w-[1200px] grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left Side - Branding */}
         <div className="text-white space-y-8 flex flex-col justify-start">
@@ -204,7 +204,7 @@ export function SignIn() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="text-[14px] text-[#1C4D8D] hover:text-[#0F2954] font-medium"
+                className="text-[14px] text-[#1C4D8D] hover:opacity-80 font-medium"
               >
                 Forgot Password?
               </button>
@@ -213,7 +213,7 @@ export function SignIn() {
             {/* Sign In Button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300"
+              className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
             >
               {isLoading ? "Signing In..." : "Sign In"}
             </button>
@@ -226,7 +226,7 @@ export function SignIn() {
               Don't have an account?{" "}
               <button
                 onClick={() => navigate(ROUTES.signUp)}
-                className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
+                className="text-[#1C4D8D] hover:opacity-80 font-semibold"
               >
                 Sign Up
               </button>

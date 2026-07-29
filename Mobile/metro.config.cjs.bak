@@ -1,5 +1,0 @@
-// Legacy backup kept for reference. NativeWind is not installed or used by
-// this project, so this file must not import `nativewind/metro`.
-const { getDefaultConfig } = require("expo/metro-config");
-
-module.exports = getDefaultConfig(__dirname);

@@ -1,6 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
@@ -11,6 +11,7 @@ import { basename, dirname, extname, join, resolve } from 'path';
 import fs from 'fs';
 import csrfProtection from '../middleware/csrf.js';
 import Session from '../models/Session.js';
+import { disconnectSession } from '../lib/socket.js';
 import User from '../models/User.js';
 import JobApplication from '../models/JobApplication.js';
 import verifyToken from '../middleware/auth.js';
@@ -442,7 +443,7 @@ const buildAuthRateLimitKey = (req) => {
     return `auth:${identifier}`;
   }
 
-  return `ip:${req.ip || req.connection?.remoteAddress || 'unknown'}`;
+  return `ip:${ipKeyGenerator(req.ip || req.connection?.remoteAddress || 'unknown')}`;
 };
 
 const registerLimiter = rateLimit({
@@ -1023,6 +1024,7 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
     
     // Actually delete the session instead of marking inactive
     await Session.findByIdAndDelete(req.params.id);
+    disconnectSession(req.params.id);
     return res.status(200).json({ message: 'Session revoked' });
   } catch (err) {
     console.error('Revoke session error', err);
@@ -1033,6 +1035,7 @@ router.delete('/sessions/:id', verifyToken, async (req, res) => {
 // Revoke all sessions for current user (sign out everywhere)
 router.delete('/sessions', verifyToken, async (req, res) => {
   try {
+    const sessionIds = await Session.find({ user: req.user.id }).distinct('_id');
     // Delete all sessions except the current one
     await Session.deleteMany({ 
       user: req.user.id, 
@@ -1043,6 +1046,7 @@ router.delete('/sessions', verifyToken, async (req, res) => {
     if (req.user.sessionId) {
       await Session.findByIdAndDelete(req.user.sessionId);
     }
+    sessionIds.forEach((sessionId) => disconnectSession(sessionId));
     
     // clear cookies
     res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
@@ -1246,6 +1250,7 @@ router.post('/logout', verifyToken, async (req, res) => {
         s.endedAt = new Date();
         s.active = false;
         await s.save();
+        disconnectSession(sessionId);
       }
     } catch (err) {
       console.warn('Failed to update session on logout', err);

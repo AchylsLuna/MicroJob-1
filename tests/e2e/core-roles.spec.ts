@@ -53,6 +53,18 @@ test("password recovery strength panel stays compact and on-brand", async ({ pag
   expect(await changePasswordButton.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(28, 77, 141)");
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
+
+  await page.getByLabel("New password", { exact: true }).fill("ModernPass123!");
+  await page.getByLabel("Confirm new password", { exact: true }).fill("ModernPass123!");
+  await changePasswordButton.click();
+  await expect(page.getByRole("heading", { name: "Password changed" })).toBeVisible();
+  await page.setViewportSize({ width: 1024, height: 768 });
+  const signInButton = page.getByRole("button", { name: "Back to sign in" });
+  await expect(signInButton).toBeVisible();
+  const successButtonBox = await signInButton.boundingBox();
+  expect(successButtonBox?.height).toBeGreaterThanOrEqual(52);
+  expect(successButtonBox?.width).toBeLessThan(300);
+  expect(await signInButton.evaluate((element) => getComputedStyle(element).borderRadius)).toBe("10px");
 });
 
 test("worker and employer shells remain responsive and accessible", async ({ page }) => {
@@ -60,22 +72,19 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   for (const width of [320, 375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/worker/find-jobs");
-    await expect(page.getByRole("heading", { name: "Find Jobs" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find work that fits your skills and goals" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Jobs in: Quezon City" })).toBeVisible();
+    await expect(page.getByText("Philippines", { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     const headerBounds = await page.locator("header").boundingBox();
     expect(headerBounds?.height).toBe(64);
     if (width >= 1024) {
-      const sidebar = page.getByRole("complementary", { name: "Primary navigation" });
-      const sidebarBounds = await sidebar.boundingBox();
-      expect(sidebarBounds?.height).toBe(900);
-      expect(sidebarBounds?.y).toBe(0);
-      expect(sidebarBounds?.width).toBe(280);
+      await expect(page.getByRole("complementary", { name: "Primary navigation" })).toHaveCount(0);
+      const navigation = page.getByRole("navigation", { name: "Worker primary navigation" });
+      await expect(navigation).toBeVisible();
+      await expect(page.getByRole("button", { name: "MicroJobs worker dashboard" })).toBeVisible();
       const mainBounds = await page.locator("main").boundingBox();
-      expect(mainBounds?.x).toBeGreaterThanOrEqual(280);
-      await expect
-        .poll(() => sidebar.evaluate((element) => getComputedStyle(element).overflowY))
-        .toBe("hidden");
-      const navigation = page.getByRole("navigation", { name: "Worker menu" });
+      expect(mainBounds?.x).toBe(0);
       expect(await navigation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     } else {
       const menuButton = page.getByRole("button", { name: "Open navigation menu" });
@@ -96,8 +105,18 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await expect(page.getByLabel("Sort jobs")).toBeVisible();
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto("/worker/dashboard");
-  await page.getByTestId("header-context-action").click();
-  await page.waitForURL(/\/worker\/find-jobs/);
+  await expect(page.getByTestId("header-context-action")).toHaveCount(0);
+  const moreButton = page.getByRole("button", { name: "More" });
+  await moreButton.click();
+  await expect(page.getByRole("menu", { name: "More worker navigation" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu", { name: "More worker navigation" })).toBeHidden();
+  await expect(moreButton).toBeFocused();
+  await moreButton.click();
+  await page.getByRole("menuitem", { name: "Saved Jobs" }).click();
+  await page.waitForURL(/\/worker\/saved-jobs/);
+  await expect(page.getByRole("button", { name: "More" })).toHaveAttribute("aria-expanded", "false");
+  await page.goto("/worker/dashboard");
   const notificationsButton = page.locator('button[aria-label^="Notifications"]');
   await notificationsButton.click();
   await expect(page.getByRole("menu", { name: "Notifications" })).toBeVisible();
@@ -105,6 +124,7 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await expect(notificationsButton).toBeFocused();
   await page.getByRole("button", { name: "Open account menu" }).click();
   await expect(page.getByRole("menu", { name: "Account" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "View profile" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Open account menu" })).toBeFocused();
   await page.setViewportSize({ width: 375, height: 900 });
@@ -114,6 +134,9 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await page.goto("/employer/applications");
   await expect(page.getByRole("heading", { name: /Applications/i }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.getByRole("complementary", { name: "Primary navigation" })).toBeVisible();
+  expect((await page.getByRole("complementary", { name: "Primary navigation" }).boundingBox())?.width).toBe(280);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });

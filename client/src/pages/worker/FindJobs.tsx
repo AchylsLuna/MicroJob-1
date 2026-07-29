@@ -63,6 +63,7 @@ export function FindJobs() {
     city: "",
     barangay: "",
   });
+  const [isLocationLoaded, setIsLocationLoaded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   const sortLabels = {
@@ -179,6 +180,7 @@ export function FindJobs() {
     let isMounted = true;
 
     const loadWorkerLocation = async () => {
+      setIsLocationLoaded(false);
       try {
         const profile = await getProfile();
         if (!isMounted) return;
@@ -194,6 +196,8 @@ export function FindJobs() {
           city: String(user?.city || ""),
           barangay: "",
         });
+      } finally {
+        if (isMounted) setIsLocationLoaded(true);
       }
     };
 
@@ -207,10 +211,21 @@ export function FindJobs() {
   useEffect(() => {
     let isMounted = true;
     const loadJobs = async () => {
+      if (!isLocationLoaded) return;
+      if (!workerLocation.city.trim()) {
+        setJobs([]);
+        setLoadError(null);
+        setIsLoading(false);
+        return;
+      }
       setIsLoading(true);
       setLoadError(null);
       try {
-        const data = await getJobs({ search: searchQuery || undefined, excludeOwn: true });
+        const data = await getJobs({
+          search: searchQuery || undefined,
+          city: workerLocation.city.trim(),
+          excludeOwn: true,
+        });
         if (!isMounted) return;
         const mapped = Array.isArray(data) ? data.map(mapApiJob) : [];
         setJobs(mapped);
@@ -226,14 +241,14 @@ export function FindJobs() {
     return () => {
       isMounted = false;
     };
-  }, [searchQuery, reloadKey, mapApiJob]);
+  }, [isLocationLoaded, workerLocation.city, searchQuery, reloadKey, mapApiJob]);
 
   const getJobTypeColor = (type: string) => {
     switch (type) {
       case "Full-Time":
-        return "bg-[#DFE8FF] text-[#365CCE]";
+        return "bg-[#DFE8FF] text-[#1C4D8D]";
       case "Part-Time":
-        return "bg-[#E0F2FE] text-[#0369A1]";
+        return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
       case "Contract":
         return "bg-[#FFEDD5] text-[#C2410C]";
       case "Project Work":
@@ -285,6 +300,10 @@ export function FindJobs() {
   }));
 
   const filteredJobs = jobsWithSavedState.filter(job => {
+    const workerCity = normalizeToken(workerLocation.city);
+    if (!workerCity || !normalizeToken(job.location).includes(workerCity)) {
+      return false;
+    }
     if (!searchQuery) {
       return true;
     }
@@ -317,16 +336,17 @@ export function FindJobs() {
     [jobsWithSavedState, locationScore],
   );
 
-  const workerLocationLabel = [workerLocation.city, workerLocation.province].filter(Boolean).join(", ") || "Philippines";
+  const workerCity = workerLocation.city.trim();
+  const workerLocationLabel = workerCity || "Set your city";
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 font-sans">
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#15376f] via-[#1C4D8D] to-[#2563eb] px-5 py-8 text-white shadow-[0_18px_50px_rgba(28,77,141,0.20)] sm:px-8 sm:py-10 lg:px-12 lg:py-12" aria-labelledby="job-search-heading">
+      <section className="relative overflow-hidden rounded-3xl bg-[#1C4D8D] px-5 py-8 text-white shadow-[0_18px_50px_rgba(28,77,141,0.20)] sm:px-8 sm:py-10 lg:px-12 lg:py-12" aria-labelledby="job-search-heading">
         <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-blue-400/10" aria-hidden="true" />
         <div className="relative max-w-4xl">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-100">Job search</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/85">Job search</p>
           <h2 id="job-search-heading" className="mt-3 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Find work that fits your skills and goals</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-blue-50/90 sm:text-base">Search verified opportunities, compare job details, and save the roles worth returning to.</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/90 sm:text-base">Search verified opportunities, compare job details, and save the roles worth returning to.</p>
         </div>
 
         <form
@@ -345,13 +365,23 @@ export function FindJobs() {
               className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500"
             />
           </label>
-          <div className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl bg-white px-4 text-slate-700" aria-label={`Search location: ${workerLocationLabel}`}>
+          <button type="button" onClick={() => navigate(ROUTES.settings)} className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl bg-white px-4 text-left text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D]" aria-label={`${workerCity ? "Jobs in" : "Set job search city"}: ${workerLocationLabel}`}>
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
             <span className="truncate text-sm font-semibold">{workerLocationLabel}</span>
-          </div>
-          <button type="submit" className="min-h-14 rounded-xl bg-[#0f2f63] px-7 font-bold text-white shadow-sm transition hover:bg-[#0b244c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D]">Search</button>
+          </button>
+          <button type="submit" disabled={!workerCity} className="min-h-14 rounded-xl border border-white/30 bg-[#1C4D8D] px-7 font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D] disabled:cursor-not-allowed disabled:opacity-50">Search</button>
         </form>
       </section>
+
+      {isLocationLoaded && !workerCity && (
+        <aside role="status" className="flex flex-col gap-3 rounded-2xl border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-bold text-slate-950">Add your city to find local jobs</p>
+            <p className="mt-1 text-sm text-slate-600">MicroJobs currently shows opportunities from your city or municipality only.</p>
+          </div>
+          <button type="button" onClick={() => navigate(ROUTES.settings)} className="brand-primary-interactive min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold">Update location</button>
+        </aside>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

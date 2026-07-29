@@ -21,7 +21,7 @@ export const webUi = {
     root: "dashboard-sidebar flex h-screen h-[100dvh] flex-col overflow-hidden border-r border-slate-200 bg-white text-slate-800 shadow-[8px_0_28px_rgba(15,23,42,0.05)]",
     navButton:
       "relative flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-3 text-left font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2",
-    navButtonActive: "bg-blue-50 text-[#1C4D8D] shadow-sm ring-1 ring-blue-100",
+    navButtonActive: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D] shadow-sm ring-1 ring-[#1C4D8D]/20",
     navButtonIdle: "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
     sectionDivider: "border-slate-200",
   },

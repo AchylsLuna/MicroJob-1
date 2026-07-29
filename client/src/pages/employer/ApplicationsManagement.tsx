@@ -97,8 +97,8 @@ const formatDate = (value?: string) => {
 
 const statusClasses: Record<ApplicationStatus, string> = {
   Applied: "bg-[#E2E8F0] text-[#334155]",
-  Shortlisted: "bg-[#E0E7FF] text-[#4338CA]",
-  "Interview Scheduled": "bg-[#DBEAFE] text-[#1D4ED8]",
+  Shortlisted: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
+  "Interview Scheduled": "bg-[#1C4D8D]/10 text-[#1C4D8D]",
   Interviewed: "bg-[#FEF3C7] text-[#B45309]",
   "Offer Sent": "bg-[#FCE7F3] text-[#BE185D]",
   Hired: "bg-[#DCFCE7] text-[#15803D]",
@@ -147,14 +147,14 @@ function ApplicationCard({
         <button
           type="button"
           onClick={() => onToggleSelected(application._id)}
-          className="mt-1 text-[#64748B] hover:text-[#1D4ED8]"
+          className="mt-1 text-[#64748B] hover:opacity-80"
           aria-label={selected ? "Deselect application" : "Select application"}
         >
           {selected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-[#EEF2FF] text-[#2563EB] flex items-center justify-center font-semibold">
+            <div className="w-11 h-11 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
               {getApplicantInitials(application)}
             </div>
             <div className="min-w-0">
@@ -174,7 +174,7 @@ function ApplicationCard({
       </div>
 
       {application.nextInterview ? (
-        <div className="rounded-[12px] border border-[#DBEAFE] bg-[#EFF6FF] px-3 py-2 text-[12px] text-[#1D4ED8]">
+        <div className="rounded-[12px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] text-[#1C4D8D]">
           Next interview: {formatDate(application.nextInterview.scheduledAt)}
           {application.nextInterview.location ? ` · ${application.nextInterview.location}` : ""}
         </div>
@@ -216,7 +216,7 @@ function ApplicationCard({
           <button
             type="button"
             onClick={() => onScheduleInterview(application)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-2 text-[12px] font-semibold text-[#1D4ED8]"
+            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] font-semibold text-[#1C4D8D]"
           >
             <Calendar className="w-4 h-4" />
             {application.nextInterview ? "Reschedule" : "Schedule"}
@@ -255,7 +255,7 @@ function ApplicationCard({
             href={resumeUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#2563EB]"
+            className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1C4D8D]"
           >
             <Mail className="w-4 h-4" />
             View Resume
@@ -474,7 +474,7 @@ export function ApplicationsManagement() {
               type="button"
               onClick={() => setViewMode("board")}
               aria-pressed={viewMode === "board"}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold ${viewMode === "board" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-white text-[#475569]"}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold ${viewMode === "board" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
             >
               <Grid2X2 className="w-4 h-4" />
               Board
@@ -483,7 +483,7 @@ export function ApplicationsManagement() {
               type="button"
               onClick={() => setViewMode("table")}
               aria-pressed={viewMode === "table"}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-[#EFF6FF] text-[#1D4ED8]" : "bg-white text-[#475569]"}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
             >
               <LayoutList className="w-4 h-4" />
               Table
@@ -532,8 +532,8 @@ export function ApplicationsManagement() {
         </div>
 
         {selectedIds.length > 0 ? (
-          <div className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="text-[13px] text-[#1D4ED8] font-medium">
+          <div className="rounded-[14px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="text-[13px] text-[#1C4D8D] font-medium">
               {selectedIds.length} application{selectedIds.length === 1 ? "" : "s"} selected
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
@@ -541,7 +541,7 @@ export function ApplicationsManagement() {
                 aria-label="Bulk application stage"
                 value={bulkStatus}
                 onChange={(event) => setBulkStatus(event.target.value as ApplicationStatus)}
-                className="h-10 rounded-[10px] border border-[#BFDBFE] px-3 text-[13px] text-[#111827]"
+                className="h-10 rounded-[10px] border border-[#1C4D8D]/20 px-3 text-[13px] text-[#111827]"
               >
                 {PIPELINE_STATUSES.map((status) => (
                   <option key={status} value={status}>
@@ -553,7 +553,7 @@ export function ApplicationsManagement() {
                 type="button"
                 onClick={handleBulkStatusChange}
                 disabled={isBulkUpdating}
-                className="h-10 rounded-[10px] bg-[#1D4ED8] px-4 text-[13px] font-semibold text-white disabled:opacity-60"
+                className="h-10 rounded-[10px] bg-[#1C4D8D] px-4 text-[13px] font-semibold text-white disabled:opacity-60"
               >
                 {isBulkUpdating ? "Updating..." : "Apply Bulk Status"}
               </button>
@@ -633,7 +633,7 @@ export function ApplicationsManagement() {
             <thead>
               <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
                 <th className="py-3 pr-4 font-medium">
-                  <button type="button" onClick={handleToggleSelectAll} className="text-[#64748B] hover:text-[#1D4ED8]">
+                  <button type="button" onClick={handleToggleSelectAll} className="text-[#64748B] hover:opacity-80">
                     {visibleApplications.length > 0 && visibleApplications.every((application) => selectedSet.has(application._id)) ? (
                       <CheckSquare className="w-5 h-5" />
                     ) : (
@@ -656,7 +656,7 @@ export function ApplicationsManagement() {
                 return (
                   <tr key={application._id} className="border-b border-[#F3F4F6] align-top">
                     <td className="py-3 pr-4">
-                      <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-[#64748B] hover:text-[#1D4ED8]">
+                      <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-[#64748B] hover:opacity-80">
                         {selectedSet.has(application._id) ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
                       </button>
                     </td>
@@ -684,7 +684,7 @@ export function ApplicationsManagement() {
                     <td className="py-3 pr-4 text-[#6B7280]">{formatDate(application.createdAt)}</td>
                     <td className="py-3 pr-4">
                       {resumeUrl ? (
-                        <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-[#2563EB] font-semibold">
+                        <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-[#1C4D8D] font-semibold">
                           View Resume
                         </a>
                       ) : (
@@ -696,7 +696,7 @@ export function ApplicationsManagement() {
                         <button
                           type="button"
                           onClick={() => handleOpenSchedule(application)}
-                          className="px-3 py-2 rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8] font-semibold"
+                          className="px-3 py-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] text-[#1C4D8D] font-semibold"
                         >
                           Interview
                         </button>
@@ -799,7 +799,7 @@ export function ApplicationsManagement() {
               <button
                 type="button"
                 onClick={handleScheduleSubmit}
-                className="px-4 py-2 rounded-[10px] bg-[#1D4ED8] text-white text-[14px] font-medium disabled:opacity-60"
+                className="px-4 py-2 rounded-[10px] bg-[#1C4D8D] text-white text-[14px] font-medium disabled:opacity-60"
                 disabled={isScheduling}
               >
                 {isScheduling ? "Saving..." : scheduleTarget.nextInterview ? "Update Interview" : "Schedule Interview"}

@@ -951,7 +951,7 @@ export function Settings() {
                 onClick={() => handleMainTabChange(tab.id)}
                 className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
                   activeTab === tab.id
-                    ? "bg-[#EEF2FF] text-[#1D4ED8]"
+                    ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]"
                     : "text-[#64748B] hover:bg-[#F8FAFC]"
                 }`}
               >
@@ -971,7 +971,7 @@ export function Settings() {
                     onClick={() => handleAccountTabChange(subTab.id)}
                     className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
                       accountTab === subTab.id
-                        ? "bg-[#EEF2FF] text-[#1D4ED8]"
+                        ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]"
                         : "text-[#64748B] hover:bg-[#F8FAFC]"
                     }`}
                   >
@@ -996,16 +996,16 @@ export function Settings() {
                       </div>
 
                       {isEmployerRole && (
-                        <div className="border border-[#DBEAFE] bg-[#F8FBFF] rounded-[14px] p-4">
+                        <div className="border border-[#1C4D8D]/20 bg-[#F8FBFF] rounded-[14px] p-4">
                           <div className="flex items-center gap-4">
                             {resolvedAvatarUrl ? (
                               <img
                                 src={resolvedAvatarUrl}
                                 alt="Employer profile"
-                                className="w-14 h-14 rounded-[12px] object-cover border border-[#BFDBFE]"
+                                className="w-14 h-14 rounded-[12px] object-cover border border-[#1C4D8D]/20"
                               />
                             ) : (
-                              <div className="w-14 h-14 rounded-[12px] bg-[#DBEAFE] text-[#1D4ED8] flex items-center justify-center font-bold text-[20px] border border-[#BFDBFE]">
+                              <div className="w-14 h-14 rounded-[12px] bg-[#1C4D8D]/10 text-[#1C4D8D] flex items-center justify-center font-bold text-[20px] border border-[#1C4D8D]/20">
                                 {(personalInfo.companyName || personalInfo.firstName || "E").charAt(0).toUpperCase()}
                               </div>
                             )}
@@ -1026,7 +1026,7 @@ export function Settings() {
                             type="text"
                             value={personalInfo.firstName}
                             onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
                         </div>
                         <div>
@@ -1036,7 +1036,7 @@ export function Settings() {
                             type="text"
                             value={personalInfo.lastName}
                             onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
                         </div>
                       </div>
@@ -1050,7 +1050,7 @@ export function Settings() {
                             value={personalInfo.companyName}
                             onChange={(e) => handlePersonalInfoChange("companyName", e.target.value)}
                             placeholder="Enter your company name"
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
                         </div>
                       )}
@@ -1065,7 +1065,7 @@ export function Settings() {
                                 value={personalInfo.city}
                                 onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
                                 disabled={isLoadingLocationData}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
                                 <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
                                 {filteredCityOptions.map((city) => (
@@ -1083,7 +1083,7 @@ export function Settings() {
                                 value={personalInfo.province}
                                 onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
                                 disabled={isLoadingLocationData}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
                                 <option value="">{isLoadingLocationData ? "Loading provinces..." : "Select province"}</option>
                                 {provinceOptions.map((province) => (
@@ -1101,7 +1101,7 @@ export function Settings() {
                                 value={personalInfo.barangay}
                                 onChange={(e) => handlePersonalInfoChange("barangay", e.target.value)}
                                 disabled={isLoadingBarangays || !personalInfo.city}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
                                 <option value="">
                                   {!personalInfo.city
@@ -1126,7 +1126,7 @@ export function Settings() {
                                 id="settings-location-type"
                                 value={personalInfo.addressType}
                                 onChange={(e) => handlePersonalInfoChange("addressType", e.target.value)}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
                                 <option value="home">Home address</option>
                                 <option value="office">Office / Business address</option>
@@ -1142,7 +1142,7 @@ export function Settings() {
                                 value={personalInfo.address}
                                 onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
                                 placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               />
                             </div>
                           </div>
@@ -1161,7 +1161,7 @@ export function Settings() {
                             value={personalInfo.city}
                             onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
                             disabled={isLoadingLocationData}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           >
                             <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
                             {cityOptions.map((city) => (
@@ -1183,7 +1183,7 @@ export function Settings() {
                               value={personalInfo.phone}
                               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
                               placeholder="e.g., 0917 123 4567"
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             />
                           </div>
                           <div>
@@ -1221,7 +1221,7 @@ export function Settings() {
                               value={personalInfo.about}
                               onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
                               placeholder="Tell us about yourself, your experience, and what you're passionate about..."
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={4}
                             />
                           </div>
@@ -1232,7 +1232,7 @@ export function Settings() {
                               id="settings-experience"
                               value={experienceStats.totalExperience}
                               onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             >
                               <option value="">Select experience</option>
                               <option value="Less than 1 Year">Less than 1 Year</option>
@@ -1259,7 +1259,7 @@ export function Settings() {
                                   className="w-24 h-24 rounded-[12px] object-cover border-2 border-[#E5E7EB]"
                                 />
                                 <div className="flex flex-col gap-2">
-                                  <label className="bg-[#2563EB] text-white font-semibold px-6 py-2 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2 text-[14px]">
+                                  <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-2 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 text-[14px]">
                                     <Upload className="w-4 h-4" />
                                     Change photo
                                     <input
@@ -1279,7 +1279,7 @@ export function Settings() {
                               </div>
                             ) : (
                               <div className="flex flex-wrap items-center gap-4">
-                                <label className="bg-[#2563EB] text-white font-semibold px-6 py-3 rounded-[10px] hover:bg-[#1D4ED8] transition-all cursor-pointer flex items-center gap-2">
+                                <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2">
                                   <Upload className="w-4 h-4" />
                                   Upload your photo
                                   <input
@@ -1299,8 +1299,8 @@ export function Settings() {
                       <button
                         onClick={handleSavePersonalInfo}
                         disabled={isProfileSaving}
-                        className={`bg-[#2563EB] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
-                          isProfileSaving ? "opacity-70 cursor-not-allowed" : "hover:bg-[#1D4ED8]"
+                        className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
+                          isProfileSaving ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
                         }`}
                       >
                         {isProfileSaving ? "Saving..." : "Save changes"}
@@ -1333,12 +1333,12 @@ export function Settings() {
                           </div>
                           <div>
                             <div className="flex items-center gap-3 bg-white rounded-[10px] px-4 py-3 border border-[#86efac]">
-                              <div className="w-10 h-10 rounded-[10px] bg-[#dbeafe] flex items-center justify-center">
+                              <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center">
                                 <span className="text-[20px]">📝</span>
                               </div>
                               <div>
                                 <p className="text-[12px] text-[#64748b]">Jobs Applied</p>
-                                <p className="text-[20px] font-bold text-[#2563eb]">{experienceStats.jobsApplied}</p>
+                                <p className="text-[20px] font-bold text-[#1C4D8D]">{experienceStats.jobsApplied}</p>
                               </div>
                             </div>
                           </div>
@@ -1356,7 +1356,7 @@ export function Settings() {
                         </div>
                       </div>
 
-                      <div className="bg-gradient-to-br from-[#eff6ff] to-[#dbeafe] border border-[#bfdbfe] rounded-[16px] p-6">
+                      <div className="bg-[#1C4D8D]/[0.08] border border-[#1C4D8D]/20 rounded-[16px] p-6">
                         <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">Add New Skill</h3>
                         <div className="space-y-4">
                           {/* Skill Selection Mode */}
@@ -1369,7 +1369,7 @@ export function Settings() {
                                   name="skillMode"
                                   checked={skillSelectionMode === "predefined"}
                                   onChange={() => setSkillSelectionMode("predefined")}
-                                  className="w-4 h-4 text-[#2563EB]"
+                                  className="w-4 h-4 text-[#1C4D8D]"
                                 />
                                 <span className="text-[14px] text-[#475569]">Select from list</span>
                               </label>
@@ -1379,7 +1379,7 @@ export function Settings() {
                                   name="skillMode"
                                   checked={skillSelectionMode === "custom"}
                                   onChange={() => setSkillSelectionMode("custom")}
-                                  className="w-4 h-4 text-[#2563EB]"
+                                  className="w-4 h-4 text-[#1C4D8D]"
                                 />
                                 <span className="text-[14px] text-[#475569]">Custom skill</span>
                               </label>
@@ -1394,7 +1394,7 @@ export function Settings() {
                                 aria-labelledby="settings-skill-name-label"
                                 value={selectedPredefinedSkill}
                                 onChange={(e) => setSelectedPredefinedSkill(e.target.value)}
-                                className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
                                 <option value="">Select a skill</option>
                                 <optgroup label="Household & Cleaning">
@@ -1501,7 +1501,7 @@ export function Settings() {
                                 value={newSkillName}
                                 onChange={(e) => setNewSkillName(e.target.value)}
                                 placeholder="e.g., Flutter, Blockchain, Video Editing"
-                                className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                                 onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
                               />
                             )}
@@ -1514,14 +1514,14 @@ export function Settings() {
                               value={newSkillDescription}
                               onChange={(e) => setNewSkillDescription(e.target.value)}
                               placeholder="Optional: describe what you can do or your experience with this skill"
-                              className="w-full bg-white border border-[#bfdbfe] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
+                              className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={3}
                             />
                           </div>
 
                           <button
                             onClick={handleAddSkill}
-                            className="w-full bg-[#2563EB] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:bg-[#1D4ED8] transition-all"
+                            className="w-full bg-[#1C4D8D] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:opacity-90 transition-all"
                           >
                             Add Skill
                           </button>
@@ -1545,13 +1545,13 @@ export function Settings() {
                                         value={editingSkillDescription}
                                         onChange={(e) => setEditingSkillDescription(e.target.value)}
                                         placeholder="Describe your experience with this skill"
-                                        className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] text-[#111827] outline-none focus:ring-2 focus:ring-[#2563EB] focus:border-transparent transition-all resize-none"
+                                        className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] text-[#111827] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                                         rows={3}
                                       />
                                       <div className="flex items-center gap-2">
                                         <button
                                           onClick={() => handleEditSkillDescription(skill.id)}
-                                          className="bg-[#2563EB] text-white text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:bg-[#1D4ED8] transition-all"
+                                          className="bg-[#1C4D8D] text-white text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:opacity-90 transition-all"
                                         >
                                           Save note
                                         </button>
@@ -1577,7 +1577,7 @@ export function Settings() {
                                             setEditingSkillId(skill.id);
                                             setEditingSkillDescription(skill.description || "");
                                           }}
-                                          className="text-[12px] font-semibold text-[#2563EB] hover:text-[#1D4ED8]"
+                                          className="text-[12px] font-semibold text-[#1C4D8D] hover:opacity-80"
                                         >
                                           Edit description
                                         </button>
@@ -1632,7 +1632,7 @@ export function Settings() {
                         type={showCurrentPassword ? "text" : "password"}
                         value={securityData.currentPassword}
                         onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
-                        className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#2563EB]"
+                        className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                       />
                       <button
                         type="button"
@@ -1666,7 +1666,7 @@ export function Settings() {
                       value={passwordOtp}
                       onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="Enter 6-digit OTP"
-                      className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#2563EB]"
+                      className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                     />
                   </div>
 
@@ -1679,7 +1679,7 @@ export function Settings() {
                           type={showNewPassword ? "text" : "password"}
                           value={securityData.newPassword}
                           onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#2563EB]"
+                          className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                         />
                         <button
                           type="button"
@@ -1699,7 +1699,7 @@ export function Settings() {
                           type={showConfirmPassword ? "text" : "password"}
                           value={securityData.confirmPassword}
                           onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#2563EB]"
+                          className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                         />
                         <button
                           type="button"
@@ -1723,7 +1723,7 @@ export function Settings() {
                   <button
                     onClick={handleChangePassword}
                     disabled={isPasswordSubmitting}
-                    className="px-6 py-2.5 bg-[#4F46E5] text-white rounded-full text-[14px] font-semibold disabled:opacity-60"
+                    className="px-6 py-2.5 bg-[#1C4D8D] text-white rounded-full text-[14px] font-semibold disabled:opacity-60"
                   >
                     {isPasswordSubmitting ? "Saving..." : "Save New Password"}
                   </button>
@@ -1867,7 +1867,7 @@ export function Settings() {
                                       <button
                                         onClick={handleRequestPhoneCode}
                                         disabled={isSendingPhoneCode}
-                                        className="px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] disabled:opacity-60"
+                                        className="px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 disabled:opacity-60"
                                       >
                                         {isSendingPhoneCode
                                           ? "Sending..."
@@ -1892,12 +1892,12 @@ export function Settings() {
                                             )
                                           }
                                           placeholder="Enter 6-digit code"
-                                          className="w-[180px] bg-white border border-[#CBD5E1] rounded-[8px] px-3 py-2 text-[12px] text-[#0F172A] outline-none focus:ring-2 focus:ring-[#2563EB]"
+                                          className="w-[180px] bg-white border border-[#CBD5E1] rounded-[8px] px-3 py-2 text-[12px] text-[#0F172A] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                                         />
                                         <button
                                           onClick={handleConfirmPhoneCode}
                                           disabled={isConfirmingPhoneCode}
-                                          className="px-4 py-2 border border-[#2563EB] text-[#1D4ED8] text-[12px] font-semibold rounded-[8px] hover:bg-[#EFF6FF] disabled:opacity-60"
+                                          className="px-4 py-2 border border-[#1C4D8D] text-[#1C4D8D] text-[12px] font-semibold rounded-[8px] hover:opacity-90/[0.06] disabled:opacity-60"
                                         >
                                           {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
                                         </button>
@@ -1907,7 +1907,7 @@ export function Settings() {
                                 )}
 
                                 {step.id === "identity" && step.status === "pending" && (
-                                  <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
+                                  <label className="mt-2 inline-block px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 cursor-pointer">
                                     Upload ID
                                     <input
                                       type="file"
@@ -1919,7 +1919,7 @@ export function Settings() {
                                 )}
 
                                 {step.id === "address" && step.status === "pending" && (
-                                  <label className="mt-2 inline-block px-4 py-2 bg-[#2563EB] text-white text-[12px] rounded-[8px] hover:bg-[#1D4ED8] cursor-pointer">
+                                  <label className="mt-2 inline-block px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 cursor-pointer">
                                     Upload Document
                                     <input
                                       type="file"

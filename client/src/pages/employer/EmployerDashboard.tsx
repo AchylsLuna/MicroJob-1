@@ -121,8 +121,8 @@ const getActivityConfig = (status: string) => {
       };
     case "Interviewed":
       return {
-        icon: <MessageSquare className="h-4 w-4 text-[#3B82F6]" />,
-        bg: "bg-[#DBEAFE]",
+        icon: <MessageSquare className="h-4 w-4 text-[#1C4D8D]" />,
+        bg: "bg-[#1C4D8D]/10",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
             <span className="font-semibold">{name}</span> scheduled for interview —{" "}
@@ -133,7 +133,7 @@ const getActivityConfig = (status: string) => {
     default:
       return {
         icon: <Users className="h-4 w-4 text-[#6366F1]" />,
-        bg: "bg-[#EEF2FF]",
+        bg: "bg-[#1C4D8D]/[0.06]",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
             New application from <span className="font-semibold">{name}</span> for{" "}
@@ -220,28 +220,28 @@ export function EmployerDashboard() {
           title="Total Applications"
           value={isLoading ? "—" : stats.total}
           change="+12%"
-          gradient="bg-gradient-to-br from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]"
+          gradient="bg-[#1C4D8D]"
         />
         <StatCard
           icon={<Clock className="h-6 w-6" />}
           title="Shortlisted"
           value={isLoading ? "—" : stats.shortlisted}
           change="+6%"
-          gradient="bg-gradient-to-br from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]"
+          gradient="bg-[#1C4D8D]"
         />
         <StatCard
           icon={<MessageSquare className="h-6 w-6" />}
           title="To Be Interview"
           value={isLoading ? "—" : stats.interviewed}
           change="+9%"
-          gradient="bg-gradient-to-br from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]"
+          gradient="bg-[#1C4D8D]"
         />
         <StatCard
           icon={<CheckCircle className="h-6 w-6" />}
           title="Hired"
           value={isLoading ? "—" : stats.hired}
           change="+4%"
-          gradient="bg-gradient-to-br from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]"
+          gradient="bg-[#1C4D8D]"
         />
       </div>
 
@@ -249,13 +249,13 @@ export function EmployerDashboard() {
         <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] lg:col-span-2">
           <div className="mb-5 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-[#111827]">Candidate Pipeline</h3>
-            <span className="rounded-full bg-[#EEF2FF] px-3 py-1 text-xs font-medium text-[#4F46E5]">
+            <span className="rounded-full bg-[#1C4D8D]/[0.06] px-3 py-1 text-xs font-medium text-[#1C4D8D]">
               Live Snapshot
             </span>
           </div>
           <div className="space-y-5">
             <PipelineRow label="Shortlisted" count={isLoading ? 0 : stats.shortlisted} colorClass="bg-[#F59E0B]" />
-            <PipelineRow label="To Be Interview" count={isLoading ? 0 : stats.interviewed} colorClass="bg-[#3B82F6]" />
+            <PipelineRow label="To Be Interview" count={isLoading ? 0 : stats.interviewed} colorClass="bg-[#1C4D8D]" />
             <PipelineRow label="Hired" count={isLoading ? 0 : stats.hired} colorClass="bg-[#10B981]" />
             <PipelineRow label="Rejected" count={isLoading ? 0 : stats.rejected} colorClass="bg-[#EF4444]" />
           </div>
@@ -264,7 +264,7 @@ export function EmployerDashboard() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.employer.applications)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#4F46E5] px-4 text-sm font-semibold text-white hover:bg-[#4338CA]"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white hover:opacity-90"
             >
               <Users className="h-4 w-4" />
               Manage Applications

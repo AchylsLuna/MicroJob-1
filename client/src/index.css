@@ -76,11 +76,48 @@
 
 :root {
 	color-scheme: light;
+	--brand-primary: #1c4d8d;
+	--brand-primary-soft: rgb(28 77 141 / 0.08);
+	--brand-primary-muted: rgb(28 77 141 / 0.16);
+	--brand-primary-border: rgb(28 77 141 / 0.24);
+	--brand-focus-ring: rgb(28 77 141 / 0.34);
 	--app-font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 	--ui-title-size: clamp(1.875rem, 2.2vw, 2.25rem);
 	--ui-subtitle-size: 1rem;
 	--ui-control-height: 2.75rem;
 	--ui-control-font-size: 0.95rem;
+}
+
+@layer components {
+	.brand-primary {
+		background-color: var(--brand-primary);
+		color: white;
+	}
+
+	.brand-primary-interactive {
+		background-color: var(--brand-primary);
+		color: white;
+		transition: opacity 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+	}
+
+	.brand-primary-interactive:hover:not(:disabled) {
+		opacity: 0.92;
+	}
+
+	.brand-primary-interactive:active:not(:disabled) {
+		opacity: 0.84;
+		transform: translateY(1px);
+	}
+
+	.brand-primary-interactive:focus-visible {
+		outline: 3px solid var(--brand-focus-ring);
+		outline-offset: 2px;
+	}
+
+	.brand-primary-interactive:disabled {
+		cursor: not-allowed;
+		opacity: 0.5;
+	}
 }
 
 * {

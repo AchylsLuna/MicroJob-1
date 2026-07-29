@@ -88,14 +88,14 @@ function AdminDashboardContent() {
 
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
-      <section className="flex flex-col gap-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-950 to-blue-700 p-5 text-white shadow-lg shadow-blue-950/10 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+      <section className="flex flex-col gap-4 rounded-2xl border border-[#1C4D8D]/20 bg-[#1C4D8D] p-5 text-white shadow-lg shadow-[#1C4D8D]/10 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-blue-50">
+          <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
             Platform operations
           </div>
           <h2 className="text-xl font-bold sm:text-2xl">Everything requiring attention, in one place</h2>
-          <p className="mt-2 max-w-2xl text-sm text-blue-100">
+          <p className="mt-2 max-w-2xl text-sm text-white/85">
             Review account approvals, platform activity, jobs, and completed payouts without duplicating the detailed admin tools.
           </p>
         </div>

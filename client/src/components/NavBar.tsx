@@ -12,6 +12,8 @@ import {
 import { mapNotificationRecord, type FeedNotification } from "../utils/notificationFeed";
 import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
+import { MicroJobsLogo } from "./MicroJobsLogo";
+import { workerMoreNavigation, workerPrimaryNavigation } from "./workerNavigation";
 
 interface NavBarProps {
   isNavigationOpen?: boolean;
@@ -25,6 +27,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const { logout, user, switchAccountType } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [notifications, setNotifications] = useState<FeedNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
@@ -57,9 +60,12 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const path = location.pathname;
+  const isWorkerView = notificationAudience === "worker";
 
   const isPath = (...targets: string[]) => matchesAnyPath(path, targets);
   const isExactPath = (...targets: string[]) => targets.some((target) => matchesPath(path, target));
@@ -117,7 +123,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
 
   const pageMeta: PageMeta = (() => {
     if (isPath(ROUTES.worker.dashboard, ROUTES.legacyDashboard.root)) {
-      return { title: "Dashboard", action: { label: "Find jobs", to: ROUTES.worker.findJobs } };
+      return { title: "Dashboard" };
     }
 
     if (
@@ -134,7 +140,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       return {
         title: "Applied Jobs",
         subtitle: `You have ${appliedJobsCount} job application${appliedJobsCount === 1 ? "" : "s"}.`,
-        action: { label: "Find jobs", to: ROUTES.worker.findJobs },
       };
     }
 
@@ -395,18 +400,23 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   }, [loadNotifications]);
 
   useEffect(() => {
-    if (!showNotifications && !showUserMenu) return;
+    if (!showNotifications && !showUserMenu && !showMoreMenu) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        const returnTarget = showNotifications ? notificationButtonRef.current : accountButtonRef.current;
+        const returnTarget = showNotifications
+          ? notificationButtonRef.current
+          : showMoreMenu
+          ? moreButtonRef.current
+          : accountButtonRef.current;
         setShowNotifications(false);
         setShowUserMenu(false);
+        setShowMoreMenu(false);
         window.requestAnimationFrame(() => returnTarget?.focus());
       }
     };
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [showNotifications, showUserMenu]);
+  }, [showMoreMenu, showNotifications, showUserMenu]);
 
   useEffect(() => {
     if (showNotifications) {
@@ -422,11 +432,18 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
         setShowUserMenu(false);
       }
+      if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
+        setShowMoreMenu(false);
+      }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    setShowMoreMenu(false);
+  }, [location.pathname]);
 
   const markAsRead = async (notification: FeedNotification) => {
     setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
@@ -453,6 +470,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     logout();
     setShowUserMenu(false);
     setShowNotifications(false);
+    setShowMoreMenu(false);
     navigate(ROUTES.home);
   };
 
@@ -471,10 +489,25 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User" : "User";
   const accountLabel = user?.role === "admin" ? "Admin" : user?.accountType === "employer" ? "Employer" : "Worker";
 
+  const isWorkerNavigationActive = (target: string) => {
+    if (target === ROUTES.worker.findJobs) {
+      return (
+        startsWithPath(path, ROUTES.worker.findJobs) ||
+        startsWithPath(path, ROUTES.worker.jobDetailsPattern.replace("/:jobId", ""))
+      );
+    }
+    if (target === ROUTES.settings) {
+      return matchesPath(path, ROUTES.settings) || matchesPath(path, ROUTES.legacyDashboard.settings);
+    }
+    return startsWithPath(path, target);
+  };
+
+  const isWorkerMoreActive = workerMoreNavigation.some((item) => isWorkerNavigationActive(item.path));
+
   return (
     <header className={webUi.navbar.root}>
       <div className={webUi.navbar.container}>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className={`flex min-w-0 items-center gap-2 ${isWorkerView ? "lg:gap-7" : ""}`}>
           <button
             type="button"
             onClick={onOpenNavigation}
@@ -485,6 +518,35 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
           >
             <Menu className="h-5 w-5" />
           </button>
+          {isWorkerView && (
+            <button
+              type="button"
+              onClick={() => navigate(ROUTES.worker.dashboard)}
+              className="hidden min-h-11 shrink-0 items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 lg:flex"
+              aria-label="MicroJobs worker dashboard"
+            >
+              <MicroJobsLogo />
+            </button>
+          )}
+          {isWorkerView && (
+            <nav className="hidden min-w-0 items-stretch gap-1 lg:flex" aria-label="Worker primary navigation">
+              {workerPrimaryNavigation.map((item) => {
+                const active = isWorkerNavigationActive(item.path);
+                return (
+                  <button
+                    key={item.path}
+                    type="button"
+                    onClick={() => navigate(item.path)}
+                    className={`relative min-h-16 whitespace-nowrap px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${active ? "text-[#1C4D8D]" : "text-slate-600 hover:text-slate-950"}`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    {item.label}
+                    {active && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#1C4D8D]" aria-hidden="true" />}
+                  </button>
+                );
+              })}
+            </nav>
+          )}
           {pageMeta.title && (
             <div className="flex min-w-0 items-center gap-3">
               {pageMeta.icon && (
@@ -492,7 +554,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   {pageMeta.icon}
                 </span>
               )}
-              <div className="min-w-0 leading-tight">
+              <div className={`min-w-0 leading-tight ${isWorkerView ? "lg:hidden" : ""}`}>
                 <h1 className={webUi.navbar.title}>{pageMeta.title}</h1>
                 {pageMeta.subtitle && <p className={webUi.navbar.subtitle}>{pageMeta.subtitle}</p>}
               </div>
@@ -501,7 +563,45 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
         </div>
 
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
-          {pageMeta.search && (
+          {isWorkerView && (
+            <div className="relative hidden lg:block" ref={moreMenuRef}>
+              <button
+                ref={moreButtonRef}
+                type="button"
+                onClick={() => {
+                  setShowMoreMenu((current) => !current);
+                  setShowNotifications(false);
+                  setShowUserMenu(false);
+                }}
+                className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${isWorkerMoreActive ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                aria-expanded={showMoreMenu}
+                aria-haspopup="menu"
+              >
+                More
+                <ChevronDown className={`h-4 w-4 transition-transform ${showMoreMenu ? "rotate-180" : ""}`} aria-hidden="true" />
+              </button>
+              {showMoreMenu && (
+                <div role="menu" aria-label="More worker navigation" className={`absolute right-0 mt-2 w-56 p-2 ${webUi.navbar.popover}`}>
+                  {workerMoreNavigation.map((item) => {
+                    const active = isWorkerNavigationActive(item.path);
+                    return (
+                      <button
+                        key={item.path}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => navigate(item.path)}
+                        className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${active ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          {pageMeta.search && !isWorkerView && (
             <div className="relative hidden h-10 w-[min(26vw,22rem)] min-w-0 md:block">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#9CA3AF]" />
               <input
@@ -519,7 +619,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
               type="button"
               data-testid="header-context-action"
               onClick={() => navigate(pageMeta.action!.to)}
-              className="hidden min-h-10 items-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 sm:inline-flex"
+              className="hidden min-h-10 items-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 sm:inline-flex"
             >
               {pageMeta.action.label}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -532,6 +632,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
               onClick={() => {
                 setShowNotifications(!showNotifications);
                 setShowUserMenu(false);
+                setShowMoreMenu(false);
               }}
               className={webUi.navbar.iconButton}
               aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
@@ -573,7 +674,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                         type="button"
                         key={notification.id}
                         className={`block min-h-11 w-full border-b border-slate-100 p-4 text-left transition-colors last:border-b-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${
-                          !notification.read ? "bg-[#EEF2FF]" : ""
+                          !notification.read ? "bg-[#1C4D8D]/[0.06]" : ""
                         }`}
                         onClick={async () => {
                           await markAsRead(notification);
@@ -588,7 +689,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                                 {notification.title}
                               </p>
                               {!notification.read && (
-                                <div className="w-2 h-2 rounded-full bg-[#4F46E5]"></div>
+                                <div className="w-2 h-2 rounded-full bg-[#1C4D8D]"></div>
                               )}
                             </div>
                             <p className="text-[13px] text-[#6B7280] mb-1">{notification.message}</p>
@@ -615,6 +716,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
               onClick={() => {
                 setShowUserMenu(!showUserMenu);
                 setShowNotifications(false);
+                setShowMoreMenu(false);
               }}
               className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent px-1.5 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] sm:pr-2"
               aria-label="Open account menu"
@@ -645,9 +747,25 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   <div className="p-4 border-b border-[#E5E7EB]">
                     <button
                       onClick={() => handleSwitchTo(user?.accountType === "worker" ? "employer" : "worker")}
-                      className="min-h-11 w-full rounded-xl bg-[#1C4D8D] px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                      className="min-h-11 w-full rounded-xl bg-[#1C4D8D] px-4 py-3 text-sm font-bold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
                     >
                       Switch to {user?.accountType === "worker" ? "Employer" : "Worker"}
+                    </button>
+                  </div>
+                )}
+
+                {isWorkerView && (
+                  <div className="border-b border-slate-200 p-2">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        navigate(ROUTES.worker.profile);
+                        setShowUserMenu(false);
+                      }}
+                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D]"
+                    >
+                      View profile
                     </button>
                   </div>
                 )}

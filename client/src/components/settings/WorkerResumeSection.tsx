@@ -68,7 +68,7 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
               download
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-[8px] p-2 text-[#2563EB] hover:bg-[#EFF6FF]"
+              className="rounded-[8px] p-2 text-[#1C4D8D] hover:opacity-90/[0.06]"
               title="Download resume"
             >
               <Download className="h-4 w-4" />
@@ -87,7 +87,7 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
       ) : (
         <div className="rounded-[12px] border-2 border-dashed border-[#CBD5E1] p-8 text-center">
           <p className="mb-4 text-[14px] text-[#64748B]">Upload your resume (PDF, DOC, or DOCX).</p>
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-[#2563EB] px-6 py-3 font-semibold text-white hover:bg-[#1D4ED8]">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-[#1C4D8D] px-6 py-3 font-semibold text-white hover:opacity-90">
             <Upload className="h-4 w-4" />
             {isSubmitting ? "Uploading..." : "Choose file"}
             <input

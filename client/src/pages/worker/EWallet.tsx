@@ -58,7 +58,7 @@ const txLabel = (tx: PaymentTransaction) => {
 const getPayoutStatusClasses = (status: PayoutRequest["status"]) => {
   switch (status) {
     case "requested":
-      return "bg-[#DBEAFE] text-[#1D4ED8]";
+      return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
     case "approved":
       return "bg-[#FEF3C7] text-[#B45309]";
     case "paid":
@@ -77,7 +77,7 @@ const getTransactionStatusClasses = (status?: PaymentTransaction["status"]) => {
     case "COMPLETED":
       return "bg-[#DCFCE7] text-[#15803D]";
     case "PENDING":
-      return "bg-[#DBEAFE] text-[#1D4ED8]";
+      return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
     case "FAILED":
       return "bg-[#FEE2E2] text-[#B91C1C]";
     case "CANCELLED":
@@ -298,7 +298,7 @@ export function EWallet() {
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
-      <div className="bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] rounded-[20px] p-8 text-white shadow-xl relative overflow-hidden">
+      <div className="bg-[#1C4D8D] rounded-[20px] p-8 text-white shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -mr-32 -mt-32" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full -ml-24 -mb-24" />
 
@@ -414,7 +414,7 @@ export function EWallet() {
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
-          <div className="flex items-center gap-2 text-[#1D4ED8] mb-2">
+          <div className="flex items-center gap-2 text-[#1C4D8D] mb-2">
             <Landmark className="w-4 h-4" />
             <span className="text-[13px]">Withdrawals</span>
           </div>
@@ -494,7 +494,7 @@ export function EWallet() {
 
           <div ref={payoutRequestRef} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 h-fit">
             <div className="flex items-center gap-3 mb-4">
-              <Wallet className="w-5 h-5 text-[#1D4ED8]" />
+              <Wallet className="w-5 h-5 text-[#1C4D8D]" />
               <h3 className="text-[20px] font-semibold text-[#111827]">Withdraw Funds</h3>
             </div>
             <p className="text-[13px] text-[#6B7280] mb-6">
@@ -568,7 +568,7 @@ export function EWallet() {
 
               <button
                 type="button"
-                className="w-full px-4 py-3 rounded-[10px] bg-[#1D4ED8] text-white text-[14px] font-medium disabled:opacity-60"
+                className="w-full px-4 py-3 rounded-[10px] bg-[#1C4D8D] text-white text-[14px] font-medium disabled:opacity-60"
                 onClick={handlePayoutSubmit}
                 disabled={isSubmittingPayout}
               >
@@ -609,7 +609,7 @@ export function EWallet() {
                 {transactions.slice(0, 20).map((tx) => (
                   <tr key={tx._id} className="border-b border-[#F3F4F6] align-top">
                     <td className="py-3 pr-4">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-[#EEF2FF] text-[#3730A3]">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-[#1C4D8D]/[0.06] text-[#1C4D8D]">
                         {tx.type}
                       </span>
                     </td>
@@ -640,7 +640,7 @@ export function EWallet() {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
           <div className="w-full max-w-md bg-white rounded-[16px] p-6 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
-              <Wallet className="w-5 h-5 text-[#1D4ED8]" />
+              <Wallet className="w-5 h-5 text-[#1C4D8D]" />
               <h4 className="text-[18px] font-semibold text-[#111827]">Top Up</h4>
             </div>
 
@@ -674,7 +674,7 @@ export function EWallet() {
               </button>
               <button
                 type="button"
-                className="px-4 py-2 rounded-[10px] bg-[#1D4ED8] text-white text-[14px] font-medium disabled:opacity-60"
+                className="px-4 py-2 rounded-[10px] bg-[#1C4D8D] text-white text-[14px] font-medium disabled:opacity-60"
                 onClick={handleTopUpSubmit}
                 disabled={isCreatingTopUp}
               >

@@ -6,7 +6,7 @@ import type { PaymentTransaction } from "../../services/api";
 
 // ── Receipt Modal ──────────────────────────────────────────────────────────────
 const TX_TYPE_STYLES: Record<string, string> = {
-  TOP_UP:  "bg-[#DBEAFE] text-[#1D4ED8]",
+  TOP_UP:  "bg-[#1C4D8D]/10 text-[#1C4D8D]",
   ESCROW:  "bg-[#FEF3C7] text-[#B45309]",
   PAYOUT:  "bg-[#D1FAE5] text-[#047857]",
   REFUND:  "bg-[#E9D5FF] text-[#7C3AED]",

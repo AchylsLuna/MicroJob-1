@@ -117,25 +117,25 @@ export function AnalyticsOverview({
       label: "Total Revenue",
       value: isLoading ? "—" : formatCurrency(totalRevenue),
       change: revenueChange,
-      icon: <DollarSign className="w-6 h-6 text-[#2563EB]" />,
+      icon: <DollarSign className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
       label: "Active Jobs",
       value: isLoading ? "—" : activeJobs,
       change: jobChange,
-      icon: <Briefcase className="w-6 h-6 text-[#2563EB]" />,
+      icon: <Briefcase className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
       label: "Total Users",
       value: isLoading ? "—" : totalUsers,
       change: userChange,
-      icon: <Users className="w-6 h-6 text-[#2563EB]" />,
+      icon: <Users className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
       label: "Conversion Rate",
       value: isLoading ? "—" : `${conversionRate.toFixed(1)}%`,
       change: conversionChange,
-      icon: <TrendingUp className="w-6 h-6 text-[#2563EB]" />,
+      icon: <TrendingUp className="w-6 h-6 text-[#1C4D8D]" />,
     },
   ];
 
@@ -178,7 +178,7 @@ export function AnalyticsOverview({
 
   const categoryTotal = jobs.length || 1;
   const categorySegments = useMemo(() => {
-    const colors = ["#2563EB", "#10B981", "#EF4444", "#94A3B8", "#E2E8F0"];
+    const colors = ["#1C4D8D", "#10B981", "#EF4444", "#94A3B8", "#E2E8F0"];
     const visible = topCategories.slice(0, 4);
     const used = visible.reduce((sum, item) => sum + item.count, 0);
     const segments = visible.map((item, index) => ({
@@ -215,7 +215,7 @@ export function AnalyticsOverview({
                   {card.change.toFixed(1)}% from last month
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-[#EFF6FF] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-[#1C4D8D]/[0.06] flex items-center justify-center">
                 {card.icon}
               </div>
             </div>
@@ -234,7 +234,7 @@ export function AnalyticsOverview({
                 <div key={bucket.key} className="flex flex-col items-center gap-2 flex-1">
                   <div className="flex items-end gap-2 h-[160px]">
                     <div
-                      className="w-6 rounded-[8px] bg-[#2563EB]/80"
+                      className="w-6 rounded-[8px] bg-[#1C4D8D]/80"
                       style={{ height: `${Math.max(jobHeight, 6)}%` }}
                     />
                     <div
@@ -258,9 +258,9 @@ export function AnalyticsOverview({
               ))}
             </div>
             <svg viewBox="0 0 360 180" className="w-full h-[200px]">
-              <path d={linePath(revenuePoints)} stroke="#2563EB" strokeWidth="2" fill="none" />
+              <path d={linePath(revenuePoints)} stroke="#1C4D8D" strokeWidth="2" fill="none" />
               {revenuePoints.map((point, index) => (
-                <circle key={`rev-${index}`} cx={point.x} cy={point.y} r={4} fill="#2563EB" />
+                <circle key={`rev-${index}`} cx={point.x} cy={point.y} r={4} fill="#1C4D8D" />
               ))}
             </svg>
           </div>

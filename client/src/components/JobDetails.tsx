@@ -117,14 +117,14 @@ const formatDeadline = (deadline?: string) => {
 const getBadgeClass = (kind: "experience" | "jobType" | "workMode", value: string) => {
   if (kind === "experience") {
     if (value === "Senior") return "bg-[#F3E8FF] text-[#7E22CE]";
-    if (value === "Mid-Level") return "bg-[#DBEAFE] text-[#1D4ED8]";
+    if (value === "Mid-Level") return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
     return "bg-[#DCFCE7] text-[#15803D]";
   }
   if (kind === "jobType") {
-    if (value === "Part-Time") return "bg-[#E0F2FE] text-[#0369A1]";
+    if (value === "Part-Time") return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
     if (value === "Contract") return "bg-[#FFEDD5] text-[#C2410C]";
     if (value === "Project Work") return "bg-[#FEF3C7] text-[#B45309]";
-    return "bg-[#DFE8FF] text-[#365CCE]";
+    return "bg-[#DFE8FF] text-[#1C4D8D]";
   }
   if (value === "Remote") return "bg-[#D1FAE5] text-[#047857]";
   if (value === "Hybrid") return "bg-[#CCFBF1] text-[#0F766E]";
@@ -284,14 +284,14 @@ export function JobDetails() {
           <div className="space-y-6">
             <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-4 sm:p-8">
               <div className="flex items-start gap-4">
-                <div className="w-[74px] h-[74px] rounded-[18px] bg-[#E7ECF8] text-[#365CCE] flex items-center justify-center text-[36px] font-semibold shrink-0">
+                <div className="w-[74px] h-[74px] rounded-[18px] bg-[#E7ECF8] text-[#1C4D8D] flex items-center justify-center text-[36px] font-semibold shrink-0">
                   {companyLogo}
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-[28px] sm:text-[32px] leading-tight font-bold text-[#0F172A]">{job.title}</h1>
                   <button
                     onClick={handleCompanyProfile}
-                    className="mt-2 flex items-center gap-2 text-[16px] font-semibold text-[#365CCE] hover:text-[#1D4ED8]"
+                    className="mt-2 flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] hover:opacity-80"
                   >
                     <Building2 className="w-4 h-4" />
                     {companyName}
@@ -354,7 +354,7 @@ export function JobDetails() {
                     ) : (
                       <button
                         onClick={handleApply}
-                        className="col-span-2 min-h-14 w-full flex-1 rounded-[14px] bg-[#4169E1] px-6 py-4 font-semibold text-white transition-colors hover:bg-[#365CCE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:min-w-[240px]"
+                        className="col-span-2 min-h-14 w-full flex-1 rounded-[14px] bg-[#1C4D8D] px-6 py-4 font-semibold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:min-w-[240px]"
                       >
                         Apply Now
                       </button>
@@ -362,7 +362,7 @@ export function JobDetails() {
 
                     <button
                       onClick={handleMessageEmployer}
-                      className="min-h-12 rounded-[14px] bg-[#EEF2FF] px-4 text-[#365CCE] transition-colors hover:bg-[#DBEAFE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0"
+                      className="min-h-12 rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0"
                       title="Message employer"
                       aria-label="Message employer"
                     >
@@ -372,7 +372,7 @@ export function JobDetails() {
                       onClick={handleSave}
                       className={`min-h-12 rounded-[14px] border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0 ${
                         isSaved
-                          ? "bg-[#4169E1] text-white border-[#4169E1]"
+                          ? "bg-[#1C4D8D] text-white border-[#1C4D8D]"
                           : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
                       }`}
                       title={isSaved ? "Remove from saved" : "Save job"}
@@ -398,7 +398,7 @@ export function JobDetails() {
               <ul className="space-y-3">
                 {(job.responsibilities?.length ? job.responsibilities : ["No responsibilities provided."]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
-                    <div className="w-2 h-2 rounded-full bg-[#365CCE] mt-3.5 shrink-0"></div>
+                    <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -410,7 +410,7 @@ export function JobDetails() {
               <ul className="space-y-3">
                 {(job.requirements?.length ? job.requirements : ["No requirements provided."]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
-                    <div className="w-2 h-2 rounded-full bg-[#365CCE] mt-3.5 shrink-0"></div>
+                    <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -453,8 +453,8 @@ export function JobDetails() {
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-[14px] bg-[#DBEAFE] flex items-center justify-center shrink-0">
-                    <Briefcase className="w-5 h-5 text-[#1D4ED8]" />
+                  <div className="w-12 h-12 rounded-[14px] bg-[#1C4D8D]/10 flex items-center justify-center shrink-0">
+                    <Briefcase className="w-5 h-5 text-[#1C4D8D]" />
                   </div>
                   <div>
                     <p className="text-[14px] text-[#6B7280]">Job Type</p>
@@ -470,7 +470,7 @@ export function JobDetails() {
                 {skills.map((skill) => (
                   <span
                     key={skill}
-                    className="px-4 py-2 rounded-full bg-[#E7ECF8] text-[#365CCE] text-[14px] font-semibold"
+                    className="px-4 py-2 rounded-full bg-[#E7ECF8] text-[#1C4D8D] text-[14px] font-semibold"
                   >
                     {skill}
                   </span>

@@ -158,7 +158,7 @@ export function SavedJobs() {
               aria-pressed={filter === item}
               className={`px-4 py-2 rounded-[10px] text-[14px] font-medium transition-all ${
                 filter === item
-                  ? "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white shadow-md"
+                  ? "bg-[#1C4D8D] text-white shadow-md"
                   : "bg-white text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB]"
               }`}
             >
@@ -191,7 +191,7 @@ export function SavedJobs() {
           </p>
           <button
             onClick={() => navigate(ROUTES.worker.findJobs)}
-            className="inline-flex items-center gap-2 bg-[#1C4D8D] text-white px-5 py-3 rounded-[12px] font-semibold hover:bg-[#163d6f] transition-colors"
+            className="inline-flex items-center gap-2 bg-[#1C4D8D] text-white px-5 py-3 rounded-[12px] font-semibold hover:opacity-90 transition-colors"
           >
             <Briefcase className="w-4 h-4" />
             Browse Jobs
@@ -208,11 +208,11 @@ export function SavedJobs() {
             >
               <div className="flex items-start justify-between mb-4 gap-4">
                 <div className="flex items-start gap-4 flex-1 min-w-0">
-                  <div className="w-14 h-14 rounded-[14px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
+                  <div className="w-14 h-14 rounded-[14px] bg-[#1C4D8D] flex items-center justify-center text-white font-bold text-[16px] shadow-md flex-shrink-0">
                     {job.logo}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-[18px] font-bold text-[#111827] mb-1 group-hover:text-[#1C4D8D] transition-colors line-clamp-1">
+                    <h3 className="text-[18px] font-bold text-[#111827] mb-1 group-hover:opacity-80 transition-colors line-clamp-1">
                       {job.title}
                     </h3>
                     <p className="text-[13px] text-[#6B7280] flex items-center gap-1 mb-2 line-clamp-1">
@@ -223,7 +223,7 @@ export function SavedJobs() {
                       <span
                         className={`px-3 py-1.5 rounded-[8px] text-[11px] font-semibold ${
                           job.workMode === "Remote"
-                            ? "bg-[#DBEAFE] text-[#1E40AF]"
+                            ? "bg-[#1C4D8D]/10 text-[#1C4D8D]"
                             : job.workMode === "Hybrid"
                               ? "bg-[#FEF3C7] text-[#92400E]"
                               : "bg-[#D1FAE5] text-[#065F46]"
@@ -287,7 +287,7 @@ export function SavedJobs() {
               <div className="flex items-center gap-2 mt-4">
                 <button
                   onClick={() => handleOpenDetails(job.id)}
-                  className="flex-1 bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-3 px-4 rounded-[10px] hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+                  className="brand-primary-interactive flex flex-1 items-center justify-center gap-2 rounded-[10px] px-4 py-3 font-semibold hover:shadow-lg"
                 >
                   <Briefcase className="w-4 h-4" />
                   View Job

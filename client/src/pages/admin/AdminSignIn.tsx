@@ -63,12 +63,10 @@ export function AdminSignIn() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] p-4 sm:p-6">
-      <div className="pointer-events-none absolute -left-24 top-12 h-72 w-72 rounded-full bg-sky-300/20 blur-3xl" aria-hidden="true" />
-      <div className="pointer-events-none absolute -bottom-28 right-0 h-80 w-80 rounded-full bg-blue-950/30 blur-3xl" aria-hidden="true" />
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#1C4D8D] p-4 sm:p-6">
       <div className="relative w-full max-w-[520px] rounded-[24px] border border-white/70 bg-white/95 p-6 shadow-[0_24px_80px_rgba(15,41,84,0.35)] backdrop-blur sm:p-8 lg:p-10">
         <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] shadow-lg shadow-blue-900/20">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#1C4D8D] shadow-lg shadow-[#1C4D8D]/20">
             <Shield className="w-8 h-8 text-white" />
           </div>
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">MicroJobs control center</p>
@@ -126,7 +124,7 @@ export function AdminSignIn() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
           >
             {isLoading ? "Signing in..." : "Sign In as Admin"}
           </button>

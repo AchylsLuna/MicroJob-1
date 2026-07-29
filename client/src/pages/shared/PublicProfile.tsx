@@ -133,7 +133,7 @@ export function PublicProfile() {
                   className="w-20 h-20 rounded-2xl object-cover border border-[#E2E8F0]"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-2xl bg-[#DBEAFE] text-[#1E3A8A] font-bold text-2xl flex items-center justify-center">
+                <div className="w-20 h-20 rounded-2xl bg-[#1C4D8D]/10 text-[#1C4D8D] font-bold text-2xl flex items-center justify-center">
                   {fullName.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -142,7 +142,7 @@ export function PublicProfile() {
                 <h1 className="text-2xl font-bold text-[#0F172A]">{fullName}</h1>
                 <p className="text-sm text-[#475569]">{data.profile.email || "No email"}</p>
                 {viewAs === "employer" ? (
-                  <p className="mt-1 text-sm font-medium text-[#1D4ED8]">Employer Profile</p>
+                  <p className="mt-1 text-sm font-medium text-[#1C4D8D]">Employer Profile</p>
                 ) : (
                   <p className="mt-1 text-sm font-medium text-[#0F766E]">Worker Profile</p>
                 )}
@@ -231,7 +231,7 @@ export function PublicProfile() {
                 <p className="text-xs text-[#64748B] mb-2">Skills</p>
                 <div className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
-                    <span key={skill} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#EEF2FF] text-[#3730A3] text-xs font-medium">
+                    <span key={skill} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] text-xs font-medium">
                       <CheckCircle2 className="w-3 h-3" />
                       {skill}
                     </span>
