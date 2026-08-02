@@ -356,14 +356,12 @@ export function Settings() {
   }, [activeTab, accountTab, searchParams, visibleAccountTabs, setSearchParams]);
 
   const handleAccountTabChange = (tab: AccountTab) => {
-    setAccountTab(tab);
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set("tab", tab);
     setSearchParams(nextParams, { replace: true });
   };
 
   const handleMainTabChange = (tab: TabType) => {
-    setActiveTab(tab);
     const nextParams = new URLSearchParams(searchParams);
     if (tab === "account") {
       nextParams.set("tab", accountTab);
@@ -726,7 +724,6 @@ export function Settings() {
       };
       setProfileFormError(validationIssue.message);
       setProfileErrorField(validationIssue.field);
-      toast.error(validationIssue.message);
       requestAnimationFrame(() => document.getElementById(fieldIds[validationIssue.field])?.focus());
       return;
     }
@@ -1167,17 +1164,19 @@ export function Settings() {
             </div>
 
             {accountTab === "personal" && (
-              <form
+              <div
                 id="settings-account-panel-personal"
                 role="tabpanel"
                 aria-labelledby="settings-account-tab-personal"
-                className="space-y-6"
-                noValidate
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void handleSavePersonalInfo();
-                }}
               >
+                <form
+                  className="space-y-6"
+                  noValidate
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void handleSavePersonalInfo();
+                  }}
+                >
                       <div>
                         <h2 className="text-[18px] font-semibold text-[#111827]">
                           {isEmployerRole ? "Business Information" : "Personal Information"}
@@ -1622,7 +1621,8 @@ export function Settings() {
                       >
                         {isProfileSaving ? "Saving..." : "Save changes"}
                       </button>
-                    </form>
+                </form>
+              </div>
                   )}
 
                   {accountTab === "experience" && !isEmployerRole && (

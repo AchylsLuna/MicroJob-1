@@ -307,9 +307,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     <aside
       id={mobile ? "mobile-dashboard-navigation" : undefined}
       aria-label="Primary navigation"
-      className={`${webUi.sidebar.root} w-full p-4 sm:p-5`}
+      className={`${webUi.sidebar.root} w-full p-4 sm:p-5 [@media(max-height:700px)]:p-2`}
     >
-      <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between">
+      <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between [@media(max-height:700px)]:mb-0">
         <button
           type="button"
           className="flex min-h-11 min-w-0 items-center gap-2 cursor-pointer"
@@ -330,8 +330,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         ) : null}
       </div>
 
-      <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1" aria-label={`${roleLabel} menu`}>
-        <div className="space-y-1.5 pb-3">
+      <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 [@media(max-height:700px)]:space-y-0" aria-label={`${roleLabel} menu`}>
+        <div className="space-y-1.5 pb-3 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pb-0">
           <button
             onClick={() => navigate(dashboardPath)}
             className={getNavButtonClass(isPathActive(dashboardPath))}
@@ -437,7 +437,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </nav>
 
-      <div className="dashboard-sidebar-footer mt-3 shrink-0 space-y-2 border-t border-slate-200 pt-3">
+      <div className="dashboard-sidebar-footer mt-3 shrink-0 space-y-2 border-t border-slate-200 pt-3 [@media(max-height:700px)]:mt-0 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pt-0">
         {pinnedSettingsItem && (
           <button
             type="button"
@@ -448,16 +448,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             <span>{pinnedSettingsItem.label}</span>
           </button>
         )}
-        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]">
+        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1">
           <div className="flex items-center gap-3">
             {profilePhotoPreview ? (
               <img
                 src={profilePhotoPreview}
                 alt="Profile"
-                className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+                className="h-10 w-10 flex-shrink-0 rounded-full object-cover [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8"
               />
             ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8">
                 {displayUserName.slice(0, 2).toUpperCase()}
               </div>
             )}

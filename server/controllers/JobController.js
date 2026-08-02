@@ -4,6 +4,14 @@ import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import { createNotification } from '../lib/notificationService.js';
+import {
+    APPLICANT_SELECT,
+    PUBLIC_JOB_POSTER_SELECT,
+    addCityFilter,
+    resolveDiscoveryCity,
+    serializeApplicant,
+    serializePublicJob,
+} from '../lib/jobDiscovery.js';
 
 const getRequesterId = (req) => req.user?.id || req.user?.userId || null;
 const getRequesterRole = (req) => String(req.user?.role || '').toLowerCase();
@@ -14,72 +22,22 @@ const canPostJobsRole = (role) =>
     role === 'employer' ||
     role === 'doctor' ||
     isAdminRole(role);
-const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-const PUBLIC_JOB_POSTER_SELECT = '_id firstName lastName companyName avatarUrl';
-const APPLICANT_SELECT = [
-    '_id', 'firstName', 'lastName', 'email', 'phoneNumber', 'role', 'status',
-    'city', 'province', 'jobPosition', 'about', 'skills', 'totalExperience',
-    'projectsCompleted', 'jobsApplied', 'successRate', 'avatarUrl', 'resumeUrl',
-    'resumeFileName',
-].join(' ');
-
-const serializePublicJob = (job) => {
-    const value = job?.toObject ? job.toObject() : { ...job };
-    const poster = value?.jobPoster;
-    if (poster && typeof poster === 'object') {
-        value.jobPoster = {
-            _id: poster._id,
-            firstName: poster.firstName,
-            lastName: poster.lastName,
-            companyName: poster.companyName,
-            avatarUrl: poster.avatarUrl,
-        };
-    }
-    return value;
-};
-
-const serializeApplicant = (applicant) => {
-    const value = applicant?.toObject ? applicant.toObject() : applicant;
-    return Object.fromEntries(
-        APPLICANT_SELECT.split(' ')
-            .filter((field) => value?.[field] !== undefined)
-            .map((field) => [field, value[field]])
-    );
-};
-
-const isWorkerRole = (role) => ['work', 'worker', 'user', 'patient', 'both'].includes(role);
-
-async function resolveDiscoveryCity(req) {
-    const role = getRequesterRole(req);
-    if (getRequesterId(req) && isWorkerRole(role)) {
-        const worker = await User.findById(getRequesterId(req)).select('city');
-        const city = String(worker?.city || '').trim();
-        return city ? { city } : { error: true };
-    }
-
-    const requestedCity = String(req.query?.city || '').trim();
-    if (requestedCity) return { city: requestedCity };
-
-    // Employer/admin tools retain their existing all-jobs administrative view.
-    if (getRequesterId(req) && (canPostJobsRole(role) || isAdminRole(role))) return { city: '' };
-    return { error: true };
-}
-
 const cityRequiredResponse = (res) => res.status(428).json({
     message: 'Set your city or municipality before searching for local jobs.',
     code: 'CITY_REQUIRED',
 });
 
-const addCityFilter = (filter, city) => {
-    if (!city) return filter;
-    const citySegment = `(?:^|,\\s*)${escapeRegExp(city)}(?:\\s*,|$)`;
-    return { ...filter, location: { $regex: citySegment, $options: 'i' } };
-};
+const getDiscoveryCity = (req) => resolveDiscoveryCity({
+    userId: getRequesterId(req),
+    role: getRequesterRole(req),
+    requestedCity: req.query?.city,
+    allowUnscoped: canPostJobsRole(getRequesterRole(req)) || isAdminRole(getRequesterRole(req)),
+});
 
 export async function getJobList(req, res) {
     try {
         const { category, jobType, search, excludeOwn } = req.query;
-        const discovery = await resolveDiscoveryCity(req);
+        const discovery = await getDiscoveryCity(req);
         if (discovery.error) return cityRequiredResponse(res);
         
         let filter = {};
@@ -100,7 +58,7 @@ export async function getJobList(req, res) {
         
         // Search filter
         if (search) {
-            const safeSearch = escapeRegExp(String(search).trim());
+            const safeSearch = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             filter.$or = [
                 { title: { $regex: safeSearch, $options: 'i' } },
                 { description: { $regex: safeSearch, $options: 'i' } },
@@ -125,7 +83,7 @@ export async function getJobList(req, res) {
 
 export async function getAvailableJobs(req, res){
     try {
-        const discovery = await resolveDiscoveryCity(req);
+        const discovery = await getDiscoveryCity(req);
         if (discovery.error) return cityRequiredResponse(res);
         const jobs = await Job.find(addCityFilter({ status: 'Available' }, discovery.city))
             .populate('category', 'name')
@@ -138,7 +96,7 @@ export async function getAvailableJobs(req, res){
 export async function getJobByCategory(req, res) {
     try {
         const {categoryId} = req.params;
-        const discovery = await resolveDiscoveryCity(req);
+        const discovery = await getDiscoveryCity(req);
         if (discovery.error) return cityRequiredResponse(res);
         const jobs = await Job.find(addCityFilter({ category: categoryId }, discovery.city))
             .populate('category', 'name')

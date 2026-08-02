@@ -888,7 +888,7 @@ export async function cancelPayoutRequest(req, res) {
       payoutRequest = await PayoutRequest.findOneAndUpdate(
         { _id: payoutRequestId, user: userId, status: 'requested' },
         { $set: { status: 'cancelled', cancelledAt: new Date(), reviewedAt: new Date(), reviewNotes: 'Cancelled by user.' } },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!payoutRequest) {
         const current = await PayoutRequest.findOne({ _id: payoutRequestId, user: userId }).session(session);
@@ -988,7 +988,7 @@ export async function updateAdminPayoutRequest(req, res) {
       payoutRequest = await PayoutRequest.findOneAndUpdate(
         { _id: payoutRequestId, status: { $in: sourceStatuses } },
         { $set: updates },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
 
       if (!payoutRequest) {

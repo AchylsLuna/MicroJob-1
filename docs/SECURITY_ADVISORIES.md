@@ -1,6 +1,6 @@
 # Dependency advisory record
 
-Reviewed: 2026-07-30
+Reviewed: 2026-08-02
 
 ## Web
 
@@ -10,18 +10,17 @@ Vite single-page application and does not use React Server Components. The npm
 registry has no newer stable `react-router-dom` release with a fix; its suggested
 downgrade is not accepted because it reintroduces older resolved advisories.
 
-The full root audit also reports six high-severity findings in the current ESLint
-toolchain. These packages are development-only, do not ship in the web bundle, and
-the registry currently offers only incompatible downgrades. Do not add a broad
-`minimatch` override: it breaks `eslint-plugin-jsx-a11y` at runtime.
+The full root audit reports the same two production findings and no additional
+development-only advisories. Do not add a broad `minimatch` override: it breaks
+`eslint-plugin-jsx-a11y` at runtime.
 
 ## Mobile
 
-The production audit reports 19 high and one moderate advisory through Expo SDK 54,
-React Native 0.81, Babel, Metro, and their build/test tooling. npm's remediation
-requires Expo 57 and a newer React Native release, which is incompatible with the
-required Expo Go SDK 54 target. The application does not process untrusted source,
-CSS, source maps, or test configuration at runtime.
+The production audit reports one high-severity PostCSS advisory and three moderate
+advisories through Expo CLI, Expo, and Metro configuration. npm's remediation
+requires Expo 57, which is incompatible with the required Expo Go SDK 54 target.
+The affected packages are build/development tooling; the installed application does
+not process untrusted source, CSS, source maps, or Metro configuration at runtime.
 
 ## Review policy
 

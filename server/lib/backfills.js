@@ -60,7 +60,9 @@ function initialTimelineEntry(status, createdAt) {
 
 export async function runDataBackfills() {
   // Access tokens are bearer credentials and must not remain stored in plaintext.
-  await Session.updateMany({ token: { $exists: true } }, { $unset: { token: 1 } });
+  // Use the native collection because the legacy field is intentionally absent
+  // from the current strict Mongoose schema.
+  await Session.collection.updateMany({ token: { $exists: true } }, { $unset: { token: 1 } });
 
   const legacyEntries = Object.entries(LEGACY_APPLICATION_STATUS_MAP);
   for (const [legacy, canonical] of legacyEntries) {

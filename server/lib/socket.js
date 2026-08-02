@@ -99,6 +99,10 @@ export function initSocket(httpServer, opts = {}) {
       if (attempts.length >= maxAttemptsPerWindow) return next(new Error('Connection rate limit reached'));
       attempts.push(Date.now());
       connectionAttempts.set(ip, attempts);
+      if (connectionAttempts.size > 10_000) {
+        const oldestIp = connectionAttempts.keys().next().value;
+        if (oldestIp && oldestIp !== ip) connectionAttempts.delete(oldestIp);
+      }
 
       const token = extractSocketToken(socket);
       if (!token) {

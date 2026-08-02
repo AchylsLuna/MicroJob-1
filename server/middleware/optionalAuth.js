@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import Session from '../models/Session.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
-export default async function optionalAuth(req, _res, next) {
+export default async function optionalAuth(req, res, next) {
   const authorization = req.headers.authorization;
   const token = authorization?.startsWith('Bearer ')
     ? authorization.slice(7)
@@ -23,13 +23,15 @@ export default async function optionalAuth(req, _res, next) {
         String(session.user) !== String(userId) ||
         (session.expiresAt && session.expiresAt.getTime() < Date.now())
       ) {
-        return next();
+        return res.status(401).json({ message: 'Session invalid or expired.' });
       }
     }
 
     req.user = { ...decoded, id: userId, userId };
   } catch {
-    // Optional authentication never turns an otherwise public request into a 401.
+    // Anonymous access remains public, but supplied invalid credentials must trigger
+    // the normal client refresh/logout path rather than silently losing role context.
+    return res.status(401).json({ message: 'Invalid or expired token.' });
   }
 
   return next();

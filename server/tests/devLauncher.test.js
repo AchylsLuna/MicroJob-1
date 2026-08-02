@@ -41,7 +41,7 @@ test('development launcher overrides production mode and starts the local API', 
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error(`Server did not start. Output:\n${output}`)), 25_000);
       const inspect = () => {
-        if (!output.includes(`Server is running on http://localhost:${port}`)) return;
+        if (!output.includes(`Server is listening on port ${port}`)) return;
         clearTimeout(timeout);
         resolve();
       };

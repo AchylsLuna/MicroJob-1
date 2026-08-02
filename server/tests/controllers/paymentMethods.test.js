@@ -384,7 +384,8 @@ test('password changes revoke other sessions but preserve the current session', 
   assert.equal(changeResponse.statusCode, 200);
   assert.equal((await Session.findById(currentSession._id)).active, true);
   assert.equal((await Session.findById(otherSession._id)).active, false);
-  assert.equal(await (await User.findById(worker._id)).validatePassword('UpdatedPass2!'), true);
+  const updatedUser = await User.findById(worker._id).select('+passwordHashed');
+  assert.equal(await updatedUser.validatePassword('UpdatedPass2!'), true);
 });
 
 test('admins can approve submitted verification documents', async () => {

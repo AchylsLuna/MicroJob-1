@@ -1,4 +1,4 @@
-import { useRef, type KeyboardEvent } from "react";
+import { useLayoutEffect, useRef, type KeyboardEvent } from "react";
 
 type TabOption<T extends string> = { id: T; label: string };
 
@@ -18,6 +18,13 @@ export function SettingsTabList<T extends string>({
   onChange,
 }: SettingsTabListProps<T>) {
   const tabRefs = useRef(new Map<T, HTMLButtonElement>());
+  const pendingFocusRef = useRef<T | null>(null);
+
+  useLayoutEffect(() => {
+    if (pendingFocusRef.current !== value) return;
+    tabRefs.current.get(value)?.focus();
+    pendingFocusRef.current = null;
+  }, [value]);
 
   const moveFocus = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     let nextIndex = index;
@@ -29,8 +36,12 @@ export function SettingsTabList<T extends string>({
 
     event.preventDefault();
     const nextTab = options[nextIndex];
+    if (nextTab.id === value) {
+      tabRefs.current.get(nextTab.id)?.focus();
+      return;
+    }
+    pendingFocusRef.current = nextTab.id;
     onChange(nextTab.id);
-    tabRefs.current.get(nextTab.id)?.focus();
   };
 
   return (
