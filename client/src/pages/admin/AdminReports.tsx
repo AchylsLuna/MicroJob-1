@@ -30,7 +30,7 @@ type StoredReport = {
 };
 
 function AdminReportsContent() {
-  const { isLoading, loadError, users, jobs, formatCurrency } = useAdminData();
+  const { isLoading, loadError, users, jobs, transactions } = useAdminData();
   const [reportType, setReportType] = useState<ReportType>("users");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -85,7 +85,7 @@ function AdminReportsContent() {
     {
       id: "applications" as const,
       title: "Applications Report",
-      description: "Job applications with candidate details and hiring status",
+      description: "Application counts summarized by job posting and job status",
       icon: <ClipboardList className="w-5 h-5 text-[#A855F7]" />,
       accent: "bg-[#F3E8FF]",
     },
@@ -95,23 +95,6 @@ function AdminReportsContent() {
     if (!id || id.length < 8) return null;
     const timestamp = parseInt(id.slice(0, 8), 16) * 1000;
     return new Date(timestamp);
-  };
-
-  const parseSalary = (value?: string | number) => {
-    if (value === undefined || value === null) return 0;
-    if (typeof value === "number") {
-      return Number.isFinite(value) ? value : 0;
-    }
-    const matches = value.match(/[\d,.]+/g);
-    if (!matches) return 0;
-    const numbers = matches
-      .map((item) => Number(item.replace(/,/g, "")))
-      .filter((num) => Number.isFinite(num));
-    if (numbers.length === 0) return 0;
-    if (numbers.length >= 2 && value.includes("-")) {
-      return (numbers[0] + numbers[1]) / 2;
-    }
-    return numbers[0];
   };
 
   const withinRange = (date?: Date | null, rangeFrom?: string, rangeTo?: string) => {
@@ -128,7 +111,7 @@ function AdminReportsContent() {
     if (type === "users") {
       return users
         .map((user) => {
-          const date = getDateFromId(user._id);
+          const date = user.createdAt ? new Date(user.createdAt) : getDateFromId(user._id);
           return {
             id: user._id,
             name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
@@ -160,16 +143,24 @@ function AdminReportsContent() {
     }
 
     if (type === "transactions") {
-      return jobs
-        .filter((job) => job.status === "Completed")
-        .map((job) => {
-          const date = job.createdAt ? new Date(job.createdAt) : getDateFromId(job._id);
-          const amountValue = parseSalary(job.salary);
+      return transactions
+        .map((transaction) => {
+          const date = transaction.createdAt ? new Date(transaction.createdAt) : null;
+          const sender = transaction.sender && typeof transaction.sender === "object" ? transaction.sender : null;
+          const receiver = transaction.receiver && typeof transaction.receiver === "object" ? transaction.receiver : null;
+          const userLabel = (value: typeof sender) => value
+            ? `${value.firstName || ""} ${value.lastName || ""}`.trim() || value.email || value._id || "System"
+            : "System";
           return {
-            id: job._id,
-            jobTitle: job.title,
-            amount: amountValue ? formatCurrency(amountValue) : "—",
-            completed: date ? date.toLocaleDateString() : "—",
+            id: transaction._id,
+            type: transaction.type,
+            status: transaction.status || "COMPLETED",
+            amount: Number(transaction.amount || 0),
+            balanceTarget: transaction.balanceTarget || "SYSTEM",
+            sender: userLabel(sender),
+            receiver: userLabel(receiver),
+            reference: transaction.reference || "",
+            created: date ? date.toLocaleString() : "—",
             date,
           };
         })
@@ -202,6 +193,10 @@ function AdminReportsContent() {
     const rangeFrom = options?.rangeFrom ?? fromDate;
     const rangeTo = options?.rangeTo ?? toDate;
     const format = options?.format ?? exportFormat;
+    if (rangeFrom && rangeTo && rangeFrom > rangeTo) {
+      toast.error("From Date cannot be after To Date.");
+      return;
+    }
     const data = buildReportData(type, rangeFrom, rangeTo);
 
     if (data.length === 0) {
@@ -220,11 +215,16 @@ function AdminReportsContent() {
     } else {
       const rows = data.map(({ date: _date, ...rest }) => rest);
       const headers = Object.keys(rows[0] || {});
-      content = [headers.join(",")]
+      const csvCell = (value: unknown) => {
+        let text = String(value ?? "");
+        if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+        return `"${text.replace(/"/g, '""')}"`;
+      };
+      content = [headers.map(csvCell).join(",")]
         .concat(
           rows.map((row) =>
             headers
-              .map((key) => `"${String((row as Record<string, unknown>)[key] ?? "").replace(/"/g, '""')}"`)
+              .map((key) => csvCell((row as Record<string, unknown>)[key]))
               .join(","),
           ),
         )

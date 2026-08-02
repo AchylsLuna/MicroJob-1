@@ -83,7 +83,7 @@ function AdminDashboardContent() {
     { label: "Manage users", description: "Review access, roles, and account status", to: ROUTES.admin.userManagement, icon: Users },
     { label: "Monitor jobs", description: "Review active and reported job posts", to: ROUTES.admin.jobs, icon: BriefcaseBusiness },
     { label: "Open reports", description: "Inspect platform and operational reports", to: ROUTES.admin.reports, icon: FileText },
-    { label: "Review wallet", description: "Track transactions and payout requests", to: ROUTES.admin.eWallet, icon: Wallet },
+    { label: "Review payouts", description: "Approve, reject, and complete payout requests", to: ROUTES.admin.payouts, icon: Wallet },
   ];
 
   return (
@@ -140,9 +140,11 @@ function AdminDashboardContent() {
               </p>
             </div>
           </div>
-          <Link to={ROUTES.admin.userManagement} className="text-sm font-semibold text-amber-900 underline-offset-4 hover:underline">
-            Review accounts
-          </Link>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-amber-900">
+            {stats.pendingUsers > 0 && <Link to={ROUTES.admin.userManagement} className="underline-offset-4 hover:underline">Review accounts</Link>}
+            {stats.pendingPayouts > 0 && <Link to={ROUTES.admin.payouts} className="underline-offset-4 hover:underline">Review payouts</Link>}
+            {stats.openSupportTickets > 0 && <Link to={ROUTES.admin.support} className="underline-offset-4 hover:underline">Review support</Link>}
+          </div>
         </section>
       )}
 

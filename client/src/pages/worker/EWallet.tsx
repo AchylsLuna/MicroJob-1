@@ -90,6 +90,7 @@ const getTransactionStatusClasses = (status?: PaymentTransaction["status"]) => {
 export function EWallet() {
   const { user } = useAuth();
   const payoutRequestRef = useRef<HTMLDivElement | null>(null);
+  const payoutIdempotencyKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingTopUp, setIsCreatingTopUp] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
@@ -251,8 +252,11 @@ export function EWallet() {
 
     setIsSubmittingPayout(true);
     try {
+      payoutIdempotencyKeyRef.current ||= globalThis.crypto?.randomUUID?.()
+        || `payout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       await createPayoutRequest({
         amount,
+        idempotencyKey: payoutIdempotencyKeyRef.current,
         destinationSnapshot: {
           methodType: payoutForm.methodType,
           institutionName: payoutForm.institutionName.trim(),
@@ -267,6 +271,7 @@ export function EWallet() {
         accountName: "",
         accountNumber: "",
       });
+      payoutIdempotencyKeyRef.current = null;
       toast.success("Withdrawal submitted.");
       await loadWallet();
     } catch (error: any) {

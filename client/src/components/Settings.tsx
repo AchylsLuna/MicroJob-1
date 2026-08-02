@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
@@ -200,6 +200,7 @@ export function Settings() {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [profileFormError, setProfileFormError] = useState("");
   const [profileErrorField, setProfileErrorField] = useState<ProfileValidationField | null>(null);
+  const profileDraftDirtyRef = useRef(false);
 
   const [personalInfo, setPersonalInfo] = useState({
     firstName: "",
@@ -440,6 +441,7 @@ export function Settings() {
   }, [activeTab, isAdminRole]);
 
   const handlePersonalInfoChange = (field: string, value: string) => {
+    profileDraftDirtyRef.current = true;
     if (profileFormError) {
       setProfileFormError("");
       setProfileErrorField(null);
@@ -515,7 +517,7 @@ export function Settings() {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || profileDraftDirtyRef.current) return;
     setPersonalInfo((prev) => ({
       ...prev,
       firstName: user.firstName || "",
@@ -625,23 +627,25 @@ export function Settings() {
         const response = await getProfile();
         const profile = (response as any)?.user ?? response;
         if (!isMounted || !profile) return;
-        setPersonalInfo((prev) => ({
-          ...prev,
-          firstName: profile.firstName || "",
-          lastName: profile.lastName || "",
-          companyName: profile.companyName || "",
-          email: profile.email || "",
-          phone: profile.phoneNumber || "",
-          city: profile.city || "",
-          province: profile.province || "",
-          barangay: profile.barangay || "",
-          addressType: profile.addressType || "home",
-          address: profile.address || "",
-          about: profile.about || "",
-          jobPosition: profile.jobPosition || "",
-          linkedin: profile.linkedin || "",
-          website: profile.website || "",
-        }));
+        if (!profileDraftDirtyRef.current) {
+          setPersonalInfo((prev) => ({
+            ...prev,
+            firstName: profile.firstName || "",
+            lastName: profile.lastName || "",
+            companyName: profile.companyName || "",
+            email: profile.email || "",
+            phone: profile.phoneNumber || "",
+            city: profile.city || "",
+            province: profile.province || "",
+            barangay: profile.barangay || "",
+            addressType: profile.addressType || "home",
+            address: profile.address || "",
+            about: profile.about || "",
+            jobPosition: profile.jobPosition || "",
+            linkedin: profile.linkedin || "",
+            website: profile.website || "",
+          }));
+        }
         if (profile.skills && Array.isArray(profile.skills)) {
           const mappedSkills = profile.skills.map((skill: any) => ({
             ...skill,
@@ -763,6 +767,7 @@ export function Settings() {
         successRate: updated.successRate || '0%',
       });
       
+      profileDraftDirtyRef.current = false;
       updateAuthProfile({
         firstName: updated.firstName,
         lastName: updated.lastName,

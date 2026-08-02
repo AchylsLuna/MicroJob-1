@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
+    "dev": "nodemon scripts/start-development.cjs",
     "test": "node --test \"tests/**/*.test.js\""
   },
   "keywords": [],

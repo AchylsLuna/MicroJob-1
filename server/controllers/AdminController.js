@@ -18,7 +18,7 @@ export async function getAdminStats(req, res) {
       availableJobs,
       completedJobs,
       totalTransactions,
-      totalRevenue,
+      completedPayoutVolume,
       totalCategories,
       pendingPayouts,
       openSupportTickets,
@@ -32,7 +32,10 @@ export async function getAdminStats(req, res) {
       Job.countDocuments({ status: 'Available' }),
       Job.countDocuments({ status: 'Completed' }),
       Transaction.countDocuments(),
-      Transaction.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]).then((result) => result[0]?.total || 0),
+      Transaction.aggregate([
+        { $match: { type: 'PAYOUT', status: 'COMPLETED' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]).then((result) => result[0]?.total || 0),
       Category.countDocuments(),
       PayoutRequest.countDocuments({ status: { $in: ['requested', 'approved'] } }),
       SupportTicket.countDocuments({ status: { $in: ['open', 'in_progress', 'waiting_user'] } }),
@@ -48,7 +51,7 @@ export async function getAdminStats(req, res) {
       availableJobs,
       completedJobs,
       totalTransactions,
-      totalRevenue,
+      completedPayoutVolume,
       totalCategories,
       pendingPayouts,
       openSupportTickets,
@@ -223,9 +226,24 @@ export async function getAdminWalletStats(req, res) {
     const pendingTotal = (summaryMap.requested?.total || 0) + (summaryMap.approved?.total || 0);
     const averageCompleted = completedCount ? completedTotal / completedCount : 0;
     const totalEscrow = await Transaction.aggregate([
-      { $match: { type: 'ESCROW' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]).then((result) => result[0]?.total || 0);
+      {
+        $match: {
+          jobReference: { $ne: null },
+          status: 'COMPLETED',
+          type: { $in: ['ESCROW', 'PAYOUT', 'REFUND'] },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'ESCROW'] }, '$amount', { $multiply: ['$amount', -1] }],
+            },
+          },
+        },
+      },
+    ]).then((result) => Math.max(0, result[0]?.total || 0));
 
     res.status(200).json({
       wallets: walletData,

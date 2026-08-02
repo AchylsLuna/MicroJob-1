@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useCallback, useContext, useRef, useState, useEffect, ReactNode } from "react";
 import { toast } from "../lib/toast";
 import {
   loginUser,
+  verifyLoginMfa,
   registerUser,
   sendOtp,
   verifyOtp,
@@ -24,7 +25,7 @@ import {
   normalizePhone,
 } from "../lib/authValidation";
 
-interface User {
+export interface User {
   id: string;
   email: string;
   firstName: string;
@@ -76,11 +77,25 @@ interface User {
   }>;
 }
 
+export type LoginResult =
+  | { status: "authenticated"; user: User }
+  | { status: "otp_required" }
+  | { status: "mfa_required"; method: string };
+
+type MfaChallenge = {
+  token: string;
+  method: string;
+  email: string;
+};
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean }) => Promise<void>;
+  login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean }) => Promise<LoginResult>;
+  mfaChallenge: MfaChallenge | null;
+  verifyMfaLogin: (code: string, options?: { suppressToast?: boolean }) => Promise<User>;
+  cancelMfaLogin: () => void;
   register: (
     email: string,
     password: string,
@@ -237,6 +252,9 @@ const getAuthPayload = (response: any) => {
   };
 };
 
+const getResponseContainer = (response: any) =>
+  response?.data && typeof response.data === "object" ? response.data : response;
+
 const getUserId = (apiUser: any): string => {
   if (!apiUser) return "";
   return String(apiUser.id || apiUser._id || apiUser.userId || "");
@@ -244,12 +262,59 @@ const getUserId = (apiUser: any): string => {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const userRef = useRef<User | null>(user);
+  userRef.current = user;
   const [isLoading, setIsLoading] = useState(true);
   const [pendingVerification, setPendingVerification] = useState<{
     email: string;
     name: string;
     flow?: "signup" | "signin";
   } | null>(null);
+  const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
+
+  const completeLogin = (response: any, fallbackEmail: string) => {
+    const { user: apiUser } = getAuthPayload(response);
+    if (!apiUser) {
+      throw new Error("Invalid login response from server.");
+    }
+    const role = normalizeRole(getRoleCandidate(apiUser));
+    const preferredAccount = getPreferenceCandidate(apiUser);
+    const { accountType, accountOptions } = normalizeAccount(role, preferredAccount);
+    const normalizedOptions = normalizeAccountOptions(apiUser.accountOptions);
+    const apiUserId = getUserId(apiUser);
+    if (!apiUserId) {
+      throw new Error("Invalid user id in login response.");
+    }
+
+    const loggedInUser: User = {
+      id: apiUserId,
+      email: apiUser.email || fallbackEmail,
+      firstName: apiUser.firstName || "User",
+      lastName: apiUser.lastName || "User",
+      role,
+      systemRole: String(apiUser.role || role),
+      accountType,
+      accountPreference: normalizePreference(preferredAccount) || undefined,
+      accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
+      isVerified: true,
+      phoneNumber: apiUser.phoneNumber,
+      city: apiUser.city,
+      country: apiUser.country,
+      linkedin: apiUser.linkedin,
+      website: apiUser.website,
+      jobPosition: apiUser.jobPosition,
+      avatarUrl: apiUser.avatarUrl,
+      passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
+      createdAt: new Date().toISOString(),
+    };
+
+    setUser(loggedInUser);
+    setMfaChallenge(null);
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedInUser));
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(loggedInUser));
+    window.dispatchEvent(new Event("auth_user_updated"));
+    return loggedInUser;
+  };
 
   useEffect(() => {
     const syncSessionFromStorage = () => {
@@ -505,47 +570,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     options?: { suppressToast?: boolean; requireOtp?: boolean }
-  ) => {
+  ): Promise<LoginResult> => {
     setIsLoading(true);
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
       const response = await loginUser({ emailOrUsername: normalizedEmail, password });
+      const container = getResponseContainer(response);
+      if (container?.mfaRequired) {
+        const token = String(container.mfaToken || "");
+        if (!token) throw new Error("Invalid MFA challenge from server.");
+        const method = String(container.method || "authenticator");
+        setMfaChallenge({ token, method, email: normalizedEmail });
+        return { status: "mfa_required", method };
+      }
+
       const { user: apiUser } = getAuthPayload(response);
-      if (!apiUser) {
-        throw new Error("Invalid login response from server.");
-      }
-      const role = normalizeRole(getRoleCandidate(apiUser));
-      const preferredAccount = getPreferenceCandidate(apiUser);
-      const { accountType, accountOptions } = normalizeAccount(role, preferredAccount);
-      const normalizedOptions = normalizeAccountOptions(apiUser.accountOptions);
-
-      const apiUserId = getUserId(apiUser);
-      if (!apiUserId) {
-        throw new Error("Invalid user id in login response.");
-      }
-
-      const loggedInUser: User = {
-        id: apiUserId,
-        email: apiUser.email,
-        firstName: apiUser.firstName || "User",
-        lastName: apiUser.lastName || "User",
-        role,
-        systemRole: String(apiUser.role || role),
-        accountType,
-        accountPreference: normalizePreference(preferredAccount) || undefined,
-        accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
-        isVerified: true,
-        phoneNumber: apiUser.phoneNumber,
-        city: apiUser.city,
-        country: apiUser.country,
-        linkedin: apiUser.linkedin,
-        website: apiUser.website,
-        jobPosition: apiUser.jobPosition,
-        avatarUrl: apiUser.avatarUrl,
-        passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
-        createdAt: new Date().toISOString(),
-      };
+      if (!apiUser) throw new Error("Invalid login response from server.");
 
       if (options?.requireOtp) {
         const verificationEmail = String(apiUser.email || normalizedEmail).toLowerCase().trim();
@@ -562,23 +603,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!options?.suppressToast) {
           toast.success("OTP sent to your email!");
         }
-        return;
+        return { status: "otp_required" };
       }
 
-      setUser(loggedInUser);
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(loggedInUser));
-      localStorage.setItem(AUTH_USER_KEY, JSON.stringify(loggedInUser));
-      window.dispatchEvent(new Event("auth_user_updated"));
+      const loggedInUser = completeLogin(response, normalizedEmail);
 
       setIsLoading(false);
       if (!options?.suppressToast) {
         toast.success(`Welcome back, ${loggedInUser.firstName}!`);
       }
+      return { status: "authenticated", user: loggedInUser };
     } catch (error: any) {
       setIsLoading(false);
       throw new Error(error?.message || "Login failed");
     }
   };
+
+  const verifyMfaLogin = async (code: string, options?: { suppressToast?: boolean }) => {
+    if (!mfaChallenge) throw new Error("MFA challenge expired. Please sign in again.");
+    const normalizedCode = code.trim();
+    if (!normalizedCode) throw new Error("Enter your authenticator or backup code.");
+    setIsLoading(true);
+    try {
+      const response = await verifyLoginMfa({ mfaToken: mfaChallenge.token, code: normalizedCode });
+      const loggedInUser = completeLogin(response, mfaChallenge.email);
+      if (!options?.suppressToast) toast.success(`Welcome back, ${loggedInUser.firstName}!`);
+      return loggedInUser;
+    } catch (error: any) {
+      throw new Error(error?.message || "MFA verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancelMfaLogin = () => setMfaChallenge(null);
 
   const logout = (options?: { silent?: boolean }) => {
     try {
@@ -588,6 +646,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
     setPendingVerification(null);
+    setMfaChallenge(null);
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -626,14 +685,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     toast.success(`Switched to ${nextType === "employer" ? "Employer" : "Worker"} account`);
   };
 
-  const updateProfile = (updates: Partial<User>) => {
-    if (!user) return;
-    const updatedUser = { ...user, ...updates };
+  const updateProfile = useCallback((updates: Partial<User>) => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+    const updatedUser = { ...currentUser, ...updates };
+    userRef.current = updatedUser;
     setUser(updatedUser);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(updatedUser));
     localStorage.setItem(AUTH_USER_KEY, JSON.stringify(updatedUser));
     window.dispatchEvent(new Event("auth_user_updated"));
-  };
+  }, []);
 
   const requestPasswordReset = async (email: string) => {
     setIsLoading(true);
@@ -693,6 +754,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        mfaChallenge,
+        verifyMfaLogin,
+        cancelMfaLogin,
         register,
         logout,
         switchAccountType,

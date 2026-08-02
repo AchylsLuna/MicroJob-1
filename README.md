@@ -6,8 +6,18 @@ MicroJobs contains three independent install units:
 - `server/`: Express, MongoDB, and Socket.IO API.
 - `Mobile/`: Expo application.
 
-Use Node.js 22.13 or newer. Install each unit with `npm ci`, then use `npm run dev`
-from the root for the web/API development environment.
+Use Node.js 22.13 LTS or Node.js 24.3 or newer. Install the web and API dependencies:
+
+```powershell
+cd C:\Users\Admin\Desktop\MicroJobs
+npm ci
+npm ci --prefix server
+```
+
+Run the web application and API together from the repository root with `npm run dev`.
+Use `npm run dev:client` for only the web application or `npm run dev:server` for
+only the API. The `client/` directory intentionally has no `package.json`, so do
+not run npm commands from inside that directory.
 
 ## Production configuration
 

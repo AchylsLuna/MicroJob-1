@@ -5,9 +5,10 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { isAdmin } from "../../utils/dashboardRoutes";
 import { ROUTES } from "../../utils/routes";
+import { MfaLoginForm } from "../../components/auth/MfaLoginForm";
 
 export function AdminSignIn() {
-  const { login, isAuthenticated, user, logout } = useAuth();
+  const { login, isAuthenticated, user, logout, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -40,24 +41,41 @@ export function AdminSignIn() {
 
     setIsLoading(true);
     try {
-      await login(email, password, { suppressToast: true });
-      const stored =
-        localStorage.getItem("auth_user") || localStorage.getItem("current_user");
-      const storedUser = stored ? JSON.parse(stored) : null;
-
-      if (!storedUser || !isAdmin(storedUser)) {
+      const result = await login(email, password, { suppressToast: true });
+      if (result.status === "mfa_required") {
+        toast.info("Enter your authenticator code to continue.");
+        return;
+      }
+      if (result.status !== "authenticated" || !isAdmin(result.user)) {
         toast.error("Admin access required. Please use an admin account.");
         logout({ silent: true });
         return;
       }
 
-      toast.success(`Welcome back${storedUser?.firstName ? `, ${storedUser.firstName}` : ""}!`);
+      toast.success(`Welcome back${result.user.firstName ? `, ${result.user.firstName}` : ""}!`);
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";
       }
+      setIsLoading(false);
+    }
+  };
+
+  const handleMfaSignIn = async (code: string) => {
+    setIsLoading(true);
+    try {
+      const loggedInUser = await verifyMfaLogin(code, { suppressToast: true });
+      if (!isAdmin(loggedInUser)) {
+        toast.error("Admin access required. Please use an admin account.");
+        logout({ silent: true });
+        return;
+      }
+      toast.success(`Welcome back${loggedInUser.firstName ? `, ${loggedInUser.firstName}` : ""}!`);
+    } catch (error: any) {
+      toast.error(error?.message || "MFA verification failed");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -71,10 +89,21 @@ export function AdminSignIn() {
           </div>
           <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">MicroJobs control center</p>
           <h1 className="mb-2 text-[28px] font-bold text-[#111827]">Admin Sign In</h1>
-          <p className="text-[14px] text-[#6B7280]">Restricted access for platform administrators</p>
+          <p className="text-[14px] text-[#4B5563]">Restricted access for platform administrators</p>
         </div>
 
-        <form onSubmit={handleSignIn} className="space-y-5">
+        {mfaChallenge ? (
+          <MfaLoginForm
+            email={mfaChallenge.email}
+            method={mfaChallenge.method}
+            isLoading={isLoading}
+            onSubmit={handleMfaSignIn}
+            onCancel={() => {
+              cancelMfaLogin();
+              setIsLoading(false);
+            }}
+          />
+        ) : <form onSubmit={handleSignIn} className="space-y-5">
           <div>
             <label htmlFor="admin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">Email</label>
             <div className="relative">
@@ -128,7 +157,7 @@ export function AdminSignIn() {
           >
             {isLoading ? "Signing in..." : "Sign In as Admin"}
           </button>
-        </form>
+        </form>}
 
       </div>
     </main>

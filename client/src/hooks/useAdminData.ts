@@ -21,6 +21,7 @@ export type AdminUser = {
   firstName?: string;
   lastName?: string;
   email: string;
+  createdAt?: string;
   phoneNumber?: string | null;
   role?: "user" | "employer" | "admin" | "doctor" | "hire" | "work" | "both" | "superadmin";
   status?: "active" | "pending" | "disabled" | "deleted";
@@ -71,7 +72,7 @@ type AdminStats = {
   availableJobs: number;
   completedJobs: number;
   totalTransactions: number;
-  totalRevenue: number;
+  completedPayoutVolume: number;
   totalCategories: number;
   pendingPayouts: number;
   openSupportTickets: number;
@@ -95,7 +96,7 @@ const DEFAULT_ADMIN_STATS: AdminStats = {
   availableJobs: 0,
   completedJobs: 0,
   totalTransactions: 0,
-  totalRevenue: 0,
+  completedPayoutVolume: 0,
   totalCategories: 0,
   pendingPayouts: 0,
   openSupportTickets: 0,
@@ -135,7 +136,7 @@ export function useAdminData() {
           getAdminCategories(),
           getAdminWalletStats(),
           getAdminRecentPayouts(),
-          getAdminTransactions().catch(() => [] as PaymentTransaction[]),
+          getAdminTransactions(),
         ]);
         
         if (!isActive) return;

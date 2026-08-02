@@ -143,6 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: "reports", label: "Reports", path: ROUTES.admin.reports },
     { icon: "support", label: "Support", path: ROUTES.admin.support },
     { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet },
+    { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts },
     { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs },
     { icon: "security", label: "Security", path: ROUTES.admin.security },
     { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement },

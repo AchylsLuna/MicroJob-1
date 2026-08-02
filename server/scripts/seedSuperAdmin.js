@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import User from '../models/User.js';
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -20,9 +21,14 @@ if (!uri) {
 
 const isProduction = process.env.NODE_ENV === 'production';
 const email = process.env.SUPERADMIN_EMAIL || (!isProduction ? 'superadmin@microjobs.local' : '');
+const username = String(process.env.SUPERADMIN_USERNAME || '').trim().toLowerCase();
 const password = process.env.SUPERADMIN_PASSWORD || (!isProduction ? 'SuperAdmin123!' : '');
 if (!email || !password) {
   console.error('SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD are required in production.');
+  process.exit(1);
+}
+if (!isStrongPassword(password)) {
+  console.error(PASSWORD_POLICY_MESSAGE);
   process.exit(1);
 }
 const resetPassword = ['1', 'true', 'yes'].includes(
@@ -36,9 +42,16 @@ const run = async () => {
   await mongoose.connect(uri, { dbName });
 
   let user = await User.findOne({ email: email.toLowerCase().trim() });
+  if (username) {
+    const usernameOwner = await User.findOne({ username, ...(user ? { _id: { $ne: user._id } } : {}) });
+    if (usernameOwner) {
+      throw new Error(`Username "${username}" is already assigned to another account.`);
+    }
+  }
   if (!user) {
     user = new User({
       email: email.toLowerCase().trim(),
+      username: username || undefined,
       firstName: 'Super',
       lastName: 'Admin',
       role: 'superadmin',
@@ -55,6 +68,10 @@ const run = async () => {
     }
   } else {
     let changed = false;
+    if (username && user.username !== username) {
+      user.username = username;
+      changed = true;
+    }
     if (user.role !== 'superadmin') {
       user.role = 'superadmin';
       changed = true;

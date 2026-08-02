@@ -68,6 +68,16 @@ export type AuthUser = {
   avatarUrl?: string;
 };
 export type AuthResponse = { token: string; user: AuthUser; message?: string };
+export type MfaChallengeResponse = {
+  mfaRequired: true;
+  mfaToken: string;
+  method?: string;
+  message?: string;
+};
+export type LoginResponse =
+  | AuthResponse
+  | MfaChallengeResponse
+  | { data: AuthResponse | MfaChallengeResponse; message?: string };
 export type WorkExperience = {
   _id?: string;
   id?: string;
@@ -145,6 +155,12 @@ export type SupportTicket = {
     _id: string;
     author?: any;
     actorRole: 'user' | 'admin';
+    body: string;
+    createdAt: string;
+  }>;
+  internalNotes?: Array<{
+    _id: string;
+    author?: any;
     body: string;
     createdAt: string;
   }>;
@@ -362,7 +378,14 @@ export function registerUser(payload: { username?: string; firstName?: string; l
 }
 
 export function loginUser(payload: { emailOrUsername: string; password: string }) {
-  return request<AuthResponse>('/auth/login', { method: 'POST', body: payload });
+  return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
+}
+
+export function verifyLoginMfa(payload: { mfaToken: string; code: string }) {
+  return request<AuthResponse | { data: AuthResponse }>('/auth/login/mfa', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export function sendOtp(payload: { email: string }) {
@@ -535,10 +558,17 @@ export function requestAccountDeletion(payload: { currentPassword: string; confi
 }
 
 // Profile APIs
+let inFlightProfileRequest: Promise<any> | null = null;
+
 export function getProfile() {
-  return request<any>('/auth/me', { method: 'GET' }).then((response: any) => {
-    return response?.data ?? response?.profile ?? response?.user ?? response;
-  });
+  if (!inFlightProfileRequest) {
+    inFlightProfileRequest = request<any>('/auth/me', { method: 'GET' })
+      .then((response: any) => response?.data ?? response?.profile ?? response?.user ?? response)
+      .finally(() => {
+        inFlightProfileRequest = null;
+      });
+  }
+  return inFlightProfileRequest;
 }
 
 export function updateProfile(payload: {
@@ -814,6 +844,7 @@ export function getPayoutRequests() {
 
 export function createPayoutRequest(payload: {
   amount: number;
+  idempotencyKey?: string;
   destinationSnapshot: {
     methodType: string;
     institutionName: string;

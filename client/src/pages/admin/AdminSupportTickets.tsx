@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquare, Search, Send, ShieldCheck } from "lucide-react";
 import { toast } from "../../lib/toast";
 import {
@@ -53,6 +53,7 @@ function AdminSupportTicketsContent() {
   const [status, setStatus] = useState<SupportTicket["status"]>("open");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
+  const detailsDirtyRef = useRef(false);
 
   const selectedTicket = useMemo(
     () => tickets.find((ticket) => ticket._id === selectedTicketId) || null,
@@ -88,16 +89,21 @@ function AdminSupportTicketsContent() {
     }
   }, [search, statusFilter]);
 
-  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean }) => {
+  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean; resetForm?: boolean }) => {
     const silent = Boolean(options?.silent);
     try {
       const response = await getAdminSupportTicket(ticketId);
       const ticket = extractTicket(response as any);
       if (!ticket) return;
       setTickets((current) => current.map((item) => (item._id === ticketId ? ticket : item)));
-      setStatus(ticket.status);
-      setPriority(ticket.priority || "medium");
-      setReviewNotes("");
+      if (options?.resetForm || !detailsDirtyRef.current) {
+        setStatus(ticket.status);
+        setPriority(ticket.priority || "medium");
+      }
+      if (options?.resetForm) {
+        setReviewNotes("");
+        detailsDirtyRef.current = false;
+      }
     } catch (error: any) {
       if (!silent) {
         toast.error(error?.message || "Failed to load ticket details.");
@@ -111,7 +117,7 @@ function AdminSupportTicketsContent() {
 
   useEffect(() => {
     if (selectedTicketId) {
-      loadTicketDetails(selectedTicketId);
+      loadTicketDetails(selectedTicketId, { resetForm: true });
     }
   }, [selectedTicketId]);
 
@@ -145,6 +151,8 @@ function AdminSupportTicketsContent() {
       } else {
         await loadTicketDetails(selectedTicketId);
       }
+      setReviewNotes("");
+      detailsDirtyRef.current = false;
       toast.success("Support ticket updated.");
     } catch (error: any) {
       toast.error(error?.message || "Failed to update support ticket.");
@@ -270,7 +278,7 @@ function AdminSupportTicketsContent() {
                   <select
                     id="ticket-status"
                     value={status}
-                    onChange={(event) => setStatus(event.target.value as SupportTicket["status"])}
+                    onChange={(event) => { detailsDirtyRef.current = true; setStatus(event.target.value as SupportTicket["status"]); }}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                   >
                     <option value="open">Open</option>
@@ -285,7 +293,7 @@ function AdminSupportTicketsContent() {
                   <select
                     id="ticket-priority"
                     value={priority}
-                    onChange={(event) => setPriority(event.target.value as SupportTicket["priority"])}
+                    onChange={(event) => { detailsDirtyRef.current = true; setPriority(event.target.value as SupportTicket["priority"]); }}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                   >
                     <option value="low">Low</option>
@@ -307,16 +315,30 @@ function AdminSupportTicketsContent() {
               </div>
 
               <div>
-                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">Review Note</label>
+                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">Internal Note</label>
                 <textarea
                   id="ticket-review-note"
                   rows={3}
                   value={reviewNotes}
-                  onChange={(event) => setReviewNotes(event.target.value)}
-                  placeholder="Internal or user-facing note for this ticket"
+                  onChange={(event) => { detailsDirtyRef.current = true; setReviewNotes(event.target.value); }}
+                  placeholder="Visible only to administrators"
                   className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                 />
               </div>
+
+              {(selectedTicket.internalNotes || []).length > 0 ? (
+                <section className="rounded-[14px] border border-amber-200 bg-amber-50 p-4" aria-labelledby="internal-notes-title">
+                  <h3 id="internal-notes-title" className="text-sm font-semibold text-amber-950">Internal notes</h3>
+                  <div className="mt-3 space-y-3">
+                    {(selectedTicket.internalNotes || []).map((note) => (
+                      <article key={note._id} className="rounded-xl border border-amber-200 bg-white p-3">
+                        <p className="text-sm text-slate-800">{note.body}</p>
+                        <p className="mt-2 text-xs text-slate-500">{formatDate(note.createdAt)}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
                 {(selectedTicket.messages || []).map((message) => {
