@@ -8,7 +8,11 @@ import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
+import fs from "fs";
+import { basename, dirname, resolve, sep } from "path";
+import { fileURLToPath } from "url";
 import { getJwtSecret } from "../lib/jwtSecret.js";
+import { disconnectSession } from "../lib/socket.js";
 import {
     EMAIL_VALIDATION_MESSAGE,
     NAME_VALIDATION_MESSAGE,
@@ -33,6 +37,42 @@ const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
 
 const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired"];
+const uploadsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..", "uploads");
+
+async function removeStoredUploads(values) {
+    const names = [...new Set(
+        values
+            .filter(Boolean)
+            .map((value) => basename(String(value).replace(/\\/g, "/")))
+            .filter(Boolean)
+    )];
+
+    await Promise.all(names.map(async (name) => {
+        const filePath = resolve(uploadsDirectory, name);
+        if (!filePath.startsWith(`${uploadsDirectory}${sep}`)) return;
+        try {
+            await fs.promises.unlink(filePath);
+        } catch (error) {
+            if (error?.code !== "ENOENT") {
+                console.warn(`Failed to remove stored upload ${name}:`, error?.message || error);
+            }
+        }
+    }));
+}
+
+async function revokeSessions(userId, exceptSessionId) {
+    const query = { user: userId, active: true };
+    if (exceptSessionId) query._id = { $ne: exceptSessionId };
+    const sessions = await Session.find(query).select("_id");
+    const sessionIds = sessions.map((session) => String(session._id));
+    if (sessionIds.length) {
+        await Session.updateMany(
+            { _id: { $in: sessionIds } },
+            { $set: { active: false, endedAt: new Date() } }
+        );
+        sessionIds.forEach((sessionId) => disconnectSession(sessionId));
+    }
+}
 
 async function getDeletionBlockers(userId) {
     const user = await User.findById(userId).select("workerBalance employerBalance");
@@ -106,6 +146,13 @@ export async function anonymizeAndDeleteUser(userId) {
     }
 
     const deletionStamp = new Date();
+    const storedUploads = [
+        user.avatarUrl,
+        user.resumeFileName,
+        user.resumeUrl,
+        user.verification?.identityDocument?.documentUrl,
+        user.verification?.addressDocument?.documentUrl,
+    ];
     const suffix = `${String(user._id)}-${Date.now()}`;
     const originalEmailKey = String(user.email || "").toLowerCase().trim();
     user.status = "deleted";
@@ -133,8 +180,10 @@ export async function anonymizeAndDeleteUser(userId) {
     user.avatarUrl = undefined;
     user.about = undefined;
     user.linkedin = undefined;
+    user.website = undefined;
     user.totalExperience = undefined;
     user.skills = [];
+    user.workExperience = [];
     user.verification = {
         emailVerified: false,
         phoneVerified: false,
@@ -153,6 +202,7 @@ export async function anonymizeAndDeleteUser(userId) {
         SavedJob.deleteMany({ user: userId }),
         Notification.deleteMany({ user: userId }),
     ]);
+    await removeStoredUploads(storedUploads);
 
     clearPhoneVerificationOtp(String(userId));
     otpStore.delete(originalEmailKey);
@@ -409,6 +459,43 @@ export async function deleteUser(req, res) {
     }
 }
 
+function normalizeProfileUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return null;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^https?:\/\//i.test(raw)) return null;
+    const candidate = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    try {
+        const parsed = new URL(candidate);
+        const isLocalHttp = parsed.protocol === "http:" && ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+        if (parsed.protocol !== "https:" && !isLocalHttp) return null;
+        return parsed.toString();
+    } catch {
+        return null;
+    }
+}
+
+const PROFILE_STRING_LIMITS = {
+    firstName: 30,
+    lastName: 30,
+    city: 100,
+    province: 100,
+    barangay: 100,
+    addressType: 10,
+    address: 300,
+    phoneNumber: 32,
+    facebook: 300,
+    profilePhotoName: 255,
+    jobPosition: 100,
+    companyName: 120,
+    startDate: 40,
+    endDate: 40,
+    logoName: 255,
+    about: 2000,
+    linkedin: 300,
+    website: 300,
+    totalExperience: 50,
+};
+
 export async function updateProfile(req, res) {
     try {
         const userId = req.user?.id || req.user?.userId;
@@ -421,6 +508,19 @@ export async function updateProfile(req, res) {
             return res.status(404).json({ message: "User not found." });
         }
 
+        const requestBody = req.body && typeof req.body === "object" && !Array.isArray(req.body)
+            ? req.body
+            : null;
+        if (!requestBody) {
+            return res.status(400).json({ message: "Profile update must be a JSON object." });
+        }
+
+        if (Object.prototype.hasOwnProperty.call(requestBody, "email")) {
+            return res.status(400).json({
+                message: "Email cannot be changed from profile settings. A verified email-change flow is required.",
+            });
+        }
+
         const allowed = [
             "firstName",
             "lastName",
@@ -430,30 +530,43 @@ export async function updateProfile(req, res) {
             "addressType",
             "address",
             "phoneNumber",
-            "email",
             "facebook",
-            "profilePhotoName",
             "jobPosition",
             "companyName",
             "startDate",
             "endDate",
-            "logoName",
             "about",
             "linkedin",
+            "website",
             "totalExperience",
             "hideHiredCandidates",
             // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated
         ];
+        const allowedSet = new Set(allowed);
+        const unsupportedFields = Object.keys(requestBody).filter((key) => !allowedSet.has(key) && key !== "email");
+        if (unsupportedFields.length) {
+            return res.status(400).json({ message: `Unsupported profile field: ${unsupportedFields[0]}.` });
+        }
+        if (!Object.keys(requestBody).some((key) => allowedSet.has(key))) {
+            return res.status(400).json({ message: "No supported profile fields were provided." });
+        }
 
         const updates = {};
         const unset = {};
         for (const key of allowed) {
-            if (req.body[key] !== undefined) {
-                const value = typeof req.body[key] === "string"
-                    ? req.body[key].trim()
-                    : req.body[key];
+            if (requestBody[key] !== undefined) {
+                if (key !== "hideHiredCandidates" && typeof requestBody[key] !== "string") {
+                    return res.status(400).json({ message: `${key} must be a string.` });
+                }
+                const value = typeof requestBody[key] === "string"
+                    ? requestBody[key].trim()
+                    : requestBody[key];
+                const maxLength = PROFILE_STRING_LIMITS[key];
+                if (typeof value === "string" && maxLength && value.length > maxLength) {
+                    return res.status(400).json({ message: `${key} must be ${maxLength} characters or fewer.` });
+                }
                 if (value === "") {
-                    if (key === "firstName" || key === "lastName" || key === "email") {
+                    if (key === "firstName" || key === "lastName") {
                         return res.status(400).json({ message: `${key} is required.` });
                     }
                     unset[key] = "";
@@ -475,17 +588,22 @@ export async function updateProfile(req, res) {
                 return res.status(400).json({ message: NAME_VALIDATION_MESSAGE });
             }
         }
-        if (updates.email) {
-            updates.email = normalizeEmail(updates.email);
-            if (!isValidEmail(updates.email)) {
-                return res.status(400).json({ message: EMAIL_VALIDATION_MESSAGE });
-            }
-        }
         if (updates.phoneNumber !== undefined) {
             updates.phoneNumber = normalizePhone(updates.phoneNumber);
             if (updates.phoneNumber && !isValidPhone(updates.phoneNumber)) {
                 return res.status(400).json({ message: PHONE_VALIDATION_MESSAGE });
             }
+        }
+        if (updates.addressType !== undefined && !["home", "office", "place"].includes(updates.addressType)) {
+            return res.status(400).json({ message: "addressType must be home, office, or place." });
+        }
+        for (const urlField of ["facebook", "linkedin", "website"]) {
+            if (updates[urlField] === undefined) continue;
+            const normalizedUrl = normalizeProfileUrl(updates[urlField]);
+            if (!normalizedUrl) {
+                return res.status(400).json({ message: `${urlField} must be a valid HTTPS URL.` });
+            }
+            updates[urlField] = normalizedUrl;
         }
         if (updates.hideHiredCandidates !== undefined && typeof updates.hideHiredCandidates !== "boolean") {
             return res.status(400).json({ message: "hideHiredCandidates must be a boolean." });
@@ -509,11 +627,10 @@ export async function updateProfile(req, res) {
         }
 
         // Auto-calculate job statistics from JobApplication collection
-        const jobsApplied = await JobApplication.countDocuments({ applicant: userId });
-        const jobsCompleted = await JobApplication.countDocuments({ 
-            applicant: userId, 
-            status: 'Hired' 
-        });
+        const [jobsApplied, jobsCompleted] = await Promise.all([
+            JobApplication.countDocuments({ applicant: userId }),
+            JobApplication.countDocuments({ applicant: userId, status: 'Hired' }),
+        ]);
         const successRate = jobsApplied > 0 
             ? `${Math.round((jobsCompleted / jobsApplied) * 100)}%` 
             : '0%';
@@ -532,7 +649,7 @@ export async function updateProfile(req, res) {
             new: true,
             runValidators: true,
         }).select(
-            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName about linkedin totalExperience projectsCompleted jobsApplied successRate hideHiredCandidates"
+            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName avatarUrl resumeUrl resumeFileName about linkedin website totalExperience skills workExperience projectsCompleted jobsApplied successRate hideHiredCandidates verification"
         );
 
         if (!user) {
@@ -544,6 +661,9 @@ export async function updateProfile(req, res) {
         console.error("Update profile error:", error);
         if (error?.name === "ValidationError") {
             return res.status(400).json({ message: error.message || "Invalid profile data." });
+        }
+        if (error?.name === "CastError") {
+            return res.status(400).json({ message: "Invalid profile data type." });
         }
         if (error?.code === 11000) {
             const field = Object.keys(error.keyValue)[0];
@@ -593,30 +713,31 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName role city province barangay addressType address about totalExperience companyName avatarUrl skills jobsApplied projectsCompleted successRate hideHiredCandidates"
+            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience jobsApplied projectsCompleted successRate hideHiredCandidates"
         );
 
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
 
-        const workerAppliedCount = await JobApplication.countDocuments({ applicant: user._id });
-        const workerHiredCount = await JobApplication.countDocuments({ applicant: user._id, status: "Hired" });
-
-        const postedJobs = await Job.find({ jobPoster: user._id }).select("_id");
+        const [workerAppliedCount, workerHiredCount, postedJobs] = await Promise.all([
+            JobApplication.countDocuments({ applicant: user._id }),
+            JobApplication.countDocuments({ applicant: user._id, status: "Hired" }),
+            Job.find({ jobPoster: user._id }).select("_id"),
+        ]);
         const postedJobIds = postedJobs.map((job) => job._id);
-        const employerApplicantsCount = postedJobIds.length
-            ? await JobApplication.countDocuments({ job: { $in: postedJobIds } })
-            : 0;
-        const employerHiredCount = postedJobIds.length
-            ? await JobApplication.countDocuments({ job: { $in: postedJobIds }, status: "Hired" })
-            : 0;
+        const [employerApplicantsCount, employerHiredCount] = postedJobIds.length
+            ? await Promise.all([
+                JobApplication.countDocuments({ job: { $in: postedJobIds } }),
+                JobApplication.countDocuments({ job: { $in: postedJobIds }, status: "Hired" }),
+            ])
+            : [0, 0];
 
         const workerRating = toRatingSummary(workerHiredCount, workerAppliedCount);
         const employerRating = toRatingSummary(employerHiredCount, employerApplicantsCount);
         const selectedRating = viewer === "employer" ? employerRating : workerRating;
-        const employerHiringStatsHidden =
-            viewer === "employer" && user.hideHiredCandidates !== false;
+        const employerHiringStatsHidden = user.hideHiredCandidates !== false;
+        const selectedRatingHidden = viewer === "employer" && employerHiringStatsHidden;
 
         return res.status(200).json({
             profile: {
@@ -626,22 +747,23 @@ export async function getPublicProfile(req, res) {
                 role: user.role,
                 city: user.city,
                 province: user.province,
-                barangay: user.barangay,
-                addressType: user.addressType,
-                address: user.address,
                 about: user.about,
+                jobPosition: user.jobPosition,
+                linkedin: user.linkedin,
+                website: user.website,
                 totalExperience: user.totalExperience,
                 companyName: user.companyName,
                 avatarUrl: user.avatarUrl,
                 skills: Array.isArray(user.skills) ? user.skills : [],
+                workExperience: Array.isArray(user.workExperience) ? user.workExperience : [],
             },
             rating: {
                 viewAs: viewer,
-                hidden: employerHiringStatsHidden,
-                stars: employerHiringStatsHidden ? null : selectedRating.stars,
-                percentage: employerHiringStatsHidden ? null : selectedRating.percentage,
-                completedCount: employerHiringStatsHidden ? null : selectedRating.completedCount,
-                totalCount: employerHiringStatsHidden ? null : selectedRating.totalCount,
+                hidden: selectedRatingHidden,
+                stars: selectedRatingHidden ? null : selectedRating.stars,
+                percentage: selectedRatingHidden ? null : selectedRating.percentage,
+                completedCount: selectedRatingHidden ? null : selectedRating.completedCount,
+                totalCount: selectedRatingHidden ? null : selectedRating.totalCount,
             },
             stats: {
                 worker: {
@@ -774,6 +896,8 @@ export async function verifyOtp(req, res) {
         }
 
         user.status = "active";
+        user.verification = user.verification || {};
+        user.verification.emailVerified = true;
         await user.save();
 
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
@@ -950,9 +1074,13 @@ export async function resetPasswordWithOtp(req, res) {
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
+        if (await user.validatePassword(newPassword)) {
+            return res.status(400).json({ message: "New password must be different from the current password." });
+        }
 
         await user.setPassword(newPassword);
         await user.save();
+        await revokeSessions(user._id);
         passwordResetOtpStore.delete(normalizedEmail);
 
         return res.status(200).json({ message: "Password reset successful." });
@@ -983,7 +1111,6 @@ export async function requestPasswordChangeOtp(req, res) {
         if (!matches) {
             return res.status(401).json({ message: "Current password is incorrect." });
         }
-
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         const emailKey = String(user.email || "").toLowerCase().trim();
         passwordChangeOtpStore.set(emailKey, {
@@ -1053,6 +1180,9 @@ export async function changePasswordWithOtp(req, res) {
         if (!matches) {
             return res.status(401).json({ message: "Current password is incorrect." });
         }
+        if (await user.validatePassword(newPassword)) {
+            return res.status(400).json({ message: "New password must be different from the current password." });
+        }
 
         const emailKey = String(user.email || "").toLowerCase().trim();
         const normalizedCode = String(code || "").trim();
@@ -1083,6 +1213,7 @@ export async function changePasswordWithOtp(req, res) {
 
         await user.setPassword(newPassword);
         await user.save();
+        await revokeSessions(user._id, req.user?.sessionId);
         passwordChangeOtpStore.delete(emailKey);
 
         return res.status(200).json({ message: "Password changed successfully." });

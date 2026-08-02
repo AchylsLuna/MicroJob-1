@@ -26,6 +26,22 @@ export type AdminUser = {
   status?: "active" | "pending" | "disabled" | "deleted";
   deletedAt?: string | null;
   redactedAt?: string | null;
+  verification?: {
+    emailVerified?: boolean;
+    phoneVerified?: boolean;
+    identityVerified?: boolean;
+    addressVerified?: boolean;
+    identityDocument?: {
+      status?: 'pending' | 'in-review' | 'complete' | 'rejected';
+      documentUrl?: string;
+      rejectionReason?: string;
+    };
+    addressDocument?: {
+      status?: 'pending' | 'in-review' | 'complete' | 'rejected';
+      documentUrl?: string;
+      rejectionReason?: string;
+    };
+  };
 };
 
 export type AdminJob = {

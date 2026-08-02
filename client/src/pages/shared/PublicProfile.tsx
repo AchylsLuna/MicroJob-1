@@ -1,25 +1,35 @@
-import { ArrowLeft, Briefcase, MapPin, Star, CheckCircle2, Building2 } from "lucide-react";
+import { ArrowLeft, Briefcase, MapPin, Star, CheckCircle2, Building2, ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getPublicProfile } from "../../services/api";
+import { safeExternalUrl } from "../../utils/safeExternalUrl";
 
 type PublicProfileResponse = {
   profile?: {
     id?: string;
     firstName?: string;
     lastName?: string;
-    email?: string;
     role?: string;
     city?: string;
     province?: string;
-    address?: string;
     about?: string;
+    jobPosition?: string;
+    linkedin?: string;
+    website?: string;
     totalExperience?: string;
     companyName?: string;
     avatarUrl?: string;
-    resumeUrl?: string;
-    resumeFileName?: string;
     skills?: Array<{ name?: string } | string>;
+    workExperience?: Array<{
+      _id?: string;
+      title?: string;
+      company?: string;
+      location?: string;
+      startDate?: string;
+      endDate?: string | null;
+      current?: boolean;
+      description?: string;
+    }>;
   };
   rating?: {
     viewAs?: "worker" | "employer";
@@ -108,6 +118,13 @@ export function PublicProfile() {
   const avatarUrl = toAbsoluteAssetUrl(data?.profile?.avatarUrl);
   const ratingStars = Math.max(0, Math.min(5, Number(data?.rating?.stars || 0)));
   const ratingPercentage = Math.max(0, Math.min(100, Number(data?.rating?.percentage || 0)));
+  const linkedinUrl = safeExternalUrl(data?.profile?.linkedin);
+  const websiteUrl = safeExternalUrl(data?.profile?.website);
+  const formatExperienceDate = (value?: string | null) => {
+    if (!value) return "";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -140,14 +157,20 @@ export function PublicProfile() {
 
               <div className="flex-1">
                 <h1 className="text-2xl font-bold text-[#0F172A]">{fullName}</h1>
-                <p className="text-sm text-[#475569]">{data.profile.email || "No email"}</p>
                 {viewAs === "employer" ? (
                   <p className="mt-1 text-sm font-medium text-[#1C4D8D]">Employer Profile</p>
                 ) : (
-                  <p className="mt-1 text-sm font-medium text-[#0F766E]">Worker Profile</p>
+                  <p className="mt-1 text-sm font-medium text-[#0F766E]">{data.profile.jobPosition || "Worker Profile"}</p>
                 )}
               </div>
             </div>
+
+            {(linkedinUrl || websiteUrl) && (
+              <div className="flex flex-wrap gap-3">
+                {linkedinUrl ? <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm font-medium text-[#1C4D8D]">LinkedIn <ExternalLink className="h-3.5 w-3.5" /></a> : null}
+                {websiteUrl ? <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm font-medium text-[#1C4D8D]">Website <ExternalLink className="h-3.5 w-3.5" /></a> : null}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {data.rating?.hidden ? (
@@ -235,6 +258,25 @@ export function PublicProfile() {
                       <CheckCircle2 className="w-3 h-3" />
                       {skill}
                     </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {viewAs === "worker" && data.profile.workExperience?.length ? (
+              <div className="rounded-xl border border-[#E2E8F0] p-4">
+                <p className="mb-3 text-xs text-[#64748B]">Work history</p>
+                <div className="space-y-3">
+                  {data.profile.workExperience.map((item, index) => (
+                    <div key={item._id || `${item.title}-${index}`} className="flex gap-3 rounded-lg bg-[#F8FAFC] p-3">
+                      <Briefcase className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#1C4D8D]" />
+                      <div>
+                        <p className="text-sm font-semibold text-[#0F172A]">{item.title || "Work experience"}</p>
+                        <p className="text-xs text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                        <p className="mt-1 text-xs text-[#64748B]">{formatExperienceDate(item.startDate)} – {item.current ? "Present" : formatExperienceDate(item.endDate)}</p>
+                        {item.description ? <p className="mt-2 whitespace-pre-line text-sm text-[#475569]">{item.description}</p> : null}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>

@@ -72,6 +72,86 @@ export async function getAdminUsers(req, res) {
   }
 }
 
+export async function getAdminVerifications(req, res) {
+  try {
+    const requestedStatus = String(req.query?.status || 'in-review').toLowerCase();
+    const allowedStatuses = new Set(['pending', 'in-review', 'complete', 'rejected', 'all']);
+    if (!allowedStatuses.has(requestedStatus)) {
+      return res.status(400).json({ message: 'Invalid verification status.' });
+    }
+
+    const query = requestedStatus === 'all'
+      ? {
+          $or: [
+            { 'verification.identityDocument.documentUrl': { $exists: true, $ne: '' } },
+            { 'verification.addressDocument.documentUrl': { $exists: true, $ne: '' } },
+          ],
+        }
+      : {
+          $or: [
+            { 'verification.identityDocument.status': requestedStatus },
+            { 'verification.addressDocument.status': requestedStatus },
+          ],
+        };
+
+    const users = await User.find(query)
+      .select('_id firstName lastName email status verification createdAt updatedAt')
+      .sort({ updatedAt: -1 })
+      .lean();
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error('Get admin verifications error:', error);
+    return res.status(500).json({ message: 'Failed to fetch verification requests.' });
+  }
+}
+
+export async function updateAdminVerification(req, res) {
+  try {
+    const { userId, documentType } = req.params;
+    const status = String(req.body?.status || '').toLowerCase();
+    const rejectionReason = String(req.body?.rejectionReason || '').trim();
+
+    if (!['identity', 'address'].includes(documentType)) {
+      return res.status(400).json({ message: 'Document type must be identity or address.' });
+    }
+    if (!['complete', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Review status must be complete or rejected.' });
+    }
+    if (status === 'rejected' && !rejectionReason) {
+      return res.status(400).json({ message: 'A rejection reason is required.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    const documentKey = `${documentType}Document`;
+    const verifiedKey = `${documentType}Verified`;
+    const verificationDocument = user.verification?.[documentKey];
+    if (!verificationDocument?.documentUrl) {
+      return res.status(400).json({ message: 'No uploaded document is available for review.' });
+    }
+
+    user.verification = user.verification || {};
+    verificationDocument.status = status;
+    verificationDocument.reviewedAt = new Date();
+    verificationDocument.reviewedBy = req.user.id;
+    verificationDocument.rejectionReason = status === 'rejected' ? rejectionReason : undefined;
+    user.verification[verifiedKey] = status === 'complete';
+    await user.save();
+
+    return res.status(200).json({
+      message: `Verification document ${status === 'complete' ? 'approved' : 'rejected'}.`,
+      userId: user._id,
+      documentType,
+      status,
+      verified: user.verification[verifiedKey],
+    });
+  } catch (error) {
+    console.error('Update admin verification error:', error);
+    return res.status(500).json({ message: 'Failed to update verification request.' });
+  }
+}
+
 export async function getAdminJobs(req, res) {
   try {
     const jobs = await Job.find({})

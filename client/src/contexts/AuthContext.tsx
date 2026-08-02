@@ -40,6 +40,8 @@ interface User {
   city?: string;
   country?: string;
   linkedin?: string;
+  website?: string;
+  jobPosition?: string;
   about?: string;
   avatarUrl?: string;
   resumeUrl?: string;
@@ -60,6 +62,17 @@ interface User {
     description?: string;
     endorsements?: number;
     createdAt?: string;
+  }>;
+  workExperience?: Array<{
+    _id?: string;
+    id?: string;
+    title: string;
+    company: string;
+    location?: string;
+    startDate: string;
+    endDate?: string | null;
+    current: boolean;
+    description?: string;
   }>;
 }
 
@@ -441,6 +454,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         city: apiUser.city,
         country: apiUser.country,
         linkedin: apiUser.linkedin,
+        website: apiUser.website,
+        jobPosition: apiUser.jobPosition,
         avatarUrl: apiUser.avatarUrl,
         passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
         createdAt: new Date().toISOString(),
@@ -525,6 +540,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         city: apiUser.city,
         country: apiUser.country,
         linkedin: apiUser.linkedin,
+        website: apiUser.website,
+        jobPosition: apiUser.jobPosition,
         avatarUrl: apiUser.avatarUrl,
         passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
         createdAt: new Date().toISOString(),

@@ -1,6 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
+import rateLimit, * as rateLimitModule from 'express-rate-limit';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
@@ -9,6 +9,7 @@ import multer from 'multer';
 import { fileURLToPath } from 'url';
 import { basename, dirname, extname, join, resolve } from 'path';
 import fs from 'fs';
+import mongoose from 'mongoose';
 import csrfProtection from '../middleware/csrf.js';
 import Session from '../models/Session.js';
 import { disconnectSession } from '../lib/socket.js';
@@ -37,6 +38,10 @@ import {
   normalizePhone,
   PHONE_VALIDATION_MESSAGE,
 } from '../lib/authValidation.js';
+
+// express-rate-limit added ipKeyGenerator in v8. Keep local installs on v6 usable
+// while package installs from the current lockfile receive IPv6 subnet handling.
+const ipKeyGenerator = rateLimitModule.ipKeyGenerator || ((value) => String(value || 'unknown'));
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
@@ -102,6 +107,16 @@ const avatarStorage = multer.diskStorage({
   },
 });
 
+const documentStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const userId = req.user?.id;
+    const timestamp = Date.now();
+    const ext = safeExt(extname(file.originalname)) || '.bin';
+    cb(null, `verification_${userId}_${timestamp}${ext}`);
+  },
+});
+
 // Multer for resume uploads (PDF, DOC, DOCX)
 const multerResume = multer({
   storage: resumeStorage,
@@ -142,6 +157,98 @@ const multerAvatar = multer({
   },
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
+
+// Verification documents may be images or PDFs, matching the formats offered by clients.
+const multerDocument = multer({
+  storage: documentStorage,
+  fileFilter: (req, file, cb) => {
+    const allowed = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
+    const allowedMime = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+    const ext = safeExt(extname(file.originalname));
+    if (allowed.has(ext) && allowedMime.has(String(file.mimetype || '').toLowerCase())) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPG, PNG, WEBP, and PDF files are allowed for verification documents'));
+    }
+  },
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+const removeUploadFile = (value) => {
+  const fileName = basename(String(value || '').replace(/\\/g, '/'));
+  const filePath = resolveUploadPath(fileName);
+  if (!filePath || !fs.existsSync(filePath)) return;
+  try {
+    fs.unlinkSync(filePath);
+  } catch (error) {
+    console.warn(`Failed to remove upload ${fileName}:`, error?.message || error);
+  }
+};
+
+const hasValidVerificationFileSignature = (file) => {
+  if (!file?.path) return false;
+  let bytes;
+  try {
+    bytes = fs.readFileSync(file.path).subarray(0, 12);
+  } catch {
+    return false;
+  }
+  const extension = safeExt(extname(file.originalname));
+  if (extension === '.pdf') return bytes.subarray(0, 4).toString() === '%PDF';
+  if (extension === '.png') return bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (extension === '.webp') return bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP';
+  if (extension === '.jpg' || extension === '.jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  return false;
+};
+
+const readUploadHeader = (file, length = 16) => {
+  try {
+    return file?.path ? fs.readFileSync(file.path).subarray(0, length) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const hasValidResumeFileSignature = (file) => {
+  const bytes = readUploadHeader(file);
+  if (!bytes) return false;
+  const extension = safeExt(extname(file.originalname));
+  if (extension === '.pdf') return bytes.subarray(0, 4).toString() === '%PDF';
+  if (extension === '.doc') {
+    return bytes.subarray(0, 8).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]));
+  }
+  if (extension === '.docx') {
+    const zipSignature = `${bytes[2]}:${bytes[3]}`;
+    return bytes[0] === 0x50 && bytes[1] === 0x4b && ['3:4', '5:6', '7:8'].includes(zipSignature);
+  }
+  return false;
+};
+
+export const hasValidAvatarFileSignature = (file) => {
+  const bytes = readUploadHeader(file);
+  if (!bytes) return false;
+  const extension = safeExt(extname(file.originalname));
+  if (extension === '.png') return bytes.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (extension === '.webp') return bytes.subarray(0, 4).toString() === 'RIFF' && bytes.subarray(8, 12).toString() === 'WEBP';
+  if (extension === '.jpg' || extension === '.jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (extension === '.gif') return ['GIF87a', 'GIF89a'].includes(bytes.subarray(0, 6).toString());
+  return false;
+};
+
+const withUploadErrors = (middleware) => (req, res, next) => {
+  middleware(req, res, (error) => {
+    if (!error) return next();
+    if (req.file?.filename) removeUploadFile(req.file.filename);
+    if (error?.code === 'LIMIT_FILE_SIZE') {
+      return sendError(res, 413, 'File is too large. Maximum size is 5 MB.');
+    }
+    return sendError(res, 400, error?.message || 'Invalid file upload.');
+  });
+};
+
+const uploadAvatarFile = withUploadErrors(multerAvatar.single('avatar'));
+const uploadResumeFile = withUploadErrors(multerResume.single('resume'));
+const uploadVerificationFile = withUploadErrors(multerDocument.single('document'));
 
 const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
 const cookieSecurityOptions = {
@@ -310,6 +417,8 @@ const buildLoginPayload = (user, includePhone = false) => {
     addressType: user.addressType,
     address: user.address,
     linkedin: user.linkedin,
+    website: user.website,
+    jobPosition: user.jobPosition,
     passwordChangeRequired: Boolean(user.passwordChangeRequired),
   };
 };
@@ -1269,56 +1378,154 @@ router.post('/logout', verifyToken, async (req, res) => {
 const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin totalExperience projectsCompleted jobsApplied successRate skills employerBalance workerBalance hideHiredCandidates'
+      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin website totalExperience projectsCompleted jobsApplied successRate skills workExperience employerBalance workerBalance hideHiredCandidates verification'
     );
     if (!user) {
       return sendError(res, 404, 'User not found');
     }
 
-    // Auto-calculate job statistics from JobApplication collection
-    const jobsApplied = await JobApplication.countDocuments({ applicant: req.user?.id });
-    const jobsCompleted = await JobApplication.countDocuments({ 
-      applicant: req.user?.id, 
-      status: 'Hired' 
-    });
+    // Derive statistics for the response without making profile reads depend on a document save.
+    const [jobsApplied, jobsCompleted] = await Promise.all([
+      JobApplication.countDocuments({ applicant: req.user?.id }),
+      JobApplication.countDocuments({ applicant: req.user?.id, status: 'Hired' }),
+    ]);
     const successRate = jobsApplied > 0 
       ? `${Math.round((jobsCompleted / jobsApplied) * 100)}%` 
       : '0%';
 
-    // Update user with calculated stats
-    user.jobsApplied = jobsApplied;
-    user.projectsCompleted = jobsCompleted;
-    user.successRate = successRate;
-    
-    // Save the updated stats to database
-    await user.save();
+    const profile = user.toObject();
+    profile.jobsApplied = jobsApplied;
+    profile.projectsCompleted = jobsCompleted;
+    profile.successRate = successRate;
 
-    return sendSuccess(res, 200, 'Profile retrieved', user);
+    if (
+      user.jobsApplied !== jobsApplied ||
+      user.projectsCompleted !== jobsCompleted ||
+      user.successRate !== successRate
+    ) {
+      void User.updateOne(
+        { _id: user._id },
+        { $set: { jobsApplied, projectsCompleted: jobsCompleted, successRate } }
+      ).catch((statsError) => {
+        console.warn('Failed to cache profile statistics:', statsError?.message || statsError);
+      });
+    }
+
+    return sendSuccess(res, 200, 'Profile retrieved', profile);
   } catch (error) {
     console.error('Get profile error:', error);
     return sendError(res, 500, 'Server error');
   }
 };
 
+const MAX_PROFILE_SKILLS = 50;
+const MAX_WORK_EXPERIENCES = 25;
+const MAX_SKILL_NAME_LENGTH = 80;
+const MAX_SKILL_DESCRIPTION_LENGTH = 500;
+
+const sendProfileMutationError = (res, error, fallbackMessage) => {
+  if (error?.name === 'ValidationError' || error?.name === 'CastError') {
+    return sendError(res, 400, error?.message || 'Invalid profile data');
+  }
+  if (error?.name === 'VersionError') {
+    return sendError(res, 409, 'Your profile changed in another request. Refresh and try again.');
+  }
+  return sendError(res, 500, fallbackMessage);
+};
+
 const normalizeSkillDescription = (value = '') => String(value || '').trim();
+
+const parseExperienceDate = (value) => {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (!/^\d{4}-\d{2}(?:-\d{2}(?:T.*)?)?$/.test(raw)) return null;
+  const normalized = /^\d{4}-\d{2}$/.test(raw) ? `${raw}-01T00:00:00.000Z` : raw;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+export const normalizeExperience = (payload = {}) => {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { error: 'Work experience must be a JSON object' };
+  }
+  for (const requiredField of ['title', 'company', 'startDate']) {
+    if (typeof payload[requiredField] !== 'string' && !(requiredField === 'startDate' && payload[requiredField] instanceof Date)) {
+      return { error: `${requiredField} must be a string` };
+    }
+  }
+  for (const optionalField of ['location', 'description']) {
+    if (payload[optionalField] !== undefined && payload[optionalField] !== null && typeof payload[optionalField] !== 'string') {
+      return { error: `${optionalField} must be a string` };
+    }
+  }
+  if (![true, false, 'true', 'false'].includes(payload.current)) {
+    return { error: 'current must be a boolean' };
+  }
+  if (
+    payload.endDate !== undefined &&
+    payload.endDate !== null &&
+    typeof payload.endDate !== 'string' &&
+    !(payload.endDate instanceof Date)
+  ) {
+    return { error: 'endDate must be a string' };
+  }
+  const title = String(payload.title || '').trim();
+  const company = String(payload.company || '').trim();
+  const location = String(payload.location || '').trim();
+  const description = String(payload.description || '').trim();
+  const startDate = parseExperienceDate(payload.startDate);
+  const current = payload.current === true || payload.current === 'true';
+  const endDate = current ? null : parseExperienceDate(payload.endDate);
+
+  if (!title) return { error: 'Job title is required' };
+  if (!company) return { error: 'Company or client name is required' };
+  if (title.length > 100) return { error: 'Job title must be 100 characters or fewer' };
+  if (company.length > 120) return { error: 'Company or client name must be 120 characters or fewer' };
+  if (location.length > 120) return { error: 'Location must be 120 characters or fewer' };
+  if (description.length > 1000) return { error: 'Description must be 1000 characters or fewer' };
+  if (!startDate) return { error: 'A valid start date is required' };
+  if (!current && !endDate) return { error: 'End date is required unless this is your current role' };
+  if (endDate && endDate < startDate) return { error: 'End date cannot be before start date' };
+  const endOfToday = new Date();
+  endOfToday.setUTCHours(23, 59, 59, 999);
+  if (startDate > endOfToday) return { error: 'Start date cannot be in the future' };
+  if (endDate && endDate > endOfToday) return { error: 'End date cannot be in the future' };
+
+  return {
+    value: { title, company, location, description, startDate, endDate, current },
+  };
+};
 
 const addSkill = async (req, res) => {
   try {
     const userId = req.user?.id;
     const { name, description, experience } = req.body || {};
 
-    if (!name || !name.trim()) {
+    if (typeof name !== 'string' || !name.trim()) {
       return sendError(res, 400, 'Skill name is required');
     }
-
-    const skillDescription = normalizeSkillDescription(description || experience || '');
+    const rawDescription = description ?? experience ?? '';
+    if (typeof rawDescription !== 'string') {
+      return sendError(res, 400, 'Skill description must be a string');
+    }
+    const skillName = name.trim();
+    const skillDescription = normalizeSkillDescription(rawDescription);
+    if (skillName.length > MAX_SKILL_NAME_LENGTH) {
+      return sendError(res, 400, `Skill name must be ${MAX_SKILL_NAME_LENGTH} characters or fewer`);
+    }
+    if (skillDescription.length > MAX_SKILL_DESCRIPTION_LENGTH) {
+      return sendError(res, 400, `Skill description must be ${MAX_SKILL_DESCRIPTION_LENGTH} characters or fewer`);
+    }
 
     const user = await User.findById(userId);
     if (!user) {
       return sendError(res, 404, 'User not found');
     }
 
-    const existingSkill = user.skills?.find((s) => s.name.toLowerCase() === name.toLowerCase());
+    const existingSkill = user.skills?.find((s) => s.name.toLowerCase() === skillName.toLowerCase());
     if (existingSkill) {
       existingSkill.description = skillDescription;
       await user.save();
@@ -1326,7 +1533,7 @@ const addSkill = async (req, res) => {
     }
 
     const newSkill = {
-      name: name.trim(),
+      name: skillName,
       description: skillDescription,
       endorsements: 0,
       createdAt: new Date(),
@@ -1335,13 +1542,16 @@ const addSkill = async (req, res) => {
     if (!user.skills) {
       user.skills = [];
     }
+    if (user.skills.length >= MAX_PROFILE_SKILLS) {
+      return sendError(res, 400, `You can add up to ${MAX_PROFILE_SKILLS} skills`);
+    }
     user.skills.push(newSkill);
     await user.save();
 
     return sendSuccess(res, 201, 'Skill added successfully', { skills: user.skills });
   } catch (error) {
     console.error('Add skill error:', error);
-    return sendError(res, 500, 'Failed to add skill');
+    return sendProfileMutationError(res, error, 'Failed to add skill');
   }
 };
 
@@ -1350,8 +1560,8 @@ const deleteSkill = async (req, res) => {
     const userId = req.user?.id;
     const { skillId } = req.params;
 
-    if (!skillId) {
-      return sendError(res, 400, 'Skill ID is required');
+    if (!mongoose.isValidObjectId(skillId)) {
+      return sendError(res, 400, 'Invalid skill ID');
     }
 
     const user = await User.findById(userId);
@@ -1370,7 +1580,7 @@ const deleteSkill = async (req, res) => {
     return sendSuccess(res, 200, 'Skill deleted successfully', { skills: user.skills });
   } catch (error) {
     console.error('Delete skill error:', error);
-    return sendError(res, 500, 'Failed to delete skill');
+    return sendProfileMutationError(res, error, 'Failed to delete skill');
   }
 };
 
@@ -1380,8 +1590,16 @@ const updateSkillDescription = async (req, res) => {
     const { skillId } = req.params;
     const { description, experience } = req.body || {};
 
-    if (!skillId) {
-      return sendError(res, 400, 'Skill ID is required');
+    if (!mongoose.isValidObjectId(skillId)) {
+      return sendError(res, 400, 'Invalid skill ID');
+    }
+    const rawDescription = description ?? experience ?? '';
+    if (typeof rawDescription !== 'string') {
+      return sendError(res, 400, 'Skill description must be a string');
+    }
+    const normalizedDescription = normalizeSkillDescription(rawDescription);
+    if (normalizedDescription.length > MAX_SKILL_DESCRIPTION_LENGTH) {
+      return sendError(res, 400, `Skill description must be ${MAX_SKILL_DESCRIPTION_LENGTH} characters or fewer`);
     }
 
     const user = await User.findById(userId);
@@ -1394,49 +1612,133 @@ const updateSkillDescription = async (req, res) => {
       return sendError(res, 404, 'Skill not found');
     }
 
-    skill.description = normalizeSkillDescription(description || experience || '');
+    skill.description = normalizedDescription;
     await user.save();
 
     return sendSuccess(res, 200, 'Skill description updated successfully', { skills: user.skills });
   } catch (error) {
     console.error('Update skill description error:', error);
-    return sendError(res, 500, 'Failed to update skill description');
+    return sendProfileMutationError(res, error, 'Failed to update skill description');
+  }
+};
+
+const addWorkExperience = async (req, res) => {
+  try {
+    const normalized = normalizeExperience(req.body);
+    if (normalized.error) return sendError(res, 400, normalized.error);
+
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    user.workExperience = user.workExperience || [];
+    if (user.workExperience.length >= MAX_WORK_EXPERIENCES) {
+      return sendError(res, 400, `You can add up to ${MAX_WORK_EXPERIENCES} work experience entries`);
+    }
+    const duplicate = user.workExperience.some((item) =>
+      item.title.toLowerCase() === normalized.value.title.toLowerCase() &&
+      item.company.toLowerCase() === normalized.value.company.toLowerCase() &&
+      item.startDate?.getTime() === normalized.value.startDate.getTime()
+    );
+    if (duplicate) {
+      return sendError(res, 409, 'This work experience is already on your profile');
+    }
+    user.workExperience.push(normalized.value);
+    await user.save();
+
+    return sendSuccess(res, 201, 'Work experience added successfully', {
+      workExperience: user.workExperience,
+    });
+  } catch (error) {
+    console.error('Add work experience error:', error);
+    return sendProfileMutationError(res, error, 'Failed to add work experience');
+  }
+};
+
+const updateWorkExperience = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.experienceId)) {
+      return sendError(res, 400, 'Invalid work experience ID');
+    }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    const experience = user.workExperience?.id(req.params.experienceId);
+    if (!experience) return sendError(res, 404, 'Work experience not found');
+
+    const normalized = normalizeExperience({ ...experience.toObject(), ...req.body });
+    if (normalized.error) return sendError(res, 400, normalized.error);
+
+    Object.assign(experience, normalized.value);
+    await user.save();
+
+    return sendSuccess(res, 200, 'Work experience updated successfully', {
+      workExperience: user.workExperience,
+    });
+  } catch (error) {
+    console.error('Update work experience error:', error);
+    return sendProfileMutationError(res, error, 'Failed to update work experience');
+  }
+};
+
+const deleteWorkExperience = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.experienceId)) {
+      return sendError(res, 400, 'Invalid work experience ID');
+    }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    const experience = user.workExperience?.id(req.params.experienceId);
+    if (!experience) return sendError(res, 404, 'Work experience not found');
+
+    experience.deleteOne();
+    await user.save();
+
+    return sendSuccess(res, 200, 'Work experience deleted successfully', {
+      workExperience: user.workExperience,
+    });
+  } catch (error) {
+    console.error('Delete work experience error:', error);
+    return sendProfileMutationError(res, error, 'Failed to delete work experience');
   }
 };
 
 // Resume upload handler
 const uploadResume = async (req, res) => {
+  let persisted = false;
   try {
     if (!req.file) {
       return sendError(res, 400, 'No file uploaded');
+    }
+    if (!hasValidResumeFileSignature(req.file)) {
+      removeUploadFile(req.file.filename);
+      return sendError(res, 400, 'Resume content does not match its PDF, DOC, or DOCX file type.');
     }
 
     const userId = req.user?.id;
     const user = await User.findById(userId);
     if (!user) {
+      removeUploadFile(req.file.filename);
       return sendError(res, 404, 'User not found');
     }
 
-    // Delete old resume file if exists
-    if (user.resumeFileName) {
-      const oldFile = resolveUploadPath(user.resumeFileName);
-      if (oldFile && fs.existsSync(oldFile)) {
-        fs.unlinkSync(oldFile);
-      }
-    }
+    const previousResumeFileName = user.resumeFileName;
 
     // Update user with new resume info
     user.resumeFileName = req.file.filename;
     user.resumeUrl = `/uploads/${req.file.filename}`;
     await user.save();
+    persisted = true;
+    if (previousResumeFileName && previousResumeFileName !== req.file.filename) {
+      removeUploadFile(previousResumeFileName);
+    }
 
     return sendSuccess(res, 200, 'Resume uploaded successfully', {
-      data: {
-        resumeUrl: user.resumeUrl,
-        resumeFileName: user.resumeFileName,
-      },
+      resumeUrl: user.resumeUrl,
+      resumeFileName: user.resumeFileName,
     });
   } catch (error) {
+    if (!persisted && req.file?.filename) removeUploadFile(req.file.filename);
     console.error('Resume upload error:', error);
     return sendError(res, 500, 'Failed to upload resume');
   }
@@ -1455,22 +1757,17 @@ const deleteResume = async (req, res) => {
       return sendError(res, 400, 'No resume found');
     }
 
-    // Delete resume file
-    const filePath = resolveUploadPath(user.resumeFileName);
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    const previousResumeFileName = user.resumeFileName;
 
     // Update user
     user.resumeFileName = null;
     user.resumeUrl = null;
     await user.save();
+    removeUploadFile(previousResumeFileName);
 
     return sendSuccess(res, 200, 'Resume deleted successfully', {
-      data: {
-        resumeUrl: null,
-        resumeFileName: null,
-      },
+      resumeUrl: null,
+      resumeFileName: null,
     });
   } catch (error) {
     console.error('Resume delete error:', error);
@@ -1480,36 +1777,36 @@ const deleteResume = async (req, res) => {
 
 // Avatar upload handler
 const uploadAvatar = async (req, res) => {
+  let persisted = false;
   try {
     if (!req.file) {
       return sendError(res, 400, 'No file uploaded');
+    }
+    if (!hasValidAvatarFileSignature(req.file)) {
+      removeUploadFile(req.file.filename);
+      return sendError(res, 400, 'Image content does not match its JPG, PNG, GIF, or WEBP file type.');
     }
 
     const userId = req.user?.id;
     const user = await User.findById(userId);
     if (!user) {
+      removeUploadFile(req.file.filename);
       return sendError(res, 404, 'User not found');
     }
 
-    // Delete old avatar file if exists
-    if (user.avatarUrl) {
-      const oldFileName = user.avatarUrl.split('/').pop();
-      const oldFile = resolveUploadPath(oldFileName);
-      if (oldFile && fs.existsSync(oldFile)) {
-        fs.unlinkSync(oldFile);
-      }
-    }
+    const previousAvatarUrl = user.avatarUrl;
 
     // Update user with new avatar
     user.avatarUrl = `/uploads/${req.file.filename}`;
     await user.save();
+    persisted = true;
+    if (previousAvatarUrl && previousAvatarUrl !== user.avatarUrl) removeUploadFile(previousAvatarUrl);
 
     return sendSuccess(res, 200, 'Avatar uploaded successfully', {
-      data: {
-        avatarUrl: user.avatarUrl,
-      },
+      avatarUrl: user.avatarUrl,
     });
   } catch (error) {
+    if (!persisted && req.file?.filename) removeUploadFile(req.file.filename);
     console.error('Avatar upload error:', error);
     return sendError(res, 500, 'Failed to upload avatar');
   }
@@ -1528,21 +1825,15 @@ const deleteAvatar = async (req, res) => {
       return sendError(res, 400, 'No avatar found');
     }
 
-    // Delete avatar file
-    const fileName = user.avatarUrl.split('/').pop();
-    const filePath = resolveUploadPath(fileName);
-    if (filePath && fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
-    }
+    const previousAvatarUrl = user.avatarUrl;
 
     // Update user
     user.avatarUrl = null;
     await user.save();
+    removeUploadFile(previousAvatarUrl);
 
     return sendSuccess(res, 200, 'Avatar deleted successfully', {
-      data: {
-        avatarUrl: null,
-      },
+      avatarUrl: null,
     });
   } catch (error) {
     console.error('Avatar delete error:', error);
@@ -1554,13 +1845,37 @@ router.get(['/profile', '/me'], verifyToken, getProfile);
 router.get('/profiles/:userId', verifyToken, getPublicProfile);
 router.patch(['/profile', '/me'], verifyToken, updateMe);
 router.post('/me/delete', verifyToken, requestSelfDelete);
-router.post('/profile/avatar', verifyToken, multerAvatar.single('avatar'), uploadAvatar);
+router.post('/profile/avatar', verifyToken, uploadAvatarFile, uploadAvatar);
 router.delete('/profile/avatar', verifyToken, deleteAvatar);
-router.post('/profile/resume', verifyToken, multerResume.single('resume'), uploadResume);
+router.post('/profile/resume', verifyToken, uploadResumeFile, uploadResume);
 router.delete('/profile/resume', verifyToken, deleteResume);
+router.get('/files/:fileName/access-link', verifyToken, (req, res) => {
+  const { fileName } = req.params;
+  if (!isSafeUploadFileName(fileName)) {
+    return sendError(res, 400, 'Invalid file name');
+  }
+
+  const downloadToken = jwt.sign(
+    {
+      userId: req.user.id,
+      role: req.user.role,
+      sessionId: req.user.sessionId,
+      purpose: 'upload-download',
+      fileName,
+    },
+    getJwtSecret(),
+    { expiresIn: '2m' }
+  );
+  return sendSuccess(res, 200, 'Temporary file link created', {
+    url: `/uploads/${encodeURIComponent(fileName)}?downloadToken=${encodeURIComponent(downloadToken)}`,
+  });
+});
 router.post('/profile/skills', verifyToken, addSkill);
 router.delete('/profile/skills/:skillId', verifyToken, deleteSkill);
 router.patch('/profile/skills/:skillId', verifyToken, updateSkillDescription);
+router.post('/profile/experience', verifyToken, addWorkExperience);
+router.patch('/profile/experience/:experienceId', verifyToken, updateWorkExperience);
+router.delete('/profile/experience/:experienceId', verifyToken, deleteWorkExperience);
 
 // Verification endpoints
 router.get('/verification/status', verifyToken, async (req, res) => {
@@ -1573,7 +1888,7 @@ router.get('/verification/status', verifyToken, async (req, res) => {
         id: 'email',
         title: 'Email address',
         description: 'Confirm the email you use to sign in and receive alerts.',
-        status: user.status === 'active' ? 'complete' : user.status === 'pending' ? 'pending' : 'pending',
+        status: user.verification?.emailVerified ? 'complete' : 'pending',
       },
       {
         id: 'phone',
@@ -1584,13 +1899,17 @@ router.get('/verification/status', verifyToken, async (req, res) => {
       {
         id: 'identity',
         title: 'Government ID',
-        description: 'Upload a valid ID to prove your identity.',
+        description: user.verification?.identityDocument?.status === 'rejected'
+          ? `Rejected: ${user.verification?.identityDocument?.rejectionReason || 'Please upload a clearer valid ID.'}`
+          : 'Upload a valid ID to prove your identity.',
         status: user.verification?.identityDocument?.status || 'pending',
       },
       {
         id: 'address',
         title: 'Proof of address',
-        description: 'Provide a recent utility bill or bank statement.',
+        description: user.verification?.addressDocument?.status === 'rejected'
+          ? `Rejected: ${user.verification?.addressDocument?.rejectionReason || 'Please upload a valid recent document.'}`
+          : 'Provide a recent utility bill or bank statement.',
         status: user.verification?.addressDocument?.status || 'pending',
       },
     ];
@@ -1679,23 +1998,34 @@ router.post('/verification/phone/confirm', verifyToken, verificationPhoneConfirm
   }
 });
 
-router.post('/verification/documents/identity', verifyToken, multerAvatar.single('document'), async (req, res) => {
+router.post('/verification/documents/identity', verifyToken, uploadVerificationFile, async (req, res) => {
+  let persisted = false;
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
     if (!req.file) {
       return res.status(400).json({ message: 'No document file provided' });
     }
+    if (!hasValidVerificationFileSignature(req.file)) {
+      removeUploadFile(req.file.filename);
+      return res.status(400).json({ message: 'The uploaded file content does not match its document type.' });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      removeUploadFile(req.file.filename);
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     const documentUrl = `/uploads/${req.file.filename}`;
+    const previousDocumentUrl = user.verification?.identityDocument?.documentUrl;
     user.verification = user.verification || {};
+    user.verification.identityVerified = false;
     user.verification.identityDocument = {
       status: 'in-review',
       documentUrl,
       uploadedAt: new Date(),
     };
     await user.save();
+    persisted = true;
+    if (previousDocumentUrl && previousDocumentUrl !== documentUrl) removeUploadFile(previousDocumentUrl);
 
     return res.status(200).json({
       message: 'Identity document uploaded successfully',
@@ -1703,28 +2033,40 @@ router.post('/verification/documents/identity', verifyToken, multerAvatar.single
       status: 'in-review',
     });
   } catch (err) {
+    if (!persisted && req.file?.filename) removeUploadFile(req.file.filename);
     console.error('Identity document upload error', err);
     return res.status(500).json({ message: 'Failed to upload identity document' });
   }
 });
 
-router.post('/verification/documents/address', verifyToken, multerAvatar.single('document'), async (req, res) => {
+router.post('/verification/documents/address', verifyToken, uploadVerificationFile, async (req, res) => {
+  let persisted = false;
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
     if (!req.file) {
       return res.status(400).json({ message: 'No document file provided' });
     }
+    if (!hasValidVerificationFileSignature(req.file)) {
+      removeUploadFile(req.file.filename);
+      return res.status(400).json({ message: 'The uploaded file content does not match its document type.' });
+    }
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      removeUploadFile(req.file.filename);
+      return res.status(404).json({ message: 'User not found' });
+    }
 
     const documentUrl = `/uploads/${req.file.filename}`;
+    const previousDocumentUrl = user.verification?.addressDocument?.documentUrl;
     user.verification = user.verification || {};
+    user.verification.addressVerified = false;
     user.verification.addressDocument = {
       status: 'in-review',
       documentUrl,
       uploadedAt: new Date(),
     };
     await user.save();
+    persisted = true;
+    if (previousDocumentUrl && previousDocumentUrl !== documentUrl) removeUploadFile(previousDocumentUrl);
 
     return res.status(200).json({
       message: 'Address document uploaded successfully',
@@ -1732,6 +2074,7 @@ router.post('/verification/documents/address', verifyToken, multerAvatar.single(
       status: 'in-review',
     });
   } catch (err) {
+    if (!persisted && req.file?.filename) removeUploadFile(req.file.filename);
     console.error('Address document upload error', err);
     return res.status(500).json({ message: 'Failed to upload address document' });
   }
