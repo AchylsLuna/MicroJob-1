@@ -15,12 +15,13 @@ import {
 } from '../controllers/JobController.js'; 
 
 import verifyToken from '../middleware/auth.js';
+import optionalAuth from '../middleware/optionalAuth.js';
 
 const router = express.Router();
 
-router.get('/', getJobList); 
-router.get('/available', getAvailableJobs);
-router.get('/category/:categoryId', getJobByCategory);
+router.get('/', optionalAuth, getJobList);
+router.get('/available', optionalAuth, getAvailableJobs);
+router.get('/category/:categoryId', optionalAuth, getJobByCategory);
 router.get('/mine', verifyToken, getMyJobs);
 router.get('/:id', getJobDetails);
 

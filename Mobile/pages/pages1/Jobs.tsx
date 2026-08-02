@@ -62,6 +62,7 @@ export default function Jobs(props: JobsProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [workerLocation, setWorkerLocation] = useState({ province: '', city: '', barangay: '' });
+  const [locationLoaded, setLocationLoaded] = useState(false);
 
   const jobTypes = ['All', 'Remote', 'Fulltime', 'Part-time', 'Freelance'];
 
@@ -138,6 +139,12 @@ export default function Jobs(props: JobsProps) {
   };
 
   const fetchJobs = useCallback(async () => {
+    if (!locationLoaded) return;
+    if (!workerLocation.city.trim()) {
+      setJobs([]);
+      setErrorMessage('Set your city or municipality in Settings before searching for local jobs.');
+      return;
+    }
     setIsLoading(true);
     setErrorMessage('');
     try {
@@ -169,7 +176,7 @@ export default function Jobs(props: JobsProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [searchQuery, selectedCategory, selectedJobType]);
+  }, [locationLoaded, searchQuery, selectedCategory, selectedJobType, workerLocation.city]);
 
   useEffect(() => {
     fetchCategories();
@@ -211,6 +218,8 @@ export default function Jobs(props: JobsProps) {
         });
       } catch {
         setWorkerLocation({ province: '', city: '', barangay: '' });
+      } finally {
+        setLocationLoaded(true);
       }
     };
 

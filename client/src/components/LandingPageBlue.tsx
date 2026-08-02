@@ -91,58 +91,9 @@ export function LandingPageBlue() {
     salary: string;
     color: string;
     icon: string;
-  }>>([
-    {
-      title: "Sneaker Designer",
-      company: "Nike Cooperation",
-      location: "United States",
-      salary: "$1000/m",
-      color: "bg-[#1C4D8D]/[0.08]",
-      icon: "👟",
-    },
-    {
-      title: "React Developer",
-      company: "Microsoft",
-      location: "Washington",
-      salary: "$4551/m",
-      color: "bg-gradient-to-br from-[#FFF9E8] to-[#FFE8C0]",
-      icon: "⚛️",
-    },
-    {
-      title: "Product Designer",
-      company: "Apple",
-      location: "California",
-      salary: "$1551/m",
-      color: "bg-gradient-to-br from-[#FFE8E8] to-[#FFCFCF]",
-      icon: "🎨",
-    },
-    {
-      title: "Senior Artvizlog",
-      company: "Google",
-      location: "United States",
-      salary: "$2000/m",
-      color: "bg-gradient-to-br from-[#E8FFE8] to-[#CFEFCF]",
-      icon: "📊",
-    },
-    {
-      title: "Chef Leader",
-      company: "Paypal",
-      location: "Florida",
-      salary: "$4521/m",
-      color: "bg-gradient-to-br from-[#FFE8F4] to-[#FFCFE8]",
-      icon: "👨‍🍳",
-    },
-    {
-      title: "Cleaning Service",
-      company: "Airbnb",
-      location: "New York",
-      salary: "$621/m",
-      color: "bg-[#1C4D8D]/[0.08]",
-      icon: "🧹",
-    },
-  ]);
-  const [, setIsJobsLoading] = useState(false);
-  const [, setJobsLoadError] = useState<string | null>(null);
+  }>>([]);
+  const [isJobsLoading, setIsJobsLoading] = useState(false);
+  const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
 
   const getJobsPath = isAuthenticated
     ? user?.accountType === "employer"
@@ -178,7 +129,7 @@ export function LandingPageBlue() {
     }
     if (job.jobPoster && typeof job.jobPoster === "object") {
       const name = `${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim();
-      return name || job.jobPoster.email || "MicroJobs";
+      return name || job.jobPoster.companyName || "MicroJobs";
     }
     return "MicroJobs";
   };
@@ -186,10 +137,15 @@ export function LandingPageBlue() {
   useEffect(() => {
     let isMounted = true;
     const loadLandingJobs = async () => {
+      if (!isAuthenticated) {
+        setJobCards([]);
+        setJobsLoadError('Sign in and set your city to see verified local opportunities.');
+        return;
+      }
       setIsJobsLoading(true);
       setJobsLoadError(null);
       try {
-        const data = await getJobs({ limit: 6 });
+        const data = await getJobs({ limit: 6, city: user?.city || undefined });
         if (!isMounted) return;
         if (Array.isArray(data) && data.length > 0) {
           setJobCards(
@@ -214,7 +170,7 @@ export function LandingPageBlue() {
     return () => {
       isMounted = false;
     };
-  }, [formatJobSalary]);
+  }, [formatJobSalary, isAuthenticated, user?.city]);
 
   const steps = [
     {
@@ -820,6 +776,12 @@ export function LandingPageBlue() {
               </motion.div>
             ))}
           </div>
+
+          {!isJobsLoading && jobCards.length === 0 ? (
+            <div className="mx-auto max-w-xl rounded-2xl border border-[#1C4D8D]/15 bg-white p-6 text-center text-sm text-slate-600">
+              {jobsLoadError || 'No jobs are available in your city yet.'}
+            </div>
+          ) : null}
 
           <motion.div 
             initial={{ opacity: 0 }}

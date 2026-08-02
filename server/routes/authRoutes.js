@@ -147,6 +147,7 @@ const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
 const cookieSecurityOptions = {
   sameSite: 'lax',
   secure: process.env.NODE_ENV === 'production',
+  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
 };
 const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -190,8 +191,7 @@ const createAccessToken = (user, sessionId) =>
   );
 
 const createSessionWithTokens = async (req, user) => {
-  const forwardedFor = String(req.headers['x-forwarded-for'] || '');
-  const requestIp = forwardedFor.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+  const requestIp = req.ip || req.socket.remoteAddress || '';
   const userAgent = req.get('User-Agent') || '';
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
@@ -233,7 +233,6 @@ const createSessionWithTokens = async (req, user) => {
   const accessTokenExpiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
   const refreshToken = crypto.randomBytes(64).toString('hex');
   const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-  session.token = accessToken;
   session.refreshTokenHash = refreshHash;
   await session.save();
 
@@ -663,7 +662,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       }
       includePhone = true;
       invalidMessage = 'Invalid phone number or password';
-      user = await User.findOne({ phoneNumber: normalizedPhone });
+      user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed');
     } else {
       const loginInput = String(emailOrUsername || '').trim();
       if (!loginInput) {
@@ -674,7 +673,7 @@ router.post('/login', loginLimiter, async (req, res) => {
           { email: normalizeEmail(loginInput) },
           { username: normalizeUsername(loginInput) },
         ],
-      });
+      }).select('+passwordHashed');
     }
 
     if (!user || !(await user.validatePassword(password))) {
@@ -949,7 +948,6 @@ router.post('/refresh', csrfProtection, async (req, res) => {
     // rotate refresh token
     const newRefresh = crypto.randomBytes(64).toString('hex');
     const newHash = crypto.createHash('sha256').update(newRefresh).digest('hex');
-    session.token = newAccess;
     session.refreshTokenHash = newHash;
     // Keep a hard 7-day session lifetime from session creation time.
     // Refresh rotates tokens but does not extend the session window.

@@ -44,7 +44,7 @@ export async function updateAlertStatus(req, res) {
     const updated = await Alert.findOneAndUpdate(
       { _id: alertId, user: userId },
       { $set: { status } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updated) {

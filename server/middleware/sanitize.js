@@ -44,6 +44,10 @@ export default function sanitize(req, res, next) {
     }
   } catch (err) {
     console.warn('Sanitization failed', err);
+    return res.status(400).json({
+      message: 'Invalid request payload.',
+      code: 'INVALID_REQUEST_PAYLOAD',
+    });
   }
-  next();
+  return next();
 }

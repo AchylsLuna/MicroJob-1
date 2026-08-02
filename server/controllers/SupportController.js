@@ -1,4 +1,5 @@
 import SupportTicket from '../models/SupportTicket.js';
+import { getWebOrigin } from '../lib/runtimeConfig.js';
 import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
@@ -77,7 +78,7 @@ const notifyAdminsByEmail = async ({ ticket, requester, eventType = 'created' })
   const mailSubject = `[MicroJobs] ${subjectPrefix}: ${ticket.subject}`;
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
   const ticketId = String(ticket._id || '');
-  const appBase = process.env.ORIGIN || 'http://localhost:5173';
+  const appBase = getWebOrigin();
   const ticketUrl = `${String(appBase).replace(/\/$/, '')}/admin/support`;
 
   const text = [

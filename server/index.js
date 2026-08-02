@@ -10,13 +10,15 @@ import morgan from 'morgan';
 import cors from 'cors';
 import helmet from 'helmet';
 import jwt from 'jsonwebtoken';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import crypto from 'crypto';
 import { initSocket } from './lib/socket.js';
 import User from './models/User.js';
 import Session from './models/Session.js';
 import sanitize from './middleware/sanitize.js';
+import { csrfForCookieSession } from './middleware/csrf.js';
 import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
 import { getJwtSecret } from './lib/jwtSecret.js';
+import { getWebOrigin, validateProductionRuntime } from './lib/runtimeConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,6 +30,7 @@ dotenv.config({ path: resolve(__dirname, '.env') });
 
 const app = express();
 const server = http.createServer(app);
+validateProductionRuntime();
 
 const parseTrustProxy = () => {
     const raw = process.env.TRUST_PROXY;
@@ -68,8 +71,7 @@ if (process.env.NODE_ENV === 'production') {
 const config = {
     PORT: Number(process.env.PORT) || 5000,
     MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI,
-    ORIGIN: process.env.WEB_ORIGIN || process.env.CLIENT_ORIGIN ||
-        (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173'),
+    ORIGIN: getWebOrigin(),
     DB_NAME: process.env.DB_NAME || 'MicroJob',
 };
 const isProduction = process.env.NODE_ENV === 'production';
@@ -94,13 +96,34 @@ app.use(
     })
 );
 
-app.use (morgan('dev'));
+app.use((req, res, next) => {
+    req.requestId = req.get('x-request-id') || crypto.randomUUID();
+    res.setHeader('x-request-id', req.requestId);
+
+    if (isProduction) {
+        const sendJson = res.json.bind(res);
+        res.json = (payload) => {
+            if (res.statusCode < 500 || !payload || typeof payload !== 'object' || Array.isArray(payload)) {
+                return sendJson(payload);
+            }
+            const safePayload = { ...payload, requestId: req.requestId };
+            delete safePayload.error;
+            delete safePayload.stack;
+            delete safePayload.details;
+            return sendJson(safePayload);
+        };
+    }
+    next();
+});
+
+app.use(morgan(isProduction ? ':method :status :response-time ms' : 'dev'));
 
 app.use(express.json());
 app.use(cookieParser());
 
 app.use(express.urlencoded({ extended: true}));
 app.use(sanitize);
+app.use(csrfForCookieSession);
 
 // Allow CORS including PATCH and preflight for the client
 app.use(cors({
@@ -396,11 +419,13 @@ const ensureDevDemoUser = async () => {
 
 //Error handler
 app.use((err, req, res, _next) => {
-    console.error(`Error: ${err.message}`);
+    console.error(`[${req.requestId || 'no-request-id'}]`, err);
     const statusCode = err.statusCode || 500;
     res.status(statusCode).json({
         success: false,
-        message: err.message || 'Internal Server Error',
+        message: isProduction && statusCode >= 500
+            ? 'Internal Server Error'
+            : err.message || 'Internal Server Error',
     })
 }) 
 const startServer = async () => {
@@ -426,6 +451,7 @@ const startServer = async () => {
         }
 
         if (mongoose.connection.readyState !== 1) {
+            const { MongoMemoryServer } = await import('mongodb-memory-server');
             inMemoryMongoServer = await MongoMemoryServer.create({
                 instance: { dbName: config.DB_NAME },
             });
@@ -454,8 +480,7 @@ const startServer = async () => {
         });
 
         server.listen(config.PORT, '0.0.0.0', () => {
-            console.log(`Server is running on http://localhost:${config.PORT}`);
-            console.log(`Mobile can access: http://192.168.1.20:${config.PORT}`);
+            console.log(`Server is listening on port ${config.PORT}`);
         });
     } catch (error) {
         console.error('Failed to connect to DB: ', error);

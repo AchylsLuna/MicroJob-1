@@ -4,7 +4,6 @@ const SessionSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   userAgent: { type: String },
   ip: { type: String },
-  token: { type: String },
   active: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   expiresAt: { type: Date },

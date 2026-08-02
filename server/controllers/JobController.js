@@ -1,10 +1,8 @@
-import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
-import { getJwtSecret } from '../lib/jwtSecret.js';
 import { createNotification } from '../lib/notificationService.js';
 
 const getRequesterId = (req) => req.user?.id || req.user?.userId || null;
@@ -16,18 +14,73 @@ const canPostJobsRole = (role) =>
     role === 'employer' ||
     role === 'doctor' ||
     isAdminRole(role);
-const canApplyRole = (role) =>
-    role === 'work' ||
-    role === 'both' ||
-    role === 'user' ||
-    role === 'worker' ||
-    role === 'patient';
-
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const PUBLIC_JOB_POSTER_SELECT = '_id firstName lastName companyName avatarUrl';
+const APPLICANT_SELECT = [
+    '_id', 'firstName', 'lastName', 'email', 'phoneNumber', 'role', 'status',
+    'city', 'province', 'jobPosition', 'about', 'skills', 'totalExperience',
+    'projectsCompleted', 'jobsApplied', 'successRate', 'avatarUrl', 'resumeUrl',
+    'resumeFileName',
+].join(' ');
+
+const serializePublicJob = (job) => {
+    const value = job?.toObject ? job.toObject() : { ...job };
+    const poster = value?.jobPoster;
+    if (poster && typeof poster === 'object') {
+        value.jobPoster = {
+            _id: poster._id,
+            firstName: poster.firstName,
+            lastName: poster.lastName,
+            companyName: poster.companyName,
+            avatarUrl: poster.avatarUrl,
+        };
+    }
+    return value;
+};
+
+const serializeApplicant = (applicant) => {
+    const value = applicant?.toObject ? applicant.toObject() : applicant;
+    return Object.fromEntries(
+        APPLICANT_SELECT.split(' ')
+            .filter((field) => value?.[field] !== undefined)
+            .map((field) => [field, value[field]])
+    );
+};
+
+const isWorkerRole = (role) => ['work', 'worker', 'user', 'patient', 'both'].includes(role);
+
+async function resolveDiscoveryCity(req) {
+    const role = getRequesterRole(req);
+    if (getRequesterId(req) && isWorkerRole(role)) {
+        const worker = await User.findById(getRequesterId(req)).select('city');
+        const city = String(worker?.city || '').trim();
+        return city ? { city } : { error: true };
+    }
+
+    const requestedCity = String(req.query?.city || '').trim();
+    if (requestedCity) return { city: requestedCity };
+
+    // Employer/admin tools retain their existing all-jobs administrative view.
+    if (getRequesterId(req) && (canPostJobsRole(role) || isAdminRole(role))) return { city: '' };
+    return { error: true };
+}
+
+const cityRequiredResponse = (res) => res.status(428).json({
+    message: 'Set your city or municipality before searching for local jobs.',
+    code: 'CITY_REQUIRED',
+});
+
+const addCityFilter = (filter, city) => {
+    if (!city) return filter;
+    const citySegment = `(?:^|,\\s*)${escapeRegExp(city)}(?:\\s*,|$)`;
+    return { ...filter, location: { $regex: citySegment, $options: 'i' } };
+};
 
 export async function getJobList(req, res) {
     try {
-        const { category, jobType, search, excludeOwn, city } = req.query;
+        const { category, jobType, search, excludeOwn } = req.query;
+        const discovery = await resolveDiscoveryCity(req);
+        if (discovery.error) return cityRequiredResponse(res);
         
         let filter = {};
         
@@ -43,12 +96,7 @@ export async function getJobList(req, res) {
         }
 
         // Local-community discovery is scoped to the worker's city/municipality.
-        if (city) {
-            const safeCity = escapeRegExp(String(city).trim());
-            if (safeCity) {
-                filter.location = { $regex: safeCity, $options: 'i' };
-            }
-        }
+        filter = addCityFilter(filter, discovery.city);
         
         // Search filter
         if (search) {
@@ -60,28 +108,15 @@ export async function getJobList(req, res) {
             ];
         }
 
-        if (excludeOwn === 'true') {
-            const authHeader = req.headers.authorization || '';
-            if (authHeader.startsWith('Bearer ')) {
-                const token = authHeader.substring(7);
-                try {
-                    const decoded = jwt.verify(token, getJwtSecret());
-                    const tokenUserId = decoded?.userId || decoded?.id || decoded?._id;
-                    if (tokenUserId) {
-                        filter.jobPoster = { $ne: tokenUserId };
-                    }
-                } catch (error) {
-                    console.warn('Token verification failed for excludeOwn:', error.message);
-                    // Ignore invalid token; return unfiltered results
-                }
-            }
+        if (excludeOwn === 'true' && getRequesterId(req)) {
+            filter.jobPoster = { $ne: getRequesterId(req) };
         }
         
         const jobs = await Job.find(filter)
             .populate('category', 'name')
-            .populate('jobPoster', '_id firstName lastName email')
+            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
             .sort({ createdAt: -1 });
-        res.status(200).json(jobs);
+        res.status(200).json(jobs.map(serializePublicJob));
     } catch (error) {
         console.error('Get jobs error:', error);
         res.status(500).json({message: "Failed to get jobs.", error: error.message});
@@ -90,8 +125,12 @@ export async function getJobList(req, res) {
 
 export async function getAvailableJobs(req, res){
     try {
-        const jobs = await Job.find({status: 'Available'});
-        res.status(200).json(jobs);
+        const discovery = await resolveDiscoveryCity(req);
+        if (discovery.error) return cityRequiredResponse(res);
+        const jobs = await Job.find(addCityFilter({ status: 'Available' }, discovery.city))
+            .populate('category', 'name')
+            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT);
+        res.status(200).json(jobs.map(serializePublicJob));
     } catch (error) {
         res.status(500).json({message: "Failed to get available jobs."})
     }
@@ -99,11 +138,15 @@ export async function getAvailableJobs(req, res){
 export async function getJobByCategory(req, res) {
     try {
         const {categoryId} = req.params;
-        const jobs = await Job.find({category: categoryId});
+        const discovery = await resolveDiscoveryCity(req);
+        if (discovery.error) return cityRequiredResponse(res);
+        const jobs = await Job.find(addCityFilter({ category: categoryId }, discovery.city))
+            .populate('category', 'name')
+            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT);
         if(!jobs || jobs.length === 0) {
             return res.status(404).json({message: "No jobs were found for this category."});
         }
-        res.status(200).json(jobs);
+        res.status(200).json(jobs.map(serializePublicJob));
     } catch (error) {
         res.status(500).json({message: "Failed to get jobs."});
     }
@@ -112,11 +155,11 @@ export async function getJobByCategory(req, res) {
 export async function getJobDetails(req, res){
     try {
         const {id} = req.params;
-        const job = await Job.findById(id).populate('category', 'name').populate('jobPoster', '_id firstName lastName email');
+        const job = await Job.findById(id).populate('category', 'name').populate('jobPoster', PUBLIC_JOB_POSTER_SELECT);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
-        res.status(200).json(job);
+        res.status(200).json(serializePublicJob(job));
     } catch (error) {
         console.error('Get job details error:', error);
         res.status(500).json({message: "Failed to get job details.", error: error.message});
@@ -128,14 +171,14 @@ export async function getApplicantsList(req, res){
         const {jobId} = req.params;
         const requesterId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
-        const job = await Job.findById(jobId).populate('applicants');
+        const job = await Job.findById(jobId).populate('applicants', APPLICANT_SELECT);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
-        if (job.jobPoster?.toString() !== requesterId && !isAdminRole(requesterRole)) {
+        if (String(job.jobPoster || '') !== String(requesterId || '') && !isAdminRole(requesterRole)) {
             return res.status(403).json({ message: "Not authorized to view applicants for this job." });
         }
-        res.status(200).json(job.applicants);
+        res.status(200).json(job.applicants.map(serializeApplicant));
     } catch (error) {
         res.status(500).json({message: "Failed to get applicants."});
     }
@@ -516,47 +559,6 @@ export async function changeJobStatus(req, res){
     }
 }
 
-export async function applyForJob(req, res){
-    try {
-        const {jobId} = req.params;
-        const userId = getRequesterId(req);
-        const requesterRole = getRequesterRole(req);
-
-        if (!userId) {
-            return res.status(401).json({ message: "Authentication required." });
-        }
-        if (!canApplyRole(requesterRole)) {
-            return res.status(403).json({ message: "Only worker accounts can apply to jobs." });
-        }
-
-        const job = await Job.findById(jobId).populate('jobPoster');
-
-        if(!job) {
-            return res.status(404).json({message: "Job not found."});
-        }
-
-        if(job.status !== "Available") {
-            return res.status(400).json({message: "Cannot apply for this job. It is not available."});
-        }
-        if(job.applicants.includes(userId)) {
-            return res.status(400).json({message: "You have already applied for this job."});
-        }
-        
-        // Prevent applying to own job regardless of role
-        if(job.jobPoster.toString() === userId) {
-            return res.status(400).json({message: "You cannot apply for your own job."});
-        }
-        
-        job.applicants.push(userId);
-
-        await job.save();
-
-        return res.status(200).json({message: "Successfully applied for the job.", job});
-    } catch (error) {
-        res.status(500).json({message: "Failed to apply for job."});
-    }
-}
-
 export async function selectApplicant(req, res){
     try {
         const {jobId, applicantId} = req.params,
@@ -658,7 +660,7 @@ export async function updateJob(req, res) {
             }
         }
 
-        const updated = await Job.findByIdAndUpdate(id, updates, { new: true })
+        const updated = await Job.findByIdAndUpdate(id, updates, { returnDocument: 'after' })
             .populate('category', 'name')
             .populate('jobPoster', 'firstName lastName email');
 

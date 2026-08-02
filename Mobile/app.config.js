@@ -3,15 +3,6 @@ const expo = {
   slug: 'mobile',
   version: '1.0.0',
   platforms: ['ios', 'android', 'web'],
-  android: {
-    package: 'com.bananas1.mobile',
-    blockedPermissions: ['android.permission.RECORD_AUDIO'],
-  },
-  plugins: [
-    'expo-secure-store',
-    '@react-native-community/datetimepicker',
-    'expo-font',
-  ],
   extra: {
     eas: {
       projectId: 'd1b2d617-2132-4db6-828e-92b06ae42e6f',
