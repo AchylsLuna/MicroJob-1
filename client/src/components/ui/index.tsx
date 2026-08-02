@@ -128,16 +128,21 @@ export function StatusState({ title, description, action, tone = "neutral" }: { 
   );
 }
 
-export function Dialog({ open, title, description, children, onClose, initialFocusRef, closeDisabled = false }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean }) {
+export function Dialog({ open, title, description, children, onClose, initialFocusRef, restoreFocusRef, closeDisabled = false }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; restoreFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
   const titleId = useId();
   const descriptionId = useId();
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
     if (!open) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const restoreTarget = restoreFocusRef?.current || previouslyFocused;
     (initialFocusRef?.current || closeRef.current)?.focus();
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !closeDisabled) onClose();
+      if (event.key === "Escape" && !closeDisabled) onCloseRef.current();
       if (event.key !== "Tab") return;
       const dialog = closeRef.current?.closest('[role="dialog"]');
       const focusable = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
@@ -150,9 +155,9 @@ export function Dialog({ open, title, description, children, onClose, initialFoc
     document.addEventListener("keydown", handleKey);
     return () => {
       document.removeEventListener("keydown", handleKey);
-      previouslyFocused?.focus();
+      restoreTarget?.focus();
     };
-  }, [closeDisabled, initialFocusRef, open, onClose]);
+  }, [closeDisabled, initialFocusRef, open, restoreFocusRef]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>

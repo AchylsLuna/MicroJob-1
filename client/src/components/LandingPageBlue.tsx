@@ -82,7 +82,6 @@ export function LandingPageBlue() {
   const dashboardPath = getDefaultDashboardPath(user);
   const { scrollYProgress } = useScroll();
 
-  const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.8]);
 
   const [jobCards, setJobCards] = useState<Array<{
@@ -98,7 +97,7 @@ export function LandingPageBlue() {
       company: "Nike Cooperation",
       location: "United States",
       salary: "$1000/m",
-      color: "bg-gradient-to-br from-[#E8F4FF] to-[#D0E8FF]",
+      color: "bg-[#1C4D8D]/[0.08]",
       icon: "👟",
     },
     {
@@ -138,7 +137,7 @@ export function LandingPageBlue() {
       company: "Airbnb",
       location: "New York",
       salary: "$621/m",
-      color: "bg-gradient-to-br from-[#E8F9FF] to-[#D0EFFF]",
+      color: "bg-[#1C4D8D]/[0.08]",
       icon: "🧹",
     },
   ]);
@@ -199,7 +198,7 @@ export function LandingPageBlue() {
               company: getCompanyName(job),
               location: job.location || "Location not specified",
               salary: formatJobSalary(job.salary),
-              color: "bg-gradient-to-br from-[#E8F4FF] to-[#D0E8FF]",
+              color: "bg-[#1C4D8D]/[0.08]",
               icon: "💼",
             })),
           );
@@ -239,7 +238,7 @@ export function LandingPageBlue() {
     {
       name: "Ashriel Mejia",
       role: "Project Manager",
-      avatarClass: "from-[#4988C4] to-[#1C4D8D]",
+      avatarClass: "from-[#1C4D8D] to-[#1C4D8D]",
       avatarImage: "/team/pic-portrait.png",
       positionClass: "top-6 left-4 sm:left-8 md:left-10",
       delay: 0.2,
@@ -335,7 +334,7 @@ export function LandingPageBlue() {
                 whileHover={{ scale: 1.05, boxShadow: "0 10px 30px rgba(73, 136, 196, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate(ROUTES.signUp)}
-                className="text-[14px] font-semibold text-white px-6 py-2.5 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] hover:shadow-lg transition-all"
+                className="brand-primary-interactive rounded-full px-6 py-2.5 text-[14px] font-semibold hover:shadow-lg"
               >
                 Get Started
               </motion.button>
@@ -347,11 +346,11 @@ export function LandingPageBlue() {
       <main>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6 relative overflow-hidden">
+      <section className="relative overflow-hidden bg-slate-50 px-6 pb-20 pt-32">
         {/* Animated Background Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-50/50 via-white to-cyan-50/30 pointer-events-none" />
+        <div className="hidden" aria-hidden="true" />
         <motion.div 
-          className="absolute top-20 right-20 w-96 h-96 bg-[#4988C4]/10 rounded-full blur-3xl"
+          className="hidden"
           animate={{
             scale: [1, 1.2, 1],
             opacity: [0.3, 0.5, 0.3],
@@ -363,7 +362,7 @@ export function LandingPageBlue() {
           }}
         />
         <motion.div 
-          className="absolute bottom-20 left-20 w-96 h-96 bg-[#1C4D8D]/10 rounded-full blur-3xl"
+          className="hidden"
           animate={{
             scale: [1.2, 1, 1.2],
             opacity: [0.3, 0.5, 0.3],
@@ -379,18 +378,18 @@ export function LandingPageBlue() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
             <motion.div
-              initial={{ opacity: 0, x: -50 }}
+              initial={false}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
             >
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
               >
                 <h1 className="text-[48px] lg:text-[56px] font-bold leading-tight text-gray-900 mb-6">
                   Unlock Your<br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] via-[#3570A8] to-[#1C4D8D] animate-gradient bg-[length:200%_auto]">
+                  <span className="text-[#1C4D8D]">
                     Career Potential
                   </span><br />
                   with Micro Jobs
@@ -398,7 +397,7 @@ export function LandingPageBlue() {
               </motion.div>
               
               <motion.p 
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4 }}
                 className="text-[16px] text-gray-600 mb-8 leading-relaxed"
@@ -408,16 +407,16 @@ export function LandingPageBlue() {
               
               {/* Enhanced Get Started Card */}
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={false}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.6 }}
-                className="bg-gradient-to-br from-white via-blue-50/30 to-white rounded-[20px] p-6 border border-blue-100 shadow-lg mb-6"
+                className="mb-6 rounded-[20px] border border-[#1C4D8D]/10 bg-white p-6 shadow-lg"
               >
                 <div className="flex items-center gap-4 mb-4">
                   <motion.div
                     animate={{ rotate: [0, 360] }}
                     transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center"
+                    className="w-12 h-12 rounded-full bg-[#1C4D8D] flex items-center justify-center"
                   >
                     <Sparkles className="w-6 h-6 text-white" />
                   </motion.div>
@@ -430,11 +429,11 @@ export function LandingPageBlue() {
                   whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.4)" }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => navigate(ROUTES.signUp)}
-                  className="w-full inline-flex items-center justify-center gap-2 text-[16px] font-semibold text-white px-8 py-4 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] hover:shadow-xl transition-all relative overflow-hidden group"
+                  className="brand-primary-interactive group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full px-8 py-4 text-[16px] font-semibold hover:shadow-xl"
                 >
                   <span className="relative z-10">Create Free Account</span>
                   <motion.div
-                    className="absolute inset-0 bg-gradient-to-r from-[#1C4D8D] to-[#4988C4]"
+                    className="absolute inset-0 bg-[#1C4D8D]"
                     initial={{ x: "100%" }}
                     whileHover={{ x: 0 }}
                     transition={{ duration: 0.3 }}
@@ -450,18 +449,18 @@ export function LandingPageBlue() {
 
             {/* Right Content - Illustration */}
             <motion.div 
-              initial={{ opacity: 0, x: 50 }}
+              initial={false}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
               className="relative"
-              style={{ opacity, scale }}
+              style={{ scale }}
             >
-              <div className="w-full aspect-square rounded-[32px] bg-gradient-to-br from-[#E8F4FF] via-[#F0F8FF] to-[#E8F9FF] p-12 relative overflow-hidden backdrop-blur-sm border border-white/50 shadow-2xl">
+              <div className="w-full aspect-square rounded-[32px] bg-[#1C4D8D]/[0.08] p-12 relative overflow-hidden backdrop-blur-sm border border-white/50 shadow-2xl">
                 {/* Floating Cards */}
                 {heroTeamCards.map((member) => (
                   <motion.div
                     key={member.name}
-                    initial={{ opacity: 0, y: 50 }}
+                    initial={false}
                     animate={{ opacity: 1, y: 0 }}
                     whileHover={{ scale: 1.08, rotate: member.hoverRotate }}
                     transition={{ delay: member.delay }}
@@ -495,9 +494,9 @@ export function LandingPageBlue() {
       </section>
 
       {/* Stats Section with Animated Counters */}
-      <section className="py-20 px-6 bg-gradient-to-br from-gray-50 to-blue-50/30 relative overflow-hidden">
+      <section className="relative overflow-hidden bg-slate-50 px-6 py-20">
         <motion.div 
-          className="absolute -top-20 -right-20 w-96 h-96 bg-[#4988C4]/5 rounded-full blur-3xl"
+          className="absolute -top-20 -right-20 w-96 h-96 bg-[#1C4D8D]/5 rounded-full blur-3xl"
           animate={{ rotate: 360 }}
           transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
         />
@@ -516,7 +515,7 @@ export function LandingPageBlue() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="text-[36px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] mb-16"
+            className="mb-16 text-[36px] font-bold text-[#1C4D8D]"
           >
             The Power of Numbers
           </motion.p>
@@ -537,7 +536,7 @@ export function LandingPageBlue() {
                 className="bg-white/80 backdrop-blur-sm rounded-[24px] p-8 shadow-lg border border-white/50"
               >
                 <motion.div 
-                  className="text-[48px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] mb-2"
+                  className="mb-2 text-[48px] font-bold text-[#1C4D8D]"
                   initial={{ scale: 0 }}
                   whileInView={{ scale: 1 }}
                   viewport={{ once: true }}
@@ -562,7 +561,7 @@ export function LandingPageBlue() {
             className="text-center mb-16"
           >
             <h2 className="text-[36px] font-bold text-gray-900 mb-2">
-              Why <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D]">Micro Jobs?</span>
+              Why <span className="text-[#1C4D8D]">Micro Jobs?</span>
             </h2>
           </motion.div>
 
@@ -579,7 +578,7 @@ export function LandingPageBlue() {
               <motion.div 
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.6 }}
-                className="w-14 h-14 rounded-[16px] bg-gradient-to-br from-[#E8F4FF] to-[#F0F8FF] flex items-center justify-center mb-6"
+                className="w-14 h-14 rounded-[16px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-6"
               >
                 <span className="text-[28px]">🎯</span>
               </motion.div>
@@ -587,7 +586,7 @@ export function LandingPageBlue() {
               <p className="text-[14px] text-gray-600 leading-relaxed mb-6">
                 Our advanced algorithm matches your skills with the perfect job opportunities, ensuring you find roles that truly fit your expertise.
               </p>
-              <div className="bg-gradient-to-br from-gray-50 to-blue-50/30 rounded-[16px] p-4 space-y-3">
+              <div className="space-y-3 rounded-[16px] bg-slate-50 p-4">
                 {["React.js - Expert", "Node.js - Advanced", "UI/UX Design - Intermediate"].map((skill, i) => (
                   <motion.div
                     key={i}
@@ -615,7 +614,7 @@ export function LandingPageBlue() {
             >
               <motion.div 
                 whileHover={{ scale: 1.2 }}
-                className="w-14 h-14 rounded-[16px] bg-gradient-to-br from-[#E8FFE8] to-[#E8F9FF] flex items-center justify-center mb-6"
+                className="w-14 h-14 rounded-[16px] bg-emerald-50 flex items-center justify-center mb-6"
               >
                 <CheckCircle className="w-7 h-7 text-[#10B981]" />
               </motion.div>
@@ -649,9 +648,9 @@ export function LandingPageBlue() {
               <motion.div 
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.6 }}
-                className="w-14 h-14 rounded-[16px] bg-gradient-to-br from-[#E8F4FF] to-[#F0F8FF] flex items-center justify-center mb-6"
+                className="w-14 h-14 rounded-[16px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-6"
               >
-                <Star className="w-7 h-7 text-[#4988C4]" />
+                <Star className="w-7 h-7 text-[#1C4D8D]" />
               </motion.div>
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Tailored Job Matches</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed">
@@ -669,9 +668,9 @@ export function LandingPageBlue() {
             >
               <motion.div 
                 whileHover={{ scale: 1.2 }}
-                className="w-14 h-14 rounded-[16px] bg-gradient-to-br from-[#E8F4FF] to-[#F0F8FF] flex items-center justify-center mb-6"
+                className="w-14 h-14 rounded-[16px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-6"
               >
-                <TrendingUp className="w-7 h-7 text-[#4988C4]" />
+                <TrendingUp className="w-7 h-7 text-[#1C4D8D]" />
               </motion.div>
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Streamlined Application Process</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed">
@@ -683,7 +682,7 @@ export function LandingPageBlue() {
       </section>
 
       {/* Three Steps Section with Parallax */}
-      <section className="py-20 px-6 bg-gradient-to-br from-[#4988C4] via-[#3570A8] to-[#1C4D8D] relative overflow-hidden scroll-mt-24" id="help">
+      <section className="relative scroll-mt-24 overflow-hidden bg-[#1C4D8D] px-6 py-20" id="help">
         <FloatingParticles />
         
         <motion.div 
@@ -726,7 +725,7 @@ export function LandingPageBlue() {
                   whileInView={{ scale: 1 }}
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.2 + 0.3, type: "spring", stiffness: 200 }}
-                  className="text-[48px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] mb-4"
+                  className="mb-4 text-[48px] font-bold text-[#1C4D8D]"
                 >
                   {step.number}
                 </motion.div>
@@ -747,7 +746,7 @@ export function LandingPageBlue() {
               whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate(startJourneyPath)}
-              className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#4988C4] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
+              className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
             >
               Start Your Journey
               <ArrowRight className="w-5 h-5" />
@@ -765,7 +764,7 @@ export function LandingPageBlue() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-[36px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] mb-2">
+            <h2 className="mb-2 text-[36px] font-bold text-[#1C4D8D]">
               Find Your Match
             </h2>
             <p className="text-[36px] font-bold text-gray-900">Job Here</p>
@@ -794,7 +793,7 @@ export function LandingPageBlue() {
                   {job.icon}
                 </motion.div>
                 
-                <h3 className="text-[18px] font-bold text-gray-900 mb-2 group-hover:text-[#4988C4] transition-colors">{job.title}</h3>
+                <h3 className="text-[18px] font-bold text-gray-900 mb-2 group-hover:opacity-80 transition-colors">{job.title}</h3>
                 
                 <div className="flex items-center gap-2 text-[13px] text-gray-600 mb-1">
                   <Briefcase className="w-4 h-4" />
@@ -813,7 +812,7 @@ export function LandingPageBlue() {
                     whileTap={{ scale: 0.9 }}
                     onClick={() => navigate(getJobsPath)}
                     aria-label={`View ${job.title}`}
-                    className="w-10 h-10 rounded-full bg-gradient-to-r from-[#4988C4] to-[#1C4D8D] flex items-center justify-center text-white group-hover:shadow-lg transition-all"
+                    className="w-10 h-10 rounded-full bg-[#1C4D8D] flex items-center justify-center text-white group-hover:shadow-lg transition-all"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </motion.button>
@@ -831,7 +830,7 @@ export function LandingPageBlue() {
             <motion.button
               whileHover={{ scale: 1.1 }}
               onClick={() => navigate(getJobsPath)}
-              className="text-[14px] font-semibold text-[#4988C4] hover:text-[#1C4D8D] transition-colors"
+              className="text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80 transition-colors"
             >
               Show More →
             </motion.button>
@@ -840,7 +839,7 @@ export function LandingPageBlue() {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-20 px-6 bg-gradient-to-br from-gray-50 to-blue-50/30">
+      <section className="bg-slate-50 px-6 py-20">
         <div className="max-w-7xl mx-auto">
           <motion.div 
             initial={{ opacity: 0, y: 30 }}
@@ -849,7 +848,7 @@ export function LandingPageBlue() {
             className="text-center mb-16"
           >
             <h2 className="text-[36px] font-bold text-gray-900 mb-2">What Our Users</h2>
-            <p className="text-[36px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#4988C4] to-[#1C4D8D]">
+            <p className="text-[36px] font-bold text-[#1C4D8D]">
               Say About Micro Jobs
             </p>
           </motion.div>
@@ -859,7 +858,7 @@ export function LandingPageBlue() {
               {
                 name: "Aisha M.",
                 role: "HR Professional",
-                gradient: "from-[#4988C4] to-[#1C4D8D]",
+                gradient: "from-[#1C4D8D] to-[#1C4D8D]",
                 text: '"Micro Jobs transformed my job search experience. Within weeks, I connected with amazing employers and found my dream role. The platform\'s matching algorithm is incredibly accurate!"'
               },
               {
@@ -918,7 +917,7 @@ export function LandingPageBlue() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             whileHover={{ scale: 1.02 }}
-            className="bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] rounded-[32px] p-12 relative overflow-hidden shadow-2xl"
+            className="relative overflow-hidden rounded-[32px] bg-[#1C4D8D] p-12 shadow-2xl"
           >
             <motion.div 
               className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl"
@@ -957,7 +956,7 @@ export function LandingPageBlue() {
                 whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate(ROUTES.signUp)}
-                className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#4988C4] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
+                className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
               >
                 Get Started for Free
                 <ArrowRight className="w-5 h-5" />

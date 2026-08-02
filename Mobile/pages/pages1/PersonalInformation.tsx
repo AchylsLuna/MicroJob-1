@@ -19,6 +19,15 @@ import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import {
+  PROFILE_LIMITS,
+  isValidOptionalProfileUrl,
+  isValidProfileName,
+  isValidProfilePhone,
+  normalizeProfileName,
+  normalizeProfilePhone,
+  validateMobileAvatar,
+} from '../../lib/profileValidation';
 
 type PersonalInformationProps = {
   onBack?: () => void;
@@ -41,12 +50,14 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   const [province, setProvince] = useState('');
   const [barangay, setBarangay] = useState('');
   const [about, setAbout] = useState('');
+  const [jobPosition, setJobPosition] = useState('');
+  const [linkedin, setLinkedin] = useState('');
+  const [website, setWebsite] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [originalEmail, setOriginalEmail] = useState('');
+  const [formError, setFormError] = useState('');
   const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
   const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
   const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
@@ -57,6 +68,10 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
   const toast = useToast();
+
+  useEffect(() => {
+    setFormError('');
+  }, [about, barangay, city, fullName, jobPosition, linkedin, phoneNumber, province, website]);
 
   const selectedProvince = useMemo(
     () => provinceOptions.find((item) => item.name.toLowerCase() === province.trim().toLowerCase()),
@@ -240,8 +255,10 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       setProvince(profile.province || '');
       setBarangay(profile.barangay || '');
       setAbout(profile.about || '');
+      setJobPosition(profile.jobPosition || '');
+      setLinkedin(profile.linkedin || '');
+      setWebsite(profile.website || '');
       setAvatarUrl(profile.avatarUrl || '');
-      setOriginalEmail(profile.email || '');
       setOriginalPhoneNumber(profile.phoneNumber || '');
     } catch (error) {
       console.log('Failed to load profile', error);
@@ -250,15 +267,6 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     }
   }, [toast]);
   loadProfileRef.current = loadProfile;
-
-  const validateFields = (): boolean => {
-    const nextErrors: Record<string, string> = {};
-    if (email.trim() && !email.includes('@')) {
-      nextErrors.email = 'Email must be valid';
-    }
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
 
   const handleUploadAvatar = async () => {
     try {
@@ -280,14 +288,19 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       }
 
       const asset = picked.assets[0];
+      const { extension, mimeType, error: avatarError } = validateMobileAvatar(asset);
+      if (avatarError) {
+        toast.error(avatarError);
+        return;
+      }
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
         toast.error('Please log in again.');
         return;
       }
 
-      const ext = (asset.fileName?.split('.').pop() || 'jpg').toLowerCase();
-      const mime = asset.mimeType || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+      const ext = extension;
+      const mime = mimeType;
       const form = new FormData();
       form.append(
         'avatar',
@@ -337,7 +350,44 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   };
 
   const handleSave = async () => {
-    if (!validateFields()) return;
+    if (isSaving) return;
+    setFormError('');
+    const parsedName = parseFullName(fullName);
+    parsedName.firstName = normalizeProfileName(parsedName.firstName);
+    parsedName.lastName = normalizeProfileName(parsedName.lastName);
+    if (!isValidProfileName(parsedName.firstName) || !isValidProfileName(parsedName.lastName)) {
+      const message = "Enter both first and last name using letters, spaces, apostrophes, periods, or hyphens.";
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    const normalizedPhone = normalizeProfilePhone(phoneNumber);
+    if (phoneNumber.trim() && !isValidProfilePhone(normalizedPhone)) {
+      const message = 'Phone number must be a Philippine mobile number in 09XXXXXXXXX format.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    const lengthChecks: Array<[string, string, number]> = [
+      ['Province', province, PROFILE_LIMITS.province],
+      ['City', city, PROFILE_LIMITS.city],
+      ['Barangay', barangay, PROFILE_LIMITS.barangay],
+      ['Professional headline', jobPosition, PROFILE_LIMITS.jobPosition],
+      ['Bio', about, PROFILE_LIMITS.about],
+    ];
+    const invalidLength = lengthChecks.find(([, value, max]) => value.trim().length > max);
+    if (invalidLength) {
+      const message = `${invalidLength[0]} must be ${invalidLength[2]} characters or fewer.`;
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (!isValidOptionalProfileUrl(linkedin) || !isValidOptionalProfileUrl(website)) {
+      const message = 'LinkedIn and website links must be valid HTTPS URLs.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -347,7 +397,6 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         return;
       }
 
-      const parsedName = parseFullName(fullName);
       const updateData: any = {
         firstName: parsedName.firstName,
         lastName: parsedName.lastName,
@@ -355,13 +404,13 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         province: province.trim(),
         barangay: barangay.trim(),
         about: about.trim(),
+        jobPosition: jobPosition.trim(),
+        linkedin: linkedin.trim(),
+        website: website.trim(),
       };
 
-      if (email.trim() !== originalEmail) {
-        updateData.email = email.trim();
-      }
-      if (phoneNumber.trim() !== originalPhoneNumber) {
-        updateData.phoneNumber = phoneNumber.trim();
+      if (normalizedPhone !== normalizeProfilePhone(originalPhoneNumber)) {
+        updateData.phoneNumber = normalizedPhone;
       }
 
       const result = await apiRequest(
@@ -378,7 +427,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       );
 
       if (!result.ok) {
-        let errorMessage = 'Failed to save personal information';
+        let errorMessage = result.message || 'Failed to save personal information';
         const errorText = JSON.stringify(result.raw || {});
 
         if (errorText.includes('401') || errorText.includes('Unauthorized')) {
@@ -387,10 +436,9 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
           await AsyncStorage.removeItem('auth_user');
         } else if (errorText.includes('phoneNumber')) {
           errorMessage = 'This phone number is already in use. Please use a different number.';
-        } else if (errorText.includes('email')) {
-          errorMessage = 'This email is already in use. Please use a different email.';
         }
 
+        setFormError(errorMessage);
         toast.error(errorMessage);
         return;
       }
@@ -401,12 +449,14 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
           const parsed = JSON.parse(storedUser);
           parsed.firstName = parsedName.firstName;
           parsed.lastName = parsedName.lastName;
-          parsed.email = email.trim();
-          parsed.phoneNumber = phoneNumber.trim();
+          parsed.phoneNumber = normalizedPhone;
           parsed.city = city.trim();
           parsed.province = province.trim();
           parsed.barangay = barangay.trim();
           parsed.about = about.trim();
+          parsed.jobPosition = jobPosition.trim();
+          parsed.linkedin = linkedin.trim();
+          parsed.website = website.trim();
           await AsyncStorage.setItem('auth_user', JSON.stringify(parsed));
         }
       } catch (cacheError) {
@@ -417,7 +467,9 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       await loadProfile();
     } catch (error) {
       console.log('Error saving personal information:', error);
-      toast.error('Failed to save personal information.');
+      const message = error instanceof Error ? error.message : 'Failed to save personal information.';
+      setFormError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -425,11 +477,11 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
 
   const renderHeader = () => (
     <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10, minHeight: Math.max(insets.top, 10) + 64 }]}>
-      <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.9}>
+      <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Go back">
         <Ionicons name="chevron-back" size={22} color="#4B5563" />
       </TouchableOpacity>
-      <Text style={styles.headerTitle}>Edit Profile</Text>
-      <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={isSaving} activeOpacity={0.9}>
+      <Text style={styles.headerTitle} accessibilityRole="header">Edit Profile</Text>
+      <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={isSaving} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Save profile" accessibilityState={{ disabled: isSaving, busy: isSaving }}>
         {isSaving ? <ActivityIndicator size="small" color={tokens.colors.brandAccent} /> : <Text style={styles.headerSaveText}>Save</Text>}
       </TouchableOpacity>
     </View>
@@ -444,7 +496,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       >
         {renderHeader()}
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={tokens.colors.brand} size="large" />
+          <ActivityIndicator color={tokens.colors.brand} size="large" accessibilityLabel="Loading profile" />
         </View>
       </KeyboardAvoidingView>
     );
@@ -465,7 +517,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         <View style={styles.avatarSection}>
           <View style={styles.avatarFrame}>
             {avatarSource ? (
-              <Image source={avatarSource} style={styles.avatar} />
+              <Image source={avatarSource} style={styles.avatar} accessibilityLabel="Current profile photo" />
             ) : (
               <View style={[styles.avatar, styles.avatarFallback]}>
                 <Text style={styles.avatarInitials}>{initials}</Text>
@@ -477,6 +529,10 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
               onPress={handleUploadAvatar}
               activeOpacity={0.9}
               disabled={isUploadingAvatar}
+              accessibilityRole="button"
+              accessibilityLabel="Change profile photo"
+              accessibilityHint="Opens your photo library"
+              accessibilityState={{ disabled: isUploadingAvatar, busy: isUploadingAvatar }}
             >
               {isUploadingAvatar ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
@@ -493,25 +549,29 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             style={styles.input}
             placeholder="e.g. Alex Morgan"
             value={fullName}
+            maxLength={61}
             onChangeText={setFullName}
             editable={!isSaving}
             placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Full name"
+            accessibilityHint="Enter your first and last name"
           />
         </View>
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Email Address</Text>
           <TextInput
-            style={[styles.input, errors.email && styles.inputError]}
+            style={[styles.input, styles.inputReadOnly]}
             placeholder="name@example.com"
             value={email}
-            onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
-            editable={!isSaving}
+            editable={false}
             placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Email address"
+            accessibilityState={{ disabled: true }}
           />
-          {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+          <Text style={styles.helperText}>Email changes require a verified change flow and are currently locked.</Text>
         </View>
 
         <View style={styles.fieldGroup}>
@@ -520,10 +580,12 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             style={styles.input}
             placeholder="+1 (555) 123-4567"
             value={phoneNumber}
+            maxLength={20}
             onChangeText={setPhoneNumber}
             keyboardType="phone-pad"
             editable={!isSaving}
             placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Phone number"
           />
         </View>
 
@@ -533,6 +595,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             style={styles.input}
             placeholder={isLoadingLocations ? 'Loading provinces...' : 'Type or select province'}
             value={province}
+            maxLength={PROFILE_LIMITS.province}
             onChangeText={(value) => {
               setProvince(value);
               setCity('');
@@ -542,6 +605,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             editable={!isSaving}
             onFocus={() => setShowProvinceOptions(true)}
             placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Province"
+            accessibilityHint="Type to filter province suggestions"
           />
           {showProvinceOptions ? (
             <View style={styles.optionsDropdown}>
@@ -553,6 +618,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
                     <TouchableOpacity
                       key={item.code}
                       style={styles.optionItem}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${item.name} province`}
                       onPress={() => {
                         setProvince(item.name);
                         setCity('');
@@ -574,6 +641,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             style={styles.input}
             placeholder={!province ? 'Select province first' : 'Type or select city'}
             value={city}
+            maxLength={PROFILE_LIMITS.city}
             onChangeText={(value) => {
               setCity(value);
               setBarangay('');
@@ -582,6 +650,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             editable={!isSaving && Boolean(province)}
             onFocus={() => setShowCityOptions(true)}
             placeholderTextColor="#9CA3AF"
+            accessibilityLabel="City or municipality"
+            accessibilityHint="Type to filter city suggestions"
           />
           {showCityOptions ? (
             <View style={styles.optionsDropdown}>
@@ -593,6 +663,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
                     <TouchableOpacity
                       key={item.code}
                       style={styles.optionItem}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${item.name}`}
                       onPress={() => {
                         setCity(item.name);
                         setBarangay('');
@@ -613,6 +685,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             style={styles.input}
             placeholder={!city ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
             value={barangay}
+            maxLength={PROFILE_LIMITS.barangay}
             onChangeText={(value) => {
               setBarangay(value);
               setShowBarangayOptions(true);
@@ -620,6 +693,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             editable={!isSaving && Boolean(city)}
             onFocus={() => setShowBarangayOptions(true)}
             placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Barangay"
+            accessibilityHint="Type to filter barangay suggestions"
           />
           {showBarangayOptions ? (
             <View style={styles.optionsDropdown}>
@@ -631,6 +706,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
                     <TouchableOpacity
                       key={item.code}
                       style={styles.optionItem}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Select ${item.name} barangay`}
                       onPress={() => {
                         setBarangay(item.name);
                         setShowBarangayOptions(false);
@@ -645,6 +722,26 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         </View>
 
         <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Professional Headline</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="e.g. House cleaner, Tutor, Delivery specialist"
+            value={jobPosition}
+            onChangeText={setJobPosition}
+            editable={!isSaving}
+            maxLength={PROFILE_LIMITS.jobPosition}
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Professional headline"
+          />
+        </View>
+
+        {formError ? (
+          <Text style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="assertive">
+            {formError}
+          </Text>
+        ) : null}
+
+        <View style={styles.fieldGroup}>
           <Text style={styles.label}>Bio</Text>
           <TextInput
             style={[styles.input, styles.bioInput]}
@@ -654,7 +751,44 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
             editable={!isSaving}
             placeholderTextColor="#9CA3AF"
             multiline
+            maxLength={PROFILE_LIMITS.about}
             textAlignVertical="top"
+            accessibilityLabel="Bio"
+          />
+          <Text style={styles.characterCount}>{about.length}/{PROFILE_LIMITS.about}</Text>
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>LinkedIn URL</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="https://linkedin.com/in/your-name"
+            value={linkedin}
+            onChangeText={setLinkedin}
+            keyboardType="url"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isSaving}
+            maxLength={PROFILE_LIMITS.url}
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="LinkedIn URL"
+          />
+        </View>
+
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Portfolio or Website</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="https://your-portfolio.example"
+            value={website}
+            onChangeText={setWebsite}
+            keyboardType="url"
+            autoCapitalize="none"
+            autoCorrect={false}
+            editable={!isSaving}
+            maxLength={PROFILE_LIMITS.url}
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Portfolio or website"
           />
         </View>
 
@@ -663,6 +797,9 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
           onPress={handleSave}
           disabled={isSaving}
           activeOpacity={0.9}
+          accessibilityRole="button"
+          accessibilityLabel="Save profile changes"
+          accessibilityState={{ disabled: isSaving, busy: isSaving }}
         >
           {isSaving ? (
             <ActivityIndicator color="#fff" size="small" />
@@ -801,6 +938,16 @@ const styles = StyleSheet.create({
   fieldGroup: {
     marginBottom: 18,
   },
+  formError: {
+    color: '#991B1B',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    lineHeight: 18,
+  },
   label: {
     fontSize: 12,
     fontWeight: '700',
@@ -818,6 +965,21 @@ const styles = StyleSheet.create({
     color: '#111827',
     backgroundColor: '#F4F6FA',
     ...tokens.shadow.card,
+  },
+  inputReadOnly: {
+    color: '#64748B',
+    backgroundColor: '#E9EEF5',
+  },
+  helperText: {
+    marginTop: 6,
+    color: '#64748B',
+    fontSize: 12,
+  },
+  characterCount: {
+    marginTop: 6,
+    alignSelf: 'flex-end',
+    color: '#64748B',
+    fontSize: 12,
   },
   bioInput: {
     minHeight: 136,

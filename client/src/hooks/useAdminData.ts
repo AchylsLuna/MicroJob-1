@@ -10,6 +10,8 @@ import {
   getAdminTransactions,
   updateUserStatus,
   updateUserByAdmin,
+  createUserByAdmin,
+  deleteUser,
   type PayoutRequest,
   type PaymentTransaction,
 } from "../services/api";
@@ -19,11 +21,28 @@ export type AdminUser = {
   firstName?: string;
   lastName?: string;
   email: string;
+  createdAt?: string;
   phoneNumber?: string | null;
   role?: "user" | "employer" | "admin" | "doctor" | "hire" | "work" | "both" | "superadmin";
   status?: "active" | "pending" | "disabled" | "deleted";
   deletedAt?: string | null;
   redactedAt?: string | null;
+  verification?: {
+    emailVerified?: boolean;
+    phoneVerified?: boolean;
+    identityVerified?: boolean;
+    addressVerified?: boolean;
+    identityDocument?: {
+      status?: 'pending' | 'in-review' | 'complete' | 'rejected';
+      documentUrl?: string;
+      rejectionReason?: string;
+    };
+    addressDocument?: {
+      status?: 'pending' | 'in-review' | 'complete' | 'rejected';
+      documentUrl?: string;
+      rejectionReason?: string;
+    };
+  };
 };
 
 export type AdminJob = {
@@ -53,7 +72,7 @@ type AdminStats = {
   availableJobs: number;
   completedJobs: number;
   totalTransactions: number;
-  totalRevenue: number;
+  completedPayoutVolume: number;
   totalCategories: number;
   pendingPayouts: number;
   openSupportTickets: number;
@@ -77,7 +96,7 @@ const DEFAULT_ADMIN_STATS: AdminStats = {
   availableJobs: 0,
   completedJobs: 0,
   totalTransactions: 0,
-  totalRevenue: 0,
+  completedPayoutVolume: 0,
   totalCategories: 0,
   pendingPayouts: 0,
   openSupportTickets: 0,
@@ -117,7 +136,7 @@ export function useAdminData() {
           getAdminCategories(),
           getAdminWalletStats(),
           getAdminRecentPayouts(),
-          getAdminTransactions().catch(() => [] as PaymentTransaction[]),
+          getAdminTransactions(),
         ]);
         
         if (!isActive) return;
@@ -273,7 +292,7 @@ export function useAdminData() {
       case "employer":
       case "doctor":
       case "hire":
-        return "bg-[#DBEAFE] text-[#1E40AF]";
+        return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
       case "user":
       case "both":
         return "bg-[#FDE68A] text-[#92400E]";
@@ -287,7 +306,7 @@ export function useAdminData() {
       case "Available":
         return "bg-[#D1FAE5] text-[#065F46]";
       case "In Progress":
-        return "bg-[#DBEAFE] text-[#1E40AF]";
+        return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
       case "Completed":
         return "bg-[#E9D5FF] text-[#6B21A8]";
       case "Cancelled":
@@ -333,6 +352,17 @@ export function useAdminData() {
     return result.user as AdminUser;
   };
 
+  const handleCreateUser = async (payload: { firstName: string; lastName: string; email: string; password: string; role: 'work' | 'hire' | 'admin' }) => {
+    const result = await createUserByAdmin(payload);
+    setUsers((current) => [result.user as AdminUser, ...current]);
+    return result.user as AdminUser;
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    await deleteUser(userId);
+    setUsers((current) => current.filter((item) => item._id !== userId));
+  };
+
   return {
     users,
     jobs,
@@ -356,6 +386,8 @@ export function useAdminData() {
     handleApproveUser,
     handleToggleUserStatus,
     handleEditUser,
+    handleCreateUser,
+    handleDeleteUser,
     reload: () => setReloadKey((current) => current + 1),
   };
 }

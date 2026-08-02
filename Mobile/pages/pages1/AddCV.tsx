@@ -5,11 +5,14 @@ import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { useToast } from '../../contexts/ToastContext';
+import { apiRequest } from '../../lib/api';
+import { validateMobileResume } from '../../lib/profileValidation';
+import { Ionicons } from '@expo/vector-icons';
 
 type AddCVProps = {
   visible: boolean;
   onClose?: () => void;
-  onAdd?: (data: any) => void;
+  onAdd?: (data: any) => Promise<void> | void;
 };
 
 type SelectedFile = {
@@ -23,6 +26,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
   const insets = useSafeAreaInsets();
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState('');
   const toast = useToast();
 
   const formatFileSize = (bytes: number): string => {
@@ -52,23 +56,30 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const file = result.assets[0];
-        
-        // Check file size (max 5MB)
-        if (file.size && file.size > 5 * 1024 * 1024) {
-          toast.error('Please select a file smaller than 5MB.');
+        const validation = validateMobileResume({
+          fileName: file.name,
+          mimeType: file.mimeType,
+          fileSize: file.size,
+        });
+        if (validation.error) {
+          setError(validation.error);
+          toast.error(validation.error);
           return;
         }
 
+        setError('');
         setSelectedFile({
           uri: file.uri,
           name: file.name,
-          mimeType: file.mimeType || 'application/pdf',
+          mimeType: validation.mimeType,
           size: file.size || 0,
         });
       }
     } catch (error) {
       console.error('Error picking file:', error);
-      toast.error('Failed to pick file. Please try again.');
+      const message = 'Failed to pick file. Please try again.';
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -96,31 +107,27 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
       formData.append('resume', fileToUpload);
 
       // Upload to server
-      const response = await fetch(`${API_URL}/auth/profile/resume`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // Don't set Content-Type header - fetch will set it automatically with boundary
-        },
-        body: formData,
+      const result = await apiRequest<{ resumeFileName?: string; resumeUrl?: string }>(
+        `${API_URL}/auth/profile/resume`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData },
+        'Failed to upload résumé.',
+      );
+
+      if (!result.ok) throw new Error(result.message);
+      await onAdd?.({
+        resumeFileName: result.data?.resumeFileName || selectedFile.name,
+        resumeUrl: result.data?.resumeUrl,
       });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        toast.success('Resume uploaded successfully');
-        onAdd?.({ 
-          resumeFileName: result.data?.resumeFileName || selectedFile.name,
-          resumeUrl: result.data?.resumeUrl 
-        });
-        setSelectedFile(null);
-        onClose?.();
-      } else {
-        toast.error(result.message || 'Failed to upload resume');
-      }
-    } catch (error) {
-      console.error('Error uploading resume:', error);
-      toast.error('Failed to upload resume. Please check your connection and try again.');
+      toast.success('Résumé uploaded successfully.');
+      setSelectedFile(null);
+      onClose?.();
+    } catch (uploadError) {
+      console.error('Error uploading resume:', uploadError);
+      const message = uploadError instanceof Error && uploadError.message
+        ? uploadError.message
+        : 'Failed to upload resume. Please check your connection and try again.';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsUploading(false);
     }
@@ -128,6 +135,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
 
   const handleClose = () => {
     setSelectedFile(null);
+    setError('');
     onClose?.();
   };
 
@@ -136,16 +144,17 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
+      accessibilityViewIsModal
     >
       <KeyboardAvoidingView 
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
-        <View style={styles.overlay} />
-        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]}>
-          <Text style={styles.modalTitle}>Upload CV</Text>
+        <View style={styles.overlay} accessible={false} />
+        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]} accessibilityViewIsModal accessibilityLabel="Upload CV">
+          <Text style={styles.modalTitle} accessibilityRole="header">Upload CV</Text>
 
           <View style={styles.content}>
             {/* File Picker */}
@@ -154,8 +163,12 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
               style={styles.filePicker} 
               onPress={handlePickFile}
               disabled={isUploading}
+              accessibilityRole="button"
+              accessibilityLabel={selectedFile ? 'Change résumé file' : 'Choose résumé file'}
+              accessibilityHint="Supported formats are PDF, DOC, and DOCX up to 5 MB"
+              accessibilityState={{ disabled: isUploading }}
             >
-              <Text style={styles.filePickerIcon}>📁</Text>
+              <Ionicons name="folder-open-outline" size={32} color="#64748B" accessibilityElementsHidden />
               <Text style={styles.filePickerText}>
                 {selectedFile ? 'Change file' : 'Choose file'}
               </Text>
@@ -166,11 +179,13 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
               Supported formats: PDF, DOC, DOCX (Max 5MB)
             </Text>
 
+            {error ? <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="assertive">{error}</Text> : null}
+
             {/* Current File Display */}
             {selectedFile && (
-              <View style={styles.selectedFile}>
+              <View style={styles.selectedFile} accessible accessibilityLabel={`${selectedFile.name}, ${getFileExtension(selectedFile.name)}, ${formatFileSize(selectedFile.size)}`}>
                 <View style={styles.fileIcon}>
-                  <Text style={styles.fileIconText}>📄</Text>
+                  <Ionicons name="document-text-outline" size={22} color="#475569" accessibilityElementsHidden />
                 </View>
                 <View style={styles.fileInfo}>
                   <Text style={styles.fileName}>{selectedFile.name}</Text>
@@ -181,8 +196,11 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
                 <TouchableOpacity 
                   onPress={() => setSelectedFile(null)}
                   disabled={isUploading}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${selectedFile.name}`}
+                  accessibilityState={{ disabled: isUploading }}
                 >
-                  <Text style={styles.removeIcon}>✕</Text>
+                  <Ionicons name="close" size={24} color="#64748B" />
                 </TouchableOpacity>
               </View>
             )}
@@ -195,6 +213,9 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
               ]} 
               onPress={handleAddCV}
               disabled={!selectedFile || isUploading}
+              accessibilityRole="button"
+              accessibilityLabel="Upload résumé"
+              accessibilityState={{ disabled: !selectedFile || isUploading, busy: isUploading }}
             >
               {isUploading ? (
                 <ActivityIndicator color="#fff" />
@@ -208,6 +229,9 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
               style={styles.cancelButton} 
               onPress={handleClose}
               disabled={isUploading}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel résumé upload"
+              accessibilityState={{ disabled: isUploading }}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
@@ -224,7 +248,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    inset: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modal: {
@@ -272,6 +297,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9ca3af',
     textAlign: 'center',
+  },
+  errorText: {
+    color: '#991B1B',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 13,
+    lineHeight: 18,
   },
   selectedFile: {
     flexDirection: 'row',

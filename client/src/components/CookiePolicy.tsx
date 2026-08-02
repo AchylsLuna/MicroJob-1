@@ -64,7 +64,7 @@ export function CookiePolicy() {
               </button>
               <Link
                 to={ROUTES.privacy}
-                className="inline-flex items-center justify-center rounded-lg bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#153d70] transition-colors"
+                className="inline-flex items-center justify-center rounded-lg bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 transition-colors"
               >
                 Privacy Policy
               </Link>
@@ -89,10 +89,10 @@ export function CookiePolicy() {
           <div className="mt-8 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
             <h3 className="text-[15px] font-semibold text-[#111827]">Cookie Contact</h3>
             <div className="mt-2 flex flex-wrap gap-3 text-[14px]">
-              <a className="font-medium text-[#1C4D8D] hover:text-[#153d70]" href={`mailto:${supportEmail}`}>
+              <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={`mailto:${supportEmail}`}>
                 {supportEmail}
               </a>
-              <a className="font-medium text-[#1C4D8D] hover:text-[#153d70]" href={supportPhoneHref}>
+              <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={supportPhoneHref}>
                 {supportPhone}
               </a>
             </div>

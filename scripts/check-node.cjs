@@ -1,6 +1,6 @@
 'use strict';
 
-const required = [22, 12, 0];
+const required = [22, 13, 0];
 const current = process.versions.node.split('.').map((part) => Number(part));
 
 const isLessThan = (a, b) => {
@@ -22,8 +22,8 @@ if (isLessThan(current, required)) {
   const currentVersion = process.versions.node;
   console.error(`\nNode.js ${requiredVersion}+ is required. You are using ${currentVersion}.`);
   console.error('Fix:');
-  console.error('  nvm use 22.12.0');
-  console.error('  # or install it: nvm install 22.12.0');
+  console.error('  nvm use 22.13.0');
+  console.error('  # or install it: nvm install 22.13.0');
   console.error('If you already have it installed, run: nvm use');
   console.error('');
   process.exit(1);

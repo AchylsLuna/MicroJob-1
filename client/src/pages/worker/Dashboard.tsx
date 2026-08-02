@@ -467,7 +467,7 @@ function WorkerDashboardContent() {
           icon={<Calendar className="h-7 w-7 text-white" />}
           title="Interviews Schedule"
           count={isStatsLoading ? 0 : interviewCount}
-          bgColor="bg-gradient-to-br from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]"
+          bgColor="bg-[#1C4D8D]"
           change="+12%"
           onClick={() => handleStatClick("Interviews Schedule")}
         />
@@ -475,7 +475,7 @@ function WorkerDashboardContent() {
           icon={<Send className="h-7 w-7 text-white" />}
           title="Application Sent"
           count={isStatsLoading ? 0 : applicationCount}
-          bgColor="bg-gradient-to-br from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]"
+          bgColor="bg-[#1C4D8D]"
           change="+8%"
           onClick={() => handleStatClick("Application Sent")}
         />
@@ -483,7 +483,7 @@ function WorkerDashboardContent() {
           icon={<Wallet className="h-7 w-7 text-white" />}
           title="E-wallet"
           count={0}
-          bgColor="bg-gradient-to-br from-[#4988C4] via-[#2F74B8] to-[#1C4D8D]"
+          bgColor="bg-[#1C4D8D]"
           change="+5%"
           onClick={() => handleStatClick("E-wallet")}
         />
@@ -491,7 +491,7 @@ function WorkerDashboardContent() {
           icon={<Mail className="h-7 w-7 text-white" />}
           title="Unread Messages"
           count={0}
-          bgColor="bg-gradient-to-br from-[#1C4D8D] via-[#1A3F78] to-[#0F2954]"
+          bgColor="bg-[#1C4D8D]"
           change="+3%"
           onClick={() => handleStatClick("Unread Messages")}
         />
@@ -533,7 +533,7 @@ function WorkerDashboardContent() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.worker.profile)}
-              className="mt-4 text-[13px] font-semibold text-[#4F46E5] hover:text-[#4338CA]"
+              className="mt-4 text-[13px] font-semibold text-[#1C4D8D] hover:opacity-80"
             >
               {isProfileVerified ? "View profile" : "Complete profile"}
             </button>
@@ -544,7 +544,7 @@ function WorkerDashboardContent() {
               <h3 className="text-[18px] font-semibold text-[#111827]">Recent Activities</h3>
               <button
                 type="button"
-                className="text-[13px] font-medium text-[#4F46E5] hover:text-[#4338CA]"
+                className="text-[13px] font-medium text-[#1C4D8D] hover:opacity-80"
                 onClick={handleViewAllActivities}
               >
                 View all
@@ -563,14 +563,14 @@ function WorkerDashboardContent() {
                       activity.type === "success"
                         ? "bg-[#D1FAE5]"
                         : activity.type === "info"
-                        ? "bg-[#DBEAFE]"
+                        ? "bg-[#1C4D8D]/10"
                         : activity.type === "message"
                         ? "bg-[#FEF3C7]"
                         : "bg-[#F1F5F9]"
                     }`}
                   >
                     {activity.type === "success" && <CheckCircle2 className="h-5 w-5 text-[#10B981]" />}
-                    {activity.type === "info" && <Clock className="h-5 w-5 text-[#3B82F6]" />}
+                    {activity.type === "info" && <Clock className="h-5 w-5 text-[#1C4D8D]" />}
                     {activity.type === "message" && <Mail className="h-5 w-5 text-[#F59E0B]" />}
                     {activity.type === "view" && <Users className="h-5 w-5 text-[#64748B]" />}
                   </div>
@@ -595,7 +595,7 @@ function WorkerDashboardContent() {
                 <button
                   type="button"
                   className={`rounded-full px-4 py-2 font-medium ${
-                    selectedFilter === "accepted" ? "bg-[#4F46E5] text-white" : "text-[#6B7280] hover:bg-[#F3F4F6]"
+                    selectedFilter === "accepted" ? "bg-[#1C4D8D] text-white" : "text-[#6B7280] hover:bg-[#F3F4F6]"
                   }`}
                   onClick={() => setSelectedFilter("accepted")}
                 >
@@ -605,7 +605,7 @@ function WorkerDashboardContent() {
                   type="button"
                   className={`rounded-full px-4 py-2 font-medium ${
                     selectedFilter === "interviews"
-                      ? "bg-[#4F46E5] text-white"
+                      ? "bg-[#1C4D8D] text-white"
                       : "text-[#6B7280] hover:bg-[#F3F4F6]"
                   }`}
                   onClick={() => setSelectedFilter("interviews")}
@@ -615,7 +615,7 @@ function WorkerDashboardContent() {
                 <button
                   type="button"
                   className={`rounded-full px-4 py-2 font-medium ${
-                    selectedFilter === "rejected" ? "bg-[#4F46E5] text-white" : "text-[#6B7280] hover:bg-[#F3F4F6]"
+                    selectedFilter === "rejected" ? "bg-[#1C4D8D] text-white" : "text-[#6B7280] hover:bg-[#F3F4F6]"
                   }`}
                   onClick={() => setSelectedFilter("rejected")}
                 >
@@ -702,7 +702,7 @@ function WorkerDashboardContent() {
               <h3 className="text-[18px] font-semibold text-[#111827]">Recommended Jobs</h3>
               <button
                 type="button"
-                className="inline-flex items-center gap-1 text-[13px] font-medium text-[#4F46E5] hover:text-[#4338CA]"
+                className="inline-flex items-center gap-1 text-[13px] font-medium text-[#1C4D8D] hover:opacity-80"
                 onClick={handleViewAllJobs}
               >
                 View all
@@ -733,7 +733,7 @@ function WorkerDashboardContent() {
                   className="rounded-[14px] border border-[#E5E7EB] bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#C7D8F9] hover:shadow-md"
                 >
                   <div className="mb-3 flex items-start justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#4F46E5] to-[#7C3AED] text-[12px] font-bold text-white">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#1C4D8D] text-[12px] font-bold text-white">
                       {job.logo}
                     </div>
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] text-[#64748B]">
@@ -755,7 +755,7 @@ function WorkerDashboardContent() {
                     <span
                       className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
                         job.type === "Remote"
-                          ? "bg-[#DBEAFE] text-[#1E40AF]"
+                          ? "bg-[#1C4D8D]/10 text-[#1C4D8D]"
                           : job.type === "Hybrid"
                           ? "bg-[#FEF3C7] text-[#92400E]"
                           : "bg-[#D1FAE5] text-[#065F46]"

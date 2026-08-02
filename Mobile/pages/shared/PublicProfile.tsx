@@ -24,18 +24,27 @@ type PublicProfileResponse = {
     id?: string;
     firstName?: string;
     lastName?: string;
-    email?: string;
     role?: string;
     city?: string;
     province?: string;
-    address?: string;
     about?: string;
+    jobPosition?: string;
+    linkedin?: string;
+    website?: string;
     totalExperience?: string;
     companyName?: string;
     avatarUrl?: string;
-    resumeUrl?: string;
-    resumeFileName?: string;
     skills?: Array<{ name?: string } | string>;
+    workExperience?: Array<{
+      _id?: string;
+      title?: string;
+      company?: string;
+      location?: string;
+      startDate?: string;
+      endDate?: string | null;
+      current?: boolean;
+      description?: string;
+    }>;
   };
   rating?: {
     viewAs?: 'worker' | 'employer';
@@ -243,7 +252,9 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
               {viewAs === 'employer' && profile.companyName ? (
                 <Text style={styles.companyText}>{profile.companyName}</Text>
               ) : null}
-              <Text style={styles.emailText}>{profile.email || 'No email'}</Text>
+              {viewAs === 'worker' && profile.jobPosition ? (
+                <Text style={styles.companyText}>{profile.jobPosition}</Text>
+              ) : null}
               {profile.city || profile.province ? (
                 <Text style={styles.locationText}>
                   📍 {[profile.city, profile.province].filter(Boolean).join(', ')}
@@ -330,6 +341,29 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
             </View>
           ) : null}
 
+          {profile.workExperience?.length && viewAs === 'worker' ? (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Work History</Text>
+              <View style={styles.workHistoryList}>
+                {profile.workExperience.map((item, index) => {
+                  const formatDate = (value?: string | null) => {
+                    if (!value) return '';
+                    const date = new Date(value);
+                    return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+                  };
+                  return (
+                    <View key={item._id || `${item.title}-${index}`} style={styles.workHistoryItem}>
+                      <Text style={styles.workHistoryTitle}>{item.title || 'Work experience'}</Text>
+                      <Text style={styles.workHistoryCompany}>{[item.company, item.location].filter(Boolean).join(' / ')}</Text>
+                      <Text style={styles.workHistoryPeriod}>{formatDate(item.startDate)} - {item.current ? 'Present' : formatDate(item.endDate)}</Text>
+                      {item.description ? <Text style={styles.workHistoryDescription}>{item.description}</Text> : null}
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          ) : null}
+
           {/* About */}
           {profile.about ? (
             <View style={styles.section}>
@@ -352,13 +386,6 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
             </View>
           ) : null}
 
-          {/* Location Details */}
-          {profile.address && viewAs === 'employer' ? (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Address</Text>
-              <Text style={styles.sectionText}>{profile.address}</Text>
-            </View>
-          ) : null}
         </View>
       </ScrollView>
     </View>
@@ -478,11 +505,6 @@ const styles = StyleSheet.create({
     color: '#1D4ED8',
     marginBottom: 4,
   },
-  emailText: {
-    fontSize: 14,
-    color: '#475569',
-    marginBottom: 4,
-  },
   locationText: {
     fontSize: 14,
     color: '#64748B',
@@ -586,6 +608,35 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#475569',
     lineHeight: 22,
+  },
+  workHistoryList: {
+    gap: 10,
+  },
+  workHistoryItem: {
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    padding: 13,
+  },
+  workHistoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  workHistoryCompany: {
+    marginTop: 2,
+    fontSize: 13,
+    color: '#475569',
+  },
+  workHistoryPeriod: {
+    marginTop: 5,
+    fontSize: 12,
+    color: '#64748B',
+  },
+  workHistoryDescription: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#475569',
   },
   skillsGrid: {
     flexDirection: 'row',

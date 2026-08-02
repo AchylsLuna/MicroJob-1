@@ -211,7 +211,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
         </button>
 
         {/* Icon */}
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center mx-auto mb-6">
+        <div className="w-16 h-16 rounded-full bg-[#1C4D8D] flex items-center justify-center mx-auto mb-6">
           <Mail className="w-8 h-8 text-white" />
         </div>
 
@@ -251,7 +251,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
         <button
           onClick={handleSubmit}
           disabled={otp.some(d => !d) || isVerifying}
-          className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 rounded-[12px] hover:shadow-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+          className="brand-primary-interactive mb-6 w-full rounded-[12px] py-4 font-semibold hover:shadow-lg"
         >
           {isVerifying ? "Verifying..." : "Verify Code"}
         </button>
@@ -262,7 +262,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
             <button
               onClick={handleResend}
               disabled={isResending}
-              className="text-[14px] text-[#1C4D8D] hover:text-[#0F2954] font-semibold flex items-center justify-center gap-2 mx-auto"
+              className="mx-auto flex items-center justify-center gap-2 text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80"
             >
               <RefreshCw className="w-4 h-4" />
               Resend code

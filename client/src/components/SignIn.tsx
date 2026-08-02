@@ -7,11 +7,12 @@ import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { OTPVerification } from "./OTPVerification";
+import { MfaLoginForm } from "./auth/MfaLoginForm";
 
 export function SignIn() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
   const dashboardPath = getDefaultDashboardPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -48,9 +49,13 @@ export function SignIn() {
 
     setIsLoading(true);
     try {
-      await login(email, password, { suppressToast: true, requireOtp: true });
-      setShowOTP(true);
-      toast.success("OTP sent to your email. Please verify to continue.");
+      const result = await login(email, password, { suppressToast: true, requireOtp: true });
+      if (result.status === "mfa_required") {
+        toast.info("Enter your authenticator code to continue.");
+      } else if (result.status === "otp_required") {
+        setShowOTP(true);
+        toast.success("OTP sent to your email. Please verify to continue.");
+      }
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {
@@ -61,12 +66,23 @@ export function SignIn() {
     }
   };
 
+  const handleMfaSignIn = async (code: string) => {
+    setIsLoading(true);
+    try {
+      await verifyMfaLogin(code);
+    } catch (error: any) {
+      toast.error(error?.message || "MFA verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleForgotPassword = () => {
     navigate(ROUTES.forgotPassword);
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center px-6 py-10 lg:py-14">
+    <main className="min-h-screen bg-[#1C4D8D] flex items-center justify-center px-6 py-10 lg:py-14">
       <div className="w-full max-w-[1200px] grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
         {/* Left Side - Branding */}
         <div className="text-white space-y-8 flex flex-col justify-start">
@@ -204,7 +220,7 @@ export function SignIn() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                className="text-[14px] text-[#1C4D8D] hover:text-[#0F2954] font-medium"
+                className="text-[14px] text-[#1C4D8D] hover:opacity-80 font-medium"
               >
                 Forgot Password?
               </button>
@@ -213,7 +229,7 @@ export function SignIn() {
             {/* Sign In Button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300"
+              className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
             >
               {isLoading ? "Signing In..." : "Sign In"}
             </button>
@@ -226,7 +242,7 @@ export function SignIn() {
               Don't have an account?{" "}
               <button
                 onClick={() => navigate(ROUTES.signUp)}
-                className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
+                className="text-[#1C4D8D] hover:opacity-80 font-semibold"
               >
                 Sign Up
               </button>
@@ -240,6 +256,23 @@ export function SignIn() {
           email={email}
           onClose={() => setShowOTP(false)}
         />
+      )}
+
+      {mfaChallenge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="Two-factor authentication">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+            <MfaLoginForm
+              email={mfaChallenge.email}
+              method={mfaChallenge.method}
+              isLoading={isLoading}
+              onSubmit={handleMfaSignIn}
+              onCancel={() => {
+                cancelMfaLogin();
+                setIsLoading(false);
+              }}
+            />
+          </div>
+        </div>
       )}
 
     </main>

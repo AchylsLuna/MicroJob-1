@@ -4,6 +4,7 @@ import {
     updateUserStatus,
     deleteUser,
     getAdminUsers,
+    createUserByAdmin,
     updateUserByAdmin,
 } from '../controllers/UserController.js';
 import auth from '../middleware/auth.js';
@@ -13,6 +14,7 @@ const router = Router();
 
 router.get('/userlist', auth, requireAdmin, getUserList);
 router.get('/admins', auth, requireAdmin, getAdminUsers);
+router.post('/', auth, requireAdmin, createUserByAdmin);
 router.patch('/:userId', auth, requireAdmin, updateUserByAdmin);
 
 // Admin actions

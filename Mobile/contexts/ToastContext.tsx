@@ -90,7 +90,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {toast && toastMeta ? (
         <View pointerEvents="none" style={styles.viewport}>
-          <View style={[styles.toastCard, { backgroundColor: toastMeta.backgroundColor, borderColor: toastMeta.borderColor }]}> 
+          <View
+            style={[styles.toastCard, { backgroundColor: toastMeta.backgroundColor, borderColor: toastMeta.borderColor }]}
+            accessible
+            accessibilityRole={toast.variant === 'error' ? 'alert' : 'text'}
+            accessibilityLiveRegion={toast.variant === 'error' ? 'assertive' : 'polite'}
+            accessibilityLabel={toast.message}
+          >
             <Ionicons name={toastMeta.icon} size={18} color={toastMeta.iconColor} />
             <Text style={[styles.toastText, { color: toastMeta.textColor }]}>{toast.message}</Text>
           </View>
