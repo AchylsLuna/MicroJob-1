@@ -179,9 +179,9 @@ function AdminEWalletMonitoringContent() {
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  // Completed payouts = all PAYOUT-type transactions (auto-pay + manual withdrawals)
+  // Completed payouts include only ledger entries that have actually completed.
   const completedPayouts = useMemo(
-    () => transactions.filter((tx) => tx.type === "PAYOUT"),
+    () => transactions.filter((tx) => tx.type === "PAYOUT" && tx.status === "COMPLETED"),
     [transactions]
   );
 

@@ -9,6 +9,8 @@ import {
   getAdminWalletStats,
   getAdminRecentPayouts,
   getAdminTransactions,
+  getAdminVerifications,
+  updateAdminVerification,
 } from '../controllers/AdminController.js';
 import { listAdminPayoutRequests, updateAdminPayoutRequest } from '../controllers/PaymentController.js';
 import {
@@ -30,6 +32,8 @@ router.get('/categories', getAdminCategories);
 router.get('/wallets', getAdminWalletStats);
 router.get('/recent-payouts', getAdminRecentPayouts);
 router.get('/transactions', getAdminTransactions);
+router.get('/verifications', getAdminVerifications);
+router.patch('/verifications/:userId/:documentType', updateAdminVerification);
 router.get('/payout-requests', listAdminPayoutRequests);
 router.patch('/payout-requests/:payoutRequestId', updateAdminPayoutRequest);
 router.get('/support/tickets', listAdminSupportTickets);

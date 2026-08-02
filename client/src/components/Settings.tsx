@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
@@ -18,6 +18,13 @@ import {
   confirmPhoneVerificationOtp,
   uploadIdentityDocument,
   uploadAddressDocument,
+  addWorkExperience,
+  updateWorkExperience,
+  deleteWorkExperience,
+  addProfileSkill,
+  updateProfileSkill,
+  deleteProfileSkill,
+  type WorkExperience,
 } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { DeleteAccountCard } from "./settings/DeleteAccountCard";
@@ -25,6 +32,25 @@ import { EmployerPaymentMethodsSection } from "./settings/EmployerPaymentMethods
 import { EmployerPrivacyCard } from "./settings/EmployerPrivacyCard";
 import { MfaSettingsCard } from "./settings/MfaSettingsCard";
 import { WorkerResumeSection } from "./settings/WorkerResumeSection";
+import { SettingsTabList } from "./settings/SettingsTabList";
+import { ConfirmDialog } from "./ui";
+import {
+  normalizeFullName,
+  normalizePhone,
+} from "../lib/authValidation";
+import {
+  PROFILE_LIMITS,
+  validateAvatarFile,
+  validateProfileDetails,
+  type ProfileValidationField,
+} from "../lib/profileValidation";
+import {
+  getPhilippineBarangays,
+  getPhilippineLocationOptions,
+  type BarangayOption,
+  type CityOption,
+  type ProvinceOption,
+} from "../services/philippineLocations";
 
 const toAbsoluteAssetUrl = (value?: string | null): string | null => {
   if (!value) return null;
@@ -73,7 +99,7 @@ const mapAccountTab = (value: string | null): AccountTab | null => {
   return null;
 };
 
-type VerificationStatus = "complete" | "pending" | "in-review";
+type VerificationStatus = "complete" | "pending" | "in-review" | "rejected";
 
 interface VerificationStep {
   id: string;
@@ -85,12 +111,14 @@ interface VerificationStep {
 const verificationStatusStyles: Record<VerificationStatus, string> = {
   complete: "bg-[#DCFCE7] text-[#166534]",
   "in-review": "bg-[#FEF3C7] text-[#92400E]",
+  rejected: "bg-[#FEE2E2] text-[#991B1B]",
   pending: "bg-[#E2E8F0] text-[#475569]",
 };
 
 const verificationStatusLabels: Record<VerificationStatus, string> = {
   complete: "Completed",
   "in-review": "In Review",
+  rejected: "Rejected",
   pending: "Pending",
 };
 
@@ -103,30 +131,42 @@ const addressSuggestions = [
   "Near Business District",
 ];
 
-interface ProvinceOption {
-  code: string;
-  name: string;
-}
-
-interface CityOption {
-  code: string;
-  name: string;
-  provinceCode?: string;
-}
-
-interface BarangayOption {
-  code: string;
-  name: string;
-}
-
-const PSGC_BASE_URL = "https://psgc.gitlab.io/api";
-
 interface SkillItem {
   id: string;
   name: string;
   description?: string;
   endorsements?: number;
 }
+
+type WorkExperienceItem = WorkExperience & { id: string };
+
+const emptyExperienceDraft: Omit<WorkExperience, "_id" | "id"> = {
+  title: "",
+  company: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  current: false,
+  description: "",
+};
+
+const toMonthInput = (value?: string | null) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value).slice(0, 7);
+  return date.toISOString().slice(0, 7);
+};
+
+const formatExperienceMonth = (value?: string | null) => {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+};
+
+const mapWorkExperiences = (items: WorkExperience[] = []): WorkExperienceItem[] =>
+  items.map((item) => ({ ...item, id: item.id || item._id || "" })).filter((item) => item.id);
 
 interface SessionInfo {
   id: string;
@@ -154,25 +194,39 @@ export function Settings() {
   const isAdminRole = roleValue === "admin" || roleValue === "superadmin";
   const isEmployerRole =
     accountTypeValue === "employer" || roleValue === "hire" || roleValue === "employer";
+  const hasEmployerAccess = isEmployerRole || roleValue === "both";
   const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [isAvatarSubmitting, setIsAvatarSubmitting] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [profileFormError, setProfileFormError] = useState("");
+  const [profileErrorField, setProfileErrorField] = useState<ProfileValidationField | null>(null);
+  const profileDraftDirtyRef = useRef(false);
 
   const [personalInfo, setPersonalInfo] = useState({
-    firstName: "Jonas",
-    lastName: "Dela Cruz",
+    firstName: "",
+    lastName: "",
     companyName: "",
-    city: "Manila",
+    city: "",
     province: "",
     barangay: "",
     addressType: "home",
     address: "",
-    phone: "+63 912 345 6789",
-    email: "jonas.delacruz@email.com",
+    phone: "",
+    email: "",
     about: "",
+    jobPosition: "",
+    linkedin: "",
+    website: "",
     photo: null as File | null,
   });
 
   const [skills, setSkills] = useState<SkillItem[]>([]);
+  const [workExperiences, setWorkExperiences] = useState<WorkExperienceItem[]>([]);
+  const [experienceDraft, setExperienceDraft] = useState(emptyExperienceDraft);
+  const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
+  const [isExperienceSaving, setIsExperienceSaving] = useState(false);
+  const [deleteExperienceTarget, setDeleteExperienceTarget] = useState<WorkExperienceItem | null>(null);
+  const [deletingExperienceId, setDeletingExperienceId] = useState<string | null>(null);
 
   const [experienceStats, setExperienceStats] = useState({
     totalExperience: "",
@@ -187,6 +241,7 @@ export function Settings() {
   const [selectedPredefinedSkill, setSelectedPredefinedSkill] = useState("");
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [editingSkillDescription, setEditingSkillDescription] = useState("");
+  const [skillMutationId, setSkillMutationId] = useState<string | null>(null);
 
   const [securityData, setSecurityData] = useState({
     currentPassword: "",
@@ -219,8 +274,12 @@ export function Settings() {
   const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
   const [isLoadingLocationData, setIsLoadingLocationData] = useState(false);
   const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
+  const [locationDataError, setLocationDataError] = useState("");
+  const [barangayDataError, setBarangayDataError] = useState("");
+  const [locationReloadKey, setLocationReloadKey] = useState(0);
 
   const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
+  const isProfileVerified = verificationStepsData.length > 0 && completedSteps === verificationStepsData.length;
 
   const selectedProvince = provinceOptions.find(
     (item) => item.name.toLowerCase() === personalInfo.province.trim().toLowerCase(),
@@ -234,7 +293,7 @@ export function Settings() {
     ? cityOptions.filter((item) => item.provinceCode === selectedProvince.code)
     : cityOptions;
 
-  const visibleMainTabs = isEmployerRole
+  const visibleMainTabs = hasEmployerAccess
     ? mainTabConfig
     : mainTabConfig.filter((tab) => tab.id !== "payments");
 
@@ -382,6 +441,11 @@ export function Settings() {
   }, [activeTab, isAdminRole]);
 
   const handlePersonalInfoChange = (field: string, value: string) => {
+    profileDraftDirtyRef.current = true;
+    if (profileFormError) {
+      setProfileFormError("");
+      setProfileErrorField(null);
+    }
     if (field === "province") {
       setPersonalInfo((prev) => ({
         ...prev,
@@ -411,6 +475,14 @@ export function Settings() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const validationError = validateAvatarFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      e.target.value = "";
+      return;
+    }
+
+    setIsAvatarSubmitting(true);
     try {
       const response = await uploadAvatar(file);
       const newAvatarUrl = toAbsoluteAssetUrl(response?.data?.avatarUrl || null);
@@ -421,10 +493,15 @@ export function Settings() {
       window.dispatchEvent(new Event('auth_user_updated'));
     } catch (error: any) {
       toast.error(error.message || "Failed to upload profile photo");
+    } finally {
+      setIsAvatarSubmitting(false);
+      e.target.value = "";
     }
   };
 
   const handleDeletePhoto = async () => {
+    if (isAvatarSubmitting) return;
+    setIsAvatarSubmitting(true);
     try {
       await deleteAvatar();
       setAvatarUrl(null);
@@ -434,24 +511,29 @@ export function Settings() {
       window.dispatchEvent(new Event('auth_user_updated'));
     } catch (error: any) {
       toast.error(error.message || "Failed to remove profile photo");
+    } finally {
+      setIsAvatarSubmitting(false);
     }
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || profileDraftDirtyRef.current) return;
     setPersonalInfo((prev) => ({
       ...prev,
-      firstName: user.firstName || prev.firstName,
-      lastName: user.lastName || prev.lastName,
-      companyName: (user as any).companyName || prev.companyName,
-      email: user.email || prev.email,
-      phone: user.phoneNumber || prev.phone,
-      city: user.city || prev.city,
-      province: (user as any).province || prev.province,
-      barangay: (user as any).barangay || prev.barangay,
-      addressType: (user as any).addressType || prev.addressType,
-      address: (user as any).address || prev.address,
-      about: user.about || prev.about,
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      companyName: (user as any).companyName || "",
+      email: user.email || "",
+      phone: user.phoneNumber || "",
+      city: user.city || "",
+      province: (user as any).province || "",
+      barangay: (user as any).barangay || "",
+      addressType: (user as any).addressType || "home",
+      address: (user as any).address || "",
+      about: user.about || "",
+      jobPosition: user.jobPosition || "",
+      linkedin: user.linkedin || "",
+      website: user.website || "",
     }));
     setExperienceStats({
       totalExperience: user.totalExperience || "",
@@ -466,6 +548,9 @@ export function Settings() {
       })) as SkillItem[];
       setSkills(mappedSkills);
     }
+    if (Array.isArray(user.workExperience)) {
+      setWorkExperiences(mapWorkExperiences(user.workExperience));
+    }
   }, [user]);
 
   useEffect(() => {
@@ -473,41 +558,17 @@ export function Settings() {
 
     const loadLocationData = async () => {
       setIsLoadingLocationData(true);
+      setLocationDataError("");
       try {
-        const [provinceResponse, cityResponse] = await Promise.all([
-          fetch(`${PSGC_BASE_URL}/provinces/`),
-          fetch(`${PSGC_BASE_URL}/cities-municipalities/`),
-        ]);
-
-        if (!provinceResponse.ok || !cityResponse.ok) {
-          throw new Error("Failed to load Philippine address data");
-        }
-
-        const [provinceJson, cityJson] = await Promise.all([provinceResponse.json(), cityResponse.json()]);
-
+        const { provinces, cities } = await getPhilippineLocationOptions();
         if (!isMounted) return;
-
-        const normalizedProvinces: ProvinceOption[] = (provinceJson || [])
-          .map((item: any) => ({
-            code: String(item.code || ""),
-            name: String(item.name || "").trim(),
-          }))
-          .filter((item: ProvinceOption) => item.code && item.name)
-          .sort((a: ProvinceOption, b: ProvinceOption) => a.name.localeCompare(b.name));
-
-        const normalizedCities: CityOption[] = (cityJson || [])
-          .map((item: any) => ({
-            code: String(item.code || ""),
-            name: String(item.name || "").trim(),
-            provinceCode: item.provinceCode ? String(item.provinceCode) : undefined,
-          }))
-          .filter((item: CityOption) => item.code && item.name)
-          .sort((a: CityOption, b: CityOption) => a.name.localeCompare(b.name));
-
-        setProvinceOptions(normalizedProvinces);
-        setCityOptions(normalizedCities);
+        setProvinceOptions(provinces);
+        setCityOptions(cities);
       } catch (error) {
         console.error("Failed to load Philippine location data:", error);
+        if (isMounted) {
+          setLocationDataError("Location suggestions are unavailable. You can type your location or retry.");
+        }
       } finally {
         if (isMounted) {
           setIsLoadingLocationData(false);
@@ -520,7 +581,7 @@ export function Settings() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [locationReloadKey]);
 
   useEffect(() => {
     let isMounted = true;
@@ -528,32 +589,21 @@ export function Settings() {
     const loadBarangays = async () => {
       if (!selectedCity?.code) {
         setBarangayOptions([]);
+        setBarangayDataError("");
         return;
       }
 
       setIsLoadingBarangays(true);
+      setBarangayDataError("");
       try {
-        const response = await fetch(`${PSGC_BASE_URL}/cities-municipalities/${selectedCity.code}/barangays/`);
-        if (!response.ok) {
-          throw new Error("Failed to load barangays");
-        }
-
-        const json = await response.json();
+        const normalized = await getPhilippineBarangays(selectedCity.code);
         if (!isMounted) return;
-
-        const normalized: BarangayOption[] = (json || [])
-          .map((item: any) => ({
-            code: String(item.code || ""),
-            name: String(item.name || "").trim(),
-          }))
-          .filter((item: BarangayOption) => item.code && item.name)
-          .sort((a: BarangayOption, b: BarangayOption) => a.name.localeCompare(b.name));
-
         setBarangayOptions(normalized);
       } catch (error) {
         console.error("Failed to load barangays:", error);
         if (isMounted) {
           setBarangayOptions([]);
+          setBarangayDataError("Barangay suggestions are unavailable. Type the barangay instead.");
         }
       } finally {
         if (isMounted) {
@@ -577,20 +627,25 @@ export function Settings() {
         const response = await getProfile();
         const profile = (response as any)?.user ?? response;
         if (!isMounted || !profile) return;
-        setPersonalInfo((prev) => ({
-          ...prev,
-          firstName: profile.firstName || prev.firstName,
-          lastName: profile.lastName || prev.lastName,
-          companyName: profile.companyName || prev.companyName,
-          email: profile.email || prev.email,
-          phone: profile.phoneNumber || prev.phone,
-          city: profile.city || prev.city,
-          province: profile.province || prev.province,
-          barangay: profile.barangay || prev.barangay,
-          addressType: profile.addressType || prev.addressType,
-          address: profile.address || prev.address,
-          about: profile.about || prev.about,
-        }));
+        if (!profileDraftDirtyRef.current) {
+          setPersonalInfo((prev) => ({
+            ...prev,
+            firstName: profile.firstName || "",
+            lastName: profile.lastName || "",
+            companyName: profile.companyName || "",
+            email: profile.email || "",
+            phone: profile.phoneNumber || "",
+            city: profile.city || "",
+            province: profile.province || "",
+            barangay: profile.barangay || "",
+            addressType: profile.addressType || "home",
+            address: profile.address || "",
+            about: profile.about || "",
+            jobPosition: profile.jobPosition || "",
+            linkedin: profile.linkedin || "",
+            website: profile.website || "",
+          }));
+        }
         if (profile.skills && Array.isArray(profile.skills)) {
           const mappedSkills = profile.skills.map((skill: any) => ({
             ...skill,
@@ -598,18 +653,15 @@ export function Settings() {
           })) as SkillItem[];
           setSkills(mappedSkills);
         }
+        setWorkExperiences(mapWorkExperiences(profile.workExperience || []));
         setExperienceStats({
           totalExperience: profile.totalExperience || "",
           projectsCompleted: profile.projectsCompleted || 0,
           jobsApplied: profile.jobsApplied || 0,
           successRate: profile.successRate || "",
         });
-        if (profile.resumeUrl) {
-          setResumeUrl(profile.resumeUrl);
-        }
-        if (profile.avatarUrl) {
-          setAvatarUrl(toAbsoluteAssetUrl(profile.avatarUrl));
-        }
+        setResumeUrl(profile.resumeUrl || null);
+        setAvatarUrl(toAbsoluteAssetUrl(profile.avatarUrl));
         if (typeof profile.hideHiredCandidates === "boolean") {
           setHideHiredCandidates(profile.hideHiredCandidates);
         }
@@ -621,6 +673,9 @@ export function Settings() {
           phoneNumber: profile.phoneNumber,
           city: profile.city,
           about: profile.about,
+          jobPosition: profile.jobPosition,
+          linkedin: profile.linkedin,
+          website: profile.website,
           totalExperience: profile.totalExperience,
           projectsCompleted: profile.projectsCompleted,
           jobsApplied: profile.jobsApplied,
@@ -641,22 +696,62 @@ export function Settings() {
   }, [updateAuthProfile]);
 
   const handleSavePersonalInfo = async () => {
+    if (isProfileSaving) return;
+    const firstName = normalizeFullName(personalInfo.firstName);
+    const lastName = normalizeFullName(personalInfo.lastName);
+    const phoneNumber = normalizePhone(personalInfo.phone);
+    const normalizedProfile = {
+      firstName,
+      lastName,
+      phone: personalInfo.phone.trim() ? phoneNumber : "",
+      companyName: personalInfo.companyName.trim(),
+      jobPosition: personalInfo.jobPosition.trim(),
+      about: personalInfo.about.trim(),
+      address: personalInfo.address.trim(),
+      linkedin: personalInfo.linkedin.trim(),
+      website: personalInfo.website.trim(),
+    };
+    const validationIssue = validateProfileDetails(normalizedProfile, { employer: isEmployerRole });
+    if (validationIssue) {
+      const fieldIds: Record<ProfileValidationField, string> = {
+        firstName: "settings-first-name",
+        lastName: "settings-last-name",
+        phone: "settings-phone",
+        companyName: "settings-company-name",
+        jobPosition: "settings-job-position",
+        about: "settings-about",
+        address: "settings-address",
+        linkedin: "settings-linkedin",
+        website: "settings-website",
+      };
+      setProfileFormError(validationIssue.message);
+      setProfileErrorField(validationIssue.field);
+      toast.error(validationIssue.message);
+      requestAnimationFrame(() => document.getElementById(fieldIds[validationIssue.field])?.focus());
+      return;
+    }
+
+    setProfileFormError("");
+    setProfileErrorField(null);
     setIsProfileSaving(true);
     try {
       const profilePayload: Record<string, string> = {
-        firstName: personalInfo.firstName,
-        lastName: personalInfo.lastName,
-        companyName: personalInfo.companyName,
-        city: personalInfo.city,
-        province: personalInfo.province,
-        barangay: personalInfo.barangay,
+        firstName,
+        lastName,
+        companyName: personalInfo.companyName.trim(),
+        city: personalInfo.city.trim(),
+        province: personalInfo.province.trim(),
+        barangay: personalInfo.barangay.trim(),
         addressType: personalInfo.addressType,
-        address: personalInfo.address,
+        address: personalInfo.address.trim(),
       };
       if (!isAdminRole) {
-        profilePayload.phoneNumber = personalInfo.phone;
-        profilePayload.about = personalInfo.about;
+        profilePayload.phoneNumber = phoneNumber;
+        profilePayload.about = personalInfo.about.trim();
         profilePayload.totalExperience = experienceStats.totalExperience;
+        profilePayload.jobPosition = personalInfo.jobPosition.trim();
+        profilePayload.linkedin = personalInfo.linkedin.trim();
+        profilePayload.website = personalInfo.website.trim();
       }
       const response = await updateProfile({
         ...profilePayload,
@@ -672,6 +767,7 @@ export function Settings() {
         successRate: updated.successRate || '0%',
       });
       
+      profileDraftDirtyRef.current = false;
       updateAuthProfile({
         firstName: updated.firstName,
         lastName: updated.lastName,
@@ -679,6 +775,9 @@ export function Settings() {
         phoneNumber: updated.phoneNumber,
         city: updated.city,
         about: updated.about || personalInfo.about,
+        jobPosition: updated.jobPosition || personalInfo.jobPosition,
+        linkedin: updated.linkedin || personalInfo.linkedin,
+        website: updated.website || personalInfo.website,
         totalExperience: updated.totalExperience || experienceStats.totalExperience,
         projectsCompleted: updated.projectsCompleted || 0,
         jobsApplied: updated.jobsApplied || 0,
@@ -687,7 +786,10 @@ export function Settings() {
       });
       toast.success("Personal information saved successfully!");
     } catch (error: any) {
-      toast.error(error?.message || "Failed to save personal information.");
+      const message = error?.message || "Failed to save personal information.";
+      setProfileFormError(message);
+      setProfileErrorField(null);
+      toast.error(message);
     } finally {
       setIsProfileSaving(false);
     }
@@ -701,22 +803,22 @@ export function Settings() {
       toast.error("Please select or enter a skill name");
       return;
     }
+    if (skillName.length > PROFILE_LIMITS.skillName) {
+      toast.error(`Skill name must be ${PROFILE_LIMITS.skillName} characters or fewer.`);
+      return;
+    }
+    if (skillDescription.length > PROFILE_LIMITS.skillDescription) {
+      toast.error(`Skill description must be ${PROFILE_LIMITS.skillDescription} characters or fewer.`);
+      return;
+    }
+    if (skills.length >= 50 && !skills.some((skill) => skill.name.toLowerCase() === skillName.toLowerCase())) {
+      toast.error("You can add up to 50 skills.");
+      return;
+    }
+    if (skillMutationId) return;
+    setSkillMutationId("new");
     try {
-      const response = await fetch("/api/auth/profile/skills", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          name: skillName,
-          description: skillDescription,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || "Failed to add skill");
-      }
+      const data = await addProfileSkill({ name: skillName, description: skillDescription });
       const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
         ...skill,
         id: skill.id || skill._id || "",
@@ -730,23 +832,20 @@ export function Settings() {
       toast.success(data?.message || `${skillName} saved to your skills!`);
     } catch (error: any) {
       toast.error(error.message || "Failed to add skill");
+    } finally {
+      setSkillMutationId(null);
     }
   };
 
   const handleEditSkillDescription = async (id: string) => {
+    if (editingSkillDescription.trim().length > PROFILE_LIMITS.skillDescription) {
+      toast.error(`Skill description must be ${PROFILE_LIMITS.skillDescription} characters or fewer.`);
+      return;
+    }
+    if (skillMutationId) return;
+    setSkillMutationId(id);
     try {
-      const response = await fetch(`/api/auth/profile/skills/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          description: editingSkillDescription,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.message || "Failed to update skill description");
+      const data = await updateProfileSkill(id, { description: editingSkillDescription });
       const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
         ...skill,
         id: skill.id || skill._id || "",
@@ -758,17 +857,16 @@ export function Settings() {
       toast.success("Skill description updated successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to update skill description");
+    } finally {
+      setSkillMutationId(null);
     }
   };
 
   const handleDeleteSkill = async (id: string) => {
+    if (skillMutationId) return;
+    setSkillMutationId(id);
     try {
-      const response = await fetch(`/api/auth/profile/skills/${id}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-      if (!response.ok) throw new Error("Failed to delete skill");
-      const data = await response.json();
+      const data = await deleteProfileSkill(id);
       const mappedSkills = (data.data?.skills || []).map((skill: any) => ({
         ...skill,
         id: skill.id || skill._id || "",
@@ -778,6 +876,102 @@ export function Settings() {
       toast.success("Skill removed successfully!");
     } catch (error: any) {
       toast.error(error.message || "Failed to remove skill");
+    } finally {
+      setSkillMutationId(null);
+    }
+  };
+
+  const resetExperienceEditor = () => {
+    setExperienceDraft(emptyExperienceDraft);
+    setEditingExperienceId(null);
+  };
+
+  const handleSaveExperience = async () => {
+    if (isExperienceSaving) return;
+    if (!experienceDraft.title.trim() || !experienceDraft.company.trim() || !experienceDraft.startDate) {
+      toast.error("Job title, company or client, and start date are required.");
+      return;
+    }
+    if (!experienceDraft.current && !experienceDraft.endDate) {
+      toast.error("Add an end date or mark this as your current role.");
+      return;
+    }
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (experienceDraft.startDate > currentMonth || (!experienceDraft.current && String(experienceDraft.endDate) > currentMonth)) {
+      toast.error("Work experience dates cannot be in the future.");
+      return;
+    }
+    if (!experienceDraft.current && experienceDraft.endDate && experienceDraft.endDate < experienceDraft.startDate) {
+      toast.error("End date cannot be before start date.");
+      return;
+    }
+    if (
+      experienceDraft.title.trim().length > PROFILE_LIMITS.experienceTitle ||
+      experienceDraft.company.trim().length > PROFILE_LIMITS.experienceCompany ||
+      (experienceDraft.location?.trim().length || 0) > PROFILE_LIMITS.experienceLocation ||
+      (experienceDraft.description?.trim().length || 0) > PROFILE_LIMITS.experienceDescription
+    ) {
+      toast.error("One or more work experience fields exceed the allowed length.");
+      return;
+    }
+    if (!editingExperienceId && workExperiences.length >= 25) {
+      toast.error("You can add up to 25 work experience entries.");
+      return;
+    }
+
+    setIsExperienceSaving(true);
+    try {
+      const payload = {
+        ...experienceDraft,
+        title: experienceDraft.title.trim(),
+        company: experienceDraft.company.trim(),
+        location: experienceDraft.location?.trim() || "",
+        description: experienceDraft.description?.trim() || "",
+        endDate: experienceDraft.current ? null : experienceDraft.endDate,
+      };
+      const response = editingExperienceId
+        ? await updateWorkExperience(editingExperienceId, payload)
+        : await addWorkExperience(payload);
+      const nextItems = mapWorkExperiences((response as any)?.workExperience || []);
+      setWorkExperiences(nextItems);
+      updateAuthProfile({ workExperience: nextItems });
+      resetExperienceEditor();
+      toast.success(editingExperienceId ? "Work experience updated." : "Work experience added.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save work experience.");
+    } finally {
+      setIsExperienceSaving(false);
+    }
+  };
+
+  const handleEditExperience = (item: WorkExperienceItem) => {
+    setEditingExperienceId(item.id);
+    setExperienceDraft({
+      title: item.title,
+      company: item.company,
+      location: item.location || "",
+      startDate: toMonthInput(item.startDate),
+      endDate: toMonthInput(item.endDate),
+      current: Boolean(item.current),
+      description: item.description || "",
+    });
+  };
+
+  const handleDeleteExperience = async (id: string) => {
+    if (deletingExperienceId) return;
+    setDeletingExperienceId(id);
+    try {
+      const response = await deleteWorkExperience(id);
+      const nextItems = mapWorkExperiences((response as any)?.workExperience || []);
+      setWorkExperiences(nextItems);
+      updateAuthProfile({ workExperience: nextItems });
+      if (editingExperienceId === id) resetExperienceEditor();
+      setDeleteExperienceTarget(null);
+      toast.success("Work experience removed.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to remove work experience.");
+    } finally {
+      setDeletingExperienceId(null);
     }
   };
 
@@ -944,45 +1138,46 @@ export function Settings() {
     <div className="max-w-[1200px] mx-auto space-y-6">
       <div className="bg-white border border-[#E5E7EB] rounded-[16px]">
         <div className="px-6 pt-6">
-          <div className="flex flex-wrap gap-2 border-b border-[#E5E7EB] pb-4">
-            {visibleMainTabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => handleMainTabChange(tab.id)}
-                className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
-                  activeTab === tab.id
-                    ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]"
-                    : "text-[#64748B] hover:bg-[#F8FAFC]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="border-b border-[#E5E7EB] pb-4">
+            <SettingsTabList
+              ariaLabel="Settings sections"
+              idPrefix="settings-main"
+              options={visibleMainTabs}
+              value={activeTab}
+              onChange={handleMainTabChange}
+            />
           </div>
         </div>
 
         {activeTab === "account" && (
-          <div className="p-6">
+          <div
+            id="settings-main-panel-account"
+            role="tabpanel"
+            aria-labelledby="settings-main-tab-account"
+            className="p-6"
+          >
             <div className="mb-6">
-              <div className="flex flex-wrap gap-2">
-                {visibleAccountTabs.map((subTab) => (
-                  <button
-                    key={subTab.id}
-                    onClick={() => handleAccountTabChange(subTab.id)}
-                    className={`px-4 py-2 rounded-full text-[13px] font-semibold transition-colors ${
-                      accountTab === subTab.id
-                        ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]"
-                        : "text-[#64748B] hover:bg-[#F8FAFC]"
-                    }`}
-                  >
-                    {subTab.label}
-                  </button>
-                ))}
-              </div>
+              <SettingsTabList
+                ariaLabel="Account settings sections"
+                idPrefix="settings-account"
+                options={visibleAccountTabs}
+                value={accountTab}
+                onChange={handleAccountTabChange}
+              />
             </div>
 
             {accountTab === "personal" && (
-              <div className="space-y-6">
+              <form
+                id="settings-account-panel-personal"
+                role="tabpanel"
+                aria-labelledby="settings-account-tab-personal"
+                className="space-y-6"
+                noValidate
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleSavePersonalInfo();
+                }}
+              >
                       <div>
                         <h2 className="text-[18px] font-semibold text-[#111827]">
                           {isEmployerRole ? "Business Information" : "Personal Information"}
@@ -991,9 +1186,15 @@ export function Settings() {
                           Update your {isEmployerRole ? "employer profile" : "profile information"}.
                         </p>
                         {isProfileLoading && (
-                          <p className="text-[12px] text-[#6B7280] mt-1">Loading profile...</p>
+                          <p className="text-[12px] text-[#6B7280] mt-1" role="status">Loading profile...</p>
                         )}
                       </div>
+
+                      {profileFormError ? (
+                        <div id="settings-profile-error" className="rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-800" role="alert">
+                          {profileFormError}
+                        </div>
+                      ) : null}
 
                       {isEmployerRole && (
                         <div className="border border-[#1C4D8D]/20 bg-[#F8FBFF] rounded-[14px] p-4">
@@ -1025,6 +1226,11 @@ export function Settings() {
                             id="settings-first-name"
                             type="text"
                             value={personalInfo.firstName}
+                            maxLength={PROFILE_LIMITS.name}
+                            required
+                            autoComplete="given-name"
+                            aria-invalid={profileErrorField === "firstName"}
+                            aria-describedby={profileErrorField === "firstName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
                             className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
@@ -1035,6 +1241,11 @@ export function Settings() {
                             id="settings-last-name"
                             type="text"
                             value={personalInfo.lastName}
+                            maxLength={PROFILE_LIMITS.name}
+                            required
+                            autoComplete="family-name"
+                            aria-invalid={profileErrorField === "lastName"}
+                            aria-describedby={profileErrorField === "lastName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
                             className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
@@ -1048,6 +1259,11 @@ export function Settings() {
                             id="settings-company-name"
                             type="text"
                             value={personalInfo.companyName}
+                            maxLength={PROFILE_LIMITS.companyName}
+                            required
+                            autoComplete="organization"
+                            aria-invalid={profileErrorField === "companyName"}
+                            aria-describedby={profileErrorField === "companyName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("companyName", e.target.value)}
                             placeholder="Enter your company name"
                             className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
@@ -1057,65 +1273,95 @@ export function Settings() {
 
                       {!isAdminRole ? (
                         <>
+                          {locationDataError ? (
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900" role="status">
+                              <span>{locationDataError}</span>
+                              <button
+                                type="button"
+                                onClick={() => setLocationReloadKey((value) => value + 1)}
+                                className="min-h-11 rounded-[8px] border border-amber-300 bg-white px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+                              >
+                                Retry
+                              </button>
+                            </div>
+                          ) : null}
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                               <label htmlFor="settings-employer-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
-                              <select
-                                id="settings-employer-city"
-                                value={personalInfo.city}
-                                onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
-                                disabled={isLoadingLocationData}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                              >
-                                <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
-                                {filteredCityOptions.map((city) => (
-                                  <option key={city.code} value={city.name}>
-                                    {city.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {locationDataError ? (
+                                <input
+                                  id="settings-employer-city"
+                                  value={personalInfo.city}
+                                  maxLength={PROFILE_LIMITS.city}
+                                  autoComplete="address-level2"
+                                  onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
+                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                                />
+                              ) : (
+                                <select
+                                  id="settings-employer-city"
+                                  value={personalInfo.city}
+                                  onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
+                                  disabled={isLoadingLocationData}
+                                  autoComplete="address-level2"
+                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                >
+                                  <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
+                                  {filteredCityOptions.map((city) => <option key={city.code} value={city.name}>{city.name}</option>)}
+                                </select>
+                              )}
                             </div>
 
                             <div>
                               <label htmlFor="settings-employer-province" className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
-                              <select
-                                id="settings-employer-province"
-                                value={personalInfo.province}
-                                onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
-                                disabled={isLoadingLocationData}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                              >
-                                <option value="">{isLoadingLocationData ? "Loading provinces..." : "Select province"}</option>
-                                {provinceOptions.map((province) => (
-                                  <option key={province.code} value={province.name}>
-                                    {province.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {locationDataError ? (
+                                <input
+                                  id="settings-employer-province"
+                                  value={personalInfo.province}
+                                  maxLength={PROFILE_LIMITS.province}
+                                  autoComplete="address-level1"
+                                  onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
+                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                                />
+                              ) : (
+                                <select
+                                  id="settings-employer-province"
+                                  value={personalInfo.province}
+                                  onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
+                                  disabled={isLoadingLocationData}
+                                  autoComplete="address-level1"
+                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                >
+                                  <option value="">{isLoadingLocationData ? "Loading provinces..." : "Select province"}</option>
+                                  {provinceOptions.map((province) => <option key={province.code} value={province.name}>{province.name}</option>)}
+                                </select>
+                              )}
                             </div>
 
                             <div>
                               <label htmlFor="settings-employer-barangay" className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
-                              <select
-                                id="settings-employer-barangay"
-                                value={personalInfo.barangay}
-                                onChange={(e) => handlePersonalInfoChange("barangay", e.target.value)}
-                                disabled={isLoadingBarangays || !personalInfo.city}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                              >
-                                <option value="">
-                                  {!personalInfo.city
-                                    ? "Select city first"
-                                    : isLoadingBarangays
-                                    ? "Loading barangays..."
-                                    : "Select barangay"}
-                                </option>
-                                {barangayOptions.map((barangay) => (
-                                  <option key={barangay.code} value={barangay.name}>
-                                    {barangay.name}
-                                  </option>
-                                ))}
-                              </select>
+                              {locationDataError || barangayDataError ? (
+                                <input
+                                  id="settings-employer-barangay"
+                                  value={personalInfo.barangay}
+                                  maxLength={PROFILE_LIMITS.barangay}
+                                  onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
+                                  aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
+                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                                />
+                              ) : (
+                                <select
+                                  id="settings-employer-barangay"
+                                  value={personalInfo.barangay}
+                                  onChange={(e) => handlePersonalInfoChange("barangay", e.target.value)}
+                                  disabled={isLoadingBarangays || !personalInfo.city}
+                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                >
+                                  <option value="">{!personalInfo.city ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Select barangay"}</option>
+                                  {barangayOptions.map((barangay) => <option key={barangay.code} value={barangay.name}>{barangay.name}</option>)}
+                                </select>
+                              )}
+                              {barangayDataError ? <p id="settings-barangay-help" className="mt-1 text-[12px] text-amber-800">{barangayDataError}</p> : null}
                             </div>
                           </div>
 
@@ -1140,6 +1386,10 @@ export function Settings() {
                                 type="text"
                                 list="settings-address-options"
                                 value={personalInfo.address}
+                                maxLength={PROFILE_LIMITS.address}
+                                autoComplete="street-address"
+                                aria-invalid={profileErrorField === "address"}
+                                aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
                                 onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
                                 placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
                                 className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
@@ -1181,6 +1431,11 @@ export function Settings() {
                               id="settings-phone"
                               type="tel"
                               value={personalInfo.phone}
+                              autoComplete="tel"
+                              inputMode="tel"
+                              aria-invalid={profileErrorField === "phone"}
+                              aria-describedby={profileErrorField === "phone" ? "settings-profile-error" : undefined}
+                              maxLength={20}
                               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
                               placeholder="e.g., 0917 123 4567"
                               className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
@@ -1219,11 +1474,65 @@ export function Settings() {
                             <textarea
                               id="settings-about"
                               value={personalInfo.about}
+                              maxLength={PROFILE_LIMITS.about}
+                              aria-invalid={profileErrorField === "about"}
+                              aria-describedby={profileErrorField === "about" ? "settings-profile-error settings-about-count" : "settings-about-count"}
                               onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
                               placeholder="Tell us about yourself, your experience, and what you're passionate about..."
                               className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={4}
                             />
+                            <p id="settings-about-count" className="mt-1 text-right text-[12px] text-[#64748B]">
+                              {personalInfo.about.length}/{PROFILE_LIMITS.about}
+                            </p>
+                          </div>
+
+                          <div>
+                            <label htmlFor="settings-job-position" className="text-[14px] font-medium text-[#475569] mb-2 block">Professional headline</label>
+                            <input
+                              id="settings-job-position"
+                              type="text"
+                              value={personalInfo.jobPosition}
+                              onChange={(e) => handlePersonalInfoChange("jobPosition", e.target.value)}
+                              placeholder="e.g., House cleaner, Tutor, Delivery specialist"
+                              maxLength={PROFILE_LIMITS.jobPosition}
+                              aria-invalid={profileErrorField === "jobPosition"}
+                              aria-describedby={profileErrorField === "jobPosition" ? "settings-profile-error" : undefined}
+                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                              <label htmlFor="settings-linkedin" className="text-[14px] font-medium text-[#475569] mb-2 block">LinkedIn URL</label>
+                              <input
+                                id="settings-linkedin"
+                                type="url"
+                                value={personalInfo.linkedin}
+                                onChange={(e) => handlePersonalInfoChange("linkedin", e.target.value)}
+                                placeholder="https://linkedin.com/in/your-name"
+                                maxLength={PROFILE_LIMITS.url}
+                                autoComplete="url"
+                                aria-invalid={profileErrorField === "linkedin"}
+                                aria-describedby={profileErrorField === "linkedin" ? "settings-profile-error" : undefined}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              />
+                            </div>
+                            <div>
+                              <label htmlFor="settings-website" className="text-[14px] font-medium text-[#475569] mb-2 block">Portfolio or website</label>
+                              <input
+                                id="settings-website"
+                                type="url"
+                                value={personalInfo.website}
+                                onChange={(e) => handlePersonalInfoChange("website", e.target.value)}
+                                placeholder="https://your-portfolio.example"
+                                maxLength={PROFILE_LIMITS.url}
+                                autoComplete="url"
+                                aria-invalid={profileErrorField === "website"}
+                                aria-describedby={profileErrorField === "website" ? "settings-profile-error" : undefined}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              />
+                            </div>
                           </div>
 
                           <div>
@@ -1264,13 +1573,18 @@ export function Settings() {
                                     Change photo
                                     <input
                                       type="file"
-                                      accept="image/*"
+                                      accept=".jpg,.jpeg,.png,.gif,.webp"
                                       onChange={handlePhotoUpload}
-                                      className="hidden"
+                                      disabled={isAvatarSubmitting}
+                                      aria-label="Choose a new profile photo"
+                                      className="sr-only"
                                     />
                                   </label>
                                   <button
+                                    type="button"
                                     onClick={handleDeletePhoto}
+                                    disabled={isAvatarSubmitting}
+                                    aria-busy={isAvatarSubmitting}
                                     className="text-[#EF4444] hover:bg-[#FEE2E2] px-6 py-2 rounded-[10px] transition-all text-[14px] font-medium border border-[#FCA5A5]"
                                   >
                                     Remove photo
@@ -1279,14 +1593,16 @@ export function Settings() {
                               </div>
                             ) : (
                               <div className="flex flex-wrap items-center gap-4">
-                                <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2">
+                                <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
                                   <Upload className="w-4 h-4" />
                                   Upload your photo
                                   <input
                                     type="file"
-                                    accept="image/*"
+                                    accept=".jpg,.jpeg,.png,.gif,.webp"
                                     onChange={handlePhotoUpload}
-                                    className="hidden"
+                                    disabled={isAvatarSubmitting}
+                                    aria-label="Choose a profile photo"
+                                    className="sr-only"
                                   />
                                 </label>
                                 <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
@@ -1297,22 +1613,104 @@ export function Settings() {
                       )}
 
                       <button
-                        onClick={handleSavePersonalInfo}
+                        type="submit"
                         disabled={isProfileSaving}
+                        aria-busy={isProfileSaving}
                         className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
                           isProfileSaving ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
                         }`}
                       >
                         {isProfileSaving ? "Saving..." : "Save changes"}
                       </button>
-                    </div>
+                    </form>
                   )}
 
                   {accountTab === "experience" && !isEmployerRole && (
-                    <div className="space-y-6">
+                    <div
+                      id="settings-account-panel-experience"
+                      role="tabpanel"
+                      aria-labelledby="settings-account-tab-experience"
+                      className="space-y-6"
+                    >
                       <div>
                         <h2 className="text-[18px] font-semibold text-[#111827]">Skills & Experience</h2>
                         <p className="text-[13px] text-[#6B7280]">Add and manage your skills and expertise.</p>
+                      </div>
+
+                      <div className="rounded-[16px] border border-[#E2E8F0] bg-white p-6 space-y-5">
+                        <div>
+                          <h3 className="text-[16px] font-semibold text-[#1E293B]">
+                            {editingExperienceId ? "Edit work experience" : "Add work experience"}
+                          </h3>
+                          <p className="mt-1 text-[13px] text-[#64748B]">Show employers the roles, client work, or self-employment that support your skills.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="experience-title" className="text-[13px] font-medium text-[#475569] mb-2 block">Job title *</label>
+                            <input id="experience-title" value={experienceDraft.title} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Math tutor" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="experience-company" className="text-[13px] font-medium text-[#475569] mb-2 block">Company or client *</label>
+                            <input id="experience-company" value={experienceDraft.company} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Self-employed" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="experience-location" className="text-[13px] font-medium text-[#475569] mb-2 block">Location</label>
+                            <input id="experience-location" value={experienceDraft.location} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label htmlFor="experience-start" className="text-[13px] font-medium text-[#475569] mb-2 block">Start *</label>
+                              <input id="experience-start" type="month" value={experienceDraft.startDate} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-[#E2E8F0] rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            </div>
+                            <div>
+                              <label htmlFor="experience-end" className="text-[13px] font-medium text-[#475569] mb-2 block">End *</label>
+                              <input id="experience-end" type="month" value={experienceDraft.endDate || ""} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={experienceDraft.current} className="w-full border border-[#E2E8F0] rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 text-[13px] text-[#475569] cursor-pointer">
+                          <input type="checkbox" checked={experienceDraft.current} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? "" : prev.endDate }))} className="w-4 h-4" />
+                          I currently work here
+                        </label>
+
+                        <div>
+                          <label htmlFor="experience-description" className="text-[13px] font-medium text-[#475569] mb-2 block">Description</label>
+                          <textarea id="experience-description" value={experienceDraft.description} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" onClick={handleSaveExperience} disabled={isExperienceSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                            {isExperienceSaving ? "Saving..." : editingExperienceId ? "Save experience" : "Add experience"}
+                          </button>
+                          {editingExperienceId && (
+                            <button type="button" onClick={resetExperienceEditor} className="bg-[#F1F5F9] text-[#475569] font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-[16px] font-semibold text-[#1E293B]">Work history</h3>
+                          <span className="text-[12px] text-[#64748B]">{workExperiences.length} {workExperiences.length === 1 ? "entry" : "entries"}</span>
+                        </div>
+                        {workExperiences.length ? workExperiences.map((item) => (
+                          <div key={item.id} className="rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="text-[15px] font-semibold text-[#1E293B]">{item.title}</p>
+                              <p className="text-[13px] text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                              <p className="mt-1 text-[12px] text-[#64748B]">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
+                              {item.description ? <p className="mt-3 text-[13px] text-[#475569] whitespace-pre-line">{item.description}</p> : null}
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button type="button" onClick={() => handleEditExperience(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => setDeleteExperienceTarget(item)} aria-label={`Delete ${item.title} experience`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-8 text-center text-[13px] text-[#64748B]">No work history added yet.</div>
+                        )}
                       </div>
 
                       {/* Experience Stats Section - Read Only Display */}
@@ -1499,10 +1897,16 @@ export function Settings() {
                                 aria-labelledby="settings-skill-name-label"
                                 type="text"
                                 value={newSkillName}
+                                maxLength={PROFILE_LIMITS.skillName}
                                 onChange={(e) => setNewSkillName(e.target.value)}
                                 placeholder="e.g., Flutter, Blockchain, Video Editing"
                                 className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                                onKeyPress={(e) => e.key === "Enter" && handleAddSkill()}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    void handleAddSkill();
+                                  }
+                                }}
                               />
                             )}
                           </div>
@@ -1512,18 +1916,25 @@ export function Settings() {
                             <textarea
                               id="settings-skill-description"
                               value={newSkillDescription}
+                              maxLength={PROFILE_LIMITS.skillDescription}
+                              aria-describedby="settings-skill-description-count"
                               onChange={(e) => setNewSkillDescription(e.target.value)}
                               placeholder="Optional: describe what you can do or your experience with this skill"
                               className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={3}
                             />
+                            <p id="settings-skill-description-count" className="mt-1 text-right text-[12px] text-[#64748B]">
+                              {newSkillDescription.length}/{PROFILE_LIMITS.skillDescription}
+                            </p>
                           </div>
 
                           <button
                             onClick={handleAddSkill}
+                            disabled={Boolean(skillMutationId)}
+                            aria-busy={skillMutationId === "new"}
                             className="w-full bg-[#1C4D8D] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:opacity-90 transition-all"
                           >
-                            Add Skill
+                            {skillMutationId === "new" ? "Saving..." : "Add Skill"}
                           </button>
                         </div>
                       </div>
@@ -1542,7 +1953,9 @@ export function Settings() {
                                   {editingSkillId === skill.id ? (
                                     <div className="mt-3 space-y-3">
                                       <textarea
+                                        aria-label={`Description for ${skill.name}`}
                                         value={editingSkillDescription}
+                                        maxLength={PROFILE_LIMITS.skillDescription}
                                         onChange={(e) => setEditingSkillDescription(e.target.value)}
                                         placeholder="Describe your experience with this skill"
                                         className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] text-[#111827] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
@@ -1551,9 +1964,10 @@ export function Settings() {
                                       <div className="flex items-center gap-2">
                                         <button
                                           onClick={() => handleEditSkillDescription(skill.id)}
+                                          disabled={skillMutationId === skill.id}
                                           className="bg-[#1C4D8D] text-white text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:opacity-90 transition-all"
                                         >
-                                          Save note
+                                          {skillMutationId === skill.id ? "Saving..." : "Save note"}
                                         </button>
                                         <button
                                           onClick={() => {
@@ -1589,7 +2003,11 @@ export function Settings() {
                                   )}
                                 </div>
                                 <button
+                                  type="button"
                                   onClick={() => handleDeleteSkill(skill.id)}
+                                  disabled={skillMutationId === skill.id}
+                                  aria-label={`Delete ${skill.name} skill`}
+                                  aria-busy={skillMutationId === skill.id}
                                   className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px] transition-colors flex-shrink-0"
                                 >
                                   <Trash2 className="w-4 h-4" />
@@ -1608,18 +2026,29 @@ export function Settings() {
                   )}
 
                   {accountTab === "resume" && !isEmployerRole && (
-                    <WorkerResumeSection initialResumeUrl={resumeUrl} />
+                    <div
+                      id="settings-account-panel-resume"
+                      role="tabpanel"
+                      aria-labelledby="settings-account-tab-resume"
+                    >
+                      <WorkerResumeSection initialResumeUrl={resumeUrl} />
+                    </div>
                   )}
                 </div>
           )}
 
           {activeTab === "privacy" && (
-            <div className="space-y-6">
+            <div
+              id="settings-main-panel-privacy"
+              role="tabpanel"
+              aria-labelledby="settings-main-tab-privacy"
+              className="space-y-6"
+            >
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
                 <div className="mb-6">
                   <h2 className="text-[20px] font-semibold text-[#111827]">Change Password</h2>
                   <p className="text-[13px] text-[#6B7280]">
-                    Changing your password will log you out of all active sessions.
+                    Changing your password will revoke your other active sessions and keep this one signed in.
                   </p>
                 </div>
 
@@ -1630,6 +2059,7 @@ export function Settings() {
                       <input
                         id="settings-current-password"
                         type={showCurrentPassword ? "text" : "password"}
+                        autoComplete="current-password"
                         value={securityData.currentPassword}
                         onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
                         className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
@@ -1637,6 +2067,8 @@ export function Settings() {
                       <button
                         type="button"
                         onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
+                        aria-pressed={showCurrentPassword}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
                       >
                         {showCurrentPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -1663,6 +2095,9 @@ export function Settings() {
                     <input
                       id="settings-password-otp"
                       type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      aria-label="Password change verification code"
                       value={passwordOtp}
                       onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="Enter 6-digit OTP"
@@ -1677,6 +2112,7 @@ export function Settings() {
                         <input
                           id="settings-new-password"
                           type={showNewPassword ? "text" : "password"}
+                          autoComplete="new-password"
                           value={securityData.newPassword}
                           onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
                           className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
@@ -1684,6 +2120,8 @@ export function Settings() {
                         <button
                           type="button"
                           onClick={() => setShowNewPassword(!showNewPassword)}
+                          aria-label={showNewPassword ? "Hide new password" : "Show new password"}
+                          aria-pressed={showNewPassword}
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
                         >
                           {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -1697,6 +2135,7 @@ export function Settings() {
                         <input
                           id="settings-confirm-password"
                           type={showConfirmPassword ? "text" : "password"}
+                          autoComplete="new-password"
                           value={securityData.confirmPassword}
                           onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
                           className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
@@ -1704,6 +2143,8 @@ export function Settings() {
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
+                          aria-pressed={showConfirmPassword}
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
                         >
                           {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -1732,7 +2173,7 @@ export function Settings() {
 
               <MfaSettingsCard />
 
-              {isEmployerRole && <EmployerPrivacyCard initialValue={hideHiredCandidates} />}
+              {hasEmployerAccess && <EmployerPrivacyCard initialValue={hideHiredCandidates} />}
 
               <DeleteAccountCard />
 
@@ -1814,15 +2255,26 @@ export function Settings() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="text-[14px] text-[#64748B]">Verification status</p>
-                        <h4 className="text-[18px] font-semibold text-[#111827]">Profile verified</h4>
-                        <p className="text-[12px] text-[#64748B] mt-1">All requirements completed.</p>
+                        <h4 className="text-[18px] font-semibold text-[#111827]">
+                          {isProfileVerified ? "Profile verified" : "Verification incomplete"}
+                        </h4>
+                        <p className="text-[12px] text-[#64748B] mt-1">
+                          {isProfileVerified ? "All requirements completed." : "Complete the remaining requirements below."}
+                        </p>
                       </div>
                       <span className="text-[12px] font-semibold px-3 py-1 rounded-full bg-[#DCFCE7] text-[#166534]">
                         {verificationCompletionPercent}% complete
                       </span>
                     </div>
                     <div className="mt-3">
-                      <div className="h-2 w-full bg-[#E2E8F0] rounded-full overflow-hidden">
+                      <div
+                        className="h-2 w-full bg-[#E2E8F0] rounded-full overflow-hidden"
+                        role="progressbar"
+                        aria-label="Profile verification progress"
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={verificationCompletionPercent}
+                      >
                         <div className="h-full bg-[#22C55E]" style={{ width: `${verificationCompletionPercent}%` }} />
                       </div>
                       <p className="text-[12px] text-[#64748B] mt-2">
@@ -1839,12 +2291,20 @@ export function Settings() {
                       const statusBadge = verificationStatusStyles[step.status];
                       const statusLabel = verificationStatusLabels[step.status];
                       const iconBg =
-                        step.status === "complete" ? "bg-[#DCFCE7]" : step.status === "in-review" ? "bg-[#FEF3C7]" : "bg-[#E2E8F0]";
+                        step.status === "complete"
+                          ? "bg-[#DCFCE7]"
+                          : step.status === "in-review"
+                            ? "bg-[#FEF3C7]"
+                            : step.status === "rejected"
+                              ? "bg-[#FEE2E2]"
+                              : "bg-[#E2E8F0]";
                       const icon =
                         step.status === "complete" ? (
                           <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
                         ) : step.status === "in-review" ? (
                           <Clock className="w-5 h-5 text-[#D97706]" />
+                        ) : step.status === "rejected" ? (
+                          <Circle className="w-5 h-5 text-[#DC2626]" />
                         ) : (
                           <Circle className="w-5 h-5 text-[#94A3B8]" />
                         );
@@ -1884,6 +2344,8 @@ export function Settings() {
                                         <input
                                           type="text"
                                           inputMode="numeric"
+                                          autoComplete="one-time-code"
+                                          aria-label="Phone verification code"
                                           maxLength={6}
                                           value={phoneVerificationCode}
                                           onChange={(event) =>
@@ -1906,9 +2368,9 @@ export function Settings() {
                                   </div>
                                 )}
 
-                                {step.id === "identity" && step.status === "pending" && (
+                                {step.id === "identity" && (step.status === "pending" || step.status === "rejected") && (
                                   <label className="mt-2 inline-block px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 cursor-pointer">
-                                    Upload ID
+                                    {step.status === "rejected" ? "Upload replacement ID" : "Upload ID"}
                                     <input
                                       type="file"
                                       accept="image/*,.pdf"
@@ -1918,9 +2380,9 @@ export function Settings() {
                                   </label>
                                 )}
 
-                                {step.id === "address" && step.status === "pending" && (
+                                {step.id === "address" && (step.status === "pending" || step.status === "rejected") && (
                                   <label className="mt-2 inline-block px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 cursor-pointer">
-                                    Upload Document
+                                    {step.status === "rejected" ? "Upload replacement" : "Upload Document"}
                                     <input
                                       type="file"
                                       accept="image/*,.pdf"
@@ -1945,9 +2407,27 @@ export function Settings() {
             </div>
           )}
 
-          {activeTab === "payments" && isEmployerRole && <EmployerPaymentMethodsSection />}
+          {activeTab === "payments" && hasEmployerAccess && (
+            <div
+              id="settings-main-panel-payments"
+              role="tabpanel"
+              aria-labelledby="settings-main-tab-payments"
+            >
+              <EmployerPaymentMethodsSection />
+            </div>
+          )}
 
       </div>
+      <ConfirmDialog
+        open={Boolean(deleteExperienceTarget)}
+        title="Remove work experience"
+        description={`Remove ${deleteExperienceTarget?.title || "this role"} from your profile?`}
+        confirmLabel="Remove experience"
+        destructive
+        pending={Boolean(deletingExperienceId)}
+        onClose={() => setDeleteExperienceTarget(null)}
+        onConfirm={() => deleteExperienceTarget && handleDeleteExperience(deleteExperienceTarget.id)}
+      />
     </div>
   );
 }

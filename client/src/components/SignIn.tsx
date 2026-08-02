@@ -7,11 +7,12 @@ import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { OTPVerification } from "./OTPVerification";
+import { MfaLoginForm } from "./auth/MfaLoginForm";
 
 export function SignIn() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
   const dashboardPath = getDefaultDashboardPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -48,15 +49,30 @@ export function SignIn() {
 
     setIsLoading(true);
     try {
-      await login(email, password, { suppressToast: true, requireOtp: true });
-      setShowOTP(true);
-      toast.success("OTP sent to your email. Please verify to continue.");
+      const result = await login(email, password, { suppressToast: true, requireOtp: true });
+      if (result.status === "mfa_required") {
+        toast.info("Enter your authenticator code to continue.");
+      } else if (result.status === "otp_required") {
+        setShowOTP(true);
+        toast.success("OTP sent to your email. Please verify to continue.");
+      }
     } catch (error: any) {
       toast.error(error.message || "Sign in failed");
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";
       }
+      setIsLoading(false);
+    }
+  };
+
+  const handleMfaSignIn = async (code: string) => {
+    setIsLoading(true);
+    try {
+      await verifyMfaLogin(code);
+    } catch (error: any) {
+      toast.error(error?.message || "MFA verification failed");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -240,6 +256,23 @@ export function SignIn() {
           email={email}
           onClose={() => setShowOTP(false)}
         />
+      )}
+
+      {mfaChallenge && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="Two-factor authentication">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+            <MfaLoginForm
+              email={mfaChallenge.email}
+              method={mfaChallenge.method}
+              isLoading={isLoading}
+              onSubmit={handleMfaSignIn}
+              onCancel={() => {
+                cancelMfaLogin();
+                setIsLoading(false);
+              }}
+            />
+          </div>
+        </div>
       )}
 
     </main>

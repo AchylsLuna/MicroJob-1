@@ -21,7 +21,7 @@ const files = [...await collectFiles(join(root, 'client', 'src')), ...await coll
 
 for (const file of files) {
   const source = await readFile(file, 'utf8');
-  const name = relative(root, file);
+  const name = relative(root, file).replaceAll('\\', '/');
   if (name !== 'Mobile/lib/storage.ts' && source.includes("@react-native-async-storage/async-storage")) {
     findings.push(`${name}: bypasses the secure mobile storage adapter`);
   }

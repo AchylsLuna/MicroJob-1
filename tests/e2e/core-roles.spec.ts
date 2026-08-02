@@ -141,6 +141,52 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   expect(results.violations).toEqual([]);
 });
 
+test("profile settings support keyboard tabs and accessible validation", async ({ page }) => {
+  await signInWorker(page);
+  await page.route("https://psgc.gitlab.io/api/**", (route) => {
+    const url = route.request().url();
+    const body = url.endsWith("/provinces/")
+      ? [{ code: "130000000", name: "Metro Manila" }]
+      : url.endsWith("/cities-municipalities/")
+        ? [{ code: "137404000", name: "Quezon City", provinceCode: "130000000" }]
+        : [];
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto("/settings?tab=personal");
+  const mainTabs = page.getByRole("tablist", { name: "Settings sections" });
+  const accountTab = mainTabs.getByRole("tab", { name: "Account" });
+  await expect(accountTab).toHaveAttribute("aria-selected", "true");
+  await accountTab.focus();
+  await page.keyboard.press("ArrowRight");
+  const privacyTab = mainTabs.getByRole("tab", { name: "Security & Privacy" });
+  await expect(privacyTab).toBeFocused();
+  await expect(privacyTab).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Home");
+  await expect(accountTab).toBeFocused();
+
+  const accountTabs = page.getByRole("tablist", { name: "Account settings sections" });
+  const personalTab = accountTabs.getByRole("tab", { name: "Personal Information" });
+  await personalTab.focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(accountTabs.getByRole("tab", { name: "Experience" })).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(personalTab).toBeFocused();
+
+  const firstName = page.getByLabel("First name");
+  await expect(firstName).not.toHaveValue("");
+  await firstName.fill("123");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByRole("alert")).toContainText("Full name");
+  await expect(firstName).toBeFocused();
+  await expect(firstName).toHaveAttribute("aria-invalid", "true");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+
+  const results = await new AxeBuilder({ page }).analyze();
+  expect(results.violations).toEqual([]);
+});
+
 test("admin user management is real and responsive", async ({ page }) => {
   await page.goto("/admin-sign-in");
   await page.getByPlaceholder("Enter your email").fill("e2e-admin@microjobs.local");

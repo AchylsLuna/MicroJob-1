@@ -196,34 +196,36 @@ async function applyTopUpToUser({ user, amount, target, reference, source, check
   }
 }
 
-async function createPayoutRefund({ payoutRequest, actorId, reason, status }) {
-  const user = await User.findById(payoutRequest.user);
+const payoutHttpError = (statusCode, message) => Object.assign(new Error(message), { statusCode });
+
+async function createPayoutRefund({ payoutRequest, actorId, reason, status, session }) {
+  const user = await User.findById(payoutRequest.user).session(session);
   if (!user) throw new Error('User not found');
 
   user.workerBalance = (user.workerBalance || 0) + payoutRequest.amount;
-  await user.save();
+  await user.save({ session });
 
-  const refund = await Transaction.create({
-    sender: null,
-    receiver: user._id,
-    amount: payoutRequest.amount,
-    type: 'REFUND',
-    status: 'COMPLETED',
-    balanceTarget: 'WORKER',
-    payoutRequest: payoutRequest._id,
-    reference: `${String(status || 'PAYOUT').toUpperCase()}-REFUND-${payoutRequest._id}-${Date.now()}`,
-    label: `Payout refund (${String(status || reason || 'reversed').toLowerCase()})`,
-    relatedEntityType: 'payout_request',
-    relatedEntityId: String(payoutRequest._id),
-    linkedTransaction: payoutRequest.transaction || null,
-    meta: { reason },
-    actor: actorId || null,
-  });
+  const [refund] = await Transaction.create([{
+      sender: null,
+      receiver: user._id,
+      amount: payoutRequest.amount,
+      type: 'REFUND',
+      status: 'COMPLETED',
+      balanceTarget: 'WORKER',
+      payoutRequest: payoutRequest._id,
+      reference: `PAYOUT-REFUND-${payoutRequest._id}`,
+      label: `Payout refund (${String(status || reason || 'reversed').toLowerCase()})`,
+      relatedEntityType: 'payout_request',
+      relatedEntityId: String(payoutRequest._id),
+      linkedTransaction: payoutRequest.transaction || null,
+      meta: { reason },
+      actor: actorId || null,
+    }], { session });
 
   if (payoutRequest.transaction) {
     await Transaction.findByIdAndUpdate(payoutRequest.transaction, {
       $set: { status: 'CANCELLED', linkedTransaction: refund._id },
-    });
+    }, { session });
   }
 
   return { user, refund };
@@ -715,14 +717,20 @@ export async function simulateWebhook(req, res) {
 }
 
 export async function createPayoutRequest(req, res) {
+  let session;
   try {
     const userId = req.user?.id || req.user?.userId;
     if (!userId) return res.status(401).json({ message: 'Authentication required' });
 
     const { amount, destinationSnapshot } = req.body || {};
+    const idempotencyKey = String(req.body?.idempotencyKey || req.get?.('idempotency-key') || '').trim();
     const numericAmount = Number(amount);
-    if (Number.isNaN(numericAmount) || numericAmount <= 0) {
+    if (!Number.isFinite(numericAmount) || numericAmount < 1) {
       return res.status(400).json({ message: 'Invalid payout amount' });
+    }
+    const payoutAmount = Math.round((numericAmount + Number.EPSILON) * 100) / 100;
+    if (Math.abs(payoutAmount - numericAmount) > 0.0000001) {
+      return res.status(400).json({ message: 'Payout amount must use at most two decimal places' });
     }
 
     const methodType = String(destinationSnapshot?.methodType || '').trim();
@@ -732,76 +740,117 @@ export async function createPayoutRequest(req, res) {
     if (!methodType || !institutionName || !accountName || !accountNumber) {
       return res.status(400).json({ message: 'Complete destination details are required' });
     }
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: 'User not found' });
-    if (!canWithdrawWorkerBalance(user.role)) {
-      return res.status(403).json({ message: 'Only worker accounts can request withdrawals' });
-    }
-    if ((user.workerBalance || 0) < numericAmount) {
-      return res.status(400).json({ message: 'Insufficient worker balance' });
+    if (idempotencyKey.length > 120) {
+      return res.status(400).json({ message: 'Invalid idempotency key' });
     }
 
-    user.workerBalance = Number((user.workerBalance - numericAmount).toFixed(2));
-    await user.save();
+    session = await mongoose.startSession();
+    let payoutRequest;
+    let created = false;
+    await session.withTransaction(async () => {
+      created = false;
+      if (idempotencyKey) {
+        payoutRequest = await PayoutRequest.findOne({ user: userId, idempotencyKey }).session(session);
+        if (payoutRequest) return;
+      }
 
-    const payoutRequest = await PayoutRequest.create({
-      user: user._id,
-      amount: numericAmount,
-      destinationSnapshot: {
-        methodType,
-        institutionName,
-        accountName,
-        accountNumber,
-        accountNumberMasked: maskAccountNumber(accountNumber),
-      },
-      status: 'requested',
-    });
+      const user = await User.findById(userId).session(session);
+      if (!user) throw payoutHttpError(404, 'User not found');
+      if (!canWithdrawWorkerBalance(user.role)) {
+        throw payoutHttpError(403, 'Only worker accounts can request withdrawals');
+      }
+      if ((user.workerBalance || 0) < payoutAmount) {
+        throw payoutHttpError(400, 'Insufficient worker balance');
+      }
 
-    const transaction = await Transaction.create({
-      sender: user._id,
-      receiver: null,
-      amount: numericAmount,
-      type: 'PAYOUT',
-      status: 'PENDING',
-      balanceTarget: 'WORKER',
-      payoutRequest: payoutRequest._id,
-      reference: `PAYOUT-${payoutRequest._id}-${Date.now()}`,
-      provider: 'manual_admin_review',
-      providerReference: String(payoutRequest._id),
-      label: 'Payout request',
-      relatedEntityType: 'payout_request',
-      relatedEntityId: String(payoutRequest._id),
-      meta: {
+      user.workerBalance = Number((user.workerBalance - payoutAmount).toFixed(2));
+      await user.save({ session });
+
+      [payoutRequest] = await PayoutRequest.create([{
+        user: user._id,
+        amount: payoutAmount,
         destinationSnapshot: {
-          ...payoutRequest.destinationSnapshot.toObject(),
-          accountNumber: undefined,
+          methodType,
+          institutionName,
+          accountName,
+          accountNumber,
+          accountNumberMasked: maskAccountNumber(accountNumber),
         },
-      },
-      actor: user._id,
+        status: 'requested',
+        idempotencyKey: idempotencyKey || null,
+      }], { session });
+
+      const [transaction] = await Transaction.create([{
+        sender: user._id,
+        receiver: null,
+        amount: payoutAmount,
+        type: 'PAYOUT',
+        status: 'PENDING',
+        balanceTarget: 'WORKER',
+        payoutRequest: payoutRequest._id,
+        reference: `PAYOUT-${payoutRequest._id}`,
+        provider: 'manual_admin_review',
+        providerReference: String(payoutRequest._id),
+        label: 'Payout request',
+        relatedEntityType: 'payout_request',
+        relatedEntityId: String(payoutRequest._id),
+        meta: {
+          destinationSnapshot: {
+            ...payoutRequest.destinationSnapshot.toObject(),
+            accountNumber: undefined,
+          },
+        },
+        actor: user._id,
+      }], { session });
+
+      payoutRequest.transaction = transaction._id;
+      await payoutRequest.save({ session });
+      created = true;
     });
 
-    payoutRequest.transaction = transaction._id;
-    await payoutRequest.save();
+    if (!payoutRequest) throw new Error('Failed to create payout request');
 
-    await notifyAdminsOfPayoutRequest(payoutRequest, user._id);
-    await monitor.audit({
-      actor: user._id,
-      action: 'payout_requested',
-      ip: req.ip || null,
-      userAgent: req.get('user-agent'),
-      amount: numericAmount,
-      status: 'initiated',
-      meta: { payoutRequestId: payoutRequest._id },
-    });
+    if (created) {
+      try {
+        await notifyAdminsOfPayoutRequest(payoutRequest, userId);
+      } catch (notificationError) {
+        console.warn('Payout request committed, but the admin notification failed', notificationError);
+      }
+      await monitor.audit({
+        actor: userId,
+        action: 'payout_requested',
+        ip: req.ip || null,
+        userAgent: req.get('user-agent'),
+        amount: payoutAmount,
+        status: 'initiated',
+        meta: { payoutRequestId: payoutRequest._id },
+      });
+    }
 
     const populated = await PayoutRequest.findById(payoutRequest._id)
       .populate('transaction')
       .populate('user', 'firstName lastName email');
-    return res.status(201).json({ message: 'Payout request submitted.', payoutRequest: populated });
+    return res.status(created ? 201 : 200).json({
+      message: created ? 'Payout request submitted.' : 'Payout request already submitted.',
+      payoutRequest: populated,
+    });
   } catch (error) {
-    console.error('Create payout request error', error);
-    return res.status(500).json({ message: 'Failed to create payout request' });
+    const retryKey = String(req.body?.idempotencyKey || req.get?.('idempotency-key') || '').trim();
+    if (error?.code === 11000 && retryKey) {
+      const existing = await PayoutRequest.findOne({ user: req.user?.id || req.user?.userId, idempotencyKey: retryKey })
+        .populate('transaction')
+        .populate('user', 'firstName lastName email');
+      if (existing) {
+        return res.status(200).json({
+          message: 'Payout request already submitted.',
+          payoutRequest: existing,
+        });
+      }
+    }
+    if (!error?.statusCode) console.error('Create payout request error', error);
+    return res.status(error?.statusCode || 500).json({ message: error?.statusCode ? error.message : 'Failed to create payout request' });
+  } finally {
+    session?.endSession();
   }
 }
 
@@ -823,35 +872,56 @@ export async function listMyPayoutRequests(req, res) {
 }
 
 export async function cancelPayoutRequest(req, res) {
+  let session;
   try {
     const userId = req.user?.id || req.user?.userId;
     const { payoutRequestId } = req.params;
     if (!userId) return res.status(401).json({ message: 'Authentication required' });
 
-    const payoutRequest = await PayoutRequest.findOne({ _id: payoutRequestId, user: userId });
-    if (!payoutRequest) return res.status(404).json({ message: 'Payout request not found' });
-    if (payoutRequest.status !== 'requested') {
-      return res.status(400).json({ message: 'Only requested payouts can be cancelled' });
-    }
-
-    const { refund } = await createPayoutRefund({
-      payoutRequest,
-      actorId: userId,
-      reason: 'cancelled_by_user',
-      status: 'cancelled',
+    session = await mongoose.startSession();
+    let payoutRequest;
+    let refund;
+    let changed = false;
+    await session.withTransaction(async () => {
+      changed = false;
+      refund = undefined;
+      payoutRequest = await PayoutRequest.findOneAndUpdate(
+        { _id: payoutRequestId, user: userId, status: 'requested' },
+        { $set: { status: 'cancelled', cancelledAt: new Date(), reviewedAt: new Date(), reviewNotes: 'Cancelled by user.' } },
+        { new: true, session },
+      );
+      if (!payoutRequest) {
+        const current = await PayoutRequest.findOne({ _id: payoutRequestId, user: userId }).session(session);
+        if (!current) throw payoutHttpError(404, 'Payout request not found');
+        if (current.status === 'cancelled') {
+          payoutRequest = current;
+          return;
+        }
+        throw payoutHttpError(400, 'Only requested payouts can be cancelled');
+      }
+      ({ refund } = await createPayoutRefund({
+        payoutRequest,
+        actorId: userId,
+        reason: 'cancelled_by_user',
+        status: 'cancelled',
+        session,
+      }));
+      changed = true;
     });
 
-    payoutRequest.status = 'cancelled';
-    payoutRequest.cancelledAt = new Date();
-    payoutRequest.reviewedAt = new Date();
-    payoutRequest.reviewNotes = 'Cancelled by user.';
-    await payoutRequest.save();
-
-    await notifyUserPayoutStatus(payoutRequest, userId, 'Payout cancelled', 'Your payout request was cancelled and the amount was returned to your worker balance.');
+    if (changed) {
+      try {
+        await notifyUserPayoutStatus(payoutRequest, userId, 'Payout cancelled', 'Your payout request was cancelled and the amount was returned to your worker balance.');
+      } catch (notificationError) {
+        console.warn('Payout cancellation committed, but the user notification failed', notificationError);
+      }
+    }
     return res.status(200).json({ message: 'Payout request cancelled.', payoutRequest, refundTransaction: refund });
   } catch (error) {
-    console.error('Cancel payout request error', error);
-    return res.status(500).json({ message: 'Failed to cancel payout request' });
+    if (!error?.statusCode) console.error('Cancel payout request error', error);
+    return res.status(error?.statusCode || 500).json({ message: error?.statusCode ? error.message : 'Failed to cancel payout request' });
+  } finally {
+    session?.endSession();
   }
 }
 
@@ -885,6 +955,7 @@ export async function listAdminPayoutRequests(req, res) {
 }
 
 export async function updateAdminPayoutRequest(req, res) {
+  let session;
   try {
     const { payoutRequestId } = req.params;
     const { status, reviewNotes } = req.body || {};
@@ -893,45 +964,83 @@ export async function updateAdminPayoutRequest(req, res) {
     if (!allowed.includes(status)) {
       return res.status(400).json({ message: 'Invalid payout status' });
     }
-
-    const payoutRequest = await PayoutRequest.findById(payoutRequestId);
-    if (!payoutRequest) return res.status(404).json({ message: 'Payout request not found' });
-    if (['rejected', 'paid', 'cancelled'].includes(payoutRequest.status)) {
-      return res.status(400).json({ message: 'Payout request is already finalized' });
+    const normalizedNotes = String(reviewNotes || '').trim();
+    if (normalizedNotes.length > 2000) {
+      return res.status(400).json({ message: 'Review notes must be 2000 characters or fewer' });
+    }
+    if (status === 'rejected' && !normalizedNotes) {
+      return res.status(400).json({ message: 'Review notes are required when rejecting a payout' });
     }
 
-    payoutRequest.reviewer = actorId;
-    payoutRequest.reviewedAt = new Date();
-    payoutRequest.reviewNotes = reviewNotes ? String(reviewNotes).trim() : payoutRequest.reviewNotes;
+    const sourceStatuses = status === 'approved' ? ['requested'] : status === 'paid' ? ['approved'] : ['requested', 'approved'];
+    session = await mongoose.startSession();
+    let payoutRequest;
+    let changed = false;
+    await session.withTransaction(async () => {
+      changed = false;
+      const updates = {
+        status,
+        reviewer: actorId,
+        reviewedAt: new Date(),
+        ...(normalizedNotes ? { reviewNotes: normalizedNotes } : {}),
+        ...(status === 'paid' ? { paidAt: new Date() } : {}),
+      };
+      payoutRequest = await PayoutRequest.findOneAndUpdate(
+        { _id: payoutRequestId, status: { $in: sourceStatuses } },
+        { $set: updates },
+        { new: true, session },
+      );
 
-    if (status === 'approved') {
-      payoutRequest.status = 'approved';
-      await payoutRequest.save();
-      await notifyUserPayoutStatus(payoutRequest, actorId, 'Payout approved', 'Your payout request has been approved and is awaiting payment completion.');
-    }
+      if (!payoutRequest) {
+        const current = await PayoutRequest.findById(payoutRequestId).session(session);
+        if (!current) throw payoutHttpError(404, 'Payout request not found');
+        if (current.status === status) {
+          payoutRequest = current;
+          return;
+        }
+        const expected = status === 'paid' ? 'approved' : status === 'approved' ? 'requested' : 'requested or approved';
+        throw payoutHttpError(409, `Payout must be ${expected} before it can be marked ${status}`);
+      }
 
-    if (status === 'paid') {
-      payoutRequest.status = 'paid';
-      payoutRequest.paidAt = new Date();
-      await payoutRequest.save();
-      if (payoutRequest.transaction) {
-        await Transaction.findByIdAndUpdate(payoutRequest.transaction, {
-          $set: { status: 'COMPLETED' },
+      if (status === 'paid' && payoutRequest.transaction) {
+        await Transaction.findByIdAndUpdate(
+          payoutRequest.transaction,
+          { $set: { status: 'COMPLETED' } },
+          { session },
+        );
+      }
+      if (status === 'rejected') {
+        await createPayoutRefund({
+          payoutRequest,
+          actorId,
+          reason: normalizedNotes,
+          status: 'rejected',
+          session,
         });
       }
-      await notifyUserPayoutStatus(payoutRequest, actorId, 'Payout paid', 'Your payout request has been marked as paid.');
-    }
+      changed = true;
+    });
 
-    if (status === 'rejected') {
-      payoutRequest.status = 'rejected';
-      await payoutRequest.save();
-      await createPayoutRefund({
-        payoutRequest,
-        actorId,
-        reason: reviewNotes ? String(reviewNotes).trim() : 'rejected_by_admin',
-        status: 'rejected',
+    if (changed) {
+      const notification = status === 'approved'
+        ? ['Payout approved', 'Your payout request has been approved and is awaiting payment completion.']
+        : status === 'paid'
+          ? ['Payout paid', 'Your payout request has been marked as paid.']
+          : ['Payout rejected', 'Your payout request was rejected and the amount was returned to your worker balance.'];
+      try {
+        await notifyUserPayoutStatus(payoutRequest, actorId, notification[0], notification[1]);
+      } catch (notificationError) {
+        console.warn('Payout update committed, but the user notification failed', notificationError);
+      }
+      await monitor.audit({
+        actor: actorId,
+        action: `payout_${status}`,
+        ip: req.ip || null,
+        userAgent: req.get?.('user-agent') || null,
+        amount: payoutRequest.amount,
+        status: 'success',
+        meta: { payoutRequestId: payoutRequest._id, reviewNotes: normalizedNotes || undefined },
       });
-      await notifyUserPayoutStatus(payoutRequest, actorId, 'Payout rejected', 'Your payout request was rejected and the amount was returned to your worker balance.');
     }
 
     const populated = await PayoutRequest.findById(payoutRequest._id)
@@ -940,8 +1049,10 @@ export async function updateAdminPayoutRequest(req, res) {
       .populate('transaction');
     return res.status(200).json({ message: 'Payout request updated.', payoutRequest: populated });
   } catch (error) {
-    console.error('Update admin payout request error', error);
-    return res.status(500).json({ message: 'Failed to update payout request' });
+    if (!error?.statusCode) console.error('Update admin payout request error', error);
+    return res.status(error?.statusCode || 500).json({ message: error?.statusCode ? error.message : 'Failed to update payout request' });
+  } finally {
+    session?.endSession();
   }
 }
 

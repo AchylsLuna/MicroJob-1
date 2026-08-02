@@ -19,13 +19,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: `env MONGO_URI='' MONGODB_URI='' ENABLE_IN_MEMORY_MONGO=true AUTO_SEED_DEMO_USER=true DEMO_USER_EMAIL=e2e-user@microjobs.local DEMO_USER_PASSWORD='ReviewPass123!' DEMO_USER_ROLE=both AUTO_SEED_SUPERADMIN=true SUPERADMIN_EMAIL=e2e-admin@microjobs.local SUPERADMIN_PASSWORD='AdminPass123!' PORT=${e2eApiPort} node server/index.js`,
+      command: `node scripts/start-e2e-server.cjs ${e2eApiPort} ${e2eClientPort}`,
       port: e2eApiPort,
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
-      command: `env VITE_API_PROXY_TARGET=http://127.0.0.1:${e2eApiPort} npm run dev:client -- --host 127.0.0.1 --port ${e2eClientPort}`,
+      command: `node scripts/start-e2e-client.cjs ${e2eClientPort} ${e2eApiPort}`,
       port: e2eClientPort,
       reuseExistingServer: false,
       timeout: 120_000,

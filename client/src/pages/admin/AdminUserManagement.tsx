@@ -8,6 +8,15 @@ import { ROUTES } from "../../utils/routes";
 import { Button, ConfirmDialog, Dialog, Input, Select } from "../../components/ui";
 import { useAuth } from "../../hooks/useAuth";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
+import { updateAdminVerification } from "../../services/api";
+
+const toAdminAssetUrl = (value?: string) => {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  const apiBase = import.meta.env.VITE_API_BASE || "/api";
+  const origin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : window.location.origin;
+  return value.startsWith("/") ? `${origin}${value}` : `${origin}/${value}`;
+};
 
 function AdminUserManagementContent() {
   const navigate = useNavigate();
@@ -22,6 +31,7 @@ function AdminUserManagementContent() {
     handleEditUser,
     handleCreateUser,
     handleDeleteUser,
+    reload,
   } = useAdminData();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,6 +47,9 @@ function AdminUserManagementContent() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [reviewingDocument, setReviewingDocument] = useState<"identity" | "address" | null>(null);
+  const [rejectionTarget, setRejectionTarget] = useState<"identity" | "address" | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const editMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const addAccountButtonRef = useRef<HTMLButtonElement>(null);
   const pageSize = 5;
@@ -116,6 +129,36 @@ function AdminUserManagementContent() {
     const privileged = user.role === "admin" || user.role === "superadmin";
     const isSelf = user._id === currentUser?.id;
     return !isSelf && (!privileged || canManagePrivilegedRoles);
+  };
+
+  const handleVerificationReview = async (
+    documentType: "identity" | "address",
+    status: "complete" | "rejected",
+    reason?: string,
+  ) => {
+    if (!selectedUser) return;
+    const normalizedReason = reason?.trim();
+    if (status === "rejected" && !normalizedReason) {
+      setRejectionReason("");
+      setRejectionTarget(documentType);
+      return;
+    }
+
+    setReviewingDocument(documentType);
+    try {
+      await updateAdminVerification(selectedUser._id, documentType, {
+        status,
+        rejectionReason: status === "rejected" ? normalizedReason : undefined,
+      });
+      toast.success(`Verification document ${status === "complete" ? "approved" : "rejected"}.`);
+      setRejectionTarget(null);
+      setRejectionReason("");
+      reload();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to review verification document.");
+    } finally {
+      setReviewingDocument(null);
+    }
   };
 
   const openEdit = (user: typeof users[number]) => {
@@ -475,7 +518,7 @@ function AdminUserManagementContent() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-user-details-title"
-            className="w-full max-w-[520px] bg-white rounded-[20px] border border-[#E5E7EB] p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-[520px] overflow-y-auto bg-white rounded-[20px] border border-[#E5E7EB] p-6 shadow-xl"
           >
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -518,6 +561,56 @@ function AdminUserManagementContent() {
               <div>
                 <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Joined</p>
                 <p className="mt-1 text-[#111827]">{formatJoinedDate(selectedUser._id)}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-slate-200 pt-5">
+              <h5 className="text-sm font-semibold text-slate-900">Verification documents</h5>
+              <div className="mt-3 space-y-3">
+                {(["identity", "address"] as const).map((documentType) => {
+                  const document = selectedUser.verification?.[`${documentType}Document`];
+                  const label = documentType === "identity" ? "Government ID" : "Proof of address";
+                  return (
+                    <div key={documentType} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-slate-900">{label}</p>
+                          <p className="mt-0.5 text-xs capitalize text-slate-600">{document?.status || "pending"}</p>
+                        </div>
+                        {document?.documentUrl ? (
+                          <a
+                            href={toAdminAssetUrl(document.documentUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-blue-700 hover:underline"
+                          >
+                            View document
+                          </a>
+                        ) : null}
+                      </div>
+                      {document?.rejectionReason ? (
+                        <p className="mt-2 text-xs text-red-700">Reason: {document.rejectionReason}</p>
+                      ) : null}
+                      {document?.status === "in-review" ? (
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            disabled={reviewingDocument !== null}
+                            onClick={() => void handleVerificationReview(documentType, "complete")}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            className="!bg-red-700 hover:!bg-red-800"
+                            disabled={reviewingDocument !== null}
+                            onClick={() => void handleVerificationReview(documentType, "rejected")}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -565,6 +658,49 @@ function AdminUserManagementContent() {
           setDeleteError(null);
         }}
       />
+
+      <Dialog
+        open={rejectionTarget !== null}
+        title="Reject verification document"
+        description="Tell the user what must be corrected before they upload a replacement."
+        onClose={() => {
+          if (reviewingDocument) return;
+          setRejectionTarget(null);
+          setRejectionReason("");
+        }}
+      >
+        <label htmlFor="verification-rejection-reason" className="text-sm font-medium text-slate-700">
+          Rejection reason
+        </label>
+        <textarea
+          id="verification-rejection-reason"
+          value={rejectionReason}
+          onChange={(event) => setRejectionReason(event.target.value)}
+          maxLength={500}
+          rows={4}
+          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-700"
+          placeholder="For example: The document is blurry and the name is not readable."
+        />
+        <div className="mt-5 flex justify-end gap-3">
+          <Button
+            className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50"
+            disabled={reviewingDocument !== null}
+            onClick={() => {
+              setRejectionTarget(null);
+              setRejectionReason("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="!bg-red-700 hover:!bg-red-800"
+            disabled={!rejectionReason.trim() || reviewingDocument !== null}
+            onClick={() => rejectionTarget && void handleVerificationReview(rejectionTarget, "rejected", rejectionReason)}
+          >
+            {reviewingDocument ? "Rejecting…" : "Reject document"}
+          </Button>
+        </div>
+      </Dialog>
 
       <Dialog
         open={formMode !== null}

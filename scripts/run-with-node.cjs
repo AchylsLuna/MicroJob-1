@@ -30,7 +30,8 @@ const command = args[0];
 const commandArgs = args.slice(1);
 
 const runDirect = () => {
-  const child = spawn(command, commandArgs, {
+  const directCommand = command === 'node' ? process.execPath : command;
+  const child = spawn(directCommand, commandArgs, {
     stdio: 'inherit',
     env: process.env,
   });

@@ -14,6 +14,8 @@ import crypto from 'crypto';
 import { initSocket } from './lib/socket.js';
 import User from './models/User.js';
 import Session from './models/Session.js';
+import Job from './models/Job.js';
+import JobApplication from './models/JobApplication.js';
 import sanitize from './middleware/sanitize.js';
 import { csrfForCookieSession } from './middleware/csrf.js';
 import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
@@ -118,10 +120,10 @@ app.use((req, res, next) => {
 
 app.use(morgan(isProduction ? ':method :status :response-time ms' : 'dev'));
 
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 
-app.use(express.urlencoded({ extended: true}));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitize);
 app.use(csrfForCookieSession);
 
@@ -166,6 +168,7 @@ const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
 
 const getAuthContextFromRequest = async (req) => {
     let token = null;
+    let isDownloadToken = false;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.substring(7);
@@ -173,12 +176,21 @@ const getAuthContextFromRequest = async (req) => {
     if (!token) {
         token = req.cookies?.token;
     }
+    if (!token && req.query?.downloadToken) {
+        token = String(req.query.downloadToken);
+        isDownloadToken = true;
+    }
     if (!token) {
         return null;
     }
 
     try {
         const decoded = jwt.verify(token, getJwtSecret());
+        if (isDownloadToken) {
+            if (decoded?.purpose !== 'upload-download' || decoded?.fileName !== req.params?.fileName) {
+                return null;
+            }
+        }
         const userId = decoded?.userId || decoded?.id || decoded?._id;
         if (!userId) {
             return null;
@@ -205,9 +217,10 @@ const getAuthContextFromRequest = async (req) => {
     }
 };
 
-// Restrict sensitive uploads (resumes/KYC docs) to owner/admin.
+// Restrict sensitive uploads (resumes/KYC docs) to authorized viewers.
 // Avatars can still be served publicly.
-// Resumes and verification documents are owner/admin only.
+// Verification documents are owner/admin only; employers can view resumes from
+// workers who applied to one of their jobs.
 app.get('/uploads/:fileName', async (req, res) => {
     try {
         const fileName = String(req.params?.fileName || '').trim();
@@ -241,11 +254,13 @@ app.get('/uploads/:fileName', async (req, res) => {
         }
 
         const isAvatar = owner.avatarUrl === uploadUrl;
-        const isSensitiveFile =
+        const isResume =
             owner.resumeFileName === fileName ||
-            owner.resumeUrl === uploadUrl ||
+            owner.resumeUrl === uploadUrl;
+        const isVerificationDocument =
             owner.verification?.identityDocument?.documentUrl === uploadUrl ||
             owner.verification?.addressDocument?.documentUrl === uploadUrl;
+        const isSensitiveFile = isResume || isVerificationDocument;
 
         if (isSensitiveFile) {
             const authContext = await getAuthContextFromRequest(req);
@@ -254,7 +269,16 @@ app.get('/uploads/:fileName', async (req, res) => {
             }
 
             const isOwner = String(owner._id) === authContext.id;
-            if (!isOwner && !isAdminRole(authContext.role)) {
+            let canViewApplicantResume = false;
+            if (!isOwner && !isAdminRole(authContext.role) && isResume && ['hire', 'both'].includes(authContext.role)) {
+                const employerJobIds = await Job.find({ jobPoster: authContext.id }).distinct('_id');
+                canViewApplicantResume = employerJobIds.length > 0 && Boolean(await JobApplication.exists({
+                    applicant: owner._id,
+                    job: { $in: employerJobIds },
+                }));
+            }
+
+            if (!isOwner && !isAdminRole(authContext.role) && !canViewApplicantResume) {
                 return res.status(403).json({ message: 'Not allowed to access this file.' });
             }
         }
@@ -420,12 +444,33 @@ const ensureDevDemoUser = async () => {
 //Error handler
 app.use((err, req, res, _next) => {
     console.error(`[${req.requestId || 'no-request-id'}]`, err);
-    const statusCode = err.statusCode || 500;
+    const isMalformedJson = err instanceof SyntaxError && err?.type === 'entity.parse.failed';
+    const isPayloadTooLarge = err?.type === 'entity.too.large';
+    const isUploadTooLarge = err?.code === 'LIMIT_FILE_SIZE';
+    const isUploadValidation = /^Only .+ allowed/i.test(String(err?.message || ''));
+    const isDatabaseValidation = err?.name === 'ValidationError' || err?.name === 'CastError';
+    const isCorsError = err?.message === 'Not allowed by CORS';
+    const statusCode = isMalformedJson || isUploadValidation || isDatabaseValidation
+        ? 400
+        : isPayloadTooLarge || isUploadTooLarge
+            ? 413
+            : isCorsError
+                ? 403
+                : err.statusCode || err.status || 500;
+    const publicMessage = isMalformedJson
+        ? 'Malformed JSON request body.'
+        : isPayloadTooLarge
+            ? 'Request body is too large.'
+            : isUploadTooLarge
+                ? 'File is too large. Maximum size is 5 MB.'
+                : isDatabaseValidation
+                    ? 'Invalid request data.'
+                    : statusCode >= 500 && isProduction
+                        ? 'Internal Server Error'
+                        : err.message || 'Internal Server Error';
     res.status(statusCode).json({
         success: false,
-        message: isProduction && statusCode >= 500
-            ? 'Internal Server Error'
-            : err.message || 'Internal Server Error',
+        message: publicMessage,
     })
 }) 
 const startServer = async () => {
