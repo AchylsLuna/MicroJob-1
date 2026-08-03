@@ -10,7 +10,7 @@ const apiProxyTarget = process.env.VITE_API_PROXY_TARGET || "http://localhost:50
 export default defineConfig({
   root: __dirname,
   plugins: [react()],
-  base: process.env.VITE_BASE_URL || "/MicroJob",
+  base: process.env.VITE_BASE_PATH || "/MicroJob",
   resolve: {
     alias: {
       react: resolve(__dirname, "node_modules/react"),
