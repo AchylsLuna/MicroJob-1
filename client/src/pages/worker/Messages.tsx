@@ -195,9 +195,14 @@ export function Messages() {
       ? apiBase.replace(/\/api\/?$/, "")
       : undefined;
     const socketUrl = explicitSocketUrl || proxyTarget || derivedFromApiBase || window.location.origin;
+    const socketToken = localStorage.getItem("auth_token") || localStorage.getItem("token") || undefined;
 
     const socket = io(socketUrl, {
       withCredentials: true,
+      auth: socketToken ? { token: socketToken } : undefined,
+      reconnection: true,
+      reconnectionAttempts: 8,
+      reconnectionDelayMax: 10_000,
     });
     socketRef.current = socket;
     socket.emit("register", currentUserId);
@@ -552,6 +557,7 @@ export function Messages() {
         receiverId: selectedContact.otherUserId,
         content: messageText.trim(),
         jobId: selectedContact.jobId || undefined,
+        clientMessageId: crypto.randomUUID(),
       });
       
       setMessageText("");
@@ -642,13 +648,13 @@ export function Messages() {
   const handleDeleteConversation = async () => {
     if (!selectedContact) return;
     
-    if (!confirm(`Are you sure you want to delete this conversation with ${selectedContact.otherUserName}? This will permanently remove all messages for both users.`)) {
+    if (!confirm(`Remove this conversation with ${selectedContact.otherUserName} from your inbox? The other person will keep their copy.`)) {
       return;
     }
     
     try {
       await deleteConversation(selectedContact.otherUserId, selectedContact.jobId || undefined);
-      toast.success("Conversation deleted");
+      toast.success("Conversation removed from your inbox");
       setShowMoreMenu(false);
       
       // Remove from contacts list and reload
@@ -764,7 +770,7 @@ export function Messages() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="text-[28px] font-semibold leading-none text-[#111827] md:text-[30px]">Inbox Chat</h3>
-                <span className="rounded-full bg-[#1983F6] px-3 py-1 text-[12px] font-semibold text-white">
+                <span className="rounded-full bg-[#1C4D8D] px-3 py-1 text-[12px] font-semibold text-white">
                   {effectiveContacts.length}
                 </span>
               </div>
@@ -813,7 +819,7 @@ export function Messages() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search conversations"
-                className="w-full rounded-full border border-[#D8DEE8] bg-white py-3 pl-11 pr-4 text-[14px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#4E8FD1] focus:ring-2 focus:ring-[#4E8FD1]/20"
+                className="w-full rounded-full border border-[#D8DEE8] bg-white py-3 pl-11 pr-4 text-[14px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20"
               />
             </div>
           </div>
@@ -844,7 +850,7 @@ export function Messages() {
                     <div className="flex items-start gap-3">
                       {!isActive ? <span className="mt-4 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-[#E11D48]" /> : <span className="mt-4 h-2.5 w-2.5 flex-shrink-0" />}
                       <div className="relative mt-0.5">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#4F97D9] to-[#1F5DAB] text-[14px] font-bold text-white">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
                           {getInitials(contact.otherUserName)}
                         </div>
                         <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#1D9BF0]" />
@@ -899,7 +905,7 @@ export function Messages() {
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <div className="relative">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#4F97D9] to-[#1F5DAB] text-[14px] font-bold text-white">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
                       {getInitials(selectedContact.otherUserName)}
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#1D9BF0]" />
@@ -931,7 +937,7 @@ export function Messages() {
                   <button
                     type="button"
                     onClick={handleViewProfile}
-                    className="hidden rounded-full bg-[#1983F6] px-5 py-2 text-[14px] font-semibold text-white transition hover:bg-[#0B74E7] md:block"
+                    className="hidden rounded-full bg-[#1C4D8D] px-5 py-2 text-[14px] font-semibold text-white transition hover:opacity-90 md:block"
                   >
                     View Profile
                   </button>
@@ -995,7 +1001,7 @@ export function Messages() {
                       return (
                         <div key={message._id || `message-${index}`} className={`flex gap-3 ${isOwn ? "justify-end" : "justify-start"}`}>
                           {!isOwn ? (
-                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#4F97D9] to-[#1F5DAB] text-[12px] font-bold text-white">
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
                               {getInitials(selectedContact.otherUserName)}
                             </div>
                           ) : null}
@@ -1012,7 +1018,7 @@ export function Messages() {
                             <div
                               className={`rounded-[14px] px-4 py-3 ${
                                 isOwn
-                                  ? "bg-[#1983F6] text-white"
+                                  ? "bg-[#1C4D8D] text-white"
                                   : "border border-[#DDE2EB] bg-white text-[#111827]"
                               }`}
                             >
@@ -1083,15 +1089,16 @@ export function Messages() {
                     }
                   }}
                   disabled={sending}
+                  maxLength={4000}
                   aria-label="Message"
-                  className="min-h-[88px] w-full resize-none rounded-[12px] border border-[#DDE2EB] bg-[#FBFCFE] px-4 py-3 text-[15px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#4E8FD1] focus:ring-2 focus:ring-[#4E8FD1]/20 disabled:opacity-60"
+                  className="min-h-[88px] w-full resize-none rounded-[12px] border border-[#DDE2EB] bg-[#FBFCFE] px-4 py-3 text-[15px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20 disabled:opacity-60"
                 />
                 <div className="mt-3 flex items-center justify-end">
                   <button
                     type="button"
                     onClick={handleSendMessage}
                     disabled={!messageText.trim() || sending}
-                    className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-full bg-[#1983F6] px-6 py-3 text-[15px] font-semibold text-white transition hover:bg-[#0B74E7] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-full bg-[#1C4D8D] px-6 py-3 text-[15px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sending ? (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

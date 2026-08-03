@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { isAllowedOrigin } from './corsOrigins.js';
 import { getJwtSecret } from './jwtSecret.js';
+import Session from '../models/Session.js';
 
 let io = null;
 const userSocketMap = new Map(); // userId -> Set(socketId)
@@ -40,9 +41,6 @@ function extractSocketToken(socket) {
     return authHeader.replace(/^Bearer\s+/i, '').trim();
   }
 
-  const queryToken = socket.handshake?.query?.token;
-  if (queryToken) return String(queryToken).replace(/^Bearer\s+/i, '').trim();
-
   const cookieHeader = socket.handshake?.headers?.cookie;
   if (cookieHeader && typeof cookieHeader === 'string') {
     const tokenCookie = cookieHeader
@@ -77,7 +75,9 @@ export function initSocket(httpServer, opts = {}) {
     ...socketOptions,
   });
 
-  io.use((socket, next) => {
+  const maxConnectionsPerUser = Math.max(1, Number(process.env.SOCKET_MAX_CONNECTIONS_PER_USER) || 5);
+
+  io.use(async (socket, next) => {
     try {
       const token = extractSocketToken(socket);
       if (!token) {
@@ -88,6 +88,23 @@ export function initSocket(httpServer, opts = {}) {
       const tokenUserId = normalizeUserId(decoded?.userId || decoded?.id || decoded?._id);
       if (!tokenUserId) {
         return next(new Error('Invalid token payload'));
+      }
+
+      if (decoded?.sessionId) {
+        const session = await Session.findById(decoded.sessionId).select('user active expiresAt');
+        if (
+          !session ||
+          !session.active ||
+          String(session.user) !== tokenUserId ||
+          (session.expiresAt && session.expiresAt.getTime() < Date.now())
+        ) {
+          return next(new Error('Session invalid or expired'));
+        }
+        socket.data.sessionId = String(decoded.sessionId);
+      }
+
+      if ((userSocketMap.get(tokenUserId)?.size || 0) >= maxConnectionsPerUser) {
+        return next(new Error('Connection limit reached'));
       }
 
       socket.data.userId = tokenUserId;
@@ -132,4 +149,11 @@ export function emitToUser(userId, event, payload) {
 
 export function getIoInstance() {
   return io;
+}
+
+export function disconnectSession(sessionId) {
+  if (!io || !sessionId) return;
+  for (const socket of io.sockets.sockets.values()) {
+    if (String(socket.data?.sessionId || '') === String(sessionId)) socket.disconnect(true);
+  }
 }

@@ -2,6 +2,7 @@ import Message from '../models/Message.js';
 import User from '../models/User.js';
 import { emitToUser } from '../lib/socket.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
+import { isValidObjectId, validateMessageContent } from '../lib/messageSecurity.js';
 
 const getAuthUserId = (req) => req.user?.id || req.user?._id || req.user?.userId || null;
 
@@ -60,16 +61,32 @@ const MessageController = {
   // Send a message from employer to worker or vice versa
   sendMessage: async (req, res) => {
     try {
-      const { receiverId, content, jobId } = req.body;
+      const { receiverId, content, jobId, clientMessageId } = req.body;
       const senderId = getAuthUserId(req);
-      const trimmedContent = typeof content === 'string' ? content.trim() : '';
+      const { content: trimmedContent, error: contentError } = validateMessageContent(content);
       const normalizedJobId = normalizeOptionalJobId(jobId);
 
       if (!senderId) {
         return sendError(res, 401, 'Authentication required.');
       }
-      if (!receiverId || !trimmedContent) {
-        return sendError(res, 400, 'Receiver and content are required.');
+      if (!receiverId || !isValidObjectId(receiverId)) {
+        return sendError(res, 400, 'A valid receiver is required.');
+      }
+      if (contentError) return sendError(res, 400, contentError);
+      if (normalizedJobId && !isValidObjectId(normalizedJobId)) {
+        return sendError(res, 400, 'A valid job is required.');
+      }
+      const normalizedClientMessageId = typeof clientMessageId === 'string'
+        ? clientMessageId.trim().slice(0, 100)
+        : '';
+
+      if (normalizedClientMessageId) {
+        const existing = await Message.findOne({ sender: senderId, clientMessageId: normalizedClientMessageId });
+        if (existing) {
+          const hydratedExisting = await withMessagePopulate(Message.findById(existing._id));
+          const payload = hydratedExisting || existing;
+          return sendSuccess(res, 200, 'Message already sent', payload, { data: payload, deduplicated: true });
+        }
       }
 
       // Prevent self-messaging
@@ -88,12 +105,23 @@ const MessageController = {
         return sendError(res, 403, 'You are blocked by this user.');
       }
 
-      const message = await Message.create({
-        sender: senderId,
-        receiver: receiverId,
-        job: normalizedJobId || undefined,
-        content: trimmedContent,
-      });
+      let message;
+      try {
+        message = await Message.create({
+          sender: senderId,
+          receiver: receiverId,
+          job: normalizedJobId || undefined,
+          content: trimmedContent,
+          clientMessageId: normalizedClientMessageId || undefined,
+        });
+      } catch (error) {
+        if (error?.code !== 11000 || !normalizedClientMessageId) throw error;
+        const existing = await Message.findOne({ sender: senderId, clientMessageId: normalizedClientMessageId });
+        if (!existing) throw error;
+        const hydratedExisting = await withMessagePopulate(Message.findById(existing._id));
+        const payload = hydratedExisting || existing;
+        return sendSuccess(res, 200, 'Message already sent', payload, { data: payload, deduplicated: true });
+      }
 
       const conversationKey = `${receiverId}::${normalizedJobId || 'general'}`;
       const reverseConversationKey = `${senderId}::${normalizedJobId || 'general'}`;
@@ -124,11 +152,11 @@ const MessageController = {
       const userId = getAuthUserId(req);
       const { messageId } = req.params;
       const { content } = req.body || {};
-      const trimmedContent = typeof content === 'string' ? content.trim() : '';
+      const { content: trimmedContent, error: contentError } = validateMessageContent(content);
 
       if (!userId) return sendError(res, 401, 'Authentication required.');
-      if (!messageId) return sendError(res, 400, 'messageId required');
-      if (!trimmedContent) return sendError(res, 400, 'Message content is required.');
+      if (!messageId || !isValidObjectId(messageId)) return sendError(res, 400, 'A valid messageId is required.');
+      if (contentError) return sendError(res, 400, contentError);
 
       const message = await Message.findById(messageId);
       if (!message) return sendError(res, 404, 'Message not found.');
@@ -376,33 +404,23 @@ const MessageController = {
     }
   },
 
-  // Delete conversation for both users (permanently remove messages between the two users for job)
+  // Compatibility endpoint: remove a conversation from the current user's inbox only.
   deleteConversationForBoth: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
       const { otherUserId, jobId } = req.body;
       if (!userId) return sendError(res, 401, 'Authentication required.');
-      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
+      if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required');
       const normalizedJobId = normalizeOptionalJobId(jobId);
-      const filter = {
-        $or: [
-          { sender: userId, receiver: otherUserId },
-          { sender: otherUserId, receiver: userId },
-        ],
-      };
-      if (normalizedJobId) filter.job = normalizedJobId;
-      await Message.deleteMany(filter);
-      // remove archived keys from both users
+      if (normalizedJobId && !isValidObjectId(normalizedJobId)) return sendError(res, 400, 'A valid jobId is required');
       const convId = `${otherUserId}::${normalizedJobId || 'general'}`;
-      await User.updateOne({ _id: userId }, { $pull: { archivedConversations: convId } });
-      const convId2 = `${userId}::${normalizedJobId || 'general'}`;
-      await User.updateOne({ _id: otherUserId }, { $pull: { archivedConversations: convId2 } });
+      await User.updateOne({ _id: userId }, { $addToSet: { archivedConversations: convId } });
       return sendSuccess(
         res,
         200,
-        'Conversation deleted for both users',
-        { conversationId: convId },
-        { conversationId: convId }
+        'Conversation removed from your inbox',
+        { conversationId: convId, removal: 'local' },
+        { conversationId: convId, removal: 'local', deprecatedEndpoint: true }
       );
     } catch (error) {
       return sendError(res, 500, 'Server error', { error: error.message });

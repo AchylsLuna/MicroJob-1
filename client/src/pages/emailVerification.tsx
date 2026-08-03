@@ -134,7 +134,7 @@ const EmailVerification: React.FC = () => {
 
   if (!email) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2942] to-[#0f1820] p-4 page-transition">
+      <div className="min-h-screen flex items-center justify-center bg-[#1C4D8D] p-4 page-transition">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl p-8">
             <h2 className="text-2xl font-bold text-center text-gray-800 mb-3">Email Required</h2>
@@ -144,7 +144,7 @@ const EmailVerification: React.FC = () => {
             <button
               type="button"
               onClick={handleBackToLogin}
-              className="w-full bg-[#1e3a5f] text-white py-3 rounded-xl font-semibold hover:bg-[#2d5080] transition-colors"
+              className="brand-primary-interactive w-full rounded-xl py-3 font-semibold"
             >
               Back to Login
             </button>
@@ -155,7 +155,7 @@ const EmailVerification: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#1a2942] to-[#0f1820] p-4 page-transition">
+    <div className="min-h-screen flex items-center justify-center bg-[#1C4D8D] p-4 page-transition">
       <div className="w-full max-w-md">
         <div className="bg-white rounded-3xl shadow-2xl p-8">
           <button
@@ -168,7 +168,7 @@ const EmailVerification: React.FC = () => {
           </button>
 
           <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 rounded-full bg-[#1e3a5f] flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-[#1C4D8D] flex items-center justify-center">
               <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -200,7 +200,7 @@ const EmailVerification: React.FC = () => {
                   value={digit}
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
-                  className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1e3a5f] focus:border-transparent"
+                  className="w-12 h-12 text-center text-xl font-semibold border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
                 />
               ))}
             </div>
@@ -214,7 +214,7 @@ const EmailVerification: React.FC = () => {
             <button
               type="submit"
               disabled={isLoading || otp.join("").length !== 6}
-              className="w-full bg-[#1e3a5f] text-white py-3 rounded-xl font-semibold hover:bg-[#2d5080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-4"
+              className="brand-primary-interactive mb-4 w-full rounded-xl py-3 font-semibold"
             >
               {isLoading ? "Verifying..." : "Verify Code"}
             </button>
@@ -225,7 +225,7 @@ const EmailVerification: React.FC = () => {
                 type="button"
                 onClick={handleResendCode}
                 disabled={isLoading}
-                className="text-[#1e3a5f] font-medium hover:underline disabled:opacity-50"
+                className="text-[#1C4D8D] font-medium hover:underline disabled:opacity-50"
               >
                 Resend Code
               </button>

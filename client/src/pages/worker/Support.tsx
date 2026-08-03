@@ -69,11 +69,11 @@ const formatDate = (value?: string) => {
 const getStatusClasses = (status: SupportTicket["status"]) => {
   switch (status) {
     case "open":
-      return "bg-[#DBEAFE] text-[#1D4ED8]";
+      return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
     case "in_progress":
       return "bg-[#FEF3C7] text-[#B45309]";
     case "waiting_user":
-      return "bg-[#E0F2FE] text-[#0369A1]";
+      return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
     case "resolved":
       return "bg-[#D1FAE5] text-[#047857]";
     case "closed":
@@ -90,7 +90,7 @@ const getPriorityClasses = (priority?: SupportTicket["priority"]) => {
     case "high":
       return "bg-[#FFEDD5] text-[#C2410C]";
     case "medium":
-      return "bg-[#E0E7FF] text-[#4338CA]";
+      return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
     default:
       return "bg-[#ECFDF5] text-[#047857]";
   }
@@ -305,7 +305,7 @@ export function Support() {
     <div className="max-w-[1341px] mx-auto space-y-6">
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)] gap-6">
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] rounded-[20px] p-8 text-white shadow-xl relative overflow-hidden">
+          <div className="bg-[#1C4D8D] rounded-[20px] p-8 text-white shadow-xl relative overflow-hidden">
             <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -mr-36 -mt-36" />
             <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -326,15 +326,15 @@ export function Support() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-              <div className="w-12 h-12 rounded-[12px] bg-[#E0F2FE] flex items-center justify-center mb-4">
-                <MessageSquare className="w-6 h-6 text-[#0369A1]" />
+              <div className="w-12 h-12 rounded-[12px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-4">
+                <MessageSquare className="w-6 h-6 text-[#1C4D8D]" />
               </div>
               <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Message Support</h3>
               <p className="text-[14px] text-[#6B7280] mb-4">Use the messaging workspace for urgent conversations with the support team.</p>
               <button
                 onClick={() => void handleOpenSupportMessages()}
                 disabled={isOpeningMessages}
-                className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:bg-[#0F2954] transition-all text-[14px] disabled:opacity-60"
+                className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:opacity-90 transition-all text-[14px] disabled:opacity-60"
               >
                 {isOpeningMessages ? "Opening..." : "Open Messages"}
               </button>
@@ -504,7 +504,7 @@ export function Support() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full md:w-auto bg-[#1C4D8D] text-white font-semibold py-3 px-8 rounded-[12px] hover:bg-[#0F2954] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                className="w-full md:w-auto bg-[#1C4D8D] text-white font-semibold py-3 px-8 rounded-[12px] hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 {isSubmitting ? "Submitting..." : "Submit Ticket"}
@@ -538,7 +538,7 @@ export function Support() {
                       onClick={() => setSelectedTicketId(ticket._id)}
                       className={`w-full text-left rounded-[14px] border p-4 transition-colors ${
                         selectedTicketId === ticket._id
-                          ? "border-[#1C4D8D] bg-[#EFF6FF]"
+                          ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]"
                           : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
                       }`}
                     >
@@ -598,14 +598,14 @@ export function Support() {
                         key={message._id}
                         className={`rounded-[14px] p-4 border ${
                           isAdmin
-                            ? "bg-[#EFF6FF] border-[#BFDBFE]"
+                            ? "bg-[#1C4D8D]/[0.06] border-[#1C4D8D]/20"
                             : "bg-[#F9FAFB] border-[#E5E7EB]"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-3 mb-2">
                           <div className="flex items-center gap-2">
                             {isAdmin ? (
-                              <ShieldCheck className="w-4 h-4 text-[#1D4ED8]" />
+                              <ShieldCheck className="w-4 h-4 text-[#1C4D8D]" />
                             ) : (
                               <MessageSquare className="w-4 h-4 text-[#6B7280]" />
                             )}
@@ -638,7 +638,7 @@ export function Support() {
                       type="button"
                       onClick={handleReply}
                       disabled={isReplying || !replyDraft.trim()}
-                      className="w-full bg-[#1C4D8D] text-white font-semibold py-3 px-4 rounded-[12px] hover:bg-[#0F2954] transition-all disabled:opacity-60"
+                      className="w-full bg-[#1C4D8D] text-white font-semibold py-3 px-4 rounded-[12px] hover:opacity-90 transition-all disabled:opacity-60"
                     >
                       {isReplying ? "Sending reply..." : "Reply to Ticket"}
                     </button>

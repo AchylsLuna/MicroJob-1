@@ -117,7 +117,7 @@ export const calculateProfileCompletion = (profile: ProfileData): CompletionStat
  */
 export const getCompletionColor = (percentage: number): string => {
   if (percentage >= 80) return '#10b981'; // Green
-  if (percentage >= 60) return '#3b82f6'; // Blue
+  if (percentage >= 60) return '#1C4D8D'; // Blue
   if (percentage >= 40) return '#f59e0b'; // Amber
   return '#ef4444'; // Red
 };

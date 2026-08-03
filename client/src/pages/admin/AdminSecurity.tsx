@@ -19,7 +19,7 @@ function AdminSecurityContent() {
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <div className="w-12 h-12 rounded-[12px] bg-[#E8F2FF] flex items-center justify-center mb-4">
-            <ShieldCheck className="w-6 h-6 text-[#2563EB]" />
+            <ShieldCheck className="w-6 h-6 text-[#1C4D8D]" />
           </div>
           <p className="text-[13px] text-[#6B7280]">Active Users</p>
           <p className="text-[26px] font-semibold text-[#111827] mt-2">{isLoading ? "—" : stats.activeUsers}</p>

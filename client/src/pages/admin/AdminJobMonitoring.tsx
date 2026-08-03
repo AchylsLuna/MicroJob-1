@@ -157,7 +157,7 @@ function AdminJobMonitoringContent() {
                         <div className="flex items-center gap-2">
                           <Link
                             to={ROUTES.worker.jobDetails(job._id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#EFF6FF] text-[#1D4ED8] hover:bg-[#DBEAFE]"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#1C4D8D]/[0.06] text-[#1C4D8D] hover:opacity-80"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             View

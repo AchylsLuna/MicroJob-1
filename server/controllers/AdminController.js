@@ -18,7 +18,7 @@ export async function getAdminStats(req, res) {
       availableJobs,
       completedJobs,
       totalTransactions,
-      totalRevenue,
+      completedPayoutVolume,
       totalCategories,
       pendingPayouts,
       openSupportTickets,
@@ -32,7 +32,10 @@ export async function getAdminStats(req, res) {
       Job.countDocuments({ status: 'Available' }),
       Job.countDocuments({ status: 'Completed' }),
       Transaction.countDocuments(),
-      Transaction.aggregate([{ $group: { _id: null, total: { $sum: '$amount' } } }]).then((result) => result[0]?.total || 0),
+      Transaction.aggregate([
+        { $match: { type: 'PAYOUT', status: 'COMPLETED' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]).then((result) => result[0]?.total || 0),
       Category.countDocuments(),
       PayoutRequest.countDocuments({ status: { $in: ['requested', 'approved'] } }),
       SupportTicket.countDocuments({ status: { $in: ['open', 'in_progress', 'waiting_user'] } }),
@@ -48,7 +51,7 @@ export async function getAdminStats(req, res) {
       availableJobs,
       completedJobs,
       totalTransactions,
-      totalRevenue,
+      completedPayoutVolume,
       totalCategories,
       pendingPayouts,
       openSupportTickets,
@@ -69,6 +72,86 @@ export async function getAdminUsers(req, res) {
   } catch (error) {
     console.error('Get admin users error:', error);
     res.status(500).json({ message: 'Failed to fetch users', error: error.message });
+  }
+}
+
+export async function getAdminVerifications(req, res) {
+  try {
+    const requestedStatus = String(req.query?.status || 'in-review').toLowerCase();
+    const allowedStatuses = new Set(['pending', 'in-review', 'complete', 'rejected', 'all']);
+    if (!allowedStatuses.has(requestedStatus)) {
+      return res.status(400).json({ message: 'Invalid verification status.' });
+    }
+
+    const query = requestedStatus === 'all'
+      ? {
+          $or: [
+            { 'verification.identityDocument.documentUrl': { $exists: true, $ne: '' } },
+            { 'verification.addressDocument.documentUrl': { $exists: true, $ne: '' } },
+          ],
+        }
+      : {
+          $or: [
+            { 'verification.identityDocument.status': requestedStatus },
+            { 'verification.addressDocument.status': requestedStatus },
+          ],
+        };
+
+    const users = await User.find(query)
+      .select('_id firstName lastName email status verification createdAt updatedAt')
+      .sort({ updatedAt: -1 })
+      .lean();
+    return res.status(200).json(users);
+  } catch (error) {
+    console.error('Get admin verifications error:', error);
+    return res.status(500).json({ message: 'Failed to fetch verification requests.' });
+  }
+}
+
+export async function updateAdminVerification(req, res) {
+  try {
+    const { userId, documentType } = req.params;
+    const status = String(req.body?.status || '').toLowerCase();
+    const rejectionReason = String(req.body?.rejectionReason || '').trim();
+
+    if (!['identity', 'address'].includes(documentType)) {
+      return res.status(400).json({ message: 'Document type must be identity or address.' });
+    }
+    if (!['complete', 'rejected'].includes(status)) {
+      return res.status(400).json({ message: 'Review status must be complete or rejected.' });
+    }
+    if (status === 'rejected' && !rejectionReason) {
+      return res.status(400).json({ message: 'A rejection reason is required.' });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    const documentKey = `${documentType}Document`;
+    const verifiedKey = `${documentType}Verified`;
+    const verificationDocument = user.verification?.[documentKey];
+    if (!verificationDocument?.documentUrl) {
+      return res.status(400).json({ message: 'No uploaded document is available for review.' });
+    }
+
+    user.verification = user.verification || {};
+    verificationDocument.status = status;
+    verificationDocument.reviewedAt = new Date();
+    verificationDocument.reviewedBy = req.user.id;
+    verificationDocument.rejectionReason = status === 'rejected' ? rejectionReason : undefined;
+    user.verification[verifiedKey] = status === 'complete';
+    await user.save();
+
+    return res.status(200).json({
+      message: `Verification document ${status === 'complete' ? 'approved' : 'rejected'}.`,
+      userId: user._id,
+      documentType,
+      status,
+      verified: user.verification[verifiedKey],
+    });
+  } catch (error) {
+    console.error('Update admin verification error:', error);
+    return res.status(500).json({ message: 'Failed to update verification request.' });
   }
 }
 
@@ -143,9 +226,24 @@ export async function getAdminWalletStats(req, res) {
     const pendingTotal = (summaryMap.requested?.total || 0) + (summaryMap.approved?.total || 0);
     const averageCompleted = completedCount ? completedTotal / completedCount : 0;
     const totalEscrow = await Transaction.aggregate([
-      { $match: { type: 'ESCROW' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } },
-    ]).then((result) => result[0]?.total || 0);
+      {
+        $match: {
+          jobReference: { $ne: null },
+          status: 'COMPLETED',
+          type: { $in: ['ESCROW', 'PAYOUT', 'REFUND'] },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          total: {
+            $sum: {
+              $cond: [{ $eq: ['$type', 'ESCROW'] }, '$amount', { $multiply: ['$amount', -1] }],
+            },
+          },
+        },
+      },
+    ]).then((result) => Math.max(0, result[0]?.total || 0));
 
     res.status(200).json({
       wallets: walletData,

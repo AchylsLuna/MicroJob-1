@@ -19,6 +19,14 @@ const MessageSchema = new mongoose.Schema({
   content: {
     type: String,
     required: true,
+    trim: true,
+    maxlength: Number.parseInt(process.env.MESSAGE_MAX_LENGTH || '4000', 10) || 4000,
+  },
+  clientMessageId: {
+    type: String,
+    trim: true,
+    maxlength: 100,
+    default: null,
   },
   editedAt: {
     type: Date,
@@ -38,6 +46,11 @@ const MessageSchema = new mongoose.Schema({
   },
 
 });
+
+MessageSchema.index(
+  { sender: 1, clientMessageId: 1 },
+  { unique: true, partialFilterExpression: { clientMessageId: { $type: 'string' } } },
+);
 
 const Message = mongoose.model('Message', MessageSchema);
 export default Message;

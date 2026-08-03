@@ -61,7 +61,7 @@ export function TopUpSuccess() {
     <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
       <div className="w-full max-w-lg bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm">
         <div className="flex items-start gap-3">
-          {state === "loading" && <Loader2 className="w-6 h-6 text-[#2563EB] animate-spin mt-0.5" />}
+          {state === "loading" && <Loader2 className="w-6 h-6 text-[#1C4D8D] animate-spin mt-0.5" />}
           {state === "success" && <CheckCircle2 className="w-6 h-6 text-[#059669] mt-0.5" />}
           {state === "error" && <XCircle className="w-6 h-6 text-[#DC2626] mt-0.5" />}
 
@@ -82,7 +82,7 @@ export function TopUpSuccess() {
           <button
             type="button"
             onClick={() => navigate(ROUTES.worker.eWallet)}
-            className="px-4 py-2 rounded-lg bg-[#1D4ED8] text-white text-[14px] font-medium hover:bg-[#1E40AF] transition"
+            className="px-4 py-2 rounded-lg bg-[#1C4D8D] text-white text-[14px] font-medium hover:opacity-90 transition"
           >
             Go to E-Wallet
           </button>

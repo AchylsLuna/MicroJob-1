@@ -37,6 +37,7 @@ const normalizeApiBase = (value: unknown, fallbackOrigin: string): string => {
 const API_PROXY_TARGET = normalizeOriginLikeValue(import.meta.env.VITE_API_PROXY_TARGET) || 'http://localhost:5000';
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE, API_PROXY_TARGET);
 const DIRECT_API_BASE = `${API_PROXY_TARGET}/api`;
+const REQUEST_TIMEOUT_MS = 12000;
 
 function buildApiCandidates(path: string) {
   const primary = `${API_BASE}${path}`;
@@ -62,9 +63,32 @@ export type AuthUser = {
   city?: string;
   country?: string;
   linkedin?: string;
+  website?: string;
+  jobPosition?: string;
   avatarUrl?: string;
 };
 export type AuthResponse = { token: string; user: AuthUser; message?: string };
+export type MfaChallengeResponse = {
+  mfaRequired: true;
+  mfaToken: string;
+  method?: string;
+  message?: string;
+};
+export type LoginResponse =
+  | AuthResponse
+  | MfaChallengeResponse
+  | { data: AuthResponse | MfaChallengeResponse; message?: string };
+export type WorkExperience = {
+  _id?: string;
+  id?: string;
+  title: string;
+  company: string;
+  location?: string;
+  startDate: string;
+  endDate?: string | null;
+  current: boolean;
+  description?: string;
+};
 export type PaymentTarget = 'EMPLOYER' | 'WORKER' | 'BOTH';
 export type PaymentTransaction = {
   _id: string;
@@ -131,6 +155,12 @@ export type SupportTicket = {
     _id: string;
     author?: any;
     actorRole: 'user' | 'admin';
+    body: string;
+    createdAt: string;
+  }>;
+  internalNotes?: Array<{
+    _id: string;
+    author?: any;
     body: string;
     createdAt: string;
   }>;
@@ -203,26 +233,52 @@ async function performRequest(
   method: string,
   headers: Headers,
   body: unknown,
-  isFormData: boolean
+  isFormData: boolean,
+  externalSignal?: AbortSignal | null,
 ) {
   let res: Response | null = null;
   const candidates = buildApiCandidates(path);
+  let requestTimedOut = false;
 
   for (const url of candidates) {
+    const controller = new AbortController();
+    let candidateTimedOut = false;
+    const timeoutId = globalThis.setTimeout(() => {
+      candidateTimedOut = true;
+      requestTimedOut = true;
+      controller.abort();
+    }, REQUEST_TIMEOUT_MS);
+    const abortFromExternalSignal = () => controller.abort();
+    if (externalSignal) {
+      if (externalSignal.aborted) controller.abort();
+      else externalSignal.addEventListener('abort', abortFromExternalSignal, { once: true });
+    }
     try {
       res = await fetch(url, {
         method,
         headers,
         credentials: 'include',
         body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
+        signal: controller.signal,
       });
       break;
     } catch {
+      if (externalSignal?.aborted) break;
+      if (candidateTimedOut) continue;
       // Try next candidate URL when network fails.
+    } finally {
+      globalThis.clearTimeout(timeoutId);
+      externalSignal?.removeEventListener('abort', abortFromExternalSignal);
     }
   }
 
   if (!res) {
+    if (externalSignal?.aborted) {
+      throw new DOMException('The request was cancelled.', 'AbortError');
+    }
+    if (requestTimedOut) {
+      throw new Error('The server took too long to respond. Please try again.');
+    }
     throw new Error('Unable to reach the server at /api or http://localhost:5000/api. Make sure backend is running on port 5000.');
   }
 
@@ -288,7 +344,7 @@ async function request<T>(
     }
   }
 
-  let { res, data } = await performRequest(path, method, headers, body, isFormData);
+  let { res, data } = await performRequest(path, method, headers, body, isFormData, options.signal);
 
   if (!res.ok) {
     const canAttemptRefresh =
@@ -299,7 +355,7 @@ async function request<T>(
     if (canAttemptRefresh) {
       const refreshed = await tryRefreshSession();
       if (refreshed) {
-        const retryResult = await performRequest(path, method, headers, body, isFormData);
+        const retryResult = await performRequest(path, method, headers, body, isFormData, options.signal);
         res = retryResult.res;
         data = retryResult.data;
       }
@@ -322,7 +378,14 @@ export function registerUser(payload: { username?: string; firstName?: string; l
 }
 
 export function loginUser(payload: { emailOrUsername: string; password: string }) {
-  return request<AuthResponse>('/auth/login', { method: 'POST', body: payload });
+  return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
+}
+
+export function verifyLoginMfa(payload: { mfaToken: string; code: string }) {
+  return request<AuthResponse | { data: AuthResponse }>('/auth/login/mfa', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export function sendOtp(payload: { email: string }) {
@@ -479,6 +542,10 @@ export function updateUserByAdmin(userId: string, payload: { firstName: string; 
   return request<{ message: string; user: any }>(`/users/${userId}`, { method: 'PATCH', body: payload });
 }
 
+export function createUserByAdmin(payload: { firstName: string; lastName: string; email: string; password: string; role: 'work' | 'hire' | 'admin' }) {
+  return request<{ message: string; user: any }>('/users', { method: 'POST', body: payload });
+}
+
 export function deleteUser(userId: string) {
   return request(`/users/${userId}`, { method: 'DELETE' });
 }
@@ -491,25 +558,33 @@ export function requestAccountDeletion(payload: { currentPassword: string; confi
 }
 
 // Profile APIs
+let inFlightProfileRequest: Promise<any> | null = null;
+
 export function getProfile() {
-  return request<any>('/auth/me', { method: 'GET' }).then((response: any) => {
-    return response?.data ?? response?.profile ?? response?.user ?? response;
-  });
+  if (!inFlightProfileRequest) {
+    inFlightProfileRequest = request<any>('/auth/me', { method: 'GET' })
+      .then((response: any) => response?.data ?? response?.profile ?? response?.user ?? response)
+      .finally(() => {
+        inFlightProfileRequest = null;
+      });
+  }
+  return inFlightProfileRequest;
 }
 
 export function updateProfile(payload: {
   firstName?: string;
   lastName?: string;
   phoneNumber?: string;
-  email?: string;
   city?: string;
   province?: string;
+  barangay?: string;
+  addressType?: 'home' | 'office' | 'place';
   address?: string;
   companyName?: string;
-  country?: string;
   linkedin?: string;
+  website?: string;
+  jobPosition?: string;
   about?: string;
-  avatarUrl?: string;
   totalExperience?: string;
   hideHiredCandidates?: boolean;
   // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated by backend
@@ -521,6 +596,46 @@ export function updateProfile(payload: {
 
 export function getPublicProfile(userId: string, viewAs: 'worker' | 'employer' = 'worker') {
   return request<any>(`/auth/profiles/${userId}${buildQuery({ viewAs })}`, { method: 'GET' });
+}
+
+export function addWorkExperience(payload: Omit<WorkExperience, '_id' | 'id'>) {
+  return request<{ workExperience: WorkExperience[] }>('/auth/profile/experience', {
+    method: 'POST',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function updateWorkExperience(experienceId: string, payload: Partial<WorkExperience>) {
+  return request<{ workExperience: WorkExperience[] }>(`/auth/profile/experience/${experienceId}`, {
+    method: 'PATCH',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function deleteWorkExperience(experienceId: string) {
+  return request<{ workExperience: WorkExperience[] }>(`/auth/profile/experience/${experienceId}`, {
+    method: 'DELETE',
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function addProfileSkill(payload: { name: string; description?: string }) {
+  return request<{ message?: string; data?: { skills?: any[] }; skills?: any[] }>('/auth/profile/skills', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function updateProfileSkill(skillId: string, payload: { description: string }) {
+  return request<{ message?: string; data?: { skills?: any[] }; skills?: any[] }>(`/auth/profile/skills/${skillId}`, {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
+export function deleteProfileSkill(skillId: string) {
+  return request<{ message?: string; data?: { skills?: any[] }; skills?: any[] }>(`/auth/profile/skills/${skillId}`, {
+    method: 'DELETE',
+  });
 }
 
 // Multi-factor authentication APIs
@@ -626,7 +741,7 @@ export function getVerificationStatus() {
       id: string;
       title: string;
       description: string;
-      status: 'complete' | 'in-review' | 'pending';
+      status: 'complete' | 'in-review' | 'pending' | 'rejected';
     }>;
     completedSteps: number;
     completionPercent: number;
@@ -729,6 +844,7 @@ export function getPayoutRequests() {
 
 export function createPayoutRequest(payload: {
   amount: number;
+  idempotencyKey?: string;
   destinationSnapshot: {
     methodType: string;
     institutionName: string;
@@ -790,7 +906,7 @@ export function removeSavedJob(jobId: string) {
 }
 
 // Message APIs
-export function sendMessage(payload: { receiverId: string; content: string; jobId?: string }) {
+export function sendMessage(payload: { receiverId: string; content: string; jobId?: string; clientMessageId?: string }) {
   return request<any>('/messages/send', { method: 'POST', body: payload });
 }
 
@@ -837,19 +953,7 @@ export function editMessage(messageId: string, content: string) {
 export async function uploadResume(file: File) {
   const formData = new FormData();
   formData.append('resume', file);
-
-  const res = await fetch(`${API_BASE}/auth/profile/resume`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    const message = data?.message || 'Failed to upload resume';
-    throw new Error(message);
-  }
-  return data;
+  return request<any>('/auth/profile/resume', { method: 'POST', body: formData });
 }
 
 export function deleteResume() {
@@ -860,19 +964,7 @@ export function deleteResume() {
 export async function uploadAvatar(file: File) {
   const formData = new FormData();
   formData.append('avatar', file);
-
-  const res = await fetch(`${API_BASE}/auth/profile/avatar`, {
-    method: 'POST',
-    credentials: 'include',
-    body: formData,
-  });
-
-  const data = await res.json();
-  if (!res.ok) {
-    const message = data?.message || 'Failed to upload avatar';
-    throw new Error(message);
-  }
-  return data;
+  return request<any>('/auth/profile/avatar', { method: 'POST', body: formData });
 }
 
 export function deleteAvatar() {
@@ -888,6 +980,20 @@ export function getAdminStats() {
 
 export function getAdminUsers() {
   return request<any[]>('/admin/users', { method: 'GET' });
+}
+
+export function updateAdminVerification(
+  userId: string,
+  documentType: 'identity' | 'address',
+  payload: { status: 'complete' | 'rejected'; rejectionReason?: string },
+) {
+  return request<{
+    message: string;
+    userId: string;
+    documentType: 'identity' | 'address';
+    status: 'complete' | 'rejected';
+    verified: boolean;
+  }>(`/admin/verifications/${userId}/${documentType}`, { method: 'PATCH', body: payload });
 }
 
 export function getAdminJobs() {

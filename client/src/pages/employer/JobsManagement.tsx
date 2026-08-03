@@ -303,7 +303,7 @@ export function JobsManagement() {
                 {/* Job Title */}
                 <div className="mb-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-[#1C4D8D] flex items-center justify-center flex-shrink-0">
                       <span className="text-white text-base">⚛</span>
                     </div>
                     <div>
@@ -338,7 +338,7 @@ export function JobsManagement() {
                         cx="32"
                         cy="32"
                         r="28"
-                        stroke={job.matchPercentage >= 80 ? "#3B82F6" : job.matchPercentage >= 50 ? "#A855F7" : "#F59E0B"}
+                        stroke={job.matchPercentage >= 80 ? "#1C4D8D" : job.matchPercentage >= 50 ? "#A855F7" : "#F59E0B"}
                         strokeWidth="6"
                         fill="none"
                         strokeDasharray={`${2 * Math.PI * 28}`}
@@ -419,7 +419,7 @@ export function JobsManagement() {
                     <button
                       onClick={() => void handleMarkJobDone(job)}
                       disabled={job.backendStatus === "Completed" || markingDoneJobId === job.id || !(job as any).hasHired}
-                      className="inline-flex items-center gap-1 rounded-lg border border-[#BFDBFE] bg-[#EFF6FF] px-3 py-1.5 text-xs font-semibold text-[#1D4ED8] disabled:opacity-60"
+                      className="inline-flex items-center gap-1 rounded-lg border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-1.5 text-xs font-semibold text-[#1C4D8D] disabled:opacity-60"
                       title={!((job as any).hasHired) ? "Move at least one worker application to Hired first" : "Mark done and auto-pay workers from escrow"}
                     >
                       {markingDoneJobId === job.id ? (
@@ -442,7 +442,7 @@ export function JobsManagement() {
                     </button>
                     <button
                       onClick={() => navigate(ROUTES.employer.applications)}
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-[#1C4D8D] hover:text-[#0F2954]"
+                      className="inline-flex items-center gap-1 text-sm font-semibold text-[#1C4D8D] hover:opacity-80"
                     >
                       View details
                       <ArrowRight className="w-3.5 h-3.5" />

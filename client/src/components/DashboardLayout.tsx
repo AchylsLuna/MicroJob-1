@@ -3,12 +3,22 @@ import { Outlet, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import { NavBar } from "./NavBar";
 import { webUi } from "../styles/webUi";
+import { useAuth } from "../contexts/AuthContext";
 
 export function DashboardLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const mobileNavigationRef = useRef<HTMLDivElement>(null);
   const navigationTriggerRef = useRef<HTMLElement | null>(null);
   const location = useLocation();
+  const { user } = useAuth();
+  const normalizedRole = String(user?.role || "").toLowerCase();
+  const isEmployerView =
+    user?.accountType === "employer" ||
+    normalizedRole === "employer" ||
+    normalizedRole === "doctor" ||
+    normalizedRole === "hire";
+  const isAdminView = normalizedRole === "admin" || normalizedRole === "superadmin";
+  const isWorkerView = !isEmployerView && !isAdminView;
 
   useEffect(() => {
     setIsMobileSidebarOpen(false);
@@ -21,7 +31,10 @@ export function DashboardLayout() {
     const panel = mobileNavigationRef.current;
     const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const focusableElements = () => Array.from(panel?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter((element) => element.getClientRects().length > 0);
-    const focusFrame = window.requestAnimationFrame(() => focusableElements()[0]?.focus());
+    const focusFrame = window.requestAnimationFrame(() => {
+      const closeButton = panel?.querySelector<HTMLElement>('[aria-label="Close navigation menu"]');
+      (closeButton || focusableElements()[0])?.focus();
+    });
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -52,9 +65,11 @@ export function DashboardLayout() {
 
   return (
     <div className={webUi.layout.shell}>
-      <div className="hidden h-full shrink-0 lg:block">
-        <Sidebar />
-      </div>
+      {!isWorkerView && (
+        <div className="hidden h-full w-[280px] shrink-0 lg:block">
+          <Sidebar />
+        </div>
+      )}
       {isMobileSidebarOpen && (
         <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
           <button

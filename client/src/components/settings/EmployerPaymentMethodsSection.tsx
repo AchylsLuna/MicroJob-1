@@ -148,7 +148,7 @@ export function EmployerPaymentMethodsSection() {
           <button
             type="button"
             onClick={openForm}
-            className="self-start rounded-[10px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-2 text-[14px] font-semibold text-[#2563EB] hover:bg-[#DBEAFE] sm:self-auto"
+            className="self-start rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-2 text-[14px] font-semibold text-[#1C4D8D] hover:opacity-90/10 sm:self-auto"
           >
             + Add New Card
           </button>
@@ -169,7 +169,7 @@ export function EmployerPaymentMethodsSection() {
               <button
                 type="button"
                 onClick={openForm}
-                className="mt-4 rounded-[10px] bg-[#2563EB] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#1D4ED8]"
+                className="mt-4 rounded-[10px] bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
               >
                 Add your first card
               </button>
@@ -209,7 +209,7 @@ export function EmployerPaymentMethodsSection() {
                       type="button"
                       onClick={() => handleSetDefault(method.id)}
                       disabled={actionId === method.id}
-                      className="text-[13px] text-[#2563EB] disabled:opacity-50"
+                      className="text-[13px] text-[#1C4D8D] disabled:opacity-50"
                     >
                       {actionId === method.id ? "Saving..." : "Set as Default"}
                     </button>
@@ -305,7 +305,7 @@ export function EmployerPaymentMethodsSection() {
             type="button"
             onClick={handleAdd}
             disabled={isSaving}
-            className="mt-4 rounded-[12px] bg-[#2563EB] px-6 py-3 font-semibold text-white disabled:opacity-60"
+            className="mt-4 rounded-[12px] bg-[#1C4D8D] px-6 py-3 font-semibold text-white disabled:opacity-60"
           >
             {isSaving ? "Saving..." : "Save card"}
           </button>
