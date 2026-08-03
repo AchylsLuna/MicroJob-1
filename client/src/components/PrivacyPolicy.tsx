@@ -121,7 +121,7 @@ export function PrivacyPolicy() {
               </button>
               <Link
                 to={ROUTES.terms}
-                className="inline-flex items-center justify-center rounded-lg bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:bg-[#153d70] transition-colors"
+                className="inline-flex items-center justify-center rounded-lg bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90 transition-colors"
               >
                 Terms and Conditions
               </Link>
@@ -155,10 +155,10 @@ export function PrivacyPolicy() {
               {legalEntity}
             </p>
             <div className="mt-2 flex flex-wrap gap-3 text-[14px]">
-              <a className="font-medium text-[#1C4D8D] hover:text-[#153d70]" href={`mailto:${supportEmail}`}>
+              <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={`mailto:${supportEmail}`}>
                 {supportEmail}
               </a>
-              <a className="font-medium text-[#1C4D8D] hover:text-[#153d70]" href={supportPhoneHref}>
+              <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={supportPhoneHref}>
                 {supportPhone}
               </a>
             </div>

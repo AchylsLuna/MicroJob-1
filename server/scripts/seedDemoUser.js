@@ -26,6 +26,8 @@ if (!email || !password) {
   process.exit(1);
 }
 const role = process.env.DEMO_USER_ROLE || 'work';
+const city = String(process.env.DEMO_USER_CITY || 'Quezon City').trim();
+const province = String(process.env.DEMO_USER_PROVINCE || 'Metro Manila').trim();
 const resetPassword = ['1', 'true', 'yes'].includes(
   String(process.env.DEMO_USER_RESET_PASSWORD || '').toLowerCase()
 );
@@ -44,6 +46,8 @@ const run = async () => {
       lastName: 'User',
       role,
       status: 'active',
+      city,
+      province,
     });
     await user.setPassword(password);
     await user.save();
@@ -62,6 +66,14 @@ const run = async () => {
     }
     if (user.status !== 'active') {
       user.status = 'active';
+      changed = true;
+    }
+    if (!user.city && city) {
+      user.city = city;
+      changed = true;
+    }
+    if (!user.province && province) {
+      user.province = province;
       changed = true;
     }
     if (resetPassword) {

@@ -27,7 +27,7 @@ const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g
 
 export async function getJobList(req, res) {
     try {
-        const { category, jobType, search, excludeOwn } = req.query;
+        const { category, jobType, search, excludeOwn, city } = req.query;
         
         let filter = {};
         
@@ -40,6 +40,14 @@ export async function getJobList(req, res) {
         if (jobType) {
             const types = jobType.split(',');
             filter.jobType = { $in: types };
+        }
+
+        // Local-community discovery is scoped to the worker's city/municipality.
+        if (city) {
+            const safeCity = escapeRegExp(String(city).trim());
+            if (safeCity) {
+                filter.location = { $regex: safeCity, $options: 'i' };
+            }
         }
         
         // Search filter

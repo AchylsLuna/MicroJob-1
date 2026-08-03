@@ -1,11 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Linking,
-  Modal,
   Platform,
   ScrollView,
+  RefreshControl,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -15,16 +16,19 @@ import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
 import Constants from 'expo-constants';
 import Navigation from '../../components/navigation';
 import TabTopNav from '../../components/TabTopNav';
 import AddCV from './AddCV';
-import AddExperience from './AddExperience';
+import AddExperience, { type ExperienceDraft } from './AddExperience';
 import { API_URL } from '../../config';
 import { safeExternalUrl } from '../../lib/safeExternalUrl';
 import { apiRequest } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import { calculateProfileCompletion } from '../../lib/profileCompletion';
+import { validateMobileAvatar } from '../../lib/profileValidation';
 
 type ProfileProps = {
   activeTab?: string;
@@ -37,9 +41,27 @@ type ProfileProps = {
 };
 
 type ExperienceItem = {
+  id: string;
   title: string;
   subtitle: string;
   period?: string;
+  description?: string;
+  raw?: any;
+};
+
+const toMonthInput = (value: unknown) => {
+  if (!value) return '';
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime()) ? String(value).slice(0, 7) : date.toISOString().slice(0, 7);
+};
+
+const getVerificationMimeType = (name: string, provided?: string | null) => {
+  if (provided) return provided;
+  const extension = name.split('.').pop()?.toLowerCase();
+  if (extension === 'pdf') return 'application/pdf';
+  if (extension === 'png') return 'image/png';
+  if (extension === 'webp') return 'image/webp';
+  return 'image/jpeg';
 };
 
 export default function Profile({
@@ -53,12 +75,19 @@ export default function Profile({
 }: ProfileProps) {
   const [profileTab, setProfileTab] = useState(activeTab || 'Profile');
   const [showAddExperience, setShowAddExperience] = useState(false);
+  const [editingExperience, setEditingExperience] = useState<(ExperienceDraft & { id: string }) | null>(null);
   const [showAddCV, setShowAddCV] = useState(false);
-  const [firstName, setFirstName] = useState('Jonas');
+  const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [profile, setProfile] = useState<any>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [showGovernmentScanModal, setShowGovernmentScanModal] = useState(false);
+  const [isUploadingGovernmentId, setIsUploadingGovernmentId] = useState(false);
+  const [isUploadingAddressDocument, setIsUploadingAddressDocument] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
+  const [profileError, setProfileError] = useState('');
+  const [deletingExperienceId, setDeletingExperienceId] = useState<string | null>(null);
+  const [isDeletingResume, setIsDeletingResume] = useState(false);
   const toast = useToast();
 
   const API_ORIGIN = API_URL.replace(/\/api$/, '');
@@ -137,6 +166,11 @@ export default function Profile({
 
   const handleUploadProfilePicture = async (image: ImagePicker.ImagePickerAsset) => {
     try {
+      const { extension, mimeType, error: avatarError } = validateMobileAvatar(image);
+      if (avatarError) {
+        toast.error(avatarError);
+        return;
+      }
       setIsUploadingAvatar(true);
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
@@ -145,12 +179,6 @@ export default function Profile({
       }
 
       let uploadUri = image.uri;
-      const extensionFromName = image.fileName?.includes('.')
-        ? image.fileName.split('.').pop()?.toLowerCase()
-        : undefined;
-      const extensionFromMime = image.mimeType?.split('/').pop()?.toLowerCase();
-      const extension = extensionFromName || extensionFromMime || 'jpg';
-
       if (!uploadUri.startsWith('file://') && FileSystem.cacheDirectory) {
         const cachePath = `${FileSystem.cacheDirectory}avatar_upload_${Date.now()}.${extension}`;
         await FileSystem.copyAsync({ from: uploadUri, to: cachePath });
@@ -166,7 +194,7 @@ export default function Profile({
       const fileName = image.fileName || `profile_${Date.now()}.${extension}`;
       formData.append('avatar', {
         uri: uploadUri,
-        type: image.mimeType || `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+        type: mimeType,
         name: fileName,
       } as any);
 
@@ -175,6 +203,8 @@ export default function Profile({
       let lastError = 'Network request failed';
 
       for (const apiBase of apiCandidates) {
+        const controller = new AbortController();
+        const timeoutId = globalThis.setTimeout(() => controller.abort(), 12000);
         try {
           const response = await fetch(`${apiBase}/auth/profile/avatar`, {
             method: 'POST',
@@ -182,6 +212,7 @@ export default function Profile({
               Authorization: `Bearer ${token}`,
             },
             body: formData,
+            signal: controller.signal,
           });
 
           const raw = await response.text();
@@ -199,8 +230,12 @@ export default function Profile({
 
           lastError = parsed?.message || `Failed to upload image (${response.status})`;
         } catch (err) {
-          lastError = err instanceof Error ? err.message : String(err);
+          lastError = err instanceof Error && err.name === 'AbortError'
+            ? 'The upload took too long. Please try again.'
+            : err instanceof Error ? err.message : String(err);
           console.log(`Avatar upload failed for ${apiBase}:`, err);
+        } finally {
+          globalThis.clearTimeout(timeoutId);
         }
       }
 
@@ -212,18 +247,19 @@ export default function Profile({
       toast.success('Profile picture updated successfully.');
     } catch (error) {
       console.log('Error uploading profile picture:', error);
-      toast.error('Could not upload profile picture. Please try again.');
+      toast.error(error instanceof Error ? error.message : 'Could not upload profile picture. Please try again.');
     } finally {
       setIsUploadingAvatar(false);
     }
   };
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
+    setIsProfileLoading(true);
     try {
       const storedUser = await AsyncStorage.getItem('auth_user');
       if (storedUser) {
         const parsed = JSON.parse(storedUser);
-        setFirstName(parsed?.firstName || 'Jonas');
+        setFirstName(parsed?.firstName || '');
         setLastName(parsed?.lastName || '');
       }
 
@@ -241,6 +277,7 @@ export default function Profile({
       )) as any;
 
       if (!result.ok) {
+        setProfileError(result.message || 'Failed to load profile.');
         return;
       }
 
@@ -249,39 +286,34 @@ export default function Profile({
         return;
       }
 
-      setFirstName(nextProfile.firstName || 'Jonas');
+      setFirstName(nextProfile.firstName || '');
       setLastName(nextProfile.lastName || '');
       setProfile(nextProfile);
+      setProfileError('');
     } catch (error) {
       console.log('Failed to load profile:', error);
+      setProfileError('Could not refresh your profile. Pull down to try again.');
+    } finally {
+      setIsProfileLoading(false);
     }
-  };
-
-  useEffect(() => {
-    loadProfile();
   }, []);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadProfile();
+    setIsRefreshing(false);
+  };
 
   useEffect(() => {
     if (activeTab === 'Profile') {
       loadProfile();
     }
-  }, [activeTab]);
+  }, [activeTab, loadProfile]);
 
-  const displayName = [firstName, lastName].filter(Boolean).join(' ') || 'Jonas';
+  const displayName = [firstName, lastName].filter(Boolean).join(' ') || 'User';
   const locationLabel = [profile?.city, profile?.province, profile?.country].filter(Boolean).join(', ') || 'Location not set';
   const jobsApplied = typeof profile?.jobsApplied === 'number' ? profile.jobsApplied : 0;
-  const jobsReviewed =
-    typeof profile?.jobsReviewed === 'number'
-      ? profile.jobsReviewed
-      : typeof profile?.projectsCompleted === 'number'
-      ? profile.projectsCompleted
-      : 0;
-  const interviews =
-    typeof profile?.interviewsCount === 'number'
-      ? profile.interviewsCount
-      : typeof profile?.interviews === 'number'
-      ? profile.interviews
-      : 0;
+  const jobsCompleted = typeof profile?.projectsCompleted === 'number' ? profile.projectsCompleted : 0;
 
   const resumeUrl = profile?.resumeUrl || profile?.cvUrl || '';
   const resumeCandidate = resumeUrl
@@ -312,21 +344,27 @@ export default function Profile({
       .map((part) => part[0])
       .join('')
       .slice(0, 2)
-      .toUpperCase() || 'JD';
+      .toUpperCase() || 'U';
 
+  const verification = profile?.verification || {};
+  const identityStatus = verification?.identityDocument?.status || 'pending';
+  const addressStatus = verification?.addressDocument?.status || 'pending';
   const verificationItems = [
-    { label: 'Email', complete: Boolean(profile?.email) },
-    { label: 'Phone', complete: Boolean(profile?.phoneNumber) },
-    {
-      label: 'Gov ID',
-      complete: Boolean(profile?.governmentId || profile?.govId || profile?.idNumber || profile?.nationalId),
-    },
-    { label: 'Resume', complete: Boolean(absoluteResumeUrl) },
+    { label: 'Email', complete: verification?.emailVerified === true },
+    { label: 'Phone', complete: verification?.phoneVerified === true },
+    { label: 'Gov ID', complete: verification?.identityVerified === true },
+    { label: 'Address', complete: verification?.addressVerified === true },
   ];
-  const hasGovernmentId = Boolean(profile?.governmentId || profile?.govId || profile?.idNumber || profile?.nationalId);
+  const hasGovernmentId = verification?.identityVerified === true;
+  const hasVerifiedAddress = verification?.addressVerified === true;
 
   const verifiedCount = verificationItems.filter((item) => item.complete).length;
   const verificationStrength = Math.round((verifiedCount / verificationItems.length) * 100);
+  const isFullyVerified = verifiedCount === verificationItems.length;
+  const profileCompletion = calculateProfileCompletion({
+    ...profile,
+    totalExperience: profile?.totalExperience || (profile?.workExperience?.length ? 'Added' : ''),
+  });
 
   const totalExperience = profile?.totalExperience || '';
   const experienceItems: ExperienceItem[] = useMemo(() => {
@@ -334,7 +372,14 @@ export default function Profile({
       const title = entry?.title || entry?.position || entry?.role || entry?.jobTitle || '';
       const company = entry?.company || entry?.companyName || '';
       const location = entry?.location || entry?.city || '';
-      const periodFromDates = [entry?.startDate, entry?.endDate].filter(Boolean).join(' - ');
+      const formatDate = (value: unknown) => {
+        if (!value) return '';
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime())
+          ? String(value)
+          : date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+      };
+      const periodFromDates = [formatDate(entry?.startDate), entry?.current ? 'Present' : formatDate(entry?.endDate)].filter(Boolean).join(' – ');
       const period = entry?.period || entry?.duration || periodFromDates || '';
       const subtitle = [company, location].filter(Boolean).join(' • ');
 
@@ -343,9 +388,12 @@ export default function Profile({
       }
 
       return {
+        id: String(entry?._id || entry?.id || ''),
         title: title || 'Work Experience',
         subtitle: subtitle || 'Professional background',
         period,
+        description: entry?.description || '',
+        raw: entry,
       };
     };
 
@@ -363,6 +411,7 @@ export default function Profile({
     if (totalExperience) {
       return [
         {
+          id: 'experience-summary',
           title: 'Experience Summary',
           subtitle: totalExperience,
           period: '',
@@ -374,29 +423,206 @@ export default function Profile({
   }, [profile, totalExperience]);
 
   const handleOpenResume = async () => {
-    if (!absoluteResumeUrl) {
+    const resumeFileName = profile?.resumeFileName || String(resumeUrl || '').split('/').pop();
+    if (!absoluteResumeUrl || !resumeFileName) {
       toast.info('Upload a CV in Documents first.');
       return;
     }
 
     try {
-      const canOpen = await Linking.canOpenURL(absoluteResumeUrl);
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Please sign in again.');
+        return;
+      }
+      const result = await apiRequest<{ url?: string }>(
+        `${API_URL}/auth/files/${encodeURIComponent(resumeFileName)}/access-link`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        'Could not create a secure résumé link.',
+      );
+      if (!result.ok || !result.data?.url) {
+        throw new Error(result.message);
+      }
+      const candidate = result.data.url.startsWith('http')
+        ? result.data.url
+        : `${API_ORIGIN}${result.data.url}`;
+      const secureResumeUrl = safeExternalUrl(candidate, {
+        purpose: 'asset',
+        trustedOrigins: [API_ORIGIN],
+      });
+      if (!secureResumeUrl) throw new Error('Invalid résumé URL');
+      const canOpen = await Linking.canOpenURL(secureResumeUrl);
       if (!canOpen) {
         throw new Error('Unsupported URL');
       }
-      await Linking.openURL(absoluteResumeUrl);
+      await Linking.openURL(secureResumeUrl);
     } catch {
       toast.error('Could not open the uploaded document.');
     }
   };
 
-  const showGovernmentIdUnavailableToast = () => {
-    setShowGovernmentScanModal(false);
-    toast.info('Still not available. This will be improved in Capstone 2.');
+  const deleteExperience = async (experienceId: string) => {
+    if (!experienceId || experienceId === 'experience-summary') return;
+    try {
+      setDeletingExperienceId(experienceId);
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) throw new Error('Please sign in again.');
+      const result = await apiRequest(
+        `${API_URL}/auth/profile/experience/${encodeURIComponent(experienceId)}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+        'Failed to remove work experience.',
+      );
+      if (!result.ok) throw new Error(result.message);
+      await loadProfile();
+      toast.success('Work experience removed.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove work experience.');
+    } finally {
+      setDeletingExperienceId(null);
+    }
   };
 
-  const handleGovernmentIdAction = () => {
-    setShowGovernmentScanModal(true);
+  const handleDeleteExperience = (item: ExperienceItem) => {
+    if (!item.id || item.id === 'experience-summary') return;
+    Alert.alert('Remove experience?', `${item.title} will be removed from your profile.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => void deleteExperience(item.id) },
+    ]);
+  };
+
+  const deleteResume = async () => {
+    try {
+      setIsDeletingResume(true);
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) throw new Error('Please sign in again.');
+      const result = await apiRequest(
+        `${API_URL}/auth/profile/resume`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+        'Failed to remove résumé.',
+      );
+      if (!result.ok) throw new Error(result.message);
+      await loadProfile();
+      toast.success('Résumé removed.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove résumé.');
+    } finally {
+      setIsDeletingResume(false);
+    }
+  };
+
+  const handleDeleteResume = () => {
+    Alert.alert('Remove résumé?', 'This document will be removed from your profile.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => void deleteResume() },
+    ]);
+  };
+
+  const handleGovernmentIdAction = async () => {
+    if (identityStatus === 'in-review') {
+      toast.info('Your government ID is already under review.');
+      return;
+    }
+    if (hasGovernmentId) {
+      toast.info('Your government ID is verified.');
+      return;
+    }
+
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+      if (picked.canceled || !picked.assets?.length) return;
+
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Please sign in again.');
+        return;
+      }
+
+      const asset = picked.assets[0];
+      const documentName = asset.name || `identity-${Date.now()}.jpg`;
+      const form = new FormData();
+      form.append('document', {
+        uri: asset.uri,
+        name: documentName,
+        type: getVerificationMimeType(documentName, asset.mimeType),
+      } as any);
+
+      setIsUploadingGovernmentId(true);
+      const result = await apiRequest(
+        `${API_URL}/auth/verification/documents/identity`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        },
+        'Failed to upload government ID.',
+      );
+      if (!result.ok) throw new Error(result.message);
+
+      toast.success('Government ID uploaded for review.');
+      await loadProfile();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to upload government ID.');
+    } finally {
+      setIsUploadingGovernmentId(false);
+    }
+  };
+
+  const handleAddressDocumentAction = async () => {
+    if (addressStatus === 'in-review') {
+      toast.info('Your proof of address is already under review.');
+      return;
+    }
+    if (hasVerifiedAddress) {
+      toast.info('Your address is verified.');
+      return;
+    }
+
+    try {
+      const picked = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+      if (picked.canceled || !picked.assets?.length) return;
+
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) {
+        toast.error('Please sign in again.');
+        return;
+      }
+
+      const asset = picked.assets[0];
+      const documentName = asset.name || `address-${Date.now()}.jpg`;
+      const form = new FormData();
+      form.append('document', {
+        uri: asset.uri,
+        name: documentName,
+        type: getVerificationMimeType(documentName, asset.mimeType),
+      } as any);
+
+      setIsUploadingAddressDocument(true);
+      const result = await apiRequest(
+        `${API_URL}/auth/verification/documents/address`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        },
+        'Failed to upload proof of address.',
+      );
+      if (!result.ok) throw new Error(result.message);
+
+      toast.success('Proof of address uploaded for review.');
+      await loadProfile();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to upload proof of address.');
+    } finally {
+      setIsUploadingAddressDocument(false);
+    }
   };
 
   return (
@@ -415,11 +641,24 @@ export default function Profile({
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         bounces
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#1C4D8D" colors={["#1C4D8D"]} />}
       >
+        {isProfileLoading && !profile ? (
+          <View style={styles.loadingCard} accessibilityRole="progressbar" accessibilityLabel="Loading your profile">
+            <ActivityIndicator color="#1C4D8D" />
+            <Text style={styles.loadingCardText}>Loading your profile...</Text>
+          </View>
+        ) : null}
+        {profileError ? (
+          <TouchableOpacity style={styles.errorCard} onPress={handleRefresh} accessibilityRole="button" accessibilityLabel="Retry loading profile" accessibilityLiveRegion="assertive">
+            <Ionicons name="alert-circle-outline" size={18} color="#B91C1C" />
+            <Text style={styles.errorCardText}>{profileError} Tap to retry.</Text>
+          </TouchableOpacity>
+        ) : null}
         <View style={styles.profileHero}>
           <View style={styles.avatarFrame}>
-            <TouchableOpacity style={styles.avatar} onPress={handlePickProfilePicture} disabled={isUploadingAvatar} accessibilityRole="button" accessibilityLabel="Change profile picture" accessibilityState={{ disabled: isUploadingAvatar }}>
-              {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarImage} /> : <Text style={styles.avatarInitials}>{initials}</Text>}
+            <TouchableOpacity style={styles.avatar} onPress={handlePickProfilePicture} disabled={isUploadingAvatar} accessibilityRole="button" accessibilityLabel="Change profile picture" accessibilityHint="Opens your photo library" accessibilityState={{ disabled: isUploadingAvatar, busy: isUploadingAvatar }}>
+              {avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.avatarImage} accessibilityLabel="Current profile photo" /> : <Text style={styles.avatarInitials}>{initials}</Text>}
               {isUploadingAvatar ? (
                 <View style={styles.avatarLoadingOverlay}>
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -435,6 +674,7 @@ export default function Profile({
               disabled={isUploadingAvatar}
               activeOpacity={0.9}
               accessibilityLabel="Edit profile photo"
+              accessible={false}
             >
               <Ionicons name="create-outline" size={16} color="#FFFFFF" />
             </TouchableOpacity>
@@ -448,6 +688,21 @@ export default function Profile({
           </View>
         </View>
 
+        <View style={styles.completionCard}>
+          <View style={styles.completionHeader}>
+            <View>
+              <Text style={styles.completionTitle}>Profile completeness</Text>
+              <Text style={styles.completionSubtitle}>
+                {profileCompletion.percentage === 100 ? 'Your profile is ready for employers.' : `${profileCompletion.incompleteFields[0] || 'More details'} is the next useful addition.`}
+              </Text>
+            </View>
+            <Text style={styles.completionValue}>{profileCompletion.percentage}%</Text>
+          </View>
+          <View style={styles.completionTrack} accessibilityRole="progressbar" accessibilityLabel="Profile completeness" accessibilityValue={{ min: 0, max: 100, now: profileCompletion.percentage, text: `${profileCompletion.percentage}% complete` }}>
+            <View style={[styles.completionFill, { width: `${profileCompletion.percentage}%` }]} />
+          </View>
+        </View>
+
         <View style={styles.verificationCard}>
           <View style={styles.verificationHeader}>
             <View style={styles.verificationIconWrap}>
@@ -455,10 +710,16 @@ export default function Profile({
             </View>
             <View style={styles.verificationTextBlock}>
               <View style={styles.verificationTitleRow}>
-                <Text style={styles.verificationTitle}>Verified Identity</Text>
-                <Ionicons name="checkmark-circle" size={16} color="#2563EB" />
+                <Text style={styles.verificationTitle}>{isFullyVerified ? 'Account verified' : 'Verification incomplete'}</Text>
+                <Ionicons
+                  name={isFullyVerified ? 'checkmark-circle' : 'alert-circle-outline'}
+                  size={16}
+                  color={isFullyVerified ? '#16A34A' : '#D97706'}
+                />
               </View>
-              <Text style={styles.verificationSubtitle}>Comprehensive profile checks completed</Text>
+              <Text style={styles.verificationSubtitle}>
+                {isFullyVerified ? 'All account verification checks are complete' : 'Complete the remaining account checks'}
+              </Text>
             </View>
           </View>
 
@@ -467,7 +728,7 @@ export default function Profile({
             <Text style={styles.verificationScoreValue}>{verificationStrength}%</Text>
           </View>
 
-          <View style={styles.progressTrack}>
+          <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityLabel="Verification strength" accessibilityValue={{ min: 0, max: 100, now: verificationStrength, text: `${verificationStrength}% complete` }}>
             <View style={[styles.progressFill, { width: `${verificationStrength}%` }]} />
           </View>
 
@@ -491,26 +752,29 @@ export default function Profile({
             <Text style={styles.statLabel}>Applied</Text>
           </View>
           <View style={styles.statCard}>
-            <Text style={styles.statValue}>{jobsReviewed}</Text>
-            <Text style={styles.statLabel}>Reviewed</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{interviews}</Text>
-            <Text style={styles.statLabel}>Interviews</Text>
+            <Text style={styles.statValue}>{jobsCompleted}</Text>
+            <Text style={styles.statLabel}>Completed</Text>
           </View>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Work Experience</Text>
-            <TouchableOpacity style={styles.sectionAction} onPress={() => setShowAddExperience(true)} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Add work experience">
+            <TouchableOpacity style={styles.sectionAction} onPress={() => {
+              if ((profile?.workExperience?.length || 0) >= 25) {
+                toast.error('You can add up to 25 work experience entries.');
+                return;
+              }
+              setEditingExperience(null);
+              setShowAddExperience(true);
+            }} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Add work experience">
               <Ionicons name="add" size={20} color="#64748B" />
             </TouchableOpacity>
           </View>
 
           {experienceItems.length ? (
             experienceItems.map((item, index) => (
-              <View style={styles.listCard} key={`${item.title}-${index}`}>
+              <View style={styles.listCard} key={item.id || `${item.title}-${index}`}>
                 <View style={styles.listIconWrap}>
                   <Ionicons name="briefcase-outline" size={20} color="#111827" />
                 </View>
@@ -522,7 +786,35 @@ export default function Profile({
                       <Text style={styles.listPeriodText}>{item.period}</Text>
                     </View>
                   ) : null}
+                  {item.description ? <Text style={styles.experienceDescription}>{item.description}</Text> : null}
                 </View>
+                {item.id && item.id !== 'experience-summary' ? (
+                  <View style={styles.itemActions}>
+                    <TouchableOpacity
+                      style={styles.itemEditButton}
+                      onPress={() => {
+                        setEditingExperience({
+                          id: item.id,
+                          title: item.raw?.title || item.title,
+                          company: item.raw?.company || '',
+                          location: item.raw?.location || '',
+                          startDate: toMonthInput(item.raw?.startDate),
+                          endDate: item.raw?.current ? '' : toMonthInput(item.raw?.endDate),
+                          current: Boolean(item.raw?.current),
+                          description: item.raw?.description || '',
+                        });
+                        setShowAddExperience(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${item.title} experience`}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#1C4D8D" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.itemDeleteButton} onPress={() => handleDeleteExperience(item)} disabled={deletingExperienceId === item.id} accessibilityRole="button" accessibilityLabel={`Remove ${item.title} experience`}>
+                      {deletingExperienceId === item.id ? <ActivityIndicator size="small" color="#DC2626" /> : <Ionicons name="trash-outline" size={18} color="#DC2626" />}
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
               </View>
             ))
           ) : (
@@ -552,9 +844,14 @@ export default function Profile({
               </View>
 
               {absoluteResumeUrl ? (
-                <TouchableOpacity style={styles.downloadButton} onPress={handleOpenResume} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Open resume">
-                  <Ionicons name="download-outline" size={20} color="#E11D48" />
-                </TouchableOpacity>
+                <View style={styles.documentActions}>
+                  <TouchableOpacity style={styles.downloadButton} onPress={handleOpenResume} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Open resume">
+                    <Ionicons name="download-outline" size={20} color="#E11D48" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.downloadButton} onPress={handleDeleteResume} disabled={isDeletingResume} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Remove resume">
+                    {isDeletingResume ? <ActivityIndicator size="small" color="#DC2626" /> : <Ionicons name="trash-outline" size={19} color="#DC2626" />}
+                  </TouchableOpacity>
+                </View>
               ) : null}
             </View>
 
@@ -566,11 +863,34 @@ export default function Profile({
 
                 <View style={styles.listContent}>
                   <Text style={styles.listTitle}>Government ID</Text>
-                  <Text style={styles.listSubtitle}>{hasGovernmentId ? 'Identity verified' : 'Verify your identity'}</Text>
+                  <Text style={styles.listSubtitle}>
+                    {hasGovernmentId
+                      ? 'Identity verified'
+                      : identityStatus === 'in-review'
+                        ? 'Document under review'
+                        : identityStatus === 'rejected'
+                          ? 'Document rejected — upload a replacement'
+                          : 'Upload an ID for verification'}
+                  </Text>
                 </View>
 
-                <TouchableOpacity style={styles.identityActionButton} onPress={handleGovernmentIdAction} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Manage government ID">
-                  <Ionicons name={hasGovernmentId ? 'checkmark-circle-outline' : 'scan-outline'} size={20} color="#2563EB" />
+                <TouchableOpacity
+                  style={styles.identityActionButton}
+                  onPress={handleGovernmentIdAction}
+                  activeOpacity={0.9}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage government ID"
+                  disabled={isUploadingGovernmentId}
+                >
+                  {isUploadingGovernmentId ? (
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  ) : (
+                    <Ionicons
+                      name={hasGovernmentId ? 'checkmark-circle-outline' : identityStatus === 'in-review' ? 'time-outline' : 'cloud-upload-outline'}
+                      size={20}
+                      color="#2563EB"
+                    />
+                  )}
                 </TouchableOpacity>
               </View>
 
@@ -585,39 +905,47 @@ export default function Profile({
                 ))}
               </View>
             </View>
+
+            <View style={styles.identityCard}>
+              <View style={styles.identityTopRow}>
+                <View style={[styles.listIconWrap, styles.identityIconWrap]}>
+                  <Ionicons name="home-outline" size={20} color="#2563EB" />
+                </View>
+                <View style={styles.listContent}>
+                  <Text style={styles.listTitle}>Proof of Address</Text>
+                  <Text style={styles.listSubtitle}>
+                    {hasVerifiedAddress
+                      ? 'Address verified'
+                      : addressStatus === 'in-review'
+                        ? 'Document under review'
+                        : addressStatus === 'rejected'
+                          ? 'Document rejected — upload a replacement'
+                          : 'Upload a recent bill or bank statement'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.identityActionButton}
+                  onPress={handleAddressDocumentAction}
+                  activeOpacity={0.9}
+                  accessibilityRole="button"
+                  accessibilityLabel="Manage proof of address"
+                  disabled={isUploadingAddressDocument}
+                >
+                  {isUploadingAddressDocument ? (
+                    <ActivityIndicator size="small" color="#2563EB" />
+                  ) : (
+                    <Ionicons
+                      name={hasVerifiedAddress ? 'checkmark-circle-outline' : addressStatus === 'in-review' ? 'time-outline' : 'cloud-upload-outline'}
+                      size={20}
+                      color="#2563EB"
+                    />
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       </ScrollView>
-
-      <Modal
-        visible={showGovernmentScanModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowGovernmentScanModal(false)}
-      >
-        <View style={styles.scanModalBackdrop}>
-          <View style={styles.scanModalCard}>
-            <View style={styles.scanModalHandle} />
-            <Text style={styles.scanModalTitle}>Scan Government ID</Text>
-            <Text style={styles.scanModalSubtitle}>
-              Position your ID within the frame. The scan will happen automatically.
-            </Text>
-
-            <View style={styles.scanPreviewOuter}>
-              <View style={styles.scanPreviewInner} />
-            </View>
-
-            <View style={styles.scanActionsRow}>
-              <TouchableOpacity style={styles.scanSecondaryButton} onPress={showGovernmentIdUnavailableToast} activeOpacity={0.9}>
-                <Text style={styles.scanSecondaryButtonText}>Upload File</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.scanPrimaryButton} onPress={showGovernmentIdUnavailableToast} activeOpacity={0.9}>
-                <Text style={styles.scanPrimaryButtonText}>Capture Manually</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       <Navigation
         activeTab={profileTab}
@@ -628,32 +956,28 @@ export default function Profile({
 
       <AddExperience
         visible={showAddExperience}
-        initialTotalExperience={profile?.totalExperience || ''}
-        onClose={() => setShowAddExperience(false)}
+        initialValue={editingExperience}
+        onClose={() => { setShowAddExperience(false); setEditingExperience(null); }}
         onAdd={async (data) => {
-          try {
-            const token = await AsyncStorage.getItem('auth_token');
-            if (!token) return;
-
-            await apiRequest(
-              `${API_URL}/auth/me`,
-              {
-                method: 'PATCH',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ totalExperience: data.totalExperience }),
+          const token = await AsyncStorage.getItem('auth_token');
+          if (!token) throw new Error('Please sign in again.');
+          const result = await apiRequest(
+            editingExperience
+              ? `${API_URL}/auth/profile/experience/${encodeURIComponent(editingExperience.id)}`
+              : `${API_URL}/auth/profile/experience`,
+            {
+              method: editingExperience ? 'PATCH' : 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
               },
-              'Failed to update experience.',
-            );
-
-            await loadProfile();
-          } catch (error) {
-            console.log('Failed to update experience', error);
-          } finally {
-            setShowAddExperience(false);
-          }
+              body: JSON.stringify(data),
+            },
+            editingExperience ? 'Failed to update work experience.' : 'Failed to add work experience.',
+          );
+          if (!result.ok) throw new Error(result.message);
+          await loadProfile();
+          toast.success(editingExperience ? 'Work experience updated.' : 'Work experience added.');
         }}
       />
 
@@ -682,6 +1006,37 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 120,
     gap: 24,
+  },
+  errorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+    padding: 13,
+  },
+  loadingCard: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  loadingCardText: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  errorCardText: {
+    flex: 1,
+    color: '#991B1B',
+    fontSize: 13,
+    lineHeight: 18,
   },
   profileHero: {
     alignItems: 'center',
@@ -758,6 +1113,48 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748B',
     fontWeight: '500',
+  },
+  completionCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+    padding: 16,
+    gap: 12,
+  },
+  completionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  completionTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1E3A8A',
+  },
+  completionSubtitle: {
+    marginTop: 3,
+    maxWidth: 260,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#475569',
+  },
+  completionValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#1C4D8D',
+  },
+  completionTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+  },
+  completionFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#1C4D8D',
   },
   verificationCard: {
     backgroundColor: '#FFFFFF',
@@ -947,6 +1344,31 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontWeight: '600',
   },
+  experienceDescription: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#475569',
+  },
+  itemDeleteButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+  },
+  itemActions: {
+    gap: 7,
+  },
+  itemEditButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+  },
   emptyCard: {
     borderRadius: 18,
     borderWidth: 1,
@@ -1046,6 +1468,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFE9EF',
+  },
+  documentActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
   },
   scanModalBackdrop: {
     flex: 1,

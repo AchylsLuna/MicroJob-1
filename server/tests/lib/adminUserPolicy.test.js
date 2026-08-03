@@ -1,6 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAdminUserMutationError } from "../../lib/adminUserPolicy.js";
+import { getAdminUserCreationError, getAdminUserMutationError } from "../../lib/adminUserPolicy.js";
+
+test("only superadmins may create administrator accounts", () => {
+  assert.equal(getAdminUserCreationError({ actorRole: "admin", newRole: "admin" })?.status, 403);
+  assert.equal(getAdminUserCreationError({ actorRole: "superadmin", newRole: "admin" }), null);
+  assert.equal(getAdminUserCreationError({ actorRole: "admin", newRole: "work" }), null);
+});
 
 test("normal admins cannot manage privileged roles", () => {
   const result = getAdminUserMutationError({ actorRole: "admin", actorId: "a", targetId: "u", targetRole: "work", nextRole: "admin", nextStatus: "active", activeSuperadminCount: 1 });

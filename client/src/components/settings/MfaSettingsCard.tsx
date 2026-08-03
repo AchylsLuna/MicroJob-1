@@ -164,7 +164,7 @@ export function MfaSettingsCard() {
                       void navigator.clipboard.writeText(secret);
                       toast.success("Setup key copied.");
                     }}
-                    className="text-[12px] font-semibold text-[#2563EB]"
+                    className="text-[12px] font-semibold text-[#1C4D8D]"
                   >
                     Copy key
                   </button>
@@ -193,7 +193,7 @@ export function MfaSettingsCard() {
               placeholder={status.enabled ? "123456 or AAAA-BBBB" : "123456"}
               autoComplete="one-time-code"
               inputMode="numeric"
-              className="mt-2 w-full max-w-sm rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#2563EB]"
+              className="mt-2 w-full max-w-sm rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
             />
           </label>
           <div className="mt-3 flex flex-wrap gap-3">
@@ -202,7 +202,7 @@ export function MfaSettingsCard() {
                 type="button"
                 onClick={handleEnable}
                 disabled={isSubmitting || !status.hasPendingSetup}
-                className="rounded-[10px] bg-[#2563EB] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                className="rounded-[10px] bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
               >
                 {isSubmitting ? "Verifying..." : "Verify and enable"}
               </button>

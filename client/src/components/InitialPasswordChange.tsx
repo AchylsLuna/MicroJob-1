@@ -54,7 +54,7 @@ export function InitialPasswordChange() {
             <input autoComplete="new-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-700" />
           </label>
         </div>
-        <button type="submit" disabled={isSubmitting} className="mt-6 w-full rounded-xl bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] px-4 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60">
+        <button type="submit" disabled={isSubmitting} className="brand-primary-interactive mt-6 w-full rounded-xl px-4 py-3 font-semibold">
           {isSubmitting ? "Changing password…" : "Change password and continue"}
         </button>
       </form>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquare, Search, Send, ShieldCheck } from "lucide-react";
 import { toast } from "../../lib/toast";
 import {
@@ -18,9 +18,9 @@ const formatDate = (value?: string) => {
 };
 
 const statusClasses: Record<SupportTicket["status"], string> = {
-  open: "bg-[#DBEAFE] text-[#1D4ED8]",
+  open: "bg-[#1C4D8D]/10 text-[#1C4D8D]",
   in_progress: "bg-[#FEF3C7] text-[#B45309]",
-  waiting_user: "bg-[#E0F2FE] text-[#0369A1]",
+  waiting_user: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
   resolved: "bg-[#DCFCE7] text-[#15803D]",
   closed: "bg-[#F3F4F6] text-[#6B7280]",
 };
@@ -53,6 +53,7 @@ function AdminSupportTicketsContent() {
   const [status, setStatus] = useState<SupportTicket["status"]>("open");
   const [isUpdating, setIsUpdating] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
+  const detailsDirtyRef = useRef(false);
 
   const selectedTicket = useMemo(
     () => tickets.find((ticket) => ticket._id === selectedTicketId) || null,
@@ -88,16 +89,21 @@ function AdminSupportTicketsContent() {
     }
   }, [search, statusFilter]);
 
-  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean }) => {
+  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean; resetForm?: boolean }) => {
     const silent = Boolean(options?.silent);
     try {
       const response = await getAdminSupportTicket(ticketId);
       const ticket = extractTicket(response as any);
       if (!ticket) return;
       setTickets((current) => current.map((item) => (item._id === ticketId ? ticket : item)));
-      setStatus(ticket.status);
-      setPriority(ticket.priority || "medium");
-      setReviewNotes("");
+      if (options?.resetForm || !detailsDirtyRef.current) {
+        setStatus(ticket.status);
+        setPriority(ticket.priority || "medium");
+      }
+      if (options?.resetForm) {
+        setReviewNotes("");
+        detailsDirtyRef.current = false;
+      }
     } catch (error: any) {
       if (!silent) {
         toast.error(error?.message || "Failed to load ticket details.");
@@ -111,7 +117,7 @@ function AdminSupportTicketsContent() {
 
   useEffect(() => {
     if (selectedTicketId) {
-      loadTicketDetails(selectedTicketId);
+      loadTicketDetails(selectedTicketId, { resetForm: true });
     }
   }, [selectedTicketId]);
 
@@ -145,6 +151,8 @@ function AdminSupportTicketsContent() {
       } else {
         await loadTicketDetails(selectedTicketId);
       }
+      setReviewNotes("");
+      detailsDirtyRef.current = false;
       toast.success("Support ticket updated.");
     } catch (error: any) {
       toast.error(error?.message || "Failed to update support ticket.");
@@ -223,7 +231,7 @@ function AdminSupportTicketsContent() {
                       key={ticket._id}
                       onClick={() => setSelectedTicketId(ticket._id)}
                       className={`w-full rounded-[14px] border p-4 text-left transition-colors ${
-                        selectedTicketId === ticket._id ? "border-[#1C4D8D] bg-[#EFF6FF]" : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                        selectedTicketId === ticket._id ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]" : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3 mb-2">
@@ -270,7 +278,7 @@ function AdminSupportTicketsContent() {
                   <select
                     id="ticket-status"
                     value={status}
-                    onChange={(event) => setStatus(event.target.value as SupportTicket["status"])}
+                    onChange={(event) => { detailsDirtyRef.current = true; setStatus(event.target.value as SupportTicket["status"]); }}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                   >
                     <option value="open">Open</option>
@@ -285,7 +293,7 @@ function AdminSupportTicketsContent() {
                   <select
                     id="ticket-priority"
                     value={priority}
-                    onChange={(event) => setPriority(event.target.value as SupportTicket["priority"])}
+                    onChange={(event) => { detailsDirtyRef.current = true; setPriority(event.target.value as SupportTicket["priority"]); }}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                   >
                     <option value="low">Low</option>
@@ -299,7 +307,7 @@ function AdminSupportTicketsContent() {
                     type="button"
                     onClick={handleUpdateTicket}
                     disabled={isUpdating}
-                    className="w-full h-11 rounded-[12px] bg-[#1D4ED8] text-white text-[14px] font-semibold disabled:opacity-60"
+                    className="w-full h-11 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
                   >
                     {isUpdating ? "Saving..." : "Save Ticket"}
                   </button>
@@ -307,16 +315,30 @@ function AdminSupportTicketsContent() {
               </div>
 
               <div>
-                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">Review Note</label>
+                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">Internal Note</label>
                 <textarea
                   id="ticket-review-note"
                   rows={3}
                   value={reviewNotes}
-                  onChange={(event) => setReviewNotes(event.target.value)}
-                  placeholder="Internal or user-facing note for this ticket"
+                  onChange={(event) => { detailsDirtyRef.current = true; setReviewNotes(event.target.value); }}
+                  placeholder="Visible only to administrators"
                   className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                 />
               </div>
+
+              {(selectedTicket.internalNotes || []).length > 0 ? (
+                <section className="rounded-[14px] border border-amber-200 bg-amber-50 p-4" aria-labelledby="internal-notes-title">
+                  <h3 id="internal-notes-title" className="text-sm font-semibold text-amber-950">Internal notes</h3>
+                  <div className="mt-3 space-y-3">
+                    {(selectedTicket.internalNotes || []).map((note) => (
+                      <article key={note._id} className="rounded-xl border border-amber-200 bg-white p-3">
+                        <p className="text-sm text-slate-800">{note.body}</p>
+                        <p className="mt-2 text-xs text-slate-500">{formatDate(note.createdAt)}</p>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
 
               <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
                 {(selectedTicket.messages || []).map((message) => {
@@ -325,13 +347,13 @@ function AdminSupportTicketsContent() {
                     <div
                       key={message._id}
                       className={`rounded-[14px] p-4 border ${
-                        isAdmin ? "bg-[#EFF6FF] border-[#BFDBFE]" : "bg-[#F9FAFB] border-[#E5E7EB]"
+                        isAdmin ? "bg-[#1C4D8D]/[0.06] border-[#1C4D8D]/20" : "bg-[#F9FAFB] border-[#E5E7EB]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex items-center gap-2">
                           {isAdmin ? (
-                            <ShieldCheck className="w-4 h-4 text-[#1D4ED8]" />
+                            <ShieldCheck className="w-4 h-4 text-[#1C4D8D]" />
                           ) : (
                             <MessageSquare className="w-4 h-4 text-[#6B7280]" />
                           )}
@@ -357,7 +379,7 @@ function AdminSupportTicketsContent() {
                   type="button"
                   onClick={handleReply}
                   disabled={isReplying || !replyDraft.trim()}
-                  className="inline-flex items-center gap-2 px-4 py-3 rounded-[12px] bg-[#1D4ED8] text-white text-[14px] font-semibold disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-4 py-3 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
                 >
                   <Send className="w-4 h-4" />
                   {isReplying ? "Sending..." : "Send Reply"}

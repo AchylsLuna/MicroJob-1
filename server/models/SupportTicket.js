@@ -26,6 +26,27 @@ const SupportMessageSchema = new mongoose.Schema(
   { _id: true, versionKey: false }
 );
 
+const SupportInternalNoteSchema = new mongoose.Schema(
+  {
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    body: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 4000,
+    },
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true, versionKey: false }
+);
+
 const SupportTicketSchema = new mongoose.Schema(
   {
     requester: {
@@ -59,6 +80,11 @@ const SupportTicketSchema = new mongoose.Schema(
     messages: {
       type: [SupportMessageSchema],
       default: [],
+    },
+    internalNotes: {
+      type: [SupportInternalNoteSchema],
+      default: [],
+      select: false,
     },
     lastMessageAt: {
       type: Date,

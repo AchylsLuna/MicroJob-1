@@ -141,6 +141,7 @@ export default function EWallet({
   messageBadgeCount = 0,
 }: EWalletProps) {
   const scrollViewRef = useRef<ScrollView>(null);
+  const payoutIdempotencyKeyRef = useRef<string | null>(null);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
@@ -248,6 +249,7 @@ export default function EWallet({
 
     try {
       setIsSubmittingPayout(true);
+      payoutIdempotencyKeyRef.current ||= `payout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const token = await AsyncStorage.getItem('auth_token');
       const result = await apiRequest(`${API_URL}/payment/payout-requests`, {
         method: 'POST',
@@ -257,6 +259,7 @@ export default function EWallet({
         },
         body: JSON.stringify({
           amount,
+          idempotencyKey: payoutIdempotencyKeyRef.current,
           destinationSnapshot: {
             methodType: payoutForm.methodType,
             institutionName: payoutForm.institutionName.trim(),
@@ -277,6 +280,7 @@ export default function EWallet({
         accountName: '',
         accountNumber: '',
       });
+      payoutIdempotencyKeyRef.current = null;
       toast.success('Your withdrawal has been submitted for admin review.');
       await refreshWalletData();
     } catch (error: any) {

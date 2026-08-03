@@ -24,6 +24,7 @@ import { getNotifications } from "../services/api";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 import { MicroJobsLogo } from "./MicroJobsLogo";
+import { workerMoreNavigation, workerPrimaryNavigation } from "./workerNavigation";
 
 interface SidebarProps {
   userName?: string;
@@ -56,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const isCollapsed = false;
   const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const [, setAuthUpdateTrigger] = useState(0); // Force re-render on auth updates
   const { user: authUser } = useAuth();
@@ -105,8 +106,15 @@ const Sidebar: React.FC<SidebarProps> = ({
       : "user";
 
   const workerMenuItems: MenuItem[] = [
-    { icon: "find-jobs", label: "Find Jobs", path: ROUTES.worker.findJobs },
-    { icon: "applied-jobs", label: "Applied Jobs", path: ROUTES.worker.appliedJobs },
+    ...workerPrimaryNavigation
+      .filter((item) => item.path !== ROUTES.worker.dashboard && item.path !== ROUTES.worker.messages)
+      .map((item) => ({
+        ...item,
+        icon: item.path === ROUTES.worker.findJobs ? "find-jobs" : "applied-jobs",
+      })),
+    ...workerMoreNavigation
+      .filter((item) => item.path === ROUTES.worker.savedJobs)
+      .map((item) => ({ ...item, icon: "saved-jobs" })),
   ];
 
   const employerMenuGroup: EmployerMenuGroup = {
@@ -135,6 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { icon: "reports", label: "Reports", path: ROUTES.admin.reports },
     { icon: "support", label: "Support", path: ROUTES.admin.support },
     { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet },
+    { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts },
     { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs },
     { icon: "security", label: "Security", path: ROUTES.admin.security },
     { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement },
@@ -166,11 +175,14 @@ const Sidebar: React.FC<SidebarProps> = ({
           { icon: "settings", label: "Settings", path: ROUTES.settings },
           { icon: "support", label: "Support", path: ROUTES.worker.support },
         ];
+  const pinnedSettingsItem = bottomMenuItems.find((item) => item.icon === "settings");
+  const workspaceMenuItems = bottomMenuItems.filter((item) => item.icon !== "settings");
 
   const iconMap: Record<string, React.ReactNode> = {
     dashboard: <Star className="h-5 w-5" />,
     "find-jobs": <Search className="h-5 w-5" />,
     "applied-jobs": <Mail className="h-5 w-5" />,
+    "saved-jobs": <Star className="h-5 w-5" />,
     "post-job": <Plus className="h-5 w-5" />,
     applications: <ClipboardList className="h-5 w-5" />,
     analytics: <BarChart3 className="h-5 w-5" />,
@@ -275,8 +287,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     }`;
 
   const getChildNavButtonClass = (active: boolean) =>
-    `w-full flex items-center rounded-lg transition pl-14 pr-4 py-2.5 text-sm ${
-      active ? "text-blue-600 bg-blue-50 font-semibold" : "text-gray-600 hover:bg-gray-100 font-medium"
+    `flex min-h-11 w-full items-center rounded-xl py-2.5 pl-12 pr-4 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
+      active ? "bg-blue-50 font-semibold text-[#1C4D8D]" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
     }`;
 
   const isEmployerParentActive =
@@ -295,9 +307,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     <aside
       id={mobile ? "mobile-dashboard-navigation" : undefined}
       aria-label="Primary navigation"
-      className={`${webUi.sidebar.root} transition-all duration-300 ${
-        mobile ? "w-full" : isCollapsed ? "w-20" : "w-64"
-      } ${mobile ? "p-4 sm:p-6" : isCollapsed ? "p-3" : "p-6"}`}
+      className={`${webUi.sidebar.root} w-full p-4 sm:p-5`}
     >
       <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between">
         <button
@@ -305,33 +315,23 @@ const Sidebar: React.FC<SidebarProps> = ({
           className="flex min-h-11 min-w-0 items-center gap-2 cursor-pointer"
           onClick={() => navigate(ROUTES.home)}
         >
-          <MicroJobsLogo className={!mobile && isCollapsed ? "[&>span]:hidden" : ""} />
+          <MicroJobsLogo />
         </button>
         {mobile ? (
           <button
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
             aria-label="Close navigation menu"
           >
             <X className="h-5 w-5" />
           </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-            aria-label={isCollapsed ? "Expand navigation" : "Collapse navigation"}
-            title={isCollapsed ? "Expand" : "Collapse"}
-          >
-            <span aria-hidden="true">{isCollapsed ? "›" : "‹"}</span>
-          </button>
-        )}
+        ) : null}
       </div>
 
-      <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 lg:overflow-visible lg:pr-0" aria-label={`${roleLabel} menu`}>
-        <div className={`space-y-2 pb-4 border-b ${webUi.sidebar.sectionDivider}`}>
+      <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1" aria-label={`${roleLabel} menu`}>
+        <div className="space-y-1.5 pb-3">
           <button
             onClick={() => navigate(dashboardPath)}
             className={getNavButtonClass(isPathActive(dashboardPath))}
@@ -397,28 +397,23 @@ const Sidebar: React.FC<SidebarProps> = ({
             >
               {renderIcon(item.icon)}
               {(mobile || !isCollapsed) && <span>{item.label}</span>}
-              {item.notification &&
-                (item.path === ROUTES.notifications ? (
+              {item.notification && item.icon === "notifications" && notifCount > 0 && (
                   <span
                     className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
                       isCollapsed ? "absolute right-2 top-2" : ""
                     }`}
                   >
-                    {notifCount > 0 ? notifCount : ""}
+                    {notifCount}
                   </span>
-                ) : (
-                  <span
-                    className={`w-2 h-2 bg-blue-600 rounded-full ${
-                      isCollapsed ? "absolute right-2 top-2" : ""
-                    }`}
-                  ></span>
-                ))}
+                )}
             </button>
           ))}
         </div>
 
-        <div className={`space-y-2 py-4 border-b ${webUi.sidebar.sectionDivider}`}>
-          {bottomMenuItems.map((item) => (
+        {workspaceMenuItems.length > 0 && (
+          <div className={`space-y-1.5 border-t py-4 ${webUi.sidebar.sectionDivider}`}>
+            <p className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Workspace</p>
+            {workspaceMenuItems.map((item) => (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
@@ -427,29 +422,33 @@ const Sidebar: React.FC<SidebarProps> = ({
             >
               {renderIcon(item.icon)}
               {(mobile || !isCollapsed) && <span>{item.label}</span>}
-              {item.notification &&
-                (item.path === ROUTES.notifications ? (
+              {item.notification && item.icon === "notifications" && notifCount > 0 && (
                   <span
                     className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
                       isCollapsed ? "absolute right-2 top-2" : ""
                     }`}
                   >
-                    {notifCount > 0 ? notifCount : ""}
+                    {notifCount}
                   </span>
-                ) : (
-                  <span
-                    className={`w-2 h-2 bg-blue-600 rounded-full ${
-                      isCollapsed ? "absolute right-2 top-2" : ""
-                    }`}
-                  ></span>
-                ))}
+                )}
             </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </nav>
 
-      <div className={`dashboard-sidebar-footer mt-4 shrink-0 border-t ${webUi.sidebar.sectionDivider} pt-4`}>
-        <button className="flex min-h-11 w-full items-center justify-between gap-3 transition hover:opacity-80 lg:justify-start">
+      <div className="dashboard-sidebar-footer mt-3 shrink-0 space-y-2 border-t border-slate-200 pt-3">
+        {pinnedSettingsItem && (
+          <button
+            type="button"
+            onClick={() => navigate(pinnedSettingsItem.path)}
+            className={getNavButtonClass(isPathActive(pinnedSettingsItem.path))}
+          >
+            {renderIcon(pinnedSettingsItem.icon)}
+            <span>{pinnedSettingsItem.label}</span>
+          </button>
+        )}
+        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]">
           <div className="flex items-center gap-3">
             {profilePhotoPreview ? (
               <img
@@ -458,18 +457,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 className="w-10 h-10 rounded-full object-cover flex-shrink-0"
               />
             ) : (
-              <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-lg flex-shrink-0">
-                👨
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white">
+                {displayUserName.slice(0, 2).toUpperCase()}
               </div>
             )}
             {(mobile || !isCollapsed) && (
               <div className="text-left">
-                <p className="text-gray-600 text-xs">Welcome back 👋</p>
-                <p className="font-bold text-gray-900 text-sm">{displayUserName}</p>
+                <p className="text-xs text-slate-500">Welcome back</p>
+                <p className="max-w-[150px] truncate text-sm font-bold text-slate-900">{displayUserName}</p>
               </div>
             )}
           </div>
-          {(mobile || !isCollapsed) && <span className="text-gray-400">›</span>}
+          {(mobile || !isCollapsed) && <span className="text-slate-400">›</span>}
         </button>
       </div>
     </aside>

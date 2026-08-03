@@ -87,11 +87,24 @@ const PayoutRequestSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      default: null,
+      maxlength: 120,
+    },
   },
   { timestamps: true, versionKey: false }
 );
 
 PayoutRequestSchema.index({ user: 1, createdAt: -1 });
 PayoutRequestSchema.index({ status: 1, createdAt: -1 });
+PayoutRequestSchema.index(
+  { user: 1, idempotencyKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { idempotencyKey: { $type: 'string' } },
+  }
+);
 
 export default mongoose.model('PayoutRequest', PayoutRequestSchema);

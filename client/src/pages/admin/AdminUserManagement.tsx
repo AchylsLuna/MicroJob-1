@@ -1,12 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
-import { Button, Dialog, Input, Select } from "../../components/ui";
+import { Button, ConfirmDialog, Dialog, Input, Select } from "../../components/ui";
 import { useAuth } from "../../hooks/useAuth";
+import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
+import { updateAdminVerification } from "../../services/api";
+
+const toAdminAssetUrl = (value?: string) => {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value)) return value;
+  const apiBase = import.meta.env.VITE_API_BASE || "/api";
+  const origin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : window.location.origin;
+  return value.startsWith("/") ? `${origin}${value}` : `${origin}/${value}`;
+};
 
 function AdminUserManagementContent() {
   const navigate = useNavigate();
@@ -19,6 +29,9 @@ function AdminUserManagementContent() {
     handleApproveUser,
     handleToggleUserStatus,
     handleEditUser,
+    handleCreateUser,
+    handleDeleteUser,
+    reload,
   } = useAdminData();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,11 +39,19 @@ function AdminUserManagementContent() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [formMode, setFormMode] = useState<"edit" | null>(null);
+  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
   const [formUserId, setFormUserId] = useState<string | null>(null);
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", role: "work", status: "active" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "", role: "work", status: "active" });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [reviewingDocument, setReviewingDocument] = useState<"identity" | "address" | null>(null);
+  const [rejectionTarget, setRejectionTarget] = useState<"identity" | "address" | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const editMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const addAccountButtonRef = useRef<HTMLButtonElement>(null);
   const pageSize = 5;
 
   const filteredUsers = useMemo(() => {
@@ -73,6 +94,7 @@ function AdminUserManagementContent() {
   };
 
   const selectedUser = selectedUserId ? users.find((user) => user._id === selectedUserId) : null;
+  const deleteTarget = deleteTargetId ? users.find((user) => user._id === deleteTargetId) : null;
   const totalUsers = users.length;
   const newThisWeek = users.filter((user) => {
     if (!user._id || user._id.length < 8) return false;
@@ -109,17 +131,59 @@ function AdminUserManagementContent() {
     return !isSelf && (!privileged || canManagePrivilegedRoles);
   };
 
+  const handleVerificationReview = async (
+    documentType: "identity" | "address",
+    status: "complete" | "rejected",
+    reason?: string,
+  ) => {
+    if (!selectedUser) return;
+    const normalizedReason = reason?.trim();
+    if (status === "rejected" && !normalizedReason) {
+      setRejectionReason("");
+      setRejectionTarget(documentType);
+      return;
+    }
+
+    setReviewingDocument(documentType);
+    try {
+      await updateAdminVerification(selectedUser._id, documentType, {
+        status,
+        rejectionReason: status === "rejected" ? normalizedReason : undefined,
+      });
+      toast.success(`Verification document ${status === "complete" ? "approved" : "rejected"}.`);
+      setRejectionTarget(null);
+      setRejectionReason("");
+      reload();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to review verification document.");
+    } finally {
+      setReviewingDocument(null);
+    }
+  };
+
   const openEdit = (user: typeof users[number]) => {
-    setForm({ firstName: user.firstName || "", lastName: user.lastName || "", email: user.email, role: user.role || "work", status: user.status === "deleted" ? "disabled" : user.status || "active" });
+    setForm({ firstName: user.firstName || "", lastName: user.lastName || "", email: user.email, password: "", role: user.role || "work", status: user.status === "deleted" ? "disabled" : user.status || "active" });
     setFormErrors({});
     setFormUserId(user._id);
     setFormMode("edit");
+  };
+
+  const openCreate = () => {
+    setForm({ firstName: "", lastName: "", email: "", password: "", role: "work", status: "active" });
+    setFormErrors({});
+    setFormUserId(null);
+    setFormMode("create");
   };
 
   const submitUserForm = async () => {
     const errors: Record<string, string> = {};
     if (!form.firstName.trim()) errors.firstName = "First name is required.";
     if (!form.lastName.trim()) errors.lastName = "Last name is required.";
+    if (formMode === "create") {
+      if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.email = "Enter a valid email address.";
+      if (!getPasswordStrength(form.password).isStrong) errors.password = STRONG_PASSWORD_ERROR;
+      if (form.role === "admin" && !canManagePrivilegedRoles) errors.role = "Only a superadmin can create an administrator.";
+    }
     setFormErrors(errors);
     if (Object.keys(errors).length) return;
     setIsSaving(true);
@@ -127,12 +191,30 @@ function AdminUserManagementContent() {
       if (formUserId) {
         await handleEditUser(formUserId, { firstName: form.firstName.trim(), lastName: form.lastName.trim(), role: form.role, status: form.status as 'active' | 'pending' | 'disabled' });
         toast.success("User updated successfully.");
+      } else if (formMode === "create") {
+        await handleCreateUser({ firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), password: form.password, role: form.role as 'work' | 'hire' | 'admin' });
+        toast.success("Account created. The temporary password must be changed at first sign-in.");
       }
       setFormMode(null);
     } catch (error: any) {
       setFormErrors({ form: error?.message || "Unable to save the user." });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await handleDeleteUser(deleteTarget._id);
+      toast.success(`${getUserName(deleteTarget)} deleted successfully.`);
+      setDeleteTargetId(null);
+    } catch (error: any) {
+      setDeleteError(error?.message || "Unable to delete this user.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -177,6 +259,10 @@ function AdminUserManagementContent() {
               <p className="mt-1 text-sm text-slate-500">Review users, administrators, roles, and account access.</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
+              <Button ref={addAccountButtonRef} onClick={openCreate} className="shrink-0">
+                <UserPlus className="h-4 w-4" aria-hidden="true" />
+                Add account
+              </Button>
               <div className="relative min-w-[240px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
                 <input
@@ -216,6 +302,7 @@ function AdminUserManagementContent() {
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>View</Button>
                   <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? "Edit" : "Restricted"}</Button>
+                  {canManageUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>Delete user</Button>}
                 </div>
               </article>
             ))}
@@ -254,7 +341,7 @@ function AdminUserManagementContent() {
                     <tr key={user._id} className="border-b border-[#F3F4F6]">
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#EEF2FF] text-[#2563EB] flex items-center justify-center font-semibold">
+                          <div className="w-10 h-10 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
                             {getInitials(user)}
                           </div>
                           <div>
@@ -309,7 +396,10 @@ function AdminUserManagementContent() {
                               </button>}
                               <button
                                 type="button"
-                                onClick={() => {
+                                onClick={(event) => {
+                                  editMenuTriggerRef.current = event.currentTarget
+                                    .closest(".relative")
+                                    ?.querySelector<HTMLButtonElement>('[aria-label="Open user actions"]') || null;
                                   openEdit(user);
                                   setOpenMenuId(null);
                                 }}
@@ -352,6 +442,17 @@ function AdminUserManagementContent() {
                                 } hover:bg-[#FEF2F2]`}
                               >
                                 {user.status === "disabled" ? "Activate User" : "Suspend User"}
+                              </button>}
+                              {canManageUser(user) && <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteError(null);
+                                  setDeleteTargetId(user._id);
+                                  setOpenMenuId(null);
+                                }}
+                                className="w-full px-3 py-2 text-[13px] font-semibold text-red-700 hover:bg-red-50"
+                              >
+                                Delete User
                               </button>}
                             </div>
                           )}
@@ -417,7 +518,7 @@ function AdminUserManagementContent() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="admin-user-details-title"
-            className="w-full max-w-[520px] bg-white rounded-[20px] border border-[#E5E7EB] p-6 shadow-xl"
+            className="max-h-[90vh] w-full max-w-[520px] overflow-y-auto bg-white rounded-[20px] border border-[#E5E7EB] p-6 shadow-xl"
           >
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -435,7 +536,7 @@ function AdminUserManagementContent() {
             </div>
 
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-14 h-14 rounded-full bg-[#EEF2FF] text-[#2563EB] flex items-center justify-center font-semibold text-[18px]">
+              <div className="w-14 h-14 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold text-[18px]">
                 {getInitials(selectedUser)}
               </div>
               <div>
@@ -460,6 +561,56 @@ function AdminUserManagementContent() {
               <div>
                 <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Joined</p>
                 <p className="mt-1 text-[#111827]">{formatJoinedDate(selectedUser._id)}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 border-t border-slate-200 pt-5">
+              <h5 className="text-sm font-semibold text-slate-900">Verification documents</h5>
+              <div className="mt-3 space-y-3">
+                {(["identity", "address"] as const).map((documentType) => {
+                  const document = selectedUser.verification?.[`${documentType}Document`];
+                  const label = documentType === "identity" ? "Government ID" : "Proof of address";
+                  return (
+                    <div key={documentType} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="font-medium text-slate-900">{label}</p>
+                          <p className="mt-0.5 text-xs capitalize text-slate-600">{document?.status || "pending"}</p>
+                        </div>
+                        {document?.documentUrl ? (
+                          <a
+                            href={toAdminAssetUrl(document.documentUrl)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold text-blue-700 hover:underline"
+                          >
+                            View document
+                          </a>
+                        ) : null}
+                      </div>
+                      {document?.rejectionReason ? (
+                        <p className="mt-2 text-xs text-red-700">Reason: {document.rejectionReason}</p>
+                      ) : null}
+                      {document?.status === "in-review" ? (
+                        <div className="mt-3 flex gap-2">
+                          <Button
+                            disabled={reviewingDocument !== null}
+                            onClick={() => void handleVerificationReview(documentType, "complete")}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            className="!bg-red-700 hover:!bg-red-800"
+                            disabled={reviewingDocument !== null}
+                            onClick={() => void handleVerificationReview(documentType, "rejected")}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -492,25 +643,98 @@ function AdminUserManagementContent() {
         </div>
       )}
 
-      <Dialog open={formMode !== null} title="Edit user" description="Email addresses cannot be changed by administrators." onClose={() => !isSaving && setFormMode(null)}>
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="Delete user"
+        description={`Delete ${deleteTarget ? getUserName(deleteTarget) : "this user"}? Their account will be anonymized and they will lose access. Accounts with active balances, payouts, jobs, or applications cannot be deleted.`}
+        confirmLabel="Delete user"
+        destructive
+        pending={isDeleting}
+        error={deleteError}
+        onConfirm={confirmDeleteUser}
+        onClose={() => {
+          if (isDeleting) return;
+          setDeleteTargetId(null);
+          setDeleteError(null);
+        }}
+      />
+
+      <Dialog
+        open={rejectionTarget !== null}
+        title="Reject verification document"
+        description="Tell the user what must be corrected before they upload a replacement."
+        onClose={() => {
+          if (reviewingDocument) return;
+          setRejectionTarget(null);
+          setRejectionReason("");
+        }}
+      >
+        <label htmlFor="verification-rejection-reason" className="text-sm font-medium text-slate-700">
+          Rejection reason
+        </label>
+        <textarea
+          id="verification-rejection-reason"
+          value={rejectionReason}
+          onChange={(event) => setRejectionReason(event.target.value)}
+          maxLength={500}
+          rows={4}
+          className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-700"
+          placeholder="For example: The document is blurry and the name is not readable."
+        />
+        <div className="mt-5 flex justify-end gap-3">
+          <Button
+            className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50"
+            disabled={reviewingDocument !== null}
+            onClick={() => {
+              setRejectionTarget(null);
+              setRejectionReason("");
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            className="!bg-red-700 hover:!bg-red-800"
+            disabled={!rejectionReason.trim() || reviewingDocument !== null}
+            onClick={() => rejectionTarget && void handleVerificationReview(rejectionTarget, "rejected", rejectionReason)}
+          >
+            {reviewingDocument ? "Rejecting…" : "Reject document"}
+          </Button>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={formMode !== null}
+        title={formMode === "create" ? "Add account" : "Edit user"}
+        description={formMode === "create" ? "Create an active account with a temporary password." : "Email addresses cannot be changed by administrators."}
+        restoreFocusRef={formMode === "create" ? addAccountButtonRef : editMenuTriggerRef}
+        onClose={() => !isSaving && setFormMode(null)}
+      >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input label="First name" autoComplete="given-name" value={form.firstName} error={formErrors.firstName} onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))} />
           <Input label="Last name" autoComplete="family-name" value={form.lastName} error={formErrors.lastName} onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))} />
         </div>
         <div className="mt-4">
-          <Input label="Email" type="email" autoComplete="email" value={form.email} disabled />
+          <Input label="Email" type="email" autoComplete="email" value={form.email} error={formErrors.email} disabled={formMode === "edit"} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
         </div>
+        {formMode === "create" && (
+          <div className="mt-4">
+            <Input label="Temporary password" type="password" autoComplete="new-password" value={form.password} error={formErrors.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
+            <p className="mt-2 text-xs text-slate-500">At least 8 characters with uppercase, lowercase, number, and special character. The user must replace it at first sign-in.</p>
+          </div>
+        )}
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Select label="Role" value={form.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
-            <option value="work">Worker</option><option value="hire">Employer</option><option value="both">Worker and employer</option>
-            {canManagePrivilegedRoles && <><option value="admin">Admin</option><option value="superadmin">Superadmin</option></>}
+          <Select label="Role" value={form.role} error={formErrors.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
+            <option value="work">Worker</option><option value="hire">Employer</option>
+            {formMode === "edit" && <option value="both">Worker and employer</option>}
+            {canManagePrivilegedRoles && <option value="admin">Admin</option>}
+            {formMode === "edit" && canManagePrivilegedRoles && <option value="superadmin">Superadmin</option>}
           </Select>
-          <Select label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></Select>
+          {formMode === "edit" && <Select label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></Select>}
         </div>
         {formErrors.form && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{formErrors.form}</p>}
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" disabled={isSaving} onClick={() => setFormMode(null)}>Cancel</Button>
-          <Button disabled={isSaving} onClick={submitUserForm}>{isSaving ? "Saving…" : "Save changes"}</Button>
+          <Button disabled={isSaving} onClick={submitUserForm}>{isSaving ? "Saving…" : formMode === "create" ? "Create account" : "Save changes"}</Button>
         </div>
       </Dialog>
     </div>

@@ -10,7 +10,23 @@ export default {
     resolve(__dirname, "src/**/*.{js,ts,jsx,tsx}")
   ],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        blue: {
+          50: "rgb(28 77 141 / 0.06)",
+          100: "rgb(28 77 141 / 0.1)",
+          200: "rgb(28 77 141 / 0.2)",
+          300: "rgb(28 77 141 / 0.3)",
+          400: "rgb(28 77 141 / 0.4)",
+          500: "#1C4D8D",
+          600: "#1C4D8D",
+          700: "#1C4D8D",
+          800: "#1C4D8D",
+          900: "#1C4D8D",
+          950: "#1C4D8D",
+        },
+      },
+    },
   },
   plugins: [],
 };

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../lib/toast";
 import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
@@ -83,8 +83,8 @@ export function ForgotPassword() {
   const stepNumber = step === "email" ? 1 : step === "code" ? 2 : 3;
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-center justify-center p-6">
-      <div className="w-full max-w-[520px] rounded-[24px] bg-white shadow-2xl p-8 lg:p-10">
+    <main className="min-h-screen bg-[#1C4D8D] flex items-center justify-center p-6">
+      <div className={`w-full bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)] ${step === "success" ? "max-w-[480px] rounded-[22px] border border-white/60 p-7 sm:p-10" : "max-w-[520px] rounded-[24px] p-8 lg:p-10"}`}>
         {step !== "success" && (
           <button type="button" onClick={() => navigate(ROUTES.signIn)} className="mb-6 inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-950">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -93,16 +93,16 @@ export function ForgotPassword() {
         )}
 
         <div className="text-center">
-          <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl ${step === "success" ? "bg-emerald-100 text-emerald-700" : "bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white"}`}>
+          <div className={`mx-auto flex h-16 w-16 items-center justify-center ${step === "success" ? "rounded-[20px] bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200" : "rounded-3xl bg-[#1C4D8D] text-white"}`}>
             {step === "success" ? <CheckCircle2 className="h-8 w-8" /> : <ShieldCheck className="h-8 w-8" />}
           </div>
-          <h1 className="mt-5 text-[28px] font-bold text-slate-950">
+          <h1 className={`font-bold tracking-tight text-slate-950 ${step === "success" ? "mt-6 text-[30px]" : "mt-5 text-[28px]"}`}>
             {step === "email" && "Forgot your password?"}
             {step === "code" && "Verify your code"}
             {step === "password" && "Create a new password"}
             {step === "success" && "Password changed"}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
+          <p className={`mx-auto text-slate-600 ${step === "success" ? "mt-3 max-w-sm text-[15px] leading-7" : "mt-2 text-sm leading-6"}`}>
             {step === "email" && "Enter your account email and we’ll send a six-digit recovery code."}
             {step === "code" && <>Enter the code sent to <span className="font-semibold text-slate-900">{email}</span>.</>}
             {step === "password" && "Your code is verified. Choose a strong password for your account."}
@@ -115,7 +115,7 @@ export function ForgotPassword() {
             {["Email", "Verify", "Password"].map((label, index) => {
               const number = index + 1;
               const active = number <= stepNumber;
-              return <li key={label} className={`rounded-xl px-2 py-2 text-center text-xs font-semibold ${active ? "bg-blue-50 text-blue-800" : "bg-slate-100 text-slate-500"}`} aria-current={number === stepNumber ? "step" : undefined}>{number}. {label}</li>;
+              return <li key={label} className={`rounded-xl px-2 py-2 text-center text-xs font-semibold ${active ? "bg-blue-50 text-blue-800" : "bg-slate-100 text-slate-600"}`} aria-current={number === stepNumber ? "step" : undefined}>{number}. {label}</li>;
             })}
           </ol>
         )}
@@ -129,7 +129,7 @@ export function ForgotPassword() {
                 <input id="forgot-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={isLoading} placeholder="you@example.com" className="min-h-[52px] w-full rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] py-4 pl-12 pr-4 text-[14px] outline-none focus:border-transparent focus:ring-2 focus:ring-[#1C4D8D]" />
               </div>
             </div>
-            <button type="submit" disabled={isLoading} className="min-h-[52px] w-full rounded-[12px] bg-blue-800 px-5 font-semibold text-white hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Sending code…" : "Send recovery code"}</button>
+            <button type="submit" disabled={isLoading} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? "Sending code…" : "Send recovery code"}</button>
           </form>
         )}
 
@@ -139,7 +139,7 @@ export function ForgotPassword() {
               <label htmlFor="password-reset-code" className="mb-2 block text-[14px] font-semibold text-slate-900">Six-digit recovery code</label>
               <input id="password-reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} disabled={isLoading} placeholder="000000" className="min-h-[56px] w-full rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] px-4 text-center text-xl font-bold tracking-[0.4em] outline-none focus:border-transparent focus:ring-2 focus:ring-[#1C4D8D]" />
             </div>
-            <button type="submit" disabled={isLoading || code.length !== 6} className="min-h-[52px] w-full rounded-[12px] bg-blue-800 px-5 font-semibold text-white hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Verifying…" : "Verify code"}</button>
+            <button type="submit" disabled={isLoading || code.length !== 6} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? "Verifying…" : "Verify code"}</button>
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[14px]">
               <button type="button" disabled={isLoading} onClick={() => sendCode()} className="font-semibold text-blue-800 hover:underline disabled:opacity-60">Resend code</button>
               <button type="button" onClick={() => { setStep("email"); setCode(""); }} className="font-semibold text-slate-600 hover:text-slate-950">Change email</button>
@@ -162,18 +162,32 @@ export function ForgotPassword() {
                 </div>
               </div>
             ))}
-            <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-              <div className="flex items-center justify-between text-sm font-semibold text-slate-800"><span>Password strength</span><span>{passwordStrength.label}</span></div>
-              <ul className="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
-                {PASSWORD_RULES.map((rule) => <li key={rule.key} className={passwordStrength.checks[rule.key] ? "text-emerald-700" : ""}>{passwordStrength.checks[rule.key] ? "✓" : "○"} {rule.label}</li>)}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-4 text-sm font-bold text-slate-900"><span>Password strength</span><span className={passwordStrength.isStrong ? "text-emerald-700" : "text-[#1C4D8D]"}>{passwordStrength.label}</span></div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Password strength" aria-valuemin={0} aria-valuemax={100} aria-valuenow={passwordStrength.percent}>
+                <div className={`h-full rounded-full transition-[width] ${passwordStrength.isStrong ? "bg-emerald-600" : "bg-[#1C4D8D]"}`} style={{ width: `${passwordStrength.percent}%` }} />
+              </div>
+              <ul className="mt-4 grid gap-x-6 gap-y-2.5 text-sm text-slate-600 sm:grid-cols-2">
+                {PASSWORD_RULES.map((rule) => <li key={rule.key} className={`flex min-w-0 items-start gap-2 ${passwordStrength.checks[rule.key] ? "font-medium text-emerald-700" : ""}`}><span className="mt-px shrink-0" aria-hidden="true">{passwordStrength.checks[rule.key] ? "✓" : "○"}</span><span>{rule.label}</span></li>)}
               </ul>
               {passwordsMismatch && <p role="alert" className="mt-3 text-sm font-medium text-red-700">Passwords do not match.</p>}
             </div>
-            <button type="submit" disabled={isLoading || !passwordStrength.isStrong || newPassword !== confirmPassword} className="min-h-[52px] w-full rounded-[12px] bg-blue-800 px-5 font-semibold text-white hover:bg-blue-900 disabled:cursor-not-allowed disabled:opacity-60">{isLoading ? "Changing password…" : "Change password"}</button>
+            <button type="submit" disabled={isLoading || !passwordStrength.isStrong || newPassword !== confirmPassword} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? "Changing password…" : "Change password"}</button>
           </form>
         )}
 
-        {step === "success" && <button type="button" onClick={() => navigate(ROUTES.signIn)} className="mt-7 min-h-12 w-full rounded-xl bg-blue-800 px-5 font-semibold text-white hover:bg-blue-900">Back to sign in</button>}
+        {step === "success" && (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={() => navigate(ROUTES.signIn)}
+              className="brand-primary-interactive group inline-flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-[10px] px-6 text-[15px] font-semibold shadow-[0_10px_24px_rgba(28,77,141,0.22)] sm:w-auto sm:min-w-[220px]"
+            >
+              Back to sign in
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );

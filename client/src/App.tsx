@@ -55,6 +55,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard").then((m
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics").then((module) => ({ default: module.AdminAnalytics })));
 const AdminReports = lazy(() => import("./pages/admin/AdminReports").then((module) => ({ default: module.AdminReports })));
 const AdminEWalletMonitoring = lazy(() => import("./pages/admin/AdminEWalletMonitoring").then((module) => ({ default: module.AdminEWalletMonitoring })));
+const AdminPayoutRequests = lazy(() => import("./pages/admin/AdminPayoutRequests").then((module) => ({ default: module.AdminPayoutRequests })));
 const AdminJobMonitoring = lazy(() => import("./pages/admin/AdminJobMonitoring").then((module) => ({ default: module.AdminJobMonitoring })));
 const AdminSecurity = lazy(() => import("./pages/admin/AdminSecurity").then((module) => ({ default: module.AdminSecurity })));
 const AdminSupportTickets = lazy(() => import("./pages/admin/AdminSupportTickets").then((module) => ({ default: module.AdminSupportTickets })));
@@ -357,6 +358,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.admin.analytics} element={<AdminAnalytics />} />
             <Route path={ROUTES.admin.reports} element={<AdminReports />} />
             <Route path={ROUTES.admin.eWallet} element={<AdminEWalletMonitoring />} />
+            <Route path={ROUTES.admin.payouts} element={<AdminPayoutRequests />} />
             <Route path={ROUTES.admin.jobs} element={<AdminJobMonitoring />} />
             <Route path={ROUTES.admin.security} element={<AdminSecurity />} />
             <Route path={ROUTES.admin.userManagement} element={<AdminUserManagement />} />
@@ -496,6 +498,14 @@ const App: React.FC = () => {
           <Route
             path={ROUTES.legacyDashboard.admin.messages}
             element={<PreserveRedirect to={ROUTES.admin.messages} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.payouts}
+            element={<PreserveRedirect to={ROUTES.admin.payouts} />}
+          />
+          <Route
+            path={ROUTES.legacyDashboard.admin.support}
+            element={<PreserveRedirect to={ROUTES.admin.support} />}
           />
           <Route
             path={ROUTES.legacyDashboard.admin.analytics}

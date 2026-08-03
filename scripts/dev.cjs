@@ -26,8 +26,8 @@ const sharedEnvironment = {
 const processes = [];
 let shuttingDown = false;
 
-const start = (label, args) => {
-  const child = spawn(process.execPath, args, {
+const start = (label, command, args) => {
+  const child = spawn(command, args, {
     cwd: process.cwd(),
     env: sharedEnvironment,
     stdio: "inherit",
@@ -69,7 +69,8 @@ console.log(`Starting MicroJobs web app at ${clientOrigin}`);
 console.log(`Development admin sign-in: ${clientOrigin}/admin-sign-in`);
 console.log("Development superadmin is created automatically when it does not exist.");
 
-start("api", ["scripts/run-with-node.cjs", "nodemon", "server/index.js"]);
+const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+start("api", npmCommand, ["--prefix", "server", "run", "dev"]);
 
 const clientArguments = [
   "scripts/run-with-node.cjs",
@@ -80,4 +81,4 @@ const clientArguments = [
   clientPort,
 ];
 if (shouldOpenAdmin) clientArguments.push("--open", "/admin-sign-in");
-start("web", clientArguments);
+start("web", process.execPath, clientArguments);

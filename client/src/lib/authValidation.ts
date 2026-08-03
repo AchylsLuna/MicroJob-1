@@ -1,6 +1,6 @@
 export const PHONE_DIGITS = 11;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const NAME_REGEX = /^[A-Za-z][A-Za-z\s'.-]*$/;
+const NAME_REGEX = /^[\p{L}][\p{L}\s'.-]*$/u;
 const PH_PHONE_REGEX = /^09\d{9}$/;
 
 export const EMAIL_VALIDATION_MESSAGE =

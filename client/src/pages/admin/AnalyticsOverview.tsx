@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Briefcase, DollarSign, TrendingUp, Users } from "lucide-react";
 import type { AdminJob, AdminUser } from "../../hooks/useAdminData";
+import type { PaymentTransaction } from "../../services/api";
 
 const CHART_MONTHS = 6;
 
@@ -13,6 +14,7 @@ type AnalyticsOverviewProps = {
   isLoading: boolean;
   jobs: AdminJob[];
   users: AdminUser[];
+  transactions: PaymentTransaction[];
   totalUsers: number;
   topCategories: TopCategory[];
   formatCurrency: (value: number) => string;
@@ -22,20 +24,11 @@ export function AnalyticsOverview({
   isLoading,
   jobs,
   users,
+  transactions,
   totalUsers,
   topCategories,
   formatCurrency,
 }: AnalyticsOverviewProps) {
-  const parseSalary = (value?: string | number) => {
-    if (value === undefined || value === null) return 0;
-    if (typeof value === "number") {
-      return Number.isFinite(value) ? value : 0;
-    }
-    const cleaned = value.replace(/[^0-9.]/g, "");
-    const amount = Number.parseFloat(cleaned);
-    return Number.isFinite(amount) ? amount : 0;
-  };
-
   const monthBuckets = useMemo(() => {
     const now = new Date();
     return Array.from({ length: CHART_MONTHS }, (_, index) => {
@@ -77,16 +70,17 @@ export function AnalyticsOverview({
     }).length;
   });
 
-  const monthlyRevenue = monthBuckets.map((bucket) => {
-    return jobs.reduce((sum, job) => {
-      const date = job.createdAt ? new Date(job.createdAt) : getDateFromId(job._id);
+  const monthlyPayoutVolume = monthBuckets.map((bucket) => {
+    return transactions.reduce((sum, transaction) => {
+      if (transaction.type !== "PAYOUT" || transaction.status !== "COMPLETED") return sum;
+      const date = transaction.createdAt ? new Date(transaction.createdAt) : null;
       if (!date) return sum;
       if (date.getMonth() !== bucket.month || date.getFullYear() !== bucket.year) return sum;
-      return sum + parseSalary(job.salary);
+      return sum + Number(transaction.amount || 0);
     }, 0);
   });
 
-  const totalRevenue = monthlyRevenue.reduce((sum, value) => sum + value, 0);
+  const totalPayoutVolume = monthlyPayoutVolume.reduce((sum, value) => sum + value, 0);
   const activeJobs = jobs.filter((job) => job.status === "Available" || job.status === "In Progress").length;
 
   const applicantIds = new Set<string>();
@@ -102,7 +96,7 @@ export function AnalyticsOverview({
   };
 
   const latestIndex = monthBuckets.length - 1;
-  const revenueChange = percentChange(monthlyRevenue[latestIndex] || 0, monthlyRevenue[latestIndex - 1] || 0);
+  const payoutVolumeChange = percentChange(monthlyPayoutVolume[latestIndex] || 0, monthlyPayoutVolume[latestIndex - 1] || 0);
   const jobChange = percentChange(monthlyJobs[latestIndex] || 0, monthlyJobs[latestIndex - 1] || 0);
   const userChange = percentChange(monthlyUsers[latestIndex] || 0, monthlyUsers[latestIndex - 1] || 0);
   const conversionChange = percentChange(
@@ -114,33 +108,33 @@ export function AnalyticsOverview({
 
   const cardItems = [
     {
-      label: "Total Revenue",
-      value: isLoading ? "—" : formatCurrency(totalRevenue),
-      change: revenueChange,
-      icon: <DollarSign className="w-6 h-6 text-[#2563EB]" />,
+      label: "Completed Payout Volume",
+      value: isLoading ? "—" : formatCurrency(totalPayoutVolume),
+      change: payoutVolumeChange,
+      icon: <DollarSign className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
       label: "Active Jobs",
       value: isLoading ? "—" : activeJobs,
       change: jobChange,
-      icon: <Briefcase className="w-6 h-6 text-[#2563EB]" />,
+      icon: <Briefcase className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
       label: "Total Users",
       value: isLoading ? "—" : totalUsers,
       change: userChange,
-      icon: <Users className="w-6 h-6 text-[#2563EB]" />,
+      icon: <Users className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
       label: "Conversion Rate",
       value: isLoading ? "—" : `${conversionRate.toFixed(1)}%`,
       change: conversionChange,
-      icon: <TrendingUp className="w-6 h-6 text-[#2563EB]" />,
+      icon: <TrendingUp className="w-6 h-6 text-[#1C4D8D]" />,
     },
   ];
 
   const maxMonthly = Math.max(...monthlyJobs, ...monthlyUsers, 1);
-  const maxRevenue = Math.max(...monthlyRevenue, 1);
+  const maxPayoutVolume = Math.max(...monthlyPayoutVolume, 1);
   const monthlyUserGrowth = monthlyUsers.reduce<number[]>((acc, value) => {
     const prev = acc.length ? acc[acc.length - 1] : 0;
     acc.push(prev + value);
@@ -160,7 +154,7 @@ export function AnalyticsOverview({
     });
   };
 
-  const revenuePoints = chartPoints(monthlyRevenue, maxRevenue);
+  const payoutVolumePoints = chartPoints(monthlyPayoutVolume, maxPayoutVolume);
   const userGrowthPoints = chartPoints(monthlyUserGrowth, maxUserGrowth);
 
   const linePath = (points: { x: number; y: number }[]) =>
@@ -173,12 +167,12 @@ export function AnalyticsOverview({
     );
   };
 
-  const revenueTicks = chartTicks(maxRevenue);
+  const payoutVolumeTicks = chartTicks(maxPayoutVolume);
   const userGrowthTicks = chartTicks(maxUserGrowth);
 
   const categoryTotal = jobs.length || 1;
   const categorySegments = useMemo(() => {
-    const colors = ["#2563EB", "#10B981", "#EF4444", "#94A3B8", "#E2E8F0"];
+    const colors = ["#1C4D8D", "#10B981", "#EF4444", "#94A3B8", "#E2E8F0"];
     const visible = topCategories.slice(0, 4);
     const used = visible.reduce((sum, item) => sum + item.count, 0);
     const segments = visible.map((item, index) => ({
@@ -215,7 +209,7 @@ export function AnalyticsOverview({
                   {card.change.toFixed(1)}% from last month
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-full bg-[#EFF6FF] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-[#1C4D8D]/[0.06] flex items-center justify-center">
                 {card.icon}
               </div>
             </div>
@@ -234,7 +228,7 @@ export function AnalyticsOverview({
                 <div key={bucket.key} className="flex flex-col items-center gap-2 flex-1">
                   <div className="flex items-end gap-2 h-[160px]">
                     <div
-                      className="w-6 rounded-[8px] bg-[#2563EB]/80"
+                      className="w-6 rounded-[8px] bg-[#1C4D8D]/80"
                       style={{ height: `${Math.max(jobHeight, 6)}%` }}
                     />
                     <div
@@ -250,17 +244,17 @@ export function AnalyticsOverview({
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-          <h3 className="text-[18px] font-semibold text-[#111827]">Revenue Trend</h3>
+          <h3 className="text-[18px] font-semibold text-[#111827]">Completed Payout Trend</h3>
           <div className="mt-6 flex gap-4">
             <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
-              {revenueTicks.map((tick) => (
+              {payoutVolumeTicks.map((tick) => (
                 <span key={tick}>{formatCurrency(tick)}</span>
               ))}
             </div>
             <svg viewBox="0 0 360 180" className="w-full h-[200px]">
-              <path d={linePath(revenuePoints)} stroke="#2563EB" strokeWidth="2" fill="none" />
-              {revenuePoints.map((point, index) => (
-                <circle key={`rev-${index}`} cx={point.x} cy={point.y} r={4} fill="#2563EB" />
+              <path d={linePath(payoutVolumePoints)} stroke="#1C4D8D" strokeWidth="2" fill="none" />
+              {payoutVolumePoints.map((point, index) => (
+                <circle key={`rev-${index}`} cx={point.x} cy={point.y} r={4} fill="#1C4D8D" />
               ))}
             </svg>
           </div>

@@ -197,7 +197,7 @@ export function SignUp() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-[#0F2954] via-[#1C4D8D] to-[#4988C4] flex items-start lg:items-center justify-center px-4 py-8 lg:px-6 lg:py-10 overflow-x-hidden">
+    <main className="min-h-screen bg-[#1C4D8D] flex items-start lg:items-center justify-center px-4 py-8 lg:px-6 lg:py-10 overflow-x-hidden">
       <div className="w-full max-w-[1240px] grid grid-cols-1 lg:grid-cols-[0.55fr_0.45fr] gap-10 items-start lg:items-stretch min-w-0">
         {/* Left Side - Branding */}
         <div className="text-white space-y-8 flex flex-col justify-start max-w-full min-w-0 overflow-hidden">
@@ -477,7 +477,7 @@ export function SignUp() {
                       onClick={() => setUserType("employer")}
                       className={`flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-[12px] border-2 transition-all ${
                         userType === "employer"
-                          ? "border-[#1C4D8D] bg-[#F0F7FF]"
+                          ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.08]"
                           : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
                       }`}
                     >
@@ -492,7 +492,7 @@ export function SignUp() {
                       onClick={() => setUserType("worker")}
                       className={`flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-[12px] border-2 transition-all ${
                         userType === "worker"
-                          ? "border-[#1C4D8D] bg-[#F0F7FF]"
+                          ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.08]"
                           : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
                       }`}
                     >
@@ -507,7 +507,7 @@ export function SignUp() {
                       onClick={() => setUserType("both")}
                       className={`flex flex-col items-center justify-center gap-2 py-4 px-3 rounded-[12px] border-2 transition-all ${
                         userType === "both"
-                          ? "border-[#1C4D8D] bg-[#F0F7FF]"
+                          ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.08]"
                           : "border-[#E5E7EB] bg-white hover:border-[#D1D5DB]"
                       }`}
                     >
@@ -530,11 +530,11 @@ export function SignUp() {
                   />
                   <label htmlFor="signup-terms" className="text-[13px] text-[#6B7280]">
                     I agree to the{" "}
-                    <Link to={ROUTES.terms} className="text-[#1C4D8D] hover:text-[#0F2954] font-medium">
+                    <Link to={ROUTES.terms} className="text-[#1C4D8D] hover:opacity-80 font-medium">
                       Terms and Conditions
                     </Link>{" "}
                     and{" "}
-                    <Link to={ROUTES.privacy} className="text-[#1C4D8D] hover:text-[#0F2954] font-medium">
+                    <Link to={ROUTES.privacy} className="text-[#1C4D8D] hover:opacity-80 font-medium">
                       Privacy Policy
                     </Link>
                   </label>
@@ -544,7 +544,7 @@ export function SignUp() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full bg-gradient-to-br from-[#4988C4] to-[#1C4D8D] text-white font-semibold py-4 px-6 rounded-[12px] hover:shadow-xl transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
                 >
                   {isSubmitting ? "Creating Account..." : "Create Account"}
                 </button>
@@ -556,7 +556,7 @@ export function SignUp() {
                 Already have an account?{" "}
                 <button
                   onClick={() => navigate(ROUTES.signIn)}
-                  className="text-[#1C4D8D] hover:text-[#0F2954] font-semibold"
+                  className="text-[#1C4D8D] hover:opacity-80 font-semibold"
                 >
                   Sign In
                 </button>

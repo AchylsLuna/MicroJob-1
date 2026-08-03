@@ -98,14 +98,17 @@ const UserSchema = new mongoose.Schema(
     city: {
       type: String,
       trim: true,
+      maxlength: 100,
     },
     province: {
       type: String,
       trim: true,
+      maxlength: 100,
     },
     barangay: {
       type: String,
       trim: true,
+      maxlength: 100,
     },
     addressType: {
       type: String,
@@ -116,58 +119,77 @@ const UserSchema = new mongoose.Schema(
     address: {
       type: String,
       trim: true,
+      maxlength: 300,
     },
     facebook: {
       type: String,
       trim: true,
+      maxlength: 300,
     },
     profilePhotoName: {
       type: String,
       trim: true,
+      maxlength: 255,
     },
     jobPosition: {
       type: String,
       trim: true,
+      maxlength: 100,
     },
     companyName: {
       type: String,
       trim: true,
+      maxlength: 120,
     },
     startDate: {
       type: String,
       trim: true,
+      maxlength: 40,
     },
     endDate: {
       type: String,
       trim: true,
+      maxlength: 40,
     },
     logoName: {
       type: String,
       trim: true,
+      maxlength: 255,
     },
     resumeFileName: {
       type: String,
       trim: true,
+      maxlength: 255,
     },
     resumeUrl: {
       type: String,
       trim: true,
+      maxlength: 500,
     },
     avatarUrl: {
       type: String,
       trim: true,
+      maxlength: 500,
     },
     about: {
       type: String,
       trim: true,
+      maxlength: 2000,
     },
     linkedin: {
       type: String,
       trim: true,
+      maxlength: 300,
+    },
+    website: {
+      type: String,
+      trim: true,
+      maxlength: 300,
     },
     totalExperience: {
       type: String,
       trim: true,
+      maxlength: 50,
     },
     projectsCompleted: {
       type: Number,
@@ -187,15 +209,61 @@ const UserSchema = new mongoose.Schema(
           type: String,
           trim: true,
           required: true,
+          maxlength: 80,
         },
         description: {
           type: String,
           trim: true,
           default: '',
+          maxlength: 500,
         },
         endorsements: {
           type: Number,
           default: 0,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    workExperience: [
+      {
+        title: {
+          type: String,
+          trim: true,
+          required: true,
+          maxlength: 100,
+        },
+        company: {
+          type: String,
+          trim: true,
+          required: true,
+          maxlength: 120,
+        },
+        location: {
+          type: String,
+          trim: true,
+          maxlength: 120,
+          default: '',
+        },
+        startDate: {
+          type: Date,
+          required: true,
+        },
+        endDate: {
+          type: Date,
+          default: null,
+        },
+        current: {
+          type: Boolean,
+          default: false,
+        },
+        description: {
+          type: String,
+          trim: true,
+          maxlength: 1000,
+          default: '',
         },
         createdAt: {
           type: Date,
@@ -233,6 +301,18 @@ const UserSchema = new mongoose.Schema(
         uploadedAt: {
           type: Date,
         },
+        reviewedAt: {
+          type: Date,
+        },
+        reviewedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        rejectionReason: {
+          type: String,
+          trim: true,
+          maxlength: 500,
+        },
       },
       addressDocument: {
         status: {
@@ -246,6 +326,18 @@ const UserSchema = new mongoose.Schema(
         },
         uploadedAt: {
           type: Date,
+        },
+        reviewedAt: {
+          type: Date,
+        },
+        reviewedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+        },
+        rejectionReason: {
+          type: String,
+          trim: true,
+          maxlength: 500,
         },
       },
     },

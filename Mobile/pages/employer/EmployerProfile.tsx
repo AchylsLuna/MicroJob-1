@@ -9,6 +9,14 @@ import TabTopNav from '../../components/TabTopNav';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import {
+  PROFILE_LIMITS,
+  isValidProfileName,
+  isValidProfilePhone,
+  normalizeProfileName,
+  normalizeProfilePhone,
+  validateMobileAvatar,
+} from '../../lib/profileValidation';
 
 type EmployerProfileProps = {
   employer?: {
@@ -48,8 +56,14 @@ export default function EmployerProfile({
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [formError, setFormError] = useState('');
   const toast = useToast();
+
+  useEffect(() => {
+    setFormError('');
+  }, [address, city, firstName, lastName, phone]);
 
   const employerName = firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Employer';
   const initials = employerName
@@ -105,12 +119,30 @@ export default function EmployerProfile({
   }, []);
 
   const handleSave = async () => {
-    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      toast.error('Name and email are required.');
+    if (isSaving) return;
+    const normalizedFirstName = normalizeProfileName(firstName);
+    const normalizedLastName = normalizeProfileName(lastName);
+    const normalizedPhone = normalizeProfilePhone(phone);
+    if (!isValidProfileName(normalizedFirstName) || !isValidProfileName(normalizedLastName)) {
+      const message = "Enter valid first and last names using letters, spaces, apostrophes, periods, or hyphens.";
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (phone.trim() && !isValidProfilePhone(normalizedPhone)) {
+      const message = 'Phone number must be a Philippine mobile number in 09XXXXXXXXX format.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (city.trim().length > PROFILE_LIMITS.city || address.trim().length > PROFILE_LIMITS.address) {
+      const message = 'City or address is too long.';
+      setFormError(message);
+      toast.error(message);
       return;
     }
 
-    setIsLoading(true);
+    setIsSaving(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const result = await apiRequest(
@@ -122,10 +154,9 @@ export default function EmployerProfile({
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: email.trim().toLowerCase(),
-            phoneNumber: phone.trim(),
+            firstName: normalizedFirstName,
+            lastName: normalizedLastName,
+            phoneNumber: normalizedPhone,
             city: city.trim(),
             address: address.trim(),
           }),
@@ -146,9 +177,11 @@ export default function EmployerProfile({
       }
       toast.success('Profile updated.');
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update profile.');
+      const message = error?.message || 'Failed to update profile.';
+      setFormError(message);
+      toast.error(message);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
   };
 
@@ -172,14 +205,19 @@ export default function EmployerProfile({
       }
 
       const asset = picked.assets[0];
+      const { extension, mimeType, error: avatarError } = validateMobileAvatar(asset);
+      if (avatarError) {
+        toast.error(avatarError);
+        return;
+      }
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
         toast.error('Please sign in again.');
         return;
       }
 
-      const ext = (asset.fileName?.split('.').pop() || 'jpg').toLowerCase();
-      const mime = asset.mimeType || `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+      const ext = extension;
+      const mime = mimeType;
       const form = new FormData();
       form.append('avatar', {
         uri: asset.uri,
@@ -187,7 +225,7 @@ export default function EmployerProfile({
         type: mime,
       } as any);
 
-      setIsLoading(true);
+      setIsUploadingAvatar(true);
       const result = await apiRequest(
         `${API_URL}/auth/profile/avatar`,
         {
@@ -214,7 +252,7 @@ export default function EmployerProfile({
     } catch (error: any) {
       toast.error(error?.message || 'Failed to upload profile picture.');
     } finally {
-      setIsLoading(false);
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -255,15 +293,15 @@ export default function EmployerProfile({
 
           <View style={styles.heroTopRow}>
             <View style={styles.avatarFrame}>
-              <TouchableOpacity style={styles.avatar} onPress={handleUploadAvatar} disabled={isLoading} activeOpacity={0.92}>
-                {avatarSource ? <Image source={avatarSource} style={styles.avatarImage} /> : <Text style={styles.avatarText}>{initials}</Text>}
-                {isLoading ? (
+              <TouchableOpacity style={styles.avatar} onPress={handleUploadAvatar} disabled={isUploadingAvatar} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Change employer profile photo" accessibilityHint="Opens your photo library" accessibilityState={{ disabled: isUploadingAvatar, busy: isUploadingAvatar }}>
+                {avatarSource ? <Image source={avatarSource} style={styles.avatarImage} accessibilityLabel="Current employer profile photo" /> : <Text style={styles.avatarText}>{initials}</Text>}
+                {isUploadingAvatar ? (
                   <View style={styles.avatarLoadingOverlay}>
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   </View>
                 ) : null}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.avatarEditButton} onPress={handleUploadAvatar} disabled={isLoading} activeOpacity={0.92}>
+              <TouchableOpacity style={styles.avatarEditButton} onPress={handleUploadAvatar} disabled={isUploadingAvatar} activeOpacity={0.92} accessible={false}>
                 <Ionicons name="camera-outline" size={16} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
@@ -295,6 +333,9 @@ export default function EmployerProfile({
               onPress={onOpenSettings}
               disabled={!onOpenSettings}
               activeOpacity={0.9}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+              accessibilityState={{ disabled: !onOpenSettings }}
             >
               <Ionicons name="settings-outline" size={18} color="#334155" />
               <Text style={styles.secondaryActionText}>Settings</Text>
@@ -304,6 +345,9 @@ export default function EmployerProfile({
               onPress={onOpenWallet}
               disabled={!onOpenWallet}
               activeOpacity={0.9}
+              accessibilityRole="button"
+              accessibilityLabel="Open wallet"
+              accessibilityState={{ disabled: !onOpenWallet }}
             >
               <Ionicons name="wallet-outline" size={18} color="#FFFFFF" />
               <Text style={styles.primaryActionText}>Wallet</Text>
@@ -317,7 +361,7 @@ export default function EmployerProfile({
             <Text style={styles.sectionHint}>{completionRate}%</Text>
           </View>
           <Text style={styles.progressSubtitle}>Complete your public details so workers can trust the profile behind every job post.</Text>
-          <View style={styles.progressTrack}>
+          <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityLabel="Employer profile completion" accessibilityValue={{ min: 0, max: 100, now: completionRate, text: `${completionRate}% complete` }}>
             <View style={[styles.progressFill, { width: `${completionRate}%` }]} />
           </View>
           <View style={styles.checklistRow}>
@@ -334,6 +378,8 @@ export default function EmployerProfile({
           </View>
         </View>
 
+        {formError ? <Text style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="assertive">{formError}</Text> : null}
+
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Identity</Text>
@@ -347,27 +393,34 @@ export default function EmployerProfile({
               placeholder="First Name"
               placeholderTextColor="#94A3B8"
               value={firstName}
+              maxLength={PROFILE_LIMITS.name}
               onChangeText={setFirstName}
+              accessibilityLabel="First name"
             />
             <TextInput
               style={[styles.input, styles.nameInput]}
               placeholder="Last Name"
               placeholderTextColor="#94A3B8"
               value={lastName}
+              maxLength={PROFILE_LIMITS.name}
               onChangeText={setLastName}
+              accessibilityLabel="Last name"
             />
           </View>
 
           <Text style={styles.fieldLabel}>Email</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, styles.inputReadOnly]}
             placeholder="Email"
             placeholderTextColor="#94A3B8"
             value={email}
-            onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
+            editable={false}
+            accessibilityLabel="Email address"
+            accessibilityState={{ disabled: true }}
           />
+          <Text style={styles.helperText}>Email changes require a verified change flow and are currently locked.</Text>
         </View>
 
         <View style={styles.sectionCard}>
@@ -382,8 +435,10 @@ export default function EmployerProfile({
             placeholder="Add phone number"
             placeholderTextColor="#94A3B8"
             value={phone}
+            maxLength={20}
             onChangeText={setPhone}
             keyboardType="phone-pad"
+            accessibilityLabel="Phone number"
           />
 
           <Text style={styles.fieldLabel}>City</Text>
@@ -392,7 +447,9 @@ export default function EmployerProfile({
             placeholder="City / Location"
             placeholderTextColor="#94A3B8"
             value={city}
+            maxLength={PROFILE_LIMITS.city}
             onChangeText={setCity}
+            accessibilityLabel="City"
           />
 
           <Text style={styles.fieldLabel}>Address</Text>
@@ -401,13 +458,15 @@ export default function EmployerProfile({
             placeholder="Full address"
             placeholderTextColor="#94A3B8"
             value={address}
+            maxLength={PROFILE_LIMITS.address}
             onChangeText={setAddress}
             multiline
+            accessibilityLabel="Address"
           />
         </View>
 
-        <TouchableOpacity style={[styles.saveButton, isLoading && styles.saveButtonDisabled]} onPress={handleSave} disabled={isLoading} activeOpacity={0.92}>
-          {isLoading ? (
+        <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={handleSave} disabled={isSaving} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Save employer profile" accessibilityState={{ disabled: isSaving, busy: isSaving }}>
+          {isSaving ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
@@ -707,6 +766,25 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: '#111827',
+  },
+  formError: {
+    color: '#991B1B',
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  inputReadOnly: {
+    color: '#64748B',
+    backgroundColor: '#E9EEF5',
+  },
+  helperText: {
+    marginTop: 6,
+    color: '#64748B',
+    fontSize: 12,
   },
   addressInput: {
     minHeight: 88,

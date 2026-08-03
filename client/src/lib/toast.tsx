@@ -68,7 +68,7 @@ export const toast = Object.assign(
 const toastStyles: Record<ToastType, string> = {
   success: "border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]",
   error: "border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]",
-  info: "border-[#BFDBFE] bg-[#EFF6FF] text-[#1D4ED8]",
+  info: "border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] text-[#1C4D8D]",
 };
 
 export function Toaster({ position = "top-right" }: { position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" }) {
