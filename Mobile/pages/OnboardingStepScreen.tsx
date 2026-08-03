@@ -192,7 +192,7 @@ export default function OnboardingStepScreen({
         <View style={[styles.content, { paddingTop: topPadding, paddingHorizontal: horizontalPadding }]}>
           <View style={styles.topRow}>
             <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
-              <Text allowFontScaling={false} style={[styles.skipText, { fontSize: skipFontSize }]}>
+              <Text maxFontSizeMultiplier={1.4} style={[styles.skipText, { fontSize: skipFontSize }]}>
                 Skip
               </Text>
             </TouchableOpacity>
@@ -226,7 +226,7 @@ export default function OnboardingStepScreen({
 
           <Animated.View style={{ transform: [{ translateX: textParallaxX }] }}>
             <Text
-              allowFontScaling={false}
+              maxFontSizeMultiplier={1.4}
               style={[
                 styles.title,
                 {
@@ -240,7 +240,7 @@ export default function OnboardingStepScreen({
               {title}
             </Text>
             <Text
-              allowFontScaling={false}
+              maxFontSizeMultiplier={1.4}
               style={[
                 styles.subtitle,
                 {
@@ -288,7 +288,7 @@ export default function OnboardingStepScreen({
             onPress={handleNext}
           >
             <Text
-              allowFontScaling={false}
+              maxFontSizeMultiplier={1.4}
               style={[
                 styles.primaryButtonText,
                 { fontSize: ctaFontSize },
@@ -301,11 +301,11 @@ export default function OnboardingStepScreen({
           </TouchableOpacity>
 
           <View style={styles.loginRow}>
-            <Text allowFontScaling={false} style={[styles.loginText, { fontSize: helperFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.loginText, { fontSize: helperFontSize }]}>
               Already have an account?{' '}
             </Text>
             <TouchableOpacity onPress={onLogin}>
-              <Text allowFontScaling={false} style={[styles.loginLink, { fontSize: helperFontSize }]}>
+              <Text maxFontSizeMultiplier={1.4} style={[styles.loginLink, { fontSize: helperFontSize }]}>
                 Log In
               </Text>
             </TouchableOpacity>
@@ -350,9 +350,9 @@ const styles = StyleSheet.create({
   },
   iconOuterRing: {
     position: 'absolute',
-    backgroundColor: 'rgba(27,79,216,0.13)',
+    backgroundColor: 'rgba(28,77,141,0.13)',
     borderWidth: 1,
-    borderColor: 'rgba(59,130,246,0.22)',
+    borderColor: 'rgba(28,77,141,0.22)',
   },
   iconInnerCircle: {
     backgroundColor: AUTH_COLORS.primary,
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 14 },
   },
   title: {
-    color: AUTH_COLORS.textPrimary,
+    color: AUTH_COLORS.primaryText,
     fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,

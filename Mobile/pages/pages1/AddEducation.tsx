@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, Modal, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tokens } from '../../theme/tokens';
 
 type AddEducationProps = {
   visible: boolean;
@@ -153,7 +154,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modal: {
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
@@ -207,11 +208,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxActive: {
-    backgroundColor: '#1e3a5f',
-    borderColor: '#1e3a5f',
+    backgroundColor: tokens.colors.brand,
+    borderColor: tokens.colors.brand,
   },
   checkmark: {
-    color: '#fff',
+    color: tokens.colors.surface,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -220,14 +221,14 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   addButton: {
-    backgroundColor: '#1e3a5f',
+    backgroundColor: tokens.colors.brand,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
     marginTop: 16,
   },
   addButtonText: {
-    color: '#fff',
+    color: tokens.colors.surface,
     fontSize: 16,
     fontWeight: '700',
   },

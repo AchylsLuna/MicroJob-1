@@ -86,7 +86,7 @@ export default function EmployerNavigation({
                 ) : (
                   <Ionicons
                     name={isActive ? item.iconActive : item.iconInactive}
-                    size={24}
+                    size={tokens.navigation.iconSize}
                     color={isActive ? tokens.colors.brand : tokens.colors.textMuted}
                   />
                 )}
@@ -115,11 +115,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#E6EAF2',
-    paddingTop: 12,
-    borderRadius: 30,
-    paddingHorizontal: 10,
-    marginHorizontal: 8,
+    borderColor: tokens.colors.border,
+    paddingTop: tokens.spacing.sm,
+    borderRadius: tokens.radius.lg,
+    paddingHorizontal: tokens.spacing.xxs,
+    marginHorizontal: tokens.spacing.xxs,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.08,
@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
+    minHeight: tokens.navigation.itemMinHeight,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 1,
@@ -142,11 +143,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconContainerActive: {
-    backgroundColor: '#EAF1FB',
+    backgroundColor: tokens.colors.brandSoft,
   },
   tabLabel: {
     marginTop: 8,
-    fontSize: 11,
+    fontSize: tokens.navigation.labelSize,
     lineHeight: 13,
     color: tokens.colors.textMuted,
     fontWeight: '600',
@@ -162,7 +163,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#DCE6F7',
+    backgroundColor: tokens.colors.brandMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
   profileChipText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#475569',
+    color: tokens.colors.textMuted,
   },
   profileChipTextActive: {
     color: tokens.colors.white,

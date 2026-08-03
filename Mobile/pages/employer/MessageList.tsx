@@ -443,7 +443,7 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
   previewTextUnread: {
-    color: '#111827',
+    color: tokens.colors.text,
     fontWeight: '600',
   },
   unreadBadge: {
@@ -456,13 +456,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   unreadBadgeText: {
-    color: '#fff',
+    color: tokens.colors.surface,
     fontSize: 12,
     fontWeight: '700',
   },
   separator: {
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: tokens.colors.border,
     marginLeft: 68,
   },
   processingText: {
@@ -480,8 +480,8 @@ const styles = StyleSheet.create({
     marginTop: 36,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     paddingVertical: 28,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -491,6 +491,6 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
   },
 });

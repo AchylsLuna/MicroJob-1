@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PROFILE_LIMITS } from '../../lib/profileValidation';
+import { tokens } from '../../theme/tokens';
 
 export type ExperienceDraft = {
   title: string;
@@ -154,7 +155,7 @@ export default function AddExperience({ visible, onClose, onAdd, initialValue }:
                 accessibilityRole="switch"
                 accessibilityState={{ checked: draft.current }}
                 trackColor={{ false: '#CBD5E1', true: '#93C5FD' }}
-                thumbColor={draft.current ? '#1C4D8D' : '#F8FAFC'}
+                thumbColor={draft.current ? '#1C4D8D' : tokens.colors.background}
               />
             </View>
 
@@ -200,23 +201,23 @@ function Field({ label, style, ...props }: FieldProps) {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'flex-end' },
   overlay: { position: 'absolute', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.55)' },
-  modal: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 22, maxHeight: '92%' },
+  modal: { backgroundColor: tokens.colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 22, maxHeight: '92%' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginBottom: 18 },
   modalTitle: { fontSize: 20, fontWeight: '800', color: '#0F172A' },
   modalSubtitle: { marginTop: 4, fontSize: 13, color: '#64748B', maxWidth: 270 },
-  closeText: { fontSize: 14, fontWeight: '700', color: '#1C4D8D', paddingVertical: 3 },
+  closeText: { fontSize: 14, fontWeight: '700', color: tokens.colors.brand, paddingVertical: 3 },
   scroll: { gap: 15, paddingBottom: 8 },
   fieldGroup: { gap: 7 },
   label: { fontSize: 13, fontWeight: '700', color: '#334155' },
-  input: { minHeight: 48, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 12, paddingHorizontal: 14, color: '#0F172A', backgroundColor: '#FFFFFF', fontSize: 15 },
+  input: { minHeight: 48, borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 12, paddingHorizontal: 14, color: '#0F172A', backgroundColor: tokens.colors.surface, fontSize: 15 },
   descriptionInput: { minHeight: 96, paddingTop: 13, paddingBottom: 13 },
   characterCount: { alignSelf: 'flex-end', color: '#64748B', fontSize: 12, marginTop: 5 },
   dateRow: { flexDirection: 'row', gap: 12 },
   dateField: { flex: 1 },
-  currentRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, backgroundColor: '#F8FAFC', paddingHorizontal: 14 },
+  currentRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, backgroundColor: tokens.colors.background, paddingHorizontal: 14 },
   currentLabel: { fontSize: 14, fontWeight: '600', color: '#334155' },
   errorText: { color: '#B91C1C', fontSize: 13, lineHeight: 18, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12 },
-  addButton: { minHeight: 50, backgroundColor: '#1C4D8D', borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
+  addButton: { minHeight: 50, backgroundColor: tokens.colors.brand, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   addButtonDisabled: { opacity: 0.65 },
-  addButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  addButtonText: { color: tokens.colors.surface, fontSize: 15, fontWeight: '800' },
 });

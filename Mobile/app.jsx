@@ -899,7 +899,7 @@ const styles = StyleSheet.create({
   idlePrimary: {
     minWidth: 110,
     borderRadius: 14,
-    backgroundColor: '#1D4ED8',
+    backgroundColor: '#1C4D8D',
     paddingVertical: 12,
     paddingHorizontal: 20,
     alignItems: 'center',

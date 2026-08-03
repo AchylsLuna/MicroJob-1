@@ -7,9 +7,11 @@
   "main": "index.ts",
   "scripts": {
     "start": "node scripts/startExpo.cjs",
+    "start:clear": "node scripts/startExpo.cjs --clear",
     "android": "node scripts/startExpo.cjs --android",
     "ios": "node scripts/startExpo.cjs --ios",
     "web": "node scripts/startExpo.cjs --web",
+    "check:theme": "node scripts/checkTheme.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

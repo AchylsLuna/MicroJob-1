@@ -177,7 +177,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
             </View>
             );
           }}
-          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 112 }}
         />
       <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <TextInput

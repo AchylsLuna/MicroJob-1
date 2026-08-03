@@ -77,7 +77,7 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
         subtitle="Use the same email tied to your account."
         style={styles.primaryCard}
       >
-        <Text allowFontScaling={false} style={[styles.fieldLabel, { fontSize: fieldLabelSize }]}>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.fieldLabel, { fontSize: fieldLabelSize }]}>
           Email Address
         </Text>
 
@@ -90,7 +90,7 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
         >
           <Feather name="mail" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
           <TextInput
-            allowFontScaling={false}
+            maxFontSizeMultiplier={1.4}
             style={[styles.input, { fontSize: inputFontSize }]}
             placeholder="Enter your email"
             placeholderTextColor={AUTH_COLORS.placeholderDark}
@@ -105,7 +105,7 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
             onBlur={() => setIsInputFocused(false)}
           />
         </View>
-        <Text allowFontScaling={false} style={[styles.helperText, { fontSize: helperFontSize }]}>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.helperText, { fontSize: helperFontSize }]}>
           We will send a 6-digit verification code to this email.
         </Text>
 
@@ -121,7 +121,7 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
           {isLoading ? (
             <ActivityIndicator color={AUTH_COLORS.primaryText} />
           ) : (
-            <Text allowFontScaling={false} style={[styles.buttonText, { fontSize: buttonTextSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.buttonText, { fontSize: buttonTextSize }]}>
               Send Reset Link
             </Text>
           )}
@@ -129,11 +129,11 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
 
         <View style={styles.infoRow}>
           <Feather name="lock" size={clamp(helperFontSize + 1, 14, 16)} color={AUTH_COLORS.textMuted} />
-          <Text allowFontScaling={false} style={[styles.infoText, { fontSize: helperFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.infoText, { fontSize: helperFontSize }]}>
             For security, use the same email you registered with.
           </Text>
         </View>
-        <Text allowFontScaling={false} style={[styles.infoSubText, { fontSize: clamp(helperFontSize * 0.92, 12, 14) }]}>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.infoSubText, { fontSize: clamp(helperFontSize * 0.92, 12, 14) }]}>
           {"Didn't receive it? You can resend from the OTP screen."}
         </Text>
       </AuthStepCard>
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1.5,
     borderColor: AUTH_COLORS.cardBorderActive,
-    backgroundColor: 'rgba(27, 79, 216, 0.24)',
+    backgroundColor: 'rgba(28,77,141, 0.24)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
   },
   inputContainerFocused: {
     borderColor: AUTH_COLORS.cardBorderActive,
-    backgroundColor: 'rgba(27,79,216,0.14)',
+    backgroundColor: 'rgba(28,77,141,0.14)',
   },
   input: {
     flex: 1,

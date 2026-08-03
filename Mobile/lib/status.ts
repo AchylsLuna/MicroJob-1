@@ -39,7 +39,7 @@ export function normalizeApplicationStatus(value: unknown): ApplicationStatus {
 export function getApplicationStatusColor(status: ApplicationStatus): string {
   switch (status) {
     case 'Applied':
-      return '#2563eb';
+      return '#1C4D8D';
     case 'Shortlisted':
       return '#f59e0b';
     case 'Interview Scheduled':

@@ -90,20 +90,20 @@ const getTransactionStatusStyle = (status?: WalletTransaction['status']) => {
     case 'COMPLETED':
       return { backgroundColor: '#DCFCE7', color: '#15803D' };
     case 'PENDING':
-      return { backgroundColor: '#DBEAFE', color: '#1D4ED8' };
+      return { backgroundColor: '#DBEAFE', color: tokens.colors.brand };
     case 'FAILED':
       return { backgroundColor: '#FEE2E2', color: '#B91C1C' };
     case 'CANCELLED':
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' };
+      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
     default:
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' };
+      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
   }
 };
 
 const getPayoutStatusStyle = (status: PayoutRequest['status']) => {
   switch (status) {
     case 'requested':
-      return { backgroundColor: '#DBEAFE', color: '#1D4ED8' };
+      return { backgroundColor: '#DBEAFE', color: tokens.colors.brand };
     case 'approved':
       return { backgroundColor: '#FEF3C7', color: '#B45309' };
     case 'paid':
@@ -111,9 +111,9 @@ const getPayoutStatusStyle = (status: PayoutRequest['status']) => {
     case 'rejected':
       return { backgroundColor: '#FEE2E2', color: '#B91C1C' };
     case 'cancelled':
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' };
+      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
     default:
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' };
+      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
   }
 };
 
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
+    paddingBottom: 112,
     gap: 14,
   },
   balanceCard: {
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   balanceCtaButtonText: {
-    color: '#1C4D8D',
+    color: tokens.colors.brand,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.pill,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
   },
   segmentChipActive: {
     backgroundColor: '#0F2954',
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
   },
   noticeText: {
     flex: 1,
-    color: '#1E3A8A',
+    color: '#1C4D8D',
     fontSize: 13,
     lineHeight: 18,
   },
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   },
   timelineItem: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
@@ -869,7 +869,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.colors.border,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     padding: 10,
     color: '#475569',
     fontSize: 12,

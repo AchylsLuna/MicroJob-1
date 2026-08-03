@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { tokens } from '../../theme/tokens';
 
 const SKILL_CATEGORIES = [
   { id: 'academic', label: 'Academic', icon: 'school-outline' as const },
@@ -94,7 +95,7 @@ export default function AddSkills({ visible, onClose, onAdd }: AddSkillsProps) {
                     <Ionicons
                       name={category.icon}
                       size={28}
-                      color={selectedCategory === category.id ? '#fff' : '#1e3a5f'}
+                      color={selectedCategory === category.id ? '#fff' : tokens.colors.brand}
                     />
                     <Text
                       style={[
@@ -182,7 +183,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modal: {
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
@@ -218,14 +219,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   categoryCardSelected: {
-    backgroundColor: '#1e3a5f',
-    borderColor: '#1e3a5f',
+    backgroundColor: tokens.colors.brand,
+    borderColor: tokens.colors.brand,
   },
   categoryText: {
     fontSize: 12,
@@ -234,7 +235,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   categoryTextSelected: {
-    color: '#fff',
+    color: tokens.colors.surface,
   },
   input: {
     borderWidth: 1,
@@ -256,11 +257,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
   },
   levelChipSelected: {
-    backgroundColor: '#1e3a5f',
-    borderColor: '#1e3a5f',
+    backgroundColor: tokens.colors.brand,
+    borderColor: tokens.colors.brand,
   },
   levelText: {
     fontSize: 12,
@@ -268,10 +269,10 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   levelTextSelected: {
-    color: '#fff',
+    color: tokens.colors.surface,
   },
   addButton: {
-    backgroundColor: '#1e3a5f',
+    backgroundColor: tokens.colors.brand,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -281,7 +282,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#9ca3af',
   },
   addButtonText: {
-    color: '#fff',
+    color: tokens.colors.surface,
     fontSize: 16,
     fontWeight: '700',
   },

@@ -250,13 +250,13 @@ export default function SignIn({
           </View>
 
           <Text
-            allowFontScaling={false}
+            maxFontSizeMultiplier={1.4}
             style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
           >
             Welcome Back
           </Text>
           <Text
-            allowFontScaling={false}
+            maxFontSizeMultiplier={1.4}
             style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.45) }]}
           >
             Sign in to your account
@@ -310,13 +310,13 @@ export default function SignIn({
                   autoCapitalize="characters"
                 />
               </View>
-              <Text allowFontScaling={false} style={[styles.mfaHelpText, { fontSize: clamp(inputFontSize * 0.72, 12, 13) }]}>
+              <Text maxFontSizeMultiplier={1.4} style={[styles.mfaHelpText, { fontSize: clamp(inputFontSize * 0.72, 12, 13) }]}>
                 MFA is enabled for this account. Enter a valid code to continue.
               </Text>
             </>
           ) : (
             <TouchableOpacity style={styles.forgotButton} onPress={onNavigateToForgot}>
-              <Text allowFontScaling={false} style={[styles.forgotText, { fontSize: helperFontSize }]}>
+              <Text maxFontSizeMultiplier={1.4} style={[styles.forgotText, { fontSize: helperFontSize }]}>
                 Forgot password?
               </Text>
             </TouchableOpacity>
@@ -334,18 +334,18 @@ export default function SignIn({
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text allowFontScaling={false} style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
+              <Text maxFontSizeMultiplier={1.4} style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
                 {requiresMfa ? 'Verify MFA' : 'Sign in'}
               </Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.bottomRow}>
-            <Text allowFontScaling={false} style={[styles.bottomText, { fontSize: helperFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.bottomText, { fontSize: helperFontSize }]}>
               {"Don't have an account? "}
             </Text>
             <TouchableOpacity onPress={onNavigateToSignUp}>
-              <Text allowFontScaling={false} style={[styles.bottomLink, { fontSize: helperFontSize }]}>
+              <Text maxFontSizeMultiplier={1.4} style={[styles.bottomLink, { fontSize: helperFontSize }]}>
                 Sign Up
               </Text>
             </TouchableOpacity>
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 20,
-    backgroundColor: AUTH_COLORS.tile,
+    backgroundColor: AUTH_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -405,14 +405,14 @@ const styles = StyleSheet.create({
     fontSize: 26,
     lineHeight: 32,
     fontWeight: '800',
-    color: '#0D1B3E',
+    color: '#111827',
     marginBottom: 6,
   },
   subtitle: {
     textAlign: 'center',
     fontSize: 14,
     lineHeight: 20,
-    color: '#4B5E8A',
+    color: '#6B7280',
     marginBottom: 28,
     fontWeight: '400',
   },
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   },
   mfaHelpText: {
     fontSize: 12,
-    color: '#4B5E8A',
+    color: '#6B7280',
     marginBottom: 10,
   },
   forgotButton: {
@@ -452,13 +452,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   primaryButton: {
-    backgroundColor: AUTH_COLORS.tile,
+    backgroundColor: AUTH_COLORS.primary,
     borderRadius: 12,
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
-    shadowColor: AUTH_COLORS.tile,
+    shadowColor: AUTH_COLORS.primary,
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   bottomText: {
-    color: '#4B5E8A',
+    color: '#6B7280',
     fontSize: 14,
     fontWeight: '400',
   },

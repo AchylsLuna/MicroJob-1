@@ -32,7 +32,7 @@ const SIGNUP_COLORS = {
   eyeIcon: AUTH_COLORS.textMuted,
   roleCardBackground: 'rgba(255,255,255,0.05)',
   roleCardBorder: 'rgba(255,255,255,0.12)',
-  roleCardActiveBackground: 'rgba(27,79,216,0.15)',
+  roleCardActiveBackground: 'rgba(28,77,141,0.15)',
   roleCardActiveBorder: AUTH_COLORS.primary,
   roleCardActiveText: AUTH_COLORS.primary,
   cta: AUTH_COLORS.primary,
@@ -282,13 +282,13 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
         </TouchableOpacity>
 
         <Text
-          allowFontScaling={false}
+          maxFontSizeMultiplier={1.4}
           style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.18) }]}
         >
           Start your Journey
         </Text>
         <Text
-          allowFontScaling={false}
+          maxFontSizeMultiplier={1.4}
           style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.4) }]}
         >
           Create an account to get started
@@ -379,11 +379,11 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
         {password ? (
           <View style={styles.strengthCard}>
             <View style={styles.strengthHeader}>
-              <Text allowFontScaling={false} style={[styles.strengthTitle, { fontSize: helperFontSize }]}>
+              <Text maxFontSizeMultiplier={1.4} style={[styles.strengthTitle, { fontSize: helperFontSize }]}>
                 Password Strength
               </Text>
               <Text
-                allowFontScaling={false}
+                maxFontSizeMultiplier={1.4}
                 style={[styles.strengthLabel, { color: strength.color, fontSize: helperFontSize }]}
               >
                 {strength.label}
@@ -421,7 +421,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
                     />
                   </View>
                   <Text
-                    allowFontScaling={false}
+                    maxFontSizeMultiplier={1.4}
                     style={[
                       styles.ruleText,
                       {
@@ -438,7 +438,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
           </View>
         ) : null}
 
-        <Text allowFontScaling={false} style={[styles.roleLabel, { fontSize: roleLabelSize }]}>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.roleLabel, { fontSize: roleLabelSize }]}>
           I want to:
         </Text>
         <View style={styles.roleContainer}>
@@ -460,7 +460,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
                   color={isActive ? SIGNUP_COLORS.roleCardActiveText : SIGNUP_COLORS.mutedIcon}
                 />
                 <Text
-                  allowFontScaling={false}
+                  maxFontSizeMultiplier={1.4}
                   style={[styles.roleText, { fontSize: helperFontSize }, isActive && styles.roleTextActive]}
                 >
                   {role.label}
@@ -482,18 +482,18 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text allowFontScaling={false} style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
               SIGN UP
             </Text>
           )}
         </TouchableOpacity>
 
         <View style={styles.loginRow}>
-          <Text allowFontScaling={false} style={[styles.loginText, { fontSize: helperFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.loginText, { fontSize: helperFontSize }]}>
             Already have an account?{' '}
           </Text>
           <TouchableOpacity onPress={onNavigateToSignIn}>
-            <Text allowFontScaling={false} style={[styles.loginLink, { fontSize: helperFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.loginLink, { fontSize: helperFontSize }]}>
               Log In
             </Text>
           </TouchableOpacity>
@@ -501,7 +501,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 
         <View style={styles.secureRow}>
           <Feather name="shield" size={fieldIconSize} color={SIGNUP_COLORS.secure} />
-          <Text allowFontScaling={false} style={[styles.secureText, { fontSize: clamp(helperFontSize * 0.88, 14, 16) }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.secureText, { fontSize: clamp(helperFontSize * 0.88, 14, 16) }]}>
             Your information is secure and encrypted
           </Text>
         </View>

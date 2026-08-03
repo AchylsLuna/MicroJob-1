@@ -51,7 +51,7 @@ export default function TabTopNav({
               <Ionicons
                 name={nextRole === 'employer' ? 'business-outline' : 'person-outline'}
                 size={17}
-                color="#2563EB"
+                color={tokens.colors.brand}
               />
               <Text style={styles.modeButtonText} numberOfLines={1}>
                 {nextRole === 'employer' ? 'Employer Mode' : 'Worker Mode'}
@@ -67,7 +67,7 @@ export default function TabTopNav({
               disabled={!onOpenSettings}
               accessibilityLabel="Open settings"
             >
-              <Ionicons name="settings-outline" size={19} color="#E2E8F0" />
+              <Ionicons name="settings-outline" size={19} color={tokens.colors.brand} />
             </TouchableOpacity>
           ) : null}
 
@@ -79,7 +79,7 @@ export default function TabTopNav({
               disabled={!onOpenNotifications}
               accessibilityLabel="Open notifications"
             >
-              <Ionicons name="notifications-outline" size={19} color="#E2E8F0" />
+              <Ionicons name="notifications-outline" size={19} color={tokens.colors.brand} />
               {notificationBadgeCount > 0 ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
@@ -95,7 +95,9 @@ export default function TabTopNav({
 
 const styles = StyleSheet.create({
   topHeader: {
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
     paddingHorizontal: 18,
     paddingBottom: 14,
     flexDirection: 'row',
@@ -106,7 +108,7 @@ const styles = StyleSheet.create({
   topHeaderTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: tokens.colors.text,
     letterSpacing: -0.3,
     flex: 1,
     minWidth: 0,
@@ -123,8 +125,8 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#D8DEE8',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -143,9 +145,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: tokens.colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.26)',
+    borderColor: tokens.colors.border,
   },
   disabledButton: {
     opacity: 0.55,
@@ -162,10 +164,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: tokens.colors.surface,
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
     fontSize: 10,
     fontWeight: '700',
   },

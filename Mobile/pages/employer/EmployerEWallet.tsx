@@ -268,7 +268,7 @@ export default function EmployerEWallet({
       </View>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: 120 + Math.max(insets.bottom, 10) }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: 112 + Math.max(insets.bottom, 10) }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.balanceCard}>
@@ -299,7 +299,7 @@ export default function EmployerEWallet({
 
         <View style={styles.quickIconRow}>
           <View style={styles.quickIconCard}>
-            <Ionicons name="phone-portrait-outline" size={22} color="#2563EB" />
+            <Ionicons name="phone-portrait-outline" size={22} color="#1C4D8D" />
             <Text style={styles.quickIconLabel}>Scan</Text>
           </View>
           <View style={styles.quickIconCard}>
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.brand,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
     letterSpacing: -0.3,
   },
   scroll: {

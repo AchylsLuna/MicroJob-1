@@ -706,7 +706,7 @@ export default function Profile({
         <View style={styles.verificationCard}>
           <View style={styles.verificationHeader}>
             <View style={styles.verificationIconWrap}>
-              <Ionicons name="shield-checkmark-outline" size={22} color="#2563EB" />
+              <Ionicons name="shield-checkmark-outline" size={22} color="#1C4D8D" />
             </View>
             <View style={styles.verificationTextBlock}>
               <View style={styles.verificationTitleRow}>
@@ -858,7 +858,7 @@ export default function Profile({
             <View style={styles.identityCard}>
               <View style={styles.identityTopRow}>
                 <View style={[styles.listIconWrap, styles.identityIconWrap]}>
-                  <Ionicons name="card-outline" size={20} color="#2563EB" />
+                  <Ionicons name="card-outline" size={20} color="#1C4D8D" />
                 </View>
 
                 <View style={styles.listContent}>
@@ -883,12 +883,12 @@ export default function Profile({
                   disabled={isUploadingGovernmentId}
                 >
                   {isUploadingGovernmentId ? (
-                    <ActivityIndicator size="small" color="#2563EB" />
+                    <ActivityIndicator size="small" color="#1C4D8D" />
                   ) : (
                     <Ionicons
                       name={hasGovernmentId ? 'checkmark-circle-outline' : identityStatus === 'in-review' ? 'time-outline' : 'cloud-upload-outline'}
                       size={20}
-                      color="#2563EB"
+                      color="#1C4D8D"
                     />
                   )}
                 </TouchableOpacity>
@@ -909,7 +909,7 @@ export default function Profile({
             <View style={styles.identityCard}>
               <View style={styles.identityTopRow}>
                 <View style={[styles.listIconWrap, styles.identityIconWrap]}>
-                  <Ionicons name="home-outline" size={20} color="#2563EB" />
+                  <Ionicons name="home-outline" size={20} color="#1C4D8D" />
                 </View>
                 <View style={styles.listContent}>
                   <Text style={styles.listTitle}>Proof of Address</Text>
@@ -932,12 +932,12 @@ export default function Profile({
                   disabled={isUploadingAddressDocument}
                 >
                   {isUploadingAddressDocument ? (
-                    <ActivityIndicator size="small" color="#2563EB" />
+                    <ActivityIndicator size="small" color="#1C4D8D" />
                   ) : (
                     <Ionicons
                       name={hasVerifiedAddress ? 'checkmark-circle-outline' : addressStatus === 'in-review' ? 'time-outline' : 'cloud-upload-outline'}
                       size={20}
-                      color="#2563EB"
+                      color="#1C4D8D"
                     />
                   )}
                 </TouchableOpacity>
@@ -996,7 +996,7 @@ export default function Profile({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6FA',
+    backgroundColor: tokens.colors.background,
   },
   scrollView: {
     flex: 1,
@@ -1004,7 +1004,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 18,
     paddingTop: 8,
-    paddingBottom: 120,
+    paddingBottom: 112,
     gap: 24,
   },
   errorCard: {
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -1092,8 +1092,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#FFFFFF',
-    backgroundColor: '#2563EB',
+    borderColor: tokens.colors.surface,
+    backgroundColor: tokens.colors.brand,
     ...tokens.shadow.card,
   },
   profileName: {
@@ -1101,7 +1101,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.6,
-    color: '#111827',
+    color: tokens.colors.text,
     textAlign: 'center',
   },
   locationRow: {
@@ -1131,7 +1131,7 @@ const styles = StyleSheet.create({
   completionTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1E3A8A',
+    color: '#1C4D8D',
   },
   completionSubtitle: {
     marginTop: 3,
@@ -1143,24 +1143,24 @@ const styles = StyleSheet.create({
   completionValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1C4D8D',
+    color: tokens.colors.brand,
   },
   completionTrack: {
     height: 8,
     borderRadius: 999,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
   },
   completionFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#1C4D8D',
+    backgroundColor: tokens.colors.brand,
   },
   verificationCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     padding: 18,
     gap: 14,
     ...tokens.shadow.card,
@@ -1190,7 +1190,7 @@ const styles = StyleSheet.create({
   verificationTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
   },
   verificationSubtitle: {
     fontSize: 14,
@@ -1211,7 +1211,7 @@ const styles = StyleSheet.create({
   verificationScoreValue: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#2563EB',
+    color: tokens.colors.brand,
   },
   progressTrack: {
     height: 10,
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#2563EB',
+    backgroundColor: tokens.colors.brand,
   },
   verificationItemsRow: {
     borderTopWidth: 1,
@@ -1256,8 +1256,8 @@ const styles = StyleSheet.create({
     minHeight: 92,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -1265,7 +1265,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
     letterSpacing: -0.5,
   },
   statLabel: {
@@ -1285,7 +1285,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.6,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   sectionAction: {
     width: 42,
@@ -1298,8 +1298,8 @@ const styles = StyleSheet.create({
   listCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1322,7 +1322,7 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
     letterSpacing: -0.4,
   },
   listSubtitle: {
@@ -1372,9 +1372,9 @@ const styles = StyleSheet.create({
   emptyCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     borderStyle: 'dashed',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     padding: 18,
   },
   emptyCardText: {
@@ -1388,14 +1388,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
   },
   documentCardActive: {
     borderColor: '#F2C9D4',
     backgroundColor: '#FFF8FA',
   },
   documentCardEmpty: {
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
   },
   documentsStack: {
     gap: 12,
@@ -1407,8 +1407,8 @@ const styles = StyleSheet.create({
   identityCard: {
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     padding: 14,
   },
   identityTopRow: {
@@ -1452,9 +1452,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 7,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
   },
   identityDocumentPillText: {
     fontSize: 12,
@@ -1481,7 +1481,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   scanModalCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 20,
     paddingHorizontal: 18,
     paddingVertical: 16,
@@ -1522,7 +1522,7 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: '#3B82F6',
+    borderColor: '#1C4D8D',
     backgroundColor: '#0F1D37',
   },
   scanActionsRow: {
@@ -1538,7 +1538,7 @@ const styles = StyleSheet.create({
     borderColor: '#1E293B',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
   },
   scanSecondaryButtonText: {
     fontSize: 14,
@@ -1550,15 +1550,15 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#1D4ED8',
+    borderColor: tokens.colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
+    backgroundColor: tokens.colors.brand,
   },
   scanPrimaryButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
   },
   toastWrapper: {
     position: 'absolute',
@@ -1580,7 +1580,7 @@ const styles = StyleSheet.create({
   },
   toastText: {
     flex: 1,
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
     fontSize: 13,
     fontWeight: '500',
   },

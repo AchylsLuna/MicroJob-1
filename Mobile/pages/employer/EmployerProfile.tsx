@@ -308,7 +308,7 @@ export default function EmployerProfile({
 
             <View style={styles.heroMeta}>
               <View style={styles.heroBadge}>
-                <Ionicons name="business-outline" size={15} color="#2563EB" />
+                <Ionicons name="business-outline" size={15} color="#1C4D8D" />
                 <Text style={styles.heroBadgeText}>Employer account</Text>
               </View>
               <Text style={styles.name}>{employerName}</Text>
@@ -485,7 +485,7 @@ export default function EmployerProfile({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6FA',
+    backgroundColor: tokens.colors.background,
   },
   scroll: {
     paddingHorizontal: 18,
@@ -496,8 +496,8 @@ const styles = StyleSheet.create({
   heroCard: {
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     padding: 18,
     gap: 18,
     overflow: 'hidden',
@@ -564,9 +564,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#2563EB',
+    backgroundColor: tokens.colors.brand,
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: tokens.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     ...tokens.shadow.card,
@@ -588,13 +588,13 @@ const styles = StyleSheet.create({
   heroBadgeText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: tokens.colors.brand,
   },
   name: {
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.6,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   subtitle: {
     fontSize: 14,
@@ -611,8 +611,8 @@ const styles = StyleSheet.create({
     minHeight: 88,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#F8FAFC',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   heroStatLabel: {
     fontSize: 13,
@@ -637,8 +637,8 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 52,
     borderRadius: 16,
-    backgroundColor: '#1C4D8D',
+    backgroundColor: tokens.colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -663,7 +663,7 @@ const styles = StyleSheet.create({
   primaryActionText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
   },
   disabledAction: {
     opacity: 0.55,
@@ -671,8 +671,8 @@ const styles = StyleSheet.create({
   progressCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     padding: 18,
     gap: 12,
     ...tokens.shadow.card,
@@ -680,8 +680,8 @@ const styles = StyleSheet.create({
   sectionCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     padding: 18,
     gap: 10,
     ...tokens.shadow.card,
@@ -696,12 +696,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   sectionHint: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: tokens.colors.brand,
   },
   progressSubtitle: {
     fontSize: 14,
@@ -718,7 +718,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     borderRadius: 999,
-    backgroundColor: '#2563EB',
+    backgroundColor: tokens.colors.brand,
   },
   checklistRow: {
     borderTopWidth: 1,
@@ -760,12 +760,12 @@ const styles = StyleSheet.create({
     minHeight: 52,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#F8FAFC',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.background,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   formError: {
     color: '#991B1B',
@@ -793,7 +793,7 @@ const styles = StyleSheet.create({
   saveButton: {
     minHeight: 56,
     borderRadius: 18,
-    backgroundColor: '#111827',
+    backgroundColor: tokens.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -807,6 +807,6 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
   },
 });

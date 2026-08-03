@@ -513,7 +513,7 @@ export default function Jobs(props: JobsProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 94, gap: 14 },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 112, gap: 14 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
   nearestTitle: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1D4ED8',
+    color: tokens.colors.brand,
   },
   nearestList: {
     gap: 6,
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 999,
     borderWidth: 1,
     borderColor: '#BFDBFE',
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   nearestText: {
     flex: 1,
     fontSize: 12,
-    color: '#1E3A8A',
+    color: '#1C4D8D',
     fontWeight: '600',
   },
   errorText: {
@@ -690,7 +690,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -735,7 +735,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
   },
   metaText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
   salary: { fontSize: 13, fontWeight: '700', color: tokens.colors.text },

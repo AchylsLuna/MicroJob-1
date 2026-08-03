@@ -7,6 +7,7 @@ import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, getApplicationStatusColor, normalizeApplicationStatus } from '../../lib/status';
 import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../../theme/tokens';
 
 type AppliedJob = {
   id: string;
@@ -90,7 +91,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')} accessibilityRole="button" accessibilityLabel="Back to jobs">
-          <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
+          <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Applied jobs</Text>
@@ -145,7 +146,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
         {isLoading ? (
           <View style={styles.loadingRow}>
-            <ActivityIndicator color="#1e3a5f" />
+            <ActivityIndicator color="#1C4D8D" />
           </View>
         ) : null}
         {filteredJobs.length === 0 ? (
@@ -190,11 +191,13 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#e5e7eb' },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 14,
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -204,22 +207,22 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.26)',
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerRightSpacer: { width: 42, height: 42 },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', letterSpacing: -0.3 },
-  headerSubtitle: { marginTop: 2, fontSize: 13, fontWeight: '500', color: '#cbd5f0' },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: tokens.colors.text, letterSpacing: -0.3 },
+  headerSubtitle: { marginTop: 2, fontSize: 13, fontWeight: '500', color: tokens.colors.textMuted },
   toggleContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 6,
     gap: 10,
-    backgroundColor: '#e5e7eb',
+    backgroundColor: tokens.colors.background,
   },
   toggleBtn: {
     flex: 1,
@@ -229,8 +232,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   toggleBtnActive: {
-    backgroundColor: '#1e3a5f',
-    borderColor: '#1e3a5f',
+    backgroundColor: tokens.colors.brand,
+    borderColor: tokens.colors.brand,
   },
   toggleBtnInactive: {
     backgroundColor: '#eef0f1',
@@ -239,7 +242,7 @@ const styles = StyleSheet.create({
   toggleBtnTextActive: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#fff',
+    color: tokens.colors.surface,
   },
   toggleBtnTextInactive: {
     fontSize: 13,
@@ -265,7 +268,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
   },
   filterPillActive: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
   },
   filterPillText: {
     fontSize: 11,
@@ -275,7 +278,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   mainScroll: { flex: 1 },
-  scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 90 },
+  scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 112 },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -289,7 +292,7 @@ const styles = StyleSheet.create({
   errorText: { color: '#b91c1c', fontSize: 12, marginBottom: 8 },
   jobsList: { gap: 12, marginTop: 2 },
   jobCard: {
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 14,
     padding: 12,
     gap: 10,
@@ -312,9 +315,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  logoText: { color: '#111827', fontSize: 10, fontWeight: '700' },
+  logoText: { color: tokens.colors.text, fontSize: 10, fontWeight: '700' },
   jobInfo: { flex: 1 },
-  jobTitle: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 0 },
+  jobTitle: { fontSize: 22, fontWeight: '700', color: tokens.colors.text, marginBottom: 0 },
   jobCompany: { fontSize: 13, color: '#6b7280' },
   detailsLink: {
     flexDirection: 'row',
@@ -328,5 +331,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  viewDetailsText: { fontSize: 12, color: '#111827', fontWeight: '600' },
+  viewDetailsText: { fontSize: 12, color: tokens.colors.text, fontWeight: '600' },
 });

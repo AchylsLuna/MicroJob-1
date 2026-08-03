@@ -22,6 +22,13 @@ not run npm commands from inside that directory.
 Android builds require JDK 17. Expo Go compatibility is intentionally pinned to
 Expo SDK 54 and React Native 0.81; do not run a forced audit upgrade that changes
 that compatibility set.
+Always start Expo from the repository root with `npm run mobile:start` (or from
+`Mobile/` with `npm start`) so the authoritative `Mobile/app.config.js` is used.
+If Expo Go reports a version mismatch after installing the SDK 54-compatible
+client, restart Metro with `npm run mobile:start:clear`. Compatible historical
+Expo Go clients can be installed on Android devices/emulators and iOS simulators
+from <https://expo.dev/go>; physical iPhones can only install the current App
+Store client, so use an SDK 54 development build if that client moves on.
 The tracked Android project is native-managed: package identity, permissions, and
 Expo module configuration belong under `Mobile/android`. Do not add matching
 Prebuild-only `android` or `plugins` fields to `Mobile/app.config.js` without first

@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
+import { tokens } from '../../theme/tokens';
 
 type PublicProfileProps = {
   userId: string;
@@ -172,7 +173,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
           </TouchableOpacity>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4A90E2" />
+          <ActivityIndicator size="large" color="#1C4D8D" />
           <Text style={styles.loadingText}>Loading profile...</Text>
         </View>
       </View>
@@ -395,12 +396,12 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
   },
   header: {
     paddingBottom: 15,
     paddingHorizontal: 20,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: '#E2E8F0',
   },
@@ -444,18 +445,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: tokens.colors.brand,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#fff',
+    color: tokens.colors.surface,
     fontSize: 14,
     fontWeight: '600',
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
@@ -488,7 +489,7 @@ const styles = StyleSheet.create({
   avatarText: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#1E3A8A',
+    color: '#1C4D8D',
   },
   profileInfo: {
     flex: 1,
@@ -502,7 +503,7 @@ const styles = StyleSheet.create({
   companyText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1D4ED8',
+    color: tokens.colors.brand,
     marginBottom: 4,
   },
   locationText: {
@@ -519,7 +520,7 @@ const styles = StyleSheet.create({
   },
   ratingBox: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -590,7 +591,7 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1E3A8A',
+    color: '#1C4D8D',
     marginBottom: 4,
   },
   statLabel: {
@@ -614,7 +615,7 @@ const styles = StyleSheet.create({
   },
   workHistoryItem: {
     borderRadius: 12,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     padding: 13,
   },
   workHistoryTitle: {
