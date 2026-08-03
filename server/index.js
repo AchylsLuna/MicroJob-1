@@ -284,6 +284,8 @@ import NotificationRoute from './routes/NotificationRoute.js';
 import AdminRoute from './routes/AdminRoute.js';
 import SavedJobRoute from './routes/SavedJobRoute.js';
 import SupportRoute from './routes/SupportRoute.js';
+import ProfileRoute from './routes/ProfileRoute.js';
+
 import { runDataBackfills } from './lib/backfills.js';
 
 
@@ -293,6 +295,7 @@ app.get('/', (req, res) => {
 
 // Auth routes (includes login, register, logout)
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', ProfileRoute);
 
 // Other routes
 app.use('/api/categories', CategoryRoute);

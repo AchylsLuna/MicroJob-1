@@ -31,3 +31,5 @@ test-results/
 npm-debug.log*
 .DS_Store
 Thumbs.db
+
+.github
