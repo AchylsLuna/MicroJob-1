@@ -14,8 +14,8 @@ dotenv.config({ path: resolve(__dirname, '../.env') });
 export const config = {
     PORT: Number(process.env.PORT) || 5000,
     MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI,
-    ORIGIN: process.env.WEB_ORIGIN || process.env.CLIENT_ORIGIN ||
-        (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173'),
+    ORIGIN: process.env.ORIGIN || process.env.CLIENT_ORIGIN ||
+        (process.env.NODE_ENV === 'production' ? '' : '	https://micro-job-gules.vercel.app'),
     DB_NAME: process.env.DB_NAME || 'MicroJob',
 };
 
