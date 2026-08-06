@@ -1,6 +1,10 @@
 import helmet from 'helmet';
 
-const parseTrustProxy = () => {
+export const parseTrustProxy = () => {
+    if (String(process.env.VERCEL || '').toLowerCase() === '1') {
+        return 1;
+    }
+
     const raw = process.env.TRUST_PROXY;
     if (raw === undefined) {
         return false;
