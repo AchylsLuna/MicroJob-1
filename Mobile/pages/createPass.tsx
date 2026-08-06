@@ -97,10 +97,10 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
 
   const ruleItem = (ok: boolean, text: string) => (
     <View style={styles.ruleRow}>
-      <Text allowFontScaling={false} style={[styles.ruleIcon, { color: ok ? AUTH_COLORS.success : AUTH_COLORS.danger, fontSize: helperFontSize }]}>
+      <Text maxFontSizeMultiplier={1.4} style={[styles.ruleIcon, { color: ok ? AUTH_COLORS.success : AUTH_COLORS.danger, fontSize: helperFontSize }]}>
         {ok ? '✓' : '○'}
       </Text>
-      <Text allowFontScaling={false} style={[styles.ruleText, { color: ok ? AUTH_COLORS.success : AUTH_COLORS.textSecondary, fontSize: helperFontSize }]}>
+      <Text maxFontSizeMultiplier={1.4} style={[styles.ruleText, { color: ok ? AUTH_COLORS.success : AUTH_COLORS.textSecondary, fontSize: helperFontSize }]}>
         {text}
       </Text>
     </View>
@@ -121,7 +121,7 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
         <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
           <Feather name="hash" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
           <TextInput
-            allowFontScaling={false}
+            maxFontSizeMultiplier={1.4}
             style={[styles.input, { fontSize: inputFontSize }]}
             placeholder="6-digit reset code"
             placeholderTextColor={AUTH_COLORS.placeholderDark}
@@ -135,7 +135,7 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
         <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
           <Feather name="lock" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
           <TextInput
-            allowFontScaling={false}
+            maxFontSizeMultiplier={1.4}
             style={[styles.input, { fontSize: inputFontSize }]}
             placeholder="Enter new password"
             placeholderTextColor={AUTH_COLORS.placeholderDark}
@@ -151,10 +151,10 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
         </View>
 
         <View style={styles.strengthRow}>
-          <Text allowFontScaling={false} style={[styles.strengthLabel, { fontSize: helperFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.strengthLabel, { fontSize: helperFontSize }]}>
             Password Strength
           </Text>
-          <Text allowFontScaling={false} style={[styles.strengthValue, { color: strength.color, fontSize: helperFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.strengthValue, { color: strength.color, fontSize: helperFontSize }]}>
             {strength.label}
           </Text>
         </View>
@@ -182,7 +182,7 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
         >
           <Feather name="shield" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
           <TextInput
-            allowFontScaling={false}
+            maxFontSizeMultiplier={1.4}
             style={[styles.input, { fontSize: inputFontSize }]}
             placeholder="Confirm new password"
             placeholderTextColor={AUTH_COLORS.placeholderDark}
@@ -206,10 +206,10 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
 
         {!passwordsMatch && confirm.length > 0 ? (
           <View style={styles.warnRow}>
-            <Text allowFontScaling={false} style={[styles.warnDot, { fontSize: helperFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.warnDot, { fontSize: helperFontSize }]}>
               •
             </Text>
-            <Text allowFontScaling={false} style={[styles.warnText, { fontSize: helperFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.warnText, { fontSize: helperFontSize }]}>
               Passwords do not match
             </Text>
           </View>
@@ -227,14 +227,14 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
           {isLoading ? (
             <ActivityIndicator color={AUTH_COLORS.primaryText} />
           ) : (
-            <Text allowFontScaling={false} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
               Reset Password
             </Text>
           )}
         </TouchableOpacity>
 
         <TouchableOpacity onPress={onBackToLogin} style={styles.backLinkWrap}>
-          <Text allowFontScaling={false} style={[styles.backLink, { fontSize: helperFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.backLink, { fontSize: helperFontSize }]}>
             Back to Login
           </Text>
         </TouchableOpacity>
@@ -246,7 +246,7 @@ export default function CreatePass({ onBackToLogin, onReset }: Props) {
         subtitle="Use a password you have not used before and avoid personal details."
         dark
       >
-        <Text allowFontScaling={false} style={[styles.darkChip, { fontSize: helperFontSize }]}>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.darkChip, { fontSize: helperFontSize }]}>
           Credential update pending
         </Text>
       </AuthStepCard>
@@ -371,7 +371,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     color: AUTH_COLORS.textPrimary,
-    backgroundColor: 'rgba(43, 86, 209, 0.2)',
+    backgroundColor: 'rgba(28,77,141, 0.2)',
     fontWeight: '600',
   },
 });

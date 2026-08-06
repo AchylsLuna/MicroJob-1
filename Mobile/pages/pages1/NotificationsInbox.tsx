@@ -270,38 +270,40 @@ export default function NotificationsInbox({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6FA',
+    backgroundColor: tokens.colors.background,
   },
   header: {
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
     paddingHorizontal: 18,
     paddingBottom: 14,
   },
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: tokens.colors.text,
     letterSpacing: -0.4,
   },
   headerSubtitle: {
     marginTop: 4,
     fontSize: 13,
     lineHeight: 19,
-    color: '#CBD5F0',
+    color: tokens.colors.textMuted,
     fontWeight: '500',
     maxWidth: 310,
   },
   scroll: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 110,
+    paddingBottom: 112,
     gap: 12,
   },
   summaryCard: {
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -314,7 +316,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
     letterSpacing: -0.5,
   },
   summaryLabel: {
@@ -337,8 +339,8 @@ const styles = StyleSheet.create({
     minHeight: 46,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -352,9 +354,9 @@ const styles = StyleSheet.create({
   },
   loadingCard: {
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     paddingVertical: 26,
     alignItems: 'center',
     gap: 10,
@@ -366,9 +368,9 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     paddingVertical: 34,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -386,7 +388,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
   },
   emptyText: {
     marginTop: 8,
@@ -401,8 +403,8 @@ const styles = StyleSheet.create({
   notificationCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     padding: 14,
     flexDirection: 'row',
     gap: 12,
@@ -433,7 +435,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
   },
   notificationTime: {
     fontSize: 11,
@@ -450,7 +452,7 @@ const styles = StyleSheet.create({
   actorText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: tokens.colors.brand,
   },
   cardActionsRow: {
     marginTop: 4,
@@ -468,7 +470,7 @@ const styles = StyleSheet.create({
   inlineActionText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: tokens.colors.brand,
   },
   inlineDeleteAction: {
     minHeight: 36,

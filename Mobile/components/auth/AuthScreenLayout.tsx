@@ -73,13 +73,13 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children }: 
         ) : null}
 
         <Text
-          allowFontScaling={false}
+          maxFontSizeMultiplier={1.4}
           style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
         >
           {title}
         </Text>
         <Text
-          allowFontScaling={false}
+          maxFontSizeMultiplier={1.4}
           style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.4) }]}
         >
           {subtitle}
@@ -140,14 +140,14 @@ const styles = StyleSheet.create({
     fontSize: 42,
     lineHeight: 50,
     fontWeight: '800',
-    color: AUTH_COLORS.textPrimary,
+    color: AUTH_COLORS.primaryText,
     marginBottom: 8,
     maxWidth: 340,
   },
   subtitle: {
     fontSize: 20,
     lineHeight: 28,
-    color: AUTH_COLORS.textSecondary,
+    color: '#DBEAFE',
     fontWeight: '500',
     marginBottom: 20,
   },

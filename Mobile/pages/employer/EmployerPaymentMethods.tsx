@@ -220,7 +220,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.introCard}>
           <View style={styles.introIcon}>
-            <Ionicons name="card-outline" size={25} color="#2563EB" />
+            <Ionicons name="card-outline" size={25} color="#1C4D8D" />
           </View>
           <View style={styles.introCopy}>
             <Text style={styles.title}>Saved cards</Text>
@@ -321,12 +321,12 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3F5F9' },
-  scroll: { padding: 16, paddingBottom: 80, gap: 12 },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
+  scroll: { padding: 16, paddingBottom: 112, gap: 12 },
   introCard: {
     borderRadius: 22,
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
     borderColor: '#E5EAF1',
     flexDirection: 'row',
@@ -345,12 +345,12 @@ const styles = StyleSheet.create({
   introCopy: { flex: 1, gap: 3 },
   title: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
   subtitle: { fontSize: 12, lineHeight: 17, color: '#64748B' },
-  addButton: { borderRadius: 12, backgroundColor: '#2563EB', paddingHorizontal: 15, paddingVertical: 10 },
-  addButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  addButton: { borderRadius: 12, backgroundColor: tokens.colors.brand, paddingHorizontal: 15, paddingVertical: 10 },
+  addButtonText: { color: tokens.colors.surface, fontSize: 13, fontWeight: '800' },
   card: {
     borderRadius: 22,
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
     borderColor: '#E5EAF1',
     gap: 12,
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     fontSize: 15,
     color: '#0F172A',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
   },
   inputRow: { flexDirection: 'row', gap: 10 },
   halfInput: { flex: 1 },
@@ -373,11 +373,11 @@ const styles = StyleSheet.create({
   primaryButton: {
     minHeight: 50,
     borderRadius: 14,
-    backgroundColor: '#2563EB',
+    backgroundColor: tokens.colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '800' },
+  primaryButtonText: { color: tokens.colors.surface, fontSize: 15, fontWeight: '800' },
   disabled: { opacity: 0.55 },
   loading: { paddingVertical: 36, alignItems: 'center' },
   emptyCard: {
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -397,7 +397,7 @@ const styles = StyleSheet.create({
   methodCard: {
     borderRadius: 20,
     padding: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
     borderColor: '#E5EAF1',
     flexDirection: 'row',
@@ -420,5 +420,5 @@ const styles = StyleSheet.create({
   defaultLabel: { marginTop: 3, fontSize: 10, fontWeight: '900', color: '#166534' },
   expiredLabel: { marginTop: 3, fontSize: 10, fontWeight: '900', color: '#B91C1C' },
   methodActions: { alignItems: 'flex-end', gap: 14 },
-  actionText: { fontSize: 12, fontWeight: '800', color: '#2563EB' },
+  actionText: { fontSize: 12, fontWeight: '800', color: tokens.colors.brand },
 });

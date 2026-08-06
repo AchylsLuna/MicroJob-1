@@ -14,6 +14,7 @@ import EmployerNavigation from '../../components/employerNavigation';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 import { apiRequest, asList } from '../../lib/api';
+import { tokens } from '../../theme/tokens';
 
 type JobItem = {
   _id: string;
@@ -127,7 +128,7 @@ export default function EmployerJobPosts({
 
         {loading ? (
           <View style={styles.card}>
-            <ActivityIndicator color="#0a2847" />
+            <ActivityIndicator color="#1C4D8D" />
             <Text style={styles.loadingText}>Loading your job posts...</Text>
           </View>
         ) : null}
@@ -260,10 +261,10 @@ export default function EmployerJobPosts({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fb' },
-  scroll: { padding: 20, paddingBottom: 90 },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
+  scroll: { padding: 20, paddingBottom: 112 },
   summaryCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
@@ -272,11 +273,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summaryValue: { fontSize: 18, fontWeight: '700', color: '#0a2847' },
+  summaryValue: { fontSize: 18, fontWeight: '700', color: tokens.colors.brand },
   summaryLabel: { fontSize: 12, color: '#64748b', marginTop: 4 },
   summaryDivider: { width: 1, height: 36, backgroundColor: '#e2e8f0' },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
@@ -285,7 +286,7 @@ const styles = StyleSheet.create({
   errorCard: { borderWidth: 1, borderColor: '#fecaca' },
   errorText: { color: '#dc2626', fontSize: 13 },
   emptyCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 24,
     alignItems: 'center',
@@ -293,7 +294,7 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 6 },
   emptyText: { fontSize: 13, color: '#6b7280', textAlign: 'center' },
   jobCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
@@ -314,7 +315,7 @@ const styles = StyleSheet.create({
   categoryTag: {
     marginTop: 6,
     backgroundColor: '#eff6ff',
-    color: '#1d4ed8',
+    color: '#1C4D8D',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 12,
   },
-  jobType: { color: '#2563eb', fontWeight: '700', fontSize: 12 },
+  jobType: { color: '#1C4D8D', fontWeight: '700', fontSize: 12 },
   salary: { color: '#16a34a', fontWeight: '700', fontSize: 12 },
   footerRow: {
     marginTop: 16,
@@ -352,7 +353,7 @@ const styles = StyleSheet.create({
   footerText: { color: '#64748b', fontSize: 12 },
   footerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   doneButton: {
-    backgroundColor: '#1d4ed8',
+    backgroundColor: '#1C4D8D',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
@@ -362,14 +363,14 @@ const styles = StyleSheet.create({
   doneButtonDisabled: {
     backgroundColor: '#94a3b8',
   },
-  doneButtonText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  doneButtonText: { color: tokens.colors.surface, fontSize: 12, fontWeight: '700' },
   editButton: {
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.brand,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
   },
-  editButtonText: { color: '#ffffff', fontSize: 12, fontWeight: '700' },
+  editButtonText: { color: tokens.colors.surface, fontSize: 12, fontWeight: '700' },
   autoPayHint: {
     marginTop: 10,
     fontSize: 11,
@@ -385,7 +386,7 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 18,
   },
@@ -402,7 +403,7 @@ const styles = StyleSheet.create({
   modalInfo: {
     marginTop: 10,
     fontSize: 13,
-    color: '#1d4ed8',
+    color: '#1C4D8D',
     backgroundColor: '#eff6ff',
     borderColor: '#bfdbfe',
     borderWidth: 1,
@@ -429,7 +430,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalConfirmBtn: {
-    backgroundColor: '#1d4ed8',
+    backgroundColor: '#1C4D8D',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalConfirmText: {
-    color: '#ffffff',
+    color: tokens.colors.surface,
     fontSize: 13,
     fontWeight: '700',
   },

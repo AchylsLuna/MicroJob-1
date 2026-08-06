@@ -81,7 +81,7 @@ const PRIORITIES: Array<{ value: NonNullable<SupportTicket['priority']>; label: 
 const getStatusColor = (status: SupportTicket['status']) => {
   switch (status) {
     case 'open':
-      return { backgroundColor: '#DBEAFE', color: '#1D4ED8' };
+      return { backgroundColor: '#DBEAFE', color: tokens.colors.brand };
     case 'in_progress':
       return { backgroundColor: '#FEF3C7', color: '#B45309' };
     case 'waiting_user':
@@ -89,9 +89,9 @@ const getStatusColor = (status: SupportTicket['status']) => {
     case 'resolved':
       return { backgroundColor: '#DCFCE7', color: '#15803D' };
     case 'closed':
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' };
+      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
     default:
-      return { backgroundColor: '#F3F4F6', color: '#6B7280' };
+      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
   }
 };
 
@@ -520,7 +520,7 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 120,
+    paddingBottom: 112,
     gap: 16,
   },
   heroCard: {
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.pill,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
   },
   choiceChipActive: {
     backgroundColor: '#0F2954',
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   threadBubbleUser: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.colors.border,

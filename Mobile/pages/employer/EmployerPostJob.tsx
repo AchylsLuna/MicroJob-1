@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import { tokens } from '../../theme/tokens';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 
@@ -507,7 +508,7 @@ export default function EmployerPostJob({
                 <View style={styles.categoryDropdown}>
                   {loadingCategories ? (
                     <View style={styles.dropdownItem}>
-                      <ActivityIndicator size="small" color="#0a2847" />
+                      <ActivityIndicator size="small" color="#1C4D8D" />
                     </View>
                   ) : (
                     <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
@@ -847,11 +848,11 @@ export default function EmployerPostJob({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fb' },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
   flex: { flex: 1 },
   scroll: { padding: 20 },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 18,
     shadowColor: '#0f172a',
@@ -860,21 +861,21 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
   },
-  label: { fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 8, marginTop: 12 },
+  label: { fontSize: 14, fontWeight: '600', color: tokens.colors.text, marginBottom: 8, marginTop: 12 },
   input: {
     backgroundColor: '#f3f4f6',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   helperText: { fontSize: 12, color: '#6b7280', marginTop: 6 },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   categoryRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   categoryInputWrapper: { flex: 1 },
   categoryDropdown: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 12,
     marginTop: 6,
     borderWidth: 1,
@@ -883,17 +884,17 @@ const styles = StyleSheet.create({
   },
   dropdownScroll: { maxHeight: 180 },
   dropdownItem: { paddingHorizontal: 12, paddingVertical: 10 },
-  dropdownText: { color: '#111827', fontSize: 13 },
+  dropdownText: { color: tokens.colors.text, fontSize: 13 },
   dropdownEmpty: { color: '#6b7280', fontSize: 12 },
   addCategoryButton: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addCategoryText: { color: '#ffffff', fontSize: 20, fontWeight: '700' },
+  addCategoryText: { color: tokens.colors.surface, fontSize: 20, fontWeight: '700' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
     borderRadius: 16,
@@ -901,17 +902,17 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
   },
   chipActive: {
-    backgroundColor: '#0a2847',
-    borderColor: '#0a2847',
+    backgroundColor: tokens.colors.brand,
+    borderColor: tokens.colors.brand,
   },
   chipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
-  chipTextActive: { color: '#ffffff' },
+  chipTextActive: { color: tokens.colors.surface },
   submitButton: {
     marginTop: 20,
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.brand,
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
@@ -925,15 +926,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
   },
-  deadlineText: { color: '#111827', fontSize: 13, fontWeight: '600' },
+  deadlineText: { color: tokens.colors.text, fontSize: 13, fontWeight: '600' },
   urgentRow: {
     marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  urgentLabel: { fontSize: 14, color: '#111827', fontWeight: '600' },
+  urgentLabel: { fontSize: 14, color: tokens.colors.text, fontWeight: '600' },
   submitButtonDisabled: { opacity: 0.6 },
-  submitButtonText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  submitButtonText: { color: tokens.colors.surface, fontSize: 15, fontWeight: '700' },
   errorText: { color: '#dc2626', fontSize: 12, marginBottom: 6 },
 });

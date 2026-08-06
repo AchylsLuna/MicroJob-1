@@ -34,15 +34,15 @@ const normalizeApiBase = (value: unknown, fallbackOrigin: string): string => {
   return `${fallbackOrigin}/api`;
 };
 
-const API_PROXY_TARGET = normalizeOriginLikeValue(import.meta.env.VITE_API_PROXY_TARGET) || 'http://localhost:5000';
-const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE, API_PROXY_TARGET);
-const DIRECT_API_BASE = `${API_PROXY_TARGET}/api`;
+const DEV_API_PROXY_TARGET = normalizeOriginLikeValue(import.meta.env.VITE_API_PROXY_TARGET) || 'http://localhost:5000';
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE, DEV_API_PROXY_TARGET);
+const DIRECT_API_BASE = `${DEV_API_PROXY_TARGET}/api`;
 const REQUEST_TIMEOUT_MS = 12000;
 
 function buildApiCandidates(path: string) {
   const primary = `${API_BASE}${path}`;
-  // If API_BASE is relative (proxy mode), keep a direct localhost fallback for dev.
-  if (!String(API_BASE).startsWith('/')) {
+  // A direct backend fallback is useful locally, but must never contact a visitor's localhost in production.
+  if (!import.meta.env.DEV || !String(API_BASE).startsWith('/')) {
     return [primary];
   }
   const direct = `${DIRECT_API_BASE}${path}`;
@@ -273,13 +273,15 @@ async function performRequest(
   }
 
   if (!res) {
-    if (externalSignal?.aborted) {
-      throw new DOMException('The request was cancelled.', 'AbortError');
-    }
-    if (requestTimedOut) {
-      throw new Error('The server took too long to respond. Please try again.');
-    }
-    throw new Error('Unable to reach the server at /api or http://localhost:5000/api. Make sure backend is running on port 5000.');
+if (externalSignal?.aborted) {
+  throw new DOMException('The request was cancelled.', 'AbortError');
+}
+if (requestTimedOut) {
+  throw new Error('The server took too long to respond. Please try again.');
+}
+throw new Error(import.meta.env.DEV
+  ? 'Unable to reach the development API. Make sure the backend is running.'
+  : 'Unable to reach the MicroJobs service. Please try again.');
   }
 
   const data = (await res.json().catch(() => ({}))) as any;

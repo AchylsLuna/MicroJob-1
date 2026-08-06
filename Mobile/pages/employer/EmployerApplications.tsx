@@ -15,6 +15,7 @@ import TabTopNav from '../../components/TabTopNav';
 import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, normalizeApplicationStatus } from '../../lib/status';
 import PublicProfile from '../shared/PublicProfile';
+import { tokens } from '../../theme/tokens';
 
 type ApplicationItem = {
   _id: string;
@@ -301,7 +302,7 @@ export default function EmployerApplications({
 
         {loading ? (
           <View style={styles.card}>
-            <ActivityIndicator color="#0a2847" />
+            <ActivityIndicator color="#1C4D8D" />
             <Text style={styles.loadingText}>Loading applications...</Text>
           </View>
         ) : null}
@@ -431,10 +432,10 @@ export default function EmployerApplications({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f7fb' },
-  scroll: { padding: 20, paddingBottom: 90 },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
+  scroll: { padding: 20, paddingBottom: 112 },
   filterCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -445,7 +446,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 13,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   filterChip: {
@@ -456,11 +457,11 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   filterChipActive: {
-    backgroundColor: '#0a2847',
-    borderColor: '#0a2847',
+    backgroundColor: tokens.colors.brand,
+    borderColor: tokens.colors.brand,
   },
   filterChipText: { fontSize: 11, fontWeight: '600', color: '#475569' },
-  filterChipTextActive: { color: '#ffffff' },
+  filterChipTextActive: { color: tokens.colors.surface },
   jobsScroll: { marginTop: 12 },
   jobChip: {
     borderRadius: 16,
@@ -475,7 +476,7 @@ const styles = StyleSheet.create({
   jobChipText: { fontSize: 11, color: '#475569' },
   jobChipTextActive: { color: '#0284c7', fontWeight: '700' },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
@@ -494,7 +495,7 @@ const styles = StyleSheet.create({
   },
   errorText: { color: '#dc2626', fontSize: 12 },
   emptyCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 24,
     alignItems: 'center',
@@ -511,7 +512,7 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: '#be123c', fontWeight: '700' },
   appInfo: { flex: 1 },
-  appName: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  appName: { fontSize: 15, fontWeight: '700', color: tokens.colors.text },
   appEmail: { fontSize: 12, color: '#6b7280', marginTop: 2 },
   appJob: { fontSize: 12, color: '#374151', marginTop: 6 },
   statusPill: {
@@ -526,7 +527,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
   metaText: { fontSize: 12, color: '#6b7280' },
   metaActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  linkText: { fontSize: 12, color: '#2563eb', fontWeight: '600' },
+  linkText: { fontSize: 12, color: '#1C4D8D', fontWeight: '600' },
   removeText: { fontSize: 12, color: '#b91c1c', fontWeight: '700' },
   statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   statusButton: {
@@ -536,9 +537,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
-  statusButtonActive: { backgroundColor: '#0a2847', borderColor: '#0a2847' },
+  statusButtonActive: { backgroundColor: tokens.colors.brand, borderColor: tokens.colors.brand },
   statusButtonText: { fontSize: 11, color: '#475569', fontWeight: '600' },
-  statusButtonTextActive: { color: '#ffffff' },
+  statusButtonTextActive: { color: tokens.colors.surface },
   profileBox: {
     marginTop: 12,
     backgroundColor: '#f8fafc',
@@ -557,7 +558,7 @@ const styles = StyleSheet.create({
   },
   workerStatBox: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
     borderColor: '#dbeafe',
     borderRadius: 10,
@@ -568,7 +569,7 @@ const styles = StyleSheet.create({
   workerStatValue: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#1d4ed8',
+    color: '#1C4D8D',
   },
   workerStatLabel: {
     fontSize: 10,

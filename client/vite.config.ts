@@ -12,12 +12,6 @@ export default defineConfig({
   plugins: [react()],
   base: process.env.VITE_BASE_URL || "/",
   resolve: {
-    alias: {
-      react: resolve(__dirname, "node_modules/react"),
-      "react-dom": resolve(__dirname, "node_modules/react-dom"),
-      "react/jsx-runtime": resolve(__dirname, "node_modules/react/jsx-runtime"),
-      "react/jsx-dev-runtime": resolve(__dirname, "node_modules/react/jsx-dev-runtime"),
-    },
     dedupe: ["react", "react-dom"],
   },
   publicDir: resolve(__dirname, "public"),

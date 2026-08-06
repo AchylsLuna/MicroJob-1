@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
 import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../../theme/tokens';
 
 type SavedJob = {
   _id: string;
@@ -54,7 +55,7 @@ export default function SavedJobs({
           accessibilityRole="button"
           accessibilityLabel="Back to jobs"
         >
-          <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
+          <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Saved jobs</Text>
@@ -127,11 +128,13 @@ export default function SavedJobs({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f3f4f6' },
+  container: { flex: 1, backgroundColor: tokens.colors.background },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 14,
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -141,15 +144,15 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.26)',
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surfaceMuted,
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
   headerRightSpacer: { width: 42, height: 42 },
-  headerTitle: { fontSize: 22, fontWeight: '700', color: '#fff', lineHeight: 26, letterSpacing: -0.3 },
-  headerSubtitle: { fontSize: 13, color: '#cbd5f0', marginTop: 2, fontWeight: '500' },
+  headerTitle: { fontSize: 22, fontWeight: '700', color: tokens.colors.text, lineHeight: 26, letterSpacing: -0.3 },
+  headerSubtitle: { fontSize: 13, color: tokens.colors.textMuted, marginTop: 2, fontWeight: '500' },
   scroll: { paddingHorizontal: 16, paddingTop: 14 },
   emptyState: {
     flex: 1,
@@ -203,7 +206,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   jobInfo: { flex: 1, paddingLeft: 2 },
-  jobTitle: { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 4 },
+  jobTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.surface, marginBottom: 4 },
   jobCompany: { fontSize: 15, color: '#d1dce6', marginBottom: 4 },
   jobLocation: { fontSize: 14, color: '#d1dce6' },
   deleteBtn: {
@@ -223,7 +226,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
   },
-  tagText: { fontSize: 14, color: '#111827', fontWeight: '700' },
+  tagText: { fontSize: 14, color: tokens.colors.text, fontWeight: '700' },
   jobFooter: {
     paddingTop: 4,
     flexDirection: 'row',
@@ -232,5 +235,5 @@ const styles = StyleSheet.create({
     gap: 10,
     zIndex: 2,
   },
-  jobSalary: { fontSize: 28, fontWeight: '700', color: '#fff' },
+  jobSalary: { fontSize: 28, fontWeight: '700', color: tokens.colors.surface },
 });

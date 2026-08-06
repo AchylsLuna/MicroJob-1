@@ -52,7 +52,7 @@ export async function markNotificationRead(req, res) {
     const updated = await Notification.findOneAndUpdate(
       { _id: notificationId, user: userId },
       { $set: { readAt: new Date() } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!updated) {
@@ -150,7 +150,7 @@ export async function registerPushDevice(req, res) {
           token: String(token).trim(),
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     return res.status(201).json({ message: 'Push device registered.', device });

@@ -172,14 +172,14 @@ export default function Settings({
           title: 'Business Information',
           onPress: handleOpenPersonalInfo,
           icon: 'business-outline',
-          iconColor: '#2563EB',
+          iconColor: tokens.colors.brand,
           iconBackground: '#EAF2FF',
         },
         {
           title: 'Payment Methods',
           onPress: onNavigatePaymentMethods,
           icon: 'card-outline',
-          iconColor: '#2563EB',
+          iconColor: tokens.colors.brand,
           iconBackground: '#EAF2FF',
         },
       ]
@@ -188,14 +188,14 @@ export default function Settings({
           title: 'Personal Information',
           onPress: handleOpenPersonalInfo,
           icon: 'person-outline',
-          iconColor: '#2563EB',
+          iconColor: tokens.colors.brand,
           iconBackground: '#EAF2FF',
         },
         {
           title: 'Resume & Documents',
           onPress: handleOpenResumeDocuments,
           icon: 'document-text-outline',
-          iconColor: '#2563EB',
+          iconColor: tokens.colors.brand,
           iconBackground: '#EAF2FF',
         },
       ];
@@ -233,7 +233,7 @@ export default function Settings({
       onPress: handleLogout,
       icon: 'log-out-outline',
       iconColor: '#475569',
-      iconBackground: '#F3F5F9',
+      iconBackground: tokens.colors.background,
     },
     {
       title: 'Delete Account',
@@ -270,7 +270,7 @@ export default function Settings({
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 10 }]}>
         <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.88}>
-          <Ionicons name="chevron-back" size={22} color="#E2E8F0" />
+          <Ionicons name="chevron-back" size={22} color={tokens.colors.brand} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>Settings</Text>
@@ -327,7 +327,7 @@ export default function Settings({
                 onValueChange={handleToggleEmployerPrivacy}
                 disabled={isSavingPrivacy}
                 trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
-                thumbColor={hideHiredCandidates ? '#16A34A' : '#F8FAFC'}
+                thumbColor={hideHiredCandidates ? '#16A34A' : tokens.colors.background}
                 accessibilityLabel="Hide number of hired candidates"
               />
             </View>
@@ -349,7 +349,7 @@ export default function Settings({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F5F9',
+    backgroundColor: tokens.colors.background,
   },
   header: {
     paddingHorizontal: 22,
@@ -357,15 +357,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
   },
   backButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -376,19 +378,19 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: tokens.colors.text,
     letterSpacing: -0.4,
   },
   headerSubtitle: {
     fontSize: 13,
     lineHeight: 19,
-    color: '#CBD5F0',
+    color: tokens.colors.textMuted,
     fontWeight: '500',
   },
   scroll: {
     paddingHorizontal: 16,
     paddingTop: 14,
-    paddingBottom: 110,
+    paddingBottom: 112,
     gap: 10,
   },
   profileCard: {
@@ -410,7 +412,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: 'rgba(37,99,235,0.22)',
+    backgroundColor: 'rgba(28,77,141,0.22)',
     top: -28,
     right: -24,
   },
@@ -466,7 +468,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
   },
   profileEmail: {
     fontSize: 13,
@@ -487,7 +489,7 @@ const styles = StyleSheet.create({
   editButtonText: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
   },
   sectionLabel: {
     marginTop: 12,

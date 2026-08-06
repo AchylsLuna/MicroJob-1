@@ -30,7 +30,7 @@ export default function AppHeader({
         <View style={styles.side}>
           {onBack ? (
             <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.85}>
-              <Ionicons name="chevron-back" size={20} color={tokens.colors.white} />
+              <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
             </TouchableOpacity>
           ) : (
             <View style={styles.iconButtonPlaceholder} />
@@ -46,7 +46,7 @@ export default function AppHeader({
           {showRightAction ? (
             <TouchableOpacity onPress={onRightPress} style={styles.actionButton} activeOpacity={0.85}>
               {rightIconName ? (
-                <Ionicons name={rightIconName} size={15} color={tokens.colors.white} style={styles.actionIcon} />
+                <Ionicons name={rightIconName} size={15} color={tokens.colors.brand} style={styles.actionIcon} />
               ) : null}
               <Text style={styles.actionText}>{rightLabel}</Text>
             </TouchableOpacity>
@@ -61,7 +61,9 @@ export default function AppHeader({
 
 const styles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#0a2847',
+    backgroundColor: tokens.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
     paddingBottom: tokens.spacing.md,
     paddingHorizontal: tokens.spacing.lg,
   },
@@ -85,20 +87,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: tokens.colors.white,
+    color: tokens.colors.text,
     textAlign: 'center',
   },
   subtitle: {
     marginTop: 2,
     fontSize: 13,
-    color: '#dbe8ff',
+    color: tokens.colors.textMuted,
     textAlign: 'center',
   },
   iconButton: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: tokens.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -110,7 +112,7 @@ const styles = StyleSheet.create({
     minHeight: 32,
     paddingHorizontal: 10,
     borderRadius: tokens.radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: tokens.colors.brandSoft,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -120,7 +122,7 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 12,
-    color: tokens.colors.white,
+    color: tokens.colors.brand,
     fontWeight: '700',
   },
 });

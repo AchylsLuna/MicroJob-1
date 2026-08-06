@@ -198,7 +198,7 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 112 },
   card: {
     backgroundColor: tokens.colors.surface,
     borderRadius: tokens.radius.lg,

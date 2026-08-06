@@ -8,6 +8,7 @@ import Job from '../../models/Job.js';
 import JobApplication from '../../models/JobApplication.js';
 import Transaction from '../../models/Transaction.js';
 import User from '../../models/User.js';
+import Session from '../../models/Session.js';
 
 let mongoServer;
 
@@ -50,6 +51,15 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   const legacyInterviewApplicationId = new mongoose.Types.ObjectId();
   const topupTransactionId = new mongoose.Types.ObjectId();
   const escrowTransactionId = new mongoose.Types.ObjectId();
+  const legacySessionId = new mongoose.Types.ObjectId();
+
+  await Session.collection.insertOne({
+    _id: legacySessionId,
+    user: user._id,
+    token: 'legacy-plaintext-access-token',
+    active: true,
+    expiresAt: new Date('2027-01-01T00:00:00.000Z'),
+  });
 
   await JobApplication.collection.insertMany([
     {
@@ -111,6 +121,7 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   let interviewApplication = await JobApplication.findById(legacyInterviewApplicationId).lean();
   let topupTransaction = await Transaction.findById(topupTransactionId).lean();
   let escrowTransaction = await Transaction.findById(escrowTransactionId).lean();
+  let migratedSession = await Session.collection.findOne({ _id: legacySessionId });
 
   assert.equal(application.status, 'Applied');
   assert.equal(application.timeline.length, 1);
@@ -132,6 +143,7 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   assert.equal(escrowTransaction.balanceTarget, 'ESCROW');
   assert.equal(escrowTransaction.relatedEntityType, 'job');
   assert.equal(escrowTransaction.relatedEntityId, String(job._id));
+  assert.equal(Object.hasOwn(migratedSession, 'token'), false);
 
   await runDataBackfills();
 
@@ -139,6 +151,7 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   interviewApplication = await JobApplication.findById(legacyInterviewApplicationId).lean();
   topupTransaction = await Transaction.findById(topupTransactionId).lean();
   escrowTransaction = await Transaction.findById(escrowTransactionId).lean();
+  migratedSession = await Session.collection.findOne({ _id: legacySessionId });
 
   assert.equal(application.status, 'Applied');
   assert.equal(application.timeline.length, 1);
@@ -148,4 +161,5 @@ test('runDataBackfills canonicalizes application statuses and backfills missing 
   assert.equal(topupTransaction.providerReference, 'chk_test_123');
   assert.equal(escrowTransaction.relatedEntityType, 'job');
   assert.equal(escrowTransaction.relatedEntityId, String(job._id));
+  assert.equal(Object.hasOwn(migratedSession, 'token'), false);
 });

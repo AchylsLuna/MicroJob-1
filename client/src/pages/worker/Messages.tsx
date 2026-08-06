@@ -195,17 +195,35 @@ export function Messages() {
       ? apiBase.replace(/\/api\/?$/, "")
       : undefined;
     const socketUrl = explicitSocketUrl || proxyTarget || derivedFromApiBase || window.location.origin;
-    const socketToken = localStorage.getItem("auth_token") || localStorage.getItem("token") || undefined;
-
     const socket = io(socketUrl, {
       withCredentials: true,
-      auth: socketToken ? { token: socketToken } : undefined,
       reconnection: true,
       reconnectionAttempts: 8,
       reconnectionDelayMax: 10_000,
     });
     socketRef.current = socket;
     socket.emit("register", currentUserId);
+
+    const synchronizeAfterConnect = () => {
+      void loadConversationsRef.current();
+      void loadArchivedConversations();
+      if (!selectedContact) return;
+      void getConversationWithUser(selectedContact.otherUserId, selectedContact.jobId || undefined)
+        .then((response: any) => {
+          const synchronized = pickArray<Message>(
+            response?.messages,
+            response?.data?.messages,
+            response?.meta?.messages,
+            response?.data,
+            response,
+          );
+          setMessages(synchronized);
+        })
+        .catch(() => {
+          // The existing polling fallback retries transient reconnect failures.
+        });
+    };
+    socket.on("connect", synchronizeAfterConnect);
 
     const handleIncomingMessage = (incoming: any) => {
       const message = incoming?.data || incoming;
@@ -295,6 +313,7 @@ export function Messages() {
     socket.on("message_edited", handleMessageEdited);
 
     return () => {
+      socket.off("connect", synchronizeAfterConnect);
       socket.off("new_message", handleIncomingMessage);
       socket.off("new_message_echo", handleIncomingMessage);
       socket.off("message_edited", handleMessageEdited);

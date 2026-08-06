@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 100 },
+  scroll: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 112 },
   card: {
     backgroundColor: tokens.colors.surface,
     borderRadius: tokens.radius.lg,
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   codeText: {
     fontSize: 12,
-    color: '#111827',
+    color: tokens.colors.text,
     fontWeight: '700',
     marginBottom: 6,
   },

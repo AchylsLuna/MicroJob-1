@@ -227,19 +227,19 @@ export default function EmployerNotifications({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F6FA',
+    backgroundColor: tokens.colors.background,
   },
   scroll: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 110,
+    paddingBottom: 112,
     gap: 12,
   },
   summaryCard: {
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     padding: 18,
     flexDirection: 'row',
     gap: 14,
@@ -253,7 +253,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   summarySubtitle: {
     fontSize: 14,
@@ -272,34 +272,34 @@ const styles = StyleSheet.create({
   summaryBadgeValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#2563EB',
+    color: tokens.colors.brand,
   },
   summaryBadgeLabel: {
     marginTop: 2,
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: tokens.colors.brand,
   },
   markAllButton: {
     minHeight: 48,
     borderRadius: 16,
-    backgroundColor: '#111827',
+    backgroundColor: tokens.colors.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
   markAllButtonText: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
   },
   disabledAction: {
     opacity: 0.55,
   },
   loadingCard: {
     borderRadius: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     paddingVertical: 26,
     alignItems: 'center',
     gap: 10,
@@ -311,9 +311,9 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
+    borderColor: tokens.colors.border,
     paddingVertical: 34,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
   },
   emptyText: {
     marginTop: 8,
@@ -346,8 +346,8 @@ const styles = StyleSheet.create({
   notificationCard: {
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#D9E0EA',
-    backgroundColor: '#FFFFFF',
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
     padding: 14,
     flexDirection: 'row',
     gap: 12,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '800',
-    color: '#111827',
+    color: tokens.colors.text,
   },
   notificationTime: {
     fontSize: 11,
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   actorText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#2563EB',
+    color: tokens.colors.brand,
   },
   cardActionsRow: {
     marginTop: 4,
@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
   inlineActionText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#1D4ED8',
+    color: tokens.colors.brand,
   },
   inlineDeleteAction: {
     minHeight: 36,

@@ -14,7 +14,7 @@ export async function listSavedJobs(req, res) {
         path: 'job',
         populate: [
           { path: 'category', select: 'name' },
-          { path: 'jobPoster', select: 'firstName lastName email companyName avatarUrl' },
+          { path: 'jobPoster', select: 'firstName lastName companyName avatarUrl' },
         ],
       })
       .sort({ createdAt: -1 });
@@ -44,12 +44,12 @@ export async function saveJob(req, res) {
     const saved = await SavedJob.findOneAndUpdate(
       { user: userId, job: jobId },
       { $setOnInsert: { user: userId, job: jobId } },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     ).populate({
       path: 'job',
       populate: [
         { path: 'category', select: 'name' },
-        { path: 'jobPoster', select: 'firstName lastName email companyName avatarUrl' },
+        { path: 'jobPoster', select: 'firstName lastName companyName avatarUrl' },
       ],
     });
 

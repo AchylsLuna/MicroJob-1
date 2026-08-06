@@ -53,7 +53,7 @@ export async function editCategory(req, res){
         if(ifExists) {
             return res.status(409).json({message: "Category already exists."});
         }
-        const category = await Category.findByIdAndUpdate(id, {name}, {new: true});
+        const category = await Category.findByIdAndUpdate(id, {name}, { returnDocument: 'after' });
         if(!category) {
             return res.status(404).json({message: "Category not found."});
         }
@@ -62,4 +62,3 @@ export async function editCategory(req, res){
         res.status(500).json({message: "Failed to edit category."});
     }
 }
-

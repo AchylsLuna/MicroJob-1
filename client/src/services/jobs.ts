@@ -12,7 +12,14 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => config,
+  (config: InternalAxiosRequestConfig) => {
+    const method = String(config.method || 'get').toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      const match = document.cookie.match(/(?:^|; )csrfToken=([^;]+)/);
+      if (match) config.headers.set('x-csrf-token', decodeURIComponent(match[1]));
+    }
+    return config;
+  },
   (error: AxiosError) => Promise.reject(error)
 );
 

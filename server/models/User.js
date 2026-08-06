@@ -344,6 +344,7 @@ const UserSchema = new mongoose.Schema(
     passwordHashed: {
       type: String,
       required: true,
+      select: false,
     },
     passwordChangeRequired: {
       type: Boolean,
@@ -358,6 +359,7 @@ UserSchema.methods.setPassword = async function setPassword(password) {
 };
 
 UserSchema.methods.validatePassword = async function validatePassword(password) {
+  if (!this.passwordHashed) return false;
   return bcrypt.compare(password, this.passwordHashed);
 };
 

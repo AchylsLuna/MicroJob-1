@@ -7,6 +7,7 @@ import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import PublicProfile from '../shared/PublicProfile';
 import { useToast } from '../../contexts/ToastContext';
+import { tokens } from '../../theme/tokens';
 
 type EmployerPreview = {
   profile?: {
@@ -452,7 +453,7 @@ export default function JobDetails({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: tokens.colors.surface },
   scroll: { paddingHorizontal: 20 },
   headerContainer: {
     backgroundColor: '#c8d4d8',
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
   urgentText: { color: '#b91c1c', fontSize: 12, fontWeight: '700' },
   statsRow: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 12,
     padding: 12,
     marginTop: 8,
@@ -518,7 +519,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   previewCard: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,
@@ -545,7 +546,7 @@ const styles = StyleSheet.create({
   viewProfileText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1D4ED8',
+    color: tokens.colors.brand,
   },
   sectionTitle: {
     fontSize: 18,
@@ -611,7 +612,7 @@ const styles = StyleSheet.create({
     borderColor: '#22c55e',
   },
   applyBtn: {
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#1C4D8D',
   },
   appliedBtn: {
     backgroundColor: '#94a3b8',
@@ -628,16 +629,16 @@ const styles = StyleSheet.create({
     color: '#1f2937',
   },
   savedBtnText: {
-    color: '#fff',
+    color: tokens.colors.surface,
   },
   messageBtnText: {
-    color: '#fff',
+    color: tokens.colors.surface,
   },
   successContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
+    paddingBottom: 112,
     backgroundColor: '#f5f7fa',
   },
   successContent: {
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
   },
   checkmark: {
     fontSize: 48,
-    color: '#fff',
+    color: tokens.colors.surface,
     fontWeight: '700',
   },
   successTitle: {
@@ -674,7 +675,7 @@ const styles = StyleSheet.create({
   },
   findJobsBtn: {
     width: '100%',
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#1C4D8D',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
@@ -683,7 +684,7 @@ const styles = StyleSheet.create({
   findJobsBtnText: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: tokens.colors.surface,
   },
   backToHomeText: {
     fontSize: 14,

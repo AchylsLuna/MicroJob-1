@@ -6,6 +6,8 @@ import Session from '../models/Session.js';
 
 let io = null;
 const userSocketMap = new Map(); // userId -> Set(socketId)
+const ipSocketMap = new Map(); // ip -> Set(socketId)
+const connectionAttempts = new Map(); // ip -> timestamps
 
 function normalizeUserId(value) {
   if (!value) return '';
@@ -30,6 +32,15 @@ function removeSocket(socketId) {
       else userSocketMap.set(userId, set);
     }
   }
+  for (const [ip, set] of ipSocketMap.entries()) {
+    if (!set.has(socketId)) continue;
+    set.delete(socketId);
+    if (set.size === 0) ipSocketMap.delete(ip);
+  }
+}
+
+function socketIp(socket) {
+  return String(socket.handshake?.address || socket.conn?.remoteAddress || 'unknown');
 }
 
 function extractSocketToken(socket) {
@@ -76,9 +87,23 @@ export function initSocket(httpServer, opts = {}) {
   });
 
   const maxConnectionsPerUser = Math.max(1, Number(process.env.SOCKET_MAX_CONNECTIONS_PER_USER) || 5);
+  const maxConnectionsPerIp = Math.max(1, Number(process.env.SOCKET_MAX_CONNECTIONS_PER_IP) || 20);
+  const attemptWindowMs = Math.max(1000, Number(process.env.SOCKET_RATE_WINDOW_MS) || 60_000);
+  const maxAttemptsPerWindow = Math.max(1, Number(process.env.SOCKET_RATE_LIMIT) || 60);
 
   io.use(async (socket, next) => {
     try {
+      const ip = socketIp(socket);
+      const cutoff = Date.now() - attemptWindowMs;
+      const attempts = (connectionAttempts.get(ip) || []).filter((time) => time >= cutoff);
+      if (attempts.length >= maxAttemptsPerWindow) return next(new Error('Connection rate limit reached'));
+      attempts.push(Date.now());
+      connectionAttempts.set(ip, attempts);
+      if (connectionAttempts.size > 10_000) {
+        const oldestIp = connectionAttempts.keys().next().value;
+        if (oldestIp && oldestIp !== ip) connectionAttempts.delete(oldestIp);
+      }
+
       const token = extractSocketToken(socket);
       if (!token) {
         return next(new Error('Authentication required'));
@@ -90,24 +115,27 @@ export function initSocket(httpServer, opts = {}) {
         return next(new Error('Invalid token payload'));
       }
 
-      if (decoded?.sessionId) {
-        const session = await Session.findById(decoded.sessionId).select('user active expiresAt');
-        if (
-          !session ||
-          !session.active ||
-          String(session.user) !== tokenUserId ||
-          (session.expiresAt && session.expiresAt.getTime() < Date.now())
-        ) {
-          return next(new Error('Session invalid or expired'));
-        }
-        socket.data.sessionId = String(decoded.sessionId);
+      if (!decoded?.sessionId) return next(new Error('Active session required'));
+      const session = await Session.findById(decoded.sessionId).select('user active expiresAt');
+      if (
+        !session ||
+        !session.active ||
+        String(session.user) !== tokenUserId ||
+        (session.expiresAt && session.expiresAt.getTime() < Date.now())
+      ) {
+        return next(new Error('Session invalid or expired'));
       }
+      socket.data.sessionId = String(decoded.sessionId);
 
       if ((userSocketMap.get(tokenUserId)?.size || 0) >= maxConnectionsPerUser) {
         return next(new Error('Connection limit reached'));
       }
+      if ((ipSocketMap.get(ip)?.size || 0) >= maxConnectionsPerIp) {
+        return next(new Error('IP connection limit reached'));
+      }
 
       socket.data.userId = tokenUserId;
+      socket.data.ip = ip;
       return next();
     } catch (error) {
       return next(new Error('Authentication failed'));
@@ -117,6 +145,10 @@ export function initSocket(httpServer, opts = {}) {
   io.on('connection', (socket) => {
     const authenticatedUserId = normalizeUserId(socket.data?.userId);
     addSocketForUser(authenticatedUserId, socket.id);
+    const ip = String(socket.data?.ip || 'unknown');
+    const ipSockets = ipSocketMap.get(ip) || new Set();
+    ipSockets.add(socket.id);
+    ipSocketMap.set(ip, ipSockets);
 
     // Keep backwards compatibility with clients that still emit register,
     // but never trust a claimed user ID that differs from authenticated token.

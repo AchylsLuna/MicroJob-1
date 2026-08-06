@@ -285,7 +285,7 @@ export default function Dashboard({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 90, gap: 16 },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 112, gap: 16 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -391,7 +391,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
   },
   jobMetaText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
   jobSalary: { fontSize: 13, fontWeight: '700', color: tokens.colors.text },

@@ -815,14 +815,14 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F3F5F9',
+    backgroundColor: tokens.colors.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5EAF1',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: tokens.colors.background,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -841,7 +841,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: tokens.colors.text,
   },
   headerSaveButton: {
     minWidth: 52,
@@ -862,10 +862,10 @@ const styles = StyleSheet.create({
   },
   optionsDropdown: {
     marginTop: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: tokens.colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: tokens.colors.border,
     maxHeight: 180,
   },
   optionsScroll: {
@@ -877,7 +877,7 @@ const styles = StyleSheet.create({
   },
   optionText: {
     fontSize: 13,
-    color: '#111827',
+    color: tokens.colors.text,
   },
   scroll: {
     paddingHorizontal: 24,
@@ -927,11 +927,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: tokens.colors.surface,
     ...tokens.shadow.card,
   },
   changeAvatarText: {
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
     fontSize: 16,
     fontWeight: '700',
   },
@@ -962,8 +962,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#111827',
-    backgroundColor: '#F4F6FA',
+    color: tokens.colors.text,
+    backgroundColor: tokens.colors.background,
     ...tokens.shadow.card,
   },
   inputReadOnly: {
@@ -1006,7 +1006,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: tokens.colors.surface,
     fontSize: 18,
     fontWeight: '700',
   },

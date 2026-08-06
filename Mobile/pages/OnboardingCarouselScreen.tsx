@@ -74,20 +74,21 @@ export default function OnboardingCarouselScreen({
   onComplete,
 }: Props) {
   const { width, height } = useWindowDimensions();
+  const isCompactHeight = height < 700;
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const scrollX = useRef(new Animated.Value(activeIndex * width)).current;
   const previousIndexRef = useRef(activeIndex);
 
-  const topPad = Platform.OS === 'web' ? 68 : 54;
-  const botPad = Platform.OS === 'web' ? 34 : 20;
+  const topPad = isCompactHeight ? 18 : Platform.OS === 'web' ? 68 : 54;
+  const botPad = isCompactHeight ? 10 : Platform.OS === 'web' ? 34 : 20;
   const panelWidth = Math.min(width - 48, 420);
-  const titleFontSize = clamp(width * 0.086, 32, 38);
+  const titleFontSize = isCompactHeight ? clamp(width * 0.078, 25, 30) : clamp(width * 0.086, 32, 38);
   const titleLineHeight = Math.round(titleFontSize * 1.14);
   const subtitleFontSize = clamp(width * 0.041, 15, 17);
-  const iconRingSize = clamp(width * 0.42, 172, 204);
-  const iconCircleSize = clamp(iconRingSize * 0.62, 106, 122);
+  const iconRingSize = isCompactHeight ? clamp(width * 0.36, 112, 144) : clamp(width * 0.42, 172, 204);
+  const iconCircleSize = isCompactHeight ? clamp(iconRingSize * 0.62, 72, 90) : clamp(iconRingSize * 0.62, 106, 122);
   const iconSize = clamp(iconCircleSize * 0.4, 40, 48);
-  const slideVerticalGap = clamp(height * 0.032, 22, 30);
+  const slideVerticalGap = isCompactHeight ? 10 : clamp(height * 0.032, 22, 30);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -126,13 +127,13 @@ export default function OnboardingCarouselScreen({
 
       <View style={styles.topBar}>
         <View style={styles.brandPill}>
-          <Text allowFontScaling={false} style={styles.brandText}>
+          <Text maxFontSizeMultiplier={1.4} style={styles.brandText}>
             MicroJob
           </Text>
         </View>
 
         <Pressable style={styles.skipBtn} onPress={onSkip}>
-          <Text allowFontScaling={false} style={styles.skipText}>
+          <Text maxFontSizeMultiplier={1.4} style={styles.skipText}>
             Skip
           </Text>
         </Pressable>
@@ -157,21 +158,21 @@ export default function OnboardingCarouselScreen({
           getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
           renderItem={({ item }) => (
             <View style={[styles.slide, { width, gap: slideVerticalGap }]}>
-              <View style={[styles.slidePanel, { width: panelWidth }]}> 
+              <View style={[styles.slidePanel, isCompactHeight && styles.slidePanelCompact, { width: panelWidth }]}>
                 <View style={styles.panelGlow} />
 
                 <View style={styles.slideHeaderRow}>
                   <View style={styles.eyebrowPill}>
-                    <Text allowFontScaling={false} style={styles.eyebrowText}>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.eyebrowText}>
                       {item.eyebrow}
                     </Text>
                   </View>
-                  <Text allowFontScaling={false} style={styles.stepText}>
+                  <Text maxFontSizeMultiplier={1.4} style={styles.stepText}>
                     {item.id}/{slides.length}
                   </Text>
                 </View>
 
-                <View style={styles.illustrationArea}>
+                <View style={[styles.illustrationArea, isCompactHeight && styles.illustrationAreaCompact]}>
                   <View style={[styles.iconRing, { width: iconRingSize, height: iconRingSize, borderRadius: iconRingSize / 2 }]}> 
                     <View
                       style={[
@@ -187,19 +188,19 @@ export default function OnboardingCarouselScreen({
                     </View>
                   </View>
 
-                  <View style={styles.highlightPill}>
+                  <View style={[styles.highlightPill, isCompactHeight && styles.highlightPillCompact]}>
                     <Feather name="check-circle" size={14} color="#93C5FD" />
-                    <Text allowFontScaling={false} style={styles.highlightText}>
+                    <Text maxFontSizeMultiplier={1.4} style={styles.highlightText}>
                       {item.highlight}
                     </Text>
                   </View>
                 </View>
 
-                <View style={styles.textArea}>
-                  <Text allowFontScaling={false} style={[styles.title, { fontSize: titleFontSize, lineHeight: titleLineHeight }]}>
+                <View style={[styles.textArea, isCompactHeight && styles.textAreaCompact]}>
+                  <Text maxFontSizeMultiplier={1.4} style={[styles.title, { fontSize: titleFontSize, lineHeight: titleLineHeight }]}>
                     {item.title}
                   </Text>
-                  <Text allowFontScaling={false} style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.58) }]}>
+                  <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.58) }]}>
                     {item.subtitle}
                   </Text>
                 </View>
@@ -209,7 +210,7 @@ export default function OnboardingCarouselScreen({
         />
       </View>
 
-      <View style={[styles.footer, { width: panelWidth }]}> 
+      <View style={[styles.footer, isCompactHeight && styles.footerCompact, { width: panelWidth }]}>
         <View style={styles.dots}>
           {slides.map((_, i) => {
             const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
@@ -227,8 +228,8 @@ export default function OnboardingCarouselScreen({
           })}
         </View>
 
-        <Pressable style={styles.nextButton} onPress={handleNext}>
-          <Text allowFontScaling={false} style={styles.nextButtonText}>
+        <Pressable style={[styles.nextButton, isCompactHeight && styles.nextButtonCompact]} onPress={handleNext}>
+          <Text maxFontSizeMultiplier={1.4} style={styles.nextButtonText}>
             {activeIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
           </Text>
           {activeIndex < slides.length - 1 ? (
@@ -237,10 +238,10 @@ export default function OnboardingCarouselScreen({
         </Pressable>
 
         <Pressable style={styles.loginRow} onPress={onLogin}>
-          <Text allowFontScaling={false} style={styles.loginText}>
+          <Text maxFontSizeMultiplier={1.4} style={styles.loginText}>
             Already have an account?
           </Text>
-          <Text allowFontScaling={false} style={styles.loginLink}>
+          <Text maxFontSizeMultiplier={1.4} style={styles.loginLink}>
             Log In
           </Text>
         </Pressable>
@@ -324,6 +325,9 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     overflow: 'visible',
   },
+  slidePanelCompact: {
+    paddingVertical: 4,
+  },
   panelGlow: {
     position: 'absolute',
     top: -48,
@@ -331,7 +335,7 @@ const styles = StyleSheet.create({
     width: 170,
     height: 170,
     borderRadius: 85,
-    backgroundColor: 'rgba(37,99,235,0.16)',
+    backgroundColor: 'rgba(28,77,141,0.16)',
   },
   slideHeaderRow: {
     flexDirection: 'row',
@@ -344,7 +348,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: 'rgba(37,99,235,0.16)',
+    backgroundColor: 'rgba(28,77,141,0.16)',
     borderWidth: 1,
     borderColor: 'rgba(96,165,250,0.2)',
   },
@@ -365,8 +369,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
   },
+  illustrationAreaCompact: {
+    marginTop: 8,
+    gap: 6,
+  },
   iconRing: {
-    backgroundColor: 'rgba(27,79,216,0.12)',
+    backgroundColor: 'rgba(28,77,141,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(96,165,250,0.18)',
     alignItems: 'center',
@@ -393,6 +401,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(148,163,184,0.16)',
   },
+  highlightPillCompact: {
+    paddingVertical: 6,
+  },
   highlightText: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.74)',
@@ -403,8 +414,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
   },
+  textAreaCompact: {
+    marginTop: 8,
+    gap: 6,
+  },
   title: {
-    color: AUTH_COLORS.textPrimary,
+    color: AUTH_COLORS.primaryText,
     textAlign: 'center',
     letterSpacing: -0.7,
     fontWeight: '800',
@@ -419,6 +434,10 @@ const styles = StyleSheet.create({
     paddingTop: 18,
     gap: 16,
     alignItems: 'center',
+  },
+  footerCompact: {
+    paddingTop: 6,
+    gap: 6,
   },
   dots: {
     flexDirection: 'row',
@@ -443,6 +462,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.42,
     shadowRadius: 18,
     elevation: 10,
+  },
+  nextButtonCompact: {
+    height: 46,
   },
   nextButtonText: {
     fontSize: 16,

@@ -1,5 +1,6 @@
 import JobApplication from '../models/JobApplication.js';
 import Transaction from '../models/Transaction.js';
+import Session from '../models/Session.js';
 import { LEGACY_APPLICATION_STATUS_MAP, APPLICATION_STATUSES } from './applicationStatus.js';
 
 function inferBalanceTarget(tx) {
@@ -58,6 +59,11 @@ function initialTimelineEntry(status, createdAt) {
 }
 
 export async function runDataBackfills() {
+  // Access tokens are bearer credentials and must not remain stored in plaintext.
+  // Use the native collection because the legacy field is intentionally absent
+  // from the current strict Mongoose schema.
+  await Session.collection.updateMany({ token: { $exists: true } }, { $unset: { token: 1 } });
+
   const legacyEntries = Object.entries(LEGACY_APPLICATION_STATUS_MAP);
   for (const [legacy, canonical] of legacyEntries) {
     await JobApplication.updateMany({ status: legacy }, { $set: { status: canonical } });

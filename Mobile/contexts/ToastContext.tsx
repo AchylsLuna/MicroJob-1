@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../theme/tokens';
 
 type ToastVariant = 'success' | 'error' | 'info';
 
@@ -25,7 +26,7 @@ const getToastMeta = (variant: ToastVariant) => {
     case 'success':
       return {
         icon: 'checkmark-circle' as const,
-        backgroundColor: '#ECFDF5',
+        backgroundColor: tokens.colors.successSoft,
         borderColor: '#A7F3D0',
         iconColor: '#059669',
         textColor: '#065F46',
@@ -33,7 +34,7 @@ const getToastMeta = (variant: ToastVariant) => {
     case 'error':
       return {
         icon: 'alert-circle' as const,
-        backgroundColor: '#FEF2F2',
+        backgroundColor: tokens.colors.dangerSoft,
         borderColor: '#FECACA',
         iconColor: '#DC2626',
         textColor: '#991B1B',
@@ -41,10 +42,10 @@ const getToastMeta = (variant: ToastVariant) => {
     default:
       return {
         icon: 'information-circle' as const,
-        backgroundColor: '#EFF6FF',
+        backgroundColor: tokens.colors.infoSoft,
         borderColor: '#BFDBFE',
-        iconColor: '#2563EB',
-        textColor: '#1D4ED8',
+        iconColor: tokens.colors.brand,
+        textColor: tokens.colors.brand,
       };
   }
 };

@@ -39,7 +39,7 @@ const getActorName = (item: any): string => {
 const getAppearance = (type: string) => {
   switch (type) {
     case 'application':
-      return { icon: 'briefcase-outline' as const, accentColor: '#1D4ED8', accentBackground: '#EAF2FF' };
+      return { icon: 'briefcase-outline' as const, accentColor: '#1C4D8D', accentBackground: '#EAF2FF' };
     case 'payout':
     case 'payment':
       return { icon: 'wallet-outline' as const, accentColor: '#047857', accentBackground: '#ECFDF5' };
@@ -50,7 +50,7 @@ const getAppearance = (type: string) => {
     case 'account':
       return { icon: 'shield-checkmark-outline' as const, accentColor: '#0F766E', accentBackground: '#CCFBF1' };
     case 'message':
-      return { icon: 'chatbubble-ellipses-outline' as const, accentColor: '#2563EB', accentBackground: '#DBEAFE' };
+      return { icon: 'chatbubble-ellipses-outline' as const, accentColor: '#1C4D8D', accentBackground: '#DBEAFE' };
     default:
       return { icon: 'notifications-outline' as const, accentColor: '#475569', accentBackground: '#EEF2F7' };
   }

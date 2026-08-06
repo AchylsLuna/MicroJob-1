@@ -7,9 +7,11 @@
   "main": "index.ts",
   "scripts": {
     "start": "node scripts/startExpo.cjs",
+    "start:clear": "node scripts/startExpo.cjs --clear",
     "android": "node scripts/startExpo.cjs --android",
     "ios": "node scripts/startExpo.cjs --ios",
     "web": "node scripts/startExpo.cjs --web",
+    "check:theme": "node scripts/checkTheme.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -36,8 +38,7 @@
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
     "react-native-web": "^0.21.0",
-    "socket.io-client": "^4.8.3",
-    "tailwindcss": "^4.2.1"
+    "socket.io-client": "^4.8.3"
   },
   "devDependencies": {
     "@types/react": "~19.1.10",

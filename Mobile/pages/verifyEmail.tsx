@@ -320,7 +320,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       </View>
 
       <View style={[styles.emailPill, { borderRadius: pillRadius }]}>
-        <Text allowFontScaling={false} numberOfLines={1} style={[styles.emailPillText, { fontSize: helperFontSize }]}>
+        <Text maxFontSizeMultiplier={1.4} numberOfLines={1} style={[styles.emailPillText, { fontSize: helperFontSize }]}>
           {email || 'your email address'}
         </Text>
       </View>
@@ -332,7 +332,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
         style={styles.primaryCard}
       >
         {errorMessage ? (
-          <Text allowFontScaling={false} style={[styles.errorText, { fontSize: clamp(helperFontSize * 0.95, 13, 14) }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.errorText, { fontSize: clamp(helperFontSize * 0.95, 13, 14) }]}>
             {errorMessage}
           </Text>
         ) : null}
@@ -350,7 +350,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
               ]}
             />
           </View>
-          <Text allowFontScaling={false} style={[styles.timerMetaText, { fontSize: statusFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.timerMetaText, { fontSize: statusFontSize }]}>
             {canResend ? 'You can request a new code now.' : `Resend available in ${formattedTimer}`}
           </Text>
         </View>
@@ -362,7 +362,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
               ref={(ref) => {
                 inputs.current[index] = ref;
               }}
-              allowFontScaling={false}
+              maxFontSizeMultiplier={1.4}
               style={[
                 styles.codeBox,
                 { width: codeCellWidth, height: codeCellHeight, fontSize: codeFontSize, borderRadius: codeCellHeight * 0.22 },
@@ -396,7 +396,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           {isLoading ? (
             <ActivityIndicator color={AUTH_COLORS.primaryText} />
           ) : (
-            <Text allowFontScaling={false} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
+            <Text maxFontSizeMultiplier={1.4} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
               Verify Code
             </Text>
           )}
@@ -412,7 +412,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           disabled={!canResend || isLoading}
         >
           <Feather name="refresh-cw" size={clamp(helperFontSize + 1, 14, 16)} color={AUTH_COLORS.linkLight} />
-          <Text allowFontScaling={false} style={[styles.resendButtonText, { fontSize: helperFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.resendButtonText, { fontSize: helperFontSize }]}>
             {canResend ? 'Resend Code' : `Resend in ${formattedTimer}`}
           </Text>
         </TouchableOpacity>
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1.5,
     borderColor: AUTH_COLORS.cardBorderActive,
-    backgroundColor: 'rgba(27, 79, 216, 0.22)',
+    backgroundColor: 'rgba(28,77,141, 0.22)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
   },
   codeBoxFocused: {
     borderColor: AUTH_COLORS.primary,
-    backgroundColor: 'rgba(27,79,216,0.16)',
+    backgroundColor: 'rgba(28,77,141,0.16)',
   },
   codeBoxFilled: {
     borderColor: AUTH_COLORS.cardBorderActive,

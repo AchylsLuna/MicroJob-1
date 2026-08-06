@@ -16,7 +16,7 @@ async function main() {
 
   const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/MicroJob';
 
-  console.log('Connecting to', MONGO_URI);
+  console.log('Connecting to configured MongoDB database.');
   await mongoose.connect(MONGO_URI, { dbName: 'MicroJob' });
 
   try {

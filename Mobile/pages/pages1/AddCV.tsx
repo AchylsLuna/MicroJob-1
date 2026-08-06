@@ -8,6 +8,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { apiRequest } from '../../lib/api';
 import { validateMobileResume } from '../../lib/profileValidation';
 import { Ionicons } from '@expo/vector-icons';
+import { tokens } from '../../theme/tokens';
 
 type AddCVProps = {
   visible: boolean;
@@ -253,7 +254,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modal: {
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingHorizontal: 20,
@@ -320,7 +321,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 6,
-    backgroundColor: '#fff',
+    backgroundColor: tokens.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   uploadButton: {
-    backgroundColor: '#1e3a5f',
+    backgroundColor: tokens.colors.brand,
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   uploadButtonText: {
-    color: '#fff',
+    color: tokens.colors.surface,
     fontSize: 16,
     fontWeight: '700',
   },

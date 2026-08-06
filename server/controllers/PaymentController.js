@@ -1,5 +1,6 @@
 import axios from 'axios';
 import crypto from 'crypto';
+import { getWebOrigin } from '../lib/runtimeConfig.js';
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
@@ -72,8 +73,8 @@ const createXenditCheckout = async ({ amount, referenceNumber, target, user }) =
     external_id: referenceNumber,
     amount: Number(amount),
     description: `MicroJobs wallet top-up (${target})`,
-    success_redirect_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
-    failure_redirect_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/wallet`,
+    success_redirect_url: `${getWebOrigin()}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
+    failure_redirect_url: `${getWebOrigin()}/wallet`,
     currency: 'PHP',
     customer: {
       given_names: user?.firstName || 'MicroJobs',
@@ -288,7 +289,7 @@ export async function createTopUpSession(req, res) {
     const ua = req.get('user-agent');
     if (process.env.ENABLE_CSRF === 'true') {
       const tokenHeader = req.headers['x-csrf-token'];
-      const cookieName = process.env.CSRF_COOKIE_NAME || 'XSRF-TOKEN';
+      const cookieName = process.env.CSRF_COOKIE_NAME || 'csrfToken';
       const tokenCookie = req.cookies && req.cookies[cookieName];
       if (!tokenHeader || !tokenCookie || tokenHeader !== tokenCookie) {
         return res.status(403).json({ message: 'CSRF token missing or invalid' });
@@ -372,8 +373,8 @@ export async function createTopUpSession(req, res) {
             payment_method_types: ['gcash'],
             line_items: [{ currency: 'PHP', amount: amountInCentavos, name: 'E-Wallet Top Up', quantity: 1 }],
             reference_number: referenceNumber,
-            success_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
-            cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/wallet`,
+            success_url: `${getWebOrigin()}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
+            cancel_url: `${getWebOrigin()}/wallet`,
           },
         },
       },
@@ -483,7 +484,7 @@ export async function confirmTopUp(req, res) {
   try {
     if (process.env.ENABLE_CSRF === 'true') {
       const tokenHeader = req.headers['x-csrf-token'];
-      const cookieName = process.env.CSRF_COOKIE_NAME || 'XSRF-TOKEN';
+      const cookieName = process.env.CSRF_COOKIE_NAME || 'csrfToken';
       const tokenCookie = req.cookies && req.cookies[cookieName];
       if (!tokenHeader || !tokenCookie || tokenHeader !== tokenCookie) {
         return res.status(403).json({ message: 'CSRF token missing or invalid' });
@@ -887,7 +888,7 @@ export async function cancelPayoutRequest(req, res) {
       payoutRequest = await PayoutRequest.findOneAndUpdate(
         { _id: payoutRequestId, user: userId, status: 'requested' },
         { $set: { status: 'cancelled', cancelledAt: new Date(), reviewedAt: new Date(), reviewNotes: 'Cancelled by user.' } },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
       if (!payoutRequest) {
         const current = await PayoutRequest.findOne({ _id: payoutRequestId, user: userId }).session(session);
@@ -987,7 +988,7 @@ export async function updateAdminPayoutRequest(req, res) {
       payoutRequest = await PayoutRequest.findOneAndUpdate(
         { _id: payoutRequestId, status: { $in: sourceStatuses } },
         { $set: updates },
-        { new: true, session },
+        { returnDocument: 'after', session },
       );
 
       if (!payoutRequest) {

@@ -646,7 +646,7 @@ export async function updateProfile(req, res) {
         }
 
         const user = await User.findByIdAndUpdate(userId, updateOps, {
-            new: true,
+            returnDocument: "after",
             runValidators: true,
         }).select(
             "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName avatarUrl resumeUrl resumeFileName about linkedin website totalExperience skills workExperience projectsCompleted jobsApplied successRate hideHiredCandidates verification"
@@ -901,8 +901,7 @@ export async function verifyOtp(req, res) {
         await user.save();
 
         const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        const forwardedFor = String(req.headers["x-forwarded-for"] || "");
-        const requestIp = forwardedFor.split(",")[0]?.trim() || req.socket.remoteAddress || "";
+        const requestIp = req.ip || req.socket.remoteAddress || "";
         const userAgent = req.get("User-Agent") || "";
         const session = await Session.create({
             user: user._id,
@@ -917,9 +916,6 @@ export async function verifyOtp(req, res) {
             getJwtSecret(),
             { expiresIn: "7d" }
         );
-        session.token = token;
-        await session.save();
-
         otpStore.delete(key);
 
         return res.status(200).json({
@@ -1102,7 +1098,7 @@ export async function requestPasswordChangeOtp(req, res) {
             return res.status(400).json({ message: "Current password is required." });
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).select("+passwordHashed");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -1171,7 +1167,7 @@ export async function changePasswordWithOtp(req, res) {
             return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).select("+passwordHashed");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -1238,7 +1234,7 @@ export async function requestSelfDelete(req, res) {
             return res.status(400).json({ message: "Confirmation must be DELETE." });
         }
 
-        const user = await User.findById(userId);
+        const user = await User.findById(userId).select("+passwordHashed");
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }

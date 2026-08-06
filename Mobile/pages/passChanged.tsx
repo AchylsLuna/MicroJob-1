@@ -37,7 +37,7 @@ export default function PassChanged({ onBackToLogin }: Props) {
           style={[styles.button, { minHeight: buttonHeight, borderRadius: buttonRadius }]}
           onPress={onBackToLogin}
         >
-          <Text allowFontScaling={false} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
+          <Text maxFontSizeMultiplier={1.4} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
             Back to Login
           </Text>
         </TouchableOpacity>
@@ -49,7 +49,7 @@ export default function PassChanged({ onBackToLogin }: Props) {
         subtitle="Sign in again with your new password to continue."
         dark
       >
-        <Text allowFontScaling={false} style={[styles.darkChip, { fontSize: helperFontSize }]}>
+        <Text maxFontSizeMultiplier={1.4} style={[styles.darkChip, { fontSize: helperFontSize }]}>
           Ready to authenticate
         </Text>
       </AuthStepCard>
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 7,
     color: AUTH_COLORS.textPrimary,
-    backgroundColor: 'rgba(43, 86, 209, 0.2)',
+    backgroundColor: 'rgba(28,77,141, 0.2)',
     fontWeight: '600',
   },
 });

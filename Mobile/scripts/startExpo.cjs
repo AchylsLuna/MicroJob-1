@@ -12,6 +12,30 @@ const iosFlags = new Set(['--ios', '-i']);
 const envClientMode = (process.env.EXPO_START_CLIENT || 'go').trim().toLowerCase();
 const envHostMode = (process.env.EXPO_START_HOST || '').trim().toLowerCase();
 
+const supportedExpoSdk = 54;
+const supportedReactNative = '0.81.5';
+
+function readPackageVersion(packageName) {
+  return require(`${packageName}/package.json`).version;
+}
+
+function assertExpoGoCompatibility() {
+  const expoVersion = readPackageVersion('expo');
+  const reactNativeVersion = readPackageVersion('react-native');
+  const expoSdk = Number.parseInt(expoVersion.split('.')[0], 10);
+
+  if (expoSdk !== supportedExpoSdk || reactNativeVersion !== supportedReactNative) {
+    throw new Error(
+      `Expo Go compatibility check failed: expected Expo SDK ${supportedExpoSdk} with React Native ${supportedReactNative}, `
+      + `but resolved Expo ${expoVersion} with React Native ${reactNativeVersion}. Run \`npm ci\` in Mobile and try again.`,
+    );
+  }
+
+  console.log(`Expo Go target: SDK ${supportedExpoSdk} (Expo ${expoVersion}, React Native ${reactNativeVersion}).`);
+  console.log('If Expo Go reports an SDK mismatch, update it or install the SDK 54 client from https://expo.dev/go.');
+  console.log('Older Expo Go clients can be installed on Android devices/emulators and iOS simulators, but not physical iPhones.');
+}
+
 function parseRequestedPort(args) {
   const fallbackPort = Number(process.env.METRO_PORT || process.env.EXPO_METRO_PORT || 8081);
 
@@ -88,6 +112,8 @@ async function findFreePort(startPort, maxOffset) {
 }
 
 async function main() {
+  assertExpoGoCompatibility();
+
   const requestedPort = parseRequestedPort(extraArgs);
   const forwardedArgs = stripPortArgs(extraArgs);
   const port = await findFreePort(requestedPort, maxPortScan);
