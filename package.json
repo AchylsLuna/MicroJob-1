@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "server"
+  ],
   "main": "Mobile/index.ts",
   "engines": {
     "node": ">=22.13.0"

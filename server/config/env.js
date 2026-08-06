@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { buildAllowedOrigins } from '../lib/corsOrigins.js';
-import { getWebOrigin } from '../lib/runtimeConfig.js';
+import { getVercelOrigins, getWebOrigin } from '../lib/runtimeConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -24,7 +24,10 @@ export const allowInMemoryMongo = process.env.ENABLE_IN_MEMORY_MONGO !== 'false'
 
 export const allowedOrigins = buildAllowedOrigins({
     clientOrigin: config.ORIGIN,
-    extraOrigins: process.env.ADDITIONAL_CORS_ORIGINS || '',
+    extraOrigins: [
+        process.env.ADDITIONAL_CORS_ORIGINS || '',
+        ...getVercelOrigins(),
+    ].filter(Boolean).join(','),
     defaults: isProduction ? [] : undefined,
 });
 

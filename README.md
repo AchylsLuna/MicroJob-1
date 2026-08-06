@@ -1,17 +1,16 @@
 # MicroJobs
 
-MicroJobs contains three independent install units:
+MicroJobs contains three application areas:
 
-- Repository root: Vite web application and shared verification tooling.
-- `server/`: Express, MongoDB, and Socket.IO API.
+- Repository root: Vite web application, the `server/` npm workspace, and shared verification tooling.
+- `server/`: Express, MongoDB, and Socket.IO API workspace.
 - `Mobile/`: Expo application.
 
-Use Node.js 22.13 LTS or Node.js 24.3 or newer. Install the web and API dependencies:
+Use Node.js 22.13 LTS or Node.js 24.3 or newer. Install the web and API dependencies from the repository root:
 
 ```powershell
 cd C:\Users\Admin\Desktop\MicroJobs
 npm ci
-npm ci --prefix server
 ```
 
 Run the web application and API together from the repository root with `npm run dev`.
@@ -37,7 +36,16 @@ regenerating and reviewing the native project.
 ## Production configuration
 
 For a same-origin deployment, serve the API and Socket.IO endpoint on the web
-origin, set `VITE_API_BASE=/api`, and omit `VITE_SOCKET_URL`.
+origin, set `VITE_API_BASE=/api` (or leave it unset), and omit `VITE_SOCKET_URL`.
+On Vercel, configure runtime values in Project Settings > Environment Variables;
+local files such as `server/.env` are intentionally ignored and are not deployment
+configuration. At minimum, production needs `MONGO_URI`, `JWT_SECRET`, and the SMTP
+variables used by the required sign-in email verification flow. After changing any
+Vercel environment variable, create a new deployment.
+
+If `WEB_ORIGIN`, `CLIENT_ORIGIN`, or `FRONTEND_URL` is set, it must exactly match the
+browser origin, including the complete Vercel hostname. Vercel-provided deployment,
+branch, and production aliases are also included automatically in the API CORS allowlist.
 
 For separate hosts, set `VITE_API_BASE=https://api.example.com/api`,
 `VITE_SOCKET_URL=https://api.example.com`, and configure `WEB_ORIGIN` plus any

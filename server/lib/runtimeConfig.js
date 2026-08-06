@@ -1,23 +1,20 @@
 const LOCAL_WEB_ORIGIN = 'http://localhost:5173';
 
-function getVercelOrigin() {
-  const vercelUrl = String(
-    process.env.WEB_ORIGIN ||
-    process.env.CLIENT_ORIGIN ||
-    process.env.FRONTEND_URL ||
-    process.env.ORIGIN ||
-    process.env.VERCEL_URL ||
-    process.env.VERCEL_BRANCH_URL ||
-    process.env.VERCEL_PROJECT_PRODUCTION_URL ||
-    ''
-  ).trim();
+const trimTrailingSlashes = (value) => String(value || '').trim().replace(/\/+$/, '');
 
-  if (!vercelUrl) {
-    return '';
-  }
-
-  const normalized = vercelUrl.replace(/^https?:\/\//i, '').replace(/\/$/, '');
+const normalizeVercelOrigin = (value) => {
+  const normalized = trimTrailingSlashes(value).replace(/^https?:\/\//i, '');
   return normalized ? `https://${normalized}` : '';
+};
+
+export function getVercelOrigins() {
+  return [
+    process.env.VERCEL_URL,
+    process.env.VERCEL_BRANCH_URL,
+    process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  ]
+    .map(normalizeVercelOrigin)
+    .filter((origin, index, origins) => origin && origins.indexOf(origin) === index);
 }
 
 export function isProductionRuntime() {
@@ -25,14 +22,14 @@ export function isProductionRuntime() {
 }
 
 export function getWebOrigin() {
-  return String(
+  return trimTrailingSlashes(
     process.env.WEB_ORIGIN ||
     process.env.CLIENT_ORIGIN ||
     process.env.FRONTEND_URL ||
     process.env.ORIGIN ||
-    getVercelOrigin() ||
+    getVercelOrigins()[0] ||
     (isProductionRuntime() ? '' : LOCAL_WEB_ORIGIN)
-  ).replace(/\/$/, '');
+  );
 }
 
 export function validateProductionRuntime() {

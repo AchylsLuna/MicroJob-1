@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getWebOrigin, validateProductionRuntime } from '../../lib/runtimeConfig.js';
+import { getVercelOrigins, getWebOrigin, validateProductionRuntime } from '../../lib/runtimeConfig.js';
 
 const CONFIG_KEYS = ['NODE_ENV', 'MONGO_URI', 'MONGODB_URI', 'JWT_SECRET', 'WEB_ORIGIN', 'CLIENT_ORIGIN', 'FRONTEND_URL', 'ORIGIN', 'VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL'];
 
@@ -49,6 +49,15 @@ test('production configuration accepts complete HTTPS settings', () => {
   });
 });
 
+test('configured web origins remove repeated trailing slashes', () => {
+  withEnvironment({
+    NODE_ENV: 'production',
+    WEB_ORIGIN: 'https://micro-job-1.vercel.app//',
+  }, () => {
+    assert.equal(getWebOrigin(), 'https://micro-job-1.vercel.app');
+  });
+});
+
 test('production configuration derives the web origin from Vercel runtime metadata', () => {
   withEnvironment({
     NODE_ENV: 'production',
@@ -58,5 +67,20 @@ test('production configuration derives the web origin from Vercel runtime metada
   }, () => {
     assert.equal(getWebOrigin(), 'https://microjobs-preview.vercel.app');
     assert.doesNotThrow(() => validateProductionRuntime());
+  });
+});
+
+test('Vercel runtime metadata keeps deployment and production aliases available', () => {
+  withEnvironment({
+    NODE_ENV: 'production',
+    WEB_ORIGIN: 'https://old-project.vercel.app',
+    VERCEL_URL: 'microjobs-random-id.vercel.app',
+    VERCEL_PROJECT_PRODUCTION_URL: 'https://micro-job-1.vercel.app/',
+  }, () => {
+    assert.deepEqual(getVercelOrigins(), [
+      'https://microjobs-random-id.vercel.app',
+      'https://micro-job-1.vercel.app',
+    ]);
+    assert.equal(getWebOrigin(), 'https://old-project.vercel.app');
   });
 });

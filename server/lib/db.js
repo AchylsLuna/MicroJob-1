@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import { MongoMemoryServer } from 'mongodb-memory-server';
 
 let inMemoryMongoServer = null;
 
@@ -25,6 +24,7 @@ export const connectDB = async ({ mongoUri, dbName, isProduction, allowInMemoryM
     }
 
     if (mongoose.connection.readyState !== 1) {
+        const { MongoMemoryServer } = await import('mongodb-memory-server');
         inMemoryMongoServer = await MongoMemoryServer.create({
             instance: { dbName },
         });
