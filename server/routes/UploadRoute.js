@@ -1,17 +1,9 @@
 import express from 'express';
-import fs from 'fs';
-import { resolve } from 'path';
 import User from '../models/User.js';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import { getAuthContextFromRequest, isAdminRole } from '../lib/auth.js';
-
-const isSafeUploadFileName = (value = '') => {
-    const normalized = String(value || '').trim();
-    if (!normalized) return false;
-    if (normalized.includes('..')) return false;
-    return /^[a-zA-Z0-9._-]+$/.test(normalized);
-};
+import { getStoredUpload, isSafeUploadFileName } from '../lib/uploadStore.js';
 
 const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
 
@@ -19,9 +11,8 @@ const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
 // Avatars can still be served publicly.
 // Verification documents are owner/admin only; employers can view resumes from
 // workers who applied to one of their jobs.
-export const createUploadsRouter = (uploadsDir) => {
+export const createUploadsRouter = () => {
     const router = express.Router();
-    const uploadsRoot = `${uploadsDir}${process.platform === 'win32' ? '\\' : '/'}`;
 
     router.get('/:fileName', async (req, res) => {
         try {
@@ -29,12 +20,8 @@ export const createUploadsRouter = (uploadsDir) => {
             if (!isSafeUploadFileName(fileName)) {
                 return res.status(400).json({ message: 'Invalid file path.' });
             }
-
-            const fullPath = resolve(uploadsDir, fileName);
-            if (fullPath !== uploadsDir && !fullPath.startsWith(uploadsRoot)) {
-                return res.status(400).json({ message: 'Invalid file path.' });
-            }
-            if (!fs.existsSync(fullPath)) {
+            const storedUpload = await getStoredUpload(fileName);
+            if (!storedUpload) {
                 return res.status(404).json({ message: 'File not found.' });
             }
 
@@ -86,7 +73,8 @@ export const createUploadsRouter = (uploadsDir) => {
             }
 
             if (isAvatar || isSensitiveFile) {
-                return res.sendFile(fullPath);
+                res.setHeader('Content-Type', storedUpload.contentType || 'application/octet-stream');
+                return res.send(Buffer.from(storedUpload.data || []));
             }
 
             return res.status(404).json({ message: 'File metadata not found.' });

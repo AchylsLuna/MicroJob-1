@@ -8,11 +8,9 @@ import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
-import fs from "fs";
-import { basename, dirname, resolve, sep } from "path";
-import { fileURLToPath } from "url";
 import { getJwtSecret } from "../lib/jwtSecret.js";
 import { disconnectSession } from "../lib/socket.js";
+import { deleteStoredUpload } from "../lib/uploadStore.js";
 import {
     EMAIL_VALIDATION_MESSAGE,
     NAME_VALIDATION_MESSAGE,
@@ -37,21 +35,17 @@ const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
 
 const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired"];
-const uploadsDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "..", "uploads");
-
 async function removeStoredUploads(values) {
     const names = [...new Set(
         values
             .filter(Boolean)
-            .map((value) => basename(String(value).replace(/\\/g, "/")))
+            .map((value) => String(value).replace(/\\/g, "/").split("/").pop())
             .filter(Boolean)
     )];
 
     await Promise.all(names.map(async (name) => {
-        const filePath = resolve(uploadsDirectory, name);
-        if (!filePath.startsWith(`${uploadsDirectory}${sep}`)) return;
         try {
-            await fs.promises.unlink(filePath);
+            await deleteStoredUpload(name);
         } catch (error) {
             if (error?.code !== "ENOENT") {
                 console.warn(`Failed to remove stored upload ${name}:`, error?.message || error);

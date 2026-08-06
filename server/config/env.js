@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { buildAllowedOrigins } from '../lib/corsOrigins.js';
+import { getWebOrigin } from '../lib/runtimeConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -14,8 +15,7 @@ dotenv.config({ path: resolve(__dirname, '../.env') });
 export const config = {
     PORT: Number(process.env.PORT) || 5000,
     MONGO_URI: process.env.MONGO_URI || process.env.MONGODB_URI,
-    ORIGIN: process.env.ORIGIN || process.env.CLIENT_ORIGIN ||
-        (process.env.NODE_ENV === 'production' ? '' : '	https://micro-job-gules.vercel.app'),
+    ORIGIN: getWebOrigin(),
     DB_NAME: process.env.DB_NAME || 'MicroJob',
 };
 
@@ -29,5 +29,5 @@ export const allowedOrigins = buildAllowedOrigins({
 });
 
 if (isProduction && allowedOrigins.size === 0) {
-    throw new Error('WEB_ORIGIN or CLIENT_ORIGIN must be configured in production.');
+    throw new Error('WEB_ORIGIN, CLIENT_ORIGIN, FRONTEND_URL, ORIGIN, or VERCEL_URL must be configured in production.');
 }

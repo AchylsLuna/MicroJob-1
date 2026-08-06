@@ -149,150 +149,10 @@ app.use(cors({
 // Ensure OPTIONS preflight is handled for all routes
 // No explicit app.options needed because CORS middleware is applied globally
 
-const uploadsDir = resolve(__dirname, 'uploads');
-const uploadsRoot = `${uploadsDir}${process.platform === 'win32' ? '\\' : '/'}`;
-
-const isSafeUploadFileName = (value = '') => {
-    const normalized = String(value || '').trim();
-    if (!normalized) return false;
-    if (normalized.includes('..')) return false;
-    return /^[a-zA-Z0-9._-]+$/.test(normalized);
-};
-
-const isAdminRole = (role = '') => {
-    const normalized = String(role || '').toLowerCase();
-    return normalized === 'admin' || normalized === 'superadmin';
-};
-
-const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
-
-const getAuthContextFromRequest = async (req) => {
-    let token = null;
-    let isDownloadToken = false;
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.substring(7);
-    }
-    if (!token) {
-        token = req.cookies?.token;
-    }
-    if (!token && req.query?.downloadToken) {
-        token = String(req.query.downloadToken);
-        isDownloadToken = true;
-    }
-    if (!token) {
-        return null;
-    }
-
-    try {
-        const decoded = jwt.verify(token, getJwtSecret());
-        if (isDownloadToken) {
-            if (decoded?.purpose !== 'upload-download' || decoded?.fileName !== req.params?.fileName) {
-                return null;
-            }
-        }
-        const userId = decoded?.userId || decoded?.id || decoded?._id;
-        if (!userId) {
-            return null;
-        }
-
-        const role = String(decoded?.role || '');
-        const sessionId = decoded?.sessionId;
-        if (sessionId) {
-            const session = await Session.findById(sessionId).select('user active expiresAt');
-            if (!session || !session.active) {
-                return null;
-            }
-            if (String(session.user) !== String(userId)) {
-                return null;
-            }
-            if (session.expiresAt && session.expiresAt.getTime() < Date.now()) {
-                return null;
-            }
-        }
-
-        return { id: String(userId), role };
-    } catch {
-        return null;
-    }
-};
-
 // Restrict sensitive uploads (resumes/KYC docs) to authorized viewers.
 // Avatars can still be served publicly.
 // Verification documents are owner/admin only; employers can view resumes from
 // workers who applied to one of their jobs.
-app.get('/uploads/:fileName', async (req, res) => {
-    try {
-        const fileName = String(req.params?.fileName || '').trim();
-        if (!isSafeUploadFileName(fileName)) {
-            return res.status(400).json({ message: 'Invalid file path.' });
-        }
-
-        const fullPath = resolve(uploadsDir, fileName);
-        if (fullPath !== uploadsDir && !fullPath.startsWith(uploadsRoot)) {
-            return res.status(400).json({ message: 'Invalid file path.' });
-        }
-        if (!fs.existsSync(fullPath)) {
-            return res.status(404).json({ message: 'File not found.' });
-        }
-
-        const uploadUrl = toUploadUrl(fileName);
-        const owner = await User.findOne({
-            $or: [
-                { avatarUrl: uploadUrl },
-                { resumeFileName: fileName },
-                { resumeUrl: uploadUrl },
-                { 'verification.identityDocument.documentUrl': uploadUrl },
-                { 'verification.addressDocument.documentUrl': uploadUrl },
-            ],
-        }).select(
-            '_id avatarUrl resumeFileName resumeUrl verification.identityDocument.documentUrl verification.addressDocument.documentUrl'
-        );
-
-        if (!owner) {
-            return res.status(404).json({ message: 'File metadata not found.' });
-        }
-
-        const isAvatar = owner.avatarUrl === uploadUrl;
-        const isResume =
-            owner.resumeFileName === fileName ||
-            owner.resumeUrl === uploadUrl;
-        const isVerificationDocument =
-            owner.verification?.identityDocument?.documentUrl === uploadUrl ||
-            owner.verification?.addressDocument?.documentUrl === uploadUrl;
-        const isSensitiveFile = isResume || isVerificationDocument;
-
-        if (isSensitiveFile) {
-            const authContext = await getAuthContextFromRequest(req);
-            if (!authContext?.id) {
-                return res.status(401).json({ message: 'Authentication required.' });
-            }
-
-            const isOwner = String(owner._id) === authContext.id;
-            let canViewApplicantResume = false;
-            if (!isOwner && !isAdminRole(authContext.role) && isResume && ['hire', 'both'].includes(authContext.role)) {
-                const employerJobIds = await Job.find({ jobPoster: authContext.id }).distinct('_id');
-                canViewApplicantResume = employerJobIds.length > 0 && Boolean(await JobApplication.exists({
-                    applicant: owner._id,
-                    job: { $in: employerJobIds },
-                }));
-            }
-
-            if (!isOwner && !isAdminRole(authContext.role) && !canViewApplicantResume) {
-                return res.status(403).json({ message: 'Not allowed to access this file.' });
-            }
-        }
-
-        if (isAvatar || isSensitiveFile) {
-            return res.sendFile(fullPath);
-        }
-
-        return res.status(404).json({ message: 'File metadata not found.' });
-    } catch (error) {
-        console.error('Upload access error:', error);
-        return res.status(500).json({ message: 'Failed to access file.' });
-    }
-});
 
 // Routes
 import CategoryRoute from './routes/CategoryRoute.js';
@@ -309,6 +169,9 @@ import SavedJobRoute from './routes/SavedJobRoute.js';
 import SupportRoute from './routes/SupportRoute.js';
 import { runDataBackfills } from './lib/backfills.js';
 
+import { createUploadsRouter } from './routes/UploadRoute.js';
+
+app.use('/uploads', createUploadsRouter());
 
 app.get('/', (req, res) => {
     res.json({ message: 'Backend server is running' });

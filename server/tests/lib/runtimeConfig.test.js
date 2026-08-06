@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { validateProductionRuntime } from '../../lib/runtimeConfig.js';
+import { getWebOrigin, validateProductionRuntime } from '../../lib/runtimeConfig.js';
 
-const CONFIG_KEYS = ['NODE_ENV', 'MONGO_URI', 'MONGODB_URI', 'JWT_SECRET', 'WEB_ORIGIN', 'CLIENT_ORIGIN', 'FRONTEND_URL'];
+const CONFIG_KEYS = ['NODE_ENV', 'MONGO_URI', 'MONGODB_URI', 'JWT_SECRET', 'WEB_ORIGIN', 'CLIENT_ORIGIN', 'FRONTEND_URL', 'ORIGIN', 'VERCEL_URL', 'VERCEL_BRANCH_URL', 'VERCEL_PROJECT_PRODUCTION_URL'];
 
 const withEnvironment = (values, callback) => {
   const previous = Object.fromEntries(CONFIG_KEYS.map((key) => [key, process.env[key]]));
@@ -45,6 +45,18 @@ test('production configuration accepts complete HTTPS settings', () => {
     WEB_ORIGIN: 'https://app.example.com',
     FRONTEND_URL: 'https://app.example.com',
   }, () => {
+    assert.doesNotThrow(() => validateProductionRuntime());
+  });
+});
+
+test('production configuration derives the web origin from Vercel runtime metadata', () => {
+  withEnvironment({
+    NODE_ENV: 'production',
+    MONGO_URI: 'mongodb://database/microjobs',
+    JWT_SECRET: 'test-only-secret',
+    VERCEL_URL: 'microjobs-preview.vercel.app',
+  }, () => {
+    assert.equal(getWebOrigin(), 'https://microjobs-preview.vercel.app');
     assert.doesNotThrow(() => validateProductionRuntime());
   });
 });
