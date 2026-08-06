@@ -30,13 +30,23 @@ const ensureDatabaseReady = () => {
 	return dbReady;
 };
 
-applySecurityMiddleware(app, { isProduction });
+applySecurityMiddleware(app, { isProduction, enforceHttps: false });
 
 app.use(morgan('dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitize);
+
+app.use(buildCorsMiddleware({ isProduction, allowedOrigins }));
+
+app.get('/api/health', (req, res) => {
+	res.json({
+		status: 'ok',
+		service: 'microjobs-api',
+		revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || 'local',
+	});
+});
 
 app.use(async (req, res, next) => {
 	try {
@@ -46,8 +56,6 @@ app.use(async (req, res, next) => {
 		next(error);
 	}
 });
-
-app.use(buildCorsMiddleware({ isProduction, allowedOrigins }));
 
 app.use('/uploads', createUploadsRouter());
 

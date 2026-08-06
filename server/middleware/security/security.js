@@ -37,12 +37,12 @@ export const isSecureRequest = (req) => {
     return forwardedProtocol === 'https';
 };
 
-export const applySecurityMiddleware = (app, { isProduction }) => {
+export const applySecurityMiddleware = (app, { isProduction, enforceHttps = true }) => {
     // Security: only trust proxy headers when explicitly configured.
     app.set('trust proxy', parseTrustProxy());
 
     // Enforce HTTPS and HSTS in production
-    if (isProduction) {
+    if (isProduction && enforceHttps) {
         app.use((req, res, next) => {
             if (!isSecureRequest(req)) {
                 return res.redirect(`https://${req.headers.host}${req.url}`);
