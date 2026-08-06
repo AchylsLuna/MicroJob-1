@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "cd client && npm run build",
   "outputDirectory": "client/dist",
   "headers": [
     {
