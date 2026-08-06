@@ -1,7 +1,9 @@
 import helmet from 'helmet';
 
 export const parseTrustProxy = () => {
-    if (String(process.env.VERCEL || '').toLowerCase() === '1') {
+    const isVercelRuntime = ['1', 'true'].includes(String(process.env.VERCEL || '').toLowerCase()) ||
+        Boolean(process.env.VERCEL_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL);
+    if (isVercelRuntime) {
         return 1;
     }
 
@@ -23,6 +25,18 @@ export const parseTrustProxy = () => {
     return false;
 };
 
+export const isSecureRequest = (req) => {
+    if (req.secure) {
+        return true;
+    }
+
+    const forwardedProtocol = String(req.get('x-forwarded-proto') || '')
+        .split(',')[0]
+        .trim()
+        .toLowerCase();
+    return forwardedProtocol === 'https';
+};
+
 export const applySecurityMiddleware = (app, { isProduction }) => {
     // Security: only trust proxy headers when explicitly configured.
     app.set('trust proxy', parseTrustProxy());
@@ -30,7 +44,7 @@ export const applySecurityMiddleware = (app, { isProduction }) => {
     // Enforce HTTPS and HSTS in production
     if (isProduction) {
         app.use((req, res, next) => {
-            if (req.protocol !== 'https') {
+            if (!isSecureRequest(req)) {
                 return res.redirect(`https://${req.headers.host}${req.url}`);
             }
             res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
