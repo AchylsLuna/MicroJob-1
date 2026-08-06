@@ -17,6 +17,10 @@ export const registerRoutes = (app) => {
         res.json({ message: 'Backend server is running' });
     });
 
+    app.get('/api/health', (req, res) => {
+        res.json({ status: 'ok' });
+    });
+
     // Auth routes (includes login, register, logout)
     app.use('/api/auth', authRoutes);
     app.use('/api/auth', ProfileRoute);

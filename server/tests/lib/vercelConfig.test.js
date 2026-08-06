@@ -10,9 +10,9 @@ test('Vercel routes API and uploads to the Express function before the SPA fallb
   const config = JSON.parse(readFileSync(resolve(repositoryRoot, 'vercel.json'), 'utf8'));
 
   assert.deepEqual(config.rewrites, [
-    { source: '/api/:path*', destination: '/api' },
-    { source: '/uploads/:path*', destination: '/api' },
-    { source: '/:path*', destination: '/index.html' },
+    { source: '/api/(.*)', destination: '/api' },
+    { source: '/uploads/(.*)', destination: '/api' },
+    { source: '/((?!api(?:/|$)|uploads(?:/|$)).*)', destination: '/index.html' },
   ]);
   assert.equal(existsSync(resolve(repositoryRoot, 'api/index.js')), true);
   assert.equal(existsSync(resolve(repositoryRoot, 'api/[...path].js')), false);

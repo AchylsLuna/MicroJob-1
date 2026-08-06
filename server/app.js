@@ -12,12 +12,23 @@ import { registerRoutes } from './routes/index.js';
 import sanitize from './middleware/sanitize.js';
 
 const app = express();
-const dbReady = connectDB({
-	mongoUri: config.MONGO_URI,
-	dbName: config.DB_NAME,
-	isProduction,
-	allowInMemoryMongo,
-});
+let dbReady;
+
+const ensureDatabaseReady = () => {
+	if (!dbReady) {
+		dbReady = connectDB({
+			mongoUri: config.MONGO_URI,
+			dbName: config.DB_NAME,
+			isProduction,
+			allowInMemoryMongo,
+		}).catch((error) => {
+			dbReady = undefined;
+			throw error;
+		});
+	}
+
+	return dbReady;
+};
 
 applySecurityMiddleware(app, { isProduction });
 
@@ -29,7 +40,7 @@ app.use(sanitize);
 
 app.use(async (req, res, next) => {
 	try {
-		await dbReady;
+		await ensureDatabaseReady();
 		next();
 	} catch (error) {
 		next(error);
