@@ -7,8 +7,8 @@ import { join } from 'node:path';
 import {
   hasValidAvatarFileSignature,
   hasValidResumeFileSignature,
-  normalizeExperience,
-} from '../../routes/authRoutes.js';
+} from '../../middleware/uploadConfig.js';
+import { normalizeExperience } from '../../routes/authRoutes.js';
 
 const withTemporaryFile = (t, name, bytes) => {
   const directory = mkdtempSync(join(tmpdir(), 'microjobs-profile-validation-'));

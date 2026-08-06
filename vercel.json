@@ -15,7 +15,15 @@
   ],
   "rewrites": [
     {
-      "source": "/((?!api(?:/|$)|uploads(?:/|$)).*)",
+      "source": "/api/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "/api"
+    },
+    {
+      "source": "/:path*",
       "destination": "/index.html"
     }
   ]
