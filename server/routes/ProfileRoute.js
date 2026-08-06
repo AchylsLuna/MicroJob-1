@@ -7,7 +7,7 @@ import {
   deleteAvatar,
   deleteResume,
   createFileAccessLink,
-} from '../controllers/profileController.js';
+} from '../controllers/ProfileController.js';
 import {
   getPublicProfile,
   updateMe,
