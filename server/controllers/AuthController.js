@@ -32,7 +32,7 @@ import {
   MFA_METHOD,
   verifyMfaCodeForUser,
 } from '../lib/mfaHelpers.js';
-import { SELF_SERVICE_ROLES } from './sessionController.js';
+import { SELF_SERVICE_ROLES } from './SessionController.js';
 
 const registerUser = async (req, res) => {
   try {
