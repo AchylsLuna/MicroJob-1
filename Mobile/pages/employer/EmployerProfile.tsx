@@ -786,25 +786,6 @@ const styles = StyleSheet.create({
     color: '#64748B',
     fontSize: 12,
   },
-  formError: {
-    color: '#991B1B',
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  inputReadOnly: {
-    color: '#64748B',
-    backgroundColor: '#E9EEF5',
-  },
-  helperText: {
-    marginTop: 6,
-    color: '#64748B',
-    fontSize: 12,
-  },
   addressInput: {
     minHeight: 88,
     textAlignVertical: 'top',

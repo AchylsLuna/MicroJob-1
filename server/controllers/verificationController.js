@@ -1,5 +1,4 @@
 import User from '../models/User.js';
-import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import {
   PhoneOtpError,
   sendPhoneVerificationOtp,

@@ -1,7 +1,6 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import fs from 'fs';
 import express from 'express';
 import http from 'http';
 import cookieParser from 'cookie-parser';
@@ -9,17 +8,12 @@ import mongoose from 'mongoose';
 import morgan from 'morgan';
 import cors from 'cors';
 import helmet from 'helmet';
-import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { initSocket } from './lib/socket.js';
 import User from './models/User.js';
-import Session from './models/Session.js';
-import Job from './models/Job.js';
-import JobApplication from './models/JobApplication.js';
 import sanitize from './middleware/sanitize.js';
 import { csrfForCookieSession } from './middleware/csrf.js';
 import { buildAllowedOrigins, isAllowedOrigin } from './lib/corsOrigins.js';
-import { getJwtSecret } from './lib/jwtSecret.js';
 import { getWebOrigin, validateProductionRuntime } from './lib/runtimeConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);

@@ -15,7 +15,7 @@ const withTemporaryFile = (t, name, bytes) => {
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const path = join(directory, name);
   writeFileSync(path, bytes);
-  return { path, originalname: name };
+  return { path, originalname: name, buffer: bytes };
 };
 
 test('work experience validation normalizes valid month values', () => {

@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
 import User from '../models/User.js';
 import JobApplication from '../models/JobApplication.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
@@ -8,23 +7,6 @@ import {
   removeUploadFile,
   isSafeUploadFileName,
 } from '../middleware/uploadConfig.js';
-
-const MAX_PROFILE_SKILLS = 50;
-const MAX_WORK_EXPERIENCES = 25;
-const MAX_SKILL_NAME_LENGTH = 80;
-const MAX_SKILL_DESCRIPTION_LENGTH = 500;
-
-const sendProfileMutationError = (res, error, fallbackMessage) => {
-  if (error?.name === 'ValidationError' || error?.name === 'CastError') {
-    return sendError(res, 400, error?.message || 'Invalid profile data');
-  }
-  if (error?.name === 'VersionError') {
-    return sendError(res, 409, 'Your profile changed in another request. Refresh and try again.');
-  }
-  return sendError(res, 500, fallbackMessage);
-};
-
-const normalizeSkillDescription = (value = '') => String(value || '').trim();
 
 const parseExperienceDate = (value) => {
   if (value instanceof Date) {

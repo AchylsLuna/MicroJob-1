@@ -45,6 +45,7 @@ import {
   hasValidAvatarFileSignature,
   hasValidResumeFileSignature,
   hasValidVerificationFileSignature,
+  isSafeUploadFileName,
   removeUploadFile,
   uploadAvatarFile,
   uploadResumeFile,
