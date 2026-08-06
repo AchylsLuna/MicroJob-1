@@ -39,6 +39,7 @@
     "seed:alerts": "node server/scripts/seedAlerts.js"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "axios": "^1.13.5",
     "lucide-react": "^0.487.0",
     "motion": "*",
