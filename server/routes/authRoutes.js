@@ -51,7 +51,7 @@ export {
   hasValidAvatarFileSignature,
   hasValidVerificationFileSignature,
 } from '../middleware/uploadConfig.js';
-export { normalizeExperience } from '../controllers/profileController.js';
+export { normalizeExperience } from '../controllers/ProfileController.js';
 import {
   registerLimiter,
   otpSendLimiter,
