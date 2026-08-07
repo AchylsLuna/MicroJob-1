@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
@@ -10,9 +11,13 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { createUploadsRouter } from './routes/UploadRoute.js';
 import { registerRoutes } from './routes/index.js';
 import sanitize from './middleware/sanitize.js';
+import { csrfForCookieSession } from './middleware/csrf.js';
 
 const app = express();
 let dbReady;
+
+const isVercelRuntime = ['1', 'true'].includes(String(process.env.VERCEL || '').toLowerCase()) ||
+	Boolean(process.env.VERCEL_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL);
 
 const ensureDatabaseReady = () => {
 	if (!dbReady) {
@@ -30,13 +35,35 @@ const ensureDatabaseReady = () => {
 	return dbReady;
 };
 
-applySecurityMiddleware(app, { isProduction, enforceHttps: false });
+applySecurityMiddleware(app, { isProduction, enforceHttps: !isVercelRuntime });
 
-app.use(morgan('dev'));
+app.use((req, res, next) => {
+	req.requestId = req.get('x-request-id') || crypto.randomUUID();
+	res.setHeader('x-request-id', req.requestId);
+
+	if (isProduction) {
+		const sendJson = res.json.bind(res);
+		res.json = (payload) => {
+			if (res.statusCode < 500 || !payload || typeof payload !== 'object' || Array.isArray(payload)) {
+				return sendJson(payload);
+			}
+			const safePayload = { ...payload, requestId: req.requestId };
+			delete safePayload.error;
+			delete safePayload.stack;
+			delete safePayload.details;
+			return sendJson(safePayload);
+		};
+	}
+
+	next();
+});
+
+app.use(morgan(isProduction ? ':method :status :response-time ms' : 'dev'));
 app.use(express.json({ limit: '1mb' }));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitize);
+app.use(csrfForCookieSession);
 
 app.use(buildCorsMiddleware({ isProduction, allowedOrigins }));
 

@@ -3,9 +3,15 @@
   "build": {
     "preview": {
       "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://micro-job-1.vercel.app/api"
+      },
       "android": { "buildType": "apk" }
     },
     "production": {
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://micro-job-1.vercel.app/api"
+      },
       "android": { "buildType": "app-bundle" }
     }
   }

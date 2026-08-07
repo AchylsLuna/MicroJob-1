@@ -1,8 +1,18 @@
 const expo = {
-  name: 'mobile',
+  name: 'MicroJobs',
   slug: 'mobile',
   version: '1.0.0',
+  icon: './assets/icon.png',
+  scheme: 'microjobs',
   platforms: ['ios', 'android', 'web'],
+  android: {
+    package: 'com.bananas1.mobile',
+    versionCode: 1,
+    adaptiveIcon: {
+      foregroundImage: './assets/adaptive-icon.png',
+      backgroundColor: '#FFFFFF',
+    },
+  },
   extra: {
     eas: {
       projectId: 'd1b2d617-2132-4db6-828e-92b06ae42e6f',

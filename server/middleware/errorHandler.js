@@ -1,5 +1,5 @@
 export const errorHandler = (isProduction) => (err, req, res, _next) => {
-    console.error(`Error: ${err.message}`);
+    console.error(`[${req.requestId || 'no-request-id'}]`, err);
     const isMalformedJson = err instanceof SyntaxError && err?.type === 'entity.parse.failed';
     const isPayloadTooLarge = err?.type === 'entity.too.large';
     const isUploadTooLarge = err?.code === 'LIMIT_FILE_SIZE';
