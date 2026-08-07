@@ -136,12 +136,12 @@ export const uploadIdentityDocument = async (req, res) => {
       return res.status(400).json({ message: 'No document file provided' });
     }
     if (!hasValidVerificationFileSignature(req.file)) {
-      removeUploadFile(req.file.filename);
+      await removeUploadFile(req.file.filename);
       return res.status(400).json({ message: 'The uploaded file content does not match its document type.' });
     }
     const user = await User.findById(req.user.id);
     if (!user) {
-      removeUploadFile(req.file.filename);
+      await removeUploadFile(req.file.filename);
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -156,7 +156,9 @@ export const uploadIdentityDocument = async (req, res) => {
     };
     await user.save();
     persisted = true;
-    if (previousDocumentUrl && previousDocumentUrl !== documentUrl) removeUploadFile(previousDocumentUrl);
+    if (previousDocumentUrl && previousDocumentUrl !== documentUrl) {
+      await removeUploadFile(previousDocumentUrl);
+    }
 
     return res.status(200).json({
       message: 'Identity document uploaded successfully',
@@ -164,7 +166,7 @@ export const uploadIdentityDocument = async (req, res) => {
       status: 'in-review',
     });
   } catch (err) {
-    if (!persisted && req.file?.filename) removeUploadFile(req.file.filename);
+    if (!persisted && req.file?.filename) await removeUploadFile(req.file.filename);
     console.error('Identity document upload error', err);
     return res.status(500).json({ message: 'Failed to upload identity document' });
   }
@@ -177,12 +179,12 @@ export const uploadAddressDocument = async (req, res) => {
       return res.status(400).json({ message: 'No document file provided' });
     }
     if (!hasValidVerificationFileSignature(req.file)) {
-      removeUploadFile(req.file.filename);
+      await removeUploadFile(req.file.filename);
       return res.status(400).json({ message: 'The uploaded file content does not match its document type.' });
     }
     const user = await User.findById(req.user.id);
     if (!user) {
-      removeUploadFile(req.file.filename);
+      await removeUploadFile(req.file.filename);
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -197,7 +199,9 @@ export const uploadAddressDocument = async (req, res) => {
     };
     await user.save();
     persisted = true;
-    if (previousDocumentUrl && previousDocumentUrl !== documentUrl) removeUploadFile(previousDocumentUrl);
+    if (previousDocumentUrl && previousDocumentUrl !== documentUrl) {
+      await removeUploadFile(previousDocumentUrl);
+    }
 
     return res.status(200).json({
       message: 'Address document uploaded successfully',
@@ -205,7 +209,7 @@ export const uploadAddressDocument = async (req, res) => {
       status: 'in-review',
     });
   } catch (err) {
-    if (!persisted && req.file?.filename) removeUploadFile(req.file.filename);
+    if (!persisted && req.file?.filename) await removeUploadFile(req.file.filename);
     console.error('Address document upload error', err);
     return res.status(500).json({ message: 'Failed to upload address document' });
   }

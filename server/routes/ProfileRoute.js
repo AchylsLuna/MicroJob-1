@@ -35,7 +35,11 @@ router.post('/profile/avatar', verifyToken, uploadAvatarFile, uploadAvatar);
 router.delete('/profile/avatar', verifyToken, deleteAvatar);
 router.post('/profile/resume', verifyToken, uploadResumeFile, uploadResume);
 router.delete('/profile/resume', verifyToken, deleteResume);
-router.get('/profile/files/:fileName/access-link', verifyToken, createFileAccessLink);
+router.get(
+  ['/files/:fileName/access-link', '/profile/files/:fileName/access-link'],
+  verifyToken,
+  createFileAccessLink
+);
 router.post('/profile/skills', verifyToken, addSkill);
 router.delete('/profile/skills/:skillId', verifyToken, deleteSkill);
 router.patch('/profile/skills/:skillId', verifyToken, updateSkillDescription);

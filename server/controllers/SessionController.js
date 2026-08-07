@@ -27,7 +27,6 @@ const refreshSession = async (req, res) => {
     const newAccess = createAccessToken(user, session._id.toString());
     const newRefresh = crypto.randomBytes(64).toString('hex');
     const newHash = crypto.createHash('sha256').update(newRefresh).digest('hex');
-    session.token = newAccess;
     session.refreshTokenHash = newHash;
     const sessionStart = session.createdAt ? new Date(session.createdAt).getTime() : Date.now();
     session.expiresAt = new Date(sessionStart + SESSION_TTL_MS);

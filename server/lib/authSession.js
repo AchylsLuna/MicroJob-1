@@ -6,6 +6,7 @@ import { getJwtSecret } from './jwtSecret.js';
 export const cookieSecurityOptions = {
   sameSite: 'lax',
   secure: process.env.NODE_ENV === 'production',
+  ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
 };
 export const ACCESS_TOKEN_TTL_MS = 15 * 60 * 1000;
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,8 +22,7 @@ export const createAccessToken = (user, sessionId) =>
   );
 
 export const createSessionWithTokens = async (req, user) => {
-  const forwardedFor = String(req.headers['x-forwarded-for'] || '');
-  const requestIp = forwardedFor.split(',')[0]?.trim() || req.socket.remoteAddress || '';
+  const requestIp = req.ip || req.socket.remoteAddress || '';
   const userAgent = req.get('User-Agent') || '';
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
 
@@ -60,7 +60,6 @@ export const createSessionWithTokens = async (req, user) => {
   const accessTokenExpiresAt = new Date(Date.now() + ACCESS_TOKEN_TTL_MS);
   const refreshToken = crypto.randomBytes(64).toString('hex');
   const refreshHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
-  session.token = accessToken;
   session.refreshTokenHash = refreshHash;
   await session.save();
 

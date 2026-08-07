@@ -153,13 +153,14 @@ export const deleteSkill = async (req, res) => {
       return sendError(res, 404, 'User not found');
     }
 
-    const skillIndex = user.skills?.findIndex((s) => s._id.toString() === skillId);
-    if (skillIndex === undefined || skillIndex < 0) {
+    const skillIndex = user.skills?.findIndex((s) => s._id?.toString() === skillId);
+    if (skillIndex === undefined || skillIndex === -1) {
       return sendError(res, 404, 'Skill not found');
     }
 
     user.skills.splice(skillIndex, 1);
     await user.save();
+
     return sendSuccess(res, 200, 'Skill deleted successfully', { skills: user.skills });
   } catch (error) {
     console.error('Delete skill error:', error);
@@ -171,13 +172,18 @@ export const updateSkillDescription = async (req, res) => {
   try {
     const userId = req.user?.id;
     const { skillId } = req.params;
-    const { description } = req.body || {};
+    const { description, experience } = req.body || {};
 
     if (!mongoose.isValidObjectId(skillId)) {
       return sendError(res, 400, 'Invalid skill ID');
     }
-    if (typeof description !== 'string') {
+    const rawDescription = description ?? experience ?? '';
+    if (typeof rawDescription !== 'string') {
       return sendError(res, 400, 'Skill description must be a string');
+    }
+    const normalizedDescription = normalizeSkillDescription(rawDescription);
+    if (normalizedDescription.length > MAX_SKILL_DESCRIPTION_LENGTH) {
+      return sendError(res, 400, `Skill description must be ${MAX_SKILL_DESCRIPTION_LENGTH} characters or fewer`);
     }
 
     const user = await User.findById(userId);
@@ -185,18 +191,14 @@ export const updateSkillDescription = async (req, res) => {
       return sendError(res, 404, 'User not found');
     }
 
-    const skill = user.skills?.find((s) => s._id.toString() === skillId);
+    const skill = user.skills?.find((s) => s._id?.toString() === skillId);
     if (!skill) {
       return sendError(res, 404, 'Skill not found');
     }
 
-    const normalizedDescription = normalizeSkillDescription(description);
-    if (normalizedDescription.length > MAX_SKILL_DESCRIPTION_LENGTH) {
-      return sendError(res, 400, `Skill description must be ${MAX_SKILL_DESCRIPTION_LENGTH} characters or fewer`);
-    }
-
     skill.description = normalizedDescription;
     await user.save();
+
     return sendSuccess(res, 200, 'Skill description updated successfully', { skills: user.skills });
   } catch (error) {
     console.error('Update skill description error:', error);
@@ -206,30 +208,30 @@ export const updateSkillDescription = async (req, res) => {
 
 export const addWorkExperience = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const payload = normalizeExperience(req.body);
-    if (payload.error) {
-      return sendError(res, 400, payload.error);
-    }
+    const normalized = normalizeExperience(req.body);
+    if (normalized.error) return sendError(res, 400, normalized.error);
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return sendError(res, 404, 'User not found');
-    }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
 
-    if (!Array.isArray(user.workExperience)) {
-      user.workExperience = [];
-    }
+    user.workExperience = user.workExperience || [];
     if (user.workExperience.length >= MAX_WORK_EXPERIENCES) {
-      return sendError(res, 400, `You can add up to ${MAX_WORK_EXPERIENCES} work experiences`);
+      return sendError(res, 400, `You can add up to ${MAX_WORK_EXPERIENCES} work experience entries`);
     }
-
-    user.workExperience.push({
-      ...payload.value,
-      createdAt: new Date(),
-    });
+    const duplicate = user.workExperience.some((item) =>
+      item.title.toLowerCase() === normalized.value.title.toLowerCase() &&
+      item.company.toLowerCase() === normalized.value.company.toLowerCase() &&
+      item.startDate?.getTime() === normalized.value.startDate.getTime()
+    );
+    if (duplicate) {
+      return sendError(res, 409, 'This work experience is already on your profile');
+    }
+    user.workExperience.push(normalized.value);
     await user.save();
-    return sendSuccess(res, 201, 'Work experience added successfully', { workExperience: user.workExperience });
+
+    return sendSuccess(res, 201, 'Work experience added successfully', {
+      workExperience: user.workExperience,
+    });
   } catch (error) {
     console.error('Add work experience error:', error);
     return sendProfileMutationError(res, error, 'Failed to add work experience');
@@ -238,33 +240,24 @@ export const addWorkExperience = async (req, res) => {
 
 export const updateWorkExperience = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const { experienceId } = req.params;
-    const payload = normalizeExperience(req.body);
-    if (payload.error) {
-      return sendError(res, 400, payload.error);
+    if (!mongoose.isValidObjectId(req.params.experienceId)) {
+      return sendError(res, 400, 'Invalid work experience ID');
     }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
 
-    if (!mongoose.isValidObjectId(experienceId)) {
-      return sendError(res, 400, 'Invalid experience ID');
-    }
+    const experience = user.workExperience?.id(req.params.experienceId);
+    if (!experience) return sendError(res, 404, 'Work experience not found');
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return sendError(res, 404, 'User not found');
-    }
+    const normalized = normalizeExperience({ ...experience.toObject(), ...req.body });
+    if (normalized.error) return sendError(res, 400, normalized.error);
 
-    const experienceIndex = user.workExperience?.findIndex((item) => item._id.toString() === experienceId);
-    if (experienceIndex === undefined || experienceIndex < 0) {
-      return sendError(res, 404, 'Work experience not found');
-    }
-
-    user.workExperience[experienceIndex] = {
-      ...user.workExperience[experienceIndex],
-      ...payload.value,
-    };
+    Object.assign(experience, normalized.value);
     await user.save();
-    return sendSuccess(res, 200, 'Work experience updated successfully', { workExperience: user.workExperience });
+
+    return sendSuccess(res, 200, 'Work experience updated successfully', {
+      workExperience: user.workExperience,
+    });
   } catch (error) {
     console.error('Update work experience error:', error);
     return sendProfileMutationError(res, error, 'Failed to update work experience');
@@ -273,26 +266,21 @@ export const updateWorkExperience = async (req, res) => {
 
 export const deleteWorkExperience = async (req, res) => {
   try {
-    const userId = req.user?.id;
-    const { experienceId } = req.params;
-
-    if (!mongoose.isValidObjectId(experienceId)) {
-      return sendError(res, 400, 'Invalid experience ID');
+    if (!mongoose.isValidObjectId(req.params.experienceId)) {
+      return sendError(res, 400, 'Invalid work experience ID');
     }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
 
-    const user = await User.findById(userId);
-    if (!user) {
-      return sendError(res, 404, 'User not found');
-    }
+    const experience = user.workExperience?.id(req.params.experienceId);
+    if (!experience) return sendError(res, 404, 'Work experience not found');
 
-    const experienceIndex = user.workExperience?.findIndex((item) => item._id.toString() === experienceId);
-    if (experienceIndex === undefined || experienceIndex < 0) {
-      return sendError(res, 404, 'Work experience not found');
-    }
-
-    user.workExperience.splice(experienceIndex, 1);
+    experience.deleteOne();
     await user.save();
-    return sendSuccess(res, 200, 'Work experience deleted successfully', { workExperience: user.workExperience });
+
+    return sendSuccess(res, 200, 'Work experience deleted successfully', {
+      workExperience: user.workExperience,
+    });
   } catch (error) {
     console.error('Delete work experience error:', error);
     return sendProfileMutationError(res, error, 'Failed to delete work experience');

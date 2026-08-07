@@ -4,6 +4,8 @@ import JobApplication from '../models/JobApplication.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 import {
+  hasValidAvatarFileSignature,
+  hasValidResumeFileSignature,
   removeUploadFile,
   isSafeUploadFileName,
 } from '../middleware/uploadConfig.js';
@@ -115,61 +117,74 @@ export const getProfile = async (req, res) => {
 };
 
 export const uploadAvatar = async (req, res) => {
+  let persisted = false;
   try {
     if (!req.file) {
-      return sendError(res, 400, 'No avatar file provided');
+      return sendError(res, 400, 'No file uploaded');
     }
-    if (!req.file.mimetype.startsWith('image/')) {
-      return sendError(res, 400, 'Avatar must be an image');
+    if (!hasValidAvatarFileSignature(req.file)) {
+      await removeUploadFile(req.file.filename);
+      return sendError(res, 400, 'Image content does not match its JPG, PNG, GIF, or WEBP file type.');
     }
 
     const userId = req.user?.id;
     const user = await User.findById(userId);
     if (!user) {
+      await removeUploadFile(req.file.filename);
       return sendError(res, 404, 'User not found');
     }
 
-    const avatarUrl = `/uploads/${req.file.filename}`;
     const previousAvatarUrl = user.avatarUrl;
-    user.avatarUrl = avatarUrl;
+    user.avatarUrl = `/uploads/${req.file.filename}`;
     await user.save();
-    if (previousAvatarUrl && previousAvatarUrl !== avatarUrl) {
-      removeUploadFile(previousAvatarUrl);
+    persisted = true;
+    if (previousAvatarUrl && previousAvatarUrl !== user.avatarUrl) {
+      await removeUploadFile(previousAvatarUrl);
     }
 
-    return sendSuccess(res, 200, 'Avatar uploaded successfully', { avatarUrl });
+    return sendSuccess(res, 200, 'Avatar uploaded successfully', {
+      avatarUrl: user.avatarUrl,
+    });
   } catch (error) {
+    if (!persisted && req.file?.filename) await removeUploadFile(req.file.filename);
     console.error('Avatar upload error:', error);
     return sendError(res, 500, 'Failed to upload avatar');
   }
 };
 
 export const uploadResume = async (req, res) => {
+  let persisted = false;
   try {
     if (!req.file) {
-      return sendError(res, 400, 'No resume file provided');
+      return sendError(res, 400, 'No file uploaded');
+    }
+    if (!hasValidResumeFileSignature(req.file)) {
+      await removeUploadFile(req.file.filename);
+      return sendError(res, 400, 'Resume content does not match its PDF, DOC, or DOCX file type.');
     }
 
     const userId = req.user?.id;
     const user = await User.findById(userId);
     if (!user) {
+      await removeUploadFile(req.file.filename);
       return sendError(res, 404, 'User not found');
     }
 
-    const resumeUrl = `/uploads/${req.file.filename}`;
-    const previousResumeUrl = user.resumeUrl;
-    user.resumeUrl = resumeUrl;
+    const previousResumeFileName = user.resumeFileName;
     user.resumeFileName = req.file.filename;
+    user.resumeUrl = `/uploads/${req.file.filename}`;
     await user.save();
-    if (previousResumeUrl && previousResumeUrl !== resumeUrl) {
-      removeUploadFile(previousResumeUrl);
+    persisted = true;
+    if (previousResumeFileName && previousResumeFileName !== req.file.filename) {
+      await removeUploadFile(previousResumeFileName);
     }
 
     return sendSuccess(res, 200, 'Resume uploaded successfully', {
-      resumeUrl,
-      resumeFileName: req.file.filename,
+      resumeUrl: user.resumeUrl,
+      resumeFileName: user.resumeFileName,
     });
   } catch (error) {
+    if (!persisted && req.file?.filename) await removeUploadFile(req.file.filename);
     console.error('Resume upload error:', error);
     return sendError(res, 500, 'Failed to upload resume');
   }
@@ -190,9 +205,11 @@ export const deleteAvatar = async (req, res) => {
     const previousAvatarUrl = user.avatarUrl;
     user.avatarUrl = null;
     await user.save();
-    removeUploadFile(previousAvatarUrl);
+    await removeUploadFile(previousAvatarUrl);
 
-    return sendSuccess(res, 200, 'Avatar deleted successfully', { avatarUrl: null });
+    return sendSuccess(res, 200, 'Avatar deleted successfully', {
+      avatarUrl: null,
+    });
   } catch (error) {
     console.error('Avatar delete error:', error);
     return sendError(res, 500, 'Failed to delete avatar');
@@ -207,17 +224,20 @@ export const deleteResume = async (req, res) => {
       return sendError(res, 404, 'User not found');
     }
 
-    if (!user.resumeUrl) {
+    if (!user.resumeFileName) {
       return sendError(res, 400, 'No resume found');
     }
 
-    const previousResumeUrl = user.resumeUrl;
+    const previousResumeFileName = user.resumeFileName;
     user.resumeUrl = null;
     user.resumeFileName = null;
     await user.save();
-    removeUploadFile(previousResumeUrl);
+    await removeUploadFile(previousResumeFileName);
 
-    return sendSuccess(res, 200, 'Resume deleted successfully', { resumeUrl: null, resumeFileName: null });
+    return sendSuccess(res, 200, 'Resume deleted successfully', {
+      resumeUrl: null,
+      resumeFileName: null,
+    });
   } catch (error) {
     console.error('Resume delete error:', error);
     return sendError(res, 500, 'Failed to delete resume');
