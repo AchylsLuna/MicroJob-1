@@ -13,6 +13,14 @@ const expo = {
       backgroundColor: '#FFFFFF',
     },
   },
+  ios: {
+    bundleIdentifier: 'com.bananas1.mobile',
+    buildNumber: '1',
+    supportsTablet: true,
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
+  },
   extra: {
     eas: {
       projectId: 'd1b2d617-2132-4db6-828e-92b06ae42e6f',
