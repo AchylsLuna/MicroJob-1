@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import EmployerNavigation from '../../components/employerNavigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
@@ -401,9 +402,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
     flexDirection: 'row',
     gap: 10,
+    flexWrap: 'wrap',
   },
   inlineAction: {
-    minHeight: 36,
+    minHeight: 44,
     borderRadius: 12,
     backgroundColor: '#EEF2FF',
     paddingHorizontal: 12,
@@ -416,7 +418,7 @@ const styles = StyleSheet.create({
     color: tokens.colors.brand,
   },
   inlineDeleteAction: {
-    minHeight: 36,
+    minHeight: 44,
     borderRadius: 12,
     backgroundColor: '#FEF2F2',
     paddingHorizontal: 12,

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '../../theme/tokens';
 
@@ -140,8 +141,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: tokens.colors.border,
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerRightSpacer: { width: 42, height: 42 },
+  headerRightSpacer: { width: 44, height: 44 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: tokens.colors.text, lineHeight: 26, letterSpacing: -0.3 },
   headerSubtitle: { fontSize: 13, color: tokens.colors.textMuted, marginTop: 2, fontWeight: '500' },
   scroll: { paddingHorizontal: 16, paddingTop: 14 },
@@ -158,14 +159,19 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 100,
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+    marginTop: 18,
+    borderRadius: 20,
+    backgroundColor: tokens.colors.contentSurface,
+    ...tokens.shadow.card,
   },
   emptyIcon: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1f2937', marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#6b7280' },
   jobsList: { gap: 14 },
   jobCard: {
-    backgroundColor: '#1b3c72',
+    backgroundColor: tokens.colors.contentSurface,
     borderRadius: 16,
     padding: 14,
     gap: 12,
@@ -206,9 +212,9 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   jobInfo: { flex: 1, paddingLeft: 2 },
-  jobTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.surface, marginBottom: 4 },
-  jobCompany: { fontSize: 15, color: '#d1dce6', marginBottom: 4 },
-  jobLocation: { fontSize: 14, color: '#d1dce6' },
+  jobTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.text, marginBottom: 4 },
+  jobCompany: { fontSize: 15, color: tokens.colors.textMuted, marginBottom: 4 },
+  jobLocation: { fontSize: 14, color: tokens.colors.textMuted },
   deleteBtn: {
     minWidth: 48,
     height: 32,
@@ -218,10 +224,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 2,
   },
-  deleteText: { color: '#9ca3af', fontSize: 12, fontWeight: '700' },
+  deleteText: { color: tokens.colors.danger, fontSize: 12, fontWeight: '700' },
   jobTags: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', flex: 1 },
   tag: {
-    backgroundColor: '#9bb6cc',
+    backgroundColor: tokens.colors.brandSoft,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
@@ -235,5 +241,5 @@ const styles = StyleSheet.create({
     gap: 10,
     zIndex: 2,
   },
-  jobSalary: { fontSize: 28, fontWeight: '700', color: tokens.colors.surface },
+  jobSalary: { fontSize: 28, fontWeight: '700', color: tokens.colors.brand },
 });

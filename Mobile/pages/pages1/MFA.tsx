@@ -4,12 +4,12 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import AppHeader from '../../components/AppHeader';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { tokens } from '../../theme/tokens';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';

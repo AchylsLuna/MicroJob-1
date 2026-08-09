@@ -15,6 +15,7 @@ import { API_URL } from '../config';
 import { apiRequest, asObject } from '../lib/api';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
+import { AuthProgress } from '../components/auth/AuthControls';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
 import { useToast } from '../contexts/ToastContext';
 
@@ -24,9 +25,9 @@ const formatSeconds = (value: number) => `0:${Math.max(value, 0).toString().padS
 
 type Props = {
   email?: string;
-  mode?: 'emailVerification' | 'loginOtp';
+  mode?: 'emailVerification' | 'loginOtp' | 'passwordReset';
   otpToken?: string;
-  onVerified?: () => void;
+  onVerified?: (code?: string) => void;
   onBack?: () => void;
 };
 
@@ -49,9 +50,9 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
   const codeCellHeight = clamp(screenHeight * 0.066, 46, 54);
   const codeFontSize = clamp(screenWidth * 0.054, 18, 22);
   const codeGap = clamp(screenWidth * 0.018, 6, 10);
-  const buttonHeight = clamp(screenHeight * 0.086, 68, 76);
-  const buttonRadius = clamp(buttonHeight * 0.26, 18, 20);
-  const buttonFontSize = clamp(screenWidth * 0.052, 18, 20);
+  const buttonHeight = clamp(screenHeight * 0.068, 52, 56);
+  const buttonRadius = clamp(buttonHeight * 0.24, 12, 14);
+  const buttonFontSize = clamp(screenWidth * 0.043, 15, 17);
   const helperFontSize = clamp(screenWidth * 0.04, 14, 16);
   const statusFontSize = clamp(screenWidth * 0.035, 12, 14);
   const badgeSize = clamp(screenWidth * 0.17, 58, 66);
@@ -213,7 +214,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
     setErrorMessage('');
     try {
       const result = await apiRequest(
-        `${API_URL}/auth/otp/send`,
+        mode === 'passwordReset' ? `${API_URL}/auth/password-reset/request` : `${API_URL}/auth/otp/send`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -262,6 +263,13 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           },
           'Verification failed.',
         );
+      } else if (mode === 'passwordReset') {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        result = await apiRequest(
+          `${API_URL}/auth/password-reset/verify`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: normalizedEmail, code: otpCode }) },
+          'Reset-code verification failed.',
+        );
       } else {
         const normalizedEmail = String(email || '').trim().toLowerCase();
         if (!EMAIL_REGEX.test(normalizedEmail)) {
@@ -298,10 +306,12 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       if (mode === 'emailVerification') {
         await AsyncStorage.removeItem('pending_verification_email');
         toast.success('Email verified successfully.');
-      } else {
+      } else if (mode === 'loginOtp') {
         toast.success('Login verified successfully.');
+      } else {
+        toast.success('Reset code verified.');
       }
-      onVerified?.();
+      onVerified?.(mode === 'passwordReset' ? otpCode : undefined);
     } catch (error: any) {
       setErrorMessage(error?.message || 'Verification failed.');
     } finally {
@@ -311,10 +321,11 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
 
   return (
     <AuthScreenLayout
-      title={mode === 'loginOtp' ? 'Verify Login' : 'Verify Email'}
-      subtitle={mode === 'loginOtp' ? 'Enter the 6-digit login code sent to your email.' : 'Enter the 6-digit code sent to your inbox.'}
+      title={mode === 'loginOtp' ? 'Verify login' : mode === 'passwordReset' ? 'Check your email' : 'Verify email'}
+      subtitle={mode === 'loginOtp' ? 'Enter the 6-digit login code sent to your email.' : mode === 'passwordReset' ? 'Enter the 6-digit reset code we sent you.' : 'Enter the 6-digit code sent to your inbox.'}
       onBack={onBack}
     >
+      {mode === 'passwordReset' ? <AuthProgress step={2} /> : null}
       <View style={[styles.heroBadge, { width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2 }]}>
         <Feather name="mail" size={badgeIconSize} color={AUTH_COLORS.primaryText} />
       </View>
@@ -384,6 +395,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
               textAlign="center"
               textContentType="oneTimeCode"
               autoComplete="one-time-code"
+              accessibilityLabel={`Verification code digit ${index + 1}`}
             />
           ))}
         </View>

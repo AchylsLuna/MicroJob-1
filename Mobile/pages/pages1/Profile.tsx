@@ -5,7 +5,6 @@ import {
   Image,
   Linking,
   Platform,
-  ScrollView,
   RefreshControl,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -996,7 +996,7 @@ export default function Profile({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.canvasBlue,
   },
   scrollView: {
     flex: 1,
@@ -1452,7 +1452,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 7,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     borderWidth: 1,
     borderColor: tokens.colors.border,
   },

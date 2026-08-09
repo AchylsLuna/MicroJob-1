@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
@@ -203,8 +204,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   backBtn: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: tokens.colors.border,
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerRightSpacer: { width: 42, height: 42 },
+  headerRightSpacer: { width: 44, height: 44 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: tokens.colors.text, letterSpacing: -0.3 },
   headerSubtitle: { marginTop: 2, fontSize: 13, fontWeight: '500', color: tokens.colors.textMuted },
   toggleContainer: {
@@ -222,7 +223,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 6,
     gap: 10,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
   },
   toggleBtn: {
     flex: 1,
@@ -283,7 +284,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 100,
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+    marginTop: 18,
+    borderRadius: 20,
+    backgroundColor: tokens.colors.contentSurface,
+    ...tokens.shadow.card,
   },
   emptyIcon: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1f2937', marginBottom: 8 },

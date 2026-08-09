@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { NavigationContainer, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,6 +42,7 @@ import EmployerInbox from './pages/employer/EmployerInbox';
 import EmployerPaymentMethods from './pages/employer/EmployerPaymentMethods';
 import { AppSessionProvider, useAppSession } from './contexts/AppSessionContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
+import { StatusBar } from 'expo-status-bar';
 
 const AuthStack = createNativeStackNavigator();
 const WorkerStack = createNativeStackNavigator();
@@ -103,7 +104,7 @@ function SignInScreen() {
   const { handleAuthSuccess } = useAppSession();
   return (
     <SignIn
-      onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.navigate('Onboarding')}
+      onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] })}
       onNavigateToSignUp={() => navigation.navigate('SignUp')}
       onNavigateToForgot={() => navigation.navigate('ForgotPassword')}
       onNavigateToVerify={(params) => navigation.navigate('VerifyEmail', params || {})}
@@ -118,9 +119,9 @@ function SignUpScreen() {
   const navigation = useNavigation();
   return (
     <SignUp
-      onBack={() => navigation.goBack()}
-      onNavigateToSignIn={() => navigation.navigate('SignIn')}
-      onNavigateToVerify={() => navigation.navigate('VerifyEmail')}
+      onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })}
+      onNavigateToSignIn={() => navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })}
+      onNavigateToVerify={(email) => navigation.navigate('VerifyEmail', { mode: 'emailVerification', email, origin: 'signup' })}
     />
   );
 }
@@ -135,8 +136,12 @@ function VerifyEmailScreen() {
       mode={routeParams.mode || 'emailVerification'}
       email={routeParams.email}
       otpToken={routeParams.otpToken}
-      onBack={() => navigation.navigate('SignIn')}
-      onVerified={async () => {
+      onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })}
+      onVerified={async (code) => {
+        if (routeParams.mode === 'passwordReset') {
+          navigation.replace('CreatePass', { email: routeParams.email, code });
+          return;
+        }
         await handleAuthSuccess();
       }}
     />
@@ -148,7 +153,10 @@ function ForgotPasswordScreen() {
   const toast = useToast();
   return (
     <ForgotPass
-      onBack={() => navigation.navigate('SignIn')}
+      onBack={async () => {
+        await AsyncStorage.multiRemove(['pending_reset_email', 'pending_verification_skip_send']);
+        navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
+      }}
       onSendReset={async (emailAddress) => {
         const normalizedEmail = String(emailAddress || '').trim().toLowerCase();
         const result = await apiRequest(`${API_URL}/auth/password-reset/request`, {
@@ -161,8 +169,9 @@ function ForgotPasswordScreen() {
           return;
         }
         await AsyncStorage.setItem('pending_reset_email', normalizedEmail);
+        await AsyncStorage.setItem('pending_verification_skip_send', '1');
         toast.info(result.message || 'If the account exists, a reset code was sent to your email.');
-        navigation.navigate('CreatePass');
+        navigation.navigate('VerifyEmail', { mode: 'passwordReset', email: normalizedEmail, origin: 'forgot' });
       }}
     />
   );
@@ -170,10 +179,13 @@ function ForgotPasswordScreen() {
 
 function CreatePassScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const toast = useToast();
+  const routeParams = route?.params || {};
   return (
     <CreatePass
-      onBackToLogin={() => navigation.navigate('SignIn')}
+      verifiedCode={routeParams.code}
+      onBackToLogin={() => navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })}
       onReset={async ({ code, password, confirm }) => {
         const normalizedCode = String(code || '').replace(/\D/g, '').slice(0, 6);
         if (!/^\d{6}$/.test(normalizedCode)) {
@@ -189,7 +201,7 @@ function CreatePassScreen() {
           return;
         }
 
-        const resetEmail = String((await AsyncStorage.getItem('pending_reset_email')) || '').trim().toLowerCase();
+        const resetEmail = String(routeParams.email || (await AsyncStorage.getItem('pending_reset_email')) || '').trim().toLowerCase();
         const result = await apiRequest(`${API_URL}/auth/password-reset/confirm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -207,7 +219,7 @@ function CreatePassScreen() {
 
         await AsyncStorage.multiRemove(['pending_reset_email', 'pending_verification_skip_send']);
         toast.success('Password reset successful.');
-        navigation.navigate('PassChanged');
+        navigation.replace('PassChanged');
       }}
     />
   );
@@ -215,7 +227,7 @@ function CreatePassScreen() {
 
 function PassChangedScreen() {
   const navigation = useNavigation();
-  return <PassChanged onBackToLogin={() => navigation.navigate('SignIn')} />;
+  return <PassChanged onBackToLogin={() => navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })} />;
 }
 
 function AuthNavigator() {
@@ -766,6 +778,10 @@ function SessionOverlays() {
 
 function RootApp() {
   const session = useAppSession();
+  const navigationTheme = useMemo(() => ({
+    ...DefaultTheme,
+    colors: { ...DefaultTheme.colors, background: tokens.colors.canvasBlue, primary: tokens.colors.brand, card: tokens.colors.contentSurface },
+  }), []);
   return (
     <View
       style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.brand }}
@@ -773,7 +789,8 @@ function RootApp() {
       onResponderGrant={() => session.registerActivity()}
       onTouchStart={() => session.registerActivity()}
     >
-      <NavigationContainer onStateChange={() => session.registerActivity()}>
+      <StatusBar style="light" backgroundColor={tokens.colors.canvasBlue} />
+      <NavigationContainer theme={navigationTheme} onStateChange={() => session.registerActivity()}>
         <AppNavigator />
       </NavigationContainer>
       <SessionOverlays />

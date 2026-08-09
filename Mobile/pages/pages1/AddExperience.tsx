@@ -4,7 +4,6 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -13,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { PROFILE_LIMITS } from '../../lib/profileValidation';
 import { tokens } from '../../theme/tokens';
 
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   characterCount: { alignSelf: 'flex-end', color: '#64748B', fontSize: 12, marginTop: 5 },
   dateRow: { flexDirection: 'row', gap: 12 },
   dateField: { flex: 1 },
-  currentRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, backgroundColor: tokens.colors.background, paddingHorizontal: 14 },
+  currentRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, backgroundColor: tokens.colors.contentMuted, paddingHorizontal: 14 },
   currentLabel: { fontSize: 14, fontWeight: '600', color: '#334155' },
   errorText: { color: '#B91C1C', fontSize: 13, lineHeight: 18, backgroundColor: '#FEF2F2', borderRadius: 10, padding: 12 },
   addButton: { minHeight: 50, backgroundColor: tokens.colors.brand, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginTop: 4 },

@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
@@ -485,7 +486,7 @@ export default function EmployerProfile({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.canvasBlue,
   },
   scroll: {
     paddingHorizontal: 18,
@@ -561,9 +562,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: -4,
     bottom: -4,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: tokens.colors.brand,
     borderWidth: 3,
     borderColor: tokens.colors.surface,
@@ -612,7 +613,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     borderColor: tokens.colors.border,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -630,10 +631,12 @@ const styles = StyleSheet.create({
   },
   heroActionRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
   secondaryAction: {
     flex: 1,
+    minWidth: 132,
     minHeight: 52,
     borderRadius: 16,
     borderWidth: 1,
@@ -651,6 +654,7 @@ const styles = StyleSheet.create({
   },
   primaryAction: {
     flex: 1,
+    minWidth: 132,
     minHeight: 52,
     borderRadius: 16,
     backgroundColor: tokens.colors.brand,
@@ -761,7 +765,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: tokens.colors.border,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,

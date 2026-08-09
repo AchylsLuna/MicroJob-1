@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Switch } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { useToast } from '../../contexts/ToastContext';
 import PersonalInformation from './PersonalInformation';
 
@@ -269,7 +270,7 @@ export default function Settings({
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 10 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.88}>
+        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={tokens.colors.brand} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>

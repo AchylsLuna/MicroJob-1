@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import AppHeader from '../../components/AppHeader';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';

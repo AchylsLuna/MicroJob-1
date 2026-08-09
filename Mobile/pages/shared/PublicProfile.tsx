@@ -3,12 +3,12 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   ActivityIndicator,
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
@@ -168,7 +168,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
     return (
       <View style={styles.container}>
         <View style={headerStyle}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
         </View>
@@ -184,7 +184,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
     return (
       <View style={styles.container}>
         <View style={headerStyle}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
         </View>
@@ -208,7 +208,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
     return (
       <View style={styles.container}>
         <View style={headerStyle}>
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
+          <TouchableOpacity onPress={onBack} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
         </View>
@@ -225,7 +225,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
   return (
     <View style={styles.container}>
       <View style={headerStyle}>
-        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+        <TouchableOpacity onPress={onBack} style={styles.backButton} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
@@ -396,7 +396,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.canvasBlue,
   },
   header: {
     paddingBottom: 15,
@@ -407,6 +407,9 @@ const styles = StyleSheet.create({
   },
   backButton: {
     marginBottom: 10,
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    justifyContent: 'center',
   },
   backButtonText: {
     fontSize: 16,
@@ -520,7 +523,7 @@ const styles = StyleSheet.create({
   },
   ratingBox: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -615,7 +618,7 @@ const styles = StyleSheet.create({
   },
   workHistoryItem: {
     borderRadius: 12,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     padding: 13,
   },
   workHistoryTitle: {

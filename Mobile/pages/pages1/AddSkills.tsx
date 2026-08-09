@@ -4,7 +4,6 @@ import {
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  ScrollView, 
   TextInput, 
   Modal,
   KeyboardAvoidingView,
@@ -12,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { tokens } from '../../theme/tokens';
 
 const SKILL_CATEGORIES = [

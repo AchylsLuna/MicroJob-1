@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
@@ -335,8 +336,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.text },
-  seeAll: { fontSize: 13, color: tokens.colors.brand, fontWeight: '600' },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.onCanvas },
+  seeAll: { fontSize: 13, color: tokens.colors.onCanvasMuted, fontWeight: '700' },
   categoryRow: { flexDirection: 'row', gap: 10 },
   categoryCard: {
     flex: 1,
@@ -391,7 +392,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -417,7 +418,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
   },
   jobMetaText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
   jobSalary: { fontSize: 13, fontWeight: '700', color: tokens.colors.text },

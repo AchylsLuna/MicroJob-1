@@ -168,6 +168,12 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           style={{ flex: 1, backgroundColor: tokens.colors.background }}
           data={messages}
           keyExtractor={item => item._id}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          initialNumToRender={20}
+          maxToRenderPerBatch={12}
+          updateCellsBatchingPeriod={40}
+          windowSize={9}
           renderItem={({ item }) => {
             const isMine = String(getEntityId(item.sender)) === String(currentUserId);
             return (
@@ -206,14 +212,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
     borderBottomWidth: 1,
     borderBottomColor: tokens.colors.border,
   },
   backTouch: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -224,9 +230,9 @@ const styles = StyleSheet.create({
   headerText: { flex: 1, fontSize: 18, fontWeight: '800', color: tokens.colors.text },
   notificationIcon: {
     position: 'relative',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: tokens.colors.border,
     backgroundColor: tokens.colors.surface,
@@ -276,7 +282,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
     alignItems: 'center',
     borderTopWidth: 1,
     borderTopColor: tokens.colors.border,
@@ -293,6 +299,8 @@ const styles = StyleSheet.create({
     color: tokens.colors.text,
   },
   sendBtn: {
+    minHeight: 44,
+    minWidth: 44,
     backgroundColor: tokens.colors.brand,
     borderRadius: 22,
     paddingVertical: 10,

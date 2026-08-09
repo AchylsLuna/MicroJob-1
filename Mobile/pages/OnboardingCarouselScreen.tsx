@@ -122,8 +122,8 @@ export default function OnboardingCarouselScreen({
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: botPad }]}>
       <StatusBar style="light" />
-      <View style={styles.backgroundOrbTop} />
-      <View style={styles.backgroundOrbBottom} />
+      <View pointerEvents="none" style={styles.backgroundOrbTop} />
+      <View pointerEvents="none" style={styles.backgroundOrbBottom} />
 
       <View style={styles.topBar}>
         <View style={styles.brandPill}>
@@ -132,7 +132,12 @@ export default function OnboardingCarouselScreen({
           </Text>
         </View>
 
-        <Pressable style={styles.skipBtn} onPress={onSkip}>
+        <Pressable
+          style={({ pressed }) => [styles.skipBtn, pressed && styles.blueControlPressed]}
+          onPress={onSkip}
+          accessibilityRole="button"
+          accessibilityLabel="Skip onboarding"
+        >
           <Text maxFontSizeMultiplier={1.4} style={styles.skipText}>
             Skip
           </Text>
@@ -146,6 +151,9 @@ export default function OnboardingCarouselScreen({
           keyExtractor={(item) => item.id}
           horizontal
           pagingEnabled
+          directionalLockEnabled
+          decelerationRate="fast"
+          disableIntervalMomentum
           showsHorizontalScrollIndicator={false}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -159,7 +167,7 @@ export default function OnboardingCarouselScreen({
           renderItem={({ item }) => (
             <View style={[styles.slide, { width, gap: slideVerticalGap }]}>
               <View style={[styles.slidePanel, isCompactHeight && styles.slidePanelCompact, { width: panelWidth }]}>
-                <View style={styles.panelGlow} />
+                <View pointerEvents="none" style={styles.panelGlow} />
 
                 <View style={styles.slideHeaderRow}>
                   <View style={styles.eyebrowPill}>
@@ -228,16 +236,26 @@ export default function OnboardingCarouselScreen({
           })}
         </View>
 
-        <Pressable style={[styles.nextButton, isCompactHeight && styles.nextButtonCompact]} onPress={handleNext}>
+        <Pressable
+          style={({ pressed }) => [styles.nextButton, isCompactHeight && styles.nextButtonCompact, pressed && styles.nextButtonPressed]}
+          onPress={handleNext}
+          accessibilityRole="button"
+          accessibilityLabel={activeIndex === slides.length - 1 ? 'Get started' : 'Continue to next onboarding step'}
+        >
           <Text maxFontSizeMultiplier={1.4} style={styles.nextButtonText}>
             {activeIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
           </Text>
           {activeIndex < slides.length - 1 ? (
-            <Feather name="arrow-right" size={18} color="#FFFFFF" style={styles.nextButtonIcon} />
+            <Feather name="arrow-right" size={18} color={AUTH_COLORS.primary} style={styles.nextButtonIcon} />
           ) : null}
         </Pressable>
 
-        <Pressable style={styles.loginRow} onPress={onLogin}>
+        <Pressable
+          style={({ pressed }) => [styles.loginRow, pressed && styles.blueControlPressed]}
+          onPress={onLogin}
+          accessibilityRole="button"
+          accessibilityLabel="Log in to an existing account"
+        >
           <Text maxFontSizeMultiplier={1.4} style={styles.loginText}>
             Already have an account?
           </Text>
@@ -262,9 +280,9 @@ const styles = StyleSheet.create({
     height: 320,
     borderRadius: 160,
     backgroundColor: AUTH_COLORS.backgroundElevated,
-    opacity: 0.16,
-    top: -150,
-    right: -110,
+    opacity: 0.1,
+    top: -210,
+    right: -165,
   },
   backgroundOrbBottom: {
     position: 'absolute',
@@ -272,9 +290,9 @@ const styles = StyleSheet.create({
     height: 280,
     borderRadius: 140,
     backgroundColor: AUTH_COLORS.backgroundElevated,
-    opacity: 0.14,
-    bottom: -120,
-    left: -100,
+    opacity: 0.09,
+    bottom: -170,
+    left: -145,
   },
   topBar: {
     width: '100%',
@@ -297,17 +315,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   skipBtn: {
-    minHeight: 36,
+    minHeight: 44,
     borderRadius: 999,
     paddingHorizontal: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: AUTH_COLORS.blueControlSurface,
   },
   skipText: {
     fontSize: 15,
-    color: 'rgba(255,255,255,0.62)',
-    fontWeight: '600',
+    color: AUTH_COLORS.onBlue,
+    fontWeight: '700',
   },
   slidesWrapper: {
     flex: 1,
@@ -335,7 +353,7 @@ const styles = StyleSheet.create({
     width: 170,
     height: 170,
     borderRadius: 85,
-    backgroundColor: 'rgba(28,77,141,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   slideHeaderRow: {
     flexDirection: 'row',
@@ -348,19 +366,17 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: 'rgba(28,77,141,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.2)',
+    backgroundColor: AUTH_COLORS.blueControlSurface,
   },
   eyebrowText: {
     fontSize: 11,
     letterSpacing: 0.9,
-    color: '#BFDBFE',
+    color: AUTH_COLORS.onBlue,
     fontWeight: '800',
   },
   stepText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.48)',
+    color: AUTH_COLORS.onBlueMuted,
     fontWeight: '700',
   },
   illustrationArea: {
@@ -374,14 +390,12 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   iconRing: {
-    backgroundColor: 'rgba(28,77,141,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(96,165,250,0.18)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconCircle: {
-    backgroundColor: AUTH_COLORS.primary,
+    backgroundColor: 'rgba(15,41,84,0.42)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: AUTH_COLORS.primary,
@@ -397,17 +411,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.16)',
+    backgroundColor: AUTH_COLORS.blueControlSurface,
   },
   highlightPillCompact: {
     paddingVertical: 6,
   },
   highlightText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.74)',
-    fontWeight: '600',
+    color: AUTH_COLORS.onBlue,
+    fontWeight: '700',
   },
   textArea: {
     marginTop: 24,
@@ -425,7 +437,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.6)',
+    color: AUTH_COLORS.onBlueMuted,
     textAlign: 'center',
     maxWidth: 320,
     fontWeight: '500',
@@ -445,7 +457,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dot: {
-    height: 6,
+    height: 8,
     borderRadius: 999,
     backgroundColor: '#FFFFFF',
   },
@@ -453,11 +465,11 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 58,
     borderRadius: 18,
-    backgroundColor: AUTH_COLORS.primary,
+    backgroundColor: AUTH_COLORS.onBlue,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    shadowColor: AUTH_COLORS.primary,
+    shadowColor: '#0F2954',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.42,
     shadowRadius: 18,
@@ -468,7 +480,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: 16,
-    color: '#FFFFFF',
+    color: AUTH_COLORS.primary,
     letterSpacing: 0.2,
     fontWeight: '700',
   },
@@ -479,9 +491,7 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 48,
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(148,163,184,0.16)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: AUTH_COLORS.blueControlSurface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -490,12 +500,14 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.5)',
-    fontWeight: '500',
+    color: AUTH_COLORS.onBlueMuted,
+    fontWeight: '600',
   },
   loginLink: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '700',
+    color: AUTH_COLORS.onBlue,
+    fontWeight: '800',
   },
+  blueControlPressed: { backgroundColor: AUTH_COLORS.blueControlSurfacePressed, transform: [{ scale: 0.99 }] },
+  nextButtonPressed: { backgroundColor: '#EAF1FB', transform: [{ scale: 0.99 }] },
 });

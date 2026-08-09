@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { tokens } from '../../theme/tokens';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
+import { PasswordChecklist } from '../../components/auth/AuthControls';
 
 export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -18,6 +20,7 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [fieldError, setFieldError] = useState('');
   const toast = useToast();
 
   const getAuthHeader = async () => {
@@ -64,16 +67,22 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   };
 
   const handleSave = () => {
+    setFieldError('');
     if (!currentPassword || !otpCode || !newPassword || !confirmPassword) {
       toast.error('Complete all fields to continue.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error('New password and confirmation do not match.');
+      setFieldError('New password and confirmation do not match.');
       return;
     }
     if (newPassword === currentPassword) {
       toast.error('New password must be different from your current password.');
+      return;
+    }
+    const strong = newPassword.length >= 8 && /[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) && /\d/.test(newPassword) && /[^A-Za-z0-9]/.test(newPassword);
+    if (!strong) {
+      setFieldError('Your new password does not meet all requirements.');
       return;
     }
 
@@ -185,6 +194,9 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
                 </TouchableOpacity>
               </View>
 
+              <PasswordChecklist password={newPassword} confirm={confirmPassword} />
+              {fieldError ? <Text style={styles.fieldError}>{fieldError}</Text> : null}
+
               <TouchableOpacity style={[styles.primaryButton, isSubmitting && styles.buttonDisabled]} onPress={handleSave} disabled={isSubmitting}>
                 {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>Update Password</Text>}
               </TouchableOpacity>
@@ -248,4 +260,5 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.7,
   },
+  fieldError: { color: tokens.colors.danger, fontSize: 12, marginBottom: 4, fontWeight: '600' },
 });

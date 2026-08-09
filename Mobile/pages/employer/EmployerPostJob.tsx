@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
@@ -863,6 +863,7 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 14, fontWeight: '600', color: tokens.colors.text, marginBottom: 8, marginTop: 12 },
   input: {
+    minHeight: 52,
     backgroundColor: '#f3f4f6',
     borderRadius: 12,
     paddingHorizontal: 14,
@@ -883,12 +884,12 @@ const styles = StyleSheet.create({
     maxHeight: 180,
   },
   dropdownScroll: { maxHeight: 180 },
-  dropdownItem: { paddingHorizontal: 12, paddingVertical: 10 },
+  dropdownItem: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
   dropdownText: { color: tokens.colors.text, fontSize: 13 },
   dropdownEmpty: { color: '#6b7280', fontSize: 12 },
   addCategoryButton: {
-    width: 44,
-    height: 44,
+    width: 52,
+    height: 52,
     borderRadius: 12,
     backgroundColor: tokens.colors.brand,
     alignItems: 'center',
@@ -897,11 +898,13 @@ const styles = StyleSheet.create({
   addCategoryText: { color: tokens.colors.surface, fontSize: 20, fontWeight: '700' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
+    minHeight: 44,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    justifyContent: 'center',
     backgroundColor: tokens.colors.surface,
   },
   chipActive: {
@@ -911,6 +914,7 @@ const styles = StyleSheet.create({
   chipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: tokens.colors.surface },
   submitButton: {
+    minHeight: 52,
     marginTop: 20,
     backgroundColor: tokens.colors.brand,
     borderRadius: 14,
@@ -919,6 +923,7 @@ const styles = StyleSheet.create({
   },
   deadlineRow: { flexDirection: 'row', gap: 10 },
   deadlineButton: {
+    minHeight: 52,
     flex: 1,
     backgroundColor: '#f3f4f6',
     borderRadius: 12,
@@ -928,6 +933,7 @@ const styles = StyleSheet.create({
   },
   deadlineText: { color: tokens.colors.text, fontSize: 13, fontWeight: '600' },
   urgentRow: {
+    minHeight: 52,
     marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',

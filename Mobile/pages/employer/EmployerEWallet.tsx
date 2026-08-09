@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  ScrollView,
   TextInput,
   ActivityIndicator,
   Linking,
@@ -14,6 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import EmployerNavigation from '../../components/employerNavigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
+import CanvasBackButton from '../../components/ui/CanvasBackButton';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { safeExternalUrl } from '../../lib/safeExternalUrl';
@@ -260,9 +261,7 @@ export default function EmployerEWallet({
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
-        <TouchableOpacity style={styles.headerButton} onPress={onBack}>
-          <Ionicons name="chevron-back" size={20} color="#E2E8F0" />
-        </TouchableOpacity>
+        {onBack ? <CanvasBackButton style={styles.headerButton} onPress={onBack} /> : <View style={styles.headerButtonPlaceholder} />}
         <Text style={styles.headerTitle}>E-Wallet</Text>
         <View style={styles.headerButtonPlaceholder} />
       </View>
@@ -301,14 +300,17 @@ export default function EmployerEWallet({
           <View style={styles.quickIconCard}>
             <Ionicons name="phone-portrait-outline" size={22} color="#1C4D8D" />
             <Text style={styles.quickIconLabel}>Scan</Text>
+            <Text style={styles.comingSoon}>Coming soon</Text>
           </View>
           <View style={styles.quickIconCard}>
             <Ionicons name="card-outline" size={22} color="#D97706" />
             <Text style={styles.quickIconLabel}>Bills</Text>
+            <Text style={styles.comingSoon}>Coming soon</Text>
           </View>
           <View style={styles.quickIconCard}>
             <Ionicons name="add-outline" size={22} color="#7C3AED" />
             <Text style={styles.quickIconLabel}>More</Text>
+            <Text style={styles.comingSoon}>Coming soon</Text>
           </View>
         </View>
 
@@ -401,19 +403,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerButton: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.26)',
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 0,
   },
   headerButtonPlaceholder: {
-    width: 42,
-    height: 42,
+    width: 44,
+    height: 44,
   },
   headerTitle: {
     fontSize: 22,
@@ -456,6 +456,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   balanceAction: {
+    minHeight: 44,
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -491,10 +492,8 @@ const styles = StyleSheet.create({
   },
   quickIconCard: {
     flex: 1,
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: tokens.colors.contentMuted,
     borderRadius: 14,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
     alignItems: 'center',
     paddingVertical: 12,
     gap: 8,
@@ -506,6 +505,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.colors.textMuted,
   },
+  comingSoon: { fontSize: 10, color: tokens.colors.textSubtle, fontWeight: '600' },
   card: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 16,
@@ -594,6 +594,7 @@ const styles = StyleSheet.create({
     color: tokens.colors.brand,
   },
   primaryButton: {
+    minHeight: 52,
     marginTop: 14,
     backgroundColor: tokens.colors.brand,
     borderRadius: 10,

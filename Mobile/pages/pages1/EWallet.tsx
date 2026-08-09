@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
+  type ScrollView as NativeScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +11,7 @@ import {
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
@@ -140,7 +141,7 @@ export default function EWallet({
   notificationBadgeCount = 0,
   messageBadgeCount = 0,
 }: EWalletProps) {
-  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<NativeScrollView>(null);
   const payoutIdempotencyKeyRef = useRef<string | null>(null);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
@@ -576,7 +577,7 @@ export default function EWallet({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.canvasBlue,
   },
   scroll: {
     paddingHorizontal: 16,
@@ -711,7 +712,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.pill,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
   },
   segmentChipActive: {
     backgroundColor: '#0F2954',
@@ -845,7 +846,7 @@ const styles = StyleSheet.create({
   },
   timelineItem: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
     borderRadius: 12,
     padding: 10,
     borderWidth: 1,
@@ -869,7 +870,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.colors.border,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     padding: 10,
     color: '#475569',
     fontSize: 12,

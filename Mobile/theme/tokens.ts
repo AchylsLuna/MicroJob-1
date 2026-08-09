@@ -1,6 +1,11 @@
 export const tokens = {
   colors: {
-    background: '#F8FAFC',
+    canvasBlue: '#1C4D8D',
+    contentSurface: '#FFFFFF',
+    contentMuted: '#F1F5F9',
+    onCanvas: '#FFFFFF',
+    onCanvasMuted: '#DBEAFE',
+    background: '#1C4D8D',
     surface: '#FFFFFF',
     surfaceMuted: '#F1F5F9',
     border: '#E5E7EB',

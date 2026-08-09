@@ -75,6 +75,9 @@ export default function EmployerNavigation({
               style={styles.tabItem}
               onPress={() => onTabPress?.(item.screen)}
               activeOpacity={0.85}
+              accessibilityRole="tab"
+              accessibilityLabel={item.screen === 'Notifications' && hasBadge ? `${item.label}, ${item.badge} unread` : item.label}
+              accessibilityState={{ selected: isActive }}
             >
               <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
                 {item.screen === 'Profile' ? (

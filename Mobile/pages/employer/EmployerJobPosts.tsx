@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,6 +10,7 @@ import {
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 import { apiRequest, asList } from '../../lib/api';
@@ -349,13 +349,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 10,
   },
   footerText: { color: '#64748b', fontSize: 12 },
-  footerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  footerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   doneButton: {
+    minHeight: 44,
     backgroundColor: '#1C4D8D',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 10,
     minWidth: 80,
     alignItems: 'center',
@@ -365,9 +368,11 @@ const styles = StyleSheet.create({
   },
   doneButtonText: { color: tokens.colors.surface, fontSize: 12, fontWeight: '700' },
   editButton: {
+    minHeight: 44,
     backgroundColor: tokens.colors.brand,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 8,
+    justifyContent: 'center',
     borderRadius: 10,
   },
   editButtonText: { color: tokens.colors.surface, fontSize: 12, fontWeight: '700' },
@@ -418,11 +423,13 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   modalCancelBtn: {
+    minHeight: 52,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    justifyContent: 'center',
   },
   modalCancelText: {
     color: '#334155',
@@ -430,10 +437,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalConfirmBtn: {
+    minHeight: 52,
     backgroundColor: '#1C4D8D',
     borderRadius: 10,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     minWidth: 110,
     alignItems: 'center',
   },

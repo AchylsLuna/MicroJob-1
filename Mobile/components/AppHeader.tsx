@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
+import { StatusBar } from 'expo-status-bar';
 
 type AppHeaderProps = {
   title: string;
@@ -26,10 +27,11 @@ export default function AppHeader({
 
   return (
     <View style={[styles.wrapper, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
+      <StatusBar style="dark" backgroundColor={tokens.colors.contentSurface} />
       <View style={styles.row}>
         <View style={styles.side}>
           {onBack ? (
-            <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.85}>
+            <TouchableOpacity onPress={onBack} style={styles.iconButton} activeOpacity={0.85} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
               <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
             </TouchableOpacity>
           ) : (
@@ -97,16 +99,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: tokens.colors.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconButtonPlaceholder: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
   },
   actionButton: {
     minHeight: 32,

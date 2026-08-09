@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +10,7 @@ import {
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import ConfirmModal from '../../components/ConfirmModal';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
@@ -302,13 +302,14 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
               <View style={styles.methodActions}>
                 {method.status === 'active' ? (
                   <TouchableOpacity
+                    style={styles.methodActionButton}
                     onPress={() => void handleSetDefault(method.id)}
                     disabled={actionId === method.id}
                   >
                     <Text style={styles.actionText}>Set default</Text>
                   </TouchableOpacity>
                 ) : null}
-                <TouchableOpacity onPress={() => confirmRemove(method)} disabled={actionId === method.id}>
+                <TouchableOpacity style={styles.methodActionButton} onPress={() => confirmRemove(method)} disabled={actionId === method.id} accessibilityRole="button" accessibilityLabel={`Remove ${method.brand} ending in ${method.last4}`}>
                   <Ionicons name="trash-outline" size={21} color="#DC2626" />
                 </TouchableOpacity>
               </View>
@@ -345,7 +346,7 @@ const styles = StyleSheet.create({
   introCopy: { flex: 1, gap: 3 },
   title: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
   subtitle: { fontSize: 12, lineHeight: 17, color: '#64748B' },
-  addButton: { borderRadius: 12, backgroundColor: tokens.colors.brand, paddingHorizontal: 15, paddingVertical: 10 },
+  addButton: { minHeight: 44, borderRadius: 12, backgroundColor: tokens.colors.brand, paddingHorizontal: 15, paddingVertical: 10, justifyContent: 'center' },
   addButtonText: { color: tokens.colors.surface, fontSize: 13, fontWeight: '800' },
   card: {
     borderRadius: 22,
@@ -371,7 +372,7 @@ const styles = StyleSheet.create({
   halfInput: { flex: 1 },
   inputLabel: { marginBottom: 6, color: tokens.colors.textMuted, fontSize: 13, fontWeight: '600' },
   primaryButton: {
-    minHeight: 50,
+    minHeight: 52,
     borderRadius: 14,
     backgroundColor: tokens.colors.brand,
     alignItems: 'center',
@@ -386,7 +387,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: '#CBD5E1',
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -419,6 +420,7 @@ const styles = StyleSheet.create({
   methodMeta: { fontSize: 11, color: '#64748B' },
   defaultLabel: { marginTop: 3, fontSize: 10, fontWeight: '900', color: '#166534' },
   expiredLabel: { marginTop: 3, fontSize: 10, fontWeight: '900', color: '#B91C1C' },
-  methodActions: { alignItems: 'flex-end', gap: 14 },
+  methodActions: { alignItems: 'flex-end', gap: 4 },
+  methodActionButton: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   actionText: { fontSize: 12, fontWeight: '800', color: tokens.colors.brand },
 });

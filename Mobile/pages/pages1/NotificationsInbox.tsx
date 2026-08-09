@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
 import { formatNotificationTime, normalizeNotificationItem, type NotificationListItem } from '../../lib/notifications';

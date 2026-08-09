@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
@@ -277,7 +278,7 @@ export default function JobDetails({
 
   if (showSuccess) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#f5f7fa' }}>
+      <View style={{ flex: 1, backgroundColor: tokens.colors.canvasBlue }}>
         <View style={styles.successContainer}>
           <View style={styles.successContent}>
             <View style={styles.successIcon}>
@@ -453,7 +454,7 @@ export default function JobDetails({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.colors.surface },
+  container: { flex: 1, backgroundColor: tokens.colors.canvasBlue },
   scroll: { paddingHorizontal: 20 },
   headerContainer: {
     backgroundColor: '#c8d4d8',
@@ -519,7 +520,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   previewCard: {
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 10,
@@ -639,12 +640,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingBottom: 112,
-    backgroundColor: '#f5f7fa',
+    backgroundColor: tokens.colors.canvasBlue,
+    paddingHorizontal: 20,
   },
   successContent: {
     alignItems: 'center',
     width: '100%',
     maxWidth: 320,
+    backgroundColor: tokens.colors.contentSurface,
+    borderRadius: 20,
+    padding: 24,
+    ...tokens.shadow.card,
   },
   successIcon: {
     width: 80,

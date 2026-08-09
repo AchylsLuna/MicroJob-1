@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { tokens } from '../theme/tokens';
 
 type Role = 'worker' | 'employer';
@@ -35,6 +36,7 @@ export default function TabTopNav({
 
   return (
     <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
+      <StatusBar style="dark" backgroundColor={tokens.colors.contentSurface} />
       <Text style={styles.topHeaderTitle} numberOfLines={1}>
         {title}
       </Text>

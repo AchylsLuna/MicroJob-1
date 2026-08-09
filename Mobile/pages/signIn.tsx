@@ -7,11 +7,12 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   useWindowDimensions,
 } from 'react-native';
 import { useState } from 'react';
 import { API_URL } from '../config';
+import ScrollView from '../components/ui/SmoothScrollView';
+import CanvasBackButton from '../components/ui/CanvasBackButton';
 import AsyncStorage from '../lib/storage';
 import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
@@ -42,8 +43,7 @@ export default function SignIn({
   const cardRadius = clamp(screenWidth * 0.085, 26, 32);
   const cardVerticalPadding = clamp(screenHeight * 0.032, 22, 28);
   const cardHorizontalPadding = clamp(screenWidth * 0.065, 22, 28);
-  const backButtonSize = clamp(screenWidth * 0.12, 40, 44);
-  const backIconSize = clamp(screenWidth * 0.056, 20, 22);
+  const backButtonSize = 44;
   const iconTileSize = clamp(screenWidth * 0.19, 72, 80);
   const iconTileRadius = clamp(iconTileSize * 0.28, 18, 22);
   const authIconSize = clamp(iconTileSize * 0.41, 28, 32);
@@ -65,6 +65,7 @@ export default function SignIn({
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
   const toast = useToast();
 
   const continueAfterPrimaryAuth = async (token: string, user: any) => {
@@ -91,20 +92,21 @@ export default function SignIn({
   const handleSignIn = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      toast.error('Please enter your email address.');
+      setErrors({ email: 'Enter your email address.' });
       return;
     }
 
     if (!EMAIL_REGEX.test(normalizedEmail)) {
-      toast.error('Please enter a valid email address.');
+      setErrors({ email: 'Enter a valid email address.' });
       return;
     }
 
     if (!password) {
-      toast.error('Please enter your password.');
+      setErrors({ password: 'Enter your password.' });
       return;
     }
 
+    setErrors({});
     setIsLoading(true);
 
     try {
@@ -166,7 +168,7 @@ export default function SignIn({
       return;
     }
     if (!mfaCode.trim()) {
-      toast.error('Enter your MFA code.');
+      setErrors({ mfa: 'Enter your authenticator or backup code.' });
       return;
     }
 
@@ -221,15 +223,10 @@ export default function SignIn({
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={[
-            styles.backButton,
-            { width: backButtonSize, height: backButtonSize, borderRadius: clamp(backButtonSize * 0.29, 14, 16) },
-          ]}
+        <CanvasBackButton
+          style={{ width: backButtonSize, height: backButtonSize, borderRadius: clamp(backButtonSize * 0.29, 14, 16), marginBottom: 24 }}
           onPress={onBack}
-        >
-          <Feather name="arrow-left" size={backIconSize} color={AUTH_COLORS.primaryText} />
-        </TouchableOpacity>
+        />
 
         <View
           style={[
@@ -269,7 +266,7 @@ export default function SignIn({
               placeholder="Email address"
               placeholderTextColor={AUTH_COLORS.placeholderLight}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(value) => { setEmail(value); setErrors((current) => ({ ...current, email: undefined })); }}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -278,6 +275,8 @@ export default function SignIn({
             />
           </View>
 
+          {errors.email ? <Text style={styles.inlineError}>{errors.email}</Text> : null}
+
           <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
             <Feather name="lock" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
             <TextInput
@@ -285,7 +284,7 @@ export default function SignIn({
               placeholder="Password"
               placeholderTextColor={AUTH_COLORS.placeholderLight}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={(value) => { setPassword(value); setErrors((current) => ({ ...current, password: undefined })); }}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
@@ -296,6 +295,7 @@ export default function SignIn({
               <Feather name={showPassword ? 'eye-off' : 'eye'} size={fieldIconSize + 2} color={AUTH_COLORS.textMuted} />
             </TouchableOpacity>
           </View>
+          {errors.password ? <Text style={styles.inlineError}>{errors.password}</Text> : null}
 
           {requiresMfa ? (
             <>
@@ -306,10 +306,11 @@ export default function SignIn({
                   placeholder="Authenticator / Backup Code"
                   placeholderTextColor={AUTH_COLORS.placeholderLight}
                   value={mfaCode}
-                  onChangeText={setMfaCode}
+                  onChangeText={(value) => { setMfaCode(value); setErrors((current) => ({ ...current, mfa: undefined })); }}
                   autoCapitalize="characters"
                 />
               </View>
+              {errors.mfa ? <Text style={styles.inlineError}>{errors.mfa}</Text> : null}
               <Text maxFontSizeMultiplier={1.4} style={[styles.mfaHelpText, { fontSize: clamp(inputFontSize * 0.72, 12, 13) }]}>
                 MFA is enabled for this account. Enter a valid code to continue.
               </Text>
@@ -369,15 +370,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 24,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
   card: {
     backgroundColor: AUTH_COLORS.cardLight,
     borderRadius: 28,
@@ -434,6 +426,7 @@ const styles = StyleSheet.create({
     color: AUTH_COLORS.inputTextLight,
     fontWeight: '400',
   },
+  inlineError: { color: AUTH_COLORS.danger, fontSize: 12, marginTop: -7, marginBottom: 10, fontWeight: '500' },
   eyeButton: {
     padding: 4,
   },

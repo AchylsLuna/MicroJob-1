@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +10,7 @@ import {
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
@@ -515,7 +515,7 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.canvasBlue,
   },
   scroll: {
     paddingHorizontal: 20,
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.radius.pill,
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
   },
   choiceChipActive: {
     backgroundColor: '#0F2954',
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   threadBubbleUser: {
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentMuted,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: tokens.colors.border,

@@ -286,6 +286,12 @@ export default function MessageList({
       <FlatList
         data={filteredConversations}
         keyExtractor={(item) => item.conversationId}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        initialNumToRender={12}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={40}
+        windowSize={7}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
           const timeLabel = formatConversationTime(item.lastMessageAt);
@@ -360,7 +366,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 10,
     marginBottom: 12,
-    height: 50,
+    minHeight: 52,
     borderRadius: 16,
     backgroundColor: '#F1F5F9',
     borderWidth: 1,
@@ -385,6 +391,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 84,
     paddingVertical: 14,
   },
   avatarWrap: {

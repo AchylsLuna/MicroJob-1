@@ -4,7 +4,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +13,7 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
@@ -815,14 +815,14 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.canvasBlue,
   },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5EAF1',
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -963,7 +963,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     color: tokens.colors.text,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.contentSurface,
     ...tokens.shadow.card,
   },
   inputReadOnly: {

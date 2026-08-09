@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,6 +10,7 @@ import {
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
+import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, normalizeApplicationStatus } from '../../lib/status';
@@ -338,14 +338,15 @@ export default function EmployerApplications({
                 {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ''}
               </Text>
               <View style={styles.metaActions}>
-                <TouchableOpacity onPress={() => handleViewProfile(app.applicant._id)}>
+                <TouchableOpacity style={styles.textAction} onPress={() => handleViewProfile(app.applicant._id)} accessibilityRole="button">
                   <Text style={styles.linkText}>View Profile</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => handleRemoveApplication(app._id)}>
+                <TouchableOpacity style={styles.textAction} onPress={() => handleRemoveApplication(app._id)} accessibilityRole="button">
                   <Text style={styles.removeText}>Remove</Text>
                 </TouchableOpacity>
                 {onMessageWorker ? (
                   <TouchableOpacity
+                    style={styles.textAction}
                     onPress={() =>
                       onMessageWorker({
                         workerId: app.applicant._id,
@@ -369,7 +370,9 @@ export default function EmployerApplications({
                     app.status === status && styles.statusButtonActive,
                   ]}
                   onPress={() => handleStatusChange(app._id, status)}
-                  disabled={updatingId === app._id}
+                  disabled={updatingId === app._id || app.status === status}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: updatingId === app._id || app.status === status, busy: updatingId === app._id }}
                 >
                   <Text
                     style={[
@@ -444,6 +447,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f3f4f6',
     borderRadius: 12,
     paddingHorizontal: 12,
+    minHeight: 52,
     paddingVertical: 10,
     fontSize: 13,
     color: tokens.colors.text,
@@ -454,7 +458,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#cbd5e1',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 8,
+    justifyContent: 'center',
   },
   filterChipActive: {
     backgroundColor: tokens.colors.brand,
@@ -468,7 +474,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#cbd5e1',
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 8,
+    justifyContent: 'center',
     marginRight: 8,
     maxWidth: 180,
   },
@@ -501,7 +509,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: { fontSize: 13, color: '#6b7280' },
-  appHeader: { flexDirection: 'row', gap: 12 },
+  appHeader: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   avatar: {
     width: 42,
     height: 42,
@@ -524,9 +532,10 @@ const styles = StyleSheet.create({
   },
   statusText: { fontSize: 11, color: '#a16207', fontWeight: '700' },
   coverLetter: { fontSize: 12, color: '#4b5563', marginTop: 12, lineHeight: 18 },
-  metaRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 },
+  metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 8, flexWrap: 'wrap' },
   metaText: { fontSize: 12, color: '#6b7280' },
-  metaActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  metaActions: { flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' },
+  textAction: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   linkText: { fontSize: 12, color: '#1C4D8D', fontWeight: '600' },
   removeText: { fontSize: 12, color: '#b91c1c', fontWeight: '700' },
   statusRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
@@ -535,7 +544,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#cbd5e1',
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    minHeight: 44,
+    paddingVertical: 8,
+    justifyContent: 'center',
   },
   statusButtonActive: { backgroundColor: tokens.colors.brand, borderColor: tokens.colors.brand },
   statusButtonText: { fontSize: 11, color: '#475569', fontWeight: '600' },

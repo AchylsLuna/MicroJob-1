@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const required = [22, 12, 0];
+const required = [22, 13, 0];
 const current = process.versions.node.split('.').map((part) => Number(part));
 
 const isLessThan = (a, b) => {
@@ -46,7 +46,7 @@ if (!isLessThan(current, required)) {
 if (process.platform === 'win32') {
   const requiredVersion = required.join('.');
   console.error(`\nNode.js ${requiredVersion}+ is required. You are using ${process.versions.node}.`);
-  console.error('Fix: install Node 22.12.0+ and re-run the command.');
+  console.error('Fix: install Node 22.13.0+ and re-run the command.');
   process.exit(1);
 }
 
@@ -56,9 +56,9 @@ const nvmSh = path.join(nvmDir, 'nvm.sh');
 if (!fs.existsSync(nvmSh)) {
   const requiredVersion = required.join('.');
   console.error(`\nNode.js ${requiredVersion}+ is required. You are using ${process.versions.node}.`);
-  console.error('nvm was not found. Install Node 22.12.0+ or install nvm and run:');
-  console.error('  nvm install 22.12.0');
-  console.error('  nvm use 22.12.0');
+  console.error('nvm was not found. Install Node 22.13.0+ or install nvm and run:');
+  console.error('  nvm install 22.13.0');
+  console.error('  nvm use 22.13.0');
   process.exit(1);
 }
 
@@ -68,7 +68,7 @@ const bashCommand = [
   'unset NPM_CONFIG_PREFIX',
   `export NVM_DIR=${shellQuote(nvmDir)}`,
   '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"',
-  'nvm use 22.12.0 >/dev/null',
+  'nvm use 22.13.0 >/dev/null',
   commandString,
 ].join(' && ');
 
