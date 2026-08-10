@@ -18,6 +18,7 @@ import {
   normalizeProfilePhone,
   validateMobileAvatar,
 } from '../../lib/profileValidation';
+import ProfileReviewsLoader from '../../components/reviews/ProfileReviewsLoader';
 
 type EmployerProfileProps = {
   employer?: {
@@ -57,6 +58,7 @@ export default function EmployerProfile({
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [profileId, setProfileId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [formError, setFormError] = useState('');
@@ -81,6 +83,7 @@ export default function EmployerProfile({
         const storedUser = await AsyncStorage.getItem('auth_user');
         if (storedUser) {
           const parsed = JSON.parse(storedUser);
+          setProfileId(String(parsed?.id || parsed?._id || parsed?.userId || ''));
           setFirstName(parsed?.firstName || '');
           setLastName(parsed?.lastName || '');
           setEmail(parsed?.email || '');
@@ -103,6 +106,7 @@ export default function EmployerProfile({
         const dataPayload = asObject<any>(result.data) || {};
         const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
         if (profile) {
+          setProfileId(String(profile.id || profile._id || profile.userId || ''));
           setFirstName(profile.firstName || '');
           setLastName(profile.lastName || '');
           setEmail(profile.email || '');
@@ -476,6 +480,12 @@ export default function EmployerProfile({
             </>
           )}
         </TouchableOpacity>
+
+        <ProfileReviewsLoader
+          profileOwnerId={profileId}
+          profileOwnerName={employerName}
+          viewAs="employer"
+        />
       </ScrollView>
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />

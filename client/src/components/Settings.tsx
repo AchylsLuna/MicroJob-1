@@ -177,6 +177,42 @@ interface SessionInfo {
   lastActive: string;
 }
 
+type PersonalInfoState = {
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  city: string;
+  province: string;
+  barangay: string;
+  addressType: string;
+  address: string;
+  phone: string;
+  email: string;
+  about: string;
+  jobPosition: string;
+  linkedin: string;
+  website: string;
+  photo: File | null;
+};
+
+const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): PersonalInfoState => ({
+  firstName: profile?.firstName || "",
+  lastName: profile?.lastName || "",
+  companyName: profile?.companyName || "",
+  email: profile?.email || previous?.email || "",
+  phone: profile?.phoneNumber || "",
+  city: profile?.city || "",
+  province: profile?.province || "",
+  barangay: profile?.barangay || "",
+  addressType: profile?.addressType || "home",
+  address: profile?.address || "",
+  about: profile?.about || "",
+  jobPosition: profile?.jobPosition || "",
+  linkedin: profile?.linkedin || "",
+  website: profile?.website || "",
+  photo: previous?.photo || null,
+});
+
 export function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = mapTabParam(searchParams.get("tab")) ?? "account";
@@ -197,12 +233,14 @@ export function Settings() {
   const hasEmployerAccess = isEmployerRole || roleValue === "both";
   const [isProfileSaving, setIsProfileSaving] = useState(false);
   const [isAvatarSubmitting, setIsAvatarSubmitting] = useState(false);
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [profileFormError, setProfileFormError] = useState("");
   const [profileErrorField, setProfileErrorField] = useState<ProfileValidationField | null>(null);
   const profileDraftDirtyRef = useRef(false);
+  const originalPersonalInfoRef = useRef<PersonalInfoState | null>(null);
+  const originalTotalExperienceRef = useRef("");
 
-  const [personalInfo, setPersonalInfo] = useState({
+  const [personalInfo, setPersonalInfo] = useState<PersonalInfoState>({
     firstName: "",
     lastName: "",
     companyName: "",
@@ -285,13 +323,17 @@ export function Settings() {
     (item) => item.name.toLowerCase() === personalInfo.province.trim().toLowerCase(),
   );
 
-  const selectedCity = cityOptions.find(
+  const filteredCityOptions = selectedProvince?.code
+    ? cityOptions.filter((item) => item.provinceCode === selectedProvince.code)
+    : [];
+
+  const selectedCity = filteredCityOptions.find(
     (item) => item.name.toLowerCase() === personalInfo.city.trim().toLowerCase(),
   );
 
-  const filteredCityOptions = selectedProvince?.code
-    ? cityOptions.filter((item) => item.provinceCode === selectedProvince.code)
-    : cityOptions;
+  const selectedBarangay = barangayOptions.find(
+    (item) => item.name.toLowerCase() === personalInfo.barangay.trim().toLowerCase(),
+  );
 
   const visibleMainTabs = hasEmployerAccess
     ? mainTabConfig
@@ -516,23 +558,7 @@ export function Settings() {
 
   useEffect(() => {
     if (!user || profileDraftDirtyRef.current) return;
-    setPersonalInfo((prev) => ({
-      ...prev,
-      firstName: user.firstName || "",
-      lastName: user.lastName || "",
-      companyName: (user as any).companyName || "",
-      email: user.email || "",
-      phone: user.phoneNumber || "",
-      city: user.city || "",
-      province: (user as any).province || "",
-      barangay: (user as any).barangay || "",
-      addressType: (user as any).addressType || "home",
-      address: (user as any).address || "",
-      about: user.about || "",
-      jobPosition: user.jobPosition || "",
-      linkedin: user.linkedin || "",
-      website: user.website || "",
-    }));
+    setPersonalInfo((prev) => profileToPersonalInfo(user, prev));
     setExperienceStats({
       totalExperience: user.totalExperience || "",
       projectsCompleted: user.projectsCompleted || 0,
@@ -565,7 +591,7 @@ export function Settings() {
       } catch (error) {
         console.error("Failed to load Philippine location data:", error);
         if (isMounted) {
-          setLocationDataError("Location suggestions are unavailable. You can type your location or retry.");
+          setLocationDataError("Philippine location options are unavailable. Retry before changing your location.");
         }
       } finally {
         if (isMounted) {
@@ -601,7 +627,7 @@ export function Settings() {
         console.error("Failed to load barangays:", error);
         if (isMounted) {
           setBarangayOptions([]);
-          setBarangayDataError("Barangay suggestions are unavailable. Type the barangay instead.");
+          setBarangayDataError("Barangay options are unavailable. Re-select the city or try again shortly.");
         }
       } finally {
         if (isMounted) {
@@ -626,23 +652,10 @@ export function Settings() {
         const profile = (response as any)?.user ?? response;
         if (!isMounted || !profile) return;
         if (!profileDraftDirtyRef.current) {
-          setPersonalInfo((prev) => ({
-            ...prev,
-            firstName: profile.firstName || "",
-            lastName: profile.lastName || "",
-            companyName: profile.companyName || "",
-            email: profile.email || "",
-            phone: profile.phoneNumber || "",
-            city: profile.city || "",
-            province: profile.province || "",
-            barangay: profile.barangay || "",
-            addressType: profile.addressType || "home",
-            address: profile.address || "",
-            about: profile.about || "",
-            jobPosition: profile.jobPosition || "",
-            linkedin: profile.linkedin || "",
-            website: profile.website || "",
-          }));
+          const loadedPersonalInfo = profileToPersonalInfo(profile);
+          setPersonalInfo(loadedPersonalInfo);
+          originalPersonalInfoRef.current = loadedPersonalInfo;
+          originalTotalExperienceRef.current = profile.totalExperience || "";
         }
         if (profile.skills && Array.isArray(profile.skills)) {
           const mappedSkills = profile.skills.map((skill: any) => ({
@@ -670,6 +683,11 @@ export function Settings() {
           email: profile.email,
           phoneNumber: profile.phoneNumber,
           city: profile.city,
+          province: profile.province,
+          barangay: profile.barangay,
+          addressType: profile.addressType,
+          address: profile.address,
+          companyName: profile.companyName,
           about: profile.about,
           jobPosition: profile.jobPosition,
           linkedin: profile.linkedin,
@@ -694,7 +712,7 @@ export function Settings() {
   }, [updateAuthProfile]);
 
   const handleSavePersonalInfo = async () => {
-    if (isProfileSaving) return;
+    if (isProfileSaving || isProfileLoading) return;
     const firstName = normalizeFullName(personalInfo.firstName);
     const lastName = normalizeFullName(personalInfo.lastName);
     const phoneNumber = normalizePhone(personalInfo.phone);
@@ -728,40 +746,107 @@ export function Settings() {
       return;
     }
 
+    const original = originalPersonalInfoRef.current;
+    if (!original) {
+      const message = "Your profile is still loading. Please wait and try again.";
+      setProfileFormError(message);
+      toast.error(message);
+      return;
+    }
+
+    const normalizedLocation = {
+      province: personalInfo.province.trim(),
+      city: personalInfo.city.trim(),
+      barangay: personalInfo.barangay.trim(),
+    };
+    const locationChanged = (Object.keys(normalizedLocation) as Array<keyof typeof normalizedLocation>)
+      .some((field) => normalizedLocation[field] !== original[field].trim());
+    const hasAnyLocation = Object.values(normalizedLocation).some(Boolean);
+    if (locationChanged && (isLoadingLocationData || isLoadingBarangays)) {
+      const message = "Please wait for the Philippine location options to finish loading.";
+      setProfileFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (locationChanged && locationDataError) {
+      const message = "Location options are unavailable, so location changes cannot be validated yet. Retry loading them first.";
+      setProfileFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (hasAnyLocation && (!selectedProvince || !selectedCity || !selectedBarangay)) {
+      const message = "Select a valid Province, City/Municipality, and Barangay from the suggestions.";
+      setProfileFormError(message);
+      toast.error(message);
+      return;
+    }
+
     setProfileFormError("");
     setProfileErrorField(null);
     setIsProfileSaving(true);
     try {
-      const profilePayload: Record<string, string> = {
+      const nextValues: Record<string, string> = {
         firstName,
         lastName,
         companyName: personalInfo.companyName.trim(),
-        city: personalInfo.city.trim(),
-        province: personalInfo.province.trim(),
-        barangay: personalInfo.barangay.trim(),
+        city: normalizedLocation.city,
+        province: normalizedLocation.province,
+        barangay: normalizedLocation.barangay,
         addressType: personalInfo.addressType,
         address: personalInfo.address.trim(),
+        phoneNumber,
+        about: personalInfo.about.trim(),
+        totalExperience: experienceStats.totalExperience,
+        jobPosition: personalInfo.jobPosition.trim(),
+        linkedin: personalInfo.linkedin.trim(),
+        website: personalInfo.website.trim(),
       };
-      if (!isAdminRole) {
-        profilePayload.phoneNumber = phoneNumber;
-        profilePayload.about = personalInfo.about.trim();
-        profilePayload.totalExperience = experienceStats.totalExperience;
-        profilePayload.jobPosition = personalInfo.jobPosition.trim();
-        profilePayload.linkedin = personalInfo.linkedin.trim();
-        profilePayload.website = personalInfo.website.trim();
+      const originalValues: Record<string, string> = {
+        firstName: original.firstName.trim(),
+        lastName: original.lastName.trim(),
+        companyName: original.companyName.trim(),
+        city: original.city.trim(),
+        province: original.province.trim(),
+        barangay: original.barangay.trim(),
+        addressType: original.addressType,
+        address: original.address.trim(),
+        phoneNumber: normalizePhone(original.phone),
+        about: original.about.trim(),
+        totalExperience: originalTotalExperienceRef.current,
+        jobPosition: original.jobPosition.trim(),
+        linkedin: original.linkedin.trim(),
+        website: original.website.trim(),
+      };
+      const adminAllowed = new Set([
+        "firstName", "lastName", "companyName", "city", "province", "barangay", "addressType", "address",
+      ]);
+      const profilePayload = Object.fromEntries(
+        Object.entries(nextValues).filter(([key, value]) => {
+          if (isAdminRole && !adminAllowed.has(key)) return false;
+          return value !== originalValues[key];
+        }),
+      );
+      if (Object.keys(profilePayload).length === 0) {
+        profileDraftDirtyRef.current = false;
+        toast.success("No profile changes to save.");
+        return;
       }
       const response = await updateProfile({
         ...profilePayload,
         // Note: projectsCompleted, jobsApplied, and successRate are auto-calculated by backend
       });
       const updated = (response as any)?.user ?? response;
+      const savedPersonalInfo = profileToPersonalInfo(updated, personalInfo);
+      setPersonalInfo(savedPersonalInfo);
+      originalPersonalInfoRef.current = savedPersonalInfo;
+      originalTotalExperienceRef.current = updated.totalExperience || "";
       
       // Update local state with auto-calculated values from backend
       setExperienceStats({
-        totalExperience: updated.totalExperience || experienceStats.totalExperience,
-        projectsCompleted: updated.projectsCompleted || 0,
-        jobsApplied: updated.jobsApplied || 0,
-        successRate: updated.successRate || '0%',
+        totalExperience: updated.totalExperience ?? "",
+        projectsCompleted: updated.projectsCompleted ?? 0,
+        jobsApplied: updated.jobsApplied ?? 0,
+        successRate: updated.successRate ?? '0%',
       });
       
       profileDraftDirtyRef.current = false;
@@ -771,14 +856,19 @@ export function Settings() {
         email: updated.email,
         phoneNumber: updated.phoneNumber,
         city: updated.city,
-        about: updated.about || personalInfo.about,
-        jobPosition: updated.jobPosition || personalInfo.jobPosition,
-        linkedin: updated.linkedin || personalInfo.linkedin,
-        website: updated.website || personalInfo.website,
-        totalExperience: updated.totalExperience || experienceStats.totalExperience,
-        projectsCompleted: updated.projectsCompleted || 0,
-        jobsApplied: updated.jobsApplied || 0,
-        successRate: updated.successRate || '0%',
+        province: updated.province,
+        barangay: updated.barangay,
+        addressType: updated.addressType,
+        address: updated.address,
+        companyName: updated.companyName,
+        about: updated.about,
+        jobPosition: updated.jobPosition,
+        linkedin: updated.linkedin,
+        website: updated.website,
+        totalExperience: updated.totalExperience,
+        projectsCompleted: updated.projectsCompleted ?? 0,
+        jobsApplied: updated.jobsApplied ?? 0,
+        successRate: updated.successRate ?? '0%',
         avatarUrl: updated.avatarUrl,
       });
       toast.success("Personal information saved successfully!");
@@ -1270,7 +1360,7 @@ export function Settings() {
                         </div>
                       )}
 
-                      {!isAdminRole ? (
+                      {!isAdminRole && (
                         <>
                           {locationDataError ? (
                             <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900" role="status">
@@ -1286,80 +1376,60 @@ export function Settings() {
                           ) : null}
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                              <label htmlFor="settings-employer-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
-                              {locationDataError ? (
-                                <input
-                                  id="settings-employer-city"
-                                  value={personalInfo.city}
-                                  maxLength={PROFILE_LIMITS.city}
-                                  autoComplete="address-level2"
-                                  onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
-                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-                                />
-                              ) : (
-                                <select
-                                  id="settings-employer-city"
-                                  value={personalInfo.city}
-                                  onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
-                                  disabled={isLoadingLocationData}
-                                  autoComplete="address-level2"
-                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                                >
-                                  <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
-                                  {filteredCityOptions.map((city) => <option key={city.code} value={city.name}>{city.name}</option>)}
-                                </select>
-                              )}
+                              <label htmlFor="settings-province" className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
+                              <input
+                                id="settings-province"
+                                list="settings-province-options"
+                                value={personalInfo.province}
+                                maxLength={PROFILE_LIMITS.province}
+                                autoComplete="address-level1"
+                                disabled={isLoadingLocationData || Boolean(locationDataError)}
+                                aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
+                                onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
+                                placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                              />
+                              <datalist id="settings-province-options">
+                                {provinceOptions.map((province) => <option key={province.code} value={province.name} />)}
+                              </datalist>
                             </div>
 
                             <div>
-                              <label htmlFor="settings-employer-province" className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
-                              {locationDataError ? (
-                                <input
-                                  id="settings-employer-province"
-                                  value={personalInfo.province}
-                                  maxLength={PROFILE_LIMITS.province}
-                                  autoComplete="address-level1"
-                                  onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
-                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-                                />
-                              ) : (
-                                <select
-                                  id="settings-employer-province"
-                                  value={personalInfo.province}
-                                  onChange={(e) => handlePersonalInfoChange("province", e.target.value)}
-                                  disabled={isLoadingLocationData}
-                                  autoComplete="address-level1"
-                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                                >
-                                  <option value="">{isLoadingLocationData ? "Loading provinces..." : "Select province"}</option>
-                                  {provinceOptions.map((province) => <option key={province.code} value={province.name}>{province.name}</option>)}
-                                </select>
-                              )}
+                              <label htmlFor="settings-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City / Municipality</label>
+                              <input
+                                id="settings-city"
+                                list="settings-city-options"
+                                value={personalInfo.city}
+                                maxLength={PROFILE_LIMITS.city}
+                                autoComplete="address-level2"
+                                disabled={!selectedProvince || Boolean(locationDataError)}
+                                aria-invalid={Boolean(personalInfo.city) && !selectedCity}
+                                onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
+                                placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                              />
+                              <datalist id="settings-city-options">
+                                {filteredCityOptions.map((city) => <option key={city.code} value={city.name} />)}
+                              </datalist>
                             </div>
 
                             <div>
-                              <label htmlFor="settings-employer-barangay" className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
-                              {locationDataError || barangayDataError ? (
-                                <input
-                                  id="settings-employer-barangay"
-                                  value={personalInfo.barangay}
-                                  maxLength={PROFILE_LIMITS.barangay}
-                                  onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
-                                  aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
-                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-                                />
-                              ) : (
-                                <select
-                                  id="settings-employer-barangay"
-                                  value={personalInfo.barangay}
-                                  onChange={(e) => handlePersonalInfoChange("barangay", e.target.value)}
-                                  disabled={isLoadingBarangays || !personalInfo.city}
-                                  className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                                >
-                                  <option value="">{!personalInfo.city ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Select barangay"}</option>
-                                  {barangayOptions.map((barangay) => <option key={barangay.code} value={barangay.name}>{barangay.name}</option>)}
-                                </select>
-                              )}
+                              <label htmlFor="settings-barangay" className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
+                              <input
+                                id="settings-barangay"
+                                list="settings-barangay-options"
+                                value={personalInfo.barangay}
+                                maxLength={PROFILE_LIMITS.barangay}
+                                disabled={!selectedCity || isLoadingBarangays || Boolean(barangayDataError)}
+                                aria-invalid={Boolean(personalInfo.barangay) && !selectedBarangay}
+                                aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
+                                onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
+                                placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
+                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                              />
+                              <datalist id="settings-barangay-options">
+                                {barangayOptions.map((barangay) => <option key={barangay.code} value={barangay.name} />)}
+                              </datalist>
                               {barangayDataError ? <p id="settings-barangay-help" className="mt-1 text-[12px] text-amber-800">{barangayDataError}</p> : null}
                             </div>
                           </div>
@@ -1402,24 +1472,6 @@ export function Settings() {
                             ))}
                           </datalist>
                         </>
-                      ) : (
-                        <div>
-                          <label htmlFor="settings-worker-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City</label>
-                          <select
-                            id="settings-worker-city"
-                            value={personalInfo.city}
-                            onChange={(e) => handlePersonalInfoChange("city", e.target.value)}
-                            disabled={isLoadingLocationData}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                          >
-                            <option value="">{isLoadingLocationData ? "Loading cities..." : "Select city/municipality"}</option>
-                            {cityOptions.map((city) => (
-                              <option key={city.code} value={city.name}>
-                                {city.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
                       )}
 
                       {!isAdminRole && (
@@ -1613,13 +1665,13 @@ export function Settings() {
 
                       <button
                         type="submit"
-                        disabled={isProfileSaving}
-                        aria-busy={isProfileSaving}
+                        disabled={isProfileSaving || isProfileLoading}
+                        aria-busy={isProfileSaving || isProfileLoading}
                         className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
-                          isProfileSaving ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                          isProfileSaving || isProfileLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
                         }`}
                       >
-                        {isProfileSaving ? "Saving..." : "Save changes"}
+                        {isProfileSaving ? "Saving..." : isProfileLoading ? "Loading..." : "Save changes"}
                       </button>
                 </form>
               </div>

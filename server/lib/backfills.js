@@ -1,7 +1,10 @@
 import JobApplication from '../models/JobApplication.js';
 import Transaction from '../models/Transaction.js';
 import Session from '../models/Session.js';
+import Job from '../models/Job.js';
+import Category from '../models/Category.js';
 import { LEGACY_APPLICATION_STATUS_MAP, APPLICATION_STATUSES } from './applicationStatus.js';
+import { ensureDefaultJobCategories } from './jobCategories.js';
 
 function inferBalanceTarget(tx) {
   if (tx.balanceTarget) return tx.balanceTarget;
@@ -59,6 +62,15 @@ function initialTimelineEntry(status, createdAt) {
 }
 
 export async function runDataBackfills() {
+  await ensureDefaultJobCategories(Category);
+  const fallbackCategory = await Category.findOne({ name: 'Other Skilled Jobs' }).select('_id').lean();
+  if (fallbackCategory) {
+    await Job.updateMany(
+      { $or: [{ category: { $exists: false } }, { category: null }] },
+      { $set: { category: fallbackCategory._id } }
+    );
+  }
+
   // Access tokens are bearer credentials and must not remain stored in plaintext.
   // Use the native collection because the legacy field is intentionally absent
   // from the current strict Mongoose schema.

@@ -384,7 +384,7 @@ function WorkerDashboardContent() {
     const loadJobs = async () => {
       setJobsLoading(true);
       try {
-        const jobsResponse = await jobsAPI.getJobs({ excludeOwn: true });
+        const jobsResponse = await jobsAPI.getRecommendedJobs(6);
         if (!isMounted) return;
         
         const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data?.data || [];
@@ -399,6 +399,9 @@ function WorkerDashboardContent() {
           type: job.jobType || "Full-time",
           posted: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "Recently",
           logo: (job.title && job.title[0]) || "J",
+          matchPercentage: Number(job.match?.percentage || 0),
+          matchLevel: job.match?.level || "Potential match",
+          matchReasons: Array.isArray(job.match?.reasons) ? job.match.reasons : [],
         }));
         
         setRecommendedJobs(transformedJobs);
@@ -736,10 +739,15 @@ function WorkerDashboardContent() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#1C4D8D] text-[12px] font-bold text-white">
                       {job.logo}
                     </div>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F5F9] px-2 py-1 text-[10px] text-[#64748B]">
-                      <Clock className="h-3 w-3" />
-                      {job.posted}
-                    </span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                        {job.matchPercentage}% Match
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] text-[#64748B]">
+                        <Clock className="h-3 w-3" />
+                        {job.posted}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-[15px] font-semibold text-[#111827]">{job.title}</p>
                   <p className="mt-1 flex items-center gap-1 text-[12px] text-[#64748B]">
@@ -747,6 +755,9 @@ function WorkerDashboardContent() {
                     {job.company}
                   </p>
                   <p className="mt-2 text-[13px] font-semibold text-[#10B981]">{job.salary}</p>
+                  {job.matchReasons.length ? (
+                    <p className="mt-2 line-clamp-1 text-[11px] text-[#64748B]">{job.matchReasons.join(" · ")}</p>
+                  ) : null}
                   <div className="mt-3 flex items-center justify-between border-t border-[#EEF2F7] pt-3">
                     <span className="flex items-center gap-1 text-[11px] text-[#64748B]">
                       <MapPin className="h-3.5 w-3.5" />

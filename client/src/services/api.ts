@@ -62,6 +62,11 @@ export type AuthUser = {
   phoneNumber?: string;
   city?: string;
   country?: string;
+  province?: string;
+  barangay?: string;
+  addressType?: 'home' | 'office' | 'place';
+  address?: string;
+  companyName?: string;
   linkedin?: string;
   website?: string;
   jobPosition?: string;
@@ -452,6 +457,10 @@ export function getAvailableJobs() {
   return request<any[]>('/jobs/available', { method: 'GET' });
 }
 
+export function getRecommendedJobs(limit = 12) {
+  return request<any[]>(`/jobs/recommended${buildQuery({ limit })}`, { method: 'GET' });
+}
+
 export function getJobByCategory(categoryId: string) {
   return request<any[]>(`/jobs/category/${categoryId}`, { method: 'GET' });
 }
@@ -499,6 +508,83 @@ export function getUserApplications(status?: string) {
 
 export function getEmployerApplications(params?: QueryParams) {
   return request<any[]>(`/applications/employer${buildQuery(params)}`, { method: 'GET' });
+}
+
+export type ReviewEligibilityItem = {
+  applicationId: string;
+  job: { _id: string; title?: string; status?: string };
+  reviewee?: { _id?: string; firstName?: string; lastName?: string; companyName?: string };
+  canReview: boolean;
+  existingReview?: { _id?: string; rating?: number; comment?: string; createdAt?: string } | null;
+};
+
+export type ReviewSort = 'recent' | 'highest' | 'lowest' | 'helpful';
+
+export type ReviewSummary = {
+  averageRating: number;
+  totalReviews: number;
+  percentage: number;
+  ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number>;
+};
+
+export type ProfileReview = {
+  _id: string;
+  rating: number;
+  comment?: string;
+  createdAt?: string;
+  reviewerRole: 'worker' | 'employer';
+  revieweeRole: 'worker' | 'employer';
+  reviewer?: {
+    _id?: string;
+    firstName?: string;
+    lastName?: string;
+    companyName?: string;
+    avatarUrl?: string;
+  };
+  job?: { _id?: string; title?: string; category?: { name?: string } | string };
+  ownerReply?: string;
+  ownerReplyAt?: string | null;
+  likeCount: number;
+  dislikeCount: number;
+  viewerReaction?: 'like' | 'dislike' | null;
+  canReply?: boolean;
+};
+
+export function getEligibleReviews() {
+  return request<{ asWorker: ReviewEligibilityItem[]; asEmployer: ReviewEligibilityItem[] }>(
+    '/reviews/eligible',
+    { method: 'GET' }
+  );
+}
+
+export function createReview(payload: {
+  applicationId: string;
+  rating: number;
+  comment?: string;
+  criteria?: Record<string, number>;
+}) {
+  return request('/reviews', { method: 'POST', body: payload });
+}
+
+export function getUserReviews(userId: string, viewAs: 'worker' | 'employer', sort: ReviewSort = 'recent') {
+  return request<{ summary: ReviewSummary; reviews: ProfileReview[] }>(
+    `/reviews/user/${userId}${buildQuery({ as: viewAs, sort })}`,
+    { method: 'GET' }
+  );
+}
+
+export function reactToReview(reviewId: string, reaction: 'like' | 'dislike' | null) {
+  return request<{ message: string; review: ProfileReview }>(`/reviews/${reviewId}/reaction`, {
+    method: 'PUT',
+    body: { reaction },
+  });
+}
+
+export function replyToReview(reviewId: string, reply: string) {
+  return request<{ message: string; review: ProfileReview }>(`/reviews/${reviewId}/reply`, {
+    method: 'PATCH',
+    body: { reply },
+  });
 }
 
 export function withdrawApplication(applicationId: string) {
@@ -571,6 +657,10 @@ export function getProfile() {
       });
   }
   return inFlightProfileRequest;
+}
+
+export function updateJobPreferences(payload: { preferredCategories: string[]; jobPreferences: string[] }) {
+  return request('/auth/profile/job-preferences', { method: 'PATCH', body: payload });
 }
 
 export function updateProfile(payload: {

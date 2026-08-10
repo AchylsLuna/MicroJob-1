@@ -49,6 +49,24 @@ type ProvinceOption = { code: string; name: string };
 type CityOption = { code: string; name: string; provinceCode?: string };
 type BarangayOption = { code: string; name: string };
 
+const JOB_TYPE_OPTIONS = [
+  {
+    value: 'Short-term',
+    label: 'Short-term',
+    description: 'One-time or temporary work with a clear finish.',
+  },
+  {
+    value: 'Side hustle',
+    label: 'Side hustle',
+    description: 'Flexible work someone can take on for extra income.',
+  },
+  {
+    value: 'Recruiting',
+    label: 'Recruiting',
+    description: 'Hire for an ongoing or longer-term role.',
+  },
+] as const;
+
 const PSGC_BASE_URL = 'https://psgc.gitlab.io/api';
 
 const parseLocationToParts = (locationText?: string) => {
@@ -102,7 +120,7 @@ export default function EmployerPostJob({
     barangay: '',
     addressType: 'place',
     address: '',
-    jobType: 'Fulltime',
+    jobType: 'Short-term',
   });
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(null);
   const [deadlineTime, setDeadlineTime] = useState<Date | null>(null);
@@ -137,10 +155,7 @@ export default function EmployerPostJob({
     const categoryId = typeof jobToEdit.category === 'object' ? jobToEdit.category?._id : jobToEdit.category;
     const deadline = jobToEdit.deadline ? new Date(jobToEdit.deadline) : null;
     const locationParts = parseLocationToParts(jobToEdit.location);
-    const salaryMatch = typeof jobToEdit.salary === 'string'
-      ? jobToEdit.salary.match(/\d[\d,]*/g)
-      : null;
-    const salaryValue = salaryMatch?.[0] ? salaryMatch[0].replace(/,/g, '') : '';
+    const salaryValue = String(jobToEdit.salary ?? '').replace(/[^0-9]/g, '');
     setFormData({
       title: jobToEdit.title || '',
       category: categoryId || '',
@@ -154,7 +169,7 @@ export default function EmployerPostJob({
       barangay: locationParts.barangay,
       addressType: 'place',
       address: locationParts.address,
-      jobType: jobToEdit.jobType || 'Fulltime',
+      jobType: jobToEdit.jobType || 'Short-term',
     });
     setProvinceQuery(locationParts.province);
     setCityQuery(locationParts.city);
@@ -326,35 +341,6 @@ export default function EmployerPostJob({
     return categories.filter((category) => category.name.toLowerCase().includes(query));
   }, [categories, categoryQuery]);
 
-  const handleAddCategory = async () => {
-    if (!categoryQuery.trim()) {
-      setErrorMessage('Type a category name first.');
-      return;
-    }
-    try {
-      setErrorMessage('');
-      const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/categories`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ name: categoryQuery.trim() }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.message || 'Failed to add category.');
-      const newCategory = data?.category;
-      if (newCategory) {
-        setCategories((prev) => [newCategory, ...prev]);
-        setFormData((prev) => ({ ...prev, category: newCategory._id }));
-        setShowCategoryOptions(false);
-      }
-    } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to add category.');
-    }
-  };
-
   const handleSubmit = async () => {
     setSubmitting(true);
     setErrorMessage('');
@@ -376,6 +362,19 @@ export default function EmployerPostJob({
 
       if (missingFields.length > 0) {
         setErrorMessage(`Missing required fields: ${missingFields.join(', ')}.`);
+        setSubmitting(false);
+        return;
+      }
+
+      if (!Number.isFinite(normalizedSalary) || normalizedSalary <= 0) {
+        setErrorMessage('Minimum guaranteed pay must be greater than zero.');
+        setSubmitting(false);
+        return;
+      }
+
+      const normalizedPositions = Number(positionsNeeded);
+      if (!Number.isInteger(normalizedPositions) || normalizedPositions < 1) {
+        setErrorMessage('Workers needed must be a positive whole number.');
         setSubmitting(false);
         return;
       }
@@ -418,7 +417,7 @@ export default function EmployerPostJob({
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),
         urgent: isUrgent,
-        positionsNeeded: Number(positionsNeeded) || 1,
+        positionsNeeded: normalizedPositions,
       };
 
       const token = await AsyncStorage.getItem('auth_token');
@@ -448,11 +447,12 @@ export default function EmployerPostJob({
         barangay: '',
         addressType: 'place',
         address: '',
-        jobType: 'Fulltime',
+        jobType: 'Short-term',
       });
       setDeadlineDate(null);
       setDeadlineTime(null);
       setIsUrgent(false);
+      setPositionsNeeded('1');
       setCategoryQuery('');
       setProvinceQuery('');
       setCityQuery('');
@@ -481,13 +481,23 @@ export default function EmployerPostJob({
           <View style={styles.card}>
           {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
 
+          <View style={styles.formIntro}>
+            <Text style={styles.formIntroTitle}>{isEditing ? 'Update this opportunity' : 'Create a clear opportunity'}</Text>
+            <Text style={styles.formIntroText}>
+              Post short-term work, a flexible side hustle, or recruit for an ongoing role.
+            </Text>
+          </View>
+
+          <Text style={styles.sectionTitle}>Opportunity basics</Text>
+
           <Text style={styles.label}>Job Title</Text>
           <TextInput
             style={styles.input}
             value={formData.title}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, title: value }))}
-            placeholder="e.g. Senior React Developer"
+            placeholder="e.g. Weekend event assistant"
             placeholderTextColor="#9ca3af"
+            maxLength={100}
           />
 
           <Text style={styles.label}>Category</Text>
@@ -498,10 +508,11 @@ export default function EmployerPostJob({
                 value={categoryQuery}
                 onChangeText={(value) => {
                   setCategoryQuery(value);
+                  setFormData((prev) => ({ ...prev, category: '' }));
                   setShowCategoryOptions(true);
                 }}
                 onFocus={() => setShowCategoryOptions(true)}
-                placeholder="Type a category"
+                placeholder="Search job categories"
                 placeholderTextColor="#9ca3af"
               />
               {showCategoryOptions && (
@@ -535,9 +546,6 @@ export default function EmployerPostJob({
                 </View>
               )}
             </View>
-            <TouchableOpacity style={styles.addCategoryButton} onPress={handleAddCategory}>
-              <Text style={styles.addCategoryText}>+</Text>
-            </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>Description</Text>
@@ -548,6 +556,7 @@ export default function EmployerPostJob({
             placeholder="Describe the job role and responsibilities"
             placeholderTextColor="#9ca3af"
             multiline
+            maxLength={1000}
           />
 
           <Text style={styles.label}>Responsibilities (Optional)</Text>
@@ -579,15 +588,20 @@ export default function EmployerPostJob({
             placeholderTextColor="#9ca3af"
           />
 
-          <Text style={styles.label}>Salary (PHP)</Text>
+          <Text style={styles.label}>Minimum Guaranteed Pay per Worker (PHP)</Text>
           <TextInput
             style={styles.input}
             value={formData.salary}
-            onChangeText={(value) => setFormData((prev) => ({ ...prev, salary: value }))}
-            placeholder="e.g. 20000"
+            onChangeText={(value) => setFormData((prev) => ({ ...prev, salary: value.replace(/[^0-9]/g, '') }))}
+            placeholder="e.g. 1500"
             placeholderTextColor="#9ca3af"
             keyboardType="numeric"
           />
+          <Text style={styles.helperText}>
+            This is the minimum amount guaranteed to each hired worker and secured in escrow.
+          </Text>
+
+          <Text style={styles.sectionTitle}>Work location</Text>
 
           <Text style={styles.label}>Location Type</Text>
           <View style={styles.chipRow}>
@@ -620,6 +634,9 @@ export default function EmployerPostJob({
               value={provinceQuery}
               onChangeText={(value) => {
                 setProvinceQuery(value);
+                setFormData((prev) => ({ ...prev, province: '', city: '', barangay: '' }));
+                setCityQuery('');
+                setBarangayQuery('');
                 setShowProvinceOptions(true);
               }}
               onFocus={() => setShowProvinceOptions(true)}
@@ -665,6 +682,8 @@ export default function EmployerPostJob({
               editable={Boolean(formData.province)}
               onChangeText={(value) => {
                 setCityQuery(value);
+                setFormData((prev) => ({ ...prev, city: '', barangay: '' }));
+                setBarangayQuery('');
                 setShowCityOptions(true);
               }}
               onFocus={() => setShowCityOptions(true)}
@@ -708,6 +727,7 @@ export default function EmployerPostJob({
               editable={Boolean(formData.city)}
               onChangeText={(value) => {
                 setBarangayQuery(value);
+                setFormData((prev) => ({ ...prev, barangay: '' }));
                 setShowBarangayOptions(true);
               }}
               onFocus={() => setShowBarangayOptions(true)}
@@ -752,7 +772,9 @@ export default function EmployerPostJob({
 
           <Text style={styles.helperText}>Location preview: {composeLocation(formData) || 'Select province, city, and barangay'}</Text>
 
-          <Text style={styles.label}>Positions Needed</Text>
+          <Text style={styles.sectionTitle}>Hiring details</Text>
+
+          <Text style={styles.label}>Workers Needed</Text>
           <TextInput
             style={styles.input}
             value={positionsNeeded}
@@ -763,20 +785,31 @@ export default function EmployerPostJob({
           />
           <Text style={styles.helperText}>How many workers do you need? Job will auto-close when all positions are filled.</Text>
 
-          <Text style={styles.label}>Job Type</Text>
-          <View style={styles.chipRow}>
-            {['Fulltime', 'Part-time', 'Contract'].map((type) => (
+          <Text style={styles.label}>Opportunity Type</Text>
+          <View style={styles.opportunityList} accessibilityRole="radiogroup">
+            {JOB_TYPE_OPTIONS.map((option) => {
+              const selected = formData.jobType === option.value;
+              return (
               <TouchableOpacity
-                key={type}
-                style={[styles.chip, formData.jobType === type && styles.chipActive]}
-                onPress={() => setFormData((prev) => ({ ...prev, jobType: type }))}
+                key={option.value}
+                style={[styles.opportunityCard, selected && styles.opportunityCardActive]}
+                onPress={() => setFormData((prev) => ({ ...prev, jobType: option.value }))}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: selected }}
               >
-                <Text style={[styles.chipText, formData.jobType === type && styles.chipTextActive]}>
-                  {type}
+                <Text style={[styles.opportunityTitle, selected && styles.opportunityTitleActive]}>
+                  {option.label}
                 </Text>
+                <Text style={styles.opportunityDescription}>{option.description}</Text>
               </TouchableOpacity>
-            ))}
+              );
+            })}
           </View>
+          {formData.jobType && !JOB_TYPE_OPTIONS.some((option) => option.value === formData.jobType) ? (
+            <Text style={styles.legacyTypeText}>
+              This existing post uses the legacy type “{formData.jobType}”. Choose a current type to modernize it.
+            </Text>
+          ) : null}
 
           <Text style={styles.label}>Application Deadline</Text>
           <View style={styles.deadlineRow}>
@@ -861,6 +894,25 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
   },
+  formIntro: {
+    backgroundColor: tokens.colors.brandSoft,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 6,
+  },
+  formIntroTitle: { fontSize: 16, fontWeight: '700', color: tokens.colors.text },
+  formIntroText: { marginTop: 4, fontSize: 13, lineHeight: 19, color: tokens.colors.textMuted },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: tokens.colors.brand,
+    marginTop: 22,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: tokens.colors.border,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   label: { fontSize: 14, fontWeight: '600', color: tokens.colors.text, marginBottom: 8, marginTop: 12 },
   input: {
     minHeight: 52,
@@ -913,6 +965,24 @@ const styles = StyleSheet.create({
   },
   chipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: tokens.colors.surface },
+  opportunityList: { gap: 10 },
+  opportunityCard: {
+    minHeight: 72,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  opportunityCardActive: {
+    borderColor: tokens.colors.brand,
+    backgroundColor: tokens.colors.brandSoft,
+  },
+  opportunityTitle: { fontSize: 14, fontWeight: '700', color: tokens.colors.text },
+  opportunityTitleActive: { color: tokens.colors.brand },
+  opportunityDescription: { marginTop: 3, fontSize: 12, lineHeight: 17, color: tokens.colors.textMuted },
+  legacyTypeText: { marginTop: 8, fontSize: 12, lineHeight: 17, color: tokens.colors.warning },
   submitButton: {
     minHeight: 52,
     marginTop: 20,

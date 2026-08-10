@@ -82,14 +82,7 @@ export function JobsManagement() {
   const mapJob = useCallback((job: any): JobPosting => {
     const applicantsCount = Array.isArray(job.applicants) ? job.applicants.length : 0;
     const matchPercentage = Math.min(100, applicantsCount * 7 + 30);
-    const workTypeLabel =
-      job.jobType === "Part-time"
-        ? "Part Time"
-        : job.jobType === "Freelance"
-        ? "Freelance"
-        : job.jobType === "Remote"
-        ? "Remote"
-        : "Full Time";
+    const workTypeLabel = String(job.jobType || "Short-term").replace("Fulltime", "Full Time");
     const workLocationLabel = job.jobType === "Remote" ? "Remote" : "On Site";
 
     return {
@@ -102,7 +95,9 @@ export function JobsManagement() {
       status: mapStatus(job.status),
       matchPercentage,
       matchQuality: getMatchQuality(matchPercentage),
-      salary: job.salary || "—",
+      salary: Number(job.salary) > 0
+        ? `₱${Number(job.salary).toLocaleString("en-PH")} minimum`
+        : "—",
       candidatesApplied: applicantsCount,
       completedInterviews: Math.max(0, Math.floor(applicantsCount / 3)),
       tags: {
@@ -363,7 +358,7 @@ export function JobsManagement() {
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm text-slate-600">
                       <TrendingUp className="w-4 h-4 text-[#9CA3AF]" />
-                      Salary
+                      Minimum Pay
                     </span>
                     <span className="text-sm font-semibold text-slate-900">{job.salary}</span>
                   </div>

@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, BriefcaseBusiness, ClipboardList } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, ClipboardList, Star } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
-import type { ApplicationStatus } from "../../services/api";
+import { getEligibleReviews, type ApplicationStatus, type ReviewEligibilityItem } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
+import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
 
 interface JobData {
   _id: string;
   title: string;
   location: string;
   salary: string;
-  jobType: "Fulltime" | "Freelance" | "Remote" | "Part-time";
+  jobType: string;
   description: string;
   skills?: string[];
   applicants?: string[];
   deadline?: string;
+  status?: string;
+  jobPoster?: { firstName?: string; lastName?: string; companyName?: string };
 }
 
 interface Application {
@@ -43,6 +46,19 @@ const AppliedJobs: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
+  const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+
+  const loadReviewEligibility = async () => {
+    try {
+      const response = await getEligibleReviews();
+      setReviewEligibility(Object.fromEntries((response?.asWorker || []).map((item) => [item.applicationId, item])));
+    } catch {
+      setReviewEligibility({});
+    }
+  };
+
+  useEffect(() => { void loadReviewEligibility(); }, []);
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -177,6 +193,28 @@ const AppliedJobs: React.FC = () => {
                         <span>👥 {application.job?.applicants?.length || 0} applicants</span>
                         <span>📅 Deadline: {application.job?.deadline ? new Date(application.job.deadline).toLocaleDateString() : "N/A"}</span>
                       </div>
+                      <div className="flex flex-wrap gap-2">
+                      {reviewEligibility[application._id]?.canReview ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const poster = application.job?.jobPoster;
+                            setRatingTarget({
+                              applicationId: application._id,
+                              name: poster?.companyName || `${poster?.firstName || ""} ${poster?.lastName || ""}`.trim() || "Employer",
+                              jobTitle: application.job?.title || "Completed job",
+                              roleLabel: "employer",
+                            });
+                          }}
+                          className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+                        >
+                          <Star className="h-4 w-4" /> Rate Employer
+                        </button>
+                      ) : reviewEligibility[application._id]?.existingReview ? (
+                        <span className="inline-flex items-center gap-1 rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                          <Star className="h-4 w-4 fill-emerald-600" /> Review submitted
+                        </span>
+                      ) : null}
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -188,6 +226,7 @@ const AppliedJobs: React.FC = () => {
                       >
                         View Details
                       </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -238,6 +277,9 @@ const AppliedJobs: React.FC = () => {
             </div>
           )}
       </div>
+      {ratingTarget ? (
+        <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={loadReviewEligibility} />
+      ) : null}
     </div>
   );
 };

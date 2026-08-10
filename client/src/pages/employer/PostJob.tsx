@@ -23,6 +23,26 @@ type JobEdit = {
   applicants?: unknown[];
 };
 
+const JOB_TYPE_OPTIONS = [
+  {
+    value: "Short-term",
+    label: "Short-term",
+    description: "One-time or temporary work with a clear finish.",
+  },
+  {
+    value: "Freelance",
+    label: "Freelance",
+    description: "Flexible work someone can take on for extra income.",
+  },
+  {
+    value: "Recruiting",
+    label: "Recruiting",
+    description: "Hire for an ongoing or longer-term role.",
+  },
+] as const;
+
+const LEGACY_JOB_TYPES = ["Fulltime", "Part-time", "Freelance", "Contract", "Remote"] as const;
+
 type FormState = {
   title: string;
   category: string;
@@ -30,8 +50,7 @@ type FormState = {
   requirements: string;
   responsibilities: string;
   skills: string;
-  salaryMin: string;
-  salaryMax: string;
+  minimumSalary: string;
   province: string;
   city: string;
   barangay: string;
@@ -55,7 +74,7 @@ const REQUIRED_FIELD_LABELS: Record<RequiredFieldKey, string> = {
   title: "Job title",
   description: "Job description",
   location: "Location",
-  salary: "Salary range",
+  salary: "Minimum guaranteed pay",
   jobType: "Job type",
   deadline: "Deadline",
   category: "Category",
@@ -68,14 +87,13 @@ const createEmptyForm = (): FormState => ({
   requirements: "",
   responsibilities: "",
   skills: "",
-  salaryMin: "",
-  salaryMax: "",
+  minimumSalary: "",
   province: "",
   city: "",
   barangay: "",
   addressType: "place",
   address: "",
-  jobType: "Fulltime",
+  jobType: "Short-term",
   deadline: "",
   positionsNeeded: "1",
 });
@@ -149,7 +167,7 @@ const extractSalaryValue = (value: unknown): string => {
 const formatCurrency = (value: unknown): string => {
   const salary = extractSalaryValue(value);
   if (!salary) return "Not set";
-  return `P${new Intl.NumberFormat("en-PH").format(Number(salary))}`;
+  return `₱${new Intl.NumberFormat("en-PH").format(Number(salary))} minimum`;
 };
 
 const buildFormFromJob = (job: JobEdit): FormState => {
@@ -163,14 +181,13 @@ const buildFormFromJob = (job: JobEdit): FormState => {
     requirements: job.requirements?.join("\n") || "",
     responsibilities: job.responsibilities?.join("\n") || "",
     skills: job.skills?.join(", ") || "",
-    salaryMin: salary,
-    salaryMax: salary,
+    minimumSalary: salary,
     province: locationParts.province,
     city: locationParts.city,
     barangay: locationParts.barangay,
     addressType: "place",
     address: locationParts.address,
-    jobType: job.jobType || "Fulltime",
+    jobType: job.jobType || "Short-term",
     deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
     positionsNeeded: job.positionsNeeded ? String(job.positionsNeeded) : "1",
   };
@@ -422,9 +439,7 @@ const PostJob: React.FC = () => {
       const trimmedDescription = formData.description.trim();
       const composedLocation = composeLocation(formData);
       const deadlineValue = formData.deadline;
-      const salaryMin = Number(formData.salaryMin.replace(/[^0-9]/g, "") || 0);
-      const salaryMax = Number(formData.salaryMax.replace(/[^0-9]/g, "") || 0);
-      const salaryAmount = salaryMax || salaryMin;
+      const salaryAmount = Number(formData.minimumSalary.replace(/[^0-9]/g, "") || 0);
       const missingFields: RequiredFieldKey[] = [];
 
       if (!trimmedTitle) missingFields.push("title");
@@ -455,8 +470,8 @@ const PostJob: React.FC = () => {
       }
 
       const positionsNeededNum = Number(formData.positionsNeeded || 1);
-      if (Number.isNaN(positionsNeededNum) || positionsNeededNum < 1) {
-        setFormError("Please provide a valid number of workers needed (minimum 1).");
+      if (!Number.isInteger(positionsNeededNum) || positionsNeededNum < 1) {
+        setFormError("Please provide a whole number of workers needed (minimum 1).");
         setSubmitting(false);
         return;
       }
@@ -474,8 +489,8 @@ const PostJob: React.FC = () => {
         return;
       }
 
-      if (salaryMin > 0 && salaryMax > 0 && salaryMax < salaryMin) {
-        setFormError("Maximum salary cannot be lower than minimum salary.");
+      if (!Number.isFinite(salaryAmount) || salaryAmount <= 0) {
+        setFormError("Minimum guaranteed pay must be greater than zero.");
         setSubmitting(false);
         return;
       }
@@ -593,11 +608,12 @@ const PostJob: React.FC = () => {
                 className="h-12 w-full rounded-xl border border-indigo-500 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               >
                 <option value="all">All Jobs</option>
-                <option value="Fulltime">Full Time</option>
-                <option value="Part-time">Part Time</option>
-                <option value="Freelance">Freelance</option>
-                <option value="Contract">Contract</option>
-                <option value="Remote">Remote</option>
+                {JOB_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+                {LEGACY_JOB_TYPES.map((type) => (
+                  <option key={type} value={type}>{type} (legacy)</option>
+                ))}
               </select>
             </div>
 
@@ -734,9 +750,14 @@ const PostJob: React.FC = () => {
             <div className="flex w-full max-w-4xl max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
               <div className="shrink-0 border-b border-slate-200 bg-white px-6 py-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
-                    {editingJob ? "Edit Job" : "Post a New Job"}
-                  </h2>
+                  <div>
+                    <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
+                      {editingJob ? "Edit Opportunity" : "Post an Opportunity"}
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Share short-term work, a side hustle, or an ongoing role in a few clear steps.
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={closeModal}
@@ -768,7 +789,8 @@ const PostJob: React.FC = () => {
                         value={formData.title}
                         onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                         className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                        placeholder="e.g. Senior Engineer"
+                        placeholder="e.g. Weekend event assistant"
+                        maxLength={100}
                         required
                       />
                     </div>
@@ -795,25 +817,42 @@ const PostJob: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="job-type" className="mb-2 block text-sm font-semibold text-slate-700">Job Type</label>
-                      <select
-                        id="job-type"
-                        data-field="jobType"
-                        value={formData.jobType}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, jobType: e.target.value }))}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                        required
-                      >
-                        <option value="Fulltime">Fulltime</option>
-                        <option value="Freelance">Freelance</option>
-                        <option value="Contract">Contract</option>
-                        <option value="Remote">Remote</option>
-                        <option value="Part-time">Part-time</option>
-                      </select>
+                  <fieldset data-field="jobType">
+                    <legend className="mb-2 block text-sm font-semibold text-slate-700">
+                      Opportunity Type <span className="text-red-500">*</span>
+                    </legend>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      {JOB_TYPE_OPTIONS.map((option) => {
+                        const selected = formData.jobType === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={selected}
+                            onClick={() => setFormData((prev) => ({ ...prev, jobType: option.value }))}
+                            className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                              selected
+                                ? "border-indigo-600 bg-indigo-50 shadow-sm"
+                                : "border-slate-200 bg-white hover:border-indigo-300"
+                            }`}
+                          >
+                            <span className={`block text-sm font-semibold ${selected ? "text-indigo-700" : "text-slate-900"}`}>
+                              {option.label}
+                            </span>
+                            <span className="mt-1 block text-xs leading-5 text-slate-500">{option.description}</span>
+                          </button>
+                        );
+                      })}
                     </div>
+                    {formData.jobType && !JOB_TYPE_OPTIONS.some((option) => option.value === formData.jobType) && (
+                      <p className="mt-2 text-xs text-amber-700">
+                        This existing post uses the legacy type “{formData.jobType}”. Choose a current type to modernize it.
+                      </p>
+                    )}
+                  </fieldset>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label htmlFor="job-location-type" className="mb-2 block text-sm font-semibold text-slate-700">Location Type</label>
                       <select
@@ -949,44 +988,32 @@ const PostJob: React.FC = () => {
                   </p>
 
                   <div>
-                    <p id="job-salary-label" className="mb-2 block text-sm font-semibold text-slate-700">
-                      Salary Range (PHP / month) <span className="text-red-500">*</span>
-                    </p>
-                    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                    <label htmlFor="job-minimum-pay" className="mb-2 block text-sm font-semibold text-slate-700">
+                      Minimum Guaranteed Pay per Worker (PHP) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">₱</span>
                       <input
-                        aria-labelledby="job-salary-label"
-                        aria-label="Minimum monthly salary"
+                        id="job-minimum-pay"
+                        aria-label="Minimum guaranteed pay per worker"
                         type="text"
                         data-field="salary"
                         inputMode="numeric"
-                        value={formData.salaryMin}
+                        value={formData.minimumSalary}
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
-                            salaryMin: e.target.value.replace(/[^0-9]/g, ""),
+                            minimumSalary: e.target.value.replace(/[^0-9]/g, ""),
                           }))
                         }
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                        placeholder="Min (e.g. 20000)"
-                      />
-                      <span className="text-slate-400 text-xl leading-none">-</span>
-                      <input
-                        aria-labelledby="job-salary-label"
-                        aria-label="Maximum monthly salary"
-                        type="text"
-                        data-field="salary"
-                        inputMode="numeric"
-                        value={formData.salaryMax}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            salaryMax: e.target.value.replace(/[^0-9]/g, ""),
-                          }))
-                        }
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                        placeholder="Max (e.g. 50000)"
+                        className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        placeholder="e.g. 1500"
+                        required
                       />
                     </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      Enter the minimum amount guaranteed to each hired worker. This amount is secured in escrow.
+                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

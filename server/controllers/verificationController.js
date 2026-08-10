@@ -109,7 +109,7 @@ export const confirmPhoneVerification = async (req, res) => {
       return res.status(200).json({ message: 'Phone already verified.', verified: true });
     }
 
-    verifyPhoneVerificationOtp({
+    await verifyPhoneVerificationOtp({
       userId: String(user._id),
       phoneNumber: user.phoneNumber,
       code,

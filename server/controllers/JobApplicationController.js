@@ -3,6 +3,8 @@ import Job from '../models/Job.js';
 import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
+import { scoreJobForWorker } from '../lib/jobMatching.js';
+import { getReviewSummaries } from '../lib/reviewSummary.js';
 import {
   APPLICATION_STATUSES,
   getApplicationTimelineLabel,
@@ -73,10 +75,14 @@ const populateUserApplicationQuery = (query) =>
 
 const populateEmployerApplicationQuery = (query) =>
   query
-    .populate('job', 'title company location jobType salary status jobPoster positionsNeeded hiredCount')
+    .populate({
+      path: 'job',
+      select: 'title description company location jobType salary status deadline category skills requirements jobPoster positionsNeeded hiredCount',
+      populate: { path: 'category', select: 'name' },
+    })
     .populate(
       'applicant',
-      'firstName lastName email role phoneNumber jobsApplied projectsCompleted successRate city province about totalExperience avatarUrl resumeUrl resumeFileName skills status'
+      'firstName lastName email role phoneNumber jobsApplied projectsCompleted successRate city province about jobPosition totalExperience avatarUrl resumeUrl resumeFileName skills workExperience jobPreferences preferredCategories status'
     );
 
 const ensureEmployerAccess = async (applicationId, requesterId) => {
@@ -239,7 +245,22 @@ export const getUserApplications = async (req, res) => {
       JobApplication.find(filter).sort({ updatedAt: -1 })
     );
 
-    return res.status(200).json(applications.map(serializeApplication));
+    const ratings = await getReviewSummaries(
+      applications.map((application) => application.applicant?._id).filter(Boolean),
+      'worker'
+    );
+    return res.status(200).json(applications.map((application) => {
+      const value = serializeApplication(application);
+      const applicantId = String(application.applicant?._id || '');
+      return {
+        ...value,
+        match: scoreJobForWorker(application.job, application.applicant),
+        applicant: value?.applicant ? {
+          ...value.applicant,
+          rating: ratings.get(applicantId) || { averageRating: 0, totalReviews: 0 },
+        } : value?.applicant,
+      };
+    }));
   } catch (error) {
     console.error('Get user applications error:', error);
     return sendError(res, 500, 'Server error', { error: error.message });

@@ -125,6 +125,11 @@ const JobApplicationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    completedAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
     appliedDate: {
       type: Date,
       default: Date.now,

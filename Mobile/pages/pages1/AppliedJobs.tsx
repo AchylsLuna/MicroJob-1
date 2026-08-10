@@ -9,6 +9,7 @@ import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, getApplicationStatusColor, normalizeApplicationStatus } from '../../lib/status';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '../../theme/tokens';
+import RatingModal, { MobileRatingTarget } from '../../components/reviews/RatingModal';
 
 type AppliedJob = {
   id: string;
@@ -17,6 +18,13 @@ type AppliedJob = {
   company: string;
   status: ApplicationStatus;
   hasDetails?: boolean;
+  employerName?: string;
+};
+
+type ReviewEligibility = {
+  applicationId: string;
+  canReview: boolean;
+  existingReview?: { rating?: number } | null;
 };
 
 type AppliedJobsProps = {
@@ -42,6 +50,8 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   const [applications, setApplications] = useState<AppliedJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibility>>({});
+  const [ratingTarget, setRatingTarget] = useState<MobileRatingTarget | null>(null);
 
   const filters = ['All', ...APPLICATION_STATUSES] as const;
 
@@ -55,9 +65,14 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/applications`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }, 'Failed to load applications.');
+      const [result, eligibilityResult] = await Promise.all([
+        apiRequest(`${API_URL}/applications`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        }, 'Failed to load applications.'),
+        apiRequest(`${API_URL}/reviews/eligible`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        }, 'Failed to load review eligibility.'),
+      ]);
       if (!result.ok) {
         throw new Error(result.message || 'Failed to load applications.');
       }
@@ -70,8 +85,12 @@ export default function AppliedJobs(props: AppliedJobsProps) {
           : 'Job Poster',
         status: normalizeApplicationStatus(app.status),
         hasDetails: true,
+        employerName: app.job?.jobPoster?.companyName || `${app.job?.jobPoster?.firstName || ''} ${app.job?.jobPoster?.lastName || ''}`.trim() || 'Employer',
       }));
       setApplications(mapped);
+      const eligibilityPayload: any = eligibilityResult.data || eligibilityResult.raw || {};
+      const workerItems: ReviewEligibility[] = Array.isArray(eligibilityPayload?.asWorker) ? eligibilityPayload.asWorker : [];
+      setReviewEligibility(Object.fromEntries(workerItems.map((item) => [item.applicationId, item])));
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load applications.');
     } finally {
@@ -180,6 +199,19 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   <Text style={[styles.statusInline, { color: getApplicationStatusColor(job.status) }]}>{job.status}</Text>
                   <Text style={styles.viewDetailsText}>View details ›</Text>
                 </TouchableOpacity>
+                {reviewEligibility[job.id]?.canReview ? (
+                  <TouchableOpacity
+                    style={styles.rateButton}
+                    onPress={() => setRatingTarget({ applicationId: job.id, name: job.employerName || job.company, jobTitle: job.title, roleLabel: 'employer' })}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Rate employer for ${job.title}`}
+                  >
+                    <Ionicons name="star" size={16} color="#92400E" />
+                    <Text style={styles.rateButtonText}>Rate Employer</Text>
+                  </TouchableOpacity>
+                ) : reviewEligibility[job.id]?.existingReview ? (
+                  <Text style={styles.reviewedText}>★ Review submitted</Text>
+                ) : null}
               </View>
             ))}
           </View>
@@ -187,6 +219,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
       </ScrollView>
 
       <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
+      <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={fetchApplications} />
     </View>
   );
 }
@@ -338,4 +371,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   viewDetailsText: { fontSize: 12, color: tokens.colors.text, fontWeight: '600' },
+  rateButton: { marginTop: 10, minHeight: 44, borderRadius: 12, backgroundColor: '#FEF3C7', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  rateButtonText: { color: '#92400E', fontSize: 13, fontWeight: '800' },
+  reviewedText: { marginTop: 10, textAlign: 'center', color: '#047857', fontSize: 12, fontWeight: '700' },
 });

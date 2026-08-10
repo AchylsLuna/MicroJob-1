@@ -40,6 +40,11 @@ export interface User {
   phoneNumber?: string;
   city?: string;
   country?: string;
+  province?: string;
+  barangay?: string;
+  addressType?: "home" | "office" | "place";
+  address?: string;
+  companyName?: string;
   linkedin?: string;
   website?: string;
   jobPosition?: string;

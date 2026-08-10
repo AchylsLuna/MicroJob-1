@@ -8,6 +8,7 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { formatMinimumPay } from '../../lib/jobCompensation';
 
 type Category = { _id: string; name: string };
 export type Job = {
@@ -64,8 +65,12 @@ export default function Jobs(props: JobsProps) {
   const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [workerLocation, setWorkerLocation] = useState({ province: '', city: '', barangay: '' });
   const [locationLoaded, setLocationLoaded] = useState(false);
+  const [preferredCategoryIds, setPreferredCategoryIds] = useState<string[]>([]);
+  const [jobPreferenceText, setJobPreferenceText] = useState('');
+  const [showMatchingPreferences, setShowMatchingPreferences] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
 
-  const jobTypes = ['All', 'Remote', 'Fulltime', 'Part-time', 'Freelance'];
+  const jobTypes = ['All', 'Short-term', 'Side hustle', 'Recruiting'];
 
   const normalizeToken = useCallback((value?: string) =>
     String(value || '')
@@ -217,6 +222,12 @@ export default function Jobs(props: JobsProps) {
           city: String(profile?.city || ''),
           barangay: String(profile?.barangay || ''),
         });
+        setPreferredCategoryIds(
+          Array.isArray(profile?.preferredCategories)
+            ? profile.preferredCategories.map((item: any) => String(item?._id || item)).filter(Boolean)
+            : []
+        );
+        setJobPreferenceText(Array.isArray(profile?.jobPreferences) ? profile.jobPreferences.join(', ') : '');
       } catch {
         setWorkerLocation({ province: '', city: '', barangay: '' });
       } finally {
@@ -241,6 +252,31 @@ export default function Jobs(props: JobsProps) {
 
   const handleToggleSave = (job: Job) => {
     onToggleSave?.(job);
+  };
+
+  const saveMatchingPreferences = async () => {
+    setSavingPreferences(true);
+    setErrorMessage('');
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const result = await apiRequest(`${API_URL}/auth/profile/job-preferences`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          preferredCategories: preferredCategoryIds,
+          jobPreferences: jobPreferenceText.split(',').map((item) => item.trim()).filter(Boolean),
+        }),
+      }, 'Failed to save job preferences.');
+      if (!result.ok) throw new Error(result.message || 'Failed to save job preferences.');
+      setShowMatchingPreferences(false);
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Failed to save job preferences.');
+    } finally {
+      setSavingPreferences(false);
+    }
   };
 
   return (
@@ -292,6 +328,44 @@ export default function Jobs(props: JobsProps) {
             <Ionicons name="checkmark-done-outline" size={15} color={tokens.colors.brand} />
             <Text style={styles.quickActionText}>Applied Jobs</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.preferencesCard}>
+          <TouchableOpacity style={styles.preferencesHeader} onPress={() => setShowMatchingPreferences((value) => !value)}>
+            <View style={styles.preferencesHeadingCopy}>
+              <Text style={styles.preferencesTitle}>Improve your job matches</Text>
+              <Text style={styles.preferencesSubtitle}>Choose preferred categories and work interests.</Text>
+            </View>
+            <Ionicons name={showMatchingPreferences ? 'chevron-up' : 'chevron-down'} size={18} color={tokens.colors.brand} />
+          </TouchableOpacity>
+          {showMatchingPreferences ? (
+            <View style={styles.preferencesBody}>
+              <View style={styles.preferenceChips}>
+                {categories.map((category) => {
+                  const selected = preferredCategoryIds.includes(category._id);
+                  return (
+                    <TouchableOpacity
+                      key={`preference-${category._id}`}
+                      style={[styles.preferenceChip, selected && styles.preferenceChipActive]}
+                      onPress={() => setPreferredCategoryIds((current) => selected ? current.filter((id) => id !== category._id) : [...current, category._id])}
+                    >
+                      <Text style={[styles.preferenceChipText, selected && styles.preferenceChipTextActive]}>{category.name}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <TextInput
+                style={styles.preferenceInput}
+                value={jobPreferenceText}
+                onChangeText={setJobPreferenceText}
+                placeholder="repair, installation, maintenance"
+                placeholderTextColor={tokens.colors.textSubtle}
+              />
+              <TouchableOpacity style={[styles.preferenceSave, savingPreferences && styles.preferenceSaveDisabled]} onPress={saveMatchingPreferences} disabled={savingPreferences}>
+                {savingPreferences ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.preferenceSaveText}>Save matching preferences</Text>}
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.sectionHeaderRow}>
@@ -451,7 +525,7 @@ export default function Jobs(props: JobsProps) {
                     </View>
                   ) : null}
                 </View>
-                <Text style={styles.salary}>{job.salary}</Text>
+                <Text style={styles.salary}>{formatMinimumPay(job.salary)}</Text>
               </View>
 
               {job.jobPoster && currentUserId && !((typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) || (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))) ? (
@@ -601,6 +675,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.colors.border,
   },
+  preferencesCard: { borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 16, backgroundColor: tokens.colors.surface, padding: 14 },
+  preferencesHeader: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  preferencesHeadingCopy: { flex: 1 },
+  preferencesTitle: { color: tokens.colors.text, fontSize: 14, fontWeight: '800' },
+  preferencesSubtitle: { marginTop: 3, color: tokens.colors.textMuted, fontSize: 11 },
+  preferencesBody: { marginTop: 12, gap: 10 },
+  preferenceChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  preferenceChip: { borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7 },
+  preferenceChipActive: { borderColor: tokens.colors.brand, backgroundColor: tokens.colors.brandSoft },
+  preferenceChipText: { color: tokens.colors.textMuted, fontSize: 11, fontWeight: '600' },
+  preferenceChipTextActive: { color: tokens.colors.brand, fontWeight: '800' },
+  preferenceInput: { minHeight: 48, borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 12, paddingHorizontal: 12, color: tokens.colors.text, fontSize: 13 },
+  preferenceSave: { minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.brand },
+  preferenceSaveDisabled: { opacity: 0.6 },
+  preferenceSaveText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
   filterChipActive: {
     backgroundColor: tokens.colors.brand,
     borderColor: tokens.colors.brand,

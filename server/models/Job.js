@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ALL_JOB_TYPES } from '../lib/jobPosting.js';
 
 const JobSchema = new mongoose.Schema(
     {
@@ -18,11 +19,12 @@ const JobSchema = new mongoose.Schema(
         },
         salary: {
             type: Number,
-            required: true
+            required: true,
+            min: 1,
         },
         jobType: {
             type: String,
-            enum: ['Fulltime', 'Freelance', 'Remote', 'Part-time', 'Contract'],
+            enum: ALL_JOB_TYPES,
             required: true
         },
         deadline: {

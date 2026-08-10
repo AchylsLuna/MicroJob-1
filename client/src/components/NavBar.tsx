@@ -770,6 +770,22 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   </div>
                 )}
 
+                {user?.id ? (
+                  <div className="border-b border-slate-200 p-2">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        navigate(`${ROUTES.publicProfile(user.id)}?viewAs=${isWorkerView ? "worker" : "employer"}`);
+                        setShowUserMenu(false);
+                      }}
+                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D]"
+                    >
+                      Ratings &amp; reviews
+                    </button>
+                  </div>
+                ) : null}
+
                 <div className="p-4">
                   <button onClick={handleSignOut} className="min-h-11 w-full rounded-xl px-3 text-left font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700">
                     Sign out

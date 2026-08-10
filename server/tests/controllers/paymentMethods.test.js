@@ -166,7 +166,7 @@ test('employer privacy persists and worker accounts cannot change it', async () 
   assert.equal((await User.findById(worker._id)).hideHiredCandidates, true);
 });
 
-test('public employer profiles do not expose hidden hiring totals', async () => {
+test('public employer profiles expose verified reviews but not hidden hiring totals', async () => {
   const employer = await User.create({
     email: 'private-employer@example.com',
     firstName: 'Private',
@@ -188,8 +188,8 @@ test('public employer profiles do not expose hidden hiring totals', async () => 
     response
   );
   assert.equal(response.statusCode, 200);
-  assert.equal(response.payload.rating.hidden, true);
-  assert.equal(response.payload.rating.completedCount, null);
+  assert.equal(response.payload.rating.hidden, false);
+  assert.equal(response.payload.rating.totalReviews, 0);
   assert.equal(response.payload.stats.employer.hires, null);
   assert.equal(response.payload.stats.employer.hiresHidden, true);
   assert.equal(response.payload.profile.address, undefined);
@@ -229,6 +229,53 @@ test('profile updates reject direct email replacement', async () => {
   assert.equal(response.statusCode, 400);
   assert.match(response.payload.message, /verified email-change flow/i);
   assert.equal((await User.findById(worker._id)).email, 'email-owner@example.com');
+});
+
+test('profile updates preserve omitted fields, allow intentional clearing, and enforce location order', async () => {
+  const worker = await User.create({
+    email: 'persistent-profile@example.com',
+    firstName: 'Persist',
+    lastName: 'Fields',
+    role: 'work',
+    status: 'active',
+    passwordHashed: 'not-used',
+    province: 'Davao del Sur',
+    city: 'City of Digos',
+    barangay: 'Zone 1',
+    about: 'Keep this unless explicitly cleared.',
+  });
+
+  const partialResponse = createResponse();
+  await updateProfile(
+    { user: { id: worker._id, role: 'work' }, body: { firstName: 'Updated' } },
+    partialResponse,
+  );
+  assert.equal(partialResponse.statusCode, 200);
+  const afterPartial = await User.findById(worker._id);
+  assert.equal(afterPartial.firstName, 'Updated');
+  assert.equal(afterPartial.about, 'Keep this unless explicitly cleared.');
+  assert.equal(afterPartial.province, 'Davao del Sur');
+  assert.equal(afterPartial.city, 'City of Digos');
+  assert.equal(afterPartial.barangay, 'Zone 1');
+
+  const clearResponse = createResponse();
+  await updateProfile(
+    { user: { id: worker._id, role: 'work' }, body: { about: '' } },
+    clearResponse,
+  );
+  assert.equal(clearResponse.statusCode, 200);
+  assert.equal((await User.findById(worker._id)).about, undefined);
+
+  const invalidLocationResponse = createResponse();
+  await updateProfile(
+    {
+      user: { id: worker._id, role: 'work' },
+      body: { province: '', city: 'City of Digos', barangay: 'Zone 1' },
+    },
+    invalidLocationResponse,
+  );
+  assert.equal(invalidLocationResponse.statusCode, 400);
+  assert.match(invalidLocationResponse.payload.message, /province/i);
 });
 
 test('profile updates normalize professional links and reject unsafe protocols', async () => {

@@ -8,6 +8,7 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { formatMinimumPay } from '../../lib/jobCompensation';
 
 type Category = { _id: string; name: string };
 type Job = {
@@ -21,6 +22,7 @@ type Job = {
   createdAt?: string;
   category?: { _id: string; name: string } | string;
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
+  match?: { percentage?: number; level?: string; reasons?: string[] };
 };
 
 export default function Dashboard({
@@ -47,11 +49,11 @@ export default function Dashboard({
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Home');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [hasUploadedResume, setHasUploadedResume] = useState(false);
 
-  const recentJobs = useMemo(() => jobs.slice(0, 5), [jobs]);
   const jobsByCategory = useMemo(() => {
     const counts: Record<string, number> = {};
     jobs.forEach((job) => {
@@ -78,17 +80,14 @@ export default function Dashboard({
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest<Job[]>(
-        `${API_URL}/jobs?excludeOwn=true`,
-        {
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        },
-        'Failed to load jobs.'
-      );
-      if (!result.ok) {
-        throw new Error(result.message || 'Failed to load jobs.');
-      }
+      const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+      const [result, recommendedResult] = await Promise.all([
+        apiRequest<Job[]>(`${API_URL}/jobs?excludeOwn=true`, { headers }, 'Failed to load jobs.'),
+        apiRequest<Job[]>(`${API_URL}/jobs/recommended?limit=5`, { headers }, 'Failed to load recommended jobs.'),
+      ]);
+      if (!result.ok) throw new Error(result.message || 'Failed to load jobs.');
       setJobs(asList<Job>(result.raw, ['jobs']));
+      setRecommendedJobs(recommendedResult.ok ? asList<Job>(recommendedResult.raw, ['jobs']) : []);
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load jobs.');
     } finally {
@@ -208,7 +207,7 @@ export default function Dashboard({
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Recent Jobs</Text>
+          <Text style={styles.sectionTitle}>Jobs Matching Your Skills</Text>
           <TouchableOpacity onPress={onNavigateToJobs}>
             <Text style={styles.seeAll}>See all</Text>
           </TouchableOpacity>
@@ -222,7 +221,7 @@ export default function Dashboard({
         ) : null}
 
         <View style={styles.jobsList}>
-          {recentJobs.map((job) => (
+          {recommendedJobs.map((job) => (
             <TouchableOpacity key={job._id} style={styles.jobCard} onPress={() => onViewJobDetails?.(job)} activeOpacity={0.88}>
               <View style={styles.jobCardHeader}>
                 <View style={styles.jobLogo}>
@@ -251,6 +250,11 @@ export default function Dashboard({
                 </TouchableOpacity>
               </View>
 
+              <View style={styles.matchRow}>
+                <Text style={styles.matchBadge}>{Number(job.match?.percentage || 0)}% Match</Text>
+                <Text style={styles.matchLevel}>{job.match?.level || 'Potential match'}</Text>
+              </View>
+
               <View style={styles.jobTags}>
                 {(job.skills || []).slice(0, 3).map((skill, index) => (
                   <View key={index} style={styles.tag}>
@@ -272,7 +276,7 @@ export default function Dashboard({
                     </View>
                   ) : null}
                 </View>
-                <Text style={styles.jobSalary}>{job.salary}</Text>
+                <Text style={styles.jobSalary}>{formatMinimumPay(job.salary)}</Text>
               </View>
             </TouchableOpacity>
           ))}
@@ -397,6 +401,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   jobTags: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  matchBadge: { overflow: 'hidden', borderRadius: 999, backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 5, color: '#166534', fontSize: 11, fontWeight: '800' },
+  matchLevel: { color: tokens.colors.textMuted, fontSize: 11, fontWeight: '600' },
   tag: {
     backgroundColor: tokens.colors.surfaceMuted,
     paddingHorizontal: 10,

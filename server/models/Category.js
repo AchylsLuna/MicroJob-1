@@ -7,7 +7,11 @@ const CategorySchema = new mongoose.Schema(
             unique: true,
             required: true,
             trim: true,
-        }
+        },
+        order: {
+            type: Number,
+            default: 999,
+        },
     }
 )
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Heart, Clock, MapPin, Search, SlidersHorizontal } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getJobs, getProfile } from "../../services/api";
+import { getCategories, getJobs, getProfile, updateJobPreferences } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../contexts/AuthContext";
@@ -14,7 +14,7 @@ interface Job {
   company: string;
   companyLogo: string;
   applicants: number;
-  type: "Full-Time" | "Part-Time" | "Contract" | "Project Work";
+  type: "Short-term" | "Side hustle" | "Recruiting" | "Full-Time" | "Part-Time" | "Contract" | "Project Work";
   workMode: "Remote" | "Hybrid" | "On-site";
   description: string;
   location: string;
@@ -52,6 +52,7 @@ export function FindJobs() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
+  const selectedCategory = searchParams.get("category") || "";
   const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -65,10 +66,26 @@ export function FindJobs() {
   });
   const [isLocationLoaded, setIsLocationLoaded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [categories, setCategories] = useState<Array<{ _id: string; name: string }>>([]);
+  const [preferredCategoryIds, setPreferredCategoryIds] = useState<string[]>([]);
+  const [jobPreferenceText, setJobPreferenceText] = useState("");
+  const [savingPreferences, setSavingPreferences] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    getCategories()
+      .then((items) => {
+        if (active) setCategories(Array.isArray(items) ? items : []);
+      })
+      .catch(() => {
+        if (active) setCategories([]);
+      });
+    return () => { active = false; };
+  }, []);
 
   const sortLabels = {
     recent: "Most recent",
-    salary: "Highest salary",
+    salary: "Highest minimum pay",
     applicants: "Most applicants",
     nearest: "Nearest to you",
   } as const;
@@ -107,6 +124,12 @@ export function FindJobs() {
   const getJobTypeLabel = (jobType?: string): Job["type"] => {
     const normalized = (jobType || "").toLowerCase();
     switch (true) {
+      case normalized.includes("short"):
+        return "Short-term";
+      case normalized.includes("side hustle"):
+        return "Side hustle";
+      case normalized.includes("recruit"):
+        return "Recruiting";
       case normalized.includes("part"):
         return "Part-Time";
       case normalized.includes("contract"):
@@ -189,6 +212,14 @@ export function FindJobs() {
           city: String((profile as any)?.city || user?.city || ""),
           barangay: String((profile as any)?.barangay || ""),
         });
+        setPreferredCategoryIds(
+          Array.isArray((profile as any)?.preferredCategories)
+            ? (profile as any).preferredCategories.map((item: any) => String(item?._id || item)).filter(Boolean)
+            : []
+        );
+        setJobPreferenceText(
+          Array.isArray((profile as any)?.jobPreferences) ? (profile as any).jobPreferences.join(", ") : ""
+        );
       } catch {
         if (!isMounted) return;
         setWorkerLocation({
@@ -223,6 +254,7 @@ export function FindJobs() {
       try {
         const data = await getJobs({
           search: searchQuery || undefined,
+          category: selectedCategory || undefined,
           city: workerLocation.city.trim(),
           excludeOwn: true,
         });
@@ -241,7 +273,7 @@ export function FindJobs() {
     return () => {
       isMounted = false;
     };
-  }, [isLocationLoaded, workerLocation.city, searchQuery, reloadKey, mapApiJob]);
+  }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob]);
 
   const getJobTypeColor = (type: string) => {
     switch (type) {
@@ -253,6 +285,12 @@ export function FindJobs() {
         return "bg-[#FFEDD5] text-[#C2410C]";
       case "Project Work":
         return "bg-[#FEF3C7] text-[#B45309]";
+      case "Short-term":
+        return "bg-[#E0F2FE] text-[#0369A1]";
+      case "Side hustle":
+        return "bg-[#FEF3C7] text-[#B45309]";
+      case "Recruiting":
+        return "bg-[#DCFCE7] text-[#15803D]";
       default:
         return "bg-[#F3F4F6] text-[#6B7280]";
     }
@@ -285,7 +323,7 @@ export function FindJobs() {
     if (normalized === "—") return "";
     if (normalized.includes("/")) return "";
     if (normalized.includes("per month") || normalized.includes("per year")) return "";
-    return " /yr";
+    return " minimum";
   };
 
   const getPostedLabel = (postedDaysAgo: number) => {
@@ -339,6 +377,22 @@ export function FindJobs() {
   const workerCity = workerLocation.city.trim();
   const workerLocationLabel = workerCity || "Set your city";
 
+  const savePreferences = async () => {
+    setSavingPreferences(true);
+    try {
+      await updateJobPreferences({
+        preferredCategories: preferredCategoryIds,
+        jobPreferences: jobPreferenceText.split(",").map((item) => item.trim()).filter(Boolean),
+      });
+      toast.success("Job matching preferences saved.");
+      setReloadKey((value) => value + 1);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save job preferences.");
+    } finally {
+      setSavingPreferences(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 font-sans">
       <section className="relative overflow-hidden rounded-3xl bg-[#1C4D8D] px-5 py-8 text-white shadow-[0_18px_50px_rgba(28,77,141,0.20)] sm:px-8 sm:py-10 lg:px-12 lg:py-12" aria-labelledby="job-search-heading">
@@ -350,7 +404,7 @@ export function FindJobs() {
         </div>
 
         <form
-          className="relative mt-7 grid gap-3 rounded-2xl bg-white/10 p-3 sm:grid-cols-[minmax(0,1fr)_minmax(12rem,0.35fr)_auto]"
+          className="relative mt-7 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.35fr)_minmax(12rem,0.35fr)_auto]"
           role="search"
           onSubmit={(event) => event.preventDefault()}
         >
@@ -360,10 +414,31 @@ export function FindJobs() {
             <input
               type="search"
               value={searchParams.get("q") || ""}
-              onChange={(event) => setSearchParams(event.target.value ? { q: event.target.value } : {})}
+              onChange={(event) => {
+                const next = new URLSearchParams(searchParams);
+                if (event.target.value) next.set("q", event.target.value);
+                else next.delete("q");
+                setSearchParams(next);
+              }}
               placeholder="Job title, company, or category"
               className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500"
             />
+          </label>
+          <label className="min-w-0">
+            <span className="sr-only">Filter by category</span>
+            <select
+              value={selectedCategory}
+              onChange={(event) => {
+                const next = new URLSearchParams(searchParams);
+                if (event.target.value) next.set("category", event.target.value);
+                else next.delete("category");
+                setSearchParams(next);
+              }}
+              className="h-14 w-full rounded-xl border-0 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All categories</option>
+              {categories.map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}
+            </select>
           </label>
           <button type="button" onClick={() => navigate(ROUTES.settings)} className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl bg-white px-4 text-left text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D]" aria-label={`${workerCity ? "Jobs in" : "Set job search city"}: ${workerLocationLabel}`}>
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
@@ -382,6 +457,40 @@ export function FindJobs() {
           <button type="button" onClick={() => navigate(ROUTES.settings)} className="brand-primary-interactive min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold">Update location</button>
         </aside>
       )}
+
+      <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="matching-preferences-title">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 flex-1">
+            <h3 id="matching-preferences-title" className="font-bold text-slate-950">Improve your job matches</h3>
+            <p className="mt-1 text-sm text-slate-500">Choose categories and add comma-separated preferences used by Recommended Jobs.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {categories.map((category) => {
+                const selected = preferredCategoryIds.includes(category._id);
+                return (
+                  <button
+                    key={`preferred-${category._id}`}
+                    type="button"
+                    onClick={() => setPreferredCategoryIds((current) => selected ? current.filter((id) => id !== category._id) : [...current, category._id])}
+                    aria-pressed={selected}
+                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selected ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}
+                  >
+                    {category.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex w-full flex-col gap-2 lg:w-[360px]">
+            <label htmlFor="job-preferences" className="text-xs font-semibold text-slate-600">Job preferences</label>
+            <div className="flex gap-2">
+              <input id="job-preferences" value={jobPreferenceText} onChange={(event) => setJobPreferenceText(event.target.value)} placeholder="e.g. repair, installation" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
+              <button type="button" onClick={savePreferences} disabled={savingPreferences} className="rounded-xl bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50">
+                {savingPreferences ? "Saving…" : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

@@ -15,6 +15,7 @@ import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { formatMinimumPay } from '../../lib/jobCompensation';
 
 type JobItem = {
   _id: string;
@@ -170,7 +171,7 @@ export default function EmployerJobPosts({
 
             <View style={styles.metaRow}>
               <Text style={styles.jobType}>{job.jobType}</Text>
-              <Text style={styles.salary}>{job.salary}</Text>
+              <Text style={styles.salary}>{formatMinimumPay(job.salary)}</Text>
             </View>
 
             <View style={styles.footerRow}>

@@ -42,6 +42,9 @@ type JobDetailsLocationState = {
 
 const getJobTypeLabel = (jobType?: string) => {
   const normalized = (jobType || "").toLowerCase();
+  if (normalized.includes("short")) return "Short-term";
+  if (normalized.includes("side hustle")) return "Side hustle";
+  if (normalized.includes("recruit")) return "Recruiting";
   if (normalized.includes("part")) return "Part-Time";
   if (normalized.includes("contract")) return "Contract";
   if (normalized.includes("freelance") || normalized.includes("project")) return "Project Work";
@@ -94,7 +97,7 @@ const getSalaryDisplay = (salary?: string) => {
   if (Number.isFinite(numeric) && numeric > 0) {
     return {
       amount: `₱${numeric.toLocaleString()}`,
-      cadence: normalizedCadence || "per year",
+      cadence: normalizedCadence || "minimum guaranteed",
     };
   }
 
@@ -121,6 +124,9 @@ const getBadgeClass = (kind: "experience" | "jobType" | "workMode", value: strin
     return "bg-[#DCFCE7] text-[#15803D]";
   }
   if (kind === "jobType") {
+    if (value === "Short-term") return "bg-[#E0F2FE] text-[#0369A1]";
+    if (value === "Side hustle") return "bg-[#FEF3C7] text-[#B45309]";
+    if (value === "Recruiting") return "bg-[#DCFCE7] text-[#15803D]";
     if (value === "Part-Time") return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
     if (value === "Contract") return "bg-[#FFEDD5] text-[#C2410C]";
     if (value === "Project Work") return "bg-[#FEF3C7] text-[#B45309]";

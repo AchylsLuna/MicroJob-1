@@ -47,6 +47,13 @@ export const jobsAPI = {
     };
   },
 
+  getRecommendedJobs: async (limit = 12) => {
+    const response = await api.get('/jobs/recommended', { params: { limit } });
+    return {
+      data: Array.isArray(response.data) ? response.data : response.data?.data || []
+    };
+  },
+
   // Get job by ID
   getJobById: (jobId: string) => api.get(`/jobs/${jobId}`),
 

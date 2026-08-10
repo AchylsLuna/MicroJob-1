@@ -29,6 +29,7 @@ import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { calculateProfileCompletion } from '../../lib/profileCompletion';
 import { validateMobileAvatar } from '../../lib/profileValidation';
+import ProfileReviewsLoader from '../../components/reviews/ProfileReviewsLoader';
 
 type ProfileProps = {
   activeTab?: string;
@@ -945,6 +946,12 @@ export default function Profile({
             </View>
           </View>
         </View>
+
+        <ProfileReviewsLoader
+          profileOwnerId={String(profile?._id || profile?.id || '')}
+          profileOwnerName={displayName}
+          viewAs="worker"
+        />
       </ScrollView>
 
       <Navigation

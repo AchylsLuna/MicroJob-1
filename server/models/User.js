@@ -227,6 +227,15 @@ const UserSchema = new mongoose.Schema(
         },
       },
     ],
+    preferredCategories: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category',
+    }],
+    jobPreferences: [{
+      type: String,
+      trim: true,
+      maxlength: 120,
+    }],
     workExperience: [
       {
         title: {

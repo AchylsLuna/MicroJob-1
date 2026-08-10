@@ -13,6 +13,7 @@ import {
     deleteJob,
     reopenJob
 } from '../controllers/JobController.js'; 
+import { getRecommendedJobs } from '../controllers/JobRecommendationController.js';
 
 import verifyToken from '../middleware/auth.js';
 import optionalAuth from '../middleware/optionalAuth.js';
@@ -21,6 +22,7 @@ const router = express.Router();
 
 router.get('/', optionalAuth, getJobList);
 router.get('/available', optionalAuth, getAvailableJobs);
+router.get('/recommended', verifyToken, getRecommendedJobs);
 router.get('/category/:categoryId', optionalAuth, getJobByCategory);
 router.get('/mine', verifyToken, getMyJobs);
 router.get('/:id', getJobDetails);

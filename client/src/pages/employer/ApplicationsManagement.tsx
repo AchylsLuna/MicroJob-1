@@ -9,6 +9,7 @@ import {
   Mail,
   MessageSquare,
   Square,
+  Star,
   User as UserIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -19,10 +20,13 @@ import {
   scheduleInterview,
   updateApplicationStatus,
   updateInterview,
+  getEligibleReviews,
   type ApplicationStatus,
+  type ReviewEligibilityItem,
 } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
+import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
 
 const PIPELINE_STATUSES: ApplicationStatus[] = [
   "Applied",
@@ -63,7 +67,9 @@ type EmployerApplication = {
     resumeUrl?: string;
     resumeFileName?: string;
     resume?: string;
+    rating?: { averageRating?: number; totalReviews?: number };
   };
+  match?: { percentage?: number; level?: string; reasons?: string[] };
   nextInterview?: {
     _id: string;
     scheduledAt: string;
@@ -129,6 +135,8 @@ function ApplicationCard({
   onScheduleInterview,
   onOpenProfile,
   onMessage,
+  reviewEligibility,
+  onRate,
 }: {
   application: EmployerApplication;
   selected: boolean;
@@ -138,6 +146,8 @@ function ApplicationCard({
   onScheduleInterview: (application: EmployerApplication) => void;
   onOpenProfile: (application: EmployerApplication) => void;
   onMessage: (application: EmployerApplication) => void;
+  reviewEligibility?: ReviewEligibilityItem;
+  onRate: (application: EmployerApplication) => void;
 }) {
   const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
 
@@ -165,6 +175,16 @@ function ApplicationCard({
         </div>
         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[application.status]}`}>
           {application.status}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700">
+          {Number(application.match?.percentage || 0)}% Match
+        </span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">
+          <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+          {Number(application.applicant?.rating?.averageRating || 0).toFixed(1)} ({application.applicant?.rating?.totalReviews || 0})
         </span>
       </div>
 
@@ -261,6 +281,13 @@ function ApplicationCard({
             View Resume
           </a>
         ) : null}
+        {reviewEligibility?.canReview ? (
+          <button type="button" onClick={() => onRate(application)} className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-amber-500 px-3 py-2 text-[12px] font-semibold text-white">
+            <Star className="h-4 w-4" /> Rate Worker
+          </button>
+        ) : reviewEligibility?.existingReview ? (
+          <p className="text-center text-[12px] font-semibold text-emerald-700">Review submitted</p>
+        ) : null}
       </div>
     </div>
   );
@@ -286,18 +313,24 @@ export function ApplicationsManagement() {
     notes: "",
   });
   const [isScheduling, setIsScheduling] = useState(false);
+  const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
+  const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
 
   const loadApplications = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await getEmployerApplications({
-        ...(statusFilter !== "all" ? { status: statusFilter } : {}),
-        ...(jobFilter !== "all" ? { jobId: jobFilter } : {}),
-        ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
-      });
+      const [response, reviewResponse] = await Promise.all([
+        getEmployerApplications({
+          ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+          ...(jobFilter !== "all" ? { jobId: jobFilter } : {}),
+          ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+        }),
+        getEligibleReviews().catch(() => null),
+      ]);
       const nextApplications = Array.isArray(response) ? (response as EmployerApplication[]) : [];
       setApplications(nextApplications.filter((item) => item.status !== "Withdrawn"));
+      setReviewEligibility(Object.fromEntries((reviewResponse?.asEmployer || []).map((item) => [item.applicationId, item])));
       setSelectedIds((current) => current.filter((id) => nextApplications.some((item) => item._id === id)));
     } catch (error: any) {
       setLoadError(error?.message || "Failed to load applications.");
@@ -413,6 +446,15 @@ export function ApplicationsManagement() {
       draft: `Hi ${name}, I would like to discuss your application for ${application.job?.title || "this role"}.`,
     });
     navigate(`${ROUTES.employer.messages}?${params.toString()}`);
+  };
+
+  const handleRateWorker = (application: EmployerApplication) => {
+    setRatingTarget({
+      applicationId: application._id,
+      name: getApplicantName(application),
+      jobTitle: application.job?.title || "Completed job",
+      roleLabel: "worker",
+    });
   };
 
   const handleOpenSchedule = (application: EmployerApplication) => {
@@ -618,6 +660,8 @@ export function ApplicationsManagement() {
                       onScheduleInterview={handleOpenSchedule}
                       onOpenProfile={handleOpenProfile}
                       onMessage={handleMessage}
+                      reviewEligibility={reviewEligibility[application._id]}
+                      onRate={handleRateWorker}
                     />
                   ))
                 )}
@@ -714,6 +758,11 @@ export function ApplicationsManagement() {
                         >
                           Hide
                         </button>
+                        {reviewEligibility[application._id]?.canReview ? (
+                          <button type="button" onClick={() => handleRateWorker(application)} className="inline-flex items-center gap-1 rounded-[10px] bg-amber-500 px-3 py-2 font-semibold text-white">
+                            <Star className="h-4 w-4" /> Rate
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -722,6 +771,9 @@ export function ApplicationsManagement() {
             </tbody>
           </table>
         </div>
+      ) : null}
+      {ratingTarget ? (
+        <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={loadApplications} />
       ) : null}
 
       {scheduleTarget ? (

@@ -5,6 +5,7 @@ import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '../../theme/tokens';
+import { formatMinimumPay } from '../../lib/jobCompensation';
 
 type SavedJob = {
   _id: string;
@@ -114,7 +115,7 @@ export default function SavedJobs({
                     </View>
                     ))}
                   </View>
-                  <Text style={styles.jobSalary}>{job.salary}</Text>
+                  <Text style={styles.jobSalary}>{formatMinimumPay(job.salary)}</Text>
                 </View>
               </TouchableOpacity>
             ))}

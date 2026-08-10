@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
-import { apiRequest } from '../../lib/api';
+import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -28,20 +28,23 @@ import {
   normalizeProfilePhone,
   validateMobileAvatar,
 } from '../../lib/profileValidation';
+import {
+  getPhilippineBarangays,
+  getPhilippineLocationOptions,
+  type BarangayOption,
+  type CityOption,
+  type ProvinceOption,
+} from '../../lib/philippineLocations';
 
 type PersonalInformationProps = {
   onBack?: () => void;
   currentRole?: 'worker' | 'employer' | 'both';
+  onSaved?: (profile: Record<string, any>) => void;
 };
 
-type ProvinceOption = { code: string; name: string };
-type CityOption = { code: string; name: string; provinceCode?: string };
-type BarangayOption = { code: string; name: string };
-
-const PSGC_BASE_URL = 'https://psgc.gitlab.io/api';
-
-export default function PersonalInformation({ onBack }: PersonalInformationProps) {
+export default function PersonalInformation({ onBack, onSaved }: PersonalInformationProps) {
   const loadProfileRef = useRef<() => Promise<void>>(async () => undefined);
+  const originalProfileRef = useRef<Record<string, string> | null>(null);
   const insets = useSafeAreaInsets();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -58,7 +61,6 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [formError, setFormError] = useState('');
-  const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
   const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
   const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
   const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
@@ -67,6 +69,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
   const [showBarangayOptions, setShowBarangayOptions] = useState(false);
   const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
+  const [locationDataError, setLocationDataError] = useState('');
+  const [locationReloadKey, setLocationReloadKey] = useState(0);
   const toast = useToast();
 
   useEffect(() => {
@@ -82,12 +86,17 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     if (selectedProvince?.code) {
       return cityOptions.filter((item) => item.provinceCode === selectedProvince.code);
     }
-    return cityOptions;
+    return [];
   }, [cityOptions, selectedProvince?.code]);
 
   const selectedCity = useMemo(
     () => filteredCities.find((item) => item.name.toLowerCase() === city.trim().toLowerCase()),
     [filteredCities, city],
+  );
+
+  const selectedBarangay = useMemo(
+    () => barangayOptions.find((item) => item.name.toLowerCase() === barangay.trim().toLowerCase()),
+    [barangayOptions, barangay],
   );
 
   useEffect(() => {
@@ -99,40 +108,15 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
 
     const loadLocationData = async () => {
       setIsLoadingLocations(true);
+      setLocationDataError('');
       try {
-        const [provinceResponse, cityResponse] = await Promise.all([
-          fetch(`${PSGC_BASE_URL}/provinces/`),
-          fetch(`${PSGC_BASE_URL}/cities-municipalities/`),
-        ]);
-
-        const provinceJson = await provinceResponse.json().catch(() => []);
-        const cityJson = await cityResponse.json().catch(() => []);
-
-        if (!provinceResponse.ok || !cityResponse.ok) {
-          throw new Error('Failed to load location options.');
-        }
-
+        const { provinces, cities } = await getPhilippineLocationOptions();
         if (!isMounted) return;
-
-        const provinces: ProvinceOption[] = (provinceJson || [])
-          .map((item: any) => ({ code: String(item.code || ''), name: String(item.name || '').trim() }))
-          .filter((item: ProvinceOption) => item.code && item.name)
-          .sort((a: ProvinceOption, b: ProvinceOption) => a.name.localeCompare(b.name));
-
-        const cities: CityOption[] = (cityJson || [])
-          .map((item: any) => ({
-            code: String(item.code || ''),
-            name: String(item.name || '').trim(),
-            provinceCode: item.provinceCode ? String(item.provinceCode) : undefined,
-          }))
-          .filter((item: CityOption) => item.code && item.name)
-          .sort((a: CityOption, b: CityOption) => a.name.localeCompare(b.name));
-
         setProvinceOptions(provinces);
         setCityOptions(cities);
       } catch {
         if (isMounted) {
-          toast.error('Failed to load location options.');
+          setLocationDataError('Philippine location options are unavailable.');
         }
       } finally {
         if (isMounted) {
@@ -146,7 +130,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
     return () => {
       isMounted = false;
     };
-  }, [toast]);
+  }, [locationReloadKey]);
 
   useEffect(() => {
     let isMounted = true;
@@ -159,20 +143,8 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
 
       setIsLoadingBarangays(true);
       try {
-        const response = await fetch(`${PSGC_BASE_URL}/cities-municipalities/${selectedCity.code}/barangays/`);
-        const json = await response.json().catch(() => []);
-
-        if (!response.ok) {
-          throw new Error('Failed to load barangays.');
-        }
-
+        const items = await getPhilippineBarangays(selectedCity.code);
         if (!isMounted) return;
-
-        const items: BarangayOption[] = (json || [])
-          .map((item: any) => ({ code: String(item.code || ''), name: String(item.name || '').trim() }))
-          .filter((item: BarangayOption) => item.code && item.name)
-          .sort((a: BarangayOption, b: BarangayOption) => a.name.localeCompare(b.name));
-
         setBarangayOptions(items);
       } catch {
         if (isMounted) {
@@ -237,15 +209,21 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
 
       if (!result.ok) {
         const errorText = JSON.stringify(result.raw || {});
+        let message = result.message || 'Failed to load profile.';
         if (errorText.includes('401') || errorText.includes('Unauthorized')) {
-          toast.error('Your session has expired. Please log in again.');
+          message = 'Your session has expired. Please log in again.';
           await AsyncStorage.removeItem('auth_token');
           await AsyncStorage.removeItem('auth_user');
         }
+        setFormError(message);
+        toast.error(message);
         return;
       }
 
-      const profile = (result.data || result.raw || {}) as any;
+      const profile =
+        asObject<any>(result.data, ['user', 'profile']) ||
+        asObject<any>(result.raw, ['user', 'profile']) ||
+        {};
       const name = [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim();
 
       setFullName(name);
@@ -259,9 +237,22 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       setLinkedin(profile.linkedin || '');
       setWebsite(profile.website || '');
       setAvatarUrl(profile.avatarUrl || '');
-      setOriginalPhoneNumber(profile.phoneNumber || '');
+      originalProfileRef.current = {
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
+        phoneNumber: normalizeProfilePhone(profile.phoneNumber || ''),
+        city: profile.city || '',
+        province: profile.province || '',
+        barangay: profile.barangay || '',
+        about: profile.about || '',
+        jobPosition: profile.jobPosition || '',
+        linkedin: profile.linkedin || '',
+        website: profile.website || '',
+      };
     } catch (error) {
-      console.log('Failed to load profile', error);
+      const message = error instanceof Error ? error.message : 'Failed to load profile.';
+      setFormError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -388,6 +379,36 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       toast.error(message);
       return;
     }
+    const originalProfile = originalProfileRef.current;
+    if (!originalProfile) {
+      const message = 'Your profile is still loading. Please wait and try again.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    const locationChanged =
+      province.trim() !== originalProfile.province.trim() ||
+      city.trim() !== originalProfile.city.trim() ||
+      barangay.trim() !== originalProfile.barangay.trim();
+    if (locationChanged && (isLoadingLocations || isLoadingBarangays)) {
+      const message = 'Please wait for the Philippine location options to finish loading.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    if (locationChanged && locationDataError) {
+      const message = 'Location options are unavailable. Retry before saving location changes.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+    const hasAnyLocation = Boolean(province.trim() || city.trim() || barangay.trim());
+    if (locationChanged && hasAnyLocation && (!selectedProvince || !selectedCity || !selectedBarangay)) {
+      const message = 'Select a valid Province, City/Municipality, and Barangay from the suggestions.';
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
 
     setIsSaving(true);
     try {
@@ -397,7 +418,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         return;
       }
 
-      const updateData: any = {
+      const nextValues: Record<string, string> = {
         firstName: parsedName.firstName,
         lastName: parsedName.lastName,
         city: city.trim(),
@@ -408,9 +429,13 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
         linkedin: linkedin.trim(),
         website: website.trim(),
       };
+      const updateData = Object.fromEntries(
+        Object.entries(nextValues).filter(([key, value]) => value !== String(originalProfile[key] || '').trim()),
+      );
 
-      if (normalizedPhone !== normalizeProfilePhone(originalPhoneNumber)) {
-        updateData.phoneNumber = normalizedPhone;
+      if (Object.keys(updateData).length === 0) {
+        toast.success('No profile changes to save.');
+        return;
       }
 
       const result = await apiRequest(
@@ -444,27 +469,42 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
       }
 
       try {
+        const responseProfile =
+          asObject<any>(result.data, ['user', 'profile']) ||
+          asObject<any>(result.raw, ['user', 'profile']) ||
+          nextValues;
         const storedUser = await AsyncStorage.getItem('auth_user');
-        if (storedUser) {
-          const parsed = JSON.parse(storedUser);
-          parsed.firstName = parsedName.firstName;
-          parsed.lastName = parsedName.lastName;
-          parsed.phoneNumber = normalizedPhone;
-          parsed.city = city.trim();
-          parsed.province = province.trim();
-          parsed.barangay = barangay.trim();
-          parsed.about = about.trim();
-          parsed.jobPosition = jobPosition.trim();
-          parsed.linkedin = linkedin.trim();
-          parsed.website = website.trim();
-          await AsyncStorage.setItem('auth_user', JSON.stringify(parsed));
-        }
+        const cachedUser = storedUser ? JSON.parse(storedUser) : {};
+        const savedUser = { ...cachedUser, ...responseProfile };
+        await AsyncStorage.setItem('auth_user', JSON.stringify(savedUser));
+
+        setFullName([savedUser.firstName, savedUser.lastName].filter(Boolean).join(' ').trim());
+        setPhoneNumber(savedUser.phoneNumber || '');
+        setCity(savedUser.city || '');
+        setProvince(savedUser.province || '');
+        setBarangay(savedUser.barangay || '');
+        setAbout(savedUser.about || '');
+        setJobPosition(savedUser.jobPosition || '');
+        setLinkedin(savedUser.linkedin || '');
+        setWebsite(savedUser.website || '');
+        originalProfileRef.current = {
+          firstName: savedUser.firstName || '',
+          lastName: savedUser.lastName || '',
+          phoneNumber: normalizeProfilePhone(savedUser.phoneNumber || ''),
+          city: savedUser.city || '',
+          province: savedUser.province || '',
+          barangay: savedUser.barangay || '',
+          about: savedUser.about || '',
+          jobPosition: savedUser.jobPosition || '',
+          linkedin: savedUser.linkedin || '',
+          website: savedUser.website || '',
+        };
+        onSaved?.(savedUser);
       } catch (cacheError) {
         console.log('Failed to update cached user', cacheError);
       }
 
       toast.success('Profile updated successfully.');
-      await loadProfile();
     } catch (error) {
       console.log('Error saving personal information:', error);
       const message = error instanceof Error ? error.message : 'Failed to save personal information.';
@@ -591,6 +631,19 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Province</Text>
+          {locationDataError ? (
+            <View style={styles.locationErrorRow}>
+              <Text style={styles.locationErrorText}>{locationDataError}</Text>
+              <TouchableOpacity
+                onPress={() => setLocationReloadKey((value) => value + 1)}
+                style={styles.retryButton}
+                accessibilityRole="button"
+                accessibilityLabel="Retry loading Philippine locations"
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
           <TextInput
             style={styles.input}
             placeholder={isLoadingLocations ? 'Loading provinces...' : 'Type or select province'}
@@ -602,13 +655,13 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
               setBarangay('');
               setShowProvinceOptions(true);
             }}
-            editable={!isSaving}
+            editable={!isSaving && !locationDataError}
             onFocus={() => setShowProvinceOptions(true)}
             placeholderTextColor="#9CA3AF"
             accessibilityLabel="Province"
             accessibilityHint="Type to filter province suggestions"
           />
-          {showProvinceOptions ? (
+          {showProvinceOptions && !locationDataError ? (
             <View style={styles.optionsDropdown}>
               <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
                 {provinceOptions
@@ -639,7 +692,7 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
           <Text style={styles.label}>City / Municipality</Text>
           <TextInput
             style={styles.input}
-            placeholder={!province ? 'Select province first' : 'Type or select city'}
+            placeholder={!selectedProvince ? 'Select province first' : 'Type or select city'}
             value={city}
             maxLength={PROFILE_LIMITS.city}
             onChangeText={(value) => {
@@ -647,13 +700,13 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
               setBarangay('');
               setShowCityOptions(true);
             }}
-            editable={!isSaving && Boolean(province)}
+            editable={!isSaving && Boolean(selectedProvince)}
             onFocus={() => setShowCityOptions(true)}
             placeholderTextColor="#9CA3AF"
             accessibilityLabel="City or municipality"
             accessibilityHint="Type to filter city suggestions"
           />
-          {showCityOptions ? (
+          {showCityOptions && Boolean(selectedProvince) ? (
             <View style={styles.optionsDropdown}>
               <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
                 {filteredCities
@@ -683,20 +736,20 @@ export default function PersonalInformation({ onBack }: PersonalInformationProps
           <Text style={styles.label}>Barangay</Text>
           <TextInput
             style={styles.input}
-            placeholder={!city ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
+            placeholder={!selectedCity ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
             value={barangay}
             maxLength={PROFILE_LIMITS.barangay}
             onChangeText={(value) => {
               setBarangay(value);
               setShowBarangayOptions(true);
             }}
-            editable={!isSaving && Boolean(city)}
+            editable={!isSaving && Boolean(selectedCity) && !isLoadingBarangays}
             onFocus={() => setShowBarangayOptions(true)}
             placeholderTextColor="#9CA3AF"
             accessibilityLabel="Barangay"
             accessibilityHint="Type to filter barangay suggestions"
           />
-          {showBarangayOptions ? (
+          {showBarangayOptions && Boolean(selectedCity) ? (
             <View style={styles.optionsDropdown}>
               <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
                 {barangayOptions
@@ -878,6 +931,38 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 13,
     color: tokens.colors.text,
+  },
+  locationErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  locationErrorText: {
+    flex: 1,
+    color: '#9A3412',
+    fontSize: 12,
+  },
+  retryButton: {
+    minHeight: 36,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  retryButtonText: {
+    color: '#9A3412',
+    fontWeight: '700',
+    fontSize: 12,
   },
   scroll: {
     paddingHorizontal: 24,

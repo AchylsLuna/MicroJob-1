@@ -1,8 +1,9 @@
 import { ArrowLeft, Briefcase, MapPin, Star, CheckCircle2, Building2, ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { getPublicProfile } from "../../services/api";
+import { getPublicProfile, type ProfileReview, type ReviewSummary } from "../../services/api";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
+import { ProfileReviews } from "../../components/reviews/ProfileReviews";
 
 type PublicProfileResponse = {
   profile?: {
@@ -38,6 +39,9 @@ type PublicProfileResponse = {
     percentage?: number | null;
     completedCount?: number | null;
     totalCount?: number | null;
+    averageRating?: number | null;
+    totalReviews?: number;
+    ratingBreakdown?: ReviewSummary["ratingBreakdown"];
   };
   stats?: {
     worker?: {
@@ -53,6 +57,7 @@ type PublicProfileResponse = {
       successRate?: number | null;
     };
   };
+  reviews?: ProfileReview[];
 };
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
@@ -80,25 +85,29 @@ export function PublicProfile() {
 
   useEffect(() => {
     let isMounted = true;
-    const load = async () => {
+    const load = async (silent = false) => {
       if (!userId) return;
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
       try {
         const response = await getPublicProfile(userId, viewAs);
         if (!isMounted) return;
         setData(response as PublicProfileResponse);
       } catch (err: any) {
         if (!isMounted) return;
-        setError(err?.message || "Failed to load profile.");
+        if (!silent) setError(err?.message || "Failed to load profile.");
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted && !silent) setIsLoading(false);
       }
     };
 
     load();
+    const refreshTimer = window.setInterval(() => void load(true), 30_000);
     return () => {
       isMounted = false;
+      window.clearInterval(refreshTimer);
     };
   }, [userId, viewAs]);
 
@@ -117,7 +126,6 @@ export function PublicProfile() {
 
   const avatarUrl = toAbsoluteAssetUrl(data?.profile?.avatarUrl);
   const ratingStars = Math.max(0, Math.min(5, Number(data?.rating?.stars || 0)));
-  const ratingPercentage = Math.max(0, Math.min(100, Number(data?.rating?.percentage || 0)));
   const linkedinUrl = safeExternalUrl(data?.profile?.linkedin);
   const websiteUrl = safeExternalUrl(data?.profile?.website);
   const formatExperienceDate = (value?: string | null) => {
@@ -194,7 +202,7 @@ export function PublicProfile() {
                       ))}
                       <span className="text-sm font-semibold text-[#0F172A]">{ratingStars.toFixed(1)}/5</span>
                     </div>
-                    <p className="text-sm text-[#334155]">{ratingPercentage}% success</p>
+                    <p className="text-sm text-[#334155]">{data.rating?.totalReviews || 0} review{data.rating?.totalReviews === 1 ? "" : "s"}</p>
                   </div>
 
                   <div className="rounded-xl border border-[#E2E8F0] p-4">
@@ -281,6 +289,18 @@ export function PublicProfile() {
                 </div>
               </div>
             ) : null}
+
+            <ProfileReviews
+              profileOwnerId={String(data.profile.id || userId || "")}
+              profileOwnerName={fullName}
+              summary={{
+                averageRating: Number(data.rating?.averageRating || data.rating?.stars || 0),
+                totalReviews: Number(data.rating?.totalReviews || 0),
+                percentage: Number(data.rating?.percentage || 0),
+                ratingBreakdown: data.rating?.ratingBreakdown || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+              }}
+              reviews={data.reviews || []}
+            />
           </div>
         ) : null}
       </div>

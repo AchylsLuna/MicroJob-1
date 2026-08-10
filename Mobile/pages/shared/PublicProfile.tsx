@@ -13,6 +13,10 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import ProfileReviews, {
+  type MobileProfileReview,
+  type MobileReviewSummary,
+} from '../../components/reviews/ProfileReviews';
 
 type PublicProfileProps = {
   userId: string;
@@ -54,6 +58,9 @@ type PublicProfileResponse = {
     percentage?: number | null;
     completedCount?: number | null;
     totalCount?: number | null;
+    averageRating?: number | null;
+    totalReviews?: number;
+    ratingBreakdown?: MobileReviewSummary['ratingBreakdown'];
   };
   stats?: {
     worker?: {
@@ -69,6 +76,7 @@ type PublicProfileResponse = {
       successRate?: number | null;
     };
   };
+  reviews?: MobileProfileReview[];
 };
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
@@ -90,10 +98,12 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
 
   useEffect(() => {
     let isMounted = true;
-    const load = async () => {
+    const load = async (silent = false) => {
       if (!userId) return;
-      setIsLoading(true);
-      setError(null);
+      if (!silent) {
+        setIsLoading(true);
+        setError(null);
+      }
       try {
         const token = await AsyncStorage.getItem('auth_token');
         const result = await apiRequest(
@@ -122,16 +132,20 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
         setData(payload);
       } catch (err: any) {
         if (!isMounted) return;
-        setData(null);
-        setError(err?.message || 'Failed to load profile.');
+        if (!silent) {
+          setData(null);
+          setError(err?.message || 'Failed to load profile.');
+        }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted && !silent) setIsLoading(false);
       }
     };
 
     load();
+    const refreshTimer = setInterval(() => void load(true), 30_000);
     return () => {
       isMounted = false;
+      clearInterval(refreshTimer);
     };
   }, [userId, viewAs, reloadKey]);
 
@@ -150,7 +164,6 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
 
   const avatarUrl = toAbsoluteAssetUrl(data?.profile?.avatarUrl);
   const ratingStars = Math.max(0, Math.min(5, Number(data?.rating?.stars || 0)));
-  const ratingPercentage = Math.max(0, Math.min(100, Number(data?.rating?.percentage || 0)));
 
   const renderStars = () => {
     const stars = [];
@@ -278,7 +291,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
                   <Text style={styles.ratingLabel}>Rating</Text>
                   <View style={styles.starsRow}>{renderStars()}</View>
                   <Text style={styles.ratingValue}>{ratingStars.toFixed(1)}/5</Text>
-                  <Text style={styles.successRate}>{ratingPercentage}% success</Text>
+                  <Text style={styles.successRate}>{data.rating?.totalReviews || 0} reviews</Text>
                 </View>
 
                 <View style={styles.ratingBox}>
@@ -386,6 +399,18 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
               </View>
             </View>
           ) : null}
+
+          <ProfileReviews
+            profileOwnerId={String(profile.id || userId)}
+            profileOwnerName={fullName}
+            summary={{
+              averageRating: Number(data.rating?.averageRating || data.rating?.stars || 0),
+              totalReviews: Number(data.rating?.totalReviews || 0),
+              percentage: Number(data.rating?.percentage || 0),
+              ratingBreakdown: data.rating?.ratingBreakdown || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
+            }}
+            reviews={data.reviews || []}
+          />
 
         </View>
       </ScrollView>

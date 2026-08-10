@@ -6,6 +6,7 @@ import PayoutRequest from "../models/PayoutRequest.js";
 import PushDevice from "../models/PushDevice.js";
 import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
+import Review from "../models/Review.js";
 import jwt from "jsonwebtoken";
 import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
@@ -25,6 +26,8 @@ import {
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
 import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
+import { getReviewSummary } from "../lib/reviewSummary.js";
+import { serializeReview } from "../lib/reviewPresentation.js";
 
 const otpStore = new Map();
 const passwordResetOtpStore = new Map();
@@ -198,7 +201,7 @@ export async function anonymizeAndDeleteUser(userId) {
     ]);
     await removeStoredUploads(storedUploads);
 
-    clearPhoneVerificationOtp(String(userId));
+    await clearPhoneVerificationOtp(String(userId));
     otpStore.delete(originalEmailKey);
     passwordResetOtpStore.delete(originalEmailKey);
     passwordChangeOtpStore.delete(originalEmailKey);
@@ -497,7 +500,9 @@ export async function updateProfile(req, res) {
             return res.status(401).json({ message: "Authentication required." });
         }
 
-        const existingUser = await User.findById(userId).select("phoneNumber role verification.phoneVerified");
+        const existingUser = await User.findById(userId).select(
+            "phoneNumber role city province barangay verification.phoneVerified"
+        );
         if (!existingUser) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -591,6 +596,23 @@ export async function updateProfile(req, res) {
         if (updates.addressType !== undefined && !["home", "office", "place"].includes(updates.addressType)) {
             return res.status(400).json({ message: "addressType must be home, office, or place." });
         }
+        const locationFields = ["province", "city", "barangay"];
+        if (locationFields.some((field) => Object.prototype.hasOwnProperty.call(requestBody, field))) {
+            const nextLocationValue = (field) => {
+                if (Object.prototype.hasOwnProperty.call(unset, field)) return "";
+                if (updates[field] !== undefined) return String(updates[field]).trim();
+                return String(existingUser[field] || "").trim();
+            };
+            const nextProvince = nextLocationValue("province");
+            const nextCity = nextLocationValue("city");
+            const nextBarangay = nextLocationValue("barangay");
+            if (nextCity && !nextProvince) {
+                return res.status(400).json({ message: "Select a province before selecting a city or municipality." });
+            }
+            if (nextBarangay && !nextCity) {
+                return res.status(400).json({ message: "Select a city or municipality before selecting a barangay." });
+            }
+        }
         for (const urlField of ["facebook", "linkedin", "website"]) {
             if (updates[urlField] === undefined) continue;
             const normalizedUrl = normalizeProfileUrl(updates[urlField]);
@@ -617,7 +639,7 @@ export async function updateProfile(req, res) {
 
         if (phoneChanged) {
             updates["verification.phoneVerified"] = false;
-            clearPhoneVerificationOtp(String(userId));
+            await clearPhoneVerificationOtp(String(userId));
         }
 
         // Auto-calculate job statistics from JobApplication collection
@@ -727,11 +749,18 @@ export async function getPublicProfile(req, res) {
             ])
             : [0, 0];
 
-        const workerRating = toRatingSummary(workerHiredCount, workerAppliedCount);
-        const employerRating = toRatingSummary(employerHiredCount, employerApplicantsCount);
-        const selectedRating = viewer === "employer" ? employerRating : workerRating;
+        const workerPerformance = toRatingSummary(workerHiredCount, workerAppliedCount);
+        const employerPerformance = toRatingSummary(employerHiredCount, employerApplicantsCount);
+        const selectedPerformance = viewer === "employer" ? employerPerformance : workerPerformance;
+        const [reviewRating, reviews] = await Promise.all([
+            getReviewSummary(user._id, viewer),
+            Review.find({ reviewee: user._id, revieweeRole: viewer })
+                .populate("reviewer", "firstName lastName companyName avatarUrl")
+                .populate("job", "title category")
+                .sort({ createdAt: -1 })
+                .lean(),
+        ]);
         const employerHiringStatsHidden = user.hideHiredCandidates !== false;
-        const selectedRatingHidden = viewer === "employer" && employerHiringStatsHidden;
 
         return res.status(200).json({
             profile: {
@@ -753,24 +782,28 @@ export async function getPublicProfile(req, res) {
             },
             rating: {
                 viewAs: viewer,
-                hidden: selectedRatingHidden,
-                stars: selectedRatingHidden ? null : selectedRating.stars,
-                percentage: selectedRatingHidden ? null : selectedRating.percentage,
-                completedCount: selectedRatingHidden ? null : selectedRating.completedCount,
-                totalCount: selectedRatingHidden ? null : selectedRating.totalCount,
+                hidden: false,
+                stars: reviewRating.averageRating,
+                averageRating: reviewRating.averageRating,
+                totalReviews: reviewRating.totalReviews,
+                percentage: reviewRating.percentage,
+                ratingBreakdown: reviewRating.ratingBreakdown,
+                completedCount: selectedPerformance.completedCount,
+                totalCount: selectedPerformance.totalCount,
             },
+            reviews: reviews.map((review) => serializeReview(review, requesterId)),
             stats: {
                 worker: {
                     jobsApplied: workerAppliedCount,
                     projectsCompleted: workerHiredCount,
-                    successRate: workerRating.percentage,
+                    successRate: workerPerformance.percentage,
                 },
                 employer: {
                     jobsPosted: postedJobIds.length,
                     totalApplicants: employerApplicantsCount,
                     hires: employerHiringStatsHidden ? null : employerHiredCount,
                     hiresHidden: employerHiringStatsHidden,
-                    successRate: employerHiringStatsHidden ? null : employerRating.percentage,
+                    successRate: employerHiringStatsHidden ? null : employerPerformance.percentage,
                 },
             },
         });

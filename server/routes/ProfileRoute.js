@@ -7,6 +7,7 @@ import {
   deleteAvatar,
   deleteResume,
   createFileAccessLink,
+  updateJobPreferences,
 } from '../controllers/ProfileController.js';
 import {
   getPublicProfile,
@@ -30,6 +31,7 @@ const router = express.Router();
 router.get(['/profile', '/me'], verifyToken, getProfile);
 router.get('/profiles/:userId', verifyToken, getPublicProfile);
 router.patch(['/profile', '/me'], verifyToken, updateMe);
+router.patch('/profile/job-preferences', verifyToken, updateJobPreferences);
 router.post('/me/delete', verifyToken, requestSelfDelete);
 router.post('/profile/avatar', verifyToken, uploadAvatarFile, uploadAvatar);
 router.delete('/profile/avatar', verifyToken, deleteAvatar);

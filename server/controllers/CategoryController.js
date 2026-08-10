@@ -1,8 +1,10 @@
 import Category from '../models/Category.js';
+import { ensureDefaultJobCategories } from '../lib/jobCategories.js';
 
 export async function getCategoryList(req, res) {
     try {
-        const categories = await Category.find({});
+        await ensureDefaultJobCategories(Category);
+        const categories = await Category.find({}).sort({ order: 1, name: 1 });
         res.status(200).json(categories);
     } catch (error) {
         res.status(500).json({message: "Failed to get categories."});
@@ -20,7 +22,7 @@ export async function createCategory(req, res) {
             return res.status(409).json({message: "Category already exists."});
         }
 
-        const category = new Category({name});
+        const category = new Category({name: String(name).trim()});
         await category.save();
         res.status(201).json({message: "Category created successfully.", category});
 

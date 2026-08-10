@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
@@ -16,6 +17,7 @@ import { apiRequest, asList } from '../../lib/api';
 import { APPLICATION_STATUSES, ApplicationStatus, normalizeApplicationStatus } from '../../lib/status';
 import PublicProfile from '../shared/PublicProfile';
 import { tokens } from '../../theme/tokens';
+import RatingModal, { MobileRatingTarget } from '../../components/reviews/RatingModal';
 
 type ApplicationItem = {
   _id: string;
@@ -39,9 +41,17 @@ type ApplicationItem = {
     totalExperience?: string;
     about?: string;
     avatarUrl?: string;
+    rating?: { averageRating?: number; totalReviews?: number };
   };
+  match?: { percentage?: number; level?: string; reasons?: string[] };
   coverLetter?: string;
   resume?: string;
+};
+
+type ReviewEligibility = {
+  applicationId: string;
+  canReview: boolean;
+  existingReview?: { rating?: number } | null;
 };
 
 type EmployerApplicationsProps = {
@@ -91,6 +101,8 @@ export default function EmployerApplications({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibility>>({});
+  const [ratingTarget, setRatingTarget] = useState<MobileRatingTarget | null>(null);
 
   const jobOptions = useMemo(() => {
     const unique = new Map<string, string>();
@@ -143,6 +155,12 @@ export default function EmployerApplications({
         status: normalizeApplicationStatus(item?.status),
       }));
       setApplications(mapped as ApplicationItem[]);
+      const eligibilityResult = await apiRequest(`${API_URL}/reviews/eligible`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      }, 'Failed to load review eligibility.');
+      const eligibilityPayload: any = eligibilityResult.data || eligibilityResult.raw || {};
+      const employerItems: ReviewEligibility[] = Array.isArray(eligibilityPayload?.asEmployer) ? eligibilityPayload.asEmployer : [];
+      setReviewEligibility(Object.fromEntries(employerItems.map((item) => [item.applicationId, item])));
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load applications.');
     } finally {
@@ -333,6 +351,15 @@ export default function EmployerApplications({
                 <Text style={styles.statusText}>{app.status}</Text>
               </View>
             </View>
+            <View style={styles.insightRow}>
+              <View style={styles.matchPill}>
+                <Text style={styles.matchText}>{Number(app.match?.percentage || 0)}% Match</Text>
+              </View>
+              <View style={styles.ratingPill}>
+                <Ionicons name="star" size={13} color="#F59E0B" />
+                <Text style={styles.ratingText}>{Number(app.applicant?.rating?.averageRating || 0).toFixed(1)} ({app.applicant?.rating?.totalReviews || 0})</Text>
+              </View>
+            </View>
             <View style={styles.metaRow}>
               <Text style={styles.metaText}>
                 {app.createdAt ? new Date(app.createdAt).toLocaleDateString() : ''}
@@ -386,6 +413,23 @@ export default function EmployerApplications({
               ))}
             </View>
 
+            {reviewEligibility[app._id]?.canReview ? (
+              <TouchableOpacity
+                style={styles.rateButton}
+                onPress={() => setRatingTarget({
+                  applicationId: app._id,
+                  name: `${app.applicant?.firstName || ''} ${app.applicant?.lastName || ''}`.trim() || 'Worker',
+                  jobTitle: app.job?.title || 'Completed job',
+                  roleLabel: 'worker',
+                })}
+              >
+                <Ionicons name="star" size={17} color="#92400E" />
+                <Text style={styles.rateButtonText}>Rate Worker</Text>
+              </TouchableOpacity>
+            ) : reviewEligibility[app._id]?.existingReview ? (
+              <Text style={styles.reviewedText}>★ Review submitted</Text>
+            ) : null}
+
             {expandedId === app._id ? (
               <View style={styles.profileBox}>
                 <Text style={styles.profileTitle}>Applicant Details</Text>
@@ -430,6 +474,7 @@ export default function EmployerApplications({
       </ScrollView>
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
+      <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={fetchApplications} />
     </View>
   );
 }
@@ -531,6 +576,14 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   statusText: { fontSize: 11, color: '#a16207', fontWeight: '700' },
+  insightRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 12 },
+  matchPill: { borderRadius: 999, backgroundColor: '#ECFDF5', paddingHorizontal: 10, paddingVertical: 6 },
+  matchText: { color: '#047857', fontSize: 11, fontWeight: '800' },
+  ratingPill: { borderRadius: 999, backgroundColor: '#FFFBEB', paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  ratingText: { color: '#92400E', fontSize: 11, fontWeight: '700' },
+  rateButton: { minHeight: 46, marginTop: 12, borderRadius: 12, backgroundColor: '#FEF3C7', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  rateButtonText: { color: '#92400E', fontSize: 13, fontWeight: '800' },
+  reviewedText: { marginTop: 12, textAlign: 'center', color: '#047857', fontSize: 12, fontWeight: '700' },
   coverLetter: { fontSize: 12, color: '#4b5563', marginTop: 12, lineHeight: 18 },
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, gap: 8, flexWrap: 'wrap' },
   metaText: { fontSize: 12, color: '#6b7280' },

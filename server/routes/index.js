@@ -12,6 +12,7 @@ import SavedJobRoute from './SavedJobRoute.js';
 import SupportRoute from './SupportRoute.js';
 import ProfileRoute from './ProfileRoute.js';
 import PhoneRoute from './PhoneRoute.js';
+import ReviewRoute from './ReviewRoute.js';
 
 export const registerRoutes = (app) => {
     app.get('/', (req, res) => {
@@ -39,4 +40,5 @@ export const registerRoutes = (app) => {
     app.use('/api/saved-jobs', SavedJobRoute);
     app.use('/api/support', SupportRoute);
     app.use('/api/verify-phone', PhoneRoute);
+    app.use('/api/reviews', ReviewRoute);
 };

@@ -3,7 +3,11 @@ import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
+import Category from '../models/Category.js';
 import { createNotification } from '../lib/notificationService.js';
+import { scoreJobForWorker } from '../lib/jobMatching.js';
+import { getReviewSummaries } from '../lib/reviewSummary.js';
+import { isSupportedJobType, parseMinimumPay } from '../lib/jobPosting.js';
 import {
     APPLICANT_SELECT,
     PUBLIC_JOB_POSTER_SELECT,
@@ -129,14 +133,21 @@ export async function getApplicantsList(req, res){
         const {jobId} = req.params;
         const requesterId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
-        const job = await Job.findById(jobId).populate('applicants', APPLICANT_SELECT);
+        const job = await Job.findById(jobId)
+            .populate('category', 'name')
+            .populate('applicants', `${APPLICANT_SELECT} workExperience jobPreferences preferredCategories`);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
         if (String(job.jobPoster || '') !== String(requesterId || '') && !isAdminRole(requesterRole)) {
             return res.status(403).json({ message: "Not authorized to view applicants for this job." });
         }
-        res.status(200).json(job.applicants.map(serializeApplicant));
+        const ratings = await getReviewSummaries(job.applicants.map((item) => item._id), 'worker');
+        res.status(200).json(job.applicants.map((applicant) => ({
+            ...serializeApplicant(applicant),
+            match: scoreJobForWorker(job, applicant),
+            rating: ratings.get(String(applicant._id)) || { averageRating: 0, totalReviews: 0 },
+        })));
     } catch (error) {
         res.status(500).json({message: "Failed to get applicants."});
     }
@@ -175,6 +186,7 @@ export async function createJob(req, res){
         if (!salary) missingFields.push('salary');
         if (!jobType) missingFields.push('jobType');
         if (!deadline) missingFields.push('deadline');
+        if (!category) missingFields.push('category');
 
         if (missingFields.length > 0) {
             return res.status(400).json({
@@ -182,8 +194,27 @@ export async function createJob(req, res){
             });
         }
 
-        const salaryAmount = Number(salary);
+        if (!mongoose.Types.ObjectId.isValid(String(category))) {
+            return res.status(400).json({ message: 'Please select a valid job category.' });
+        }
+        const categoryExists = await Category.exists({ _id: category });
+        if (!categoryExists) {
+            return res.status(400).json({ message: 'Selected job category was not found.' });
+        }
+
+        const salaryAmount = parseMinimumPay(salary);
         const positions = positionsNeeded ? Number(positionsNeeded) : 1;
+
+        if (salaryAmount === null) {
+            return res.status(400).json({ message: 'Minimum guaranteed pay must be greater than zero.' });
+        }
+        const normalizedJobType = typeof jobType === 'string' ? jobType.trim() : '';
+        if (!isSupportedJobType(normalizedJobType)) {
+            return res.status(400).json({ message: 'Please select a valid opportunity type.' });
+        }
+        if (!Number.isInteger(positions) || positions < 1) {
+            return res.status(400).json({ message: 'positionsNeeded must be a positive whole number.' });
+        }
 
         // total escrow required (salary per worker * positions)
         const totalEscrow = salaryAmount * positions;
@@ -219,7 +250,7 @@ export async function createJob(req, res){
             description,
             location,
             salary: salaryAmount,
-            jobType,
+            jobType: normalizedJobType,
             deadline,
             skills: skills || [],
             responsibilities: responsibilities || [],
@@ -510,6 +541,12 @@ export async function changeJobStatus(req, res){
 
         job.status = status;
         await job.save();
+        if (status === 'Completed') {
+            await JobApplication.updateMany(
+                { job: job._id, status: { $in: ['Hired', 'Accepted'] } },
+                { $set: { completedAt: new Date() } }
+            );
+        }
 
         res.status(200).json({message: "Job status updated.", job});
     } catch (error) {
@@ -535,6 +572,10 @@ export async function selectApplicant(req, res){
         job.selectedApplicant = applicantId;
         job.status = "In Progress";
         await job.save();
+        await JobApplication.findOneAndUpdate(
+            { job: job._id, applicant: applicantId },
+            { $set: { status: 'Hired', applicantReadAt: null } }
+        );
         res.status(200).json({message: "Applicant selected successfully.", job});
     } catch (error) {
         res.status(500).json({message: "Failed to select an applicant."});
@@ -601,6 +642,21 @@ export async function updateJob(req, res) {
                     }
                     value = parsed;
                 }
+                if (key === "category") {
+                    if (!mongoose.Types.ObjectId.isValid(String(value)) || !(await Category.exists({ _id: value }))) {
+                        return res.status(400).json({ message: "Please select a valid job category." });
+                    }
+                }
+                if (key === "salary") {
+                    const amount = parseMinimumPay(value);
+                    if (amount === null) {
+                        return res.status(400).json({ message: "Minimum guaranteed pay must be greater than zero." });
+                    }
+                    value = amount;
+                }
+                if (key === "jobType" && !isSupportedJobType(value)) {
+                    return res.status(400).json({ message: "Please select a valid opportunity type." });
+                }
                 if (["skills", "responsibilities", "requirements"].includes(key) && value && !Array.isArray(value)) {
                     return res.status(400).json({ message: `${key} must be an array.` });
                 }
@@ -609,8 +665,8 @@ export async function updateJob(req, res) {
                 }
                 if (key === "positionsNeeded") {
                     const n = Number(value);
-                    if (Number.isNaN(n) || n < 1) {
-                        return res.status(400).json({ message: "positionsNeeded must be a positive number." });
+                    if (!Number.isInteger(n) || n < 1) {
+                        return res.status(400).json({ message: "positionsNeeded must be a positive whole number." });
                     }
                     value = n;
                 }

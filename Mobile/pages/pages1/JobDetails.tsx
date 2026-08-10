@@ -9,6 +9,7 @@ import { apiRequest, asObject } from '../../lib/api';
 import PublicProfile from '../shared/PublicProfile';
 import { useToast } from '../../contexts/ToastContext';
 import { tokens } from '../../theme/tokens';
+import { formatMinimumPay } from '../../lib/jobCompensation';
 
 type EmployerPreview = {
   profile?: {
@@ -346,8 +347,8 @@ export default function JobDetails({
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statIcon}>💰</Text>
-            <Text style={styles.statLabel}>SALARY</Text>
-            <Text style={styles.statValue}>{jobDetails?.salary || 'N/A'}</Text>
+            <Text style={styles.statLabel}>MINIMUM PAY</Text>
+            <Text style={styles.statValue}>{formatMinimumPay(jobDetails?.salary, 'N/A')}</Text>
           </View>
         </View>
         </View>

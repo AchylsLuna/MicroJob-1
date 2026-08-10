@@ -78,7 +78,13 @@ export default function Settings({
             'Failed to refresh settings.'
           );
           if (result.ok) {
-            parsed = asObject<any>(result.data) || parsed;
+            const refreshed =
+              asObject<any>(result.data, ['user', 'profile']) ||
+              asObject<any>(result.raw, ['user', 'profile']);
+            if (refreshed) {
+              parsed = { ...parsed, ...refreshed };
+              await AsyncStorage.setItem('auth_user', JSON.stringify(parsed));
+            }
           }
         }
         const name =
@@ -164,7 +170,20 @@ export default function Settings({
   };
 
   if (showPersonalInfo) {
-    return <PersonalInformation key="personal-info" onBack={() => setShowPersonalInfo(false)} currentRole={currentRole} />;
+    return (
+      <PersonalInformation
+        key="personal-info"
+        onBack={() => setShowPersonalInfo(false)}
+        currentRole={currentRole}
+        onSaved={(profile) => {
+          setProfileName(
+            [profile.firstName, profile.lastName].filter(Boolean).join(' ').trim() || 'Account User',
+          );
+          setProfileEmail(String(profile.email || '').trim() || 'No email set');
+          setProfileAvatar(String(profile.avatarUrl || '').trim());
+        }}
+      />
+    );
   }
 
   const accountMenus: SettingsItem[] = isEmployer

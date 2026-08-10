@@ -1,5 +1,7 @@
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 import User from '../models/User.js';
+import Category from '../models/Category.js';
 import JobApplication from '../models/JobApplication.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
@@ -77,7 +79,10 @@ export const normalizeExperience = (payload = {}) => {
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin website totalExperience projectsCompleted jobsApplied successRate skills workExperience employerBalance workerBalance hideHiredCandidates verification'
+      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin website totalExperience projectsCompleted jobsApplied successRate skills workExperience preferredCategories jobPreferences employerBalance workerBalance hideHiredCandidates verification'
+    ).populate(
+      'preferredCategories',
+      'name'
     );
     if (!user) {
       return sendError(res, 404, 'User not found');
@@ -113,6 +118,47 @@ export const getProfile = async (req, res) => {
   } catch (error) {
     console.error('Get profile error:', error);
     return sendError(res, 500, 'Server error');
+  }
+};
+
+export const updateJobPreferences = async (req, res) => {
+  try {
+    const { preferredCategories = [], jobPreferences = [] } = req.body || {};
+    if (!Array.isArray(preferredCategories) || !Array.isArray(jobPreferences)) {
+      return sendError(res, 400, 'Preferred categories and job preferences must be arrays.');
+    }
+    if (preferredCategories.length > 10 || jobPreferences.length > 10) {
+      return sendError(res, 400, 'You can save up to 10 preferred categories and 10 job preferences.');
+    }
+
+    const categoryIds = [...new Set(preferredCategories.map(String))];
+    if (categoryIds.some((id) => !mongoose.isValidObjectId(id))) {
+      return sendError(res, 400, 'One or more preferred categories are invalid.');
+    }
+    const categoryCount = await Category.countDocuments({ _id: { $in: categoryIds } });
+    if (categoryCount !== categoryIds.length) {
+      return sendError(res, 400, 'One or more preferred categories were not found.');
+    }
+
+    const normalizedPreferences = [...new Set(jobPreferences.map((value) => String(value).trim()).filter(Boolean))];
+    if (normalizedPreferences.some((value) => value.length > 120)) {
+      return sendError(res, 400, 'Each job preference must be 120 characters or fewer.');
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user?.id,
+      { $set: { preferredCategories: categoryIds, jobPreferences: normalizedPreferences } },
+      { returnDocument: 'after', runValidators: true }
+    ).populate('preferredCategories', 'name');
+    if (!user) return sendError(res, 404, 'User not found');
+
+    return sendSuccess(res, 200, 'Job preferences updated successfully', {
+      preferredCategories: user.preferredCategories,
+      jobPreferences: user.jobPreferences,
+    });
+  } catch (error) {
+    console.error('Update job preferences error:', error);
+    return sendError(res, 500, 'Failed to update job preferences.');
   }
 };
 
@@ -273,5 +319,6 @@ export default {
   deleteAvatar,
   deleteResume,
   createFileAccessLink,
+  updateJobPreferences,
   normalizeExperience,
 };
