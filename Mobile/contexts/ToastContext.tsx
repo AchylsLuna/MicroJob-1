@@ -93,8 +93,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }, [clearToastTimer, progress, reducedMotion]);
 
   useEffect(() => {
-    return clearToastTimer;
-  }, [clearToastTimer]);
+    return () => {
+      clearToastTimer();
+      progress.stopAnimation();
+    };
+  }, [clearToastTimer, progress]);
 
   const value = useMemo<ToastContextValue>(() => ({
     showToast,

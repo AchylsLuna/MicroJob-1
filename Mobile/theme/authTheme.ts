@@ -1,6 +1,25 @@
 export const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
+export const getAuthMetrics = (width: number, height: number, fontScale = 1) => {
+  const compactWidth = width < 360;
+  const compactHeight = height < 700;
+  const tablet = width >= 768;
+  const largeText = fontScale >= 1.5;
+  const horizontalPadding = clamp(width * 0.05, compactWidth ? 12 : 16, tablet ? 32 : 24);
+
+  return {
+    compactWidth,
+    compactHeight,
+    tablet,
+    largeText,
+    horizontalPadding,
+    contentMaxWidth: tablet ? 560 : 460,
+    sectionGap: compactHeight ? 14 : 20,
+    controlMinHeight: largeText ? 58 : 54,
+  };
+};
+
 export const AUTH_COLORS = {
   background: '#FFFFFF',
   backgroundDeep: '#0F2954',

@@ -20,8 +20,10 @@ export default function InlineStateCard({ icon, title, message, actionLabel, onA
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(progress, { toValue: 1, duration: motion.duration.standard, useNativeDriver: true }).start();
-  }, [progress]);
+    const animation = Animated.timing(progress, { toValue: 1, duration: reducedMotion ? motion.duration.instant : motion.duration.enter, useNativeDriver: true });
+    animation.start();
+    return () => animation.stop();
+  }, [progress, reducedMotion]);
 
   return <Animated.View style={[styles.card, { opacity: progress, transform: [{ translateY: reducedMotion ? 0 : progress.interpolate({ inputRange: [0, 1], outputRange: [motion.distance.small, 0] }) }] }]} accessibilityRole="text">
     <View style={styles.icon}><Ionicons name={icon} size={22} color={tokens.colors.brand} /></View>

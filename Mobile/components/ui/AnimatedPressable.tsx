@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Animated, Pressable, StyleSheet, type PressableProps, type StyleProp, type ViewStyle } from 'react-native';
 import useReducedMotion from '../../hooks/useReducedMotion';
 import { motion } from '../../theme/motion';
@@ -9,17 +9,25 @@ type Props = PressableProps & {
   pressedScale?: number;
 };
 
-export default function AnimatedPressable({ containerStyle, pressedScale = motion.press.scale, disabled, children, onPressIn, onPressOut, ...props }: Props) {
+export default function AnimatedPressable({ containerStyle, pressedScale = motion.press.scale, disabled, children, onPressIn, onPressOut, onTouchCancel, ...props }: Props) {
   const reducedMotion = useReducedMotion() === true;
   const progress = useRef(new Animated.Value(0)).current;
 
-  const animate = (toValue: number) => {
-    Animated.timing(progress, {
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const animate = useCallback((toValue: number) => {
+    animationRef.current?.stop();
+    animationRef.current = Animated.timing(progress, {
       toValue,
-      duration: reducedMotion ? 0 : motion.duration.fast,
+      duration: reducedMotion ? motion.duration.instant : motion.duration.fast,
       useNativeDriver: true,
-    }).start();
-  };
+    });
+    animationRef.current.start(({ finished }) => {
+      if (finished) animationRef.current = null;
+    });
+  }, [progress, reducedMotion]);
+
+  useEffect(() => () => animationRef.current?.stop(), []);
 
   return (
     <Animated.View
@@ -42,6 +50,10 @@ export default function AnimatedPressable({ containerStyle, pressedScale = motio
         onPressOut={(event) => {
           animate(0);
           onPressOut?.(event);
+        }}
+        onTouchCancel={(event) => {
+          animate(0);
+          onTouchCancel?.(event);
         }}
       >
         {children}

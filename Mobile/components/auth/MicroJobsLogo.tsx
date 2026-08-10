@@ -23,12 +23,12 @@ export default function MicroJobsLogo({ compact = false, variant }: { compact?: 
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   badge: { backgroundColor: AUTH_COLORS.primary, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '30deg' }] },
   badgeText: { color: '#FFFFFF', fontSize: 21, fontWeight: '900', transform: [{ rotate: '-30deg' }] },
   badgeTextCompact: { fontSize: 17 },
   badgeTextLaunch: { fontSize: 40 },
-  wordmark: { color: AUTH_COLORS.primary, fontSize: 24, fontWeight: '800', letterSpacing: -0.6 },
+  wordmark: { color: AUTH_COLORS.primary, fontSize: 24, fontWeight: '800', letterSpacing: -0.6, flexShrink: 1 },
   wordmarkCompact: { fontSize: 20 },
   wordmarkLaunch: { fontSize: 38, letterSpacing: -1 },
   micro: { color: AUTH_COLORS.backgroundDeep },

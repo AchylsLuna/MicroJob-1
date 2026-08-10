@@ -12,7 +12,6 @@ const expo = {
     '@react-native-community/datetimepicker',
     'expo-font',
     'expo-secure-store',
-    'expo-status-bar',
   ],
   platforms: ['ios', 'android', 'web'],
   android: {

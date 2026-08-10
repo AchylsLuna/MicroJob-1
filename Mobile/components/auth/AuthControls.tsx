@@ -22,7 +22,7 @@ export function AuthField({ label, icon, error, secure, revealed, onToggleReveal
         style={styles.input}
         placeholderTextColor={AUTH_COLORS.placeholderLight}
         secureTextEntry={secure && !revealed}
-        maxFontSizeMultiplier={1.4}
+        multiline={false}
       />
       {secure ? <TouchableOpacity
         style={styles.iconButton}
@@ -75,22 +75,22 @@ export function AuthProgress({ step, total = 3 }: { step: number; total?: number
 const styles = StyleSheet.create({
   fieldBlock: { marginBottom: 16 },
   label: { fontSize: 14, fontWeight: '700', color: AUTH_COLORS.textPrimary, marginBottom: 7 },
-  field: { minHeight: 54, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: AUTH_COLORS.inputLightBorder, borderRadius: 14, backgroundColor: '#fff', paddingLeft: 15 },
+  field: { minHeight: 54, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: AUTH_COLORS.inputLightBorder, borderRadius: 14, backgroundColor: '#fff', paddingLeft: 15, paddingVertical: 2 },
   fieldError: { borderColor: AUTH_COLORS.danger, backgroundColor: '#FFFBFB' },
-  input: { flex: 1, minHeight: 52, paddingHorizontal: 11, color: AUTH_COLORS.textPrimary, fontSize: 15 },
+  input: { flex: 1, minHeight: 52, paddingHorizontal: 11, paddingVertical: 10, color: AUTH_COLORS.textPrimary, fontSize: 15 },
   iconButton: { width: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   error: { marginTop: 6, color: AUTH_COLORS.danger, fontSize: 12, fontWeight: '500' },
-  button: { minHeight: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: AUTH_COLORS.primary, marginTop: 6 },
+  button: { minHeight: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: AUTH_COLORS.primary, marginTop: 6, paddingHorizontal: 16, paddingVertical: 12 },
   secondaryButton: { backgroundColor: '#fff', borderWidth: 1, borderColor: AUTH_COLORS.cardBorder },
   disabled: { opacity: 0.55 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   secondaryButtonText: { color: AUTH_COLORS.primary },
   checklist: { backgroundColor: '#F8FAFC', padding: 13, borderRadius: 12, marginBottom: 14 },
-  rule: { flexDirection: 'row', alignItems: 'center', marginVertical: 3 },
-  ruleText: { color: AUTH_COLORS.textSecondary, fontSize: 12, marginLeft: 8 },
+  rule: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: 3 },
+  ruleText: { color: AUTH_COLORS.textSecondary, fontSize: 12, marginLeft: 8, flex: 1, flexShrink: 1 },
   rulePassed: { color: '#15803D' },
   progressBlock: { marginBottom: 16 },
-  progressMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 },
+  progressMeta: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 7, flexWrap: 'wrap', gap: 6 },
   progressLabel: { color: AUTH_COLORS.onBlueMuted, fontSize: 12, fontWeight: '700' },
   progressValue: { color: AUTH_COLORS.onBlue, fontSize: 12, fontWeight: '800' },
   progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: AUTH_COLORS.blueControlSurface },

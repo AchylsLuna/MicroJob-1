@@ -138,7 +138,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 }
 
 const styles = StyleSheet.create({
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   stepText: { color: AUTH_COLORS.onBlueMuted, fontSize: 13, fontWeight: '700' },
   percent: { color: AUTH_COLORS.onBlue, fontSize: 13, fontWeight: '800' },
   progressTrack: { height: 7, backgroundColor: AUTH_COLORS.blueControlSurface, borderRadius: 4, marginBottom: 18, overflow: 'hidden' },
@@ -148,9 +148,9 @@ const styles = StyleSheet.create({
   roleSelected: { borderColor: AUTH_COLORS.primary, backgroundColor: '#EFF6FF' },
   roleIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EAF1FB', alignItems: 'center', justifyContent: 'center' },
   roleIconSelected: { backgroundColor: AUTH_COLORS.primary },
-  roleCopy: { flex: 1, marginHorizontal: 12 }, roleTitle: { fontWeight: '700', color: AUTH_COLORS.textPrimary, fontSize: 15 }, roleSubtitle: { color: AUTH_COLORS.textSecondary, fontSize: 12, marginTop: 3 },
-  signInRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', minHeight: 56, backgroundColor: AUTH_COLORS.blueControlSurface, borderRadius: 14, paddingLeft: 14, paddingRight: 6 },
+  roleCopy: { flex: 1, minWidth: 0, marginHorizontal: 12 }, roleTitle: { fontWeight: '700', color: AUTH_COLORS.textPrimary, fontSize: 15, flexShrink: 1 }, roleSubtitle: { color: AUTH_COLORS.textSecondary, fontSize: 12, marginTop: 3, flexShrink: 1 },
+  signInRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', minHeight: 56, backgroundColor: AUTH_COLORS.blueControlSurface, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
   signInLinkTap: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-  muted: { color: AUTH_COLORS.onBlueMuted, fontSize: 14, fontWeight: '600' },
-  link: { color: AUTH_COLORS.onBlue, fontWeight: '800', fontSize: 14, textDecorationLine: 'underline' },
+  muted: { color: AUTH_COLORS.onBlueMuted, fontSize: 14, fontWeight: '600', textAlign: 'center', flexShrink: 1 },
+  link: { color: AUTH_COLORS.onBlue, fontWeight: '800', fontSize: 14, textDecorationLine: 'underline', textAlign: 'center', flexShrink: 1 },
 });

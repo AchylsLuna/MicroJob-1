@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AUTH_COLORS, clamp } from '../../theme/authTheme';
+import { AUTH_COLORS, clamp, getAuthMetrics } from '../../theme/authTheme';
 import ScrollView from '../ui/SmoothScrollView';
 import CanvasBackButton from '../ui/CanvasBackButton';
 import MicroJobsLogo from './MicroJobsLogo';
@@ -25,13 +25,14 @@ type AuthScreenLayoutProps = {
 
 export default function AuthScreenLayout({ title, subtitle, onBack, children, centered = false }: AuthScreenLayoutProps) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const horizontalPadding = clamp(screenWidth * 0.05, 16, 24);
-  const topPadding = Math.max(insets.top, 10) + clamp(screenHeight * 0.04, 18, 28);
+  const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
+  const metrics = getAuthMetrics(screenWidth, screenHeight, fontScale);
+  const horizontalPadding = metrics.horizontalPadding;
+  const topPadding = Math.max(insets.top, 10) + clamp(screenHeight * 0.035, metrics.compactHeight ? 10 : 18, 28);
   const backButtonSize = clamp(screenWidth * 0.15, 52, 56);
   const titleFontSize = clamp(screenWidth * 0.106, 34, 42);
   const subtitleFontSize = clamp(screenWidth * 0.051, 18, 20);
-  const contentMaxWidth = Math.min(460, screenWidth - horizontalPadding * 2);
+  const contentMaxWidth = Math.min(metrics.contentMaxWidth, screenWidth - horizontalPadding * 2);
 
   return (
     <KeyboardAvoidingView
@@ -53,6 +54,7 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children, ce
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topRow}>
@@ -68,13 +70,11 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children, ce
         </View>
 
         <Text
-          maxFontSizeMultiplier={1.4}
           style={[styles.title, centered && styles.centeredText, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
         >
           {title}
         </Text>
         <Text
-          maxFontSizeMultiplier={1.4}
           style={[styles.subtitle, centered && styles.centeredText, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.4) }]}
         >
           {subtitle}
@@ -102,14 +102,15 @@ const styles = StyleSheet.create({
     maxWidth: 460,
     alignSelf: 'center',
   },
-  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22, gap: 8, flexWrap: 'wrap' },
   title: {
     fontSize: 42,
     lineHeight: 50,
     fontWeight: '800',
     color: AUTH_COLORS.backgroundDeep,
     marginBottom: 8,
-    maxWidth: 340,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   subtitle: {
     fontSize: 20,
@@ -117,6 +118,7 @@ const styles = StyleSheet.create({
     color: AUTH_COLORS.textSecondary,
     fontWeight: '500',
     marginBottom: 20,
+    flexShrink: 1,
   },
   centeredText: { alignSelf: 'center', textAlign: 'center' },
 });

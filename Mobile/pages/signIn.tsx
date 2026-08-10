@@ -18,7 +18,7 @@ import AsyncStorage from '../lib/storage';
 import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import { AUTH_COLORS, clamp, getAuthMetrics } from '../theme/authTheme';
 import { useToast } from '../contexts/ToastContext';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,10 +37,11 @@ export default function SignIn({
   onLogin?: () => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const horizontalPadding = clamp(screenWidth * 0.052, 18, 24);
-  const topPadding = Math.max(insets.top, 10) + clamp(screenHeight * 0.04, 18, 28);
-  const cardMaxWidth = Math.min(420, screenWidth - horizontalPadding * 2);
+  const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
+  const metrics = getAuthMetrics(screenWidth, screenHeight, fontScale);
+  const horizontalPadding = metrics.horizontalPadding;
+  const topPadding = Math.max(insets.top, 10) + clamp(screenHeight * 0.04, metrics.compactHeight ? 10 : 18, 28);
+  const cardMaxWidth = Math.min(metrics.contentMaxWidth, screenWidth - horizontalPadding * 2);
   const cardRadius = clamp(screenWidth * 0.085, 26, 32);
   const cardVerticalPadding = clamp(screenHeight * 0.032, 22, 28);
   const cardHorizontalPadding = clamp(screenWidth * 0.065, 22, 28);
@@ -219,6 +220,7 @@ export default function SignIn({
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
         showsVerticalScrollIndicator={false}
       >
         <CanvasBackButton
@@ -242,13 +244,13 @@ export default function SignIn({
           ]}
         >
           <Text
-            maxFontSizeMultiplier={1.4}
+
             style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
           >
             Welcome Back
           </Text>
           <Text
-            maxFontSizeMultiplier={1.4}
+
             style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.45) }]}
           >
             Sign in to your account
@@ -306,13 +308,13 @@ export default function SignIn({
                 />
               </View>
               {errors.mfa ? <Text style={styles.inlineError}>{errors.mfa}</Text> : null}
-              <Text maxFontSizeMultiplier={1.4} style={[styles.mfaHelpText, { fontSize: clamp(inputFontSize * 0.72, 12, 13) }]}>
+              <Text style={[styles.mfaHelpText, { fontSize: clamp(inputFontSize * 0.72, 12, 13) }]}>
                 MFA is enabled for this account. Enter a valid code to continue.
               </Text>
             </>
           ) : (
             <TouchableOpacity style={styles.forgotButton} onPress={onNavigateToForgot}>
-              <Text maxFontSizeMultiplier={1.4} style={[styles.forgotText, { fontSize: helperFontSize }]}>
+              <Text style={[styles.forgotText, { fontSize: helperFontSize }]}>
                 Forgot password?
               </Text>
             </TouchableOpacity>
@@ -330,18 +332,18 @@ export default function SignIn({
             {isLoading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text maxFontSizeMultiplier={1.4} style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
+              <Text style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
                 {requiresMfa ? 'Verify MFA' : 'Sign in'}
               </Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.bottomRow}>
-            <Text maxFontSizeMultiplier={1.4} style={[styles.bottomText, { fontSize: helperFontSize }]}>
+            <Text style={[styles.bottomText, { fontSize: helperFontSize }]}>
               {"Don't have an account? "}
             </Text>
             <TouchableOpacity onPress={onNavigateToSignUp}>
-              <Text maxFontSizeMultiplier={1.4} style={[styles.bottomLink, { fontSize: helperFontSize }]}>
+              <Text style={[styles.bottomLink, { fontSize: helperFontSize }]}>
                 Sign Up
               </Text>
             </TouchableOpacity>
@@ -409,6 +411,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 14,
     marginBottom: 12,
+    paddingVertical: 2,
   },
   input: {
     flex: 1,
@@ -416,10 +419,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: AUTH_COLORS.inputTextLight,
     fontWeight: '400',
+    minHeight: 48,
+    paddingVertical: 10,
   },
   inlineError: { color: AUTH_COLORS.danger, fontSize: 12, marginTop: -7, marginBottom: 10, fontWeight: '500' },
   eyeButton: {
-    padding: 4,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   mfaHelpText: {
     fontSize: 12,
@@ -429,6 +437,9 @@ const styles = StyleSheet.create({
   forgotButton: {
     alignSelf: 'flex-end',
     marginBottom: 16,
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   forgotText: {
     color: AUTH_COLORS.linkAccent,
@@ -442,6 +453,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     shadowColor: AUTH_COLORS.primary,
     shadowOpacity: 0.2,
     shadowRadius: 10,
@@ -451,12 +464,15 @@ const styles = StyleSheet.create({
     color: AUTH_COLORS.primaryText,
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   buttonDisabled: {
     opacity: 0.65,
   },
   bottomRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -464,10 +480,14 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontSize: 14,
     fontWeight: '400',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   bottomLink: {
     color: AUTH_COLORS.linkAccent,
     fontSize: 14,
     fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
   },
 });

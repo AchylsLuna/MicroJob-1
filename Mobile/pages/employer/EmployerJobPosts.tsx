@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,7 +12,6 @@ import {
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
-import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
 import { apiRequest, asList } from '../../lib/api';
@@ -48,10 +49,15 @@ export default function EmployerJobPosts({
   const [markingDoneJobId, setMarkingDoneJobId] = useState<string | null>(null);
   const [confirmDoneJob, setConfirmDoneJob] = useState<JobItem | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const mountedRef = useRef(true);
+  const fetchInFlightRef = useRef(false);
+  const markDoneInFlightRef = useRef(false);
 
   const totalApplicants = jobs.reduce((sum, job) => sum + (job.applicants?.length || 0), 0);
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
     setLoading(true);
     setErrorMessage('');
     try {
@@ -62,17 +68,20 @@ export default function EmployerJobPosts({
         },
       }, 'Failed to load job posts.');
       if (!result.ok) throw new Error(result.message || 'Failed to load job posts.');
-      setJobs(asList<JobItem>(result.raw, ['jobs']));
+      if (mountedRef.current) setJobs(asList<JobItem>(result.raw, ['jobs']));
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load job posts.');
+      if (mountedRef.current) setErrorMessage(error?.message || 'Failed to load job posts.');
     } finally {
-      setLoading(false);
+      fetchInFlightRef.current = false;
+      if (mountedRef.current) setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchJobs();
-  }, []);
+    mountedRef.current = true;
+    void fetchJobs();
+    return () => { mountedRef.current = false; };
+  }, [fetchJobs]);
 
   const handleRequestMarkDone = (job: JobItem) => {
     if (String(job.status || 'Available') === 'Completed') {
@@ -82,8 +91,9 @@ export default function EmployerJobPosts({
   };
 
   const handleConfirmMarkDone = async () => {
-    if (!confirmDoneJob) return;
+    if (!confirmDoneJob || markDoneInFlightRef.current) return;
 
+    markDoneInFlightRef.current = true;
     setMarkingDoneJobId(confirmDoneJob._id);
     setErrorMessage('');
     try {
@@ -99,13 +109,14 @@ export default function EmployerJobPosts({
 
       if (!result.ok) throw new Error(result.message || 'Failed to mark job as done.');
 
-      setConfirmDoneJob(null);
+      if (mountedRef.current) setConfirmDoneJob(null);
       await fetchJobs();
-      toast.success('Job marked as done. Worker payouts were triggered automatically from escrow.');
+      if (mountedRef.current) toast.success('Job marked as done. Worker payouts were triggered automatically from escrow.');
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to mark job as done.');
+      if (mountedRef.current) setErrorMessage(error?.message || 'Failed to mark job as done.');
     } finally {
-      setMarkingDoneJobId(null);
+      markDoneInFlightRef.current = false;
+      if (mountedRef.current) setMarkingDoneJobId(null);
     }
   };
 
@@ -113,7 +124,16 @@ export default function EmployerJobPosts({
     <View style={styles.container}>
       <TabTopNav title="Home" />
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <FlatList
+        data={jobs}
+        keyExtractor={(job) => job._id}
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        removeClippedSubviews={Platform.OS === 'android'}
+        initialNumToRender={7}
+        maxToRenderPerBatch={7}
+        windowSize={7}
+        ListHeaderComponent={<>
         <View style={styles.summaryCard}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryValue}>{jobs.length}</Text>
@@ -138,16 +158,15 @@ export default function EmployerJobPosts({
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
         ) : null}
-
-        {!loading && jobs.length === 0 ? (
+        </>}
+        ListEmptyComponent={!loading ? (
           <View style={styles.emptyCard}>
             <Text style={styles.emptyTitle}>No Job Posts Yet</Text>
             <Text style={styles.emptyText}>Create your first job post to start receiving applications.</Text>
           </View>
         ) : null}
-
-        {jobs.map((job) => (
-          <View key={job._id} style={styles.jobCard}>
+        renderItem={({ item: job }) => (
+          <View style={styles.jobCard}>
             <View style={styles.jobHeader}>
               <View>
                 <Text style={styles.jobTitle}>{job.title}</Text>
@@ -207,8 +226,8 @@ export default function EmployerJobPosts({
             {/* Applicants List (count only, no message button due to type) */}
             {/* If you want to show applicant details, update the backend to return applicant objects, not just string IDs */}
           </View>
-        ))}
-      </ScrollView>
+        )}
+      />
 
       <Modal
         visible={Boolean(confirmDoneJob)}

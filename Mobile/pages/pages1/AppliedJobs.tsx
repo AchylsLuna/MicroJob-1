@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, Platform, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -45,12 +45,16 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 
   const filters = ['All', ...APPLICATION_STATUSES] as const;
 
-  const filteredJobs = applications.filter((job) => {
+  const filteredJobs = useMemo(() => applications.filter((job) => {
     if (selectedFilter === 'All') return true;
     return job.status === selectedFilter;
-  });
+  }), [applications, selectedFilter]);
+  const mountedRef = useRef(true);
+  const requestRef = useRef(false);
 
-  const fetchApplications = async () => {
+  const fetchApplications = useCallback(async () => {
+    if (requestRef.current) return;
+    requestRef.current = true;
     setIsLoading(true);
     setErrorMessage('');
     try {
@@ -71,17 +75,20 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         status: normalizeApplicationStatus(app.status),
         hasDetails: true,
       }));
-      setApplications(mapped);
+      if (mountedRef.current) setApplications(mapped);
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load applications.');
+      if (mountedRef.current) setErrorMessage(error?.message || 'Failed to load applications.');
     } finally {
-      setIsLoading(false);
+      requestRef.current = false;
+      if (mountedRef.current) setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchApplications();
-  }, []);
+    mountedRef.current = true;
+    void fetchApplications();
+    return () => { mountedRef.current = false; };
+  }, [fetchApplications]);
 
   const handleTabPress = (tab: string) => {
     setActiveTab(tab);
@@ -139,18 +146,24 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         })}
       </ScrollView>
 
-      <ScrollView
+      <FlatList
+        data={filteredJobs}
+        keyExtractor={(job) => job.id}
         style={styles.mainScroll}
         contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
         showsVerticalScrollIndicator={false}
-      >
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-        {isLoading ? (
+        keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={Platform.OS === 'android'}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+        ListHeaderComponent={errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+        ListEmptyComponent={isLoading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color="#1C4D8D" />
           </View>
-        ) : null}
-        {filteredJobs.length === 0 ? (
+        ) : (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>📋</Text>
             <Text style={styles.emptyTitle}>No applications</Text>
@@ -158,10 +171,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
               You don't have any {selectedFilter.toLowerCase()} applications yet
             </Text>
           </View>
-        ) : (
-          <View style={styles.jobsList}>
-            {filteredJobs.map((job) => (
-              <View key={job.id} style={styles.jobCard}>
+        )}
+        renderItem={({ item: job }) => (
+              <View style={styles.jobCard}>
                 <View style={styles.jobCardHeader}>
                   <View style={styles.logoWrap}>
                     <Text style={styles.logoText}>logo</Text>
@@ -181,10 +193,8 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   <Text style={styles.viewDetailsText}>View details ›</Text>
                 </TouchableOpacity>
               </View>
-            ))}
-          </View>
         )}
-      </ScrollView>
+      />
 
       <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
@@ -279,6 +289,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   mainScroll: { flex: 1 },
+  itemSeparator: { height: 12 },
   scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 112 },
   emptyState: {
     flex: 1,

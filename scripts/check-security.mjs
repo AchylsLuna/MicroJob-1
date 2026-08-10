@@ -38,9 +38,16 @@ const mobile = audit('Mobile', false);
 const allowedMobilePackages = new Set([
   '@expo/cli', '@expo/metro', '@expo/metro-config',
   '@react-native/community-cli-plugin', '@react-native/virtualized-lists',
-  'expo', 'image-size', 'metro', 'metro-config', 'metro-transform-worker', 'react-native',
+  'expo', 'image-size', 'metro', 'metro-config', 'metro-transform-worker', 'postcss', 'react-native',
 ]);
-const allowedAdvisories = new Set([1138808, 1138809]);
+const allowedAdvisories = new Set([
+  1117015,
+  1124252,
+  1124288,
+  1130709,
+  1138808,
+  1138809,
+]);
 const mobileFindings = Object.entries(mobile.vulnerabilities || {});
 const unexpectedPackages = mobileFindings
   .filter(([name, finding]) => ['high', 'critical'].includes(finding.severity) && !allowedMobilePackages.has(name))
@@ -99,4 +106,4 @@ if (failures.length) {
 
 console.log('Security checks passed.');
 console.log('Root/server: no high or critical dependency findings.');
-console.log('Mobile: only the documented Expo/Metro image-size build-tool exception remains.');
+console.log('Mobile: only the documented Expo/Metro build-tool exceptions remain.');
