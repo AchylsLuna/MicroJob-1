@@ -832,7 +832,7 @@ function RootApp() {
       onResponderGrant={() => session.registerActivity()}
       onTouchStart={() => session.registerActivity()}
     >
-      <StatusBar style="dark" backgroundColor={tokens.colors.signedInCanvas} />
+      <StatusBar style="dark" />
       <NavigationContainer theme={navigationTheme} onStateChange={() => session.registerActivity()}>
         <AppNavigator />
       </NavigationContainer>

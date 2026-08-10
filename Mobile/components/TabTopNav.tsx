@@ -36,7 +36,7 @@ export default function TabTopNav({
 
   return (
     <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
-      <StatusBar style="dark" backgroundColor={tokens.colors.contentSurface} />
+      <StatusBar style="dark" />
       <Text style={styles.topHeaderTitle} numberOfLines={1}>
         {title}
       </Text>

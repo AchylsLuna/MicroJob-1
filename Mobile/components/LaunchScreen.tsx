@@ -90,7 +90,7 @@ export default function LaunchScreen({ sessionReady, onFinished }: Props) {
       accessibilityRole="progressbar"
       accessibilityLabel="MicroJobs is loading"
     >
-      <StatusBar style="dark" backgroundColor={tokens.colors.launchCanvas} />
+      <StatusBar style="dark" />
       <View pointerEvents="none" style={styles.glowLarge} />
       <View pointerEvents="none" style={styles.glowSmall} />
       <View style={styles.logoGroup}>
@@ -107,7 +107,11 @@ export default function LaunchScreen({ sessionReady, onFinished }: Props) {
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
     zIndex: 1000,
     elevation: 1000,
     backgroundColor: tokens.colors.launchCanvas,

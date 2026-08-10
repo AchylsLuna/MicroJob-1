@@ -26,6 +26,62 @@ const PHONE_OTP_DEFAULT_COUNTRY_CODE = String(process.env.PHONE_OTP_DEFAULT_COUN
   .trim()
   .replace(/\s+/g, '');
 
+const TWILIO_CONFIG_KEYS = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_FROM_PHONE'];
+
+export const getPhoneOtpConfigStatus = (env = process.env) => {
+  const requestedProvider = String(env.PHONE_OTP_PROVIDER || '').trim().toLowerCase();
+  if (requestedProvider && !['development', 'twilio'].includes(requestedProvider)) {
+    return { mode: requestedProvider, valid: false, errors: ['PHONE_OTP_PROVIDER must be development or twilio.'] };
+  }
+  if (requestedProvider === 'development') {
+    if (String(env.NODE_ENV || '').toLowerCase() === 'production') {
+      return { mode: 'development', valid: false, errors: ['Development phone OTP cannot be enabled in production.'] };
+    }
+    return { mode: 'development', valid: true, errors: [] };
+  }
+
+  const values = Object.fromEntries(
+    TWILIO_CONFIG_KEYS.map((key) => [key, String(env[key] || '').trim()])
+  );
+  const configuredKeys = TWILIO_CONFIG_KEYS.filter((key) => Boolean(values[key]));
+
+  if (configuredKeys.length === 0 && requestedProvider !== 'twilio') {
+    if (String(env.NODE_ENV || '').toLowerCase() === 'production') {
+      return {
+        mode: 'twilio',
+        valid: false,
+        errors: [`Missing required Twilio Messaging variables: ${TWILIO_CONFIG_KEYS.join(', ')}.`],
+      };
+    }
+    return { mode: 'development', valid: true, errors: [] };
+  }
+
+  const errors = [];
+  const missingKeys = TWILIO_CONFIG_KEYS.filter((key) => !values[key]);
+  if (missingKeys.length > 0) {
+    errors.push(`Missing required Twilio Messaging variables: ${missingKeys.join(', ')}.`);
+  }
+  if (values.TWILIO_ACCOUNT_SID && !/^AC[a-f0-9]{32}$/i.test(values.TWILIO_ACCOUNT_SID)) {
+    errors.push('TWILIO_ACCOUNT_SID must be a valid Twilio Account SID beginning with AC.');
+  }
+  if (values.TWILIO_AUTH_TOKEN && values.TWILIO_AUTH_TOKEN.length < 16) {
+    errors.push('TWILIO_AUTH_TOKEN is not in the expected format.');
+  }
+  if (values.TWILIO_FROM_PHONE && !/^\+[1-9]\d{7,14}$/.test(values.TWILIO_FROM_PHONE)) {
+    errors.push('TWILIO_FROM_PHONE must be an E.164 phone number such as +15551234567.');
+  }
+
+  return { mode: 'twilio', valid: errors.length === 0, errors };
+};
+
+export const validatePhoneOtpConfiguration = (env = process.env) => {
+  const status = getPhoneOtpConfigStatus(env);
+  if (!status.valid) {
+    throw new PhoneOtpError(status.errors.join(' '), 500, { configurationError: true });
+  }
+  return status;
+};
+
 export class PhoneOtpError extends Error {
   constructor(message, statusCode = 400, metadata = {}) {
     super(message);
@@ -99,18 +155,12 @@ export const toE164Phone = (value = '') => {
 };
 
 const sendTwilioSms = async ({ to, body }) => {
+  const configuration = validatePhoneOtpConfiguration();
+  if (configuration.mode === 'development') return false;
+
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_FROM_PHONE;
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  const hasAnyTwilioConfig = Boolean(sid || authToken || from);
-  if (!sid || !authToken || !from) {
-    if (isProduction && hasAnyTwilioConfig) {
-      throw new PhoneOtpError('Twilio configuration is incomplete.', 500);
-    }
-    return false;
-  }
 
   const payload = new URLSearchParams({
     To: to,
@@ -133,8 +183,19 @@ const sendTwilioSms = async ({ to, body }) => {
     );
     return 'twilio';
   } catch (error) {
-    const detail = error?.response?.data?.message || error?.message || 'Unknown SMS provider error';
-    throw new PhoneOtpError(`Failed to send verification SMS: ${detail}`, 502);
+    const providerStatus = Number(error?.response?.status) || undefined;
+    const providerCode = error?.response?.data?.code || undefined;
+    console.error('Twilio phone OTP delivery failed.', {
+      status: providerStatus,
+      code: providerCode,
+    });
+    throw new PhoneOtpError(
+      providerStatus === 401
+        ? 'Phone verification service credentials were rejected.'
+        : 'Phone verification service could not deliver the code.',
+      502,
+      { providerStatus, providerCode }
+    );
   }
 };
 
@@ -179,9 +240,7 @@ export const sendPhoneVerificationOtp = async ({ userId, phoneNumber }) => {
     !isProduction && String(process.env.PHONE_OTP_EXPOSE_CODE || '').toLowerCase() === 'true';
 
   if (!provider) {
-    if (isProduction) {
-      throw new PhoneOtpError('SMS provider is not configured.', 500);
-    }
+    if (isProduction) throw new PhoneOtpError('Phone verification service is not configured.', 500);
     provider = 'development';
     console.warn(`Development phone OTP for ${maskPhone(phoneE164)}: ${code}`);
   }

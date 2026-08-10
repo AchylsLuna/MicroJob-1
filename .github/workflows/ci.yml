@@ -38,5 +38,8 @@ jobs:
       - name: Install mobile dependencies
         run: npm ci --prefix Mobile
 
+      - name: Enforce security policy
+        run: npm run check:security
+
       - name: Verify application
         run: npm run verify

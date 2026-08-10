@@ -2,22 +2,22 @@ const expo = {
   name: 'MicroJobs',
   slug: 'mobile',
   version: '1.0.0',
-  icon: './assets/icon.png',
   splash: {
     image: './assets/microjobs-launch-logo.png',
     resizeMode: 'contain',
     backgroundColor: '#F7F8FA',
   },
   scheme: 'microjobs',
-  plugins: ['expo-font', 'expo-secure-store'],
+  plugins: [
+    '@react-native-community/datetimepicker',
+    'expo-font',
+    'expo-secure-store',
+    'expo-status-bar',
+  ],
   platforms: ['ios', 'android', 'web'],
   android: {
     package: 'com.bananas1.mobile',
     versionCode: 1,
-    adaptiveIcon: {
-      foregroundImage: './assets/adaptive-icon.png',
-      backgroundColor: '#FFFFFF',
-    },
   },
   ios: {
     bundleIdentifier: 'com.bananas1.mobile',
