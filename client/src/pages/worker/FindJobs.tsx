@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Heart, Clock, MapPin, Search, SlidersHorizontal } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -15,7 +15,6 @@ interface Job {
   companyLogo: string;
   applicants: number;
   type: "Short-term" | "Side hustle" | "Recruiting" | "Full-Time" | "Part-Time" | "Contract" | "Project Work";
-  workMode: "Remote" | "Hybrid" | "On-site";
   description: string;
   location: string;
   salary: string;
@@ -141,13 +140,6 @@ export function FindJobs() {
     }
   };
 
-  const getWorkModeLabel = (jobType?: string, location?: string, description?: string): Job["workMode"] => {
-    const source = `${jobType || ""} ${location || ""} ${description || ""}`.toLowerCase();
-    if (source.includes("remote")) return "Remote";
-    if (source.includes("hybrid")) return "Hybrid";
-    return "On-site";
-  };
-
   const getPostedDays = (createdAt?: string) => {
     if (!createdAt) return 0;
     const created = new Date(createdAt).getTime();
@@ -189,7 +181,6 @@ export function FindJobs() {
       companyLogo: companyName.charAt(0) || "M",
       applicants: job.applicants?.length || 0,
       type: getJobTypeLabel(job.jobType),
-      workMode: getWorkModeLabel(job.jobType, job.location, job.description),
       description: job.description,
       location: job.location || "Location not specified",
       salary: salaryLabel,
@@ -296,19 +287,6 @@ export function FindJobs() {
     }
   };
 
-  const getWorkModeColor = (mode: Job["workMode"]) => {
-    switch (mode) {
-      case "Remote":
-        return "bg-[#D1FAE5] text-[#047857]";
-      case "Hybrid":
-        return "bg-[#CCFBF1] text-[#0F766E]";
-      case "On-site":
-        return "bg-[#FFEDD5] text-[#C2410C]";
-      default:
-        return "bg-[#F3F4F6] text-[#6B7280]";
-    }
-  };
-
   const parseSalaryValue = (value: string | number) => {
     if (typeof value === "number") {
       return Number.isFinite(value) ? value : 0;
@@ -365,15 +343,6 @@ export function FindJobs() {
     }
   });
 
-  const nearestJobs = useMemo(
-    () =>
-      [...jobsWithSavedState]
-        .filter((job) => locationScore(job.location) > 0)
-        .sort((a, b) => locationScore(b.location) - locationScore(a.location))
-        .slice(0, 3),
-    [jobsWithSavedState, locationScore],
-  );
-
   const workerCity = workerLocation.city.trim();
   const workerLocationLabel = workerCity || "Set your city";
 
@@ -395,16 +364,16 @@ export function FindJobs() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-6 font-sans">
-      <section className="relative overflow-hidden rounded-3xl bg-[#1C4D8D] px-5 py-8 text-white shadow-[0_18px_50px_rgba(28,77,141,0.20)] sm:px-8 sm:py-10 lg:px-12 lg:py-12" aria-labelledby="job-search-heading">
+      <section className="relative overflow-hidden rounded-3xl bg-[#1C4D8D] px-5 py-7 text-white shadow-[0_14px_36px_rgba(28,77,141,0.18)] sm:px-8 lg:px-10" aria-labelledby="job-search-heading">
         <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-blue-400/10" aria-hidden="true" />
         <div className="relative max-w-4xl">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/85">Job search</p>
-          <h2 id="job-search-heading" className="mt-3 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">Find work that fits your skills and goals</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-white/90 sm:text-base">Search verified opportunities, compare job details, and save the roles worth returning to.</p>
+          <h1 id="job-search-heading" className="mt-2 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">Find your next opportunity</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">Search local jobs, compare guaranteed pay, and save the opportunities you like.</p>
         </div>
 
         <form
-          className="relative mt-7 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.35fr)_minmax(12rem,0.35fr)_auto]"
+          className="relative mt-6 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.35fr)_minmax(12rem,0.35fr)]"
           role="search"
           onSubmit={(event) => event.preventDefault()}
         >
@@ -444,7 +413,6 @@ export function FindJobs() {
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
             <span className="truncate text-sm font-semibold">{workerLocationLabel}</span>
           </button>
-          <button type="submit" disabled={!workerCity} className="min-h-14 rounded-xl border border-white/30 bg-[#1C4D8D] px-7 font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D] disabled:cursor-not-allowed disabled:opacity-50">Search</button>
         </form>
       </section>
 
@@ -458,39 +426,58 @@ export function FindJobs() {
         </aside>
       )}
 
-      <aside className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="matching-preferences-title">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0 flex-1">
-            <h3 id="matching-preferences-title" className="font-bold text-slate-950">Improve your job matches</h3>
-            <p className="mt-1 text-sm text-slate-500">Choose categories and add comma-separated preferences used by Recommended Jobs.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {categories.map((category) => {
-                const selected = preferredCategoryIds.includes(category._id);
-                return (
-                  <button
-                    key={`preferred-${category._id}`}
-                    type="button"
-                    onClick={() => setPreferredCategoryIds((current) => selected ? current.filter((id) => id !== category._id) : [...current, category._id])}
-                    aria-pressed={selected}
-                    className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selected ? "border-blue-600 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:border-slate-300"}`}
-                  >
-                    {category.name}
-                  </button>
-                );
-              })}
-            </div>
+      <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3">
+          <div>
+            <p className="text-sm font-bold text-slate-900">Matching preferences</p>
+            <p className="mt-0.5 text-xs text-slate-500">Optional categories and keywords for recommendations.</p>
           </div>
-          <div className="flex w-full flex-col gap-2 lg:w-[360px]">
-            <label htmlFor="job-preferences" className="text-xs font-semibold text-slate-600">Job preferences</label>
-            <div className="flex gap-2">
-              <input id="job-preferences" value={jobPreferenceText} onChange={(event) => setJobPreferenceText(event.target.value)} placeholder="e.g. repair, installation" className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-              <button type="button" onClick={savePreferences} disabled={savingPreferences} className="rounded-xl bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50">
-                {savingPreferences ? "Saving…" : "Save"}
-              </button>
-            </div>
+          <span className="shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:hidden">Manage</span>
+          <span className="hidden shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:inline">Close</span>
+        </summary>
+        <div className="border-t border-slate-100 px-5 pb-5 pt-4">
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => {
+              const selected = preferredCategoryIds.includes(category._id);
+              return (
+                <button
+                  key={`preferred-${category._id}`}
+                  type="button"
+                  onClick={() => setPreferredCategoryIds((current) =>
+                    selected ? current.filter((id) => id !== category._id) : [...current, category._id]
+                  )}
+                  aria-pressed={selected}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                    selected
+                      ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]"
+                      : "border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  {category.name}
+                </button>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <label htmlFor="job-preferences" className="sr-only">Job preference keywords</label>
+            <input
+              id="job-preferences"
+              value={jobPreferenceText}
+              onChange={(event) => setJobPreferenceText(event.target.value)}
+              placeholder="Keywords such as repair, delivery, installation"
+              className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
+            />
+            <button
+              type="button"
+              onClick={savePreferences}
+              disabled={savingPreferences}
+              className="min-h-11 rounded-xl bg-[#1C4D8D] px-5 text-sm font-bold text-white transition hover:bg-[#163F75] disabled:opacity-50"
+            >
+              {savingPreferences ? "Saving..." : "Save preferences"}
+            </button>
           </div>
         </div>
-      </aside>
+      </details>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -507,24 +494,6 @@ export function FindJobs() {
           </select>
         </label>
       </div>
-
-      {nearestJobs.length > 0 && (
-        <aside className="rounded-2xl border border-blue-100 bg-blue-50/80 px-4 py-4 sm:px-5">
-          <p className="text-sm font-bold text-blue-800">Suggested near your location</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {nearestJobs.map((job) => (
-              <button
-                key={`near-${job.id}`}
-                type="button"
-                onClick={() => navigate(ROUTES.worker.jobDetails(job.id))}
-                className="min-h-9 rounded-full border border-blue-200 bg-white px-3 py-1 text-xs font-medium text-blue-900 transition hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-              >
-                {job.title} - {job.location}
-              </button>
-            ))}
-          </div>
-        </aside>
-      )}
 
       {isLoading && (
         <StatusState tone="loading" title="Loading jobs" description="Finding current opportunities for you." />
@@ -588,8 +557,8 @@ export function FindJobs() {
                 <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getJobTypeColor(job.type)}`}>
                   {job.type}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getWorkModeColor(job.workMode)}`}>
-                  {job.workMode}
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                  {job.category}
                 </span>
               </div>
 

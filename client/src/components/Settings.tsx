@@ -268,9 +268,6 @@ export function Settings() {
 
   const [experienceStats, setExperienceStats] = useState({
     totalExperience: "",
-    projectsCompleted: 0,
-    jobsApplied: 0,
-    successRate: "",
   });
 
   const [newSkillName, setNewSkillName] = useState("");
@@ -561,9 +558,6 @@ export function Settings() {
     setPersonalInfo((prev) => profileToPersonalInfo(user, prev));
     setExperienceStats({
       totalExperience: user.totalExperience || "",
-      projectsCompleted: user.projectsCompleted || 0,
-      jobsApplied: user.jobsApplied || 0,
-      successRate: user.successRate || "",
     });
     if (user.skills && Array.isArray(user.skills)) {
       const mappedSkills = user.skills.map((skill: any) => ({
@@ -667,9 +661,6 @@ export function Settings() {
         setWorkExperiences(mapWorkExperiences(profile.workExperience || []));
         setExperienceStats({
           totalExperience: profile.totalExperience || "",
-          projectsCompleted: profile.projectsCompleted || 0,
-          jobsApplied: profile.jobsApplied || 0,
-          successRate: profile.successRate || "",
         });
         setResumeUrl(profile.resumeUrl || null);
         setAvatarUrl(toAbsoluteAssetUrl(profile.avatarUrl));
@@ -841,12 +832,8 @@ export function Settings() {
       originalPersonalInfoRef.current = savedPersonalInfo;
       originalTotalExperienceRef.current = updated.totalExperience || "";
       
-      // Update local state with auto-calculated values from backend
       setExperienceStats({
         totalExperience: updated.totalExperience ?? "",
-        projectsCompleted: updated.projectsCompleted ?? 0,
-        jobsApplied: updated.jobsApplied ?? 0,
-        successRate: updated.successRate ?? '0%',
       });
       
       profileDraftDirtyRef.current = false;
@@ -1222,10 +1209,18 @@ export function Settings() {
   };
 
   return (
-    <div className="max-w-[1200px] mx-auto space-y-6">
-      <div className="bg-white border border-[#E5E7EB] rounded-[16px]">
-        <div className="px-6 pt-6">
-          <div className="border-b border-[#E5E7EB] pb-4">
+    <div className="ui-page mx-auto max-w-[1200px] px-4 pb-16 md:px-0">
+      <div className="ui-page-header">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">Account preferences</p>
+          <h1 className="ui-page-title mt-1">Settings</h1>
+          <p className="ui-page-subtitle">Manage your profile, security, verification, and payment information.</p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="bg-slate-50 px-4 pt-4 sm:px-6 sm:pt-5">
+          <div className="border-b border-slate-200 pb-4">
             <SettingsTabList
               ariaLabel="Settings sections"
               idPrefix="settings-main"
@@ -1284,29 +1279,6 @@ export function Settings() {
                           {profileFormError}
                         </div>
                       ) : null}
-
-                      {isEmployerRole && (
-                        <div className="border border-[#1C4D8D]/20 bg-[#F8FBFF] rounded-[14px] p-4">
-                          <div className="flex items-center gap-4">
-                            {resolvedAvatarUrl ? (
-                              <img
-                                src={resolvedAvatarUrl}
-                                alt="Employer profile"
-                                className="w-14 h-14 rounded-[12px] object-cover border border-[#1C4D8D]/20"
-                              />
-                            ) : (
-                              <div className="w-14 h-14 rounded-[12px] bg-[#1C4D8D]/10 text-[#1C4D8D] flex items-center justify-center font-bold text-[20px] border border-[#1C4D8D]/20">
-                                {(personalInfo.companyName || personalInfo.firstName || "E").charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <p className="text-[12px] uppercase tracking-wide text-[#64748B]">Employer Profile</p>
-                              <p className="text-[16px] font-semibold text-[#0F172A]">{personalInfo.companyName || `${personalInfo.firstName} ${personalInfo.lastName}`}</p>
-                              <p className="text-[13px] text-[#475569]">{[personalInfo.city, personalInfo.province].filter(Boolean).join(", ") || "Add company location"}</p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -1765,47 +1737,6 @@ export function Settings() {
                         )}
                       </div>
 
-                      {/* Experience Stats Section - Read Only Display */}
-                      <div className="bg-gradient-to-br from-[#f0fdf4] to-[#dcfce7] border border-[#86efac] rounded-[16px] p-6">
-                        <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">📊 Experience Statistics</h3>
-                        <p className="text-[13px] text-[#64748b] mb-4">These stats are automatically calculated from your job applications. Set your Total Experience in Personal Information.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <div className="flex items-center gap-3 bg-white rounded-[10px] px-4 py-3 border border-[#86efac]">
-                              <div className="w-10 h-10 rounded-[10px] bg-[#dcfce7] flex items-center justify-center">
-                                <span className="text-[20px]">✅</span>
-                              </div>
-                              <div>
-                                <p className="text-[12px] text-[#64748b]">Jobs Completed</p>
-                                <p className="text-[20px] font-bold text-[#16a34a]">{experienceStats.projectsCompleted}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-3 bg-white rounded-[10px] px-4 py-3 border border-[#86efac]">
-                              <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center">
-                                <span className="text-[20px]">📝</span>
-                              </div>
-                              <div>
-                                <p className="text-[12px] text-[#64748b]">Jobs Applied</p>
-                                <p className="text-[20px] font-bold text-[#1C4D8D]">{experienceStats.jobsApplied}</p>
-                              </div>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-3 bg-white rounded-[10px] px-4 py-3 border border-[#86efac]">
-                              <div className="w-10 h-10 rounded-[10px] bg-[#fef3c7] flex items-center justify-center">
-                                <span className="text-[20px]">📈</span>
-                              </div>
-                              <div>
-                                <p className="text-[12px] text-[#64748b]">Success Rate</p>
-                                <p className="text-[20px] font-bold text-[#f59e0b]">{experienceStats.successRate}</p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
                       <div className="bg-[#1C4D8D]/[0.08] border border-[#1C4D8D]/20 rounded-[16px] p-6">
                         <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">Add New Skill</h3>
                         <div className="space-y-4">
@@ -2227,8 +2158,6 @@ export function Settings() {
 
               {hasEmployerAccess && <EmployerPrivacyCard initialValue={hideHiredCandidates} />}
 
-              <DeleteAccountCard />
-
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-[16px] font-semibold text-[#111827]">Active Sessions</h3>
@@ -2237,7 +2166,7 @@ export function Settings() {
                       onClick={handleRevokeAllSessions}
                       className="text-[#EF4444] hover:bg-[#FEE2E2] px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors"
                     >
-                      Delete All
+                      Sign out all sessions
                     </button>
                   )}
                 </div>
@@ -2456,6 +2385,8 @@ export function Settings() {
                   </div>
                 </div>
               )}
+
+              <DeleteAccountCard />
             </div>
           )}
 

@@ -2,15 +2,15 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
-  ArrowUpRight,
-  BarChart3,
+  BriefcaseBusiness,
   CheckCircle,
   Clock,
   MessageSquare,
+  Plus,
   Users,
   XCircle,
 } from "lucide-react";
-import { getEmployerApplications } from "../../services/api";
+import { getEmployerApplications, getMyJobs } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 
@@ -18,42 +18,50 @@ interface StatCardProps {
   icon: ReactNode;
   title: string;
   value: number | string;
-  change?: string;
-  gradient: string;
+  helper: string;
+  iconClass: string;
 }
 
-function StatCard({ icon, title, value, change, gradient }: StatCardProps) {
+function StatCard({ icon, title, value, helper, iconClass }: StatCardProps) {
   return (
-    <div
-      className={`relative min-h-[184px] overflow-hidden rounded-[24px] p-6 text-white shadow-[0_12px_30px_rgba(28,77,141,0.25)] ${gradient}`}
-    >
-      <div className="absolute -right-14 -top-14 h-36 w-36 rounded-full bg-white/10" />
-      <div className="relative z-10 flex h-full flex-col">
-        <div className="mb-4 flex items-start justify-between">
-          <div className="rounded-[16px] bg-white/20 p-4 backdrop-blur-sm">{icon}</div>
-          {change && (
-            <div className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold">
-              <ArrowUpRight className="h-3 w-3" />
-              {change}
-            </div>
-          )}
+    <div className="ui-card flex min-h-[138px] flex-col justify-between rounded-2xl border-slate-200 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-semibold text-slate-500">{title}</p>
+          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{value}</p>
         </div>
-        <p className="text-sm text-white/90">{title}</p>
-        <p className="mt-2 text-4xl font-bold leading-none">{value}</p>
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${iconClass}`}>
+          {icon}
+        </div>
       </div>
+      <p className="mt-4 text-xs text-slate-400">{helper}</p>
     </div>
   );
 }
 
-function PipelineRow({ label, count, colorClass }: { label: string; count: number; colorClass: string }) {
+function PipelineRow({
+  label,
+  count,
+  total,
+  colorClass,
+}: {
+  label: string;
+  count: number;
+  total: number;
+  colorClass: string;
+}) {
+  const percentage = total > 0 ? Math.round((count / total) * 100) : 0;
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-sm font-medium text-[#334155]">{label}</span>
-        <span className="text-sm font-semibold text-[#0F172A]">{count}</span>
+        <span className="text-sm font-semibold text-[#0F172A]">
+          {count} <span className="font-normal text-slate-400">({percentage}%)</span>
+        </span>
       </div>
       <div className="h-2 rounded-full bg-[#E2E8F0]">
-        <div className={`h-2 rounded-full ${colorClass}`} style={{ width: `${Math.min(100, count * 12)}%` }} />
+        <div className={`h-2 rounded-full transition-all ${colorClass}`} style={{ width: `${percentage}%` }} />
       </div>
     </div>
   );
@@ -87,6 +95,7 @@ const formatRelativeTime = (value?: string) => {
 const getActivityConfig = (status: string) => {
   switch (status) {
     case "Hired":
+    case "Accepted":
       return {
         icon: <CheckCircle className="h-4 w-4 text-[#10B981]" />,
         bg: "bg-[#D1FAE5]",
@@ -148,11 +157,12 @@ export function EmployerDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     total: 0,
+    newApplications: 0,
     shortlisted: 0,
     interviewed: 0,
     hired: 0,
-    rejected: 0,
   });
+  const [jobSummary, setJobSummary] = useState({ active: 0, total: 0 });
   const [recentActivity, setRecentActivity] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -178,18 +188,26 @@ export function EmployerDashboard() {
 
   useEffect(() => {
     let isMounted = true;
-    const loadApplications = async () => {
+    const loadDashboard = async () => {
       setIsLoading(true);
       try {
-        const applications = await getEmployerApplications();
+        const [applications, jobs] = await Promise.all([
+          getEmployerApplications(),
+          getMyJobs(),
+        ]);
         if (!isMounted) return;
 
         const list: Application[] = Array.isArray(applications) ? (applications as Application[]) : [];
+        const jobList = Array.isArray(jobs) ? jobs : [];
         const total = list.length;
+        const processedStatuses = ["Shortlisted", "Interviewed", "Hired", "Accepted", "Rejected"];
+        const newApplications = list.filter((app) => !processedStatuses.includes(app.status)).length;
         const shortlisted = list.filter((app) => app.status === "Shortlisted").length;
         const interviewed = list.filter((app) => app.status === "Interviewed").length;
-        const hired = list.filter((app) => app.status === "Hired").length;
-        const rejected = list.filter((app) => app.status === "Rejected").length;
+        const hired = list.filter((app) => app.status === "Hired" || app.status === "Accepted").length;
+        const activeJobs = jobList.filter((job: any) =>
+          job.status === "Available" || job.status === "In Progress"
+        ).length;
 
         const sorted = [...list].sort((a, b) => {
           const aTime = new Date(a.updatedAt || a.createdAt || 0).getTime();
@@ -197,16 +215,17 @@ export function EmployerDashboard() {
           return bTime - aTime;
         });
         setRecentActivity(sorted.slice(0, 5));
-        setStats({ total, shortlisted, interviewed, hired, rejected });
+        setStats({ total, newApplications, shortlisted, interviewed, hired });
+        setJobSummary({ active: activeJobs, total: jobList.length });
       } catch (error: any) {
         if (!isMounted) return;
-        toast.error(error?.message || "Failed to load applications.");
+        toast.error(error?.message || "Failed to load the employer dashboard.");
       } finally {
         if (isMounted) setIsLoading(false);
       }
     };
 
-    loadApplications();
+    loadDashboard();
     return () => {
       isMounted = false;
     };
@@ -214,127 +233,152 @@ export function EmployerDashboard() {
 
   return (
     <div className="ui-page px-4 md:px-0 pb-16">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="ui-page-header">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">Employer workspace</p>
+          <h1 className="ui-page-title mt-1">Hiring overview</h1>
+          <p className="ui-page-subtitle">See what needs attention and move candidates forward.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.employer.jobs)}
+            className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            <BriefcaseBusiness className="h-4 w-4" />
+            Manage jobs
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.employer.postJob)}
+            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163F75]"
+          >
+            <Plus className="h-4 w-4" />
+            Post a job
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          icon={<Users className="h-6 w-6" />}
-          title="Total Applications"
-          value={isLoading ? "—" : stats.total}
-          change="+12%"
-          gradient="bg-[#1C4D8D]"
+          icon={<BriefcaseBusiness className="h-5 w-5" />}
+          title="Active jobs"
+          value={isLoading ? "—" : jobSummary.active}
+          helper={isLoading ? "Loading job posts..." : `${jobSummary.total} Total job post${jobSummary.total === 1 ? "" : "s"}`}
+          iconClass="bg-[#EAF2FC] text-[#1C4D8D]"
         />
         <StatCard
-          icon={<Clock className="h-6 w-6" />}
+          icon={<Users className="h-5 w-5" />}
+          title="Applications"
+          value={isLoading ? "—" : stats.total}
+          helper={isLoading ? "Loading candidates..." : `${stats.newApplications} Awaiting initial review`}
+          iconClass="bg-blue-50 text-blue-600"
+        />
+        <StatCard
+          icon={<Clock className="h-5 w-5" />}
           title="Shortlisted"
           value={isLoading ? "—" : stats.shortlisted}
-          change="+6%"
-          gradient="bg-[#1C4D8D]"
+          helper="Candidates ready for the next step"
+          iconClass="bg-amber-50 text-amber-600"
         />
         <StatCard
-          icon={<MessageSquare className="h-6 w-6" />}
-          title="To Be Interview"
-          value={isLoading ? "—" : stats.interviewed}
-          change="+9%"
-          gradient="bg-[#1C4D8D]"
-        />
-        <StatCard
-          icon={<CheckCircle className="h-6 w-6" />}
+          icon={<CheckCircle className="h-5 w-5" />}
           title="Hired"
           value={isLoading ? "—" : stats.hired}
-          change="+4%"
-          gradient="bg-[#1C4D8D]"
+          helper="Workers selected across your jobs"
+          iconClass="bg-emerald-50 text-emerald-600"
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] lg:col-span-2">
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-[#111827]">Candidate Pipeline</h3>
-            <span className="rounded-full bg-[#1C4D8D]/[0.06] px-3 py-1 text-xs font-medium text-[#1C4D8D]">
-              Live Snapshot
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)]">
+        <section className="ui-card rounded-2xl border-slate-200 p-6 shadow-sm">
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Candidate pipeline</h2>
+              <p className="mt-1 text-sm text-slate-500">Current application status across your jobs.</p>
+            </div>
+            <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-[#1C4D8D]">
+              {isLoading ? "—" : stats.total} total
             </span>
           </div>
           <div className="space-y-5">
-            <PipelineRow label="Shortlisted" count={isLoading ? 0 : stats.shortlisted} colorClass="bg-[#F59E0B]" />
-            <PipelineRow label="To Be Interview" count={isLoading ? 0 : stats.interviewed} colorClass="bg-[#1C4D8D]" />
-            <PipelineRow label="Hired" count={isLoading ? 0 : stats.hired} colorClass="bg-[#10B981]" />
-            <PipelineRow label="Rejected" count={isLoading ? 0 : stats.rejected} colorClass="bg-[#EF4444]" />
+            <PipelineRow label="New applications" count={isLoading ? 0 : stats.newApplications} total={stats.total} colorClass="bg-blue-500" />
+            <PipelineRow label="Shortlisted" count={isLoading ? 0 : stats.shortlisted} total={stats.total} colorClass="bg-amber-500" />
+            <PipelineRow label="Interviewing" count={isLoading ? 0 : stats.interviewed} total={stats.total} colorClass="bg-[#1C4D8D]" />
+            <PipelineRow label="Hired" count={isLoading ? 0 : stats.hired} total={stats.total} colorClass="bg-emerald-500" />
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => navigate(ROUTES.employer.applications)}
+            className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:bg-[#163F75]"
+          >
+            Manage applications
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </section>
+
+        <section className="ui-card rounded-2xl border-slate-200 p-6 shadow-sm">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Recent activity</h2>
+              <p className="mt-1 text-sm text-slate-500">Latest movement from your candidates.</p>
+            </div>
             <button
               type="button"
               onClick={() => navigate(ROUTES.employer.applications)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white hover:opacity-90"
+              className="shrink-0 text-sm font-semibold text-[#1C4D8D] transition hover:text-[#163F75]"
             >
-              <Users className="h-4 w-4" />
-              Manage Applications
-              <ArrowRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate(ROUTES.employer.jobs)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#D5DCE8] bg-white px-4 text-sm font-semibold text-[#334155] hover:bg-[#F8FAFC]"
-            >
-              <BarChart3 className="h-4 w-4" />
-              View All Jobs
+              View all
             </button>
           </div>
-        </div>
 
-        <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-          <h3 className="mb-5 text-lg font-semibold text-[#111827]">Quick Totals</h3>
-          <div className="space-y-3">
-            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-              <p className="text-sm text-[#64748B]">Hired</p>
-              <p className="mt-1 text-2xl font-semibold text-[#10B981]">{isLoading ? "—" : stats.hired}</p>
-            </div>
-            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-              <p className="text-sm text-[#64748B]">Rejected</p>
-              <p className="mt-1 text-2xl font-semibold text-[#EF4444]">{isLoading ? "—" : stats.rejected}</p>
-            </div>
-            <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
-              <p className="text-sm text-[#64748B]">Total in Pipeline</p>
-              <p className="mt-1 text-2xl font-semibold text-[#0F172A]">{isLoading ? "—" : stats.total}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="ui-card rounded-[20px] border-[#E5EAF2] p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-        <h3 className="mb-5 text-lg font-semibold text-[#111827]">Recent Activity</h3>
-        {isLoading ? (
-          <p className="text-sm text-[#64748B]">Loading activity...</p>
-        ) : recentActivity.length === 0 ? (
-          <p className="text-sm text-[#64748B]">No recent activity yet.</p>
-        ) : (
-          <div className="space-y-4">
-            {recentActivity.map((app, index) => {
-              const name = [
-                app.applicant?.firstName,
-                app.applicant?.lastName,
-              ]
-                .filter(Boolean)
-                .join(" ") || "Applicant";
-              const jobTitle = app.job?.title || "a position";
-              const config = getActivityConfig(app.status);
-              const isLast = index === recentActivity.length - 1;
-              return (
-                <div
-                  key={app._id}
-                  className={`flex items-start gap-3 ${isLast ? "" : "border-b border-[#EEF2F7] pb-4"}`}
-                >
-                  <div className={`rounded-full ${config.bg} p-2 shrink-0`}>{config.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    {config.label(name, jobTitle)}
-                    <p className="mt-1 text-xs text-[#64748B]">
-                      {formatRelativeTime(app.updatedAt || app.createdAt)}
-                    </p>
+          {isLoading ? (
+            <div className="space-y-4" aria-label="Loading recent activity">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="flex animate-pulse items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-slate-100" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-3/4 rounded bg-slate-100" />
+                    <div className="h-2.5 w-24 rounded bg-slate-100" />
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          ) : recentActivity.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
+              <Users className="mx-auto h-8 w-8 text-slate-300" />
+              <p className="mt-3 text-sm font-semibold text-slate-700">No candidate activity yet</p>
+              <p className="mt-1 text-xs text-slate-500">New applications and hiring updates will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {recentActivity.map((app, index) => {
+                const name = [app.applicant?.firstName, app.applicant?.lastName]
+                  .filter(Boolean)
+                  .join(" ") || "Applicant";
+                const jobTitle = app.job?.title || "a position";
+                const config = getActivityConfig(app.status);
+                const isLast = index === recentActivity.length - 1;
+
+                return (
+                  <div
+                    key={app._id}
+                    className={`flex items-start gap-3 ${isLast ? "" : "border-b border-slate-100 pb-4"}`}
+                  >
+                    <div className={`shrink-0 rounded-full ${config.bg} p-2`}>{config.icon}</div>
+                    <div className="min-w-0 flex-1">
+                      {config.label(name, jobTitle)}
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formatRelativeTime(app.updatedAt || app.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

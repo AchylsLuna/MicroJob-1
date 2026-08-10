@@ -34,8 +34,13 @@ type WalletTransaction = {
   title: string;
   date: string;
   amount: number;
-  status: 'Completed' | 'Pending';
+  status: 'Completed' | 'Pending' | 'Cancelled' | 'Failed';
+  direction: 'credit' | 'debit' | 'neutral';
 };
+
+const getPartyId = (party: any) => String(
+  typeof party === 'string' ? party : party?._id || party?.id || '',
+);
 
 export default function EmployerEWallet({
   onBack,
@@ -69,16 +74,31 @@ export default function EmployerEWallet({
     });
   }, []);
 
-  const mapTxToUi = useCallback((tx: any): WalletTransaction => {
+  const mapTxToUi = useCallback((tx: any, userId: string): WalletTransaction => {
     const type = String(tx?.type || '').toUpperCase();
     const defaultTitle = type ? type.replace(/_/g, ' ') : 'Transaction';
-    const isPending = type === 'ESCROW';
+    const rawStatus = String(tx?.status || 'PENDING').toUpperCase();
+    const status: WalletTransaction['status'] = rawStatus === 'COMPLETED'
+      ? 'Completed'
+      : rawStatus === 'CANCELLED'
+      ? 'Cancelled'
+      : rawStatus === 'FAILED'
+      ? 'Failed'
+      : 'Pending';
+    const direction: WalletTransaction['direction'] = status !== 'Completed'
+      ? 'neutral'
+      : getPartyId(tx?.receiver) === userId
+      ? 'credit'
+      : getPartyId(tx?.sender) === userId
+      ? 'debit'
+      : 'neutral';
     return {
       id: String(tx?._id || tx?.id || `${Date.now()}-${Math.random()}`),
       title: String(tx?.label || defaultTitle),
       date: formatDate(tx?.createdAt),
       amount: Number(tx?.amount || 0),
-      status: isPending ? 'Pending' : 'Completed',
+      status,
+      direction,
     };
   }, [formatDate]);
 
@@ -87,6 +107,16 @@ export default function EmployerEWallet({
       setIsRefreshingWallet(true);
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return;
+      const storedUser = await AsyncStorage.getItem('auth_user');
+      let walletOwnerId = '';
+      if (storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser);
+          walletOwnerId = String(parsedUser?._id || parsedUser?.id || parsedUser?.userId || '');
+        } catch {
+          walletOwnerId = '';
+        }
+      }
 
       const [profileResult, txResult] = await Promise.all([
         apiRequest(`${API_URL}/auth/me`, {
@@ -102,6 +132,7 @@ export default function EmployerEWallet({
         const nextEmployer = Number(profilePayload?.employerBalance || 0);
         const nextWorker = Number(profilePayload?.workerBalance || 0);
         const role = String(profilePayload?.role || '').toLowerCase();
+        walletOwnerId = String(profilePayload?._id || profilePayload?.id || profilePayload?.userId || walletOwnerId);
 
         const nextBalance = Number.isFinite(nextEmployer) ? nextEmployer : 0;
 
@@ -113,7 +144,7 @@ export default function EmployerEWallet({
       if (txResult.ok) {
         const txPayload = asObject<any>(txResult.data) || asObject<any>(txResult.raw) || {};
         const list = Array.isArray(txPayload?.transactions) ? txPayload.transactions : [];
-        setTransactions(list.map(mapTxToUi));
+        setTransactions(list.map((transaction: any) => mapTxToUi(transaction, walletOwnerId)));
       }
     } catch {
       // Keep existing values when refresh fails.
@@ -356,16 +387,29 @@ export default function EmployerEWallet({
               <Text style={styles.emptyTransactionsText}>No employer wallet transactions yet</Text>
             </View>
           ) : (
-            transactions.map((txn, index) => (
+            transactions.map((txn, index) => {
+              const isCredit = txn.direction === 'credit';
+              const isDebit = txn.direction === 'debit';
+              const amountPrefix = isCredit ? '+' : isDebit ? '-' : '';
+              const statusStyle = txn.status === 'Completed'
+                ? styles.transactionStatusComplete
+                : txn.status === 'Pending'
+                ? styles.transactionStatusPending
+                : styles.transactionStatusFailed;
+              return (
               <View
                 key={txn.id}
                 style={[styles.transactionRow, index === transactions.length - 1 ? styles.transactionRowLast : undefined]}
               >
-                <View style={styles.transactionIcon}>
+                <View style={[
+                  styles.transactionIcon,
+                  isDebit && styles.transactionIconDebit,
+                  !isCredit && !isDebit && styles.transactionIconNeutral,
+                ]}>
                   <Ionicons
-                    name={txn.status === 'Completed' ? 'arrow-down-outline' : 'time-outline'}
+                    name={isCredit ? 'arrow-down-outline' : isDebit ? 'arrow-up-outline' : 'time-outline'}
                     size={18}
-                    color={txn.status === 'Completed' ? tokens.colors.success : tokens.colors.warning}
+                    color={isCredit ? tokens.colors.success : isDebit ? tokens.colors.danger : tokens.colors.warning}
                   />
                 </View>
                 <View style={styles.transactionLeft}>
@@ -373,13 +417,20 @@ export default function EmployerEWallet({
                   <Text style={styles.transactionDate}>{txn.date}</Text>
                 </View>
                 <View style={styles.transactionRight}>
-                  <Text style={styles.transactionAmount}>±PHP {txn.amount.toLocaleString()}</Text>
-                  <Text style={txn.status === 'Completed' ? styles.transactionStatusComplete : styles.transactionStatusPending}>
+                  <Text style={[
+                    styles.transactionAmount,
+                    isDebit && styles.transactionAmountDebit,
+                    !isCredit && !isDebit && styles.transactionAmountNeutral,
+                  ]}>
+                    {amountPrefix}PHP {txn.amount.toLocaleString()}
+                  </Text>
+                  <Text style={statusStyle}>
                     {txn.status}
                   </Text>
                 </View>
               </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -626,6 +677,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  transactionIconDebit: {
+    backgroundColor: '#FEF2F2',
+  },
+  transactionIconNeutral: {
+    backgroundColor: '#FFFBEB',
+  },
   transactionRowLast: {
     borderBottomWidth: 0,
     paddingBottom: 0,
@@ -652,6 +709,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  transactionAmountDebit: {
+    color: tokens.colors.danger,
+  },
+  transactionAmountNeutral: {
+    color: tokens.colors.textMuted,
+  },
   transactionStatusComplete: {
     marginTop: 2,
     color: tokens.colors.success,
@@ -661,6 +724,12 @@ const styles = StyleSheet.create({
   transactionStatusPending: {
     marginTop: 2,
     color: tokens.colors.warning,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  transactionStatusFailed: {
+    marginTop: 2,
+    color: tokens.colors.danger,
     fontSize: 11,
     fontWeight: '600',
   },

@@ -7,11 +7,13 @@ import {
   MapPin,
   CalendarDays,
   TrendingUp,
-  ArrowRight,
+  Eye,
   Loader2,
   CheckCircle2,
   RefreshCw,
-  Trash2
+  Trash2,
+  Pencil,
+  X
 } from "lucide-react";
 import { changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as apiReopenJob, getEmployerApplications } from "../../services/api";
 import { toast } from "../../lib/toast";
@@ -37,6 +39,7 @@ interface JobPosting {
   };
   createdBy: string;
   hasHired?: boolean;
+  source: any;
 }
 
 export function JobsManagement() {
@@ -49,6 +52,7 @@ export function JobsManagement() {
   const [reopeningJobId, setReopeningJobId] = useState<string | null>(null);
   const [confirmDeleteJob, setConfirmDeleteJob] = useState<JobPosting | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+  const [viewingJob, setViewingJob] = useState<JobPosting | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const mapStatus = (status?: string): JobPosting["status"] => {
@@ -107,6 +111,7 @@ export function JobsManagement() {
       },
       createdBy: "You",
       hasHired: false,
+      source: job,
     };
   }, []);
 
@@ -397,6 +402,16 @@ export function JobsManagement() {
                     Created by <span className="font-semibold text-slate-900">{job.createdBy}</span>
                   </span>
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => navigate(ROUTES.employer.postJob, {
+                        state: { job: job.source, returnTo: ROUTES.employer.jobs },
+                      })}
+                      className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-[#1C4D8D]/30 hover:bg-[#1C4D8D]/[0.04] hover:text-[#1C4D8D]"
+                      title="Edit this job's details"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                      Edit details
+                    </button>
                     {job.status === "Closed" && (
                       <button
                         onClick={() => void handleReopenJob(job)}
@@ -436,11 +451,12 @@ export function JobsManagement() {
                       )}
                     </button>
                     <button
-                      onClick={() => navigate(ROUTES.employer.applications)}
-                      className="inline-flex items-center gap-1 text-sm font-semibold text-[#1C4D8D] hover:opacity-80"
+                      type="button"
+                      onClick={() => setViewingJob(job)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#1C4D8D] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#163f75]"
                     >
+                      <Eye className="h-3.5 w-3.5" />
                       View details
-                      <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -455,6 +471,148 @@ export function JobsManagement() {
           </div>
         )}
       </div>
+
+      {viewingJob ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="job-details-title"
+        >
+          <div className="flex max-h-[calc(100dvh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 md:px-7">
+              <div>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(viewingJob.status)}`}>
+                    {viewingJob.status}
+                  </span>
+                  <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                    {viewingJob.department}
+                  </span>
+                </div>
+                <h2 id="job-details-title" className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                  {viewingJob.title}
+                </h2>
+                <p className="mt-2 flex items-start gap-2 text-sm text-slate-500">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                  {viewingJob.location}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingJob(null)}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close job details"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-5 md:px-7 md:py-6">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Minimum pay</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.salary}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Opportunity</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.tags.workType}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Positions</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.tags.positions}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Deadline</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{formatDate(viewingJob.source?.deadline)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Applications</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.candidatesApplied}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Posted</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.date}</p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-5">
+                <section>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Job description</h3>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                    {viewingJob.source?.description || "No description was provided."}
+                  </p>
+                </section>
+
+                {Array.isArray(viewingJob.source?.responsibilities) && viewingJob.source.responsibilities.length > 0 ? (
+                  <section>
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Responsibilities</h3>
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                      {viewingJob.source.responsibilities.map((item: string, index: number) => (
+                        <li key={`${item}-${index}`} className="flex gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ) : null}
+
+                <section>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Requirements</h3>
+                  {Array.isArray(viewingJob.source?.requirements) && viewingJob.source.requirements.length > 0 ? (
+                    <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                      {viewingJob.source.requirements.map((item: string, index: number) => (
+                        <li key={`${item}-${index}`} className="flex gap-2">
+                          <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-500" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-400">No additional requirements.</p>
+                  )}
+                </section>
+
+                <section>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Helpful skills</h3>
+                  {Array.isArray(viewingJob.source?.skills) && viewingJob.source.skills.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {viewingJob.source.skills.map((skill: string, index: number) => (
+                        <span key={`${skill}-${index}`} className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-slate-400">No specific skills listed.</p>
+                  )}
+                </section>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 md:px-7">
+              <button
+                type="button"
+                onClick={() => setViewingJob(null)}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.employer.postJob, {
+                  state: { job: viewingJob.source, returnTo: ROUTES.employer.jobs },
+                })}
+                className="inline-flex h-10 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                <Pencil className="h-4 w-4" />
+                Edit details
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {confirmDoneJob ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">

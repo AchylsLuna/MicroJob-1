@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, BriefcaseBusiness, ClipboardList, Star } from "lucide-react";
+import { ArrowRight, BriefcaseBusiness, CalendarDays, ClipboardList, MapPin, Star } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
 import { getEligibleReviews, type ApplicationStatus, type ReviewEligibilityItem } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
@@ -13,8 +13,6 @@ interface JobData {
   salary: string;
   jobType: string;
   description: string;
-  skills?: string[];
-  applicants?: string[];
   deadline?: string;
   status?: string;
   jobPoster?: { firstName?: string; lastName?: string; companyName?: string };
@@ -39,6 +37,12 @@ const FILTER_OPTIONS: Array<"All" | ApplicationStatus> = [
   "Rejected",
   "Withdrawn",
 ];
+
+const formatMinimumPay = (value?: string) => {
+  const amount = Number(String(value || "").replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(amount) || amount <= 0) return value || "Pay not specified";
+  return `₱${amount.toLocaleString("en-PH")} minimum`;
+};
 
 const AppliedJobs: React.FC = () => {
   const navigate = useNavigate();
@@ -83,8 +87,8 @@ const AppliedJobs: React.FC = () => {
       case "Applied": return "bg-slate-100 text-slate-700";
       case "Shortlisted": return "bg-blue-100 text-blue-700";
       case "Interview Scheduled": return "bg-cyan-100 text-cyan-700";
-      case "Interviewed": return "bg-indigo-100 text-indigo-700";
-      case "Offer Sent": return "bg-fuchsia-100 text-fuchsia-700";
+      case "Interviewed": return "bg-sky-100 text-sky-700";
+      case "Offer Sent": return "bg-[#EAF2FC] text-[#1C4D8D]";
       case "Hired": return "bg-green-100 text-green-700";
       case "Rejected": return "bg-red-100 text-red-700";
       case "Withdrawn": return "bg-gray-100 text-gray-600";
@@ -103,23 +107,40 @@ const AppliedJobs: React.FC = () => {
       : `You do not have any applications in the ${selectedFilter} stage right now. Browse more roles or switch back to all applications.`;
 
   return (
-    <div className="max-w-[1341px] mx-auto space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        {FILTER_OPTIONS.map((filter) => (
-          <button
-            key={filter}
-            type="button"
-            onClick={() => setSelectedFilter(filter)}
-            aria-pressed={selectedFilter === filter}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition ${
-              selectedFilter === filter
-                ? "bg-blue-600 text-white"
-                : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100"
-            }`}
+    <div className="ui-page px-4 pb-16 md:px-0">
+      <div className="ui-page-header">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">Application tracker</p>
+          <h1 className="ui-page-title mt-1">My applications</h1>
+          <p className="ui-page-subtitle">Follow each application from submission to hiring.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.worker.findJobs)}
+          className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white transition hover:bg-[#163F75]"
+        >
+          <BriefcaseBusiness className="h-4 w-4" />
+          Find jobs
+        </button>
+      </div>
+
+      <div className="ui-card flex flex-col gap-3 rounded-2xl border-slate-200 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-base font-bold text-slate-900">
+            {loading ? "Loading applications..." : `${applications.length} ${applications.length === 1 ? "application" : "applications"}`}
+          </p>
+          <p className="mt-1 text-sm text-slate-500">Filter by the stage you want to review.</p>
+        </div>
+        <label className="flex items-center gap-2">
+          <span className="text-sm font-semibold text-slate-600">Status</span>
+          <select
+            value={selectedFilter}
+            onChange={(event) => setSelectedFilter(event.target.value as "All" | ApplicationStatus)}
+            className="h-11 min-w-48 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
           >
-            {filter}
-          </button>
-        ))}
+            {FILTER_OPTIONS.map((filter) => <option key={filter} value={filter}>{filter}</option>)}
+          </select>
+        </label>
       </div>
 
       <div>
@@ -140,60 +161,60 @@ const AppliedJobs: React.FC = () => {
             {filteredApplications.map((application) => (
               <article
                 key={application._id}
-                className="bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg transition border border-gray-200 sm:p-6"
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#B8CBE5] hover:shadow-md"
               >
                 <div className="flex items-start gap-4">
-                  {/* Company Logo */}
-                  <div className="h-14 w-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-lg">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1C4D8D] text-lg font-bold text-white">
                     {application.job?.title?.charAt(0) || "J"}
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">{application.job?.title}</h3>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                          <span>{application.job?.location}</span>
-                        </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <h2 className="truncate text-lg font-bold text-slate-900">{application.job?.title || "Unavailable job"}</h2>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {application.job?.jobPoster?.companyName ||
+                            `${application.job?.jobPoster?.firstName || ""} ${application.job?.jobPoster?.lastName || ""}`.trim() ||
+                            "Employer"}
+                        </p>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(application.status)}`}>
+                      <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(application.status)}`}>
                         {application.status}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-3 mt-3">
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
-                        {application.job?.jobType}
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-[#1C4D8D]">
+                        {application.job?.jobType || "Job"}
                       </span>
-                      <span className="text-green-600 font-semibold text-sm">{application.job?.salary}</span>
-                      <span className="text-gray-500 text-sm">/ month</span>
+                      <span className="text-sm font-bold text-emerald-700">
+                        {formatMinimumPay(application.job?.salary)}
+                      </span>
                     </div>
 
-                    <p className="text-sm text-gray-600 mt-3 line-clamp-3">
-                      {application.job?.description}
+                    <p className="mt-3 flex items-start gap-1.5 text-sm text-slate-500">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span className="line-clamp-1">{application.job?.location || "Location not specified"}</span>
                     </p>
 
-                    <div className="mt-4">
-                      <p className="text-xs text-gray-500 mb-2">Required Skills:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {(application.job?.skills || []).map((tag) => (
-                          <span
-                            key={tag}
-                            className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-600">
+                      {application.job?.description || "Open the job to review its complete details."}
+                    </p>
 
-                    <div className="flex flex-col gap-4 mt-5 pt-4 border-t border-gray-200 sm:flex-row sm:items-end sm:justify-between">
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-                        <span>🕒 Applied {new Date(application.appliedDate || application.createdAt || Date.now()).toLocaleDateString()}</span>
-                        <span>👥 {application.job?.applicants?.length || 0} applicants</span>
-                        <span>📅 Deadline: {application.job?.deadline ? new Date(application.job.deadline).toLocaleDateString() : "N/A"}</span>
+                    <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-4">
+                      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
+                        <span className="inline-flex items-center gap-1.5">
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Applied {new Date(application.appliedDate || application.createdAt || Date.now()).toLocaleDateString()}
+                        </span>
+                        {application.job?.deadline ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <CalendarDays className="h-3.5 w-3.5" />
+                            Deadline {new Date(application.job.deadline).toLocaleDateString()}
+                          </span>
+                        ) : null}
                       </div>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                       {reviewEligibility[application._id]?.canReview ? (
                         <button
                           type="button"
@@ -206,7 +227,7 @@ const AppliedJobs: React.FC = () => {
                               roleLabel: "employer",
                             });
                           }}
-                          className="inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-800 hover:bg-amber-100"
+                          className="inline-flex h-10 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 hover:bg-amber-100"
                         >
                           <Star className="h-4 w-4" /> Rate Employer
                         </button>
@@ -222,9 +243,9 @@ const AppliedJobs: React.FC = () => {
                             state: { isApplied: true, status: application.status }
                           });
                         }}
-                        className="bg-blue-600 text-white px-6 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700"
+                        className="h-10 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white transition hover:bg-[#163F75]"
                       >
-                        View Details
+                        View details
                       </button>
                       </div>
                     </div>

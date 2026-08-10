@@ -1,8 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
-import { BriefcaseBusiness, Filter, Plus, Search, X } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  ClipboardList,
+  FileText,
+  Filter,
+  MapPin,
+  Plus,
+  Search,
+  WalletCards,
+  X,
+} from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 import { ConfirmDialog } from "../../components/ui";
+import { ROUTES } from "../../utils/routes";
 
 type JobEdit = {
   _id: string;
@@ -48,13 +60,11 @@ type FormState = {
   category: string;
   description: string;
   requirements: string;
-  responsibilities: string;
   skills: string;
   minimumSalary: string;
   province: string;
   city: string;
   barangay: string;
-  addressType: "home" | "office" | "place";
   address: string;
   jobType: string;
   deadline: string;
@@ -85,13 +95,11 @@ const createEmptyForm = (): FormState => ({
   category: "",
   description: "",
   requirements: "",
-  responsibilities: "",
   skills: "",
   minimumSalary: "",
   province: "",
   city: "",
   barangay: "",
-  addressType: "place",
   address: "",
   jobType: "Short-term",
   deadline: "",
@@ -170,6 +178,9 @@ const formatCurrency = (value: unknown): string => {
   return `₱${new Intl.NumberFormat("en-PH").format(Number(salary))} minimum`;
 };
 
+const formatPesoAmount = (value: number): string =>
+  `₱${new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(value)}`;
+
 const buildFormFromJob = (job: JobEdit): FormState => {
   const categoryId = typeof job.category === "object" ? job.category?._id : job.category;
   const salary = extractSalaryValue(job.salary);
@@ -179,13 +190,11 @@ const buildFormFromJob = (job: JobEdit): FormState => {
     category: categoryId || "",
     description: job.description || "",
     requirements: job.requirements?.join("\n") || "",
-    responsibilities: job.responsibilities?.join("\n") || "",
     skills: job.skills?.join(", ") || "",
     minimumSalary: salary,
     province: locationParts.province,
     city: locationParts.city,
     barangay: locationParts.barangay,
-    addressType: "place",
     address: locationParts.address,
     jobType: job.jobType || "Short-term",
     deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
@@ -196,7 +205,7 @@ const buildFormFromJob = (job: JobEdit): FormState => {
 const PostJob: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const locationState = location.state as { job?: JobEdit } | null;
+  const locationState = location.state as { job?: JobEdit; returnTo?: string } | null;
   const incomingJobToEdit = locationState?.job;
 
   const [jobs, setJobs] = useState<JobEdit[]>([]);
@@ -205,6 +214,7 @@ const PostJob: React.FC = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [editingJob, setEditingJob] = useState<JobEdit | null>(null);
+  const [returnAfterSave, setReturnAfterSave] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormState>(createEmptyForm());
   const [categories, setCategories] = useState<{ _id: string; name: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -218,6 +228,7 @@ const PostJob: React.FC = () => {
   const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
   const [isLoadingLocationData, setIsLoadingLocationData] = useState(false);
   const [isLoadingBarangays, setIsLoadingBarangays] = useState(false);
+  const hasInsufficientBalanceError = /(?:insufficient|not have enough) balance/i.test(formError || "");
 
   const selectedProvince = provinceOptions.find(
     (item) => item.name.toLowerCase() === formData.province.trim().toLowerCase(),
@@ -230,6 +241,17 @@ const PostJob: React.FC = () => {
   const filteredCityOptions = selectedProvince?.code
     ? cityOptions.filter((item) => item.provinceCode === selectedProvince.code)
     : cityOptions;
+
+  const estimatedEscrow = useMemo(() => {
+    const payPerWorker = Number(formData.minimumSalary.replace(/[^0-9]/g, "") || 0);
+    const workerCount = Number(formData.positionsNeeded || 0);
+
+    if (!Number.isFinite(payPerWorker) || !Number.isInteger(workerCount) || workerCount < 1) {
+      return 0;
+    }
+
+    return payPerWorker * workerCount;
+  }, [formData.minimumSalary, formData.positionsNeeded]);
 
   const totalPostings = jobs.length;
   const activePostings = useMemo(
@@ -302,13 +324,15 @@ const PostJob: React.FC = () => {
 
   const openCreateModal = useCallback(() => {
     setEditingJob(null);
+    setReturnAfterSave(null);
     setFormData(createEmptyForm());
     setFormError(null);
     setShowModal(true);
   }, []);
 
-  const openEditModal = useCallback((job: JobEdit) => {
+  const openEditModal = useCallback((job: JobEdit, returnTo: string | null = null) => {
     setEditingJob(job);
+    setReturnAfterSave(returnTo);
     setFormData(buildFormFromJob(job));
     setFormError(null);
     setShowModal(true);
@@ -419,13 +443,17 @@ const PostJob: React.FC = () => {
 
   useEffect(() => {
     if (!incomingJobToEdit?._id) return;
-    openEditModal(incomingJobToEdit);
+    const safeReturnTo = locationState?.returnTo === ROUTES.employer.jobs
+      ? ROUTES.employer.jobs
+      : null;
+    openEditModal(incomingJobToEdit, safeReturnTo);
     navigate(location.pathname, { replace: true, state: {} });
-  }, [incomingJobToEdit, openEditModal, navigate, location.pathname]);
+  }, [incomingJobToEdit, locationState?.returnTo, openEditModal, navigate, location.pathname]);
 
   const closeModal = () => {
     setShowModal(false);
     setEditingJob(null);
+    setReturnAfterSave(null);
     setFormData(createEmptyForm());
     setFormError(null);
   };
@@ -502,9 +530,6 @@ const PostJob: React.FC = () => {
         requirements: formData.requirements
           ? formData.requirements.split("\n").map((item) => item.trim()).filter(Boolean)
           : [],
-        responsibilities: formData.responsibilities
-          ? formData.responsibilities.split("\n").map((item) => item.trim()).filter(Boolean)
-          : [],
         skills: formData.skills
           ? formData.skills.split(",").map((item) => item.trim()).filter(Boolean)
           : [],
@@ -520,11 +545,17 @@ const PostJob: React.FC = () => {
       } else {
         await jobsAPI.createJob(payload);
       }
+      if (editingJob?._id && returnAfterSave) {
+        navigate(returnAfterSave, { replace: true });
+        return;
+      }
       await loadJobs();
       closeModal();
     } catch (err: any) {
       setFormError(
-        err?.response?.data?.message || (editingJob ? "Failed to update job." : "Failed to post job.")
+        err?.response?.data?.message ||
+          err?.message ||
+          (editingJob ? "Failed to update job." : "Failed to post job.")
       );
     } finally {
       setSubmitting(false);
@@ -745,23 +776,31 @@ const PostJob: React.FC = () => {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-black/45 p-4 md:p-8">
+        <div className="fixed inset-0 z-50 bg-slate-900/55 p-3 md:p-8">
           <div className="flex min-h-full items-start justify-center">
-            <div className="flex w-full max-w-4xl max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
-              <div className="shrink-0 border-b border-slate-200 bg-white px-6 py-5">
+            <div className="flex w-full max-w-5xl max-h-[calc(100vh-1.5rem)] md:max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-5 md:px-7">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl md:text-3xl font-semibold text-slate-900">
-                      {editingJob ? "Edit Opportunity" : "Post an Opportunity"}
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">
-                      Share short-term work, a side hustle, or an ongoing role in a few clear steps.
-                    </p>
+                  <div className="flex items-center gap-4">
+                    <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 sm:flex">
+                      <BriefcaseBusiness size={24} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
+                        Employer workspace
+                      </p>
+                      <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                        {editingJob ? "Edit job details" : "Create a job post"}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Only the essential details workers need to decide and apply.
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="rounded-md p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                    className="ml-3 rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700"
                     aria-label="Close modal"
                   >
                     <X size={24} />
@@ -770,14 +809,28 @@ const PostJob: React.FC = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
-                {formError && (
-                  <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700">
-                    {formError}
+                {formError && !hasInsufficientBalanceError && (
+                  <div
+                    className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-red-700"
+                    role="alert"
+                  >
+                    <p>{formError}</p>
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit} noValidate className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <form onSubmit={handleSubmit} noValidate className="space-y-6">
+                  <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200">
+                        <ClipboardList size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900">Role overview</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">Name the work and choose the opportunity that fits it best.</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label htmlFor="job-title" className="mb-2 block text-sm font-semibold text-slate-700">
                         Job Title <span className="text-red-500">*</span>
@@ -851,29 +904,20 @@ const PostJob: React.FC = () => {
                       </p>
                     )}
                   </fieldset>
+                  </section>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="job-location-type" className="mb-2 block text-sm font-semibold text-slate-700">Location Type</label>
-                      <select
-                        id="job-location-type"
-                        value={formData.addressType}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            addressType: e.target.value as FormState["addressType"],
-                          }))
-                        }
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      >
-                        <option value="home">Home Address</option>
-                        <option value="office">Office Address</option>
-                        <option value="place">Landmark / Place</option>
-                      </select>
+                  <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                        <MapPin size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900">Work location</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">Choose the area first, then add an optional landmark or street.</p>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div>
                       <label htmlFor="job-province" className="mb-2 block text-sm font-semibold text-slate-700">
                         Province <span className="text-red-500">*</span>
@@ -971,23 +1015,39 @@ const PostJob: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label htmlFor="job-address" className="mb-2 block text-sm font-semibold text-slate-700">Address / Place</label>
+                    <div>
+                    <label htmlFor="job-address" className="mb-2 block text-sm font-semibold text-slate-700">Street or landmark <span className="font-normal text-slate-400">(optional)</span></label>
                     <input
                       id="job-address"
                       type="text"
                       value={formData.address}
                       onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
                       className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder={formData.addressType === "place" ? "e.g. Near City Hall" : "House no., street, subdivision"}
+                      placeholder="e.g. Rizal Street, near City Hall"
                     />
-                  </div>
+                    </div>
 
-                  <p className="text-xs text-slate-500">
-                    Final location preview: {composeLocation(formData) || "Select province, city, and barangay"}
-                  </p>
+                    <div className="flex items-start gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                      <span>
+                        <span className="font-semibold text-slate-700">Location preview:</span>{" "}
+                        {composeLocation(formData) || "Select province, city, and barangay"}
+                      </span>
+                    </div>
+                  </section>
 
-                  <div>
+                  <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200">
+                        <WalletCards size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900">Pay and schedule</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">Set the guaranteed pay, worker count, and completion deadline.</p>
+                      </div>
+                    </div>
+
+                    <div>
                     <label htmlFor="job-minimum-pay" className="mb-2 block text-sm font-semibold text-slate-700">
                       Minimum Guaranteed Pay per Worker (PHP) <span className="text-red-500">*</span>
                     </label>
@@ -1016,7 +1076,7 @@ const PostJob: React.FC = () => {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label htmlFor="job-deadline" className="mb-2 block text-sm font-semibold text-slate-700">
                         Deadline <span className="text-red-500">*</span>
@@ -1045,62 +1105,84 @@ const PostJob: React.FC = () => {
                         className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
                       />
                     </div>
-                  </div>
+                    </div>
 
-                  <div>
-                    <label htmlFor="job-description" className="mb-2 block text-sm font-semibold text-slate-700">
-                      Job Description <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      id="job-description"
-                      data-field="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                      className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="Describe the role, responsibilities, and team..."
-                      required
-                    />
-                  </div>
+                    <div className="flex flex-col gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-indigo-950">
+                          {editingJob ? "Estimated job value" : "Wallet funds needed"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-indigo-700">
+                          {formatPesoAmount(Number(formData.minimumSalary || 0))} × {Number(formData.positionsNeeded || 0)} worker{Number(formData.positionsNeeded || 0) === 1 ? "" : "s"}
+                        </p>
+                      </div>
+                      <p className="text-2xl font-bold tracking-tight text-indigo-700">
+                        {formatPesoAmount(estimatedEscrow)}
+                      </p>
+                    </div>
+                  </section>
 
-                  <div>
-                    <label htmlFor="job-requirements" className="mb-2 block text-sm font-semibold text-slate-700">Requirements</label>
-                    <textarea
-                      id="job-requirements"
-                      value={formData.requirements}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, requirements: e.target.value }))
-                      }
-                      className="min-h-[100px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="Skills, experience, qualifications needed..."
-                    />
-                  </div>
+                  <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                        <FileText size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-900">What the worker will do</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">Keep it practical: describe the work, then add only the requirements that matter.</p>
+                      </div>
+                    </div>
 
-                  <div>
-                    <label htmlFor="job-responsibilities" className="mb-2 block text-sm font-semibold text-slate-700">Responsibilities</label>
-                    <textarea
-                      id="job-responsibilities"
-                      value={formData.responsibilities}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, responsibilities: e.target.value }))
-                      }
-                      className="min-h-[100px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="Daily tasks and ownership for this role..."
-                    />
-                  </div>
+                    <div>
+                      <label htmlFor="job-description" className="mb-2 block text-sm font-semibold text-slate-700">
+                        Job description <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        id="job-description"
+                        data-field="description"
+                        value={formData.description}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                        className="min-h-[140px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                        placeholder="Explain the task, main responsibilities, expected result, and anything the worker should know."
+                        maxLength={3000}
+                        required
+                      />
+                      <p className="mt-2 text-right text-xs text-slate-400">{formData.description.length}/3000</p>
+                    </div>
 
-                  <div>
-                    <label htmlFor="job-skills" className="mb-2 block text-sm font-semibold text-slate-700">Skills (comma-separated)</label>
-                    <input
-                      id="job-skills"
-                      type="text"
-                      value={formData.skills}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="React, TypeScript, Communication"
-                    />
-                  </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label htmlFor="job-requirements" className="mb-2 block text-sm font-semibold text-slate-700">
+                          Requirements <span className="font-normal text-slate-400">(optional)</span>
+                        </label>
+                        <textarea
+                          id="job-requirements"
+                          value={formData.requirements}
+                          onChange={(e) =>
+                            setFormData((prev) => ({ ...prev, requirements: e.target.value }))
+                          }
+                          className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                          placeholder={"One requirement per line\nExample: Available on weekends"}
+                        />
+                      </div>
 
-                  <div className="grid grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label htmlFor="job-skills" className="mb-2 block text-sm font-semibold text-slate-700">
+                          Helpful skills <span className="font-normal text-slate-400">(optional)</span>
+                        </label>
+                        <textarea
+                          id="job-skills"
+                          value={formData.skills}
+                          onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
+                          className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                          placeholder="Communication, driving, customer service"
+                        />
+                        <p className="mt-2 text-xs text-slate-400">Separate skills with commas.</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <div className="sticky -bottom-5 z-10 grid grid-cols-2 gap-3 border-t border-slate-200 bg-white px-1 pb-1 pt-5">
                     <button
                       type="button"
                       onClick={closeModal}
@@ -1109,25 +1191,73 @@ const PostJob: React.FC = () => {
                     >
                       Cancel
                     </button>
-                  <button
-                    type="submit"
-                    className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white hover:bg-indigo-700 transition disabled:opacity-60"
-                    disabled={submitting}
-                  >
-                    {submitting
-                      ? editingJob
-                        ? "Updating..."
-                        : "Posting..."
-                      : editingJob
-                      ? "Update Job"
-                      : "Post Job"}
-                  </button>
+                    <button
+                      type="submit"
+                      className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                      disabled={submitting}
+                    >
+                      {submitting
+                        ? editingJob
+                          ? "Updating..."
+                          : "Posting..."
+                        : editingJob
+                        ? "Save changes"
+                        : `Post job · ${formatPesoAmount(estimatedEscrow)}`}
+                    </button>
                   </div>
                 </form>
               </div>
             </div>
           </div>
         </div>
+      )}
+      {hasInsufficientBalanceError && typeof document !== "undefined" && createPortal(
+        <div
+          className="flex items-center justify-center p-4"
+          style={{
+            position: "fixed",
+            inset: 0,
+            width: "100vw",
+            height: "100dvh",
+            zIndex: 9999,
+            backgroundColor: "rgba(107, 114, 128, 0.72)",
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="insufficient-balance-title"
+            aria-describedby="insufficient-balance-description"
+            className="w-full max-w-md rounded-3xl border border-red-100 bg-white p-6 text-center shadow-2xl"
+          >
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600">
+              !
+            </div>
+            <h3 id="insufficient-balance-title" className="mt-4 text-xl font-bold text-slate-900">
+              Insufficient balance
+            </h3>
+            <p id="insufficient-balance-description" className="mt-2 text-sm leading-6 text-slate-600">
+              {formError}
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setFormError(null)}
+                className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+              >
+                Not now
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(ROUTES.employer.eWallet)}
+                className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+              >
+                Top up wallet
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
       <ConfirmDialog
         open={Boolean(deleteTarget)}

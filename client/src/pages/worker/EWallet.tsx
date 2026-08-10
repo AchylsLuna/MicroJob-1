@@ -32,6 +32,19 @@ const toAmount = (value: unknown) => {
   return Number.isFinite(amount) ? amount : 0;
 };
 
+const getPartyId = (party: PaymentTransaction["sender"] | PaymentTransaction["receiver"]) => {
+  if (!party) return "";
+  if (typeof party === "string") return party;
+  return String(party._id || "");
+};
+
+const getTransactionDirection = (tx: PaymentTransaction, userId: string) => {
+  if (!userId || tx.status !== "COMPLETED") return "neutral" as const;
+  if (getPartyId(tx.receiver) === userId) return "credit" as const;
+  if (getPartyId(tx.sender) === userId) return "debit" as const;
+  return "neutral" as const;
+};
+
 const formatDate = (value?: string) => {
   if (!value) return "-";
   const date = new Date(value);
@@ -183,18 +196,20 @@ export function EWallet() {
     : isEmployerWalletView
     ? employerBalance
     : workerBalance;
+  const walletOwnerId = String(user?.id || "");
 
-  const totalCredits = useMemo(
-    () => transactions.filter((tx) => tx.amount > 0).reduce((sum, tx) => sum + toAmount(tx.amount), 0),
-    [transactions],
+  const totalMoneyIn = useMemo(
+    () => transactions
+      .filter((tx) => getTransactionDirection(tx, walletOwnerId) === "credit")
+      .reduce((sum, tx) => sum + toAmount(tx.amount), 0),
+    [transactions, walletOwnerId],
   );
 
-  const totalDebits = useMemo(
-    () =>
-      transactions
-        .filter((tx) => tx.type === "ESCROW" || tx.type === "PAYOUT")
-        .reduce((sum, tx) => sum + toAmount(tx.amount), 0),
-    [transactions],
+  const totalMoneyOut = useMemo(
+    () => transactions
+      .filter((tx) => getTransactionDirection(tx, walletOwnerId) === "debit")
+      .reduce((sum, tx) => sum + toAmount(tx.amount), 0),
+    [transactions, walletOwnerId],
   );
 
   const pendingPayoutTotal = useMemo(
@@ -405,17 +420,19 @@ export function EWallet() {
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
           <div className="flex items-center gap-2 text-[#10B981] mb-2">
             <ArrowDownLeft className="w-4 h-4" />
-            <span className="text-[13px]">Credits</span>
+            <span className="text-[13px]">Money In</span>
           </div>
-          <p className="text-[26px] font-bold text-[#111827]">{currency.format(totalCredits)}</p>
+          <p className="text-[26px] font-bold text-[#111827]">{currency.format(totalMoneyIn)}</p>
+          <p className="mt-1 text-[11px] text-[#6B7280]">Completed top-ups, payouts, and refunds received</p>
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
           <div className="flex items-center gap-2 text-[#EF4444] mb-2">
             <ArrowUpRight className="w-4 h-4" />
-            <span className="text-[13px]">Escrow + Payout Debits</span>
+            <span className="text-[13px]">Money Out</span>
           </div>
-          <p className="text-[26px] font-bold text-[#111827]">{currency.format(totalDebits)}</p>
+          <p className="text-[26px] font-bold text-[#111827]">{currency.format(totalMoneyOut)}</p>
+          <p className="mt-1 text-[11px] text-[#6B7280]">Completed job escrow and wallet withdrawals</p>
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
@@ -611,7 +628,15 @@ export function EWallet() {
                 </tr>
               </thead>
               <tbody>
-                {transactions.slice(0, 20).map((tx) => (
+                {transactions.slice(0, 20).map((tx) => {
+                  const direction = getTransactionDirection(tx, walletOwnerId);
+                  const amountPrefix = direction === "credit" ? "+" : direction === "debit" ? "-" : "";
+                  const amountClass = direction === "credit"
+                    ? "text-[#15803D]"
+                    : direction === "debit"
+                    ? "text-[#B91C1C]"
+                    : "text-[#6B7280]";
+                  return (
                   <tr key={tx._id} className="border-b border-[#F3F4F6] align-top">
                     <td className="py-3 pr-4">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-[#1C4D8D]/[0.06] text-[#1C4D8D]">
@@ -624,7 +649,9 @@ export function EWallet() {
                       </span>
                     </td>
                     <td className="py-3 pr-4 text-[#111827]">{txLabel(tx)}</td>
-                    <td className="py-3 pr-4 text-[#111827]">{currency.format(toAmount(tx.amount))}</td>
+                    <td className={`py-3 pr-4 font-semibold ${amountClass}`}>
+                      {amountPrefix}{currency.format(toAmount(tx.amount))}
+                    </td>
                     <td className="py-3 pr-4 text-[#6B7280]">
                       <div>{tx.reference || "-"}</div>
                       {tx.providerReference ? <div className="text-[11px] text-[#9CA3AF]">{tx.providerReference}</div> : null}
@@ -634,7 +661,8 @@ export function EWallet() {
                     </td>
                     <td className="py-3 text-[#6B7280]">{formatDate(tx.createdAt)}</td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

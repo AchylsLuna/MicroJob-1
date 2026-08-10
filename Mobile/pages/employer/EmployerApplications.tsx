@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   StyleSheet,
   Text,
   TextInput,
@@ -8,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
@@ -18,6 +20,7 @@ import { APPLICATION_STATUSES, ApplicationStatus, normalizeApplicationStatus } f
 import PublicProfile from '../shared/PublicProfile';
 import { tokens } from '../../theme/tokens';
 import RatingModal, { MobileRatingTarget } from '../../components/reviews/RatingModal';
+import { useToast } from '../../contexts/ToastContext';
 
 type ApplicationItem = {
   _id: string;
@@ -46,6 +49,13 @@ type ApplicationItem = {
   match?: { percentage?: number; level?: string; reasons?: string[] };
   coverLetter?: string;
   resume?: string;
+  nextInterview?: {
+    _id?: string;
+    scheduledAt: string;
+    location?: string | null;
+    mode?: string;
+    notes?: string | null;
+  } | null;
 };
 
 type ReviewEligibility = {
@@ -60,7 +70,7 @@ type EmployerApplicationsProps = {
   onMessageWorker?: (payload: { workerId: string; workerName?: string; jobId: string }) => void;
 };
 
-const STATUS_OPTIONS: ApplicationStatus[] = APPLICATION_STATUSES;
+const STATUS_OPTIONS: ApplicationStatus[] = APPLICATION_STATUSES.filter((status) => status !== 'Withdrawn');
 
 const getApiStatusCandidates = (status: ApplicationStatus): string[] => {
   switch (status) {
@@ -91,6 +101,7 @@ export default function EmployerApplications({
   onTabPress,
   onMessageWorker,
 }: EmployerApplicationsProps) {
+  const toast = useToast();
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -103,6 +114,14 @@ export default function EmployerApplications({
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibility>>({});
   const [ratingTarget, setRatingTarget] = useState<MobileRatingTarget | null>(null);
+  const [scheduleTarget, setScheduleTarget] = useState<ApplicationItem | null>(null);
+  const [interviewDate, setInterviewDate] = useState<Date | null>(null);
+  const [interviewMode, setInterviewMode] = useState('virtual');
+  const [interviewLocation, setInterviewLocation] = useState('');
+  const [interviewNotes, setInterviewNotes] = useState('');
+  const [showInterviewDatePicker, setShowInterviewDatePicker] = useState(false);
+  const [showInterviewTimePicker, setShowInterviewTimePicker] = useState(false);
+  const [savingInterview, setSavingInterview] = useState(false);
 
   const jobOptions = useMemo(() => {
     const unique = new Map<string, string>();
@@ -233,6 +252,79 @@ export default function EmployerApplications({
     setProfileUserId(applicantId);
     setShowProfile(true);
     setExpandedId(null);
+  };
+
+  const handleOpenSchedule = (application: ApplicationItem) => {
+    const existingDate = application.nextInterview?.scheduledAt
+      ? new Date(application.nextInterview.scheduledAt)
+      : new Date(Date.now() + 24 * 60 * 60 * 1000);
+    setScheduleTarget(application);
+    setInterviewDate(Number.isNaN(existingDate.getTime()) ? new Date() : existingDate);
+    setInterviewMode(application.nextInterview?.mode || 'virtual');
+    setInterviewLocation(application.nextInterview?.location || '');
+    setInterviewNotes(application.nextInterview?.notes || '');
+  };
+
+  const handleInterviewDateChange = (event: DateTimePickerEvent, selected?: Date) => {
+    setShowInterviewDatePicker(false);
+    if (event.type === 'dismissed' || !selected) return;
+    setInterviewDate((current) => {
+      const next = new Date(current || selected);
+      next.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+      return next;
+    });
+  };
+
+  const handleInterviewTimeChange = (event: DateTimePickerEvent, selected?: Date) => {
+    setShowInterviewTimePicker(false);
+    if (event.type === 'dismissed' || !selected) return;
+    setInterviewDate((current) => {
+      const next = new Date(current || selected);
+      next.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+      return next;
+    });
+  };
+
+  const handleScheduleSubmit = async () => {
+    if (!scheduleTarget || !interviewDate || savingInterview) return;
+    if (interviewDate.getTime() <= Date.now()) {
+      toast.error('Choose an interview time in the future.');
+      return;
+    }
+
+    setSavingInterview(true);
+    setErrorMessage('');
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const existingInterviewId = scheduleTarget.nextInterview?._id;
+      const result = await apiRequest(
+        existingInterviewId
+          ? `${API_URL}/applications/${scheduleTarget._id}/interviews/${existingInterviewId}`
+          : `${API_URL}/applications/${scheduleTarget._id}/interviews`,
+        {
+          method: existingInterviewId ? 'PATCH' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            scheduledAt: interviewDate.toISOString(),
+            mode: interviewMode,
+            location: interviewLocation.trim(),
+            notes: interviewNotes.trim(),
+          }),
+        },
+        'Failed to save interview schedule.',
+      );
+      if (!result.ok) throw new Error(result.message || 'Failed to save interview schedule.');
+      setScheduleTarget(null);
+      await fetchApplications();
+      toast.success(existingInterviewId ? 'Interview rescheduled.' : 'Interview scheduled. The worker was notified.');
+    } catch (error: any) {
+      setErrorMessage(error?.message || 'Failed to save interview schedule.');
+    } finally {
+      setSavingInterview(false);
+    }
   };
 
   if (showProfile && profileUserId) {
@@ -388,6 +480,26 @@ export default function EmployerApplications({
               </View>
             </View>
 
+            {app.nextInterview ? (
+              <View style={styles.interviewSummary}>
+                <Ionicons name="calendar-outline" size={17} color={tokens.colors.brand} />
+                <View style={styles.interviewSummaryCopy}>
+                  <Text style={styles.interviewSummaryTitle}>Next interview</Text>
+                  <Text style={styles.interviewSummaryText}>{new Date(app.nextInterview.scheduledAt).toLocaleString()}</Text>
+                  <Text style={styles.interviewSummaryMeta}>
+                    {app.nextInterview.mode || 'other'}{app.nextInterview.location ? ` · ${app.nextInterview.location}` : ''}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            {!['Hired', 'Rejected', 'Withdrawn'].includes(app.status) ? (
+              <TouchableOpacity style={styles.interviewButton} onPress={() => handleOpenSchedule(app)}>
+                <Ionicons name="calendar-outline" size={16} color={tokens.colors.brand} />
+                <Text style={styles.interviewButtonText}>{app.nextInterview ? 'Reschedule Interview' : 'Schedule Interview'}</Text>
+              </TouchableOpacity>
+            ) : null}
+
             <View style={styles.statusRow}>
               {STATUS_OPTIONS.map((status) => (
                 <TouchableOpacity
@@ -475,6 +587,90 @@ export default function EmployerApplications({
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={fetchApplications} />
+
+      <Modal
+        visible={Boolean(scheduleTarget)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => { if (!savingInterview) setScheduleTarget(null); }}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.scheduleCard}>
+            <View style={styles.scheduleHeader}>
+              <View style={styles.scheduleHeaderCopy}>
+                <Text style={styles.scheduleEyebrow}>INTERVIEW</Text>
+                <Text style={styles.scheduleTitle}>{scheduleTarget?.nextInterview ? 'Reschedule interview' : 'Schedule interview'}</Text>
+                <Text style={styles.scheduleSubtitle}>
+                  {scheduleTarget?.applicant?.firstName} {scheduleTarget?.applicant?.lastName} · {scheduleTarget?.job?.title}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.modalCloseButton} onPress={() => setScheduleTarget(null)} disabled={savingInterview}>
+                <Ionicons name="close" size={21} color={tokens.colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.scheduleContent} keyboardShouldPersistTaps="handled">
+              <Text style={styles.scheduleLabel}>Date and time</Text>
+              <View style={styles.dateTimeRow}>
+                <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowInterviewDatePicker(true)}>
+                  <Ionicons name="calendar-outline" size={17} color={tokens.colors.brand} />
+                  <Text style={styles.dateTimeText}>{interviewDate?.toLocaleDateString() || 'Choose date'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.dateTimeButton} onPress={() => setShowInterviewTimePicker(true)}>
+                  <Ionicons name="time-outline" size={17} color={tokens.colors.brand} />
+                  <Text style={styles.dateTimeText}>{interviewDate?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || 'Choose time'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.scheduleLabel}>Interview mode</Text>
+              <View style={styles.modeRow}>
+                {['virtual', 'phone', 'in-person', 'other'].map((mode) => (
+                  <TouchableOpacity key={mode} style={[styles.modeChip, interviewMode === mode && styles.modeChipActive]} onPress={() => setInterviewMode(mode)}>
+                    <Text style={[styles.modeChipText, interviewMode === mode && styles.modeChipTextActive]}>{mode}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.scheduleLabel}>Location or meeting link</Text>
+              <TextInput
+                style={styles.scheduleInput}
+                value={interviewLocation}
+                onChangeText={setInterviewLocation}
+                placeholder="Google Meet link, office address, or call instructions"
+                placeholderTextColor={tokens.colors.textSubtle}
+              />
+
+              <Text style={styles.scheduleLabel}>Notes</Text>
+              <TextInput
+                style={[styles.scheduleInput, styles.scheduleTextArea]}
+                value={interviewNotes}
+                onChangeText={setInterviewNotes}
+                multiline
+                placeholder="Preparation details or interviewer names"
+                placeholderTextColor={tokens.colors.textSubtle}
+              />
+            </ScrollView>
+
+            <View style={styles.scheduleActions}>
+              <TouchableOpacity style={styles.scheduleCancelButton} onPress={() => setScheduleTarget(null)} disabled={savingInterview}>
+                <Text style={styles.scheduleCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.scheduleSaveButton, savingInterview && styles.disabledButton]} onPress={handleScheduleSubmit} disabled={savingInterview}>
+                {savingInterview
+                  ? <ActivityIndicator color={tokens.colors.surface} />
+                  : <Text style={styles.scheduleSaveText}>{scheduleTarget?.nextInterview ? 'Update Interview' : 'Schedule Interview'}</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {showInterviewDatePicker && interviewDate ? (
+        <DateTimePicker value={interviewDate} mode="date" minimumDate={new Date()} onChange={handleInterviewDateChange} />
+      ) : null}
+      {showInterviewTimePicker && interviewDate ? (
+        <DateTimePicker value={interviewDate} mode="time" onChange={handleInterviewTimeChange} />
+      ) : null}
     </View>
   );
 }
@@ -641,4 +837,37 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
+  interviewSummary: { marginTop: 12, flexDirection: 'row', gap: 10, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', padding: 12 },
+  interviewSummaryCopy: { flex: 1 },
+  interviewSummaryTitle: { color: tokens.colors.brand, fontSize: 12, fontWeight: '800' },
+  interviewSummaryText: { marginTop: 3, color: tokens.colors.text, fontSize: 13, fontWeight: '700' },
+  interviewSummaryMeta: { marginTop: 2, color: tokens.colors.textMuted, fontSize: 12, textTransform: 'capitalize' },
+  interviewButton: { marginTop: 12, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', backgroundColor: '#eff6ff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  interviewButtonText: { color: tokens.colors.brand, fontSize: 13, fontWeight: '800' },
+  modalBackdrop: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15, 23, 42, 0.55)', padding: 20 },
+  scheduleCard: { width: '100%', maxWidth: 520, maxHeight: '90%', borderRadius: 22, backgroundColor: tokens.colors.surface, overflow: 'hidden' },
+  scheduleHeader: { flexDirection: 'row', alignItems: 'flex-start', padding: 18, borderBottomWidth: 1, borderBottomColor: tokens.colors.border },
+  scheduleHeaderCopy: { flex: 1, paddingRight: 12 },
+  scheduleEyebrow: { color: tokens.colors.brand, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
+  scheduleTitle: { marginTop: 4, color: tokens.colors.text, fontSize: 20, fontWeight: '800' },
+  scheduleSubtitle: { marginTop: 5, color: tokens.colors.textMuted, fontSize: 12, lineHeight: 18 },
+  modalCloseButton: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.surfaceMuted },
+  scheduleContent: { padding: 18 },
+  scheduleLabel: { marginTop: 14, marginBottom: 7, color: tokens.colors.text, fontSize: 13, fontWeight: '800' },
+  dateTimeRow: { flexDirection: 'row', gap: 10 },
+  dateTimeButton: { flex: 1, minHeight: 50, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7 },
+  dateTimeText: { color: tokens.colors.text, fontSize: 12, fontWeight: '700' },
+  modeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  modeChip: { minHeight: 42, borderRadius: 999, borderWidth: 1, borderColor: tokens.colors.border, paddingHorizontal: 13, alignItems: 'center', justifyContent: 'center' },
+  modeChipActive: { borderColor: tokens.colors.brand, backgroundColor: tokens.colors.brand },
+  modeChipText: { color: tokens.colors.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
+  modeChipTextActive: { color: tokens.colors.surface },
+  scheduleInput: { minHeight: 50, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, paddingHorizontal: 13, paddingVertical: 11, color: tokens.colors.text, fontSize: 13 },
+  scheduleTextArea: { minHeight: 90, textAlignVertical: 'top' },
+  scheduleActions: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: tokens.colors.border },
+  scheduleCancelButton: { flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, alignItems: 'center', justifyContent: 'center' },
+  scheduleCancelText: { color: tokens.colors.text, fontSize: 13, fontWeight: '700' },
+  scheduleSaveButton: { flex: 1.4, minHeight: 48, borderRadius: 12, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' },
+  scheduleSaveText: { color: tokens.colors.surface, fontSize: 13, fontWeight: '800' },
+  disabledButton: { opacity: 0.6 },
 });

@@ -229,7 +229,13 @@ export async function createJob(req, res){
             : (poster.employerBalance || 0);
         
         if (availableBalance < totalEscrow) {
-            return res.status(400).json({ message: 'Insufficient balance. Please top up your wallet.' });
+            return res.status(400).json({
+                code: 'INSUFFICIENT_BALANCE',
+                message: 'You do not have enough balance to fund this job. Please top up your wallet and try again.',
+                availableBalance,
+                requiredBalance: totalEscrow,
+                shortfall: Number((totalEscrow - availableBalance).toFixed(2)),
+            });
         }
 
         // 2. Deduct the balance (move to escrow)
@@ -671,6 +677,88 @@ export async function updateJob(req, res) {
                     value = n;
                 }
                 updates[key] = value;
+            }
+        }
+
+        const nextPositions = Number(updates.positionsNeeded ?? job.positionsNeeded ?? 1);
+        if (nextPositions < Number(job.hiredCount || 0)) {
+            return res.status(400).json({
+                message: `Workers needed cannot be lower than the ${job.hiredCount} worker${job.hiredCount === 1 ? '' : 's'} already hired.`,
+            });
+        }
+
+        // Available, in-progress, and closed jobs still have funds secured in escrow.
+        // Keep wallet and escrow totals aligned when minimum pay or worker count changes.
+        const hasActiveEscrow = !['Completed', 'Cancelled'].includes(job.status);
+        const currentEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
+        const nextSalary = Number(updates.salary ?? job.salary ?? 0);
+        const nextEscrow = nextSalary * nextPositions;
+        const escrowDifference = hasActiveEscrow ? nextEscrow - currentEscrow : 0;
+
+        if (escrowDifference !== 0) {
+            const poster = await User.findById(job.jobPoster);
+            if (!poster) {
+                return res.status(404).json({ message: 'Job poster not found.' });
+            }
+
+            if (escrowDifference > 0) {
+                const availableBalance = poster.role === 'both'
+                    ? Number(poster.employerBalance || 0) + Number(poster.workerBalance || 0)
+                    : Number(poster.employerBalance || 0);
+
+                if (availableBalance < escrowDifference) {
+                    return res.status(400).json({
+                        code: 'INSUFFICIENT_BALANCE',
+                        message: 'You do not have enough balance to increase this job funding. Please top up your wallet and try again.',
+                        availableBalance,
+                        requiredBalance: escrowDifference,
+                        shortfall: Number((escrowDifference - availableBalance).toFixed(2)),
+                    });
+                }
+
+                if (poster.role === 'both') {
+                    const employerPortion = Math.min(Number(poster.employerBalance || 0), escrowDifference);
+                    const workerPortion = escrowDifference - employerPortion;
+                    poster.employerBalance = Number(poster.employerBalance || 0) - employerPortion;
+                    poster.workerBalance = Number(poster.workerBalance || 0) - workerPortion;
+                } else {
+                    poster.employerBalance = Number(poster.employerBalance || 0) - escrowDifference;
+                }
+                await poster.save();
+
+                await Transaction.create({
+                    sender: poster._id,
+                    receiver: null,
+                    amount: escrowDifference,
+                    type: 'ESCROW',
+                    status: 'COMPLETED',
+                    balanceTarget: 'ESCROW',
+                    jobReference: job._id,
+                    label: `Escrow adjustment on job update (Job ${job._id})`,
+                    relatedEntityType: 'job',
+                    relatedEntityId: String(job._id),
+                    actor: poster._id,
+                    meta: { previousTotal: currentEscrow, updatedTotal: nextEscrow },
+                });
+            } else {
+                const refundAmount = Math.abs(escrowDifference);
+                poster.employerBalance = Number(poster.employerBalance || 0) + refundAmount;
+                await poster.save();
+
+                await Transaction.create({
+                    sender: null,
+                    receiver: poster._id,
+                    amount: refundAmount,
+                    type: 'REFUND',
+                    status: 'COMPLETED',
+                    balanceTarget: 'EMPLOYER',
+                    jobReference: job._id,
+                    label: `Escrow refund on job update (Job ${job._id})`,
+                    relatedEntityType: 'job',
+                    relatedEntityId: String(job._id),
+                    actor: poster._id,
+                    meta: { previousTotal: currentEscrow, updatedTotal: nextEscrow },
+                });
             }
         }
 

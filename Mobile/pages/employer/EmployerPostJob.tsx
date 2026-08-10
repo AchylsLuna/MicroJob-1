@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   Switch,
@@ -24,6 +25,7 @@ type Category = { _id: string; name: string };
 
 type PostJobProps = {
   onPosted?: () => void;
+  onOpenWallet?: () => void;
   jobToEdit?: any;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
@@ -102,6 +104,7 @@ const composeLocation = (form: FormData) =>
 
 export default function EmployerPostJob({
   onPosted,
+  onOpenWallet,
   jobToEdit,
   activeTab,
   onTabPress,
@@ -148,6 +151,7 @@ export default function EmployerPostJob({
   const toast = useToast();
 
   const isEditing = Boolean(jobToEdit?._id);
+  const hasInsufficientBalanceError = /(?:insufficient|not have enough) balance/i.test(errorMessage);
 
   useEffect(() => {
     if (!jobToEdit) return;
@@ -479,7 +483,11 @@ export default function EmployerPostJob({
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.card}>
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          {errorMessage && !hasInsufficientBalanceError ? (
+            <View style={styles.errorCard} accessibilityRole="alert">
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.formIntro}>
             <Text style={styles.formIntroTitle}>{isEditing ? 'Update this opportunity' : 'Create a clear opportunity'}</Text>
@@ -875,6 +883,48 @@ export default function EmployerPostJob({
         />
       ) : null}
 
+      <Modal
+        visible={hasInsufficientBalanceError}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setErrorMessage('')}
+      >
+        <View style={styles.balanceModalBackdrop}>
+          <View
+            style={styles.balanceModalCard}
+            accessibilityRole="alert"
+            accessibilityLabel="Insufficient balance"
+          >
+            <View style={styles.balanceModalIcon}>
+              <Text style={styles.balanceModalIconText}>!</Text>
+            </View>
+            <Text style={styles.balanceModalTitle}>Insufficient balance</Text>
+            <Text style={styles.balanceModalMessage}>{errorMessage}</Text>
+            <View style={styles.balanceModalActions}>
+              <TouchableOpacity
+                style={styles.balanceModalSecondaryButton}
+                onPress={() => setErrorMessage('')}
+                accessibilityRole="button"
+              >
+                <Text style={styles.balanceModalSecondaryText}>Not now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.balanceModalPrimaryButton}
+                onPress={() => {
+                  setErrorMessage('');
+                  onOpenWallet?.();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Top up employer wallet"
+              >
+                <Text style={styles.balanceModalPrimaryText}>Top up wallet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
     </View>
   );
@@ -1012,5 +1062,71 @@ const styles = StyleSheet.create({
   urgentLabel: { fontSize: 14, color: tokens.colors.text, fontWeight: '600' },
   submitButtonDisabled: { opacity: 0.6 },
   submitButtonText: { color: tokens.colors.surface, fontSize: 15, fontWeight: '700' },
+  errorCard: {
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 12,
+    backgroundColor: '#fef2f2',
+    padding: 12,
+  },
   errorText: { color: '#dc2626', fontSize: 12, marginBottom: 6 },
+  balanceModalBackdrop: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(107, 114, 128, 0.72)',
+    padding: 24,
+  },
+  balanceModalCard: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    borderRadius: 24,
+    backgroundColor: tokens.colors.surface,
+    padding: 24,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 12,
+  },
+  balanceModalIcon: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 28,
+    backgroundColor: '#fee2e2',
+  },
+  balanceModalIconText: { color: '#dc2626', fontSize: 28, fontWeight: '800' },
+  balanceModalTitle: { marginTop: 16, color: tokens.colors.text, fontSize: 20, fontWeight: '800' },
+  balanceModalMessage: {
+    marginTop: 8,
+    color: tokens.colors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  balanceModalActions: { width: '100%', flexDirection: 'row', gap: 12, marginTop: 24 },
+  balanceModalSecondaryButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    borderRadius: 12,
+    backgroundColor: tokens.colors.surface,
+  },
+  balanceModalSecondaryText: { color: tokens.colors.text, fontSize: 14, fontWeight: '700' },
+  balanceModalPrimaryButton: {
+    flex: 1,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: tokens.colors.brand,
+  },
+  balanceModalPrimaryText: { color: tokens.colors.surface, fontSize: 14, fontWeight: '700' },
 });

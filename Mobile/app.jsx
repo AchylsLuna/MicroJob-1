@@ -573,7 +573,14 @@ function WorkerStackNavigator() {
 function EmployerHomeScreen() {
   const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
-  return <EmployerJobPosts onEditJob={(job) => navigation.navigate('EmployerPostJobScreen', { jobToEdit: job })} activeTab="Home" onTabPress={employerTabPress} />;
+  return (
+    <EmployerJobPosts
+      onEditJob={(job) => navigation.navigate('EmployerPostJobScreen', { jobToEdit: job })}
+      onOpenWallet={() => navigation.navigate('EmployerEWallet')}
+      activeTab="Home"
+      onTabPress={employerTabPress}
+    />
+  );
 }
 
 function EmployerApplicationsScreen() {
@@ -600,6 +607,7 @@ function EmployerPostJobScreen() {
   return (
     <EmployerPostJob
       onPosted={() => navigateToEmployerTab(navigation, 'Home')}
+      onOpenWallet={() => navigation.navigate('EmployerEWallet')}
       jobToEdit={route.params?.jobToEdit || null}
       activeTab="Post Job"
       onTabPress={employerTabPress}

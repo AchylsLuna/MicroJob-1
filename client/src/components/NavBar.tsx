@@ -1,5 +1,5 @@
 import { useCallback, useState, useRef, useEffect, type ReactNode } from "react";
-import { ArrowRight, Bell, ChevronDown, Menu, Search } from "lucide-react";
+import { ArrowRight, Bell, ChevronDown, Ellipsis, Menu, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -488,6 +488,17 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
 
   const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User" : "User";
   const accountLabel = user?.role === "admin" ? "Admin" : user?.accountType === "employer" ? "Employer" : "Worker";
+  const headerMoreNavigation = isWorkerView
+    ? workerMoreNavigation
+    : notificationAudience === "employer"
+    ? [
+        { label: "Jobs management", path: ROUTES.employer.jobs },
+        { label: "Applications", path: ROUTES.employer.applications },
+        { label: "E-Wallet", path: ROUTES.employer.eWallet },
+        { label: "Support", path: ROUTES.employer.support },
+        { label: "Settings", path: ROUTES.employer.settings },
+      ]
+    : [];
 
   const isWorkerNavigationActive = (target: string) => {
     if (target === ROUTES.worker.findJobs) {
@@ -502,7 +513,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     return startsWithPath(path, target);
   };
 
-  const isWorkerMoreActive = workerMoreNavigation.some((item) => isWorkerNavigationActive(item.path));
+  const isHeaderMoreActive = headerMoreNavigation.some((item) => isWorkerNavigationActive(item.path));
 
   return (
     <header className={webUi.navbar.root}>
@@ -563,8 +574,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
         </div>
 
         <div className="flex min-w-0 shrink-0 items-center justify-end gap-1.5 sm:gap-2">
-          {isWorkerView && (
-            <div className="relative hidden lg:block" ref={moreMenuRef}>
+          {headerMoreNavigation.length > 0 && (
+            <div className="relative hidden sm:block" ref={moreMenuRef}>
               <button
                 ref={moreButtonRef}
                 type="button"
@@ -573,30 +584,38 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   setShowNotifications(false);
                   setShowUserMenu(false);
                 }}
-                className={`inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${isWorkerMoreActive ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                className={`inline-flex h-10 items-center gap-1.5 rounded-xl border px-2.5 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] xl:px-3 ${isHeaderMoreActive ? "border-[#B8CBE5] bg-[#EAF2FC] text-[#1C4D8D]" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                aria-label="Open more navigation"
                 aria-expanded={showMoreMenu}
                 aria-haspopup="menu"
               >
-                More
-                <ChevronDown className={`h-4 w-4 transition-transform ${showMoreMenu ? "rotate-180" : ""}`} aria-hidden="true" />
+                <Ellipsis className="h-5 w-5" aria-hidden="true" />
+                <span className="hidden xl:inline">More</span>
+                <ChevronDown className={`hidden h-4 w-4 transition-transform xl:block ${showMoreMenu ? "rotate-180" : ""}`} aria-hidden="true" />
               </button>
               {showMoreMenu && (
-                <div role="menu" aria-label="More worker navigation" className={`absolute right-0 mt-2 w-56 p-2 ${webUi.navbar.popover}`}>
-                  {workerMoreNavigation.map((item) => {
-                    const active = isWorkerNavigationActive(item.path);
-                    return (
-                      <button
-                        key={item.path}
-                        type="button"
-                        role="menuitem"
-                        onClick={() => navigate(item.path)}
-                        className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${active ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
-                        aria-current={active ? "page" : undefined}
-                      >
-                        {item.label}
-                      </button>
-                    );
-                  })}
+                <div role="menu" aria-label="More navigation" className={`absolute right-0 mt-2 w-64 overflow-hidden ${webUi.navbar.popover}`}>
+                  <div className="border-b border-slate-100 px-4 py-3">
+                    <p className="text-sm font-bold text-slate-900">Quick links</p>
+                    <p className="mt-0.5 text-xs text-slate-500">Open another part of your workspace.</p>
+                  </div>
+                  <div className="p-2">
+                    {headerMoreNavigation.map((item) => {
+                      const active = isWorkerNavigationActive(item.path);
+                      return (
+                        <button
+                          key={item.path}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => navigate(item.path)}
+                          className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${active ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                          aria-current={active ? "page" : undefined}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>
@@ -634,7 +653,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                 setShowUserMenu(false);
                 setShowMoreMenu(false);
               }}
-              className={webUi.navbar.iconButton}
+              className={`${webUi.navbar.iconButton} border-slate-200 bg-white shadow-sm`}
+              title="Notifications"
               aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
               aria-expanded={showNotifications}
               aria-haspopup="menu"
