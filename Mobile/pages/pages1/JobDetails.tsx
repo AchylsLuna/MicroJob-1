@@ -279,7 +279,7 @@ export default function JobDetails({
 
   if (showSuccess) {
     return (
-      <View style={{ flex: 1, backgroundColor: tokens.colors.canvasBlue }}>
+      <View style={{ flex: 1, backgroundColor: tokens.colors.signedInCanvas }}>
         <View style={styles.successContainer}>
           <View style={styles.successContent}>
             <View style={styles.successIcon}>
@@ -455,7 +455,7 @@ export default function JobDetails({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.colors.canvasBlue },
+  container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
   scroll: { paddingHorizontal: 20 },
   headerContainer: {
     backgroundColor: '#c8d4d8',
@@ -641,7 +641,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingBottom: 112,
-    backgroundColor: tokens.colors.canvasBlue,
+    backgroundColor: tokens.colors.signedInCanvas,
     paddingHorizontal: 20,
   },
   successContent: {

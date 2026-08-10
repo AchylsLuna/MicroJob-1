@@ -27,7 +27,7 @@ export default function AppHeader({
 
   return (
     <View style={[styles.wrapper, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
-      <StatusBar style="dark" backgroundColor={tokens.colors.contentSurface} />
+      <StatusBar style="dark" />
       <View style={styles.row}>
         <View style={styles.side}>
           {onBack ? (

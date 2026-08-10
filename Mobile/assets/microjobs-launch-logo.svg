@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <rect width="1200" height="1200" fill="#F7F8FA"/>
+  <circle cx="600" cy="600" r="330" fill="#EAF1FB"/>
+  <circle cx="600" cy="600" r="215" fill="#FFFDFC"/>
+  <g transform="translate(600 505)">
+    <rect x="-82" y="-82" width="164" height="164" rx="48" fill="#1C4D8D" transform="rotate(30)"/>
+    <text x="0" y="26" text-anchor="middle" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="82" font-weight="900">M</text>
+  </g>
+  <text x="600" y="745" text-anchor="end" fill="#0F2954" font-family="Arial, Helvetica, sans-serif" font-size="102" font-weight="800" letter-spacing="-3">Micro</text>
+  <text x="600" y="745" text-anchor="start" fill="#1C4D8D" font-family="Arial, Helvetica, sans-serif" font-size="102" font-weight="800" letter-spacing="-3">Jobs</text>
+</svg>

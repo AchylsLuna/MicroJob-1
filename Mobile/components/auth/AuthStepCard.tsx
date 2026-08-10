@@ -45,14 +45,13 @@ export default function AuthStepCard({
             styles.stepBadge,
             dark ? styles.darkStepBadge : styles.lightStepBadge,
             {
-              width: badgeSize,
-              height: badgeSize,
+              minWidth: badgeSize,
+              minHeight: badgeSize,
               borderRadius: badgeSize / 2,
             },
           ]}
         >
           <Text
-            maxFontSizeMultiplier={1.4}
             style={[
               styles.stepBadgeText,
               dark ? styles.darkStepBadgeText : styles.lightStepBadgeText,
@@ -63,7 +62,6 @@ export default function AuthStepCard({
           </Text>
         </View>
         <Text
-          maxFontSizeMultiplier={1.4}
           style={[styles.cardTitle, dark ? styles.darkCardTitle : styles.lightCardTitle, { fontSize: titleSize }]}
         >
           {title}
@@ -71,7 +69,6 @@ export default function AuthStepCard({
       </View>
       {subtitle ? (
         <Text
-          maxFontSizeMultiplier={1.4}
           style={[
             styles.cardSubtitle,
             dark ? styles.darkCardSubtitle : styles.lightCardSubtitle,
@@ -100,14 +97,18 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 10,
+    flexWrap: 'wrap',
+    rowGap: 8,
   },
   stepBadge: {
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   lightStepBadge: {
     borderColor: AUTH_COLORS.cardBorder,

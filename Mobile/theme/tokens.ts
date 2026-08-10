@@ -1,11 +1,18 @@
 export const tokens = {
   colors: {
     canvasBlue: '#1C4D8D',
+    signedInCanvas: '#FFFFFF',
+    launchCanvas: '#F7F8FA',
+    launchSurface: '#FFFDFC',
+    cardSoft: '#EAF1FB',
+    cardStrong: '#1C4D8D',
+    onCardStrong: '#FFFFFF',
+    sectionText: '#0F2954',
     contentSurface: '#FFFFFF',
     contentMuted: '#F1F5F9',
-    onCanvas: '#FFFFFF',
-    onCanvasMuted: '#DBEAFE',
-    background: '#1C4D8D',
+    onCanvas: '#0F2954',
+    onCanvasMuted: '#475569',
+    background: '#FFFFFF',
     surface: '#FFFFFF',
     surfaceMuted: '#F1F5F9',
     border: '#E5E7EB',
@@ -67,6 +74,9 @@ export const tokens = {
     fieldHeight: 52,
     buttonHeight: 52,
     compactHeight: 44,
+  },
+  opacity: {
+    disabled: 0.5,
   },
   navigation: {
     iconSize: 22,

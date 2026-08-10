@@ -192,7 +192,7 @@ export default function OnboardingStepScreen({
         <View style={[styles.content, { paddingTop: topPadding, paddingHorizontal: horizontalPadding }]}>
           <View style={styles.topRow}>
             <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
-              <Text maxFontSizeMultiplier={1.4} style={[styles.skipText, { fontSize: skipFontSize }]}>
+              <Text style={[styles.skipText, { fontSize: skipFontSize }]}>
                 Skip
               </Text>
             </TouchableOpacity>
@@ -226,7 +226,7 @@ export default function OnboardingStepScreen({
 
           <Animated.View style={{ transform: [{ translateX: textParallaxX }] }}>
             <Text
-              maxFontSizeMultiplier={1.4}
+
               style={[
                 styles.title,
                 {
@@ -240,7 +240,7 @@ export default function OnboardingStepScreen({
               {title}
             </Text>
             <Text
-              maxFontSizeMultiplier={1.4}
+
               style={[
                 styles.subtitle,
                 {
@@ -288,7 +288,7 @@ export default function OnboardingStepScreen({
             onPress={handleNext}
           >
             <Text
-              maxFontSizeMultiplier={1.4}
+
               style={[
                 styles.primaryButtonText,
                 { fontSize: ctaFontSize },
@@ -301,11 +301,11 @@ export default function OnboardingStepScreen({
           </TouchableOpacity>
 
           <View style={styles.loginRow}>
-            <Text maxFontSizeMultiplier={1.4} style={[styles.loginText, { fontSize: helperFontSize }]}>
+            <Text style={[styles.loginText, { fontSize: helperFontSize }]}>
               Already have an account?{' '}
             </Text>
             <TouchableOpacity onPress={onLogin}>
-              <Text maxFontSizeMultiplier={1.4} style={[styles.loginLink, { fontSize: helperFontSize }]}>
+              <Text style={[styles.loginLink, { fontSize: helperFontSize }]}>
                 Log In
               </Text>
             </TouchableOpacity>

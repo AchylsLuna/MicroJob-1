@@ -7,12 +7,12 @@ import {
   TextInput,
   TextInputProps,
   TextStyle,
-  TouchableOpacity,
   TouchableOpacityProps,
   View,
   ViewStyle,
 } from 'react-native';
 import { tokens } from '../../theme/tokens';
+import AnimatedPressable from './AnimatedPressable';
 
 export function Screen({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.screen, style]}>{children}</View>;
@@ -50,14 +50,13 @@ export function Button({
 }) {
   const inactive = disabled || loading;
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       {...props}
       disabled={inactive}
-      activeOpacity={0.85}
-      style={[styles.button, styles[`${variant}Button`], inactive && styles.disabled, style]}
+      containerStyle={[styles.button, styles[`${variant}Button`], inactive && styles.disabled, style]}
     >
       {loading ? <ActivityIndicator color={variant === 'secondary' ? tokens.colors.brand : tokens.colors.onBrand} /> : children}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -74,8 +73,8 @@ export function StatusPanel({ children, tone = 'neutral' }: { children: React.Re
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: tokens.colors.background },
-  card: { borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 16, backgroundColor: tokens.colors.surface, padding: tokens.spacing.lg, ...tokens.shadow.card },
+  screen: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
+  card: { borderWidth: 1, borderColor: tokens.colors.brandMuted, borderRadius: tokens.radius.lg, backgroundColor: tokens.colors.cardSoft, padding: tokens.spacing.lg, ...tokens.shadow.card },
   pageHeader: { minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.md, borderBottomWidth: 1, borderBottomColor: tokens.colors.border, backgroundColor: tokens.colors.surface, paddingHorizontal: tokens.layout.gutter, paddingVertical: tokens.spacing.md },
   pageHeaderCopy: { flex: 1, minWidth: 0 },
   pageTitle: { color: tokens.colors.text, fontSize: tokens.typography.h2, lineHeight: 28, fontWeight: '800' },

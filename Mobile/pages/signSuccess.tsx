@@ -35,7 +35,7 @@ export default function SignSuccess({ onBackToLogin }: Props) {
           style={[styles.button, { minHeight: buttonHeight, borderRadius: buttonRadius }]}
           onPress={onBackToLogin}
         >
-          <Text maxFontSizeMultiplier={1.4} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
+          <Text style={[styles.buttonText, { fontSize: buttonFontSize }]}>
             Back to Login
           </Text>
         </TouchableOpacity>
@@ -47,7 +47,7 @@ export default function SignSuccess({ onBackToLogin }: Props) {
         subtitle="Sign in with your new account to continue to the dashboard."
         dark
       >
-        <Text maxFontSizeMultiplier={1.4} style={[styles.darkChip, { fontSize: helperFontSize }]}>
+        <Text style={[styles.darkChip, { fontSize: helperFontSize }]}>
           Account ready
         </Text>
       </AuthStepCard>
@@ -76,6 +76,8 @@ const styles = StyleSheet.create({
     backgroundColor: AUTH_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     shadowColor: AUTH_COLORS.primary,
     shadowOpacity: 0.35,
     shadowRadius: 14,
@@ -84,6 +86,8 @@ const styles = StyleSheet.create({
   buttonText: {
     color: AUTH_COLORS.primaryText,
     fontWeight: '700',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   darkChip: {
     alignSelf: 'flex-start',

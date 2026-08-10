@@ -19,6 +19,7 @@ import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import PhoneVerificationCard from '../../components/account/PhoneVerificationCard';
 import {
   PROFILE_LIMITS,
   isValidOptionalProfileUrl,
@@ -40,9 +41,17 @@ type PersonalInformationProps = {
   onBack?: () => void;
   currentRole?: 'worker' | 'employer' | 'both';
   onSaved?: (profile: Record<string, any>) => void;
+  initialSection?: 'profile' | 'phone' | 'location';
+  onProfileUpdated?: () => Promise<void> | void;
 };
 
-export default function PersonalInformation({ onBack, onSaved }: PersonalInformationProps) {
+export default function PersonalInformation({
+  onBack,
+  currentRole = 'worker',
+  initialSection = 'profile',
+  onSaved,
+  onProfileUpdated,
+}: PersonalInformationProps) {
   const loadProfileRef = useRef<() => Promise<void>>(async () => undefined);
   const originalProfileRef = useRef<Record<string, string> | null>(null);
   const insets = useSafeAreaInsets();
@@ -56,11 +65,14 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
   const [jobPosition, setJobPosition] = useState('');
   const [linkedin, setLinkedin] = useState('');
   const [website, setWebsite] = useState('');
+  const [companyName, setCompanyName] = useState('');
+  const [address, setAddress] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [formError, setFormError] = useState('');
+  const [originalPhoneNumber, setOriginalPhoneNumber] = useState('');
   const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
   const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
   const [barangayOptions, setBarangayOptions] = useState<BarangayOption[]>([]);
@@ -72,10 +84,13 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
   const [locationDataError, setLocationDataError] = useState('');
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const toast = useToast();
+  const scrollRef = useRef<any>(null);
+  const sectionOffsets = useRef<Record<string, number>>({});
+  const isEmployer = currentRole === 'employer';
 
   useEffect(() => {
     setFormError('');
-  }, [about, barangay, city, fullName, jobPosition, linkedin, phoneNumber, province, website]);
+  }, [about, address, barangay, city, companyName, fullName, jobPosition, linkedin, phoneNumber, province, website]);
 
   const selectedProvince = useMemo(
     () => provinceOptions.find((item) => item.name.toLowerCase() === province.trim().toLowerCase()),
@@ -236,7 +251,10 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
       setJobPosition(profile.jobPosition || '');
       setLinkedin(profile.linkedin || '');
       setWebsite(profile.website || '');
+      setCompanyName(profile.companyName || '');
+      setAddress(profile.address || '');
       setAvatarUrl(profile.avatarUrl || '');
+      setOriginalPhoneNumber(profile.phoneNumber || '');
       originalProfileRef.current = {
         firstName: profile.firstName || '',
         lastName: profile.lastName || '',
@@ -246,6 +264,8 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
         barangay: profile.barangay || '',
         about: profile.about || '',
         jobPosition: profile.jobPosition || '',
+        companyName: profile.companyName || '',
+        address: profile.address || '',
         linkedin: profile.linkedin || '',
         website: profile.website || '',
       };
@@ -258,6 +278,17 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
     }
   }, [toast]);
   loadProfileRef.current = loadProfile;
+
+  useEffect(() => {
+    if (isLoading) return;
+    const timer = setTimeout(() => {
+      const offset = sectionOffsets.current[initialSection];
+      if (typeof offset === 'number') {
+        scrollRef.current?.scrollTo?.({ y: Math.max(0, offset - 12), animated: true });
+      }
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [initialSection, isLoading]);
 
   const handleUploadAvatar = async () => {
     try {
@@ -363,8 +394,9 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
       ['Province', province, PROFILE_LIMITS.province],
       ['City', city, PROFILE_LIMITS.city],
       ['Barangay', barangay, PROFILE_LIMITS.barangay],
-      ['Professional headline', jobPosition, PROFILE_LIMITS.jobPosition],
-      ['Bio', about, PROFILE_LIMITS.about],
+      [isEmployer ? 'Company name' : 'Professional headline', isEmployer ? companyName : jobPosition, isEmployer ? PROFILE_LIMITS.jobPosition : PROFILE_LIMITS.jobPosition],
+      [isEmployer ? 'Company description' : 'Bio', about, PROFILE_LIMITS.about],
+      ['Address', address, PROFILE_LIMITS.address],
     ];
     const invalidLength = lengthChecks.find(([, value, max]) => value.trim().length > max);
     if (invalidLength) {
@@ -425,13 +457,23 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
         province: province.trim(),
         barangay: barangay.trim(),
         about: about.trim(),
-        jobPosition: jobPosition.trim(),
         linkedin: linkedin.trim(),
         website: website.trim(),
+        address: address.trim(),
       };
       const updateData = Object.fromEntries(
         Object.entries(nextValues).filter(([key, value]) => value !== String(originalProfile[key] || '').trim()),
       );
+
+      const roleField = isEmployer ? 'companyName' : 'jobPosition';
+      const roleValue = (isEmployer ? companyName : jobPosition).trim();
+      if (roleValue !== String(originalProfile[roleField] || '').trim()) {
+        updateData[roleField] = roleValue;
+      }
+
+      if (normalizedPhone !== normalizeProfilePhone(originalPhoneNumber)) {
+        updateData.phoneNumber = normalizedPhone;
+      }
 
       if (Object.keys(updateData).length === 0) {
         toast.success('No profile changes to save.');
@@ -472,7 +514,7 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
         const responseProfile =
           asObject<any>(result.data, ['user', 'profile']) ||
           asObject<any>(result.raw, ['user', 'profile']) ||
-          nextValues;
+          { ...nextValues, ...updateData };
         const storedUser = await AsyncStorage.getItem('auth_user');
         const cachedUser = storedUser ? JSON.parse(storedUser) : {};
         const savedUser = { ...cachedUser, ...responseProfile };
@@ -480,11 +522,14 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
 
         setFullName([savedUser.firstName, savedUser.lastName].filter(Boolean).join(' ').trim());
         setPhoneNumber(savedUser.phoneNumber || '');
+        setOriginalPhoneNumber(savedUser.phoneNumber || '');
         setCity(savedUser.city || '');
         setProvince(savedUser.province || '');
         setBarangay(savedUser.barangay || '');
         setAbout(savedUser.about || '');
         setJobPosition(savedUser.jobPosition || '');
+        setCompanyName(savedUser.companyName || '');
+        setAddress(savedUser.address || '');
         setLinkedin(savedUser.linkedin || '');
         setWebsite(savedUser.website || '');
         originalProfileRef.current = {
@@ -496,6 +541,8 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
           barangay: savedUser.barangay || '',
           about: savedUser.about || '',
           jobPosition: savedUser.jobPosition || '',
+          companyName: savedUser.companyName || '',
+          address: savedUser.address || '',
           linkedin: savedUser.linkedin || '',
           website: savedUser.website || '',
         };
@@ -505,6 +552,8 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
       }
 
       toast.success('Profile updated successfully.');
+      await loadProfile();
+      await onProfileUpdated?.();
     } catch (error) {
       console.log('Error saving personal information:', error);
       const message = error instanceof Error ? error.message : 'Failed to save personal information.';
@@ -520,7 +569,7 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
       <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Go back">
         <Ionicons name="chevron-back" size={22} color="#4B5563" />
       </TouchableOpacity>
-      <Text style={styles.headerTitle} accessibilityRole="header">Edit Profile</Text>
+      <Text style={styles.headerTitle} accessibilityRole="header">{isEmployer ? 'Business Information' : 'Personal Information'}</Text>
       <TouchableOpacity style={styles.headerSaveButton} onPress={handleSave} disabled={isSaving} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Save profile" accessibilityState={{ disabled: isSaving, busy: isSaving }}>
         {isSaving ? <ActivityIndicator size="small" color={tokens.colors.brandAccent} /> : <Text style={styles.headerSaveText}>Save</Text>}
       </TouchableOpacity>
@@ -551,10 +600,11 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
       {renderHeader()}
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.scroll, { paddingBottom: 32 + Math.max(insets.bottom, 16) }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.avatarSection}>
+        <View style={styles.avatarSection} onLayout={(event) => { sectionOffsets.current.profile = event.nativeEvent.layout.y; }}>
           <View style={styles.avatarFrame}>
             {avatarSource ? (
               <Image source={avatarSource} style={styles.avatar} accessibilityLabel="Current profile photo" />
@@ -614,11 +664,11 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
           <Text style={styles.helperText}>Email changes require a verified change flow and are currently locked.</Text>
         </View>
 
-        <View style={styles.fieldGroup}>
+        <View style={styles.fieldGroup} onLayout={(event) => { sectionOffsets.current.phone = event.nativeEvent.layout.y; }}>
           <Text style={styles.label}>Phone Number</Text>
           <TextInput
             style={styles.input}
-            placeholder="+1 (555) 123-4567"
+            placeholder="09XXXXXXXXX"
             value={phoneNumber}
             maxLength={20}
             onChangeText={setPhoneNumber}
@@ -627,9 +677,14 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
             placeholderTextColor="#9CA3AF"
             accessibilityLabel="Phone number"
           />
+          <PhoneVerificationCard
+            savedPhone={originalPhoneNumber}
+            draftPhone={phoneNumber}
+            onVerified={onProfileUpdated}
+          />
         </View>
 
-        <View style={styles.fieldGroup}>
+        <View style={styles.fieldGroup} onLayout={(event) => { sectionOffsets.current.location = event.nativeEvent.layout.y; }}>
           <Text style={styles.label}>Province</Text>
           {locationDataError ? (
             <View style={styles.locationErrorRow}>
@@ -775,6 +830,35 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
         </View>
 
         <View style={styles.fieldGroup}>
+          <Text style={styles.label}>{isEmployer ? 'Business Address' : 'Street Address'}</Text>
+          <TextInput
+            style={styles.input}
+            placeholder={isEmployer ? 'Enter your business address' : 'Enter your street address'}
+            value={address}
+            onChangeText={setAddress}
+            editable={!isSaving}
+            maxLength={PROFILE_LIMITS.address}
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel={isEmployer ? 'Business address' : 'Street address'}
+          />
+        </View>
+
+        {isEmployer ? (
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Company Name</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Enter your company or business name"
+            value={companyName}
+            onChangeText={setCompanyName}
+            editable={!isSaving}
+            maxLength={PROFILE_LIMITS.jobPosition}
+            placeholderTextColor="#9CA3AF"
+            accessibilityLabel="Company name"
+          />
+        </View>
+        ) : (
+        <View style={styles.fieldGroup}>
           <Text style={styles.label}>Professional Headline</Text>
           <TextInput
             style={styles.input}
@@ -787,6 +871,7 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
             accessibilityLabel="Professional headline"
           />
         </View>
+        )}
 
         {formError ? (
           <Text style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="assertive">
@@ -795,10 +880,10 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
         ) : null}
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Bio</Text>
+          <Text style={styles.label}>{isEmployer ? 'Company Description' : 'Bio'}</Text>
           <TextInput
             style={[styles.input, styles.bioInput]}
-            placeholder="Tell us a short introduction about you."
+            placeholder={isEmployer ? 'Tell workers about your company or business.' : 'Tell us a short introduction about you.'}
             value={about}
             onChangeText={setAbout}
             editable={!isSaving}
@@ -806,7 +891,7 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
             multiline
             maxLength={PROFILE_LIMITS.about}
             textAlignVertical="top"
-            accessibilityLabel="Bio"
+            accessibilityLabel={isEmployer ? 'Company description' : 'Bio'}
           />
           <Text style={styles.characterCount}>{about.length}/{PROFILE_LIMITS.about}</Text>
         </View>
@@ -829,7 +914,7 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
         </View>
 
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Portfolio or Website</Text>
+          <Text style={styles.label}>{isEmployer ? 'Company Website' : 'Portfolio or Website'}</Text>
           <TextInput
             style={styles.input}
             placeholder="https://your-portfolio.example"
@@ -868,7 +953,7 @@ export default function PersonalInformation({ onBack, onSaved }: PersonalInforma
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.canvasBlue,
+    backgroundColor: tokens.colors.signedInCanvas,
   },
   header: {
     paddingHorizontal: 20,

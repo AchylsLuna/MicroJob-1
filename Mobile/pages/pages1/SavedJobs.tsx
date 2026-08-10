@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { FlatList, Platform, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
-import ScrollView from '../../components/ui/SmoothScrollView';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '../../theme/tokens';
 import { formatMinimumPay } from '../../lib/jobCompensation';
@@ -66,21 +65,27 @@ export default function SavedJobs({
         <View style={styles.headerRightSpacer} />
       </View>
 
-      <ScrollView
+      <FlatList
+        data={savedJobs}
+        keyExtractor={(job) => job._id}
+        style={styles.list}
         contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
         showsVerticalScrollIndicator={false}
-      >
-        {savedJobs.length === 0 ? (
+        keyboardShouldPersistTaps="handled"
+        removeClippedSubviews={Platform.OS === 'android'}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        ItemSeparatorComponent={() => <View style={styles.itemSeparator} />}
+        ListEmptyComponent={(
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>🔖</Text>
             <Text style={styles.emptyTitle}>No saved jobs yet</Text>
             <Text style={styles.emptyText}>Jobs you save will appear here</Text>
           </View>
-        ) : (
-          <View style={styles.jobsList}>
-            {savedJobs.map((job) => (
+        )}
+        renderItem={({ item: job }) => (
               <TouchableOpacity
-                key={job._id}
                 style={styles.jobCard}
                 onPress={() => onViewDetails?.(job)}
                 accessibilityRole="button"
@@ -118,10 +123,8 @@ export default function SavedJobs({
                   <Text style={styles.jobSalary}>{formatMinimumPay(job.salary)}</Text>
                 </View>
               </TouchableOpacity>
-            ))}
-          </View>
         )}
-      </ScrollView>
+      />
 
       {/* Bottom nav */}
       <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
@@ -155,7 +158,9 @@ const styles = StyleSheet.create({
   headerRightSpacer: { width: 44, height: 44 },
   headerTitle: { fontSize: 22, fontWeight: '700', color: tokens.colors.text, lineHeight: 26, letterSpacing: -0.3 },
   headerSubtitle: { fontSize: 13, color: tokens.colors.textMuted, marginTop: 2, fontWeight: '500' },
-  scroll: { paddingHorizontal: 16, paddingTop: 14 },
+  list: { flex: 1 },
+  scroll: { flexGrow: 1, paddingHorizontal: 16, paddingTop: 14 },
+  itemSeparator: { height: 14 },
   emptyState: {
     flex: 1,
     alignItems: 'center',
@@ -170,7 +175,6 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 64, marginBottom: 16 },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1f2937', marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#6b7280' },
-  jobsList: { gap: 14 },
   jobCard: {
     backgroundColor: tokens.colors.contentSurface,
     borderRadius: 16,

@@ -12,6 +12,8 @@
     "ios": "node scripts/startExpo.cjs --ios",
     "web": "node scripts/startExpo.cjs --web",
     "check:theme": "node scripts/checkTheme.cjs",
+    "check:auth-accessibility": "node scripts/checkAuthAccessibility.cjs",
+    "check:performance": "node scripts/checkMotionPerformance.cjs",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

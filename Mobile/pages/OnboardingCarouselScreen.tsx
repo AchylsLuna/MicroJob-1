@@ -1,10 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
+  BackHandler,
   FlatList,
-  Image,
   type ImageSourcePropType,
   Platform,
   Pressable,
@@ -14,18 +14,25 @@ import {
   ViewToken,
   useWindowDimensions,
 } from 'react-native';
-import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import { useFocusEffect } from '@react-navigation/native';
+import { AUTH_COLORS, clamp, getAuthMetrics } from '../theme/authTheme';
 import MicroJobsLogo from '../components/auth/MicroJobsLogo';
-import careerArtwork from '../assets/microjobs-career-onboarding.png';
+import ScrollView from '../components/ui/SmoothScrollView';
+import findWorkArtwork from '../assets/onboarding-find-work.png';
+import hireTalentArtwork from '../assets/onboarding-hire-talent.png';
+import securePaymentArtwork from '../assets/onboarding-secure-payment.png';
+import careerGrowthArtwork from '../assets/onboarding-career-growth.png';
+import useReducedMotion from '../hooks/useReducedMotion';
+import { motion } from '../theme/motion';
 
 type OnboardingSlide = {
   id: string;
-  icon: 'briefcase' | 'users' | 'shield' | 'trending-up';
   eyebrow: string;
   title: string;
   subtitle: string;
   highlight: string;
-  artwork?: ImageSourcePropType;
+  artwork: ImageSourcePropType;
+  artworkLabel: string;
 };
 
 type Props = {
@@ -39,36 +46,39 @@ type Props = {
 const slides: OnboardingSlide[] = [
   {
     id: '1',
-    icon: 'briefcase',
     eyebrow: 'WORK MODE',
     title: 'Find Work\nYou Love',
     subtitle: 'Connect with thousands of employers looking for your skills and expertise.',
     highlight: 'Verified jobs updated daily',
-    artwork: careerArtwork,
+    artwork: findWorkArtwork,
+    artworkLabel: 'Professional carrying a briefcase while stepping toward a new work opportunity',
   },
   {
     id: '2',
-    icon: 'users',
     eyebrow: 'HIRE MODE',
     title: 'Hire Top\nTalent Fast',
     subtitle: 'Post a job and get matched with verified professionals in minutes.',
     highlight: 'Shortlist faster with stage tracking',
+    artwork: hireTalentArtwork,
+    artworkLabel: 'Hiring manager reviewing candidate profiles on a tablet',
   },
   {
     id: '3',
-    icon: 'shield',
     eyebrow: 'TRUSTED PAYMENTS',
     title: 'Safe & Verified\nTransactions',
     subtitle: 'Every profile is verified so you can work and hire with full confidence.',
     highlight: 'Wallet history stays fully auditable',
+    artwork: securePaymentArtwork,
+    artworkLabel: 'Professional completing a secure verified payment on a phone',
   },
   {
     id: '4',
-    icon: 'trending-up',
     eyebrow: 'PROFILE GROWTH',
     title: 'Grow Your\nCareer',
     subtitle: 'Track applications, build your profile, and unlock your next opportunity.',
     highlight: 'Interview timelines stay in one place',
+    artwork: careerGrowthArtwork,
+    artworkLabel: 'Professional climbing steps beside an upward career growth arrow',
   },
 ];
 
@@ -79,7 +89,9 @@ export default function OnboardingCarouselScreen({
   onLogin,
   onComplete,
 }: Props) {
-  const { width, height } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
+  const metrics = getAuthMetrics(width, height, fontScale);
+  const reducedMotion = useReducedMotion() === true;
   const isCompactHeight = height < 700;
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const scrollX = useRef(new Animated.Value(activeIndex * width)).current;
@@ -87,15 +99,14 @@ export default function OnboardingCarouselScreen({
 
   const topPad = isCompactHeight ? 18 : Platform.OS === 'web' ? 68 : 54;
   const botPad = isCompactHeight ? 10 : Platform.OS === 'web' ? 34 : 20;
-  const panelWidth = Math.min(width - 48, 420);
+  const panelWidth = Math.min(width - metrics.horizontalPadding * 2, metrics.tablet ? 520 : 420);
   const titleFontSize = isCompactHeight ? clamp(width * 0.078, 25, 30) : clamp(width * 0.086, 32, 38);
   const titleLineHeight = Math.round(titleFontSize * 1.14);
   const subtitleFontSize = clamp(width * 0.041, 15, 17);
-  const iconRingSize = isCompactHeight ? clamp(width * 0.36, 112, 144) : clamp(width * 0.42, 172, 204);
-  const iconCircleSize = isCompactHeight ? clamp(iconRingSize * 0.62, 72, 90) : clamp(iconRingSize * 0.62, 106, 122);
-  const iconSize = clamp(iconCircleSize * 0.4, 40, 48);
-  const artworkWidth = isCompactHeight ? clamp(width * 0.3, 104, 128) : clamp(width * 0.38, 150, 184);
-  const artworkHeight = Math.round(artworkWidth * 1.34);
+  const artworkHeight = isCompactHeight || metrics.largeText
+    ? clamp(height * 0.21, 132, 178)
+    : clamp(height * 0.29, 210, 260);
+  const artworkWidth = Math.round(artworkHeight * 0.72);
   const slideVerticalGap = isCompactHeight ? 10 : clamp(height * 0.032, 22, 30);
 
   const onViewableItemsChanged = useRef(
@@ -119,13 +130,16 @@ export default function OnboardingCarouselScreen({
     flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
   }, [activeIndex]);
 
-  const handleNext = () => {
-    if (activeIndex < slides.length - 1) {
-      flatListRef.current?.scrollToIndex({ index: activeIndex + 1, animated: true });
-      return;
-    }
-    onComplete();
-  };
+  const handlePrevious = useCallback(() => {
+    if (activeIndex <= 0) return false;
+    flatListRef.current?.scrollToIndex({ index: activeIndex - 1, animated: true });
+    return true;
+  }, [activeIndex]);
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handlePrevious);
+    return () => subscription.remove();
+  }, [handlePrevious]));
 
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: botPad }]}>
@@ -136,16 +150,16 @@ export default function OnboardingCarouselScreen({
       <View style={styles.topBar}>
         <MicroJobsLogo compact />
 
-        <Pressable
-          style={({ pressed }) => [styles.skipBtn, pressed && styles.blueControlPressed]}
-          onPress={onSkip}
-          accessibilityRole="button"
-          accessibilityLabel="Skip onboarding"
-        >
-          <Text maxFontSizeMultiplier={1.4} style={styles.skipText}>
-            Skip
-          </Text>
-        </Pressable>
+        <View style={styles.topActions}>
+          <Pressable
+            style={({ pressed }) => [styles.skipBtn, pressed && styles.blueControlPressed]}
+            onPress={onSkip}
+            accessibilityRole="button"
+            accessibilityLabel="Skip onboarding"
+          >
+            <Text style={styles.skipText}>Skip</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.slidesWrapper}>
@@ -157,128 +171,118 @@ export default function OnboardingCarouselScreen({
           pagingEnabled
           directionalLockEnabled
           decelerationRate="fast"
-          disableIntervalMomentum
+          bounces
+          alwaysBounceHorizontal={false}
+          snapToInterval={width}
+          snapToAlignment="center"
           showsHorizontalScrollIndicator={false}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            { useNativeDriver: false },
+            { useNativeDriver: true },
           )}
           scrollEventThrottle={16}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           initialScrollIndex={activeIndex}
           getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
-          renderItem={({ item }) => (
-            <View style={[styles.slide, { width, gap: slideVerticalGap }]}>
-              <View style={[styles.slidePanel, isCompactHeight && styles.slidePanelCompact, { width: panelWidth }]}>
+          renderItem={({ item, index }) => {
+            const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
+            const opacity = scrollX.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' });
+            const scale = reducedMotion ? 1 : scrollX.interpolate({ inputRange, outputRange: [0.94, 1, 0.94], extrapolate: 'clamp' });
+            const translateY = reducedMotion ? 0 : scrollX.interpolate({ inputRange, outputRange: [12, 0, 12], extrapolate: 'clamp' });
+            const artworkTranslateX = reducedMotion ? 0 : scrollX.interpolate({ inputRange, outputRange: [motion.distance.medium, 0, -motion.distance.medium], extrapolate: 'clamp' });
+            const artworkScale = reducedMotion ? 1 : scrollX.interpolate({ inputRange, outputRange: [0.96, 1, 0.96], extrapolate: 'clamp' });
+            const artworkOpacity = scrollX.interpolate({ inputRange, outputRange: [0.58, 1, 0.58], extrapolate: 'clamp' });
+            return (
+            <ScrollView
+              style={{ width }}
+              contentContainerStyle={[styles.slide, { minHeight: '100%', gap: slideVerticalGap }]}
+              nestedScrollEnabled
+              directionalLockEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              <Animated.View style={[styles.slidePanel, isCompactHeight && styles.slidePanelCompact, { width: panelWidth, opacity, transform: [{ scale }, { translateY }] }]}>
                 <View pointerEvents="none" style={styles.panelGlow} />
 
                 <View style={styles.slideHeaderRow}>
                   <View style={styles.eyebrowPill}>
-                    <Text maxFontSizeMultiplier={1.4} style={styles.eyebrowText}>
+                    <Text style={styles.eyebrowText}>
                       {item.eyebrow}
                     </Text>
                   </View>
-                  <Text maxFontSizeMultiplier={1.4} style={styles.stepText}>
+                  <Text style={styles.stepText}>
                     {item.id}/{slides.length}
                   </Text>
                 </View>
 
                 <View style={[styles.illustrationArea, isCompactHeight && styles.illustrationAreaCompact]}>
-                  {item.artwork ? (
-                    <View style={[styles.artworkCard, { width: artworkWidth, height: artworkHeight }]}>
-                      <Image
-                        source={item.artwork}
-                        style={styles.artworkImage}
-                        resizeMode="cover"
-                        accessibilityLabel="MicroJobs professional carrying a briefcase and stepping toward a new opportunity"
-                      />
-                    </View>
-                  ) : (
-                    <View style={[styles.iconRing, { width: iconRingSize, height: iconRingSize, borderRadius: iconRingSize / 2 }]}>
-                      <View
-                        style={[
-                          styles.iconCircle,
-                          {
-                            width: iconCircleSize,
-                            height: iconCircleSize,
-                            borderRadius: iconCircleSize / 2,
-                          },
-                        ]}
-                      >
-                        <Feather name={item.icon} size={iconSize} color="#FFFFFF" />
-                      </View>
-                    </View>
-                  )}
+                  <Animated.Image
+                    source={item.artwork}
+                    style={[styles.artworkImage, { width: artworkWidth, height: artworkHeight, opacity: artworkOpacity, transform: [{ translateX: artworkTranslateX }, { scale: artworkScale }] }]}
+                    resizeMode="contain"
+                    accessibilityLabel={item.artworkLabel}
+                  />
 
                   <View style={[styles.highlightPill, isCompactHeight && styles.highlightPillCompact]}>
                     <Feather name="check-circle" size={14} color="#93C5FD" />
-                    <Text maxFontSizeMultiplier={1.4} style={styles.highlightText}>
+                    <Text style={styles.highlightText}>
                       {item.highlight}
                     </Text>
                   </View>
                 </View>
 
                 <View style={[styles.textArea, isCompactHeight && styles.textAreaCompact]}>
-                  <Text maxFontSizeMultiplier={1.4} style={[styles.title, { fontSize: titleFontSize, lineHeight: titleLineHeight }]}>
+                  <Text style={[styles.title, { fontSize: titleFontSize, lineHeight: titleLineHeight }]}>
                     {item.title}
                   </Text>
-                  <Text maxFontSizeMultiplier={1.4} style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.58) }]}>
+                  <Text style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.58) }]}>
                     {item.subtitle}
                   </Text>
                 </View>
+              </Animated.View>
+
+              <View style={[styles.footer, isCompactHeight && styles.footerCompact, { width: panelWidth }]}>
+                <View style={styles.dots}>
+                  {slides.map((_, dotIndex) => {
+                    const dotInputRange = [(dotIndex - 1) * width, dotIndex * width, (dotIndex + 1) * width];
+                    const dotScaleX = reducedMotion ? (dotIndex === activeIndex ? 4 : 1) : scrollX.interpolate({ inputRange: dotInputRange, outputRange: [1, 4, 1], extrapolate: 'clamp' });
+                    const dotOpacity = scrollX.interpolate({ inputRange: dotInputRange, outputRange: [0.28, 1, 0.28], extrapolate: 'clamp' });
+                    return <Animated.View key={dotIndex} style={[styles.dot, { opacity: dotOpacity, transform: [{ scaleX: dotScaleX }] }]} />;
+                  })}
+                </View>
+
+                <Pressable
+                  style={({ pressed }) => [styles.nextButton, isCompactHeight && styles.nextButtonCompact, pressed && styles.nextButtonPressed]}
+                  onPress={() => {
+                    if (index < slides.length - 1) {
+                      flatListRef.current?.scrollToIndex({ index: index + 1, animated: true });
+                    } else {
+                      onComplete();
+                    }
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={index === slides.length - 1 ? 'Get started' : 'Continue to next onboarding step'}
+                >
+                  <Text style={styles.nextButtonText}>{index === slides.length - 1 ? 'Get Started' : 'Continue'}</Text>
+                  {index < slides.length - 1 ? <Feather name="arrow-right" size={18} color="#FFFFFF" style={styles.nextButtonIcon} /> : null}
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [styles.loginRow, pressed && styles.blueControlPressed]}
+                  onPress={onLogin}
+                  accessibilityRole="button"
+                  accessibilityLabel="Log in to an existing account"
+                >
+                  <Text style={styles.loginText}>Already have an account?</Text>
+                  <Text style={styles.loginLink}>Log In</Text>
+                </Pressable>
               </View>
-            </View>
-          )}
+            </ScrollView>
+            );
+          }}
         />
       </View>
 
-      <View style={[styles.footer, isCompactHeight && styles.footerCompact, { width: panelWidth }]}>
-        <View style={styles.dots}>
-          {slides.map((_, i) => {
-            const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-            const dotWidth = scrollX.interpolate({
-              inputRange,
-              outputRange: [8, 32, 8],
-              extrapolate: 'clamp',
-            });
-            const opacity = scrollX.interpolate({
-              inputRange,
-              outputRange: [0.28, 1, 0.28],
-              extrapolate: 'clamp',
-            });
-            return <Animated.View key={i} style={[styles.dot, { width: dotWidth, opacity }]} />;
-          })}
-        </View>
-
-        <Pressable
-          style={({ pressed }) => [styles.nextButton, isCompactHeight && styles.nextButtonCompact, pressed && styles.nextButtonPressed]}
-          onPress={handleNext}
-          accessibilityRole="button"
-          accessibilityLabel={activeIndex === slides.length - 1 ? 'Get started' : 'Continue to next onboarding step'}
-        >
-          <Text maxFontSizeMultiplier={1.4} style={styles.nextButtonText}>
-            {activeIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
-          </Text>
-          {activeIndex < slides.length - 1 ? (
-            <Feather name="arrow-right" size={18} color="#FFFFFF" style={styles.nextButtonIcon} />
-          ) : null}
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.loginRow, pressed && styles.blueControlPressed]}
-          onPress={onLogin}
-          accessibilityRole="button"
-          accessibilityLabel="Log in to an existing account"
-        >
-          <Text maxFontSizeMultiplier={1.4} style={styles.loginText}>
-            Already have an account?
-          </Text>
-          <Text maxFontSizeMultiplier={1.4} style={styles.loginLink}>
-            Log In
-          </Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -325,6 +329,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: AUTH_COLORS.blueControlSurface,
   },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   skipText: {
     fontSize: 15,
     color: AUTH_COLORS.onBlue,
@@ -337,7 +342,8 @@ const styles = StyleSheet.create({
   slide: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   slidePanel: {
     paddingHorizontal: 10,
@@ -363,6 +369,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    flexWrap: 'wrap',
   },
   eyebrowPill: {
     alignSelf: 'flex-start',
@@ -392,34 +399,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 6,
   },
-  iconRing: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  artworkCard: {
-    overflow: 'hidden',
-    borderRadius: 24,
-    backgroundColor: AUTH_COLORS.cardLight,
-    shadowColor: AUTH_COLORS.backgroundDeep,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 22,
-    elevation: 8,
-  },
   artworkImage: {
-    width: '100%',
-    height: '100%',
-  },
-  iconCircle: {
-    backgroundColor: 'rgba(15,41,84,0.42)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: AUTH_COLORS.primary,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.5,
-    shadowRadius: 28,
-    elevation: 14,
+    alignSelf: 'center',
   },
   highlightPill: {
     borderRadius: 999,
@@ -428,6 +409,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
     backgroundColor: AUTH_COLORS.blueControlSurface,
   },
   highlightPillCompact: {
@@ -437,6 +419,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: AUTH_COLORS.backgroundDeep,
     fontWeight: '700',
+    flexShrink: 1,
+    textAlign: 'center',
   },
   textArea: {
     marginTop: 24,
@@ -480,12 +464,15 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     width: '100%',
-    height: 58,
+    minHeight: 58,
     borderRadius: 18,
     backgroundColor: AUTH_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     shadowColor: '#0F2954',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.42,
@@ -493,13 +480,15 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   nextButtonCompact: {
-    height: 46,
+    minHeight: 46,
   },
   nextButtonText: {
     fontSize: 16,
     color: '#FFFFFF',
     letterSpacing: 0.2,
     fontWeight: '700',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   nextButtonIcon: {
     marginLeft: 8,
@@ -510,20 +499,26 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: AUTH_COLORS.blueControlSurface,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     paddingHorizontal: 16,
+    paddingVertical: 10,
   },
   loginText: {
     fontSize: 14,
     color: AUTH_COLORS.onBlueMuted,
     fontWeight: '600',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   loginLink: {
     fontSize: 14,
     color: AUTH_COLORS.onBlue,
     fontWeight: '800',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   blueControlPressed: { backgroundColor: AUTH_COLORS.blueControlSurfacePressed, transform: [{ scale: 0.99 }] },
   nextButtonPressed: { backgroundColor: '#EAF1FB', transform: [{ scale: 0.99 }] },

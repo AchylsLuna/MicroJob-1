@@ -33,7 +33,7 @@ type Props = {
 
 export default function VerifyEmail({ email: emailProp, mode = 'emailVerification', otpToken: initialOtpToken = '', onVerified, onBack }: Props) {
   const sendOtpRef = useRef<() => Promise<void>>(async () => undefined);
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
   const [code, setCode] = useState(Array(6).fill(''));
   const [email, setEmail] = useState(emailProp || '');
   const [timer, setTimer] = useState(TIMER_SECONDS);
@@ -46,17 +46,24 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
   const inputs = useRef<Array<TextInput | null>>([]);
   const hasSentRef = useRef(false);
 
-  const codeCellWidth = clamp(screenWidth * 0.115, 44, 52);
+  const horizontalPadding = clamp(screenWidth * 0.05, screenWidth < 360 ? 12 : 16, 24);
+  const contentWidth = Math.min(460, screenWidth - horizontalPadding * 2);
+  const estimatedCardPadding = clamp(screenWidth * 0.052, 18, 24) * 2;
+  const codeAreaWidth = Math.max(220, contentWidth - estimatedCardPadding);
+  const otpColumns = fontScale >= 1.5 ? 3 : 6;
+  const codeGap = clamp(screenWidth * 0.012, 4, 8);
+  const codeCellWidth = clamp(
+    (codeAreaWidth - codeGap * (otpColumns - 1)) / otpColumns,
+    40,
+    otpColumns === 3 ? 80 : 52,
+  );
   const codeCellHeight = clamp(screenHeight * 0.066, 46, 54);
   const codeFontSize = clamp(screenWidth * 0.054, 18, 22);
-  const codeGap = clamp(screenWidth * 0.018, 6, 10);
   const buttonHeight = clamp(screenHeight * 0.068, 52, 56);
   const buttonRadius = clamp(buttonHeight * 0.24, 12, 14);
   const buttonFontSize = clamp(screenWidth * 0.043, 15, 17);
   const helperFontSize = clamp(screenWidth * 0.04, 14, 16);
   const statusFontSize = clamp(screenWidth * 0.035, 12, 14);
-  const badgeSize = clamp(screenWidth * 0.17, 58, 66);
-  const badgeIconSize = clamp(badgeSize * 0.42, 24, 30);
   const pillRadius = clamp(screenWidth * 0.045, 14, 18);
   const progressHeight = clamp(screenHeight * 0.0065, 4, 6);
   const timerProgress = canResend ? 100 : ((TIMER_SECONDS - timer) / TIMER_SECONDS) * 100;
@@ -324,14 +331,11 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       title={mode === 'loginOtp' ? 'Verify login' : mode === 'passwordReset' ? 'Check your email' : 'Verify email'}
       subtitle={mode === 'loginOtp' ? 'Enter the 6-digit login code sent to your email.' : mode === 'passwordReset' ? 'Enter the 6-digit reset code we sent you.' : 'Enter the 6-digit code sent to your inbox.'}
       onBack={onBack}
+      centered
     >
       {mode === 'passwordReset' ? <AuthProgress step={2} /> : null}
-      <View style={[styles.heroBadge, { width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2 }]}>
-        <Feather name="mail" size={badgeIconSize} color={AUTH_COLORS.primaryText} />
-      </View>
-
       <View style={[styles.emailPill, { borderRadius: pillRadius }]}>
-        <Text maxFontSizeMultiplier={1.4} numberOfLines={1} style={[styles.emailPillText, { fontSize: helperFontSize }]}>
+        <Text style={[styles.emailPillText, { fontSize: helperFontSize }]}>
           {email || 'your email address'}
         </Text>
       </View>
@@ -343,7 +347,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
         style={styles.primaryCard}
       >
         {errorMessage ? (
-          <Text maxFontSizeMultiplier={1.4} style={[styles.errorText, { fontSize: clamp(helperFontSize * 0.95, 13, 14) }]}>
+          <Text style={[styles.errorText, { fontSize: clamp(helperFontSize * 0.95, 13, 14) }]}>
             {errorMessage}
           </Text>
         ) : null}
@@ -361,7 +365,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
               ]}
             />
           </View>
-          <Text maxFontSizeMultiplier={1.4} style={[styles.timerMetaText, { fontSize: statusFontSize }]}>
+          <Text style={[styles.timerMetaText, { fontSize: statusFontSize }]}>
             {canResend ? 'You can request a new code now.' : `Resend available in ${formattedTimer}`}
           </Text>
         </View>
@@ -373,10 +377,10 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
               ref={(ref) => {
                 inputs.current[index] = ref;
               }}
-              maxFontSizeMultiplier={1.4}
+
               style={[
                 styles.codeBox,
-                { width: codeCellWidth, height: codeCellHeight, fontSize: codeFontSize, borderRadius: codeCellHeight * 0.22 },
+                { width: codeCellWidth, minHeight: codeCellHeight, fontSize: codeFontSize, borderRadius: codeCellHeight * 0.22 },
                 focusedIndex === index ? styles.codeBoxFocused : null,
                 value ? styles.codeBoxFilled : null,
               ]}
@@ -408,7 +412,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           {isLoading ? (
             <ActivityIndicator color={AUTH_COLORS.primaryText} />
           ) : (
-            <Text maxFontSizeMultiplier={1.4} style={[styles.buttonText, { fontSize: buttonFontSize }]}>
+            <Text style={[styles.buttonText, { fontSize: buttonFontSize }]}>
               Verify Code
             </Text>
           )}
@@ -424,7 +428,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           disabled={!canResend || isLoading}
         >
           <Feather name="refresh-cw" size={clamp(helperFontSize + 1, 14, 16)} color={AUTH_COLORS.linkLight} />
-          <Text maxFontSizeMultiplier={1.4} style={[styles.resendButtonText, { fontSize: helperFontSize }]}>
+          <Text style={[styles.resendButtonText, { fontSize: helperFontSize }]}>
             {canResend ? 'Resend Code' : `Resend in ${formattedTimer}`}
           </Text>
         </TouchableOpacity>
@@ -437,15 +441,6 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
 const styles = StyleSheet.create({
   primaryCard: {
     marginBottom: 12,
-  },
-  heroBadge: {
-    alignSelf: 'center',
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: AUTH_COLORS.cardBorderActive,
-    backgroundColor: 'rgba(28,77,141, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   emailPill: {
     alignSelf: 'center',
@@ -461,14 +456,15 @@ const styles = StyleSheet.create({
     color: AUTH_COLORS.textSecondary,
     textAlign: 'center',
     fontWeight: '600',
+    flexShrink: 1,
   },
   errorText: {
     marginBottom: 12,
-    color: '#FFC2C2',
+    color: '#991B1B',
     fontWeight: '600',
     borderWidth: 1,
-    borderColor: 'rgba(241,92,92,0.45)',
-    backgroundColor: 'rgba(241,92,92,0.15)',
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -492,6 +488,7 @@ const styles = StyleSheet.create({
   },
   codeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     marginBottom: 16,
   },
@@ -502,6 +499,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: AUTH_COLORS.textPrimary,
     fontWeight: '700',
+    paddingVertical: 8,
   },
   codeBoxFocused: {
     borderColor: AUTH_COLORS.primary,
@@ -514,6 +512,8 @@ const styles = StyleSheet.create({
     backgroundColor: AUTH_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     marginBottom: 12,
     shadowColor: AUTH_COLORS.primary,
     shadowOpacity: 0.35,
@@ -523,12 +523,15 @@ const styles = StyleSheet.create({
   buttonText: {
     color: AUTH_COLORS.primaryText,
     fontWeight: '700',
+    textAlign: 'center',
+    flexShrink: 1,
   },
   buttonDisabled: {
     opacity: 0.65,
   },
   resendButton: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -544,5 +547,7 @@ const styles = StyleSheet.create({
   resendButtonText: {
     color: AUTH_COLORS.linkLight,
     fontWeight: '700',
+    textAlign: 'center',
+    flexShrink: 1,
   },
 });
