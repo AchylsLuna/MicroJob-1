@@ -261,10 +261,10 @@ export default function EmployerJobPosts({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { padding: 20, paddingBottom: 112 },
+  container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
+  scroll: { paddingHorizontal: tokens.layout.gutterWide, paddingTop: tokens.layout.sectionGap, paddingBottom: tokens.layout.tabBarClearance + 16 },
   summaryCard: {
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: tokens.colors.cardStrong,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
@@ -273,11 +273,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   summaryItem: { flex: 1, alignItems: 'center' },
-  summaryValue: { fontSize: 18, fontWeight: '700', color: tokens.colors.brand },
-  summaryLabel: { fontSize: 12, color: '#64748b', marginTop: 4 },
-  summaryDivider: { width: 1, height: 36, backgroundColor: '#e2e8f0' },
+  summaryValue: { fontSize: 22, fontWeight: '800', color: tokens.colors.onCardStrong },
+  summaryLabel: { fontSize: 12, color: tokens.colors.onBrandMuted, marginTop: 4 },
+  summaryDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.24)' },
   card: {
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: tokens.colors.cardSoft,
     borderRadius: 16,
     padding: 16,
     marginBottom: 14,
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
   errorCard: { borderWidth: 1, borderColor: '#fecaca' },
   errorText: { color: '#dc2626', fontSize: 13 },
   emptyCard: {
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: tokens.colors.cardSoft,
     borderRadius: 18,
     padding: 24,
     alignItems: 'center',

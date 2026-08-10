@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Switch } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,12 +8,13 @@ import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { useToast } from '../../contexts/ToastContext';
-import PersonalInformation from './PersonalInformation';
+import { useFocusEffect } from '@react-navigation/native';
 
 type SettingsProps = {
   onBack?: () => void;
   onLogout?: () => void;
   onNavigatePersonalDetails?: () => void;
+  onNavigateResumeDocuments?: () => void;
   onNavigateChangePassword?: () => void;
   onNavigateNotifications?: () => void;
   onNavigateLocation?: () => void;
@@ -38,6 +39,7 @@ export default function Settings({
   onBack,
   onLogout,
   onNavigatePersonalDetails,
+  onNavigateResumeDocuments,
   onNavigateChangePassword,
   onNavigateNotifications,
   onNavigateLocation,
@@ -50,7 +52,6 @@ export default function Settings({
 }: SettingsProps) {
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const [showPersonalInfo, setShowPersonalInfo] = useState(false);
   const [profileName, setProfileName] = useState('Account User');
   const [profileEmail, setProfileEmail] = useState('No email set');
   const [profileAvatar, setProfileAvatar] = useState('');
@@ -62,7 +63,8 @@ export default function Settings({
     onLogout?.();
   };
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
     const loadProfile = async () => {
       try {
         const [storedUser, token] = await Promise.all([
@@ -91,6 +93,7 @@ export default function Settings({
           parsed?.avatarUrl || parsed?.avatar || parsed?.profileImage || parsed?.photo || '',
         ).trim();
 
+        if (!active) return;
         setProfileName(name);
         setProfileEmail(email);
         setProfileAvatar(avatar);
@@ -102,8 +105,9 @@ export default function Settings({
       }
     };
 
-    loadProfile();
-  }, []);
+    void loadProfile();
+    return () => { active = false; };
+  }, []));
 
   const profileInitials = useMemo(() => {
     return profileName
@@ -124,15 +128,11 @@ export default function Settings({
   }, [profileAvatar]);
 
   const handleOpenPersonalInfo = () => {
-    setShowPersonalInfo(true);
+    onNavigatePersonalDetails?.();
   };
 
   const handleOpenResumeDocuments = () => {
-    if (onNavigatePersonalDetails) {
-      onNavigatePersonalDetails();
-      return;
-    }
-    setShowPersonalInfo(true);
+    onNavigateResumeDocuments?.();
   };
 
   const handleToggleEmployerPrivacy = async (nextValue: boolean) => {
@@ -162,10 +162,6 @@ export default function Settings({
       setIsSavingPrivacy(false);
     }
   };
-
-  if (showPersonalInfo) {
-    return <PersonalInformation key="personal-info" onBack={() => setShowPersonalInfo(false)} currentRole={currentRole} />;
-  }
 
   const accountMenus: SettingsItem[] = isEmployer
     ? [
@@ -350,7 +346,7 @@ export default function Settings({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.signedInCanvas,
   },
   header: {
     paddingHorizontal: 22,

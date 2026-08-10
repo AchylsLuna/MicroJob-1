@@ -515,7 +515,7 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.canvasBlue,
+    backgroundColor: tokens.colors.signedInCanvas,
   },
   scroll: {
     paddingHorizontal: 20,

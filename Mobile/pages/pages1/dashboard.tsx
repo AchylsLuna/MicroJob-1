@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
@@ -8,6 +8,7 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import InlineStateCard from '../../components/ui/InlineStateCard';
 
 type Category = { _id: string; name: string };
 type Job = {
@@ -25,6 +26,7 @@ type Job = {
 
 export default function Dashboard({
   onNavigateToJobs,
+  onOpenSettings,
   onViewJobDetails,
   onSaveJob,
   savedJobIds = [],
@@ -35,6 +37,7 @@ export default function Dashboard({
   messageBadgeCount = 0,
 }: {
   onNavigateToJobs?: () => void;
+  onOpenSettings?: () => void;
   onViewJobDetails?: (job: any) => void;
   onSaveJob?: (job: any) => void;
   savedJobIds?: string[];
@@ -50,8 +53,10 @@ export default function Dashboard({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [hasUploadedResume, setHasUploadedResume] = useState(false);
+  const jobsRequestInFlight = useRef(false);
 
   const recentJobs = useMemo(() => jobs.slice(0, 5), [jobs]);
+  const needsLocation = /city|municipality|location/i.test(errorMessage);
   const jobsByCategory = useMemo(() => {
     const counts: Record<string, number> = {};
     jobs.forEach((job) => {
@@ -74,6 +79,8 @@ export default function Dashboard({
   };
 
   const fetchJobs = async () => {
+    if (jobsRequestInFlight.current) return;
+    jobsRequestInFlight.current = true;
     setIsLoading(true);
     setErrorMessage('');
     try {
@@ -92,6 +99,7 @@ export default function Dashboard({
     } catch (error: any) {
       setErrorMessage(error?.message || 'Failed to load jobs.');
     } finally {
+      jobsRequestInFlight.current = false;
       setIsLoading(false);
     }
   };
@@ -162,16 +170,17 @@ export default function Dashboard({
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.searchContainer}>
+        <TouchableOpacity style={styles.searchContainer} onPress={onNavigateToJobs} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Search jobs, skills, or companies">
           <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
           <Text style={styles.searchPlaceholder}>Search jobs, skills, or companies</Text>
-        </View>
+          <Ionicons name="chevron-forward" size={18} color={tokens.colors.brand} />
+        </TouchableOpacity>
 
         {!hasUploadedResume ? (
           <View style={styles.uploadCard}>
             <View style={styles.uploadTopRow}>
               <View style={styles.uploadIconWrap}>
-                <Ionicons name="document-text-outline" size={18} color={tokens.colors.onBrand} />
+                <Ionicons name="document-text-outline" size={20} color={tokens.colors.onCardStrong} />
               </View>
               <Text style={styles.uploadTitle}>Upload your resume</Text>
             </View>
@@ -190,13 +199,12 @@ export default function Dashboard({
         </View>
 
         <View style={styles.categoryRow}>
-          {categories.map((category, index) => {
-            const colors = [tokens.colors.brandDark, tokens.colors.brand, tokens.colors.brandAccent];
+          {categories.map((category) => {
             const openingCount = jobsByCategory[category._id] || 0;
             return (
-              <View key={category._id} style={[styles.categoryCard, { backgroundColor: colors[index % colors.length] }]}>
+              <View key={category._id} style={styles.categoryCard}>
                 <View style={styles.categoryIconWrap}>
-                  <Ionicons name="briefcase-outline" size={16} color={tokens.colors.onBrand} />
+                  <Ionicons name="briefcase-outline" size={17} color={tokens.colors.brand} />
                 </View>
                 <Text style={styles.categoryCount}>{openingCount}</Text>
                 <Text style={styles.categoryLabel} numberOfLines={2}>
@@ -214,7 +222,14 @@ export default function Dashboard({
           </TouchableOpacity>
         </View>
 
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+        {errorMessage ? <InlineStateCard
+          icon={needsLocation ? 'location-outline' : 'cloud-offline-outline'}
+          title={needsLocation ? 'Set your work location' : 'Jobs are unavailable'}
+          message={needsLocation ? 'Add your city or municipality to see nearby opportunities.' : errorMessage}
+          actionLabel={needsLocation ? 'Open settings' : 'Try again'}
+          onAction={needsLocation ? onOpenSettings : fetchJobs}
+          busy={isLoading}
+        /> : null}
         {isLoading ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={tokens.colors.brand} />
@@ -277,6 +292,7 @@ export default function Dashboard({
             </TouchableOpacity>
           ))}
         </View>
+        {!isLoading && !errorMessage && recentJobs.length === 0 ? <InlineStateCard icon="briefcase-outline" title="No recent jobs yet" message="New opportunities in your area will appear here." actionLabel="Explore jobs" onAction={onNavigateToJobs} /> : null}
       </ScrollView>
 
       <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
@@ -285,23 +301,23 @@ export default function Dashboard({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 112, gap: 16 },
+  container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
+  scroll: { paddingHorizontal: tokens.layout.gutterWide, paddingTop: 16, paddingBottom: tokens.layout.tabBarClearance + 16, gap: tokens.layout.sectionGap },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: tokens.colors.surface,
+    backgroundColor: tokens.colors.cardSoft,
     borderRadius: 14,
     paddingHorizontal: 14,
-    height: 50,
+    minHeight: tokens.controls.fieldHeight,
     gap: 10,
     borderWidth: 1,
     borderColor: tokens.colors.border,
   },
   searchPlaceholder: { fontSize: 14, color: tokens.colors.textSubtle },
   uploadCard: {
-    backgroundColor: tokens.colors.brandDark,
-    borderRadius: 18,
+    backgroundColor: tokens.colors.cardStrong,
+    borderRadius: tokens.radius.lg,
     padding: 18,
     gap: 10,
     ...tokens.shadow.card,
@@ -312,25 +328,25 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   uploadIconWrap: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  uploadTitle: { fontSize: 17, fontWeight: '700', color: tokens.colors.onBrand },
-  uploadSubtitle: { fontSize: 13, color: tokens.colors.onBrandMuted, lineHeight: 18 },
+  uploadTitle: { fontSize: 17, fontWeight: '800', color: tokens.colors.onCardStrong },
+  uploadSubtitle: { fontSize: 13, color: tokens.colors.onBrandMuted, lineHeight: 19 },
   checkButton: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
+    minHeight: 44,
+    backgroundColor: tokens.colors.contentSurface,
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 999,
     alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
+    justifyContent: 'center',
   },
-  checkButtonText: { color: tokens.colors.onBrand, fontSize: 12, fontWeight: '700' },
+  checkButtonText: { color: tokens.colors.brand, fontSize: 12, fontWeight: '800' },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -338,30 +354,28 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.onCanvas },
   seeAll: { fontSize: 13, color: tokens.colors.onCanvasMuted, fontWeight: '700' },
-  categoryRow: { flexDirection: 'row', gap: 10 },
+  categoryRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   categoryCard: {
     flex: 1,
     borderRadius: 14,
-    padding: 12,
+    padding: 14,
     gap: 6,
-    minHeight: 104,
+    minHeight: 122,
+    backgroundColor: tokens.colors.cardSoft,
+    ...tokens.shadow.card,
   },
   categoryIconWrap: {
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: tokens.colors.contentSurface,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryCount: { fontSize: 22, fontWeight: '800', color: tokens.colors.onBrand },
-  categoryLabel: { fontSize: 12, color: tokens.colors.onBrandMuted, fontWeight: '600', lineHeight: 16 },
+  categoryCount: { fontSize: 22, fontWeight: '800', color: tokens.colors.text },
+  categoryLabel: { fontSize: 12, color: tokens.colors.textMuted, fontWeight: '700', lineHeight: 16 },
   jobsList: { gap: 12 },
   loadingRow: { paddingVertical: 8 },
-  errorText: {
-    color: tokens.colors.danger,
-    fontSize: 12,
-  },
   jobCard: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 14,

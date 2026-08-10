@@ -45,9 +45,6 @@ export default function SignIn({
   const cardVerticalPadding = clamp(screenHeight * 0.032, 22, 28);
   const cardHorizontalPadding = clamp(screenWidth * 0.065, 22, 28);
   const backButtonSize = 44;
-  const iconTileSize = clamp(screenWidth * 0.19, 72, 80);
-  const iconTileRadius = clamp(iconTileSize * 0.28, 18, 22);
-  const authIconSize = clamp(iconTileSize * 0.41, 28, 32);
   const titleFontSize = clamp(screenWidth * 0.07, 26, 30);
   const subtitleFontSize = clamp(screenWidth * 0.038, 14, 15);
   const fieldHeight = clamp(screenHeight * 0.068, 50, 56);
@@ -244,12 +241,6 @@ export default function SignIn({
             },
           ]}
         >
-          <View style={styles.iconWrap}>
-            <View style={[styles.iconTile, { width: iconTileSize, height: iconTileSize, borderRadius: iconTileRadius }]}>
-              <Feather name="briefcase" size={authIconSize} color="#ffffff" />
-            </View>
-          </View>
-
           <Text
             maxFontSizeMultiplier={1.4}
             style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
@@ -392,18 +383,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   logoWrap: { alignItems: 'center', marginBottom: 22 },
-  iconWrap: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  iconTile: {
-    width: 72,
-    height: 72,
-    borderRadius: 20,
-    backgroundColor: AUTH_COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   title: {
     textAlign: 'center',
     fontSize: 26,

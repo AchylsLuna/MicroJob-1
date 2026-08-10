@@ -88,12 +88,13 @@ export async function apiRequest<T = unknown>(
     };
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === 'AbortError';
+    if (__DEV__) console.warn(`API request failed: ${url}`, error);
     return {
       ok: false,
       status: 0,
       message: isTimeout
-        ? `The request timed out while connecting to ${url}.`
-        : `Unable to reach the server at ${url}.`,
+        ? 'The request timed out. Check your connection and try again.'
+        : 'Unable to connect. Check your connection and try again.',
       data: null,
       raw: { error: error instanceof Error ? error.message : String(error) },
     };

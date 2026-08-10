@@ -1,7 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '../theme/tokens';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import useReducedMotion from '../hooks/useReducedMotion';
+import { motion } from '../theme/motion';
 
 type ToastVariant = 'success' | 'error' | 'info';
 
@@ -51,8 +54,11 @@ const getToastMeta = (variant: ToastVariant) => {
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion() === true;
   const [toast, setToast] = useState<ToastState>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progress = useRef(new Animated.Value(0)).current;
 
   const clearToastTimer = useCallback(() => {
     if (timerRef.current) {
@@ -66,12 +72,25 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     if (!normalizedMessage) return;
 
     clearToastTimer();
+    progress.stopAnimation();
+    progress.setValue(0);
     setToast({ id: Date.now(), message: normalizedMessage, variant });
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: reducedMotion ? motion.duration.fast : motion.duration.standard,
+      useNativeDriver: true,
+    }).start();
     timerRef.current = setTimeout(() => {
-      setToast(null);
-      timerRef.current = null;
+      Animated.timing(progress, {
+        toValue: 0,
+        duration: reducedMotion ? motion.duration.fast : motion.duration.exit,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setToast(null);
+        timerRef.current = null;
+      });
     }, TOAST_DURATION_MS);
-  }, [clearToastTimer]);
+  }, [clearToastTimer, progress, reducedMotion]);
 
   useEffect(() => {
     return clearToastTimer;
@@ -90,9 +109,16 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {toast && toastMeta ? (
-        <View pointerEvents="none" style={styles.viewport}>
-          <View
-            style={[styles.toastCard, { backgroundColor: toastMeta.backgroundColor, borderColor: toastMeta.borderColor }]}
+        <View pointerEvents="none" style={[styles.viewport, { bottom: 96 + Math.max(insets.bottom, 8) }]}>
+          <Animated.View
+            style={[
+              styles.toastCard,
+              { backgroundColor: toastMeta.backgroundColor, borderColor: toastMeta.borderColor },
+              {
+                opacity: progress,
+                transform: [{ translateY: reducedMotion ? 0 : progress.interpolate({ inputRange: [0, 1], outputRange: [motion.distance.medium, 0] }) }],
+              },
+            ]}
             accessible
             accessibilityRole={toast.variant === 'error' ? 'alert' : 'text'}
             accessibilityLiveRegion={toast.variant === 'error' ? 'assertive' : 'polite'}
@@ -100,7 +126,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           >
             <Ionicons name={toastMeta.icon} size={18} color={toastMeta.iconColor} />
             <Text style={[styles.toastText, { color: toastMeta.textColor }]}>{toast.message}</Text>
-          </View>
+          </Animated.View>
         </View>
       ) : null}
     </ToastContext.Provider>
@@ -120,7 +146,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    bottom: 104,
     alignItems: 'center',
     paddingHorizontal: 18,
   },

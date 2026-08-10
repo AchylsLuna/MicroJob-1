@@ -24,7 +24,9 @@ const hostCandidates = [
 ];
 
 const host = hostCandidates.map(extractHost).find(Boolean) || '';
-const defaultApiPort = process.env.EXPO_PUBLIC_API_PORT || '5000';
+// Keep this aligned with scripts/dev.cjs. Port 5000 is commonly occupied by
+// macOS Control Center/AirPlay and can surface misleading HTTP 0/CORS errors.
+const defaultApiPort = process.env.EXPO_PUBLIC_API_PORT || '5050';
 
 // Uses EXPO_PUBLIC_API_URL if provided, otherwise auto-detects the Expo host IP.
 // This keeps mobile working across different networks without editing this file.

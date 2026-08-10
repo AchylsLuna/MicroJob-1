@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: tokens.colors.border,
-    paddingHorizontal: 18,
+    paddingHorizontal: tokens.layout.gutterWide,
     paddingBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',

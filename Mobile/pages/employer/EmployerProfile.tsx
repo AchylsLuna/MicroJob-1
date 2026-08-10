@@ -12,10 +12,6 @@ import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import {
   PROFILE_LIMITS,
-  isValidProfileName,
-  isValidProfilePhone,
-  normalizeProfileName,
-  normalizeProfilePhone,
   validateMobileAvatar,
 } from '../../lib/profileValidation';
 
@@ -35,6 +31,7 @@ type EmployerProfileProps = {
   onTabPress?: (tab: string) => void;
   onOpenWallet?: () => void;
   onOpenSettings?: () => void;
+  onEditProfile?: () => void;
   currentRole?: 'worker' | 'employer';
   onSwitchRole?: (role: 'worker' | 'employer') => void;
   canSwitchRole?: boolean;
@@ -46,6 +43,7 @@ export default function EmployerProfile({
   onTabPress,
   onOpenWallet,
   onOpenSettings,
+  onEditProfile,
   currentRole = 'employer',
   onSwitchRole,
   canSwitchRole = false,
@@ -57,14 +55,8 @@ export default function EmployerProfile({
   const [city, setCity] = useState('');
   const [address, setAddress] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [formError, setFormError] = useState('');
   const toast = useToast();
-
-  useEffect(() => {
-    setFormError('');
-  }, [address, city, firstName, lastName, phone]);
 
   const employerName = firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Employer';
   const initials = employerName
@@ -118,73 +110,6 @@ export default function EmployerProfile({
 
     loadProfile();
   }, []);
-
-  const handleSave = async () => {
-    if (isSaving) return;
-    const normalizedFirstName = normalizeProfileName(firstName);
-    const normalizedLastName = normalizeProfileName(lastName);
-    const normalizedPhone = normalizeProfilePhone(phone);
-    if (!isValidProfileName(normalizedFirstName) || !isValidProfileName(normalizedLastName)) {
-      const message = "Enter valid first and last names using letters, spaces, apostrophes, periods, or hyphens.";
-      setFormError(message);
-      toast.error(message);
-      return;
-    }
-    if (phone.trim() && !isValidProfilePhone(normalizedPhone)) {
-      const message = 'Phone number must be a Philippine mobile number in 09XXXXXXXXX format.';
-      setFormError(message);
-      toast.error(message);
-      return;
-    }
-    if (city.trim().length > PROFILE_LIMITS.city || address.trim().length > PROFILE_LIMITS.address) {
-      const message = 'City or address is too long.';
-      setFormError(message);
-      toast.error(message);
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(
-        `${API_URL}/auth/me`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            firstName: normalizedFirstName,
-            lastName: normalizedLastName,
-            phoneNumber: normalizedPhone,
-            city: city.trim(),
-            address: address.trim(),
-          }),
-        },
-        'Failed to update profile.',
-      );
-
-      if (!result.ok) {
-        throw new Error(result.message || 'Failed to update profile.');
-      }
-
-      const payload = asObject<any>(result.raw) || {};
-      const dataPayload = asObject<any>(result.data) || {};
-      const user = dataPayload?.user || payload?.user || dataPayload;
-      if (user) {
-        setAvatarUrl(user.avatarUrl || avatarUrl);
-        await AsyncStorage.setItem('auth_user', JSON.stringify(user));
-      }
-      toast.success('Profile updated.');
-    } catch (error: any) {
-      const message = error?.message || 'Failed to update profile.';
-      setFormError(message);
-      toast.error(message);
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   const handleUploadAvatar = async () => {
     try {
@@ -379,9 +304,7 @@ export default function EmployerProfile({
           </View>
         </View>
 
-        {formError ? <Text style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="assertive">{formError}</Text> : null}
-
-        <View style={styles.sectionCard}>
+        <View style={styles.sectionCard} pointerEvents="none">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Identity</Text>
             <Text style={styles.sectionHint}>Visible on employer profile</Text>
@@ -394,6 +317,7 @@ export default function EmployerProfile({
               placeholder="First Name"
               placeholderTextColor="#94A3B8"
               value={firstName}
+              editable={false}
               maxLength={PROFILE_LIMITS.name}
               onChangeText={setFirstName}
               accessibilityLabel="First name"
@@ -403,6 +327,7 @@ export default function EmployerProfile({
               placeholder="Last Name"
               placeholderTextColor="#94A3B8"
               value={lastName}
+              editable={false}
               maxLength={PROFILE_LIMITS.name}
               onChangeText={setLastName}
               accessibilityLabel="Last name"
@@ -424,7 +349,7 @@ export default function EmployerProfile({
           <Text style={styles.helperText}>Email changes require a verified change flow and are currently locked.</Text>
         </View>
 
-        <View style={styles.sectionCard}>
+        <View style={styles.sectionCard} pointerEvents="none">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Contact & location</Text>
             <Text style={styles.sectionHint}>Used for support and job context</Text>
@@ -436,6 +361,7 @@ export default function EmployerProfile({
             placeholder="Add phone number"
             placeholderTextColor="#94A3B8"
             value={phone}
+            editable={false}
             maxLength={20}
             onChangeText={setPhone}
             keyboardType="phone-pad"
@@ -448,6 +374,7 @@ export default function EmployerProfile({
             placeholder="City / Location"
             placeholderTextColor="#94A3B8"
             value={city}
+            editable={false}
             maxLength={PROFILE_LIMITS.city}
             onChangeText={setCity}
             accessibilityLabel="City"
@@ -459,6 +386,7 @@ export default function EmployerProfile({
             placeholder="Full address"
             placeholderTextColor="#94A3B8"
             value={address}
+            editable={false}
             maxLength={PROFILE_LIMITS.address}
             onChangeText={setAddress}
             multiline
@@ -466,15 +394,9 @@ export default function EmployerProfile({
           />
         </View>
 
-        <TouchableOpacity style={[styles.saveButton, isSaving && styles.saveButtonDisabled]} onPress={handleSave} disabled={isSaving} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Save employer profile" accessibilityState={{ disabled: isSaving, busy: isSaving }}>
-          {isSaving ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <>
-              <Ionicons name="save-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.saveButtonText}>Save Profile</Text>
-            </>
-          )}
+        <TouchableOpacity style={[styles.saveButton, !onEditProfile && styles.saveButtonDisabled]} onPress={onEditProfile} disabled={!onEditProfile} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Edit business information" accessibilityState={{ disabled: !onEditProfile }}>
+          <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+          <Text style={styles.saveButtonText}>Edit Business Information</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -486,7 +408,7 @@ export default function EmployerProfile({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.canvasBlue,
+    backgroundColor: tokens.colors.signedInCanvas,
   },
   scroll: {
     paddingHorizontal: 18,

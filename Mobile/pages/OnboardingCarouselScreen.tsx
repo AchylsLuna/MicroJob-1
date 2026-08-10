@@ -1,10 +1,10 @@
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   Animated,
+  BackHandler,
   FlatList,
-  Image,
   type ImageSourcePropType,
   Platform,
   Pressable,
@@ -14,18 +14,24 @@ import {
   ViewToken,
   useWindowDimensions,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
 import MicroJobsLogo from '../components/auth/MicroJobsLogo';
-import careerArtwork from '../assets/microjobs-career-onboarding.png';
+import findWorkArtwork from '../assets/onboarding-find-work.png';
+import hireTalentArtwork from '../assets/onboarding-hire-talent.png';
+import securePaymentArtwork from '../assets/onboarding-secure-payment.png';
+import careerGrowthArtwork from '../assets/onboarding-career-growth.png';
+import useReducedMotion from '../hooks/useReducedMotion';
+import { motion } from '../theme/motion';
 
 type OnboardingSlide = {
   id: string;
-  icon: 'briefcase' | 'users' | 'shield' | 'trending-up';
   eyebrow: string;
   title: string;
   subtitle: string;
   highlight: string;
-  artwork?: ImageSourcePropType;
+  artwork: ImageSourcePropType;
+  artworkLabel: string;
 };
 
 type Props = {
@@ -39,36 +45,39 @@ type Props = {
 const slides: OnboardingSlide[] = [
   {
     id: '1',
-    icon: 'briefcase',
     eyebrow: 'WORK MODE',
     title: 'Find Work\nYou Love',
     subtitle: 'Connect with thousands of employers looking for your skills and expertise.',
     highlight: 'Verified jobs updated daily',
-    artwork: careerArtwork,
+    artwork: findWorkArtwork,
+    artworkLabel: 'Professional carrying a briefcase while stepping toward a new work opportunity',
   },
   {
     id: '2',
-    icon: 'users',
     eyebrow: 'HIRE MODE',
     title: 'Hire Top\nTalent Fast',
     subtitle: 'Post a job and get matched with verified professionals in minutes.',
     highlight: 'Shortlist faster with stage tracking',
+    artwork: hireTalentArtwork,
+    artworkLabel: 'Hiring manager reviewing candidate profiles on a tablet',
   },
   {
     id: '3',
-    icon: 'shield',
     eyebrow: 'TRUSTED PAYMENTS',
     title: 'Safe & Verified\nTransactions',
     subtitle: 'Every profile is verified so you can work and hire with full confidence.',
     highlight: 'Wallet history stays fully auditable',
+    artwork: securePaymentArtwork,
+    artworkLabel: 'Professional completing a secure verified payment on a phone',
   },
   {
     id: '4',
-    icon: 'trending-up',
     eyebrow: 'PROFILE GROWTH',
     title: 'Grow Your\nCareer',
     subtitle: 'Track applications, build your profile, and unlock your next opportunity.',
     highlight: 'Interview timelines stay in one place',
+    artwork: careerGrowthArtwork,
+    artworkLabel: 'Professional climbing steps beside an upward career growth arrow',
   },
 ];
 
@@ -80,6 +89,7 @@ export default function OnboardingCarouselScreen({
   onComplete,
 }: Props) {
   const { width, height } = useWindowDimensions();
+  const reducedMotion = useReducedMotion() === true;
   const isCompactHeight = height < 700;
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const scrollX = useRef(new Animated.Value(activeIndex * width)).current;
@@ -91,11 +101,8 @@ export default function OnboardingCarouselScreen({
   const titleFontSize = isCompactHeight ? clamp(width * 0.078, 25, 30) : clamp(width * 0.086, 32, 38);
   const titleLineHeight = Math.round(titleFontSize * 1.14);
   const subtitleFontSize = clamp(width * 0.041, 15, 17);
-  const iconRingSize = isCompactHeight ? clamp(width * 0.36, 112, 144) : clamp(width * 0.42, 172, 204);
-  const iconCircleSize = isCompactHeight ? clamp(iconRingSize * 0.62, 72, 90) : clamp(iconRingSize * 0.62, 106, 122);
-  const iconSize = clamp(iconCircleSize * 0.4, 40, 48);
-  const artworkWidth = isCompactHeight ? clamp(width * 0.3, 104, 128) : clamp(width * 0.38, 150, 184);
-  const artworkHeight = Math.round(artworkWidth * 1.34);
+  const artworkHeight = isCompactHeight ? clamp(height * 0.23, 150, 178) : clamp(height * 0.29, 210, 260);
+  const artworkWidth = Math.round(artworkHeight * 0.72);
   const slideVerticalGap = isCompactHeight ? 10 : clamp(height * 0.032, 22, 30);
 
   const onViewableItemsChanged = useRef(
@@ -127,6 +134,17 @@ export default function OnboardingCarouselScreen({
     onComplete();
   };
 
+  const handlePrevious = useCallback(() => {
+    if (activeIndex <= 0) return false;
+    flatListRef.current?.scrollToIndex({ index: activeIndex - 1, animated: true });
+    return true;
+  }, [activeIndex]);
+
+  useFocusEffect(useCallback(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', handlePrevious);
+    return () => subscription.remove();
+  }, [handlePrevious]));
+
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: botPad }]}>
       <StatusBar style="dark" />
@@ -136,16 +154,16 @@ export default function OnboardingCarouselScreen({
       <View style={styles.topBar}>
         <MicroJobsLogo compact />
 
-        <Pressable
-          style={({ pressed }) => [styles.skipBtn, pressed && styles.blueControlPressed]}
-          onPress={onSkip}
-          accessibilityRole="button"
-          accessibilityLabel="Skip onboarding"
-        >
-          <Text maxFontSizeMultiplier={1.4} style={styles.skipText}>
-            Skip
-          </Text>
-        </Pressable>
+        <View style={styles.topActions}>
+          <Pressable
+            style={({ pressed }) => [styles.skipBtn, pressed && styles.blueControlPressed]}
+            onPress={onSkip}
+            accessibilityRole="button"
+            accessibilityLabel="Skip onboarding"
+          >
+            <Text maxFontSizeMultiplier={1.4} style={styles.skipText}>Skip</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.slidesWrapper}>
@@ -157,7 +175,10 @@ export default function OnboardingCarouselScreen({
           pagingEnabled
           directionalLockEnabled
           decelerationRate="fast"
-          disableIntervalMomentum
+          bounces
+          alwaysBounceHorizontal={false}
+          snapToInterval={width}
+          snapToAlignment="center"
           showsHorizontalScrollIndicator={false}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { x: scrollX } } }],
@@ -168,9 +189,17 @@ export default function OnboardingCarouselScreen({
           viewabilityConfig={viewabilityConfig}
           initialScrollIndex={activeIndex}
           getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => {
+            const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
+            const opacity = scrollX.interpolate({ inputRange, outputRange: [0.55, 1, 0.55], extrapolate: 'clamp' });
+            const scale = scrollX.interpolate({ inputRange, outputRange: [0.94, 1, 0.94], extrapolate: 'clamp' });
+            const translateY = scrollX.interpolate({ inputRange, outputRange: [12, 0, 12], extrapolate: 'clamp' });
+            const artworkTranslateX = reducedMotion ? 0 : scrollX.interpolate({ inputRange, outputRange: [motion.distance.medium, 0, -motion.distance.medium], extrapolate: 'clamp' });
+            const artworkScale = reducedMotion ? 1 : scrollX.interpolate({ inputRange, outputRange: [0.96, 1, 0.96], extrapolate: 'clamp' });
+            const artworkOpacity = scrollX.interpolate({ inputRange, outputRange: [0.58, 1, 0.58], extrapolate: 'clamp' });
+            return (
             <View style={[styles.slide, { width, gap: slideVerticalGap }]}>
-              <View style={[styles.slidePanel, isCompactHeight && styles.slidePanelCompact, { width: panelWidth }]}>
+              <Animated.View style={[styles.slidePanel, isCompactHeight && styles.slidePanelCompact, { width: panelWidth, opacity, transform: [{ scale }, { translateY }] }]}>
                 <View pointerEvents="none" style={styles.panelGlow} />
 
                 <View style={styles.slideHeaderRow}>
@@ -185,31 +214,12 @@ export default function OnboardingCarouselScreen({
                 </View>
 
                 <View style={[styles.illustrationArea, isCompactHeight && styles.illustrationAreaCompact]}>
-                  {item.artwork ? (
-                    <View style={[styles.artworkCard, { width: artworkWidth, height: artworkHeight }]}>
-                      <Image
-                        source={item.artwork}
-                        style={styles.artworkImage}
-                        resizeMode="cover"
-                        accessibilityLabel="MicroJobs professional carrying a briefcase and stepping toward a new opportunity"
-                      />
-                    </View>
-                  ) : (
-                    <View style={[styles.iconRing, { width: iconRingSize, height: iconRingSize, borderRadius: iconRingSize / 2 }]}>
-                      <View
-                        style={[
-                          styles.iconCircle,
-                          {
-                            width: iconCircleSize,
-                            height: iconCircleSize,
-                            borderRadius: iconCircleSize / 2,
-                          },
-                        ]}
-                      >
-                        <Feather name={item.icon} size={iconSize} color="#FFFFFF" />
-                      </View>
-                    </View>
-                  )}
+                  <Animated.Image
+                    source={item.artwork}
+                    style={[styles.artworkImage, { width: artworkWidth, height: artworkHeight, opacity: artworkOpacity, transform: [{ translateX: artworkTranslateX }, { scale: artworkScale }] }]}
+                    resizeMode="contain"
+                    accessibilityLabel={item.artworkLabel}
+                  />
 
                   <View style={[styles.highlightPill, isCompactHeight && styles.highlightPillCompact]}>
                     <Feather name="check-circle" size={14} color="#93C5FD" />
@@ -227,9 +237,10 @@ export default function OnboardingCarouselScreen({
                     {item.subtitle}
                   </Text>
                 </View>
-              </View>
+              </Animated.View>
             </View>
-          )}
+            );
+          }}
         />
       </View>
 
@@ -325,6 +336,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: AUTH_COLORS.blueControlSurface,
   },
+  topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   skipText: {
     fontSize: 15,
     color: AUTH_COLORS.onBlue,
@@ -392,34 +404,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
     gap: 6,
   },
-  iconRing: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  artworkCard: {
-    overflow: 'hidden',
-    borderRadius: 24,
-    backgroundColor: AUTH_COLORS.cardLight,
-    shadowColor: AUTH_COLORS.backgroundDeep,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 22,
-    elevation: 8,
-  },
   artworkImage: {
-    width: '100%',
-    height: '100%',
-  },
-  iconCircle: {
-    backgroundColor: 'rgba(15,41,84,0.42)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: AUTH_COLORS.primary,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.5,
-    shadowRadius: 28,
-    elevation: 14,
+    alignSelf: 'center',
   },
   highlightPill: {
     borderRadius: 999,

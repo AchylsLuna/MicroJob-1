@@ -55,8 +55,6 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
   const buttonFontSize = clamp(screenWidth * 0.043, 15, 17);
   const helperFontSize = clamp(screenWidth * 0.04, 14, 16);
   const statusFontSize = clamp(screenWidth * 0.035, 12, 14);
-  const badgeSize = clamp(screenWidth * 0.17, 58, 66);
-  const badgeIconSize = clamp(badgeSize * 0.42, 24, 30);
   const pillRadius = clamp(screenWidth * 0.045, 14, 18);
   const progressHeight = clamp(screenHeight * 0.0065, 4, 6);
   const timerProgress = canResend ? 100 : ((TIMER_SECONDS - timer) / TIMER_SECONDS) * 100;
@@ -324,12 +322,9 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       title={mode === 'loginOtp' ? 'Verify login' : mode === 'passwordReset' ? 'Check your email' : 'Verify email'}
       subtitle={mode === 'loginOtp' ? 'Enter the 6-digit login code sent to your email.' : mode === 'passwordReset' ? 'Enter the 6-digit reset code we sent you.' : 'Enter the 6-digit code sent to your inbox.'}
       onBack={onBack}
+      centered
     >
       {mode === 'passwordReset' ? <AuthProgress step={2} /> : null}
-      <View style={[styles.heroBadge, { width: badgeSize, height: badgeSize, borderRadius: badgeSize / 2 }]}>
-        <Feather name="mail" size={badgeIconSize} color={AUTH_COLORS.primaryText} />
-      </View>
-
       <View style={[styles.emailPill, { borderRadius: pillRadius }]}>
         <Text maxFontSizeMultiplier={1.4} numberOfLines={1} style={[styles.emailPillText, { fontSize: helperFontSize }]}>
           {email || 'your email address'}
@@ -437,15 +432,6 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
 const styles = StyleSheet.create({
   primaryCard: {
     marginBottom: 12,
-  },
-  heroBadge: {
-    alignSelf: 'center',
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: AUTH_COLORS.cardBorderActive,
-    backgroundColor: 'rgba(28,77,141, 0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   emailPill: {
     alignSelf: 'center',

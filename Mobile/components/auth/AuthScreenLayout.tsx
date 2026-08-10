@@ -20,9 +20,10 @@ type AuthScreenLayoutProps = {
   onBack?: () => void;
   children: ReactNode;
   eyebrow?: string;
+  centered?: boolean;
 };
 
-export default function AuthScreenLayout({ title, subtitle, onBack, children }: AuthScreenLayoutProps) {
+export default function AuthScreenLayout({ title, subtitle, onBack, children, centered = false }: AuthScreenLayoutProps) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPadding = clamp(screenWidth * 0.05, 16, 24);
@@ -68,13 +69,13 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children }: 
 
         <Text
           maxFontSizeMultiplier={1.4}
-          style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
+          style={[styles.title, centered && styles.centeredText, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
         >
           {title}
         </Text>
         <Text
           maxFontSizeMultiplier={1.4}
-          style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.4) }]}
+          style={[styles.subtitle, centered && styles.centeredText, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.4) }]}
         >
           {subtitle}
         </Text>
@@ -117,4 +118,5 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 20,
   },
+  centeredText: { alignSelf: 'center', textAlign: 'center' },
 });

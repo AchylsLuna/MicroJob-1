@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 import { useAppSession } from '../contexts/AppSessionContext';
+import AnimatedPressable from './ui/AnimatedPressable';
 
 type EmployerTab = 'Home' | 'Applications' | 'Post Job' | 'Messages' | 'Notifications' | 'Profile';
 
@@ -70,11 +71,10 @@ export default function EmployerNavigation({
           const isActive = activeTab === item.screen;
           const hasBadge = item.screen === 'Notifications' && (item.badge || 0) > 0;
           return (
-            <TouchableOpacity
+            <AnimatedPressable
               key={item.label}
-              style={styles.tabItem}
+              containerStyle={styles.tabItem}
               onPress={() => onTabPress?.(item.screen)}
-              activeOpacity={0.85}
               accessibilityRole="tab"
               accessibilityLabel={item.screen === 'Notifications' && hasBadge ? `${item.label}, ${item.badge} unread` : item.label}
               accessibilityState={{ selected: isActive }}
@@ -102,7 +102,7 @@ export default function EmployerNavigation({
               <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]} numberOfLines={1}>
                 {item.label}
               </Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           );
         })}
       </View>
@@ -112,7 +112,7 @@ export default function EmployerNavigation({
 
 const styles = StyleSheet.create({
   navWrapper: {
-    backgroundColor: tokens.colors.background,
+    backgroundColor: tokens.colors.signedInCanvas,
   },
   tabBar: {
     flexDirection: 'row',
@@ -120,9 +120,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: tokens.colors.border,
     paddingTop: tokens.spacing.sm,
-    borderRadius: tokens.radius.lg,
+    borderRadius: 22,
     paddingHorizontal: tokens.spacing.xxs,
-    marginHorizontal: tokens.spacing.xxs,
+    marginHorizontal: tokens.layout.gutter,
+    marginBottom: tokens.spacing.xs,
     shadowColor: '#0f172a',
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.08,

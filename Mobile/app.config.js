@@ -3,7 +3,13 @@ const expo = {
   slug: 'mobile',
   version: '1.0.0',
   icon: './assets/icon.png',
+  splash: {
+    image: './assets/microjobs-launch-logo.png',
+    resizeMode: 'contain',
+    backgroundColor: '#F7F8FA',
+  },
   scheme: 'microjobs',
+  plugins: ['expo-font', 'expo-secure-store'],
   platforms: ['ios', 'android', 'web'],
   android: {
     package: 'com.bananas1.mobile',

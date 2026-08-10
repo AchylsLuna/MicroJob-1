@@ -26,6 +26,7 @@ import NotificationsInbox from './pages/pages1/NotificationsInbox';
 import WorkerInbox from './pages/pages1/WorkerInbox';
 import EWallet from './pages/pages1/EWallet';
 import Settings from './pages/pages1/Settings';
+import PersonalInformation from './pages/pages1/PersonalInformation';
 import LocationServices from './pages/pages1/LocationServices';
 import MFA from './pages/pages1/MFA';
 import About from './pages/pages1/About';
@@ -43,6 +44,7 @@ import EmployerPaymentMethods from './pages/employer/EmployerPaymentMethods';
 import { AppSessionProvider, useAppSession } from './contexts/AppSessionContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { StatusBar } from 'expo-status-bar';
+import LaunchScreen from './components/LaunchScreen';
 
 const AuthStack = createNativeStackNavigator();
 const WorkerStack = createNativeStackNavigator();
@@ -53,6 +55,14 @@ const EmployerTab = createBottomTabNavigator();
 const hiddenTabs = {
   headerShown: false,
   tabBarStyle: { display: 'none' },
+  animation: 'fade',
+};
+
+const stackMotion = {
+  headerShown: false,
+  animation: 'slide_from_right',
+  gestureEnabled: true,
+  fullScreenGestureEnabled: true,
 };
 
 function navigateToWorkerTab(navigation, tab) {
@@ -232,7 +242,7 @@ function PassChangedScreen() {
 
 function AuthNavigator() {
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Onboarding">
+    <AuthStack.Navigator screenOptions={stackMotion} initialRouteName="Onboarding">
       <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
       <AuthStack.Screen name="SignUp" component={SignUpScreen} />
@@ -268,6 +278,7 @@ function WorkerHomeScreen() {
       activeTab="Home"
       onTabPress={workerTabPress}
       onNavigateToJobs={() => navigation.navigate('Jobs')}
+      onOpenSettings={() => navigation.navigate('WorkerAccountInformation', { initialSection: 'location' })}
       onViewJobDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
       onSaveJob={async (job) => {
         try {
@@ -480,7 +491,8 @@ function WorkerSettingsScreen() {
     <Settings
       onBack={() => navigation.goBack()}
       onLogout={session.openLogoutConfirm}
-      onNavigatePersonalDetails={() => navigation.navigate('WorkerTabs', { screen: 'Profile' })}
+      onNavigatePersonalDetails={() => navigation.navigate('WorkerAccountInformation', { initialSection: 'profile' })}
+      onNavigateResumeDocuments={() => navigation.navigate('WorkerTabs', { screen: 'Profile' })}
       onNavigateChangePassword={() => navigation.navigate('WorkerChangePassword')}
       onNavigateNotifications={() => navigation.navigate('WorkerNotifications')}
       onNavigateLocation={() => navigation.navigate('WorkerLocationServices')}
@@ -489,6 +501,20 @@ function WorkerSettingsScreen() {
       onNavigateDeleteAccount={() => navigation.navigate('WorkerDeleteAccount')}
       onNavigateSupport={() => navigation.navigate('WorkerSupport')}
       currentRole="worker"
+    />
+  );
+}
+
+function WorkerAccountInformationScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const session = useAppSession();
+  return (
+    <PersonalInformation
+      onBack={() => navigation.goBack()}
+      currentRole="worker"
+      initialSection={route.params?.initialSection || 'profile'}
+      onProfileUpdated={session.refreshProfile}
     />
   );
 }
@@ -526,13 +552,14 @@ function WorkerSupportScreen() {
 
 function WorkerStackNavigator() {
   return (
-    <WorkerStack.Navigator screenOptions={{ headerShown: false }}>
+    <WorkerStack.Navigator screenOptions={stackMotion}>
       <WorkerStack.Screen name="WorkerTabs" component={WorkerTabsNavigator} />
       <WorkerStack.Screen name="WorkerJobDetails" component={WorkerJobDetailsScreen} />
       <WorkerStack.Screen name="WorkerSavedJobs" component={WorkerSavedJobsScreen} />
       <WorkerStack.Screen name="WorkerAppliedJobs" component={WorkerAppliedJobsScreen} />
       <WorkerStack.Screen name="WorkerNotifications" component={WorkerNotificationsScreen} />
       <WorkerStack.Screen name="WorkerSettings" component={WorkerSettingsScreen} />
+      <WorkerStack.Screen name="WorkerAccountInformation" component={WorkerAccountInformationScreen} />
       <WorkerStack.Screen name="WorkerLocationServices" component={WorkerLocationServicesScreen} />
       <WorkerStack.Screen name="WorkerMfa" component={WorkerMfaScreen} />
       <WorkerStack.Screen name="WorkerAbout" component={WorkerAboutScreen} />
@@ -613,6 +640,7 @@ function EmployerProfileScreen() {
       activeTab="Profile"
       onTabPress={employerTabPress}
       onOpenSettings={() => navigation.navigate('EmployerSettings')}
+      onEditProfile={() => navigation.navigate('EmployerAccountInformation', { initialSection: 'profile' })}
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
       currentRole="employer"
       onSwitchRole={session.switchViewMode}
@@ -641,7 +669,7 @@ function EmployerSettingsScreen() {
     <Settings
       onBack={() => navigation.goBack()}
       onLogout={session.openLogoutConfirm}
-      onNavigatePersonalDetails={() => navigation.navigate('EmployerTabs', { screen: 'Profile' })}
+      onNavigatePersonalDetails={() => navigation.navigate('EmployerAccountInformation', { initialSection: 'profile' })}
       onNavigateChangePassword={() => navigation.navigate('EmployerChangePassword')}
       onNavigateNotifications={() => navigation.navigate('EmployerTabs', { screen: 'Notifications' })}
       onNavigateLocation={() => navigation.navigate('EmployerLocationServices')}
@@ -651,6 +679,20 @@ function EmployerSettingsScreen() {
       onNavigateSupport={() => navigation.navigate('EmployerSupport')}
       onNavigatePaymentMethods={() => navigation.navigate('EmployerPaymentMethods')}
       currentRole="employer"
+    />
+  );
+}
+
+function EmployerAccountInformationScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const session = useAppSession();
+  return (
+    <PersonalInformation
+      onBack={() => navigation.goBack()}
+      currentRole="employer"
+      initialSection={route.params?.initialSection || 'profile'}
+      onProfileUpdated={session.refreshProfile}
     />
   );
 }
@@ -704,11 +746,12 @@ function EmployerSupportScreen() {
 
 function EmployerStackNavigator() {
   return (
-    <EmployerStack.Navigator screenOptions={{ headerShown: false }}>
+    <EmployerStack.Navigator screenOptions={stackMotion}>
       <EmployerStack.Screen name="EmployerTabs" component={EmployerTabsNavigator} />
       <EmployerStack.Screen name="EmployerPostJobScreen" component={EmployerPostJobScreen} />
       <EmployerStack.Screen name="EmployerEWallet" component={EmployerEWalletScreen} />
       <EmployerStack.Screen name="EmployerSettings" component={EmployerSettingsScreen} />
+      <EmployerStack.Screen name="EmployerAccountInformation" component={EmployerAccountInformationScreen} />
       <EmployerStack.Screen name="EmployerPaymentMethods" component={EmployerPaymentMethodsScreen} />
       <EmployerStack.Screen name="EmployerLocationServices" component={EmployerLocationServicesScreen} />
       <EmployerStack.Screen name="EmployerMfa" component={EmployerMfaScreen} />
@@ -777,22 +820,24 @@ function SessionOverlays() {
 
 function RootApp() {
   const session = useAppSession();
+  const [showLaunch, setShowLaunch] = useState(true);
   const navigationTheme = useMemo(() => ({
     ...DefaultTheme,
-    colors: { ...DefaultTheme.colors, background: tokens.colors.canvasBlue, primary: tokens.colors.brand, card: tokens.colors.contentSurface },
+    colors: { ...DefaultTheme.colors, background: tokens.colors.signedInCanvas, primary: tokens.colors.brand, card: tokens.colors.contentSurface },
   }), []);
   return (
     <View
-      style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.brand }}
+      style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.signedInCanvas }}
       onStartShouldSetResponder={() => true}
       onResponderGrant={() => session.registerActivity()}
       onTouchStart={() => session.registerActivity()}
     >
-      <StatusBar style="light" backgroundColor={tokens.colors.canvasBlue} />
+      <StatusBar style="dark" backgroundColor={tokens.colors.signedInCanvas} />
       <NavigationContainer theme={navigationTheme} onStateChange={() => session.registerActivity()}>
         <AppNavigator />
       </NavigationContainer>
       <SessionOverlays />
+      {showLaunch ? <LaunchScreen sessionReady={session.isReady} onFinished={() => setShowLaunch(false)} /> : null}
     </View>
   );
 }

@@ -8,6 +8,7 @@ const sourceRoots = ['app.jsx', 'components', 'contexts', 'lib', 'pages'];
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const bannedPrimaryColors = /#(?:2563eb|1d4ed8|0a2847|4a90e2|1b4fd8|1e3a5f)\b/i;
 const bannedCanvasColors = /backgroundColor\s*:\s*["']#(?:f5f7fa|f8fafc)["']/i;
+const legacySignedInCanvas = /(?:container|screen)\s*:\s*\{[^}]*backgroundColor\s*:\s*["']#(?:1c4d8d|0f2954)["']/is;
 const disabledFontScaling = /allowFontScaling\s*=\s*\{false\}/;
 const failures = [];
 let checkedFiles = 0;
@@ -26,8 +27,9 @@ function visit(target) {
 
   if (bannedPrimaryColors.test(source)) failures.push(`${relative}: uses an alternate primary blue/navy`);
   if (bannedCanvasColors.test(source) && /(?:container|screen)\s*:\s*\{[^}]*backgroundColor\s*:\s*["']#(?:f5f7fa|f8fafc)["']/is.test(source)) {
-    failures.push(`${relative}: uses a hard-coded light page canvas; use tokens.colors.canvasBlue`);
+    failures.push(`${relative}: uses a hard-coded light page canvas; use the appropriate semantic canvas token`);
   }
+  if (legacySignedInCanvas.test(source)) failures.push(`${relative}: uses a legacy hard-coded blue page canvas; use tokens.colors.signedInCanvas`);
   if (disabledFontScaling.test(source)) failures.push(`${relative}: disables accessibility font scaling`);
   if (source.includes('StyleSheet.create') && !/tokens|AUTH_COLORS/.test(source)) {
     failures.push(`${relative}: defines styles without the canonical mobile theme`);

@@ -996,7 +996,7 @@ export default function Profile({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: tokens.colors.canvasBlue,
+    backgroundColor: tokens.colors.signedInCanvas,
   },
   scrollView: {
     flex: 1,
