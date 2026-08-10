@@ -3,7 +3,7 @@ import {
     getUserList,
     updateUserStatus,
     deleteUser,
-    getAdminUsers,
+    getPrivilegedUsers,
     createUserByAdmin,
     updateUserByAdmin,
 } from '../controllers/UserController.js';
@@ -13,7 +13,7 @@ import requireAdmin from '../middleware/admin.js';
 const router = Router();
 
 router.get('/userlist', auth, requireAdmin, getUserList);
-router.get('/admins', auth, requireAdmin, getAdminUsers);
+router.get('/admins', auth, requireAdmin, getPrivilegedUsers);
 router.post('/', auth, requireAdmin, createUserByAdmin);
 router.patch('/:userId', auth, requireAdmin, updateUserByAdmin);
 

@@ -5,13 +5,20 @@ export interface ProfileData {
   firstName?: string;
   lastName?: string;
   avatarUrl?: string;
+  profilePhotoName?: string;
   about?: string;
   city?: string;
+  province?: string;
   totalExperience?: string;
   resumeUrl?: string;
+  resumeFileName?: string;
+  experience?: any[];
+  workExperience?: any[];
   skills?: any[];
   phoneNumber?: string;
   linkedin?: string;
+  jobPosition?: string;
+  companyName?: string;
 }
 
 export interface CompletionStatus {
@@ -25,13 +32,13 @@ export interface CompletionStatus {
 const PROFILE_FIELDS = [
   { key: 'firstName', label: 'First Name', weight: 1 },
   { key: 'lastName', label: 'Last Name', weight: 1 },
-  { key: 'avatarUrl', label: 'Profile Picture', weight: 1 },
+  { key: ['avatarUrl', 'profilePhotoName'], label: 'Profile Picture', weight: 1 },
   { key: 'phoneNumber', label: 'Phone Number', weight: 1 },
-  { key: 'city', label: 'City', weight: 1 },
+  { key: ['city', 'province'], label: 'Location', weight: 1 },
   { key: 'about', label: 'Bio/About', weight: 1 },
   { key: 'linkedin', label: 'LinkedIn Profile', weight: 1 },
-  { key: 'totalExperience', label: 'Work Experience', weight: 1.5 },
-  { key: 'resumeUrl', label: 'CV/Resume', weight: 1.5 },
+  { key: ['workExperience', 'experience', 'totalExperience', 'jobPosition', 'companyName'], label: 'Work Experience', weight: 1.5 },
+  { key: ['resumeUrl', 'resumeFileName'], label: 'CV/Resume', weight: 1.5 },
   { key: 'skills', label: 'Skills', weight: 1 },
 ];
 
@@ -73,8 +80,8 @@ export const calculateProfileCompletion = (profile: ProfileData): CompletionStat
   let completedWeight = 0;
 
   PROFILE_FIELDS.forEach((field) => {
-    const value = profile[field.key as keyof ProfileData];
-    const isFilled = isFieldFilled(value);
+    const keys = Array.isArray(field.key) ? field.key : [field.key];
+    const isFilled = keys.some((key) => isFieldFilled(profile[key as keyof ProfileData]));
     
     totalWeight += field.weight;
 

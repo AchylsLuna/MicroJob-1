@@ -25,4 +25,3 @@ export async function ensureDefaultJobCategories(CategoryModel) {
     { ordered: false }
   );
 }
-

@@ -1,133 +1,82 @@
-import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
-import { handleInvalidSession, isInvalidTokenError } from '../utils/authSession';
+import {
+  applyForJob,
+  changeJobStatus,
+  createCategory,
+  createJob,
+  deleteEmployerApplication,
+  deleteJob,
+  getCategories,
+  getEmployerApplications,
+  getJobDetails,
+  getJobs,
+  getMyJobs,
+  getRecommendedJobs,
+  getUserApplications,
+  markApplicantApplicationRead,
+  markEmployerApplicationRead,
+  updateApplicationStatus,
+  updateJob,
+  withdrawApplication,
+} from './api';
+import type { ApplicationStatus } from './api';
 
-const API_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE || '/api';
+type JobQuery = {
+  category?: string;
+  jobType?: string;
+  search?: string;
+  excludeOwn?: boolean;
+};
 
-const api = axios.create({
-  baseURL: API_URL,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+type EmployerApplicationQuery = {
+  status?: string;
+  jobId?: string;
+  search?: string;
+};
 
-api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const method = String(config.method || 'get').toUpperCase();
-    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-      const match = document.cookie.match(/(?:^|; )csrfToken=([^;]+)/);
-      if (match) config.headers.set('x-csrf-token', decodeURIComponent(match[1]));
-    }
-    return config;
-  },
-  (error: AxiosError) => Promise.reject(error)
-);
+const asData = <T>(data: T) => ({ data });
 
-api.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError<{ message?: string }>) => {
-    const status = error.response?.status;
-    const message = error.response?.data?.message || error.message;
-    const hasSession = Boolean(localStorage.getItem("auth_user") || localStorage.getItem("current_user"));
-    if (isInvalidTokenError({ status, message, path: error.config?.url, hasToken: hasSession })) {
-      handleInvalidSession();
-    }
-    return Promise.reject(error);
-  }
-);
-
-// Jobs API
+// Compatibility facade for existing screens. Transport, session refresh, CSRF,
+// and error handling all live in services/api.ts.
 export const jobsAPI = {
-  // Get all jobs with optional filters
-  getJobs: async (params?: { category?: string; jobType?: string; search?: string; excludeOwn?: boolean }) => {
-    const response = await api.get('/jobs', { params });
-    // Extract data from wrapped response: { data: { success, message, data: [...] } }
-    return {
-      data: Array.isArray(response.data) ? response.data : response.data?.data || []
-    };
-  },
-
-  getRecommendedJobs: async (limit = 12) => {
-    const response = await api.get('/jobs/recommended', { params: { limit } });
-    return {
-      data: Array.isArray(response.data) ? response.data : response.data?.data || []
-    };
-  },
-
-  // Get job by ID
-  getJobById: (jobId: string) => api.get(`/jobs/${jobId}`),
-
-  // Create new job
-  createJob: (jobData: any) => api.post('/jobs', jobData),
-
-  // Update job
-  updateJob: (jobId: string, jobData: any) => api.put(`/jobs/${jobId}`, jobData),
-
-  // Change job status (reopen/close etc.)
-  changeJobStatus: (jobId: string, status: string) => api.patch(`/jobs/${jobId}/status`, { status }),
-
-  // Get jobs posted by logged-in employer
-  getMyJobs: async () => {
-    const response = await api.get('/jobs/mine');
-    return {
-      data: Array.isArray(response.data) ? response.data : response.data?.data || []
-    };
-  },
-
-  // Delete job
-  deleteJob: (jobId: string) => api.delete(`/jobs/${jobId}`),
-
-  // Apply for a job
-  applyForJob: (jobId: string, applicationData: { resume?: string; coverLetter?: string }) =>
-    api.post(`/jobs/${jobId}/apply`, applicationData),
-
-  // Get user applications
-  getUserApplications: async (status?: string) => {
-    const response = await api.get('/applications', { params: { status } });
-    return {
-      data: Array.isArray(response.data) ? response.data : response.data?.data || []
-    };
-  },
-
-  // Get applications for employer jobs
-  getEmployerApplications: async (params?: { status?: string; jobId?: string; search?: string }) => {
-    const response = await api.get('/applications/employer', { params });
-    return {
-      data: Array.isArray(response.data) ? response.data : response.data?.data || []
-    };
-  },
-
-  // Withdraw application
-  withdrawApplication: (applicationId: string) =>
-    api.delete(`/applications/${applicationId}`),
-
-  // Employer: delete an application permanently
-  deleteEmployerApplication: (applicationId: string) =>
-    api.delete(`/applications/${applicationId}/employer`),
-
-  // Update application status
-  updateApplicationStatus: (applicationId: string, status: string) =>
-    api.put(`/applications/${applicationId}/status`, { status }),
-  // Mark employer notification as read
-  markEmployerRead: (applicationId: string) =>
-    api.patch(`/applications/${applicationId}/employer/read`),
-  // Mark applicant notification as read
-  markApplicantRead: (applicationId: string) =>
-    api.patch(`/applications/${applicationId}/applicant/read`),
+  getJobs: async (params?: JobQuery) => asData(await getJobs(params)),
+  getRecommendedJobs: async (limit = 12) => asData(await getRecommendedJobs(limit)),
+  getJobById: async (jobId: string) => asData(await getJobDetails(jobId)),
+  createJob: async (jobData: any) => asData(await createJob(jobData)),
+  updateJob: async (jobId: string, jobData: any) => asData(await updateJob(jobId, jobData)),
+  changeJobStatus: async (jobId: string, status: string) => asData(await changeJobStatus(jobId, status)),
+  getMyJobs: async () => asData(await getMyJobs()),
+  deleteJob: async (jobId: string) => asData(await deleteJob(jobId)),
+  applyForJob: async (
+    jobId: string,
+    applicationData: { resume?: string; coverLetter?: string }
+  ) => asData(await applyForJob(jobId, applicationData)),
+  getUserApplications: async (status?: string) => asData(await getUserApplications(status)),
+  getEmployerApplications: async (params?: EmployerApplicationQuery) => (
+    asData(await getEmployerApplications(params))
+  ),
+  withdrawApplication: async (applicationId: string) => (
+    asData(await withdrawApplication(applicationId))
+  ),
+  deleteEmployerApplication: async (applicationId: string) => (
+    asData(await deleteEmployerApplication(applicationId))
+  ),
+  updateApplicationStatus: async (
+    applicationId: string,
+    status: ApplicationStatus | 'Terms' | 'Pending' | 'Reviewed' | 'Accepted'
+  ) => (
+    asData(await updateApplicationStatus(applicationId, status))
+  ),
+  markEmployerRead: async (applicationId: string) => (
+    asData(await markEmployerApplicationRead(applicationId))
+  ),
+  markApplicantRead: async (applicationId: string) => (
+    asData(await markApplicantApplicationRead(applicationId))
+  ),
 };
 
-// Categories API
 export const categoriesAPI = {
-  // Get all categories
-  getCategories: async () => {
-    const response = await api.get('/categories');
-    return {
-      data: Array.isArray(response.data) ? response.data : response.data?.data || []
-    };
-  },
-
-  // Create category
-  createCategory: (name: string) => api.post('/categories', { name }),
+  getCategories: async () => asData(await getCategories()),
+  createCategory: async (name: string) => asData(await createCategory({ name })),
 };
 
-export default api;
+export default jobsAPI;

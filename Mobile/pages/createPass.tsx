@@ -4,14 +4,13 @@ import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
 import { AuthButton, AuthField, AuthProgress, PasswordChecklist } from '../components/auth/AuthControls';
 import { AUTH_COLORS } from '../theme/authTheme';
+import { isStrongPassword } from '../lib/passwordPolicy';
 
 type Props = {
   onBackToLogin?: () => void;
   verifiedCode?: string;
   onReset?: (payload: { code: string; password: string; confirm: string }) => void | Promise<void>;
 };
-
-const isStrong = (value: string) => value.length >= 8 && /[A-Z]/.test(value) && /[a-z]/.test(value) && /\d/.test(value) && /[^A-Za-z0-9]/.test(value);
 
 export default function CreatePass({ onBackToLogin, onReset, verifiedCode = '' }: Props) {
   const [code, setCode] = useState(verifiedCode);
@@ -25,7 +24,7 @@ export default function CreatePass({ onBackToLogin, onReset, verifiedCode = '' }
   const submit = async () => {
     const next: typeof errors = {};
     if (!/^\d{6}$/.test(code)) next.code = 'Enter the complete 6-digit reset code.';
-    if (!isStrong(password)) next.password = 'Your password does not meet all requirements.';
+    if (!isStrongPassword(password)) next.password = 'Your password does not meet all requirements.';
     if (!confirm || confirm !== password) next.confirm = 'Passwords must match.';
     setErrors(next);
     if (Object.keys(next).length) return;

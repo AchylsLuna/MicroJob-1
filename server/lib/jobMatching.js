@@ -16,7 +16,6 @@ const CATEGORY_KEYWORDS = {
   maintenance: ['maintenance', 'repair', 'technician', 'handyman', 'troubleshooting', 'preventive'],
   'other skilled jobs': ['skilled', 'technician', 'specialist', 'trade'],
 };
-
 const normalize = (value = '') => String(value)
   .normalize('NFKD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -140,4 +139,3 @@ export const isRecommendableJob = (job, now = new Date()) => {
   const deadline = new Date(job.deadline);
   return !Number.isNaN(deadline.getTime()) && deadline >= now;
 };
-

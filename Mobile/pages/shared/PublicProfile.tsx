@@ -13,10 +13,7 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
-import ProfileReviews, {
-  type MobileProfileReview,
-  type MobileReviewSummary,
-} from '../../components/reviews/ProfileReviews';
+import ProfileReviewsLoader from '../../components/reviews/ProfileReviewsLoader';
 
 type PublicProfileProps = {
   userId: string;
@@ -60,7 +57,7 @@ type PublicProfileResponse = {
     totalCount?: number | null;
     averageRating?: number | null;
     totalReviews?: number;
-    ratingBreakdown?: MobileReviewSummary['ratingBreakdown'];
+    ratingBreakdown?: Record<number, number>;
   };
   stats?: {
     worker?: {
@@ -76,7 +73,6 @@ type PublicProfileResponse = {
       successRate?: number | null;
     };
   };
-  reviews?: MobileProfileReview[];
 };
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
@@ -400,16 +396,10 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
             </View>
           ) : null}
 
-          <ProfileReviews
+          <ProfileReviewsLoader
             profileOwnerId={String(profile.id || userId)}
             profileOwnerName={fullName}
-            summary={{
-              averageRating: Number(data.rating?.averageRating || data.rating?.stars || 0),
-              totalReviews: Number(data.rating?.totalReviews || 0),
-              percentage: Number(data.rating?.percentage || 0),
-              ratingBreakdown: data.rating?.ratingBreakdown || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-            }}
-            reviews={data.reviews || []}
+            viewAs={viewAs}
           />
 
         </View>

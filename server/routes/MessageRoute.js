@@ -13,6 +13,7 @@ const messageWriteLimiter = rateLimit({
 });
 // Send a message
 router.post('/', messageWriteLimiter, auth, MessageController.sendMessage);
+// Backward-compatible alias for older deployed clients; new clients use POST /api/messages.
 router.post('/send', messageWriteLimiter, auth, MessageController.sendMessage);
 // Get all conversations for logged-in user
 router.get('/conversations', auth, MessageController.getConversations);

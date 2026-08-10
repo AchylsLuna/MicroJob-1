@@ -62,7 +62,7 @@ export async function getAdminStats(req, res) {
   }
 }
 
-export async function getAdminUsers(req, res) {
+export async function getAdminUserList(req, res) {
   try {
     const users = await User.find({})
       .select('-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes')

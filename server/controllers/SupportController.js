@@ -3,7 +3,7 @@ import { getWebOrigin } from '../lib/runtimeConfig.js';
 import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
-import nodemailer from 'nodemailer';
+import { getEmailTransporter } from '../lib/emailTransporter.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 const getRole = (req) => {
@@ -18,22 +18,6 @@ const populateTicket = (query) =>
     .populate('internalNotes.author', 'firstName lastName email role status');
 
 const includeInternalNotes = (query) => query.select('+internalNotes');
-
-const getEmailTransporter = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 0);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !port || !user || !pass) return null;
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-  });
-};
 
 const getSupportAlertEmailList = () => {
   const configured = String(process.env.SUPPORT_ALERT_EMAILS || '')

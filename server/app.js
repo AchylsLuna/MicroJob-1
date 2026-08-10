@@ -5,6 +5,7 @@ import morgan from 'morgan';
 
 import { allowInMemoryMongo, allowedOrigins, config, isProduction } from './config/env.js';
 import { connectDB } from './lib/db.js';
+import { ensureRuntimeData } from './lib/runtimeData.js';
 import { applySecurityMiddleware } from './middleware/security/security.js';
 import { buildCorsMiddleware } from './middleware/security/corsConfig.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -26,7 +27,7 @@ const ensureDatabaseReady = () => {
 			dbName: config.DB_NAME,
 			isProduction,
 			allowInMemoryMongo,
-		}).catch((error) => {
+		}).then(() => ensureRuntimeData()).catch((error) => {
 			dbReady = undefined;
 			throw error;
 		});

@@ -30,8 +30,8 @@ const JOB_TYPE_OPTIONS = [
     description: "One-time or temporary work with a clear finish.",
   },
   {
-    value: "Freelance",
-    label: "Freelance",
+    value: "Side hustle",
+    label: "Side hustle",
     description: "Flexible work someone can take on for extra income.",
   },
   {

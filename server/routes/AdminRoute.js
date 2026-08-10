@@ -3,7 +3,7 @@ import auth from '../middleware/auth.js';
 import requireAdmin from '../middleware/admin.js';
 import {
   getAdminStats,
-  getAdminUsers,
+  getAdminUserList,
   getAdminJobs,
   getAdminCategories,
   getAdminWalletStats,
@@ -26,7 +26,7 @@ router.use(auth);
 router.use(requireAdmin);
 
 router.get('/stats', getAdminStats);
-router.get('/users', getAdminUsers);
+router.get('/users', getAdminUserList);
 router.get('/jobs', getAdminJobs);
 router.get('/categories', getAdminCategories);
 router.get('/wallets', getAdminWalletStats);

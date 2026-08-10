@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../lib/toast";
 import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import { ROUTES } from "../utils/routes";
+import { isValidEmail, normalizeEmail } from "../lib/authValidation";
 
 type RecoveryStep = "email" | "code" | "password" | "success";
 
@@ -24,8 +25,8 @@ export function ForgotPassword() {
 
   const sendCode = async (event?: React.FormEvent) => {
     event?.preventDefault();
-    const normalizedEmail = email.trim().toLowerCase();
-    if (!/^\S+@\S+\.\S+$/.test(normalizedEmail)) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
       toast.error("Enter a valid email address.");
       return;
     }

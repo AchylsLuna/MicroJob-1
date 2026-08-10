@@ -3,7 +3,7 @@ import Review from '../models/Review.js';
 import JobApplication from '../models/JobApplication.js';
 import { createNotification } from '../lib/notificationService.js';
 import { getReviewSummary } from '../lib/reviewSummary.js';
-import { serializeReview, sortReviews } from '../lib/reviewPresentation.js';
+import { serializeReview } from '../lib/reviewPresentation.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 const HIRED_STATUSES = new Set(['Hired', 'Accepted']);
@@ -120,19 +120,74 @@ export async function getUserReviews(req, res) {
     const sort = ['recent', 'highest', 'lowest', 'helpful'].includes(req.query?.sort)
       ? req.query.sort
       : 'recent';
+    const page = Math.max(1, Math.floor(Number(req.query?.page) || 1));
+    const limit = Math.min(50, Math.max(1, Math.floor(Number(req.query?.limit) || 20)));
     if (!mongoose.Types.ObjectId.isValid(String(userId || ''))) {
       return res.status(400).json({ message: 'Valid profile id is required.' });
     }
-    const [summary, reviews] = await Promise.all([
-      getReviewSummary(userId, revieweeRole),
-      Review.find({ reviewee: userId, revieweeRole })
+    const reviewFilter = { reviewee: userId, revieweeRole };
+    const skip = (page - 1) * limit;
+    const findReviews = async () => {
+      if (sort === 'helpful') {
+        const rows = await Review.aggregate([
+          {
+            $match: {
+              reviewee: new mongoose.Types.ObjectId(String(userId)),
+              revieweeRole,
+            },
+          },
+          {
+            $addFields: {
+              helpfulScore: {
+                $subtract: [
+                  { $size: { $ifNull: ['$likedBy', []] } },
+                  { $size: { $ifNull: ['$dislikedBy', []] } },
+                ],
+              },
+              helpfulLikes: { $size: { $ifNull: ['$likedBy', []] } },
+            },
+          },
+          { $sort: { helpfulScore: -1, helpfulLikes: -1, createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          { $unset: ['helpfulScore', 'helpfulLikes'] },
+        ]);
+        return Review.populate(rows, [
+          { path: 'reviewer', select: 'firstName lastName companyName avatarUrl' },
+          { path: 'job', select: 'title category' },
+        ]);
+      }
+
+      const databaseSort = sort === 'highest'
+        ? { rating: -1, createdAt: -1 }
+        : sort === 'lowest'
+          ? { rating: 1, createdAt: -1 }
+          : { createdAt: -1 };
+      return Review.find(reviewFilter)
         .populate('reviewer', 'firstName lastName companyName avatarUrl')
         .populate('job', 'title category')
-        .sort({ createdAt: -1 }),
+        .sort(databaseSort)
+        .skip(skip)
+        .limit(limit);
+    };
+
+    const [summary, total, reviews] = await Promise.all([
+      getReviewSummary(userId, revieweeRole),
+      Review.countDocuments(reviewFilter),
+      findReviews(),
     ]);
 
     const serialized = reviews.map((review) => serializeReview(review, getUserId(req)));
-    return res.status(200).json({ summary, reviews: sortReviews(serialized, sort) });
+    return res.status(200).json({
+      summary,
+      reviews: serialized,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasMore: skip + serialized.length < total,
+      },
+    });
   } catch (error) {
     console.error('Get user reviews error:', error);
     return res.status(500).json({ message: 'Failed to load reviews.' });

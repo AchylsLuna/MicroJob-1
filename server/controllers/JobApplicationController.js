@@ -245,22 +245,7 @@ export const getUserApplications = async (req, res) => {
       JobApplication.find(filter).sort({ updatedAt: -1 })
     );
 
-    const ratings = await getReviewSummaries(
-      applications.map((application) => application.applicant?._id).filter(Boolean),
-      'worker'
-    );
-    return res.status(200).json(applications.map((application) => {
-      const value = serializeApplication(application);
-      const applicantId = String(application.applicant?._id || '');
-      return {
-        ...value,
-        match: scoreJobForWorker(application.job, application.applicant),
-        applicant: value?.applicant ? {
-          ...value.applicant,
-          rating: ratings.get(applicantId) || { averageRating: 0, totalReviews: 0 },
-        } : value?.applicant,
-      };
-    }));
+    return res.status(200).json(applications.map(serializeApplication));
   } catch (error) {
     console.error('Get user applications error:', error);
     return sendError(res, 500, 'Server error', { error: error.message });
@@ -458,7 +443,23 @@ export const getEmployerApplications = async (req, res) => {
       });
     }
 
-    return res.status(200).json(applications.map(serializeApplication));
+    const ratings = await getReviewSummaries(
+      applications.map((application) => application.applicant?._id).filter(Boolean),
+      'worker'
+    );
+
+    return res.status(200).json(applications.map((application) => {
+      const value = serializeApplication(application);
+      const applicantId = String(application.applicant?._id || '');
+      return {
+        ...value,
+        match: scoreJobForWorker(application.job, application.applicant),
+        applicant: value?.applicant ? {
+          ...value.applicant,
+          rating: ratings.get(applicantId) || { averageRating: 0, totalReviews: 0 },
+        } : value?.applicant,
+      };
+    }));
   } catch (error) {
     console.error('Get employer applications error:', error);
     return sendError(res, 500, 'Server error', { error: error.message });

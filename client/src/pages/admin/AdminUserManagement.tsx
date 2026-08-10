@@ -8,6 +8,7 @@ import { ROUTES } from "../../utils/routes";
 import { Button, ConfirmDialog, Dialog, Input, Select } from "../../components/ui";
 import { useAuth } from "../../hooks/useAuth";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
+import { isValidEmail } from "../../lib/authValidation";
 import { updateAdminVerification } from "../../services/api";
 
 const toAdminAssetUrl = (value?: string) => {
@@ -180,7 +181,7 @@ function AdminUserManagementContent() {
     if (!form.firstName.trim()) errors.firstName = "First name is required.";
     if (!form.lastName.trim()) errors.lastName = "Last name is required.";
     if (formMode === "create") {
-      if (!/^\S+@\S+\.\S+$/.test(form.email.trim())) errors.email = "Enter a valid email address.";
+      if (!isValidEmail(form.email)) errors.email = "Enter a valid email address.";
       if (!getPasswordStrength(form.password).isStrong) errors.password = STRONG_PASSWORD_ERROR;
       if (form.role === "admin" && !canManagePrivilegedRoles) errors.role = "Only a superadmin can create an administrator.";
     }

@@ -6,10 +6,9 @@ import AuthStepCard from '../components/auth/AuthStepCard';
 import { AuthButton, AuthField, AuthProgress } from '../components/auth/AuthControls';
 import { AUTH_COLORS } from '../theme/authTheme';
 import { useToast } from '../contexts/ToastContext';
+import { isValidEmail, normalizeEmail } from '../lib/authValidation';
 
 type Props = { onBack?: () => void; onSendReset?: (email: string) => void | Promise<void> };
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 export default function ForgotPass({ onBack, onSendReset }: Props) {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -17,9 +16,9 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
   const toast = useToast();
 
   const submit = async () => {
-    const normalized = email.trim().toLowerCase();
+    const normalized = normalizeEmail(email);
     if (!normalized) { setError('Enter your email address.'); return; }
-    if (!EMAIL_REGEX.test(normalized)) { setError('Enter a valid email address.'); return; }
+    if (!isValidEmail(normalized)) { setError('Enter a valid email address.'); return; }
     setError(''); setLoading(true);
     try { await onSendReset?.(normalized); }
     catch (requestError: any) { toast.error(requestError?.message || 'Unable to send the verification code.'); }

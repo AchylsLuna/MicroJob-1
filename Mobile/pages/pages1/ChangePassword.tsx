@@ -9,6 +9,7 @@ import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import { PasswordChecklist } from '../../components/auth/AuthControls';
+import { isStrongPassword } from '../../lib/passwordPolicy';
 
 export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -80,8 +81,7 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
       toast.error('New password must be different from your current password.');
       return;
     }
-    const strong = newPassword.length >= 8 && /[A-Z]/.test(newPassword) && /[a-z]/.test(newPassword) && /\d/.test(newPassword) && /[^A-Za-z0-9]/.test(newPassword);
-    if (!strong) {
+    if (!isStrongPassword(newPassword)) {
       setFieldError('Your new password does not meet all requirements.');
       return;
     }

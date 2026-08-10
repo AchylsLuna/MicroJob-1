@@ -59,7 +59,7 @@ export {
   hasValidAvatarFileSignature,
   hasValidVerificationFileSignature,
 } from '../middleware/uploadConfig.js';
-export { normalizeExperience } from '../controllers/ProfileController.js';
+export { normalizeExperience } from '../lib/profileValidation.js';
 
 const router = express.Router();
 

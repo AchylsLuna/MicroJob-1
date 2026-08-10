@@ -2,10 +2,10 @@ import http from 'http';
 
 import app from './app.js';
 import { allowInMemoryMongo, allowedOrigins, config, isProduction } from './config/env.js';
-import { runDataBackfills } from './lib/backfills.js';
 import { connectDB, closeDB } from './lib/db.js';
 import { ensureDevDemoUser, ensureDevSuperAdmin } from './lib/devSeed.js';
 import { validateProductionRuntime } from './lib/runtimeConfig.js';
+import { ensureRuntimeData } from './lib/runtimeData.js';
 import { initSocket } from './lib/socket.js';
 
 const server = http.createServer(app);
@@ -24,7 +24,7 @@ export const startServer = async () => {
 
     await ensureDevSuperAdmin({ isProduction });
     await ensureDevDemoUser({ isProduction });
-    await runDataBackfills();
+    await ensureRuntimeData();
 
     initSocket(server, { allowedOrigins });
 

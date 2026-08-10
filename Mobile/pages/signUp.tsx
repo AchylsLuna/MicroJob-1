@@ -10,25 +10,18 @@ import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
 import { AuthButton, AuthField, PasswordChecklist } from '../components/auth/AuthControls';
 import { AUTH_COLORS } from '../theme/authTheme';
+import {
+  isValidEmail,
+  isValidPhone,
+  normalizeEmail,
+  normalizePhone,
+  parseFullName,
+} from '../lib/authValidation';
+import { isStrongPassword } from '../lib/passwordPolicy';
 
 type Role = 'hire' | 'work' | 'both';
 type Props = { onBack: () => void; onNavigateToSignIn: () => void; onNavigateToVerify: (email: string) => void };
 type Errors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirm', string>>;
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const strongPassword = (value: string) => value.length >= 8 && /[A-Z]/.test(value) && /[a-z]/.test(value) && /\d/.test(value) && /[^A-Za-z0-9]/.test(value);
-const normalizePhone = (value: string) => {
-  const digits = value.replace(/\D/g, '');
-  if (/^09\d{9}$/.test(digits)) return digits;
-  if (/^639\d{9}$/.test(digits)) return `0${digits.slice(2)}`;
-  return null;
-};
-const parseName = (value: string) => {
-  const normalized = value.trim().replace(/\s+/g, ' ');
-  const [firstName, ...rest] = normalized.split(' ');
-  const lastName = rest.join(' ');
-  return firstName && lastName ? { normalized, firstName, lastName } : null;
-};
 
 const roles: Array<{ value: Role; title: string; subtitle: string; icon: keyof typeof Feather.glyphMap }> = [
   { value: 'work', title: 'Find work', subtitle: 'Browse and complete local jobs', icon: 'user' },
@@ -64,9 +57,9 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 
   const validateIdentity = () => {
     const next: Errors = {};
-    if (!parseName(fullName)) next.fullName = 'Enter your first and last name.';
-    if (!EMAIL_REGEX.test(email.trim())) next.email = 'Enter a valid email address.';
-    if (!normalizePhone(phone)) next.phone = 'Use a valid Philippine mobile number (09XXXXXXXXX).';
+    if (!parseFullName(fullName)) next.fullName = 'Enter your valid first and last name.';
+    if (!isValidEmail(email)) next.email = 'Enter a valid email address.';
+    if (!isValidPhone(normalizePhone(phone))) next.phone = 'Use a valid Philippine mobile number (09XXXXXXXXX).';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -74,14 +67,14 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 
   const submit = async () => {
     const next: Errors = {};
-    if (!strongPassword(password)) next.password = 'Your password does not meet all requirements.';
+    if (!isStrongPassword(password)) next.password = 'Your password does not meet all requirements.';
     if (!confirm || password !== confirm) next.confirm = 'Passwords must match.';
     setErrors(next);
     if (Object.keys(next).length) return;
-    const name = parseName(fullName);
-    const normalizedEmail = email.trim().toLowerCase();
+    const name = parseFullName(fullName);
+    const normalizedEmail = normalizeEmail(email);
     const normalizedPhone = normalizePhone(phone);
-    if (!name || !normalizedPhone) { setStep(1); validateIdentity(); return; }
+    if (!name || !isValidPhone(normalizedPhone)) { setStep(1); validateIdentity(); return; }
     setLoading(true);
     try {
       const result = await apiRequest(`${API_URL}/auth/register`, {

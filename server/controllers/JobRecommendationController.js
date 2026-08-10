@@ -53,4 +53,3 @@ export async function getRecommendedJobs(req, res) {
     return res.status(500).json({ message: 'Failed to load recommended jobs.' });
   }
 }
-

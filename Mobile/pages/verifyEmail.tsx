@@ -18,8 +18,8 @@ import AuthStepCard from '../components/auth/AuthStepCard';
 import { AuthProgress } from '../components/auth/AuthControls';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
 import { useToast } from '../contexts/ToastContext';
+import { isValidEmail, normalizeEmail } from '../lib/authValidation';
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TIMER_SECONDS = 30;
 const formatSeconds = (value: number) => `0:${Math.max(value, 0).toString().padStart(2, '0')}`;
 
@@ -204,8 +204,8 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       return;
     }
 
-    const normalizedEmail = String(email || '').trim().toLowerCase();
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmail(normalizedEmail)) {
       setErrorMessage('Missing or invalid email. Please sign up again.');
       return;
     }
@@ -264,15 +264,15 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           'Verification failed.',
         );
       } else if (mode === 'passwordReset') {
-        const normalizedEmail = String(email || '').trim().toLowerCase();
+        const normalizedEmail = normalizeEmail(email);
         result = await apiRequest(
           `${API_URL}/auth/password-reset/verify`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: normalizedEmail, code: otpCode }) },
           'Reset-code verification failed.',
         );
       } else {
-        const normalizedEmail = String(email || '').trim().toLowerCase();
-        if (!EMAIL_REGEX.test(normalizedEmail)) {
+        const normalizedEmail = normalizeEmail(email);
+        if (!isValidEmail(normalizedEmail)) {
           toast.error('Missing or invalid email. Please sign in again.');
           setIsLoading(false);
           return;

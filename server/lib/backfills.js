@@ -65,8 +65,9 @@ export async function runDataBackfills() {
   await ensureDefaultJobCategories(Category);
   const fallbackCategory = await Category.findOne({ name: 'Other Skilled Jobs' }).select('_id').lean();
   if (fallbackCategory) {
+    const validCategoryIds = await Category.distinct('_id');
     await Job.updateMany(
-      { $or: [{ category: { $exists: false } }, { category: null }] },
+      { category: { $nin: validCategoryIds } },
       { $set: { category: fallbackCategory._id } }
     );
   }

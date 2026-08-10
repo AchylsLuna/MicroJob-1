@@ -35,11 +35,9 @@ test('job matching ranks aligned skills, categories, experience, and location hi
   assert.ok(strong.percentage > unrelated.percentage);
   assert.ok(strong.reasons.includes('Preferred category'));
 });
-
 test('recommendations exclude unavailable and expired jobs', () => {
   const now = new Date('2026-08-11T00:00:00.000Z');
   assert.equal(isRecommendableJob({ status: 'Available', deadline: '2026-08-12T00:00:00.000Z' }, now), true);
   assert.equal(isRecommendableJob({ status: 'Completed', deadline: '2026-08-12T00:00:00.000Z' }, now), false);
   assert.equal(isRecommendableJob({ status: 'Available', deadline: '2026-08-10T00:00:00.000Z' }, now), false);
 });
-

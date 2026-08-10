@@ -8,17 +8,15 @@ export interface ProfileData {
   profilePhotoName?: string;
   about?: string;
   city?: string;
-  country?: string;
   province?: string;
-  address?: string;
   experience?: any[];
-  education?: any[];
+  workExperience?: any[];
+  totalExperience?: string;
   resumeUrl?: string;
   resumeFileName?: string;
   skills?: any[];
   phoneNumber?: string;
   linkedin?: string;
-  email?: string;
   jobPosition?: string;
   companyName?: string;
   startDate?: string;
@@ -39,12 +37,9 @@ const PROFILE_FIELDS = [
   { key: ['avatarUrl', 'profilePhotoName'], label: 'Profile Picture', weight: 1 },
   { key: 'phoneNumber', label: 'Phone Number', weight: 1 },
   { key: ['city', 'province'], label: 'Location', weight: 1 },
-  { key: 'country', label: 'Country', weight: 1 },
-  { key: 'address', label: 'Address', weight: 1 },
   { key: 'about', label: 'Bio/About', weight: 1 },
   { key: 'linkedin', label: 'LinkedIn Profile', weight: 1 },
-  { key: ['jobPosition', 'companyName', 'startDate', 'endDate'], label: 'Work Experience', weight: 1.5 },
-  { key: 'education', label: 'Education', weight: 1.5 },
+  { key: ['workExperience', 'experience', 'totalExperience', 'jobPosition', 'companyName'], label: 'Work Experience', weight: 1.5 },
   { key: ['resumeUrl', 'resumeFileName'], label: 'CV/Resume', weight: 1.5 },
   { key: 'skills', label: 'Skills', weight: 1 },
 ];

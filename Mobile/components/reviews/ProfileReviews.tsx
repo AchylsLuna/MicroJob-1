@@ -71,15 +71,25 @@ export default function ProfileReviews({
   profileOwnerName,
   summary,
   reviews,
+  sort: controlledSort,
+  onSortChange,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: {
   profileOwnerId: string;
   profileOwnerName: string;
   summary: MobileReviewSummary;
   reviews: MobileProfileReview[];
+  sort?: ReviewSort;
+  onSortChange?: (sort: ReviewSort) => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const toast = useToast();
   const [items, setItems] = useState(reviews);
-  const [sort, setSort] = useState<ReviewSort>('recent');
+  const [localSort, setLocalSort] = useState<ReviewSort>('recent');
   const [currentUserId, setCurrentUserId] = useState('');
   const [reactionPending, setReactionPending] = useState<string | null>(null);
   const [replyTarget, setReplyTarget] = useState<string | null>(null);
@@ -87,6 +97,11 @@ export default function ProfileReviews({
   const [replyPending, setReplyPending] = useState(false);
 
   useEffect(() => setItems(reviews), [reviews]);
+  const sort = controlledSort ?? localSort;
+  const changeSort = (nextSort: ReviewSort) => {
+    if (onSortChange) onSortChange(nextSort);
+    else setLocalSort(nextSort);
+  };
   useEffect(() => {
     AsyncStorage.getItem('auth_user').then((raw) => {
       if (!raw) return;
@@ -221,7 +236,7 @@ export default function ProfileReviews({
 
       <NativeScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
         {SORT_OPTIONS.map((option) => (
-          <TouchableOpacity key={option.value} style={[styles.sortChip, sort === option.value && styles.sortChipActive]} onPress={() => setSort(option.value)}>
+          <TouchableOpacity key={option.value} style={[styles.sortChip, sort === option.value && styles.sortChipActive]} onPress={() => changeSort(option.value)}>
             <Text style={[styles.sortText, sort === option.value && styles.sortTextActive]}>{option.label}</Text>
           </TouchableOpacity>
         ))}
@@ -288,6 +303,17 @@ export default function ProfileReviews({
           </View>
         );
       }) : <Text style={styles.empty}>No verified reviews yet.</Text>}
+      {hasMore && onLoadMore ? (
+        <TouchableOpacity
+          style={[styles.loadMoreButton, loadingMore && styles.disabled]}
+          onPress={onLoadMore}
+          disabled={loadingMore}
+        >
+          {loadingMore
+            ? <ActivityIndicator size="small" color={tokens.colors.brand} />
+            : <Text style={styles.loadMoreText}>Load more reviews</Text>}
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
 }
@@ -314,6 +340,8 @@ const styles = StyleSheet.create({
   sortText: { fontSize: 12, fontWeight: '600', color: tokens.colors.textMuted },
   sortTextActive: { color: tokens.colors.brand },
   reviewCard: { marginBottom: 12, borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 16, padding: 14, backgroundColor: tokens.colors.surface },
+  loadMoreButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 12, paddingHorizontal: 14, backgroundColor: tokens.colors.surface },
+  loadMoreText: { fontSize: 13, fontWeight: '700', color: tokens.colors.brand },
   reviewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   avatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.brandSoft },
   avatarText: { fontSize: 16, fontWeight: '800', color: tokens.colors.brand },

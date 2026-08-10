@@ -20,8 +20,7 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
 import { useToast } from '../contexts/ToastContext';
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { isValidEmail, normalizeEmail } from '../lib/authValidation';
 
 export default function SignIn({
   onBack,
@@ -91,13 +90,13 @@ export default function SignIn({
   };
 
   const handleSignIn = async () => {
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
       setErrors({ email: 'Enter your email address.' });
       return;
     }
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
+    if (!isValidEmail(normalizedEmail)) {
       setErrors({ email: 'Enter a valid email address.' });
       return;
     }

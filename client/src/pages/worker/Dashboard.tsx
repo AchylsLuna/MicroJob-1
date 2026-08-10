@@ -291,18 +291,14 @@ function WorkerDashboardContent() {
           profilePhotoName: profile?.profilePhotoName,
           about: profile?.about,
           city: profile?.city,
-          country: profile?.country,
           province: profile?.province,
-          address: profile?.address,
           phoneNumber: profile?.phoneNumber,
           linkedin: profile?.linkedin,
-          email: profile?.email,
           jobPosition: profile?.jobPosition,
           companyName: profile?.companyName,
-          startDate: profile?.startDate,
-          endDate: profile?.endDate,
           experience: profile?.experience,
-          education: profile?.education,
+          workExperience: profile?.workExperience,
+          totalExperience: profile?.totalExperience,
           resumeUrl: profile?.resumeUrl,
           resumeFileName: profile?.resumeFileName,
           skills: profile?.skills,
@@ -387,7 +383,7 @@ function WorkerDashboardContent() {
         const jobsResponse = await jobsAPI.getRecommendedJobs(6);
         if (!isMounted) return;
         
-        const jobs = Array.isArray(jobsResponse.data) ? jobsResponse.data : jobsResponse.data?.data || [];
+        const jobs = jobsResponse.data;
 
         // Transform jobs for display
         const transformedJobs = jobs.slice(0, 3).map((job: any) => ({

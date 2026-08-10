@@ -6,10 +6,9 @@ import PayoutRequest from "../models/PayoutRequest.js";
 import PushDevice from "../models/PushDevice.js";
 import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
-import Review from "../models/Review.js";
 import jwt from "jsonwebtoken";
-import nodemailer from "nodemailer";
 import { getJwtSecret } from "../lib/jwtSecret.js";
+import { getEmailTransporter } from "../lib/emailTransporter.js";
 import { disconnectSession } from "../lib/socket.js";
 import { deleteStoredUpload } from "../lib/uploadStore.js";
 import {
@@ -27,7 +26,6 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 import { getReviewSummary } from "../lib/reviewSummary.js";
-import { serializeReview } from "../lib/reviewPresentation.js";
 
 const otpStore = new Map();
 const passwordResetOtpStore = new Map();
@@ -209,25 +207,6 @@ export async function anonymizeAndDeleteUser(userId) {
     return user;
 }
 
-function getEmailTransporter() {
-    const host = process.env.SMTP_HOST;
-    const port = Number(process.env.SMTP_PORT || 0);
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-
-    if (!host || !port || !user || !pass) {
-        return null;
-    }
-
-    const secure = port === 465;
-    return nodemailer.createTransport({
-        host,
-        port,
-        secure,
-        auth: { user, pass },
-    });
-}
-
 const PUBLIC_USER_SELECT = "-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes";
 const STANDARD_ROLES = new Set(["work", "hire", "both"]);
 const PRIVILEGED_ROLES = new Set(["admin", "superadmin"]);
@@ -386,7 +365,7 @@ export async function getUserList(req, res) {
     }
 }
 
-export async function getAdminUsers(req, res) {
+export async function getPrivilegedUsers(req, res) {
     try {
         const users = await User.find({ role: { $in: ["admin", "superadmin"] } }).select(
             "-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes"
@@ -752,14 +731,7 @@ export async function getPublicProfile(req, res) {
         const workerPerformance = toRatingSummary(workerHiredCount, workerAppliedCount);
         const employerPerformance = toRatingSummary(employerHiredCount, employerApplicantsCount);
         const selectedPerformance = viewer === "employer" ? employerPerformance : workerPerformance;
-        const [reviewRating, reviews] = await Promise.all([
-            getReviewSummary(user._id, viewer),
-            Review.find({ reviewee: user._id, revieweeRole: viewer })
-                .populate("reviewer", "firstName lastName companyName avatarUrl")
-                .populate("job", "title category")
-                .sort({ createdAt: -1 })
-                .lean(),
-        ]);
+        const reviewRating = await getReviewSummary(user._id, viewer);
         const employerHiringStatsHidden = user.hideHiredCandidates !== false;
 
         return res.status(200).json({
@@ -791,7 +763,6 @@ export async function getPublicProfile(req, res) {
                 completedCount: selectedPerformance.completedCount,
                 totalCount: selectedPerformance.totalCount,
             },
-            reviews: reviews.map((review) => serializeReview(review, requesterId)),
             stats: {
                 worker: {
                     jobsApplied: workerAppliedCount,

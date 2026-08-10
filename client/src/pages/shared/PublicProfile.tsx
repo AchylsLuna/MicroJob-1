@@ -1,9 +1,9 @@
 import { ArrowLeft, Briefcase, MapPin, Star, CheckCircle2, Building2, ExternalLink } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { getPublicProfile, type ProfileReview, type ReviewSummary } from "../../services/api";
+import { getPublicProfile, type ReviewSummary } from "../../services/api";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
-import { ProfileReviews } from "../../components/reviews/ProfileReviews";
+import { ProfileReviewsLoader } from "../../components/reviews/ProfileReviewsLoader";
 
 type PublicProfileResponse = {
   profile?: {
@@ -57,7 +57,6 @@ type PublicProfileResponse = {
       successRate?: number | null;
     };
   };
-  reviews?: ProfileReview[];
 };
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
@@ -290,16 +289,10 @@ export function PublicProfile() {
               </div>
             ) : null}
 
-            <ProfileReviews
+            <ProfileReviewsLoader
               profileOwnerId={String(data.profile.id || userId || "")}
               profileOwnerName={fullName}
-              summary={{
-                averageRating: Number(data.rating?.averageRating || data.rating?.stars || 0),
-                totalReviews: Number(data.rating?.totalReviews || 0),
-                percentage: Number(data.rating?.percentage || 0),
-                ratingBreakdown: data.rating?.ratingBreakdown || { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 },
-              }}
-              reviews={data.reviews || []}
+              viewAs={viewAs}
             />
           </div>
         ) : null}

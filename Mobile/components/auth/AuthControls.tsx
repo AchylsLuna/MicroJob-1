@@ -2,6 +2,7 @@ import React from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TextInputProps, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { AUTH_COLORS } from '../../theme/authTheme';
+import { getPasswordChecks, PASSWORD_RULES } from '../../lib/passwordPolicy';
 
 type FieldProps = TextInputProps & {
   label: string;
@@ -51,11 +52,9 @@ export function AuthButton({ label, onPress, loading = false, disabled = false, 
 }
 
 export function PasswordChecklist({ password, confirm }: { password: string; confirm?: string }) {
+  const checks = getPasswordChecks(password);
   const rules = [
-    ['8 or more characters', password.length >= 8],
-    ['Uppercase and lowercase letters', /[A-Z]/.test(password) && /[a-z]/.test(password)],
-    ['At least one number', /\d/.test(password)],
-    ['At least one special character', /[^A-Za-z0-9]/.test(password)],
+    ...PASSWORD_RULES.map((rule) => [rule.label, checks[rule.key]] as [string, boolean]),
     ...(confirm === undefined ? [] : [['Passwords match', Boolean(password && confirm && password === confirm)] as [string, boolean]]),
   ] as Array<[string, boolean]>;
   return <View style={styles.checklist}>{rules.map(([text, ok]) => <View key={text} style={styles.rule}>

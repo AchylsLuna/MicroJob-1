@@ -110,7 +110,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
     if (!input.trim()) return;
     const token = await AsyncStorage.getItem('auth_token');
     try {
-      const result = await apiRequest(`${API_URL}/messages/send`, {
+      const result = await apiRequest(`${API_URL}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

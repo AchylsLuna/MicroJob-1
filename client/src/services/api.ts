@@ -436,7 +436,7 @@ export function getCategories() {
   return request<any[]>('/categories', { method: 'GET' });
 }
 
-export function createCategory(payload: { name: string; description: string }) {
+export function createCategory(payload: { name: string; description?: string }) {
   return request('/categories', { method: 'POST', body: payload });
 }
 
@@ -471,6 +471,10 @@ export function getJobDetails(jobId: string) {
 
 export function createJob(payload: any) {
   return request('/jobs', { method: 'POST', body: payload });
+}
+
+export function updateJob(jobId: string, payload: any) {
+  return request(`/jobs/${jobId}`, { method: 'PUT', body: payload });
 }
 
 export function deleteJob(jobId: string) {
@@ -566,9 +570,19 @@ export function createReview(payload: {
   return request('/reviews', { method: 'POST', body: payload });
 }
 
-export function getUserReviews(userId: string, viewAs: 'worker' | 'employer', sort: ReviewSort = 'recent') {
-  return request<{ summary: ReviewSummary; reviews: ProfileReview[] }>(
-    `/reviews/user/${userId}${buildQuery({ as: viewAs, sort })}`,
+export function getUserReviews(
+  userId: string,
+  viewAs: 'worker' | 'employer',
+  sort: ReviewSort = 'recent',
+  page = 1,
+  limit = 20
+) {
+  return request<{
+    summary: ReviewSummary;
+    reviews: ProfileReview[];
+    pagination: { page: number; limit: number; total: number; hasMore: boolean };
+  }>(
+    `/reviews/user/${userId}${buildQuery({ as: viewAs, sort, page, limit })}`,
     { method: 'GET' }
   );
 }
@@ -600,6 +614,18 @@ export function updateApplicationStatus(
 
 export function hideEmployerApplication(applicationId: string) {
   return request(`/applications/${applicationId}/employer/remove`, { method: 'PATCH' });
+}
+
+export function deleteEmployerApplication(applicationId: string) {
+  return request(`/applications/${applicationId}/employer`, { method: 'DELETE' });
+}
+
+export function markEmployerApplicationRead(applicationId: string) {
+  return request(`/applications/${applicationId}/employer/read`, { method: 'PATCH' });
+}
+
+export function markApplicantApplicationRead(applicationId: string) {
+  return request(`/applications/${applicationId}/applicant/read`, { method: 'PATCH' });
 }
 
 export function scheduleInterview(
@@ -999,7 +1025,7 @@ export function removeSavedJob(jobId: string) {
 
 // Message APIs
 export function sendMessage(payload: { receiverId: string; content: string; jobId?: string; clientMessageId?: string }) {
-  return request<any>('/messages/send', { method: 'POST', body: payload });
+  return request<any>('/messages', { method: 'POST', body: payload });
 }
 
 export function getConversations() {

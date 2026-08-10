@@ -37,22 +37,38 @@ export function ProfileReviews({
   profileOwnerName,
   summary,
   reviews,
+  sort: controlledSort,
+  onSortChange,
+  hasMore = false,
+  loadingMore = false,
+  onLoadMore,
 }: {
   profileOwnerId: string;
   profileOwnerName: string;
   summary: ReviewSummary;
   reviews: ProfileReview[];
+  sort?: ReviewSort;
+  onSortChange?: (sort: ReviewSort) => void;
+  hasMore?: boolean;
+  loadingMore?: boolean;
+  onLoadMore?: () => void;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [items, setItems] = useState<ProfileReview[]>(reviews);
-  const [sort, setSort] = useState<ReviewSort>('recent');
+  const [localSort, setLocalSort] = useState<ReviewSort>('recent');
   const [reactionPending, setReactionPending] = useState<string | null>(null);
   const [replyTarget, setReplyTarget] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState('');
   const [replyPending, setReplyPending] = useState(false);
 
   useEffect(() => setItems(reviews), [reviews]);
+
+  const sort = controlledSort ?? localSort;
+  const changeSort = (nextSort: ReviewSort) => {
+    if (onSortChange) onSortChange(nextSort);
+    else setLocalSort(nextSort);
+  };
 
   const sortedReviews = useMemo(() => {
     const recent = (left: ProfileReview, right: ProfileReview) =>
@@ -137,7 +153,7 @@ export function ProfileReviews({
         </div>
         <label className="flex items-center gap-2 text-sm font-medium text-slate-600">
           Sort
-          <select value={sort} onChange={(event) => setSort(event.target.value as ReviewSort)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
+          <select value={sort} onChange={(event) => changeSort(event.target.value as ReviewSort)} className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
             {SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
           </select>
         </label>
@@ -234,6 +250,16 @@ export function ProfileReviews({
               </article>
             );
           })}
+          {hasMore && onLoadMore ? (
+            <button
+              type="button"
+              onClick={onLoadMore}
+              disabled={loadingMore}
+              className="mx-auto block min-h-10 rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {loadingMore ? 'Loading…' : 'Load more reviews'}
+            </button>
+          ) : null}
         </div>
       ) : <p className="mt-6 rounded-xl bg-slate-50 p-5 text-sm text-slate-500">No verified reviews yet.</p>}
     </section>
