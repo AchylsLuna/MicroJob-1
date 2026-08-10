@@ -767,6 +767,21 @@ export function confirmPhoneVerificationOtp(payload: { code: string }) {
   });
 }
 
+export function sendPhoneVerificationCode() {
+  return request<{ message: string }>('/verify-phone/send-code', { method: 'POST' });
+}
+
+export function resendPhoneVerificationCode() {
+  return request<{ message: string }>('/verify-phone/resend-code', { method: 'POST' });
+}
+
+export function verifyPhoneVerificationCode(payload: { otp: string }) {
+  return request<{ message: string }>('/verify-phone/verify-code', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
 export function uploadIdentityDocument(file: File) {
   const formData = new FormData();
   formData.append('document', file);
