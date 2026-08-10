@@ -98,7 +98,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 
   return <AuthScreenLayout
     title="Create account"
-    subtitle={step === 1 ? 'Start with your contact details.' : step === 2 ? 'Tell us how you will use MicroJob.' : 'Secure your new account.'}
+    subtitle={step === 1 ? 'Start with your contact details.' : step === 2 ? 'Tell us how you will use MicroJobs.' : 'Secure your new account.'}
     onBack={goBack}
   >
     <View style={styles.progressHeader}><Text style={styles.stepText}>Step {step} of 3</Text><Text style={styles.percent}>{progress}%</Text></View>
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   stepText: { color: AUTH_COLORS.onBlueMuted, fontSize: 13, fontWeight: '700' },
   percent: { color: AUTH_COLORS.onBlue, fontSize: 13, fontWeight: '800' },
   progressTrack: { height: 7, backgroundColor: AUTH_COLORS.blueControlSurface, borderRadius: 4, marginBottom: 18, overflow: 'hidden' },
-  progressFill: { height: 7, backgroundColor: AUTH_COLORS.onBlue, borderRadius: 4 },
+  progressFill: { height: 7, backgroundColor: AUTH_COLORS.primary, borderRadius: 4 },
   card: { marginBottom: 18 },
   role: { minHeight: 76, borderWidth: 1, borderColor: AUTH_COLORS.cardBorder, borderRadius: 14, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center' },
   roleSelected: { borderColor: AUTH_COLORS.primary, backgroundColor: '#EFF6FF' },

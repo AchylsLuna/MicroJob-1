@@ -2,7 +2,7 @@ export const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
 export const AUTH_COLORS = {
-  background: '#1C4D8D',
+  background: '#FFFFFF',
   backgroundDeep: '#0F2954',
   backgroundElevated: '#FFFFFF',
   cardDark: '#FFFFFF',
@@ -14,12 +14,12 @@ export const AUTH_COLORS = {
   tile: '#F8FAFC',
   tileSoft: 'rgba(255,255,255,0.12)',
   primary: '#1C4D8D',
-  primaryText: '#ffffff',
-  onBlue: '#FFFFFF',
-  onBlueMuted: '#DBEAFE',
-  onBlueSoft: '#BFDBFE',
-  blueControlSurface: 'rgba(255,255,255,0.14)',
-  blueControlSurfacePressed: 'rgba(255,255,255,0.22)',
+  primaryText: '#FFFFFF',
+  onBlue: '#1C4D8D',
+  onBlueMuted: '#475569',
+  onBlueSoft: '#64748B',
+  blueControlSurface: '#EAF1FB',
+  blueControlSurfacePressed: '#DCE6F7',
   textPrimary: '#111827',
   textSecondary: '#6B7280',
   textMuted: '#6B7280',

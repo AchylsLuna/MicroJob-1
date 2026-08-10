@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { API_URL } from '../config';
 import ScrollView from '../components/ui/SmoothScrollView';
 import CanvasBackButton from '../components/ui/CanvasBackButton';
+import MicroJobsLogo from '../components/auth/MicroJobsLogo';
 import AsyncStorage from '../lib/storage';
 import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
@@ -226,7 +227,10 @@ export default function SignIn({
         <CanvasBackButton
           style={{ width: backButtonSize, height: backButtonSize, borderRadius: clamp(backButtonSize * 0.29, 14, 16), marginBottom: 24 }}
           onPress={onBack}
+          lightSurface
         />
+
+        <View style={styles.logoWrap}><MicroJobsLogo /></View>
 
         <View
           style={[
@@ -379,7 +383,15 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 420,
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.cardBorder,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 4,
   },
+  logoWrap: { alignItems: 'center', marginBottom: 22 },
   iconWrap: {
     alignItems: 'center',
     marginBottom: 20,

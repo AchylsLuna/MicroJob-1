@@ -231,9 +231,8 @@ function PassChangedScreen() {
 }
 
 function AuthNavigator() {
-  const { hasOnboarded } = useAppSession();
   return (
-    <AuthStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={hasOnboarded ? 'SignIn' : 'Onboarding'}>
+    <AuthStack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Onboarding">
       <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
       <AuthStack.Screen name="SignUp" component={SignUpScreen} />

@@ -4,6 +4,8 @@ import { useEffect, useRef } from 'react';
 import {
   Animated,
   FlatList,
+  Image,
+  type ImageSourcePropType,
   Platform,
   Pressable,
   StyleSheet,
@@ -13,6 +15,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { AUTH_COLORS, clamp } from '../theme/authTheme';
+import MicroJobsLogo from '../components/auth/MicroJobsLogo';
+import careerArtwork from '../assets/microjobs-career-onboarding.png';
 
 type OnboardingSlide = {
   id: string;
@@ -21,6 +25,7 @@ type OnboardingSlide = {
   title: string;
   subtitle: string;
   highlight: string;
+  artwork?: ImageSourcePropType;
 };
 
 type Props = {
@@ -39,6 +44,7 @@ const slides: OnboardingSlide[] = [
     title: 'Find Work\nYou Love',
     subtitle: 'Connect with thousands of employers looking for your skills and expertise.',
     highlight: 'Verified jobs updated daily',
+    artwork: careerArtwork,
   },
   {
     id: '2',
@@ -88,6 +94,8 @@ export default function OnboardingCarouselScreen({
   const iconRingSize = isCompactHeight ? clamp(width * 0.36, 112, 144) : clamp(width * 0.42, 172, 204);
   const iconCircleSize = isCompactHeight ? clamp(iconRingSize * 0.62, 72, 90) : clamp(iconRingSize * 0.62, 106, 122);
   const iconSize = clamp(iconCircleSize * 0.4, 40, 48);
+  const artworkWidth = isCompactHeight ? clamp(width * 0.3, 104, 128) : clamp(width * 0.38, 150, 184);
+  const artworkHeight = Math.round(artworkWidth * 1.34);
   const slideVerticalGap = isCompactHeight ? 10 : clamp(height * 0.032, 22, 30);
 
   const onViewableItemsChanged = useRef(
@@ -121,16 +129,12 @@ export default function OnboardingCarouselScreen({
 
   return (
     <View style={[styles.container, { paddingTop: topPad, paddingBottom: botPad }]}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <View pointerEvents="none" style={styles.backgroundOrbTop} />
       <View pointerEvents="none" style={styles.backgroundOrbBottom} />
 
       <View style={styles.topBar}>
-        <View style={styles.brandPill}>
-          <Text maxFontSizeMultiplier={1.4} style={styles.brandText}>
-            MicroJob
-          </Text>
-        </View>
+        <MicroJobsLogo compact />
 
         <Pressable
           style={({ pressed }) => [styles.skipBtn, pressed && styles.blueControlPressed]}
@@ -181,20 +185,31 @@ export default function OnboardingCarouselScreen({
                 </View>
 
                 <View style={[styles.illustrationArea, isCompactHeight && styles.illustrationAreaCompact]}>
-                  <View style={[styles.iconRing, { width: iconRingSize, height: iconRingSize, borderRadius: iconRingSize / 2 }]}> 
-                    <View
-                      style={[
-                        styles.iconCircle,
-                        {
-                          width: iconCircleSize,
-                          height: iconCircleSize,
-                          borderRadius: iconCircleSize / 2,
-                        },
-                      ]}
-                    >
-                      <Feather name={item.icon} size={iconSize} color="#FFFFFF" />
+                  {item.artwork ? (
+                    <View style={[styles.artworkCard, { width: artworkWidth, height: artworkHeight }]}>
+                      <Image
+                        source={item.artwork}
+                        style={styles.artworkImage}
+                        resizeMode="cover"
+                        accessibilityLabel="MicroJobs professional carrying a briefcase and stepping toward a new opportunity"
+                      />
                     </View>
-                  </View>
+                  ) : (
+                    <View style={[styles.iconRing, { width: iconRingSize, height: iconRingSize, borderRadius: iconRingSize / 2 }]}>
+                      <View
+                        style={[
+                          styles.iconCircle,
+                          {
+                            width: iconCircleSize,
+                            height: iconCircleSize,
+                            borderRadius: iconCircleSize / 2,
+                          },
+                        ]}
+                      >
+                        <Feather name={item.icon} size={iconSize} color="#FFFFFF" />
+                      </View>
+                    </View>
+                  )}
 
                   <View style={[styles.highlightPill, isCompactHeight && styles.highlightPillCompact]}>
                     <Feather name="check-circle" size={14} color="#93C5FD" />
@@ -246,7 +261,7 @@ export default function OnboardingCarouselScreen({
             {activeIndex === slides.length - 1 ? 'Get Started' : 'Continue'}
           </Text>
           {activeIndex < slides.length - 1 ? (
-            <Feather name="arrow-right" size={18} color={AUTH_COLORS.primary} style={styles.nextButtonIcon} />
+            <Feather name="arrow-right" size={18} color="#FFFFFF" style={styles.nextButtonIcon} />
           ) : null}
         </Pressable>
 
@@ -280,7 +295,7 @@ const styles = StyleSheet.create({
     height: 320,
     borderRadius: 160,
     backgroundColor: AUTH_COLORS.backgroundElevated,
-    opacity: 0.1,
+    opacity: 0.05,
     top: -210,
     right: -165,
   },
@@ -290,7 +305,7 @@ const styles = StyleSheet.create({
     height: 280,
     borderRadius: 140,
     backgroundColor: AUTH_COLORS.backgroundElevated,
-    opacity: 0.09,
+    opacity: 0.04,
     bottom: -170,
     left: -145,
   },
@@ -301,18 +316,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  brandPill: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 0,
-  },
-  brandText: {
-    fontSize: 13,
-    letterSpacing: 0.35,
-    color: 'rgba(255,255,255,0.9)',
-    fontWeight: '700',
   },
   skipBtn: {
     minHeight: 44,
@@ -394,6 +397,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  artworkCard: {
+    overflow: 'hidden',
+    borderRadius: 24,
+    backgroundColor: AUTH_COLORS.cardLight,
+    shadowColor: AUTH_COLORS.backgroundDeep,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 22,
+    elevation: 8,
+  },
+  artworkImage: {
+    width: '100%',
+    height: '100%',
+  },
   iconCircle: {
     backgroundColor: 'rgba(15,41,84,0.42)',
     alignItems: 'center',
@@ -418,7 +435,7 @@ const styles = StyleSheet.create({
   },
   highlightText: {
     fontSize: 13,
-    color: AUTH_COLORS.onBlue,
+    color: AUTH_COLORS.backgroundDeep,
     fontWeight: '700',
   },
   textArea: {
@@ -431,13 +448,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   title: {
-    color: AUTH_COLORS.primaryText,
+    color: AUTH_COLORS.backgroundDeep,
     textAlign: 'center',
     letterSpacing: -0.7,
     fontWeight: '800',
   },
   subtitle: {
-    color: AUTH_COLORS.onBlueMuted,
+    color: AUTH_COLORS.textSecondary,
     textAlign: 'center',
     maxWidth: 320,
     fontWeight: '500',
@@ -459,13 +476,13 @@ const styles = StyleSheet.create({
   dot: {
     height: 8,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: AUTH_COLORS.primary,
   },
   nextButton: {
     width: '100%',
     height: 58,
     borderRadius: 18,
-    backgroundColor: AUTH_COLORS.onBlue,
+    backgroundColor: AUTH_COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -480,7 +497,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: 16,
-    color: AUTH_COLORS.primary,
+    color: '#FFFFFF',
     letterSpacing: 0.2,
     fontWeight: '700',
   },

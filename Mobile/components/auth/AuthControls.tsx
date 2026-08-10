@@ -94,5 +94,5 @@ const styles = StyleSheet.create({
   progressLabel: { color: AUTH_COLORS.onBlueMuted, fontSize: 12, fontWeight: '700' },
   progressValue: { color: AUTH_COLORS.onBlue, fontSize: 12, fontWeight: '800' },
   progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden', backgroundColor: AUTH_COLORS.blueControlSurface },
-  progressFill: { height: 6, borderRadius: 3, backgroundColor: AUTH_COLORS.onBlue },
+  progressFill: { height: 6, borderRadius: 3, backgroundColor: AUTH_COLORS.primary },
 });

@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AUTH_COLORS, clamp } from '../../theme/authTheme';
 import ScrollView from '../ui/SmoothScrollView';
 import CanvasBackButton from '../ui/CanvasBackButton';
+import MicroJobsLogo from './MicroJobsLogo';
 
 type AuthScreenLayoutProps = {
   title: string;
@@ -21,7 +22,7 @@ type AuthScreenLayoutProps = {
   eyebrow?: string;
 };
 
-export default function AuthScreenLayout({ title, subtitle, onBack, children, eyebrow = 'MICROJOB' }: AuthScreenLayoutProps) {
+export default function AuthScreenLayout({ title, subtitle, onBack, children }: AuthScreenLayoutProps) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const horizontalPadding = clamp(screenWidth * 0.05, 16, 24);
@@ -37,7 +38,7 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children, ey
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 24}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -58,9 +59,10 @@ export default function AuthScreenLayout({ title, subtitle, onBack, children, ey
             <CanvasBackButton
               style={{ width: backButtonSize, height: backButtonSize, borderRadius: clamp(backButtonSize * 0.29, 14, 16) }}
               onPress={onBack}
+              lightSurface
             />
           ) : <View style={{ width: backButtonSize, height: backButtonSize }} />}
-          <Text style={styles.brand}>{eyebrow}</Text>
+          <MicroJobsLogo compact />
           <View style={{ width: backButtonSize }} />
         </View>
 
@@ -100,19 +102,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 },
-  brand: { color: AUTH_COLORS.primaryText, fontSize: 13, letterSpacing: 1.8, fontWeight: '800' },
   title: {
     fontSize: 42,
     lineHeight: 50,
     fontWeight: '800',
-    color: AUTH_COLORS.primaryText,
+    color: AUTH_COLORS.backgroundDeep,
     marginBottom: 8,
     maxWidth: 340,
   },
   subtitle: {
     fontSize: 20,
     lineHeight: 28,
-    color: '#DBEAFE',
+    color: AUTH_COLORS.textSecondary,
     fontWeight: '500',
     marginBottom: 20,
   },
