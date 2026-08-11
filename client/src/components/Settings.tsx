@@ -14,8 +14,9 @@ import {
   revokeAllSessions,
   cleanupInactiveSessions,
   getVerificationStatus,
-  requestPhoneVerificationOtp,
-  confirmPhoneVerificationOtp,
+  sendPhoneVerificationCode,
+  resendPhoneVerificationCode,
+  verifyPhoneVerificationCode,
   uploadIdentityDocument,
   uploadAddressDocument,
   addWorkExperience,
@@ -1149,13 +1150,11 @@ export function Settings() {
   const handleRequestPhoneCode = async () => {
     try {
       setIsSendingPhoneCode(true);
-      const response = await requestPhoneVerificationOtp();
+      const response = phoneCodeRequested 
+        ? await resendPhoneVerificationCode()
+        : await sendPhoneVerificationCode();
       setPhoneCodeRequested(true);
-      if (response?.devCode) {
-        setPhoneCodeHint(`Dev OTP: ${response.devCode}`);
-      } else {
-        setPhoneCodeHint(null);
-      }
+      setPhoneCodeHint(null);
       toast.success(response?.message || "Verification code sent");
     } catch (error: any) {
       toast.error(error?.message || "Failed to send verification code");
@@ -1172,8 +1171,10 @@ export function Settings() {
     }
     try {
       setIsConfirmingPhoneCode(true);
-      await confirmPhoneVerificationOtp({ code: normalizedCode });
+      await verifyPhoneVerificationCode({ otp: normalizedCode });
       toast.success("Phone verified successfully");
+      setPhoneVerificationCode("");
+      setPhoneCodeRequested(false);
       await reloadVerificationStatus();
     } catch (error: any) {
       toast.error(error?.message || "Failed to verify phone");

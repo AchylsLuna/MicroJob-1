@@ -56,8 +56,18 @@ export const getPhoneOtpConfigStatus = (env = process.env) => {
     return { mode: 'development', valid: true, errors: [] };
   }
 
-  const errors = [];
   const missingKeys = TWILIO_CONFIG_KEYS.filter((key) => !values[key]);
+  // If some Twilio keys are present but others are missing, treat this as partial
+  // configuration. In production this is an error; in development fall back to
+  // the development provider so local testing continues to work.
+  if (configuredKeys.length > 0 && missingKeys.length > 0) {
+    if (String(env.NODE_ENV || '').toLowerCase() === 'production') {
+      return { mode: 'twilio', valid: false, errors: [`Missing required Twilio Messaging variables: ${missingKeys.join(', ')}.`] };
+    }
+    return { mode: 'development', valid: true, errors: [`Partial Twilio configuration detected; using development fallback.`] };
+  }
+
+  const errors = [];
   if (missingKeys.length > 0) {
     errors.push(`Missing required Twilio Messaging variables: ${missingKeys.join(', ')}.`);
   }
@@ -155,8 +165,14 @@ export const toE164Phone = (value = '') => {
 };
 
 const sendTwilioSms = async ({ to, body }) => {
-  const configuration = validatePhoneOtpConfiguration();
+  const configuration = getPhoneOtpConfigStatus();
+  // If explicitly configured for development, short-circuit and let the caller handle dev fallback
   if (configuration.mode === 'development') return false;
+
+  // If configured for Twilio but configuration is invalid, surface the configuration error
+  if (configuration.mode === 'twilio' && !configuration.valid) {
+    throw new PhoneOtpError(configuration.errors.join(' '), 500, { configurationError: true });
+  }
 
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -214,8 +230,15 @@ export const sendPhoneVerificationOtp = async ({ userId, phoneNumber }) => {
   if (!userKey) {
     throw new PhoneOtpError('User context is required for phone verification.', 400);
   }
+  // Log incoming phone for debugging (masked)
+  try {
+    console.info('[phoneOtp] sendPhoneVerificationOtp called for user', userKey, 'phone', maskPhone(String(phoneNumber || '')));
+  } catch (e) {
+    // ignore logging errors
+  }
 
   const phoneE164 = toE164Phone(phoneNumber);
+  console.info('[phoneOtp] normalized phone to E.164', phoneE164);
   const now = Date.now();
   const existing = getOtpRecord(userKey);
 
