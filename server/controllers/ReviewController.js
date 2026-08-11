@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Review from '../models/Review.js';
 import JobApplication from '../models/JobApplication.js';
+import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { getReviewSummary } from '../lib/reviewSummary.js';
 import { serializeReview } from '../lib/reviewPresentation.js';
@@ -21,6 +22,15 @@ const sanitizeCriteria = (input) => {
     if (Number.isInteger(value) && value >= 1 && value <= 5) criteria[key] = value;
   }
   return criteria;
+};
+
+const getReviewerName = (user) => {
+  const companyName = typeof user?.companyName === 'string' ? user.companyName.trim() : '';
+  const fullName = [user?.firstName, user?.lastName]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .map((value) => value.trim())
+    .join(' ');
+  return companyName || fullName || 'Someone';
 };
 
 export async function createReview(req, res) {
@@ -83,17 +93,45 @@ export async function createReview(req, res) {
     });
 
     try {
+      const reviewer = await User.findById(reviewerId).select('firstName lastName companyName');
+      const reviewerName = getReviewerName(reviewer);
+      const hasComment = Boolean(comment.trim());
+      const starLabel = `${ratingValue} ${ratingValue === 1 ? 'star' : 'stars'}`;
       await createNotification({
         userId: reviewee,
-        type: 'achievement',
-        title: 'New review received',
-        message: `You received a ${ratingValue}-star review for ${application.job.title || 'a completed job'}.`,
+        type: 'review',
+        title: hasComment ? 'New rating and review' : 'New rating received',
+        message: hasComment
+          ? `${reviewerName} rated you ${starLabel} and commented on your profile.`
+          : `${reviewerName} rated you ${starLabel}.`,
         link: `/profiles/${reviewee}?viewAs=${revieweeRole}`,
-        entityType: 'job',
-        entityId: application.job._id,
+        entityType: 'review',
+        entityId: review._id,
         actor: reviewerId,
+        metadata: {
+          reviewId: review._id,
+          applicationId: application._id,
+          jobId: application.job._id,
+          jobTitle: application.job.title,
+          reviewerId,
+          reviewerName,
+          revieweeId: reviewee,
+          revieweeRole,
+          rating: ratingValue,
+          hasComment,
+        },
+        dedupeKey: `review:${review._id}:created`,
         push: true,
-        socketPayload: { reviewId: String(review._id), jobId: String(application.job._id) },
+        socketPayload: {
+          reviewId: String(review._id),
+          applicationId: String(application._id),
+          jobId: String(application.job._id),
+          jobTitle: application.job.title,
+          reviewerId: String(reviewerId),
+          reviewerName,
+          rating: ratingValue,
+          hasComment,
+        },
       });
     } catch (notificationError) {
       console.warn('Review notification failed:', notificationError?.message || notificationError);
@@ -263,17 +301,33 @@ export async function replyToReview(req, res) {
     await review.save();
 
     try {
+      const profileOwner = await User.findById(userId).select('firstName lastName companyName');
+      const profileOwnerName = getReviewerName(profileOwner);
       await createNotification({
         userId: review.reviewer,
-        type: 'achievement',
+        type: 'review',
         title: 'Reply to your review',
-        message: 'The profile owner replied to your review.',
+        message: `${profileOwnerName} replied to your review.`,
         link: `/profiles/${review.reviewee}?viewAs=${review.revieweeRole}`,
         entityType: 'review',
         entityId: review._id,
         actor: userId,
+        metadata: {
+          reviewId: review._id,
+          jobId: review.job,
+          applicationId: review.application,
+          profileOwnerId: review.reviewee,
+          profileOwnerName,
+        },
+        dedupeKey: `review:${review._id}:owner-reply`,
         push: true,
-        socketPayload: { reviewId: String(review._id) },
+        socketPayload: {
+          reviewId: String(review._id),
+          jobId: String(review.job),
+          applicationId: String(review.application),
+          profileOwnerId: String(review.reviewee),
+          profileOwnerName,
+        },
       });
     } catch (notificationError) {
       console.warn('Review reply notification failed:', notificationError?.message || notificationError);

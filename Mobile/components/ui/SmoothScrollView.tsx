@@ -23,7 +23,6 @@ const SmoothScrollView = forwardRef<ScrollView, ScrollViewProps>(function Smooth
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       scrollEventThrottle={16}
       overScrollMode="auto"
-      directionalLockEnabled
       {...props}
     />
   );

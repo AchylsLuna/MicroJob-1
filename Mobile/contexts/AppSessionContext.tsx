@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
+import { Alert, AppState } from 'react-native';
 import AsyncStorage from '../lib/storage';
 import io from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '../config';
@@ -60,6 +60,7 @@ type AppSessionContextValue = {
   clearInitialEmployerChatTarget: () => void;
   markMessagesViewed: () => void;
   dismissWorkerNotification: (notificationId: string) => void;
+  clearUnreadNotifications: () => void;
   toggleSavedJob: (job: any) => Promise<void>;
   removeSavedJob: (jobId: string) => Promise<void>;
   refreshSavedJobs: () => Promise<void>;
@@ -399,6 +400,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         socketFailureCountRef.current = 0;
         socketErrorLogRef.current = { message: '', at: 0 };
         socket.emit('register', String(currentUserIdRef.current));
+        void refreshNotifications();
       });
 
       socket.on('connect_error', (err: any) => {
@@ -478,6 +480,16 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
 
     return disconnectSocket;
   }, [disconnectSocket, isAuthenticated, refreshNotifications, refreshProfile]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return undefined;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void refreshNotifications();
+      }
+    });
+    return () => subscription.remove();
+  }, [isAuthenticated, refreshNotifications]);
 
   const handleAuthSuccess = useCallback(async () => {
     await AsyncStorage.setItem(HAS_ONBOARDED_KEY, 'true');
@@ -593,6 +605,11 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setEmployerNotifications(remove);
   }, []);
 
+  const clearUnreadNotifications = useCallback(() => {
+    setWorkerNotifications([]);
+    setEmployerNotifications([]);
+  }, []);
+
   const value = useMemo<AppSessionContextValue>(() => ({
     isReady,
     isAuthenticated,
@@ -628,6 +645,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     clearInitialEmployerChatTarget: () => setInitialEmployerChatTarget(null),
     markMessagesViewed: () => setUnreadMessageCount(0),
     dismissWorkerNotification,
+    clearUnreadNotifications,
     toggleSavedJob,
     removeSavedJob,
     refreshSavedJobs,
@@ -635,6 +653,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     refreshProfile,
   }), [
     canAccessEmployer,
+    clearUnreadNotifications,
     dismissWorkerNotification,
     handleAuthSuccess,
     hasOnboarded,

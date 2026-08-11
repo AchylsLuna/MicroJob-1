@@ -21,6 +21,7 @@ import PublicProfile from '../shared/PublicProfile';
 import { tokens } from '../../theme/tokens';
 import RatingModal, { MobileRatingTarget } from '../../components/reviews/RatingModal';
 import { useToast } from '../../contexts/ToastContext';
+import { useAppSession } from '../../contexts/AppSessionContext';
 
 type ApplicationItem = {
   _id: string;
@@ -102,6 +103,7 @@ export default function EmployerApplications({
   onMessageWorker,
 }: EmployerApplicationsProps) {
   const toast = useToast();
+  const session = useAppSession();
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -191,6 +193,17 @@ export default function EmployerApplications({
     const debounce = setTimeout(fetchApplications, 300);
     return () => clearTimeout(debounce);
   }, [statusFilter, jobFilter, search, fetchApplications]);
+
+  const latestApplicationNotification = useMemo(() => {
+    const match = session.employerNotifications
+      .map((raw) => raw?.notification || raw)
+      .find((item) => String(item?.type || '').toLowerCase() === 'application');
+    return String(match?._id || match?.id || match?.updatedAt || '');
+  }, [session.employerNotifications]);
+
+  useEffect(() => {
+    if (latestApplicationNotification) void fetchApplications();
+  }, [fetchApplications, latestApplicationNotification]);
 
   const handleStatusChange = async (applicationId: string, status: ApplicationStatus) => {
     setUpdatingId(applicationId);

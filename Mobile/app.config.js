@@ -9,7 +9,6 @@ const expo = {
   },
   scheme: 'microjobs',
   plugins: [
-    '@react-native-community/datetimepicker',
     'expo-font',
     'expo-secure-store',
   ],

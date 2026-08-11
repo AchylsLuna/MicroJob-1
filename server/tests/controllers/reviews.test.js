@@ -8,6 +8,7 @@ import Job from '../../models/Job.js';
 import JobApplication from '../../models/JobApplication.js';
 import Review from '../../models/Review.js';
 import User from '../../models/User.js';
+import Notification from '../../models/Notification.js';
 import { getReviewSummary } from '../../lib/reviewSummary.js';
 
 let mongoServer;
@@ -23,6 +24,7 @@ before(async () => {
   mongoServer = await MongoMemoryServer.create();
   await mongoose.connect(mongoServer.getUri(), { dbName: 'microjobs-reviews-test' });
   await Review.init();
+  await Notification.init();
 });
 
 after(async () => {
@@ -33,6 +35,7 @@ after(async () => {
 beforeEach(async () => {
   await mongoose.connection.db.dropDatabase();
   await Review.syncIndexes();
+  await Notification.syncIndexes();
 });
 
 const createParticipant = (email, role, firstName) => User.create({
@@ -74,6 +77,11 @@ test('completed hired workers and employers may review each other once', async (
   );
   assert.equal(workerResponse.statusCode, 201);
   assert.equal(workerResponse.payload.review.revieweeRole, 'employer');
+  const employerReviewNotification = await Notification.findOne({ user: employer._id, type: 'review' });
+  assert.ok(employerReviewNotification);
+  assert.equal(employerReviewNotification.message, 'Worker User rated you 5 stars and commented on your profile.');
+  assert.equal(String(employerReviewNotification.metadata.applicationId), String(application._id));
+  assert.equal(employerReviewNotification.metadata.jobTitle, 'Electrical repair');
 
   const replyResponse = createResponse();
   await replyToReview(
@@ -82,6 +90,7 @@ test('completed hired workers and employers may review each other once', async (
   );
   assert.equal(replyResponse.statusCode, 200);
   assert.equal(replyResponse.payload.review.ownerReply, 'Thank you for the feedback.');
+  assert.equal(await Notification.countDocuments({ user: worker._id, type: 'review' }), 1);
 
   const unauthorizedReply = createResponse();
   await replyToReview(
@@ -124,6 +133,7 @@ test('completed hired workers and employers may review each other once', async (
     duplicateResponse
   );
   assert.equal(duplicateResponse.statusCode, 409);
+  assert.equal(await Notification.countDocuments({ user: employer._id, type: 'review' }), 1);
 
   const employerResponse = createResponse();
   await createReview(
@@ -133,6 +143,12 @@ test('completed hired workers and employers may review each other once', async (
   assert.equal(employerResponse.statusCode, 201);
   assert.equal(employerResponse.payload.review.revieweeRole, 'worker');
   assert.equal(employerResponse.payload.review.comment, '');
+  const workerRatingNotification = await Notification.findOne({
+    user: worker._id,
+    message: 'Employer User rated you 5 stars.',
+  });
+  assert.ok(workerRatingNotification);
+  assert.equal(workerRatingNotification.message, 'Employer User rated you 5 stars.');
 
   const strangerResponse = createResponse();
   await createReview(

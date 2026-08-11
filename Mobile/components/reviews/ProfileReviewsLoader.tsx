@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import ProfileReviews, { type MobileProfileReview, type MobileReviewSummary } from './ProfileReviews';
+import { useAppSession } from '../../contexts/AppSessionContext';
 
 type ReviewSort = 'recent' | 'highest' | 'lowest' | 'helpful';
 
@@ -24,6 +25,7 @@ export default function ProfileReviewsLoader({
   profileOwnerName: string;
   viewAs: 'worker' | 'employer';
 }) {
+  const session = useAppSession();
   const [summary, setSummary] = useState<MobileReviewSummary>(EMPTY_SUMMARY);
   const [reviews, setReviews] = useState<MobileProfileReview[]>([]);
   const [sort, setSort] = useState<ReviewSort>('recent');
@@ -91,6 +93,24 @@ export default function ProfileReviewsLoader({
     const refreshTimer = setInterval(() => void loadPage(1, 'refresh'), 30_000);
     return () => clearInterval(refreshTimer);
   }, [loadPage]);
+
+  const latestReviewNotification = useMemo(() => {
+    const notifications = viewAs === 'employer' ? session.employerNotifications : session.workerNotifications;
+    const match = notifications
+      .map((raw) => raw?.notification || raw)
+      .find((item) => (
+        String(item?.type || '').toLowerCase() === 'review'
+        || String(item?.entityType || '').toLowerCase() === 'review'
+      ));
+    return String(match?._id || match?.id || match?.updatedAt || '');
+  }, [session.employerNotifications, session.workerNotifications, viewAs]);
+
+  useEffect(() => {
+    const currentUserId = String(session.user?._id || session.user?.id || '');
+    if (latestReviewNotification && currentUserId === String(profileOwnerId)) {
+      void loadPage(1, 'refresh');
+    }
+  }, [latestReviewNotification, loadPage, profileOwnerId, session.user]);
 
   if (!profileOwnerId || loading) {
     return <View style={styles.state}><ActivityIndicator color={tokens.colors.brand} /><Text style={styles.stateText}>Loading ratings and reviews…</Text></View>;

@@ -9,6 +9,16 @@ export type NotificationListItem = {
   createdAt: string;
   readAt: string | null;
   actorName: string;
+  actorId: string;
+  entityType: string;
+  entityId: string;
+  jobId: string;
+  jobTitle: string;
+  applicationId: string;
+  reviewId: string;
+  senderId: string;
+  conversationId: string;
+  metadata: Record<string, any>;
   icon: ComponentProps<typeof Ionicons>['name'];
   accentColor: string;
   accentBackground: string;
@@ -29,6 +39,8 @@ export const getNotificationId = (item: any): string =>
 const getActorName = (item: any): string => {
   const actor = item?.actor;
   if (actor && typeof actor === 'object') {
+    const companyName = typeof actor.companyName === 'string' ? actor.companyName.trim() : '';
+    if (companyName) return companyName;
     const fullName = [actor.firstName, actor.lastName].filter(Boolean).join(' ').trim();
     if (fullName) return fullName;
     if (actor.email) return String(actor.email);
@@ -51,6 +63,8 @@ const getAppearance = (type: string) => {
       return { icon: 'shield-checkmark-outline' as const, accentColor: '#0F766E', accentBackground: '#CCFBF1' };
     case 'message':
       return { icon: 'chatbubble-ellipses-outline' as const, accentColor: '#1C4D8D', accentBackground: '#DBEAFE' };
+    case 'review':
+      return { icon: 'star-outline' as const, accentColor: '#B45309', accentBackground: '#FEF3C7' };
     default:
       return { icon: 'notifications-outline' as const, accentColor: '#475569', accentBackground: '#EEF2F7' };
   }
@@ -72,27 +86,77 @@ const normalizeApplicationPayload = (item: any) => ({
 
 export const normalizeNotificationItem = (raw: any): NotificationListItem => {
   const item = raw?.notification || raw;
+  const rawSocketPayload = raw?.socketPayload || item?.socketPayload || {};
+  const socketPayload = rawSocketPayload?.notification
+    ? { ...rawSocketPayload, ...rawSocketPayload.notification }
+    : rawSocketPayload;
+  const metadata = {
+    ...(socketPayload && typeof socketPayload === 'object' ? socketPayload : {}),
+    ...(item?.metadata && typeof item.metadata === 'object' ? item.metadata : {}),
+  };
+  const looksLikeReview = /\b(review|rating|rated)\b/i.test(`${item?.title || ''} ${item?.message || ''}`);
+  const inferredType = String(item?.entityType || '').toLowerCase() === 'review' || looksLikeReview
+    ? 'review'
+    : String(item?.type || 'system');
 
   const normalized = item?.title || item?.message
     ? {
         id: getNotificationId(item),
-        type: String(item?.type || 'system'),
+        type: inferredType,
         title: String(item?.title || 'Notification'),
         message: String(item?.message || 'You have a new update.'),
         createdAt: item?.createdAt || item?.updatedAt || FALLBACK_TIMESTAMP(),
         readAt: item?.readAt || null,
-        actorName: getActorName(item),
+        actorName: getActorName(item)
+          || String(metadata.senderName || metadata.reviewerName || metadata.applicantName || metadata.profileOwnerName || ''),
       }
-    : normalizeApplicationPayload(item);
+    : normalizeApplicationPayload({ ...item, ...metadata });
 
   const appearance = getAppearance(normalized.type);
+  const actor = item?.actor;
+  const actorId = String(
+    (actor && typeof actor === 'object' ? actor._id || actor.id : actor)
+      || metadata.actorId
+      || metadata.senderId
+      || metadata.reviewerId
+      || metadata.applicantId
+      || '',
+  );
 
   return {
     ...normalized,
+    actorId,
+    entityType: String(item?.entityType || metadata.entityType || ''),
+    entityId: String(item?.entityId || metadata.entityId || ''),
+    jobId: String(metadata.jobId || ''),
+    jobTitle: String(metadata.jobTitle || ''),
+    applicationId: String(metadata.applicationId || (item?.entityType === 'application' ? item?.entityId : '') || ''),
+    reviewId: String(metadata.reviewId || (item?.entityType === 'review' ? item?.entityId : '') || ''),
+    senderId: String(metadata.senderId || (normalized.type === 'message' ? actorId : '') || ''),
+    conversationId: String(metadata.conversationId || ''),
+    metadata,
     icon: appearance.icon,
     accentColor: appearance.accentColor,
     accentBackground: appearance.accentBackground,
   };
+};
+
+export const formatNotificationType = (value?: string) => {
+  const normalized = String(value || 'update').replace(/[_-]+/g, ' ').trim();
+  return normalized ? normalized.replace(/\b\w/g, (letter) => letter.toUpperCase()) : 'Update';
+};
+
+export const formatNotificationDateTime = (value?: string) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 };
 
 export const formatNotificationTime = (value?: string) => {

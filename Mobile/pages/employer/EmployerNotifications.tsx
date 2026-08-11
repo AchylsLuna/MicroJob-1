@@ -7,7 +7,13 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
-import { formatNotificationTime, normalizeNotificationItem, type NotificationListItem } from '../../lib/notifications';
+import {
+  formatNotificationDateTime,
+  formatNotificationTime,
+  formatNotificationType,
+  normalizeNotificationItem,
+  type NotificationListItem,
+} from '../../lib/notifications';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { useAppSession } from '../../contexts/AppSessionContext';
@@ -16,18 +22,21 @@ type EmployerNotificationsProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   liveNotifications?: any[];
+  onOpenNotification?: (notification: NotificationListItem) => void;
 };
 
 export default function EmployerNotifications({
   activeTab = 'Notifications',
   onTabPress,
   liveNotifications = [],
+  onOpenNotification,
 }: EmployerNotificationsProps) {
   const [notifications, setNotifications] = useState<NotificationListItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const toast = useToast();
   const session = useAppSession();
+  const { clearUnreadNotifications, dismissWorkerNotification, refreshNotifications } = session;
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.readAt).length, [notifications]);
 
@@ -54,13 +63,13 @@ export default function EmployerNotifications({
       const records = Array.isArray(result.raw) ? result.raw : [];
       const normalized = records.map((item: any) => normalizeNotificationItem(item));
       setNotifications(normalized);
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to load notifications.');
     } finally {
       setIsLoading(false);
     }
-  }, [session, toast]);
+  }, [refreshNotifications, toast]);
 
   useEffect(() => {
     void loadNotifications();
@@ -72,6 +81,9 @@ export default function EmployerNotifications({
   }, [liveNotifications]);
 
   const handleMarkRead = async (notificationId: string) => {
+    const readAt = new Date().toISOString();
+    setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, readAt } : item)));
+    dismissWorkerNotification(notificationId);
     setProcessingId(notificationId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -83,10 +95,10 @@ export default function EmployerNotifications({
         throw new Error(result.message || 'Failed to mark notification as read.');
       }
 
-      const readAt = new Date().toISOString();
-      setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, readAt } : item)));
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
+      setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, readAt: null } : item)));
+      await refreshNotifications();
       toast.error(error?.message || 'Failed to mark notification as read.');
     } finally {
       setProcessingId(null);
@@ -106,7 +118,8 @@ export default function EmployerNotifications({
       }
 
       setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
-      await session.refreshNotifications();
+      dismissWorkerNotification(notificationId);
+      await refreshNotifications();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete notification.');
     } finally {
@@ -115,6 +128,10 @@ export default function EmployerNotifications({
   };
 
   const handleMarkAllRead = async () => {
+    const unreadIds = new Set(notifications.filter((item) => !item.readAt).map((item) => item.id));
+    const readAt = new Date().toISOString();
+    setNotifications((prev) => prev.map((item) => ({ ...item, readAt: item.readAt || readAt })));
+    clearUnreadNotifications();
     setProcessingId('all-read');
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -126,14 +143,19 @@ export default function EmployerNotifications({
         throw new Error(result.message || 'Failed to mark notifications as read.');
       }
 
-      const readAt = new Date().toISOString();
-      setNotifications((prev) => prev.map((item) => ({ ...item, readAt })));
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
+      setNotifications((prev) => prev.map((item) => (unreadIds.has(item.id) ? { ...item, readAt: null } : item)));
+      await refreshNotifications();
       toast.error(error?.message || 'Failed to mark notifications as read.');
     } finally {
       setProcessingId(null);
     }
+  };
+
+  const handleOpenNotification = (notification: NotificationListItem) => {
+    if (!notification.readAt) void handleMarkRead(notification.id);
+    onOpenNotification?.(notification);
   };
 
   return (
@@ -143,8 +165,8 @@ export default function EmployerNotifications({
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.summaryCard}>
           <View style={styles.summaryCopy}>
-            <Text style={styles.summaryTitle}>Team activity feed</Text>
-            <Text style={styles.summarySubtitle}>Track new applications, support updates, payout actions, and account alerts without leaving mobile.</Text>
+            <Text style={styles.summaryTitle}>Notifications{unreadCount ? ` (${unreadCount})` : ''}</Text>
+            <Text style={styles.summarySubtitle}>Applications, reviews, messages, payments, and account updates in one feed.</Text>
           </View>
           <View style={styles.summaryBadge}>
             <Text style={styles.summaryBadgeValue}>{unreadCount}</Text>
@@ -182,7 +204,14 @@ export default function EmployerNotifications({
             const isUnread = !notification.readAt;
             const isBusy = processingId === notification.id;
             return (
-              <View key={notification.id} style={[styles.notificationCard, isUnread && styles.notificationCardUnread]}>
+              <TouchableOpacity
+                key={notification.id}
+                style={[styles.notificationCard, isUnread && styles.notificationCardUnread]}
+                activeOpacity={0.82}
+                onPress={() => handleOpenNotification(notification)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${notification.title}`}
+              >
                 <View style={[styles.iconWrap, { backgroundColor: notification.accentBackground }]}> 
                   <Ionicons name={notification.icon} size={20} color={notification.accentColor} />
                 </View>
@@ -194,6 +223,12 @@ export default function EmployerNotifications({
                   </View>
                   <Text style={styles.notificationMessage}>{notification.message}</Text>
                   {notification.actorName ? <Text style={styles.actorText}>From: {notification.actorName}</Text> : null}
+                  {notification.jobTitle ? <Text style={styles.jobText}>Job: {notification.jobTitle}</Text> : null}
+                  <View style={styles.detailRow}>
+                    <Text style={styles.typeText}>{formatNotificationType(notification.type)}</Text>
+                    <Text style={styles.dateText}>{formatNotificationDateTime(notification.createdAt)}</Text>
+                    {isUnread ? <View style={styles.unreadDot} /> : null}
+                  </View>
 
                   <View style={styles.cardActionsRow}>
                     {isUnread ? (
@@ -214,7 +249,7 @@ export default function EmployerNotifications({
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -397,6 +432,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: tokens.colors.brand,
+  },
+  jobText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  typeText: {
+    borderRadius: 999,
+    backgroundColor: '#EAF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    color: tokens.colors.brand,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  dateText: {
+    flexShrink: 1,
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: tokens.colors.brand,
   },
   cardActionsRow: {
     marginTop: 4,

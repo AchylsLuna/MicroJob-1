@@ -1,6 +1,7 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
 import { emitToUser } from '../lib/socket.js';
+import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { isValidObjectId, validateMessageContent } from '../lib/messageSecurity.js';
 
@@ -15,10 +16,11 @@ const toIdString = (value) => {
 
 const getDisplayName = (user) => {
   if (!user || typeof user !== 'object') return 'User';
+  const companyName = typeof user.companyName === 'string' ? user.companyName.trim() : '';
   const firstName = typeof user.firstName === 'string' ? user.firstName.trim() : '';
   const lastName = typeof user.lastName === 'string' ? user.lastName.trim() : '';
   const fullName = `${firstName} ${lastName}`.trim();
-  return fullName || 'User';
+  return companyName || fullName || 'User';
 };
 
 const normalizeOptionalJobId = (jobId) => {
@@ -30,8 +32,8 @@ const EDIT_WINDOW_MS = 30 * 1000;
 
 const withMessagePopulate = (query) =>
   query
-    .populate('sender', 'firstName lastName')
-    .populate('receiver', 'firstName lastName')
+    .populate('sender', 'firstName lastName companyName')
+    .populate('receiver', 'firstName lastName companyName')
     .populate('job', 'title');
 
 const getConversationWithUser = async (req, res) => {
@@ -138,6 +140,46 @@ const MessageController = {
         emitToUser(senderId, 'new_message_echo', payload);
       } catch (e) {
         // ignore emit errors
+      }
+
+      try {
+        const payload = hydratedMessage || message;
+        const senderName = getDisplayName(payload.sender);
+        const jobTitle = payload.job?.title || null;
+        const participantIds = [String(senderId), String(receiverId)].sort();
+        const conversationId = `${participantIds.join(':')}:${normalizedJobId || 'general'}`;
+        await createNotification({
+          userId: receiverId,
+          type: 'message',
+          title: 'New message',
+          message: `${senderName} sent you a message.`,
+          link: `/messages/${senderId}${normalizedJobId ? `?jobId=${normalizedJobId}` : ''}`,
+          entityType: 'message',
+          entityId: message._id,
+          actor: senderId,
+          metadata: {
+            messageId: message._id,
+            senderId,
+            senderName,
+            receiverId,
+            jobId: normalizedJobId,
+            jobTitle,
+            conversationId,
+          },
+          dedupeKey: `message:${message._id}:created`,
+          socketPayload: {
+            messageId: String(message._id),
+            senderId: String(senderId),
+            senderName,
+            receiverId: String(receiverId),
+            jobId: normalizedJobId ? String(normalizedJobId) : null,
+            jobTitle,
+            conversationId,
+          },
+          push: true,
+        });
+      } catch (notificationError) {
+        console.warn('Message notification failed:', notificationError?.message || notificationError);
       }
 
       const payload = hydratedMessage || message;

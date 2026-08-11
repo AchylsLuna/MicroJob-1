@@ -29,7 +29,7 @@ export async function listNotifications(req, res) {
     const safeLimit = Math.min(Number.parseInt(limit || '50', 10) || 50, 200);
 
     const notifications = await Notification.find(filter)
-      .populate('actor', 'firstName lastName email role status')
+      .populate('actor', 'firstName lastName companyName email role status')
       .sort({ createdAt: -1 })
       .limit(safeLimit)
       .lean();

@@ -7,7 +7,13 @@ import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { API_URL } from '../../config';
 import { apiRequest } from '../../lib/api';
-import { formatNotificationTime, normalizeNotificationItem, type NotificationListItem } from '../../lib/notifications';
+import {
+  formatNotificationDateTime,
+  formatNotificationTime,
+  formatNotificationType,
+  normalizeNotificationItem,
+  type NotificationListItem,
+} from '../../lib/notifications';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { useAppSession } from '../../contexts/AppSessionContext';
@@ -18,6 +24,7 @@ type NotificationsInboxProps = {
   liveNotifications?: any[];
   messageBadgeCount?: number;
   onDismissLiveNotification?: (notificationId: string) => void;
+  onOpenNotification?: (notification: NotificationListItem) => void;
 };
 
 export default function NotificationsInbox({
@@ -26,6 +33,7 @@ export default function NotificationsInbox({
   liveNotifications = [],
   messageBadgeCount = 0,
   onDismissLiveNotification,
+  onOpenNotification,
 }: NotificationsInboxProps) {
   const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<NotificationListItem[]>([]);
@@ -33,6 +41,7 @@ export default function NotificationsInbox({
   const [processingId, setProcessingId] = useState<string | null>(null);
   const toast = useToast();
   const session = useAppSession();
+  const { clearUnreadNotifications, refreshNotifications } = session;
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.readAt).length, [notifications]);
 
@@ -59,13 +68,13 @@ export default function NotificationsInbox({
       const records = Array.isArray(result.raw) ? result.raw : [];
       const normalized = records.map((item: any) => normalizeNotificationItem(item));
       setNotifications(normalized);
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to load notifications.');
     } finally {
       setIsLoading(false);
     }
-  }, [session, toast]);
+  }, [refreshNotifications, toast]);
 
   useEffect(() => {
     void loadNotifications();
@@ -77,6 +86,9 @@ export default function NotificationsInbox({
   }, [liveNotifications]);
 
   const handleMarkRead = async (notificationId: string) => {
+    const readAt = new Date().toISOString();
+    setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, readAt } : item)));
+    onDismissLiveNotification?.(notificationId);
     setProcessingId(notificationId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -88,11 +100,10 @@ export default function NotificationsInbox({
         throw new Error(result.message || 'Failed to mark notification as read.');
       }
 
-      const readAt = new Date().toISOString();
-      setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, readAt } : item)));
-      onDismissLiveNotification?.(notificationId);
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
+      setNotifications((prev) => prev.map((item) => (item.id === notificationId ? { ...item, readAt: null } : item)));
+      await refreshNotifications();
       toast.error(error?.message || 'Failed to mark notification as read.');
     } finally {
       setProcessingId(null);
@@ -113,7 +124,7 @@ export default function NotificationsInbox({
 
       setNotifications((prev) => prev.filter((item) => item.id !== notificationId));
       onDismissLiveNotification?.(notificationId);
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to delete notification.');
     } finally {
@@ -122,6 +133,10 @@ export default function NotificationsInbox({
   };
 
   const handleMarkAllRead = async () => {
+    const unreadIds = new Set(notifications.filter((item) => !item.readAt).map((item) => item.id));
+    const readAt = new Date().toISOString();
+    setNotifications((prev) => prev.map((item) => ({ ...item, readAt: item.readAt || readAt })));
+    clearUnreadNotifications();
     setProcessingId('all-read');
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -133,10 +148,10 @@ export default function NotificationsInbox({
         throw new Error(result.message || 'Failed to mark notifications as read.');
       }
 
-      const readAt = new Date().toISOString();
-      setNotifications((prev) => prev.map((item) => ({ ...item, readAt })));
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
+      setNotifications((prev) => prev.map((item) => (unreadIds.has(item.id) ? { ...item, readAt: null } : item)));
+      await refreshNotifications();
       toast.error(error?.message || 'Failed to mark notifications as read.');
     } finally {
       setProcessingId(null);
@@ -156,7 +171,7 @@ export default function NotificationsInbox({
       }
 
       setNotifications((prev) => prev.filter((item) => !item.readAt));
-      await session.refreshNotifications();
+      await refreshNotifications();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to clear read notifications.');
     } finally {
@@ -164,12 +179,17 @@ export default function NotificationsInbox({
     }
   };
 
+  const handleOpenNotification = (notification: NotificationListItem) => {
+    if (!notification.readAt) void handleMarkRead(notification.id);
+    onOpenNotification?.(notification);
+  };
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 10 }]}>
         <View>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>Applications, interviews, payouts, and support updates in one feed.</Text>
+          <Text style={styles.headerTitle}>Notifications{unreadCount ? ` (${unreadCount})` : ''}</Text>
+          <Text style={styles.headerSubtitle}>Applications, interviews, reviews, messages, and account updates.</Text>
         </View>
       </View>
 
@@ -225,7 +245,14 @@ export default function NotificationsInbox({
             const isUnread = !notification.readAt;
             const isBusy = processingId === notification.id;
             return (
-              <View key={notification.id} style={[styles.notificationCard, isUnread && styles.notificationCardUnread]}>
+              <TouchableOpacity
+                key={notification.id}
+                style={[styles.notificationCard, isUnread && styles.notificationCardUnread]}
+                activeOpacity={0.82}
+                onPress={() => handleOpenNotification(notification)}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${notification.title}`}
+              >
                 <View style={[styles.iconWrap, { backgroundColor: notification.accentBackground }]}> 
                   <Ionicons name={notification.icon} size={20} color={notification.accentColor} />
                 </View>
@@ -237,6 +264,12 @@ export default function NotificationsInbox({
                   </View>
                   <Text style={styles.notificationMessage}>{notification.message}</Text>
                   {notification.actorName ? <Text style={styles.actorText}>From: {notification.actorName}</Text> : null}
+                  {notification.jobTitle ? <Text style={styles.jobText}>Job: {notification.jobTitle}</Text> : null}
+                  <View style={styles.detailRow}>
+                    <Text style={styles.typeText}>{formatNotificationType(notification.type)}</Text>
+                    <Text style={styles.dateText}>{formatNotificationDateTime(notification.createdAt)}</Text>
+                    {isUnread ? <View style={styles.unreadDot} /> : null}
+                  </View>
 
                   <View style={styles.cardActionsRow}>
                     {isUnread ? (
@@ -257,7 +290,7 @@ export default function NotificationsInbox({
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -454,6 +487,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: tokens.colors.brand,
+  },
+  jobText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  typeText: {
+    borderRadius: 999,
+    backgroundColor: '#EAF2FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    color: tokens.colors.brand,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  dateText: {
+    flexShrink: 1,
+    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  unreadDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: tokens.colors.brand,
   },
   cardActionsRow: {
     marginTop: 4,

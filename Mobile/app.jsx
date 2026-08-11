@@ -473,6 +473,35 @@ function WorkerAppliedJobsScreen() {
 function WorkerNotificationsScreen() {
   const navigation = useNavigation();
   const session = useAppSession();
+  const openNotification = (notification) => {
+    const type = String(notification?.type || '').toLowerCase();
+    if (type === 'message') {
+      const senderId = notification.senderId || notification.actorId || notification.metadata?.senderId;
+      if (senderId) {
+        session.setInitialWorkerChatTarget({ id: String(senderId), name: notification.actorName || 'Sender' });
+      }
+      session.markMessagesViewed();
+      navigation.navigate('WorkerTabs', { screen: 'Messages' });
+      return;
+    }
+    if (type === 'application' || type === 'interview') {
+      navigation.navigate('WorkerAppliedJobs');
+      return;
+    }
+    if (type === 'review' || notification?.entityType === 'review') {
+      navigation.navigate('WorkerTabs', { screen: 'Profile' });
+      return;
+    }
+    if (type === 'payment' || type === 'payout') {
+      navigation.navigate('WorkerTabs', { screen: 'EWallet' });
+      return;
+    }
+    if (type === 'support') {
+      navigation.navigate('WorkerSupport');
+      return;
+    }
+    if (type === 'account') navigation.navigate('WorkerSettings');
+  };
   return (
     <NotificationsInbox
       activeTab="Home"
@@ -480,6 +509,7 @@ function WorkerNotificationsScreen() {
       liveNotifications={session.workerNotifications}
       messageBadgeCount={session.unreadMessageCount}
       onDismissLiveNotification={session.dismissWorkerNotification}
+      onOpenNotification={openNotification}
     />
   );
 }
@@ -633,9 +663,46 @@ function EmployerMessagesScreen() {
 }
 
 function EmployerNotificationsScreen() {
+  const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
   const session = useAppSession();
-  return <EmployerNotifications activeTab="Notifications" onTabPress={employerTabPress} liveNotifications={session.employerNotifications} />;
+  const openNotification = (notification) => {
+    const type = String(notification?.type || '').toLowerCase();
+    if (type === 'message') {
+      const senderId = notification.senderId || notification.actorId || notification.metadata?.senderId;
+      if (senderId) {
+        session.setInitialEmployerChatTarget({ id: String(senderId), name: notification.actorName || 'Sender' });
+      }
+      session.markMessagesViewed();
+      navigateToEmployerTab(navigation, 'Messages');
+      return;
+    }
+    if (type === 'application' || type === 'interview') {
+      navigateToEmployerTab(navigation, 'Applications');
+      return;
+    }
+    if (type === 'review' || notification?.entityType === 'review') {
+      navigateToEmployerTab(navigation, 'Profile');
+      return;
+    }
+    if (type === 'payment' || type === 'payout') {
+      navigation.navigate('EmployerEWallet');
+      return;
+    }
+    if (type === 'support') {
+      navigation.navigate('EmployerSupport');
+      return;
+    }
+    if (type === 'account') navigation.navigate('EmployerSettings');
+  };
+  return (
+    <EmployerNotifications
+      activeTab="Notifications"
+      onTabPress={employerTabPress}
+      liveNotifications={session.employerNotifications}
+      onOpenNotification={openNotification}
+    />
+  );
 }
 
 function EmployerProfileScreen() {
@@ -836,8 +903,6 @@ function RootApp() {
   return (
     <View
       style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.signedInCanvas }}
-      onStartShouldSetResponder={() => true}
-      onResponderGrant={() => session.registerActivity()}
       onTouchStart={() => session.registerActivity()}
     >
       <StatusBar style="dark" />

@@ -13,6 +13,7 @@ import { tokens } from '../../theme/tokens';
 import RatingModal, { MobileRatingTarget } from '../../components/reviews/RatingModal';
 import { useToast } from '../../contexts/ToastContext';
 import { formatMinimumPay } from '../../lib/jobCompensation';
+import { useAppSession } from '../../contexts/AppSessionContext';
 
 type AppliedJob = {
   id: string;
@@ -60,6 +61,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     messageBadgeCount = 0,
   } = props;
   const toast = useToast();
+  const session = useAppSession();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [selectedFilter, setSelectedFilter] = useState<'All' | ApplicationStatus>('All');
@@ -136,6 +138,17 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   useFocusEffect(useCallback(() => {
     void fetchApplications();
   }, [fetchApplications]));
+
+  const latestApplicationNotification = useMemo(() => {
+    const match = session.workerNotifications
+      .map((raw) => raw?.notification || raw)
+      .find((item) => ['application', 'interview'].includes(String(item?.type || '').toLowerCase()));
+    return String(match?._id || match?.id || match?.updatedAt || '');
+  }, [session.workerNotifications]);
+
+  useEffect(() => {
+    if (latestApplicationNotification) void fetchApplications();
+  }, [fetchApplications, latestApplicationNotification]);
 
   const handleViewDetails = (job: AppliedJob) => {
     void AsyncStorage.getItem('auth_token').then((token) => apiRequest(

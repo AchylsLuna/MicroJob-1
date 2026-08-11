@@ -133,7 +133,16 @@ async function notifyEmployerOfNewApplication({ application, job, userId }) {
     entityType: 'application',
     entityId: application._id,
     actor: userId,
-    link: '',
+    link: `/employer/applications?applicationId=${application._id}`,
+    metadata: {
+      applicationId: application._id,
+      applicantId: userId,
+      applicantName,
+      jobId: job._id,
+      jobTitle: job.title,
+      status: application.status,
+    },
+    dedupeKey: `application:${application._id}:created`,
     socketEvent: 'new_application',
     socketPayload: {
       id: application._id,
@@ -147,28 +156,56 @@ async function notifyEmployerOfNewApplication({ application, job, userId }) {
   });
 }
 
-async function notifyApplicantStatusChange(application, actorId, title, message) {
+async function notifyApplicantStatusChange(application, actorId, options = {}) {
   const applicant = application.applicant;
   // applicant may be a populated Document (has ._id) or a raw ObjectId — handle both
   const applicantId = applicant?._id ? String(applicant._id) : (applicant ? String(applicant) : null);
   if (!applicantId) return;
 
+  const jobId = application.job?._id || application.job;
+  const jobTitle = application.job?.title || 'this job';
+  const status = application.status;
+  let title = options.title || 'Application updated';
+  let message = options.message || `Your application for ${jobTitle} is now ${String(status || '').toLowerCase()}.`;
+
+  if (!options.message && status === 'Hired') {
+    title = 'You have been hired';
+    message = `You have been hired for ${jobTitle}.`;
+  } else if (!options.message && status === 'Rejected') {
+    title = 'Application rejected';
+    message = `Your application for ${jobTitle} has been rejected.`;
+  } else if (!options.message && status === 'Interview Scheduled') {
+    title = 'Interview invitation';
+    message = `You have been invited for an interview for ${jobTitle}.`;
+  }
+
   await createNotification({
     userId: applicantId,
-    type: 'application',
+    type: options.type || (status === 'Interview Scheduled' ? 'interview' : 'application'),
     title,
     message,
     entityType: 'application',
     entityId: application._id,
     actor: actorId,
-    link: '',
+    link: `/worker/applications?applicationId=${application._id}`,
+    metadata: {
+      applicationId: application._id,
+      jobId,
+      jobTitle,
+      status,
+      interviewId: options.interviewId || null,
+      ...options.metadata,
+    },
+    dedupeKey: options.dedupeKey
+      || `application:${application._id}:status:${status}:${new Date(application.updatedAt).getTime()}`,
     socketEvent: 'application_status_updated',
     socketPayload: {
       id: application._id,
       applicationId: application._id,
-      jobId: application.job?._id || application.job,
-      jobTitle: application.job?.title,
-      status: application.status,
+      jobId,
+      jobTitle,
+      status,
+      interviewId: options.interviewId || null,
       updatedAt: application.updatedAt,
     },
     push: true,
@@ -371,6 +408,13 @@ export const updateApplicationStatus = async (req, res) => {
     const application = result.application;
 
     const previousStatus = application.status;
+    if (previousStatus === canonicalStatus) {
+      const unchanged = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
+      return sendSuccess(res, 200, 'Application status is already up to date', serializeApplication(unchanged), {
+        application: serializeApplication(unchanged),
+      });
+    }
+
     application.status = canonicalStatus;
     application.applicantReadAt = null;
     appendTimeline(application, {
@@ -386,12 +430,7 @@ export const updateApplicationStatus = async (req, res) => {
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
     if (!populated) return sendError(res, 404, 'Application not found after save');
 
-    await notifyApplicantStatusChange(
-      populated,
-      getUserId(req),
-      'Application updated',
-      `Your application for ${populated.job?.title || 'a job'} is now ${canonicalStatus.toLowerCase()}.`
-    );
+    await notifyApplicantStatusChange(populated, getUserId(req));
 
     return sendSuccess(res, 200, 'Application status updated successfully', serializeApplication(populated), {
       application: serializeApplication(populated),
@@ -586,15 +625,18 @@ export const scheduleInterview = async (req, res) => {
       },
     });
     await application.save();
+    const interviewId = application.interviews[application.interviews.length - 1]?._id;
 
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
     if (!populated) return sendError(res, 404, 'Application not found after save');
-    await notifyApplicantStatusChange(
-      populated,
-      getUserId(req),
-      'Interview scheduled',
-      `An interview was scheduled for ${populated.job?.title || 'your application'}.`
-    );
+    await notifyApplicantStatusChange(populated, getUserId(req), {
+      type: 'interview',
+      title: 'Interview invitation',
+      message: `You have been invited for an interview for ${populated.job?.title || 'this job'}.`,
+      interviewId,
+      dedupeKey: `application:${application._id}:interview:${interviewId}:scheduled`,
+      metadata: { scheduledAt: parsedDate, location, mode },
+    });
 
     return sendSuccess(res, 201, 'Interview scheduled successfully', serializeApplication(populated), {
       application: serializeApplication(populated),
@@ -648,12 +690,18 @@ export const updateInterview = async (req, res) => {
     await application.save();
 
     const populated = await populateEmployerApplicationQuery(JobApplication.findById(application._id));
-    await notifyApplicantStatusChange(
-      populated,
-      getUserId(req),
-      scheduledAt !== undefined ? 'Interview updated' : 'Interview notes updated',
-      `Your interview details for ${populated.job?.title || 'your application'} were updated.`
-    );
+    await notifyApplicantStatusChange(populated, getUserId(req), {
+      type: 'interview',
+      title: scheduledAt !== undefined ? 'Interview rescheduled' : 'Interview details updated',
+      message: `Your interview details for ${populated.job?.title || 'this job'} were updated.`,
+      interviewId: interview._id,
+      dedupeKey: `application:${application._id}:interview:${interview._id}:updated:${new Date(interview.updatedAt).getTime()}`,
+      metadata: {
+        scheduledAt: interview.scheduledAt,
+        location: interview.location,
+        mode: interview.mode,
+      },
+    });
 
     return sendSuccess(res, 200, 'Interview updated successfully', serializeApplication(populated), {
       application: serializeApplication(populated),

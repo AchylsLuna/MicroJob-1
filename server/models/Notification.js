@@ -10,7 +10,7 @@ const NotificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['application', 'payment', 'message', 'alert', 'achievement', 'system', 'payout', 'support', 'interview', 'account'],
+      enum: ['application', 'payment', 'message', 'review', 'alert', 'achievement', 'system', 'payout', 'support', 'interview', 'account'],
       default: 'system',
       index: true,
     },
@@ -36,11 +36,21 @@ const NotificationSchema = new mongoose.Schema(
     },
     readAt: { type: Date, default: null },
     metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+    dedupeKey: {
+      type: String,
+      default: null,
+      trim: true,
+      maxlength: 240,
+    },
   },
   { timestamps: true, versionKey: false }
 );
 
 NotificationSchema.index({ user: 1, createdAt: -1 });
 NotificationSchema.index({ user: 1, readAt: 1, createdAt: -1 });
+NotificationSchema.index(
+  { user: 1, dedupeKey: 1 },
+  { unique: true, partialFilterExpression: { dedupeKey: { $type: 'string' } } }
+);
 
 export default mongoose.model('Notification', NotificationSchema);
