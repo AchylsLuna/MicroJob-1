@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { FlatList, Platform, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Navigation from '../../components/navigation';
@@ -34,10 +34,7 @@ export default function SavedJobs({
   messageBadgeCount?: number;
 }) {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
-
   const handleTabPress = (tab: string) => {
-    setActiveTab(tab);
     externalOnTabPress?.(tab);
   };
 
@@ -127,7 +124,7 @@ export default function SavedJobs({
       />
 
       {/* Bottom nav */}
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
+      <Navigation activeTab={externalActiveTab || 'Jobs'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

@@ -224,6 +224,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     if (
       isPath(
         ROUTES.settings,
+        ROUTES.worker.settings,
         ROUTES.legacyDashboard.settings,
         ROUTES.employer.settings,
         ROUTES.doctor.settings,
@@ -507,8 +508,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
         startsWithPath(path, ROUTES.worker.jobDetailsPattern.replace("/:jobId", ""))
       );
     }
-    if (target === ROUTES.settings) {
-      return matchesPath(path, ROUTES.settings) || matchesPath(path, ROUTES.legacyDashboard.settings);
+    if (target === ROUTES.worker.settings) {
+      return matchesPath(path, ROUTES.worker.settings) || matchesPath(path, ROUTES.settings) || matchesPath(path, ROUTES.legacyDashboard.settings);
     }
     return startsWithPath(path, target);
   };
@@ -560,6 +561,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
           )}
           {pageMeta.title && (
             <div className="flex min-w-0 items-center gap-3">
+              <MicroJobsLogo markOnly className="shrink-0 lg:hidden" />
               {pageMeta.icon && (
                 <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#E8F2F8]">
                   {pageMeta.icon}

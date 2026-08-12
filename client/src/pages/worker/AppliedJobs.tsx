@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, BriefcaseBusiness, CalendarDays, ClipboardList, MapPin, Star } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
 import { getEligibleReviews, type ApplicationStatus, type ReviewEligibilityItem } from "../../services/api";
@@ -46,7 +46,12 @@ const formatMinimumPay = (value?: string) => {
 
 const AppliedJobs: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedFilter, setSelectedFilter] = useState<"All" | ApplicationStatus>("All");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedStatus = searchParams.get("status") || "All";
+  const initialFilter = FILTER_OPTIONS.includes(requestedStatus as "All" | ApplicationStatus)
+    ? requestedStatus as "All" | ApplicationStatus
+    : "All";
+  const [selectedFilter, setSelectedFilter] = useState<"All" | ApplicationStatus>(initialFilter);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +68,18 @@ const AppliedJobs: React.FC = () => {
   };
 
   useEffect(() => { void loadReviewEligibility(); }, []);
+
+  useEffect(() => {
+    setSelectedFilter(initialFilter);
+  }, [initialFilter]);
+
+  const updateFilter = (filter: "All" | ApplicationStatus) => {
+    setSelectedFilter(filter);
+    const next = new URLSearchParams(searchParams);
+    if (filter === "All") next.delete("status");
+    else next.set("status", filter);
+    setSearchParams(next, { replace: true });
+  };
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -135,7 +152,7 @@ const AppliedJobs: React.FC = () => {
           <span className="text-sm font-semibold text-slate-600">Status</span>
           <select
             value={selectedFilter}
-            onChange={(event) => setSelectedFilter(event.target.value as "All" | ApplicationStatus)}
+            onChange={(event) => updateFilter(event.target.value as "All" | ApplicationStatus)}
             className="h-11 min-w-48 rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
           >
             {FILTER_OPTIONS.map((filter) => <option key={filter} value={filter}>{filter}</option>)}
@@ -287,7 +304,7 @@ const AppliedJobs: React.FC = () => {
 
                   {selectedFilter !== "All" ? (
                     <button
-                      onClick={() => setSelectedFilter("All")}
+                      onClick={() => updateFilter("All")}
                       className="inline-flex items-center gap-2 rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-3 text-[15px] font-semibold text-[#334155] transition hover:bg-[#F8FAFC]"
                     >
                       Show All Applications

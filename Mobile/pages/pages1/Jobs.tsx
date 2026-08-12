@@ -37,6 +37,7 @@ type JobsProps = {
   onTabPress?: (tab: string) => void;
   notificationBadgeCount?: number;
   messageBadgeCount?: number;
+  initialCategory?: string;
 };
 
 export default function Jobs(props: JobsProps) {
@@ -52,8 +53,8 @@ export default function Jobs(props: JobsProps) {
     onTabPress: externalOnTabPress,
     notificationBadgeCount = 0,
     messageBadgeCount = 0,
+    initialCategory,
   } = props;
-  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -71,6 +72,10 @@ export default function Jobs(props: JobsProps) {
   const [savingPreferences, setSavingPreferences] = useState(false);
 
   const jobTypes = ['All', 'Short-term', 'Side hustle', 'Recruiting'];
+
+  useEffect(() => {
+    setSelectedCategory(initialCategory || 'All');
+  }, [initialCategory]);
 
   const normalizeToken = useCallback((value?: string) =>
     String(value || '')
@@ -246,7 +251,6 @@ export default function Jobs(props: JobsProps) {
   }, [selectedCategory, selectedJobType, searchQuery, fetchJobs]);
 
   const handleTabPress = (tab: string) => {
-    setActiveTab(tab);
     externalOnTabPress?.(tab);
   };
 
@@ -581,7 +585,7 @@ export default function Jobs(props: JobsProps) {
         </View>
       </ScrollView>
 
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
+      <Navigation activeTab={externalActiveTab || 'Jobs'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

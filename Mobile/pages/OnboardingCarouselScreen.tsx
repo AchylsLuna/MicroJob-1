@@ -6,7 +6,6 @@ import {
   BackHandler,
   FlatList,
   type ImageSourcePropType,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,9 +14,9 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AUTH_COLORS, clamp, getAuthMetrics } from '../theme/authTheme';
 import MicroJobsLogo from '../components/auth/MicroJobsLogo';
-import ScrollView from '../components/ui/SmoothScrollView';
 import findWorkArtwork from '../assets/onboarding-find-work.png';
 import hireTalentArtwork from '../assets/onboarding-hire-talent.png';
 import securePaymentArtwork from '../assets/onboarding-secure-payment.png';
@@ -90,29 +89,32 @@ export default function OnboardingCarouselScreen({
   onComplete,
 }: Props) {
   const { width, height, fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const metrics = getAuthMetrics(width, height, fontScale);
   const reducedMotion = useReducedMotion() === true;
-  const isCompactHeight = height < 700;
+  const usableHeight = Math.max(480, height - insets.top - insets.bottom);
+  const isCompactHeight = usableHeight < 700 || metrics.largeText;
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const scrollX = useRef(new Animated.Value(activeIndex * width)).current;
   const previousIndexRef = useRef(activeIndex);
+  const selectedIndexRef = useRef(activeIndex);
 
-  const topPad = isCompactHeight ? 18 : Platform.OS === 'web' ? 68 : 54;
-  const botPad = isCompactHeight ? 10 : Platform.OS === 'web' ? 34 : 20;
+  const topPad = insets.top + (isCompactHeight ? 4 : 12);
+  const botPad = insets.bottom + (isCompactHeight ? 6 : 12);
   const panelWidth = Math.min(width - metrics.horizontalPadding * 2, metrics.tablet ? 520 : 420);
-  const titleFontSize = isCompactHeight ? clamp(width * 0.078, 25, 30) : clamp(width * 0.086, 32, 38);
+  const titleFontSize = isCompactHeight ? clamp(width * 0.068, 23, 28) : clamp(width * 0.086, 30, 36);
   const titleLineHeight = Math.round(titleFontSize * 1.14);
-  const subtitleFontSize = clamp(width * 0.041, 15, 17);
-  const artworkHeight = isCompactHeight || metrics.largeText
-    ? clamp(height * 0.21, 132, 178)
-    : clamp(height * 0.29, 210, 260);
+  const subtitleFontSize = isCompactHeight ? clamp(width * 0.036, 13, 15) : clamp(width * 0.041, 15, 17);
+  const artworkHeight = isCompactHeight
+    ? clamp(usableHeight * 0.18, 104, 144)
+    : clamp(usableHeight * 0.25, 170, 230);
   const artworkWidth = Math.round(artworkHeight * 0.72);
-  const slideVerticalGap = isCompactHeight ? 10 : clamp(height * 0.032, 22, 30);
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const first = viewableItems[0];
       if (!first || first.index == null) return;
+      selectedIndexRef.current = first.index;
       if (first.index !== previousIndexRef.current) {
         previousIndexRef.current = first.index;
         onIndexChange(first.index);
@@ -127,14 +129,27 @@ export default function OnboardingCarouselScreen({
   useEffect(() => {
     if (previousIndexRef.current === activeIndex) return;
     previousIndexRef.current = activeIndex;
-    flatListRef.current?.scrollToIndex({ index: activeIndex, animated: true });
-  }, [activeIndex]);
+    selectedIndexRef.current = activeIndex;
+    flatListRef.current?.scrollToIndex({ index: activeIndex, animated: !reducedMotion });
+  }, [activeIndex, reducedMotion]);
+
+  useEffect(() => {
+    const currentIndex = previousIndexRef.current;
+    scrollX.setValue(currentIndex * width);
+    flatListRef.current?.scrollToOffset({ offset: currentIndex * width, animated: false });
+  }, [scrollX, width]);
+
+  const goToIndex = useCallback((nextIndex: number) => {
+    const index = Math.max(0, Math.min(slides.length - 1, nextIndex));
+    selectedIndexRef.current = index;
+    flatListRef.current?.scrollToIndex({ index, animated: !reducedMotion });
+  }, [reducedMotion]);
 
   const handlePrevious = useCallback(() => {
-    if (activeIndex <= 0) return false;
-    flatListRef.current?.scrollToIndex({ index: activeIndex - 1, animated: true });
+    if (selectedIndexRef.current <= 0) return false;
+    goToIndex(selectedIndexRef.current - 1);
     return true;
-  }, [activeIndex]);
+  }, [goToIndex]);
 
   useFocusEffect(useCallback(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', handlePrevious);
@@ -173,6 +188,7 @@ export default function OnboardingCarouselScreen({
           decelerationRate="fast"
           bounces
           alwaysBounceHorizontal={false}
+          overScrollMode="never"
           snapToInterval={width}
           snapToAlignment="center"
           showsHorizontalScrollIndicator={false}
@@ -184,6 +200,9 @@ export default function OnboardingCarouselScreen({
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
           initialScrollIndex={activeIndex}
+          onScrollToIndexFailed={({ index }) => {
+            flatListRef.current?.scrollToOffset({ offset: index * width, animated: false });
+          }}
           getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
           renderItem={({ item, index }) => {
             const inputRange = [(index - 1) * width, index * width, (index + 1) * width];
@@ -194,13 +213,7 @@ export default function OnboardingCarouselScreen({
             const artworkScale = reducedMotion ? 1 : scrollX.interpolate({ inputRange, outputRange: [0.96, 1, 0.96], extrapolate: 'clamp' });
             const artworkOpacity = scrollX.interpolate({ inputRange, outputRange: [0.58, 1, 0.58], extrapolate: 'clamp' });
             return (
-            <ScrollView
-              style={{ width }}
-              contentContainerStyle={[styles.slide, { minHeight: '100%', gap: slideVerticalGap }]}
-              nestedScrollEnabled
-              directionalLockEnabled
-              keyboardShouldPersistTaps="handled"
-            >
+            <View style={[styles.slide, { width }]}>
               <Animated.View style={[styles.slidePanel, isCompactHeight && styles.slidePanelCompact, { width: panelWidth, opacity, transform: [{ scale }, { translateY }] }]}>
                 <View pointerEvents="none" style={styles.panelGlow} />
 
@@ -241,46 +254,41 @@ export default function OnboardingCarouselScreen({
                 </View>
               </Animated.View>
 
-              <View style={[styles.footer, isCompactHeight && styles.footerCompact, { width: panelWidth }]}>
-                <View style={styles.dots}>
-                  {slides.map((_, dotIndex) => {
-                    const dotInputRange = [(dotIndex - 1) * width, dotIndex * width, (dotIndex + 1) * width];
-                    const dotScaleX = reducedMotion ? (dotIndex === activeIndex ? 4 : 1) : scrollX.interpolate({ inputRange: dotInputRange, outputRange: [1, 4, 1], extrapolate: 'clamp' });
-                    const dotOpacity = scrollX.interpolate({ inputRange: dotInputRange, outputRange: [0.28, 1, 0.28], extrapolate: 'clamp' });
-                    return <Animated.View key={dotIndex} style={[styles.dot, { opacity: dotOpacity, transform: [{ scaleX: dotScaleX }] }]} />;
-                  })}
-                </View>
-
-                <Pressable
-                  style={({ pressed }) => [styles.nextButton, isCompactHeight && styles.nextButtonCompact, pressed && styles.nextButtonPressed]}
-                  onPress={() => {
-                    if (index < slides.length - 1) {
-                      flatListRef.current?.scrollToIndex({ index: index + 1, animated: true });
-                    } else {
-                      onComplete();
-                    }
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={index === slides.length - 1 ? 'Get started' : 'Continue to next onboarding step'}
-                >
-                  <Text style={styles.nextButtonText}>{index === slides.length - 1 ? 'Get Started' : 'Continue'}</Text>
-                  {index < slides.length - 1 ? <Feather name="arrow-right" size={18} color="#FFFFFF" style={styles.nextButtonIcon} /> : null}
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [styles.loginRow, pressed && styles.blueControlPressed]}
-                  onPress={onLogin}
-                  accessibilityRole="button"
-                  accessibilityLabel="Log in to an existing account"
-                >
-                  <Text style={styles.loginText}>Already have an account?</Text>
-                  <Text style={styles.loginLink}>Log In</Text>
-                </Pressable>
-              </View>
-            </ScrollView>
+            </View>
             );
           }}
         />
+      </View>
+
+      <View style={[styles.footer, isCompactHeight && styles.footerCompact, { width: panelWidth }]}>
+        <View style={styles.dots} accessibilityLabel={`Onboarding slide ${activeIndex + 1} of ${slides.length}`} accessibilityLiveRegion="polite">
+          {slides.map((_, dotIndex) => {
+            const dotInputRange = [(dotIndex - 1) * width, dotIndex * width, (dotIndex + 1) * width];
+            const dotScaleX = reducedMotion ? (dotIndex === activeIndex ? 4 : 1) : scrollX.interpolate({ inputRange: dotInputRange, outputRange: [1, 4, 1], extrapolate: 'clamp' });
+            const dotOpacity = scrollX.interpolate({ inputRange: dotInputRange, outputRange: [0.28, 1, 0.28], extrapolate: 'clamp' });
+            return <Animated.View key={dotIndex} style={[styles.dot, { opacity: dotOpacity, transform: [{ scaleX: dotScaleX }] }]} />;
+          })}
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [styles.nextButton, isCompactHeight && styles.nextButtonCompact, pressed && styles.nextButtonPressed]}
+          onPress={() => activeIndex < slides.length - 1 ? goToIndex(selectedIndexRef.current + 1) : onComplete()}
+          accessibilityRole="button"
+          accessibilityLabel={activeIndex === slides.length - 1 ? 'Get started' : 'Continue to next onboarding step'}
+        >
+          <Text style={styles.nextButtonText}>{activeIndex === slides.length - 1 ? 'Get Started' : 'Continue'}</Text>
+          {activeIndex < slides.length - 1 ? <Feather name="arrow-right" size={18} color="#FFFFFF" style={styles.nextButtonIcon} /> : null}
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [styles.loginRow, isCompactHeight && styles.loginRowCompact, pressed && styles.blueControlPressed]}
+          onPress={onLogin}
+          accessibilityRole="button"
+          accessibilityLabel="Log in to an existing account"
+        >
+          <Text style={styles.loginText}>Already have an account?</Text>
+          <Text style={styles.loginLink}>Log In</Text>
+        </Pressable>
       </View>
 
     </View>
@@ -338,12 +346,14 @@ const styles = StyleSheet.create({
   slidesWrapper: {
     flex: 1,
     width: '100%',
+    minHeight: 0,
   },
   slide: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   slidePanel: {
     paddingHorizontal: 10,
@@ -444,13 +454,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   footer: {
-    paddingTop: 18,
-    gap: 16,
+    flexShrink: 0,
+    paddingTop: 8,
+    gap: 10,
     alignItems: 'center',
   },
   footerCompact: {
-    paddingTop: 6,
-    gap: 6,
+    paddingTop: 2,
+    gap: 4,
   },
   dots: {
     flexDirection: 'row',
@@ -458,6 +469,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dot: {
+    width: 8,
     height: 8,
     borderRadius: 999,
     backgroundColor: AUTH_COLORS.primary,
@@ -506,6 +518,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
+  loginRowCompact: {
+    minHeight: 42,
+    paddingVertical: 6,
+  },
   loginText: {
     fontSize: 14,
     color: AUTH_COLORS.onBlueMuted,
@@ -521,5 +537,5 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   blueControlPressed: { backgroundColor: AUTH_COLORS.blueControlSurfacePressed, transform: [{ scale: 0.99 }] },
-  nextButtonPressed: { backgroundColor: '#EAF1FB', transform: [{ scale: 0.99 }] },
+  nextButtonPressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
 });

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { DefaultTheme, NavigationContainer, useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -45,6 +45,7 @@ import { AppSessionProvider, useAppSession } from './contexts/AppSessionContext'
 import { ToastProvider, useToast } from './contexts/ToastContext';
 import { StatusBar } from 'expo-status-bar';
 import LaunchScreen from './components/LaunchScreen';
+import { isRoleTab, navigateToRoleTab } from './components/tabNavigation';
 
 const AuthStack = createNativeStackNavigator();
 const WorkerStack = createNativeStackNavigator();
@@ -64,24 +65,6 @@ const stackMotion = {
   gestureEnabled: true,
   fullScreenGestureEnabled: true,
 };
-
-function navigateToWorkerTab(navigation, tab) {
-  const routeNames = navigation.getState?.()?.routeNames || [];
-  if (routeNames.includes(tab)) {
-    navigation.navigate(tab);
-    return;
-  }
-  navigation.navigate('WorkerTabs', { screen: tab });
-}
-
-function navigateToEmployerTab(navigation, tab) {
-  const routeNames = navigation.getState?.()?.routeNames || [];
-  if (routeNames.includes(tab)) {
-    navigation.navigate(tab);
-    return;
-  }
-  navigation.navigate('EmployerTabs', { screen: tab });
-}
 
 function OnboardingScreen() {
   const navigation = useNavigation();
@@ -241,8 +224,9 @@ function PassChangedScreen() {
 }
 
 function AuthNavigator() {
+  const { hasOnboarded } = useAppSession();
   return (
-    <AuthStack.Navigator screenOptions={stackMotion} initialRouteName="Onboarding">
+    <AuthStack.Navigator screenOptions={stackMotion} initialRouteName={hasOnboarded ? 'SignIn' : 'Onboarding'}>
       <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
       <AuthStack.Screen name="SignUp" component={SignUpScreen} />
@@ -257,14 +241,14 @@ function AuthNavigator() {
 function useWorkerTabNavigation() {
   const navigation = useNavigation();
   return useCallback((tab) => {
-    navigateToWorkerTab(navigation, tab);
+    if (isRoleTab('worker', tab)) navigateToRoleTab(navigation, 'worker', tab);
   }, [navigation]);
 }
 
 function useEmployerTabNavigation() {
   const navigation = useNavigation();
   return useCallback((tab) => {
-    navigateToEmployerTab(navigation, tab);
+    if (isRoleTab('employer', tab)) navigateToRoleTab(navigation, 'employer', tab);
   }, [navigation]);
 }
 
@@ -278,6 +262,8 @@ function WorkerHomeScreen() {
       activeTab="Home"
       onTabPress={workerTabPress}
       onNavigateToJobs={() => navigation.navigate('Jobs')}
+      onSelectCategory={(categoryId) => navigation.navigate('Jobs', { initialCategory: categoryId })}
+      onUploadResume={() => navigation.navigate('Profile', { initialAction: 'resume', actionNonce: Date.now() })}
       onOpenSettings={() => navigation.navigate('WorkerAccountInformation', { initialSection: 'location' })}
       onViewJobDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
       onSaveJob={async (job) => {
@@ -297,6 +283,7 @@ function WorkerHomeScreen() {
 
 function WorkerJobsScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const workerTabPress = useWorkerTabNavigation();
   const session = useAppSession();
   const toast = useToast();
@@ -313,7 +300,6 @@ function WorkerJobsScreen() {
       onMessageEmployer={({ userId, userName, jobId }) => {
         if (!userId) return;
         session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
-        session.markMessagesViewed();
         navigation.navigate('Messages');
       }}
       savedJobIds={session.savedJobIds}
@@ -324,6 +310,7 @@ function WorkerJobsScreen() {
       onTabPress={workerTabPress}
       notificationBadgeCount={session.workerNotifications.length}
       messageBadgeCount={session.unreadMessageCount}
+      initialCategory={route.params?.initialCategory}
     />
   );
 }
@@ -348,13 +335,6 @@ function WorkerMessagesScreen() {
   const workerTabPress = useWorkerTabNavigation();
   const session = useAppSession();
 
-  useFocusEffect(
-    useCallback(() => {
-      session.markMessagesViewed();
-      return undefined;
-    }, [session]),
-  );
-
   return (
     <WorkerInbox
       activeTab="Messages"
@@ -371,6 +351,7 @@ function WorkerMessagesScreen() {
 
 function WorkerProfileScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const workerTabPress = useWorkerTabNavigation();
   const session = useAppSession();
   const canSwitchRole = String(session.userRole || '').toLowerCase() === 'both';
@@ -383,6 +364,8 @@ function WorkerProfileScreen() {
       onSwitchRole={session.switchViewMode}
       canSwitchRole={canSwitchRole}
       messageBadgeCount={session.unreadMessageCount}
+      initialAction={route.params?.initialAction}
+      actionNonce={route.params?.actionNonce}
     />
   );
 }
@@ -404,6 +387,7 @@ function WorkerJobDetailsScreen() {
   const navigation = useNavigation();
   const session = useAppSession();
   const toast = useToast();
+  const workerTabPress = useWorkerTabNavigation();
   const job = route.params?.job || null;
   return (
     <JobDetails
@@ -418,11 +402,11 @@ function WorkerJobDetailsScreen() {
       onMessageEmployer={({ userId, userName }) => {
         if (!userId) return;
         session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
-        navigation.navigate('WorkerTabs', { screen: 'Messages' });
+        workerTabPress('Messages');
       }}
       isSaved={job?._id ? session.savedJobIds.includes(String(job._id)) : false}
       activeTab="Jobs"
-      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      onTabPress={workerTabPress}
       messageBadgeCount={session.unreadMessageCount}
     />
   );
@@ -432,6 +416,7 @@ function WorkerSavedJobsScreen() {
   const navigation = useNavigation();
   const session = useAppSession();
   const toast = useToast();
+  const workerTabPress = useWorkerTabNavigation();
   return (
     <SavedJobs
       savedJobs={session.savedJobs}
@@ -444,7 +429,7 @@ function WorkerSavedJobsScreen() {
       }}
       onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job: job.raw || job })}
       activeTab="Jobs"
-      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      onTabPress={workerTabPress}
       onViewAppliedJobs={() => navigation.navigate('WorkerAppliedJobs')}
       messageBadgeCount={session.unreadMessageCount}
     />
@@ -454,16 +439,17 @@ function WorkerSavedJobsScreen() {
 function WorkerAppliedJobsScreen() {
   const navigation = useNavigation();
   const session = useAppSession();
+  const workerTabPress = useWorkerTabNavigation();
   return (
     <AppliedJobs
       activeTab="Jobs"
-      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      onTabPress={workerTabPress}
       onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
       onViewSavedJobs={() => navigation.navigate('WorkerSavedJobs')}
       onMessageEmployer={({ userId, userName }) => {
         if (!userId) return;
         session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
-        navigation.navigate('WorkerTabs', { screen: 'Messages' });
+        workerTabPress('Messages');
       }}
       messageBadgeCount={session.unreadMessageCount}
     />
@@ -471,12 +457,12 @@ function WorkerAppliedJobsScreen() {
 }
 
 function WorkerNotificationsScreen() {
-  const navigation = useNavigation();
   const session = useAppSession();
+  const workerTabPress = useWorkerTabNavigation();
   return (
     <NotificationsInbox
       activeTab="Home"
-      onTabPress={(tab) => navigation.navigate('WorkerTabs', { screen: tab })}
+      onTabPress={workerTabPress}
       liveNotifications={session.workerNotifications}
       messageBadgeCount={session.unreadMessageCount}
       onDismissLiveNotification={session.dismissWorkerNotification}
@@ -707,11 +693,12 @@ function EmployerAccountInformationScreen() {
 
 function EmployerEWalletScreen() {
   const navigation = useNavigation();
+  const employerTabPress = useEmployerTabNavigation();
   return (
     <EmployerEWallet
       onBack={() => navigation.goBack()}
       activeTab="Profile"
-      onTabPress={(tab) => navigation.navigate('EmployerTabs', { screen: tab })}
+      onTabPress={employerTabPress}
     />
   );
 }

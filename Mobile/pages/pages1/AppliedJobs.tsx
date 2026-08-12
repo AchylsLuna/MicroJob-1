@@ -61,7 +61,6 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   } = props;
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Jobs');
   const [selectedFilter, setSelectedFilter] = useState<'All' | ApplicationStatus>('All');
   const [applications, setApplications] = useState<AppliedJob[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -174,7 +173,6 @@ export default function AppliedJobs(props: AppliedJobsProps) {
   };
 
   const handleTabPress = (tab: string) => {
-    setActiveTab(tab);
     externalOnTabPress?.(tab);
   };
 
@@ -336,7 +334,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         )}
       />
 
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
+      <Navigation activeTab={externalActiveTab || 'Jobs'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
       <RatingModal target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={fetchApplications} />
 
       <Modal visible={Boolean(withdrawTarget)} transparent animationType="fade" onRequestClose={() => { if (!withdrawing) setWithdrawTarget(null); }}>

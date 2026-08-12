@@ -1,5 +1,8 @@
-import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { AUTH_COLORS } from '../../theme/authTheme';
+import useReducedMotion from '../../hooks/useReducedMotion';
+import { motion } from '../../theme/motion';
 
 type LogoVariant = 'default' | 'compact' | 'launch';
 
@@ -8,6 +11,44 @@ export function MicroJobsLogoBadge({ variant = 'default', style }: { variant?: L
   return <View style={[styles.badge, { width: size, height: size, borderRadius: variant === 'launch' ? 26 : variant === 'compact' ? 11 : 13 }, style]}>
     <Text style={[styles.badgeText, variant === 'compact' && styles.badgeTextCompact, variant === 'launch' && styles.badgeTextLaunch]}>M</Text>
   </View>;
+}
+
+export function AnimatedMicroJobsLogoBadge({ variant = 'compact' }: { variant?: LogoVariant }) {
+  const reducedMotion = useReducedMotion();
+  const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    if (reducedMotion == null) return;
+    opacity.setValue(0);
+    scale.setValue(reducedMotion ? 1 : 0.9);
+    const animation = Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: reducedMotion ? motion.duration.instant : motion.duration.enter,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scale, {
+        toValue: 1,
+        damping: motion.spring.damping,
+        stiffness: motion.spring.stiffness,
+        mass: motion.spring.mass,
+        useNativeDriver: true,
+      }),
+    ]);
+    animation.start();
+    return () => animation.stop();
+  }, [opacity, reducedMotion, scale]);
+
+  return (
+    <Animated.View
+      accessible={false}
+      importantForAccessibility="no"
+      style={{ opacity, transform: [{ scale: reducedMotion ? 1 : scale }] }}
+    >
+      <MicroJobsLogoBadge variant={variant} />
+    </Animated.View>
+  );
 }
 
 export function MicroJobsWordmark({ variant = 'default', style }: { variant?: LogoVariant; style?: StyleProp<TextStyle> }) {

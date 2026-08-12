@@ -5,8 +5,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 import { useAppSession } from '../contexts/AppSessionContext';
 import AnimatedPressable from './ui/AnimatedPressable';
-
-type EmployerTab = 'Home' | 'Applications' | 'Post Job' | 'Messages' | 'Notifications' | 'Profile';
+import { getUserInitials } from '../lib/userIdentity';
+import { isNavigationTabActive } from './navigationState';
+import type { EmployerTab } from './tabNavigation';
 
 type NavItem = {
   label: string;
@@ -29,12 +30,13 @@ export default function EmployerNavigation({
   activeTab = 'Home',
   onTabPress,
   notificationsCount,
-  profileInitials = 'JD',
+  profileInitials,
 }: Props) {
   const insets = useSafeAreaInsets();
   const session = useAppSession();
   const resolvedNotificationsCount =
     typeof notificationsCount === 'number' ? notificationsCount : session.employerNotifications.length;
+  const resolvedProfileInitials = profileInitials?.trim() || getUserInitials(session.user);
 
   const navItems: NavItem[] = [
     { label: 'Home', screen: 'Home', iconInactive: 'home-outline', iconActive: 'home' },
@@ -68,7 +70,7 @@ export default function EmployerNavigation({
         ]}
       >
         {navItems.map((item) => {
-          const isActive = activeTab === item.screen;
+          const isActive = isNavigationTabActive(activeTab, item.screen);
           const hasBadge = item.screen === 'Notifications' && (item.badge || 0) > 0;
           return (
             <AnimatedPressable
@@ -83,7 +85,7 @@ export default function EmployerNavigation({
                 {item.screen === 'Profile' ? (
                   <View style={[styles.profileChip, isActive && styles.profileChipActive]}>
                     <Text style={[styles.profileChipText, isActive && styles.profileChipTextActive]}>
-                      {profileInitials.slice(0, 2).toUpperCase()}
+                      {resolvedProfileInitials.slice(0, 2).toUpperCase()}
                     </Text>
                   </View>
                 ) : (

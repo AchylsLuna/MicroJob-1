@@ -4,8 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 import AnimatedPressable from './ui/AnimatedPressable';
-
-type WorkerTab = 'Home' | 'Jobs' | 'EWallet' | 'Messages' | 'Profile';
+import { useAppSession } from '../contexts/AppSessionContext';
+import { getUserInitials } from '../lib/userIdentity';
+import { isNavigationTabActive } from './navigationState';
+import type { WorkerTab } from './tabNavigation';
 
 type NavItem = {
   label: string;
@@ -34,10 +36,13 @@ const formatBadgeCount = (count: number) => (count > 99 ? '99+' : String(count))
 export default function Navigation({
   activeTab = 'Home',
   onTabPress,
-  messageBadgeCount = 0,
-  profileInitials = 'JD',
+  messageBadgeCount,
+  profileInitials,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const session = useAppSession();
+  const resolvedMessageBadgeCount = typeof messageBadgeCount === 'number' ? messageBadgeCount : session.unreadMessageCount;
+  const resolvedProfileInitials = profileInitials?.trim() || getUserInitials(session.user);
   return (
     <View style={styles.navWrapper}>
       <View
@@ -50,9 +55,8 @@ export default function Navigation({
         ]}
       >
         {NAV_ITEMS.map((item) => {
-          const isEWalletSelected = item.screen === 'EWallet' && (activeTab === 'EWallet' || activeTab === 'E-Wallet');
-          const isActive = activeTab === item.screen || isEWalletSelected;
-          const hasMessageBadge = item.screen === 'Messages' && messageBadgeCount > 0;
+          const isActive = isNavigationTabActive(activeTab, item.screen);
+          const hasMessageBadge = item.screen === 'Messages' && resolvedMessageBadgeCount > 0;
 
           return (
             <AnimatedPressable
@@ -60,14 +64,14 @@ export default function Navigation({
               containerStyle={styles.tabItem}
               onPress={() => onTabPress?.(item.screen)}
               accessibilityRole="tab"
-              accessibilityLabel={hasMessageBadge ? `${item.label}, ${messageBadgeCount} unread` : item.label}
+              accessibilityLabel={hasMessageBadge ? `${item.label}, ${resolvedMessageBadgeCount} unread` : item.label}
               accessibilityState={{ selected: isActive }}
             >
               <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
                 {item.screen === 'Profile' ? (
                   <View style={[styles.profileChip, isActive && styles.profileChipActive]}>
                     <Text style={[styles.profileChipText, isActive && styles.profileChipTextActive]}>
-                      {profileInitials.slice(0, 2).toUpperCase()}
+                      {resolvedProfileInitials.slice(0, 2).toUpperCase()}
                     </Text>
                   </View>
                 ) : (
@@ -80,7 +84,7 @@ export default function Navigation({
 
                 {hasMessageBadge ? (
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{formatBadgeCount(messageBadgeCount)}</Text>
+                    <Text style={styles.badgeText}>{formatBadgeCount(resolvedMessageBadgeCount)}</Text>
                   </View>
                 ) : null}
               </View>

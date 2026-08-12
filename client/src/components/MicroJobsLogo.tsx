@@ -1,30 +1,32 @@
-import svgPaths from "../imports/svg-at917c2et3";
-
 interface MicroJobsLogoProps {
   className?: string;
   variant?: "dark" | "light";
   onClick?: () => void;
+  markOnly?: boolean;
 }
 
-export function MicroJobsLogo({ className = "", variant = "dark", onClick }: MicroJobsLogoProps) {
-  const textColor = variant === "light" ? "text-white" : "text-[#111827]";
-  const iconColor = variant === "light" ? "#ffffff" : "#1C4D8D";
+export function MicroJobsLogo({ className = "", variant = "dark", onClick, markOnly = false }: MicroJobsLogoProps) {
+  const isLight = variant === "light";
 
   const content = (
     <>
-      <div className="relative shrink-0 w-10 h-10">
-        <svg className="block w-full h-full" fill="none" preserveAspectRatio="none" viewBox="0 0 32 32">
-          <path clipRule="evenodd" d={svgPaths.pb82c00} fill={iconColor} fillRule="evenodd" />
-          <path clipRule="evenodd" d={svgPaths.p9a9cd00} fill={iconColor} fillRule="evenodd" />
-        </svg>
+      <div
+        aria-hidden="true"
+        className={`microjobs-logo-mark flex shrink-0 rotate-[30deg] items-center justify-center ${markOnly ? "h-8 w-8 rounded-[10px]" : "h-[42px] w-[42px] rounded-[13px]"} ${isLight ? "bg-white" : "bg-[#1C4D8D]"}`}
+      >
+        <span className={`-rotate-[30deg] font-black leading-none ${markOnly ? "text-base" : "text-[21px]"} ${isLight ? "text-[#1C4D8D]" : "text-white"}`}>
+          M
+        </span>
       </div>
-      <span className={`text-[22px] md:text-[24px] font-semibold tracking-tight ${textColor}`}>Micro Jobs</span>
+      {!markOnly ? <span className={`microjobs-logo-wordmark shrink text-[24px] font-extrabold leading-none tracking-[-0.6px] ${isLight ? "text-white" : "text-[#1C4D8D]"}`}>
+        <span className={isLight ? "text-white" : "text-[#0F2954]"}>Micro</span>Jobs
+      </span> : null}
     </>
   );
 
   if (onClick) {
-    return <button type="button" className={`flex items-center gap-3 ${className}`} onClick={onClick} aria-label="Micro Jobs home">{content}</button>;
+    return <button type="button" className={`microjobs-logo group flex items-center gap-2.5 ${className}`} onClick={onClick} aria-label="MicroJobs home">{content}</button>;
   }
 
-  return <div className={`flex items-center gap-3 ${className}`} role="img" aria-label="Micro Jobs">{content}</div>;
+  return <div className={`microjobs-logo flex items-center gap-2.5 ${className}`} role="img" aria-label="MicroJobs">{content}</div>;
 }

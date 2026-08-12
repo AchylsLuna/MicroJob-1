@@ -20,10 +20,12 @@ import { Ionicons } from '@expo/vector-icons';
 import TabTopNav from '../../components/TabTopNav';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import { useAppSession } from '../../contexts/AppSessionContext';
 
 interface ConversationSummary {
   conversationId: string;
   userId: string;
+  jobId?: string | null;
   name: string;
   lastMessage: string;
   lastMessageAt?: string;
@@ -79,6 +81,7 @@ export default function MessageList({
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const toast = useToast();
+  const session = useAppSession();
 
   const filteredConversations = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -115,6 +118,7 @@ export default function MessageList({
               return {
                 conversationId: convId,
                 userId: String(otherId),
+                jobId: c.jobId ? String(c.jobId) : null,
                 name: displayName,
                 lastMessage: c.lastMessage || 'Start a conversation',
                 lastMessageAt: c.lastMessageAt || c.updatedAt || c.createdAt || '',
@@ -199,17 +203,18 @@ export default function MessageList({
     }
   };
 
-  const handleMarkReadUnread = async (userId: string, markRead = true) => {
+  const handleMarkReadUnread = async (userId: string, markRead = true, jobId?: string | null) => {
     setProcessingId(userId);
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const result = await apiRequest(`${API_URL}/messages/read`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ otherUserId: userId, read: markRead }),
+        body: JSON.stringify({ otherUserId: userId, jobId: jobId || undefined, read: markRead }),
       }, 'Unable to update read status');
       if (!result.ok) throw new Error(result.message || 'Unable to update read status');
       await fetchConversations();
+      await session.refreshUnreadMessages();
     } catch (err) {
       console.warn('Failed to mark read/unread', err);
     } finally {
@@ -217,13 +222,38 @@ export default function MessageList({
     }
   };
 
-  const showOptions = (userId: string) => {
+  const handleOpenConversation = async (conversation: ConversationSummary) => {
+    if (!conversation.userId) {
+      toast.info('Cannot open this conversation.');
+      return;
+    }
+    onOpenChat(conversation.userId, conversation.name);
+    if (conversation.unreadCount <= 0) return;
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const result = await apiRequest(`${API_URL}/messages/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          otherUserId: conversation.userId,
+          jobId: conversation.jobId || undefined,
+          read: true,
+        }),
+      }, 'Unable to mark conversation as read');
+      if (result.ok) await session.refreshUnreadMessages();
+    } catch (error) {
+      console.warn('Failed to mark opened conversation as read', error);
+    }
+  };
+
+  const showOptions = (conversation: ConversationSummary) => {
+    const { userId, jobId } = conversation;
     const options = [
       { text: 'Archive', onPress: () => handleArchive(userId) },
       { text: 'Delete', style: 'destructive', onPress: () => handleDelete(userId) },
       { text: 'Block', onPress: () => handleBlock(userId) },
-      { text: 'Mark as Unread', onPress: () => handleMarkReadUnread(userId, false) },
-      { text: 'Mark as Read', onPress: () => handleMarkReadUnread(userId, true) },
+      { text: 'Mark as Unread', onPress: () => handleMarkReadUnread(userId, false, jobId) },
+      { text: 'Mark as Read', onPress: () => handleMarkReadUnread(userId, true, jobId) },
       { text: 'Cancel', style: 'cancel' },
     ];
 
@@ -300,8 +330,8 @@ export default function MessageList({
           return (
             <TouchableOpacity
               style={styles.row}
-              onPress={() => (item.userId ? onOpenChat(item.userId, item.name) : toast.info('Cannot open this conversation.'))}
-              onLongPress={() => (item.userId ? showOptions(item.userId) : null)}
+              onPress={() => void handleOpenConversation(item)}
+              onLongPress={() => (item.userId ? showOptions(item) : null)}
               delayLongPress={400}
               accessibilityRole="button"
               accessibilityLabel={`Open conversation with ${item.name}${unread ? `, ${unread} unread messages` : ''}`}

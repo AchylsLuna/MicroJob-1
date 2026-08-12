@@ -14,6 +14,7 @@ import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import { ROUTES } from "../../utils/routes";
+import { useAuth } from "../../contexts/AuthContext";
 import { 
   getConversations, 
   getArchivedConversations,
@@ -111,24 +112,6 @@ const pickArray = <T,>(...candidates: any[]): T[] => {
   return [];
 };
 
-const getStoredAuthUser = () => {
-  const raw =
-    localStorage.getItem("auth_user") ||
-    localStorage.getItem("current_user") ||
-    localStorage.getItem("user");
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
-};
-
-const getCurrentUserIdFromStorage = () => {
-  const parsed = getStoredAuthUser();
-  return parsed?.id || parsed?._id || "";
-};
-
 const getUserName = (user: unknown): string => {
   if (!user || typeof user !== "object") return "";
   const record = user as { firstName?: string; lastName?: string };
@@ -138,6 +121,7 @@ const getUserName = (user: unknown): string => {
 
 export function Messages() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [archivedContacts, setArchivedContacts] = useState<Contact[]>([]);
@@ -153,7 +137,7 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string>("");
+  const currentUserId = user?.id || "";
   const listMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -170,20 +154,9 @@ export function Messages() {
       : fallbackName, [supportStartUserId]);
 
   useEffect(() => {
-    setCurrentUserId(getCurrentUserIdFromStorage());
-
-    const handleAuthUserUpdated = () => {
-      setCurrentUserId(getCurrentUserIdFromStorage());
-    };
-    window.addEventListener("auth_user_updated", handleAuthUserUpdated);
-
     loadArchivedConversations();
     void loadConversationsRef.current();
-
-    return () => {
-      window.removeEventListener("auth_user_updated", handleAuthUserUpdated);
-    };
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     if (!currentUserId) return;
@@ -556,6 +529,7 @@ export function Messages() {
       if (messagesArray.length > 0) {
         try {
           await markMessagesAsRead(contact.otherUserId, contact.jobId || undefined);
+          window.dispatchEvent(new Event("messages-refresh"));
         } catch (e) {
           // Ignore marking errors
         }

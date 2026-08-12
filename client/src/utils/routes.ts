@@ -32,6 +32,7 @@ export const ROUTES = {
     support: "/worker/support",
     messages: "/worker/messages",
     eWallet: "/worker/e-wallet",
+    settings: "/worker/settings",
     jobDetailsPattern: "/worker/job-details/:jobId",
     jobDetails: (jobId: string) => `/worker/job-details/${jobId}`,
   },
@@ -47,6 +48,7 @@ export const ROUTES = {
     notifications: "/employer/notifications",
     support: "/employer/support",
     settings: "/employer/settings",
+    profile: "/employer/profile",
   },
 
   doctor: {

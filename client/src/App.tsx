@@ -13,7 +13,7 @@ import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
 import { Toaster } from "./lib/toast";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
-import { getDefaultDashboardPath } from "./utils/dashboardRoutes";
+import { getDefaultDashboardPath, isAdmin, isEmployer } from "./utils/dashboardRoutes";
 import { ROUTES } from "./utils/routes";
 
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -215,6 +215,14 @@ const PreserveRedirect: React.FC<{ to: string }> = ({ to }) => {
   );
 };
 
+const RoleAwareSettingsRoute: React.FC = () => {
+  const { user } = useAuth();
+  const location = useLocation();
+  if (isAdmin(user)) return <Settings />;
+  const pathname = isEmployer(user) ? ROUTES.employer.settings : ROUTES.worker.settings;
+  return <Navigate to={{ pathname, search: location.search, hash: location.hash }} replace />;
+};
+
 const LegacyJobDetailsRedirect: React.FC = () => {
   const location = useLocation();
   const { jobId } = useParams();
@@ -280,6 +288,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.worker.support} element={<WorkerSupport />} />
             <Route path={ROUTES.worker.messages} element={<WorkerMessages />} />
             <Route path={ROUTES.worker.eWallet} element={<WorkerEWallet />} />
+            <Route path={ROUTES.worker.settings} element={<Settings />} />
           </Route>
 
           <Route element={<RoleRoute requiredRole="employer" />}>
@@ -300,6 +309,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.employer.notifications} element={<NotificationsRouter />} />
             <Route path={ROUTES.employer.support} element={<SupportRouter />} />
             <Route path={ROUTES.employer.settings} element={<Settings />} />
+            <Route path={ROUTES.employer.profile} element={<Settings />} />
 
             <Route
               path={ROUTES.doctor.root}
@@ -364,7 +374,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.admin.userManagement} element={<AdminUserManagement />} />
           </Route>
 
-          <Route path={ROUTES.settings} element={<Settings />} />
+          <Route path={ROUTES.settings} element={<RoleAwareSettingsRoute />} />
           <Route path={ROUTES.publicProfilePattern} element={<PublicProfile />} />
           <Route path={ROUTES.notifications} element={<NotificationsRouter />} />
           <Route path={ROUTES.support} element={<SupportRouter />} />

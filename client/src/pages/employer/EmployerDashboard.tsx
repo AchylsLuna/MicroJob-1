@@ -13,6 +13,7 @@ import {
 import { getEmployerApplications, getMyJobs } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface StatCardProps {
   icon: ReactNode;
@@ -155,6 +156,7 @@ const getActivityConfig = (status: string) => {
 
 export function EmployerDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [stats, setStats] = useState({
     total: 0,
     newApplications: 0,
@@ -166,25 +168,9 @@ export function EmployerDashboard() {
   const [recentActivity, setRecentActivity] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Watch for account type changes and redirect if needed
   useEffect(() => {
-    const handleAuthUpdate = () => {
-      const stored = localStorage.getItem("auth_user");
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (parsed.accountType === "worker") {
-            navigate(ROUTES.worker.dashboard, { replace: true });
-          }
-        } catch (e) {
-          console.error("Failed to parse auth_user:", e);
-        }
-      }
-    };
-
-    window.addEventListener("auth_user_updated", handleAuthUpdate);
-    return () => window.removeEventListener("auth_user_updated", handleAuthUpdate);
-  }, [navigate]);
+    if (user?.accountType === "worker") navigate(ROUTES.worker.dashboard, { replace: true });
+  }, [navigate, user?.accountType]);
 
   useEffect(() => {
     let isMounted = true;

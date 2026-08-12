@@ -6,7 +6,9 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  FileText,
   MapPin,
+  Search,
   Send,
   Users,
 } from "lucide-react";
@@ -14,10 +16,11 @@ import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { EmployerDashboard } from "../employer/EmployerDashboard";
-import { getUserApplications, getProfile } from "../../services/api";
+import { getCategories, getJobs, getUserApplications, getProfile } from "../../services/api";
 import { jobsAPI } from "../../services/jobs";
 import { ROUTES } from "../../utils/routes";
 import { calculateProfileCompletion } from "../../lib/profileCompletion";
+import { formatMinimumPay } from "../../lib/jobCompensation";
 
 type DashboardApplication = {
   status?: string;
@@ -74,6 +77,9 @@ function WorkerDashboardContent() {
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
+  const [hasResume, setHasResume] = useState(false);
+  const [hasLocation, setHasLocation] = useState(true);
+  const [categories, setCategories] = useState<Array<{ _id: string; name: string; count: number }>>([]);
 
   // Fetch profile data
   useEffect(() => {
@@ -107,6 +113,8 @@ function WorkerDashboardContent() {
 
         setProfileCompletion(completionStatus.percentage);
         setIsProfileComplete(completionStatus.percentage === 100);
+        setHasResume(Boolean(profile?.resumeUrl || profile?.resumeFileName || profile?.resume));
+        setHasLocation(Boolean(String(profile?.city || "").trim()));
       } catch (error: any) {
         if (!isMounted) return;
         console.error("Failed to load profile:", error);
@@ -181,7 +189,11 @@ function WorkerDashboardContent() {
     const loadJobs = async () => {
       setJobsLoading(true);
       try {
-        const jobsResponse = await jobsAPI.getRecommendedJobs(6);
+        const [jobsResponse, categoryRecords, availableJobs] = await Promise.all([
+          jobsAPI.getRecommendedJobs(6),
+          getCategories(),
+          getJobs({ excludeOwn: true }),
+        ]);
         if (!isMounted) return;
         
         const jobs = jobsResponse.data;
@@ -191,8 +203,8 @@ function WorkerDashboardContent() {
           id: job._id,
           title: job.title,
           company: job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ""}` : "Company",
-          salary: job.salary ? `₱${job.salary}` : "Negotiable",
-          location: job.location || "Remote",
+          salary: formatMinimumPay(job.salary),
+          location: job.location || "Location not specified",
           type: job.jobType || "Full-time",
           posted: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "Recently",
           logo: (job.title && job.title[0]) || "J",
@@ -202,6 +214,17 @@ function WorkerDashboardContent() {
         }));
         
         setRecommendedJobs(transformedJobs);
+        const allJobs = Array.isArray(availableJobs) ? availableJobs : [];
+        const counts = allJobs.reduce<Record<string, number>>((result, job: any) => {
+          const categoryId = typeof job?.category === "string" ? job.category : job?.category?._id;
+          if (categoryId) result[String(categoryId)] = (result[String(categoryId)] || 0) + 1;
+          return result;
+        }, {});
+        setCategories((Array.isArray(categoryRecords) ? categoryRecords : []).slice(0, 3).map((category: any) => ({
+          _id: String(category._id || category.id || ""),
+          name: String(category.name || "Category"),
+          count: counts[String(category._id || category.id || "")] || 0,
+        })));
       } catch (error: any) {
         if (!isMounted) return;
         console.error("Failed to load jobs:", error);
@@ -264,6 +287,53 @@ function WorkerDashboardContent() {
         </div>
       </div>
 
+      <button
+        type="button"
+        onClick={() => navigate(ROUTES.worker.findJobs)}
+        className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#D7E1EF] bg-[#EAF2FC] px-5 text-left text-sm font-semibold text-slate-500 transition hover:border-[#B8CBE5] hover:bg-[#E2ECF9] lg:hidden"
+      >
+        <Search className="h-5 w-5" aria-hidden />
+        <span className="flex-1">Search local jobs, skills, or employers</span>
+        <span className="text-xl text-[#1C4D8D]" aria-hidden>›</span>
+      </button>
+
+      {!hasResume && !profileLoading ? (
+        <section className="rounded-[24px] bg-[#255796] p-6 text-white shadow-[0_12px_32px_rgba(28,77,141,0.2)] lg:hidden">
+          <div className="flex items-center gap-4">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15"><FileText className="h-6 w-6" aria-hidden /></span>
+            <h2 className="text-xl font-extrabold">Upload your resume</h2>
+          </div>
+          <p className="mt-4 text-sm font-medium text-blue-100">Get matched with local employers across your community.</p>
+          <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=resume`)} className="mt-5 min-h-11 rounded-full bg-white px-5 text-sm font-bold text-[#1C4D8D]">Upload resume</button>
+        </section>
+      ) : null}
+
+      {categories.length > 0 ? (
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-xl font-extrabold tracking-tight text-[#0F2954]">Job Categories</h2>
+            <button type="button" onClick={() => navigate(ROUTES.worker.findJobs)} className="min-h-11 px-2 text-sm font-bold text-slate-600">Browse all</button>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {categories.map((category) => (
+              <button key={category._id} type="button" onClick={() => navigate(`${ROUTES.worker.findJobs}?category=${encodeURIComponent(category._id)}`)} className="min-h-32 rounded-2xl bg-[#EAF2FC] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1C4D8D]"><BriefcaseBusiness className="h-4 w-4" aria-hidden /></span>
+                <span className="mt-3 block text-2xl font-extrabold text-slate-950">{category.count}</span>
+                <span className="mt-1 block text-xs font-bold leading-4 text-slate-500 sm:text-sm">{category.name}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {!hasLocation && !profileLoading ? (
+        <section className="flex flex-col gap-4 rounded-2xl bg-[#EAF2FC] p-5 sm:flex-row sm:items-center">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-[#1C4D8D]"><MapPin className="h-6 w-6" aria-hidden /></span>
+          <div className="min-w-0 flex-1"><h2 className="font-extrabold text-slate-950">Set your work location</h2><p className="mt-1 text-sm text-slate-500">Add your city or municipality to see nearby opportunities.</p></div>
+          <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=personal`)} className="min-h-11 rounded-xl bg-[#1C4D8D] px-5 text-sm font-bold text-white">Open settings</button>
+        </section>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard
           icon={<Send className="h-5 w-5" />}
@@ -279,7 +349,7 @@ function WorkerDashboardContent() {
           count={isStatsLoading ? 0 : interviewCount}
           helper="Scheduled or completed interviews"
           iconClass="bg-sky-50 text-sky-700"
-          onClick={() => navigate(ROUTES.worker.appliedJobs)}
+          onClick={() => navigate(`${ROUTES.worker.appliedJobs}?status=${encodeURIComponent("Interview Scheduled")}`)}
         />
         <StatCard
           icon={<CheckCircle2 className="h-5 w-5" />}
@@ -287,7 +357,7 @@ function WorkerDashboardContent() {
           count={isStatsLoading ? 0 : hiredCount}
           helper="Successful applications"
           iconClass="bg-emerald-50 text-emerald-700"
-          onClick={() => navigate(ROUTES.worker.appliedJobs)}
+          onClick={() => navigate(`${ROUTES.worker.appliedJobs}?status=Hired`)}
         />
       </div>
 

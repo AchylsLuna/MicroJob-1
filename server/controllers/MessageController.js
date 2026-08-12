@@ -225,17 +225,21 @@ const MessageController = {
         const jobId = msg.job ? toIdString(msg.job) : null;
         const conversationId = `${otherUserId}::${jobId || 'general'}`;
         if (archivedSet.has(conversationId)) return;
-        if (conversationMap.has(conversationId)) return;
-
-        conversationMap.set(conversationId, {
-          conversationId,
-          otherUserId,
-          otherUserName: getDisplayName(otherUser),
-          jobId,
-          jobTitle: msg.job?.title || null,
-          lastMessage: msg.content || '',
-          lastMessageAt: msg.createdAt,
-        });
+        if (!conversationMap.has(conversationId)) {
+          conversationMap.set(conversationId, {
+            conversationId,
+            otherUserId,
+            otherUserName: getDisplayName(otherUser),
+            jobId,
+            jobTitle: msg.job?.title || null,
+            lastMessage: msg.content || '',
+            lastMessageAt: msg.createdAt,
+            unreadCount: 0,
+          });
+        }
+        if (!isSenderCurrentUser && msg.read !== true) {
+          conversationMap.get(conversationId).unreadCount += 1;
+        }
       });
 
       const conversations = Array.from(conversationMap.values());

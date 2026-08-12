@@ -58,7 +58,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const isCollapsed = false;
-  const [profilePhotoPreview, setProfilePhotoPreview] = useState("");
   const [, setAuthUpdateTrigger] = useState(0); // Force re-render on auth updates
   const { user: authUser } = useAuth();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -66,24 +65,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     if (mobile) closeButtonRef.current?.focus();
   }, [mobile]);
-
-  const loadProfilePhoto = () => {
-    try {
-      const storedRaw = localStorage.getItem("profile_settings");
-      const stored = storedRaw ? JSON.parse(storedRaw) : {};
-      const preview = stored.personal?.profilePhotoPreview || "";
-      setProfilePhotoPreview(preview);
-    } catch {
-      setProfilePhotoPreview("");
-    }
-  };
-
-  useEffect(() => {
-    loadProfilePhoto();
-    const handleProfileUpdate = () => loadProfilePhoto();
-    window.addEventListener("profile_settings_updated", handleProfileUpdate);
-    return () => window.removeEventListener("profile_settings_updated", handleProfileUpdate);
-  }, []);
 
   // Listen for auth updates to force sidebar re-render on role switch
   useEffect(() => {
@@ -172,7 +153,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ]
       : [
           { icon: "notifications", label: "Notifications", path: ROUTES.notifications, notification: true },
-          { icon: "settings", label: "Settings", path: ROUTES.settings },
+          { icon: "settings", label: "Settings", path: ROUTES.worker.settings },
           { icon: "support", label: "Support", path: ROUTES.worker.support },
         ];
   const pinnedSettingsItem = bottomMenuItems.find((item) => item.icon === "settings");
@@ -254,9 +235,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         matchesPath(location.pathname, ROUTES.legacyDashboard.doctor.support)
       );
     }
-    if (path === ROUTES.settings || path === ROUTES.employer.settings) {
+    if (path === ROUTES.worker.settings || path === ROUTES.settings || path === ROUTES.employer.settings) {
       return (
         matchesPath(location.pathname, ROUTES.settings) ||
+        matchesPath(location.pathname, ROUTES.worker.settings) ||
         matchesPath(location.pathname, ROUTES.employer.settings) ||
         matchesPath(location.pathname, ROUTES.doctor.settings) ||
         matchesPath(location.pathname, ROUTES.legacyDashboard.settings) ||
@@ -450,9 +432,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
         <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1">
           <div className="flex items-center gap-3">
-            {profilePhotoPreview ? (
+            {authUser?.avatarUrl ? (
               <img
-                src={profilePhotoPreview}
+                src={authUser.avatarUrl}
                 alt="Profile"
                 className="h-10 w-10 flex-shrink-0 rounded-full object-cover [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8"
               />

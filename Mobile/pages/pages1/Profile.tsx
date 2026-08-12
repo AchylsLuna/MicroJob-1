@@ -39,6 +39,8 @@ type ProfileProps = {
   onSwitchRole?: (role: 'worker' | 'employer') => void;
   canSwitchRole?: boolean;
   messageBadgeCount?: number;
+  initialAction?: 'resume';
+  actionNonce?: number;
 };
 
 type ExperienceItem = {
@@ -73,8 +75,9 @@ export default function Profile({
   onSwitchRole,
   canSwitchRole = false,
   messageBadgeCount = 0,
+  initialAction,
+  actionNonce,
 }: ProfileProps) {
-  const [profileTab, setProfileTab] = useState(activeTab || 'Profile');
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [editingExperience, setEditingExperience] = useState<(ExperienceDraft & { id: string }) | null>(null);
   const [showAddCV, setShowAddCV] = useState(false);
@@ -90,6 +93,10 @@ export default function Profile({
   const [deletingExperienceId, setDeletingExperienceId] = useState<string | null>(null);
   const [isDeletingResume, setIsDeletingResume] = useState(false);
   const toast = useToast();
+
+  useEffect(() => {
+    if (initialAction === 'resume') setShowAddCV(true);
+  }, [actionNonce, initialAction]);
 
   const API_ORIGIN = API_URL.replace(/\/api$/, '');
   const apiPort = (() => {
@@ -137,7 +144,6 @@ export default function Profile({
   };
 
   const handleTabPress = (tab: string) => {
-    setProfileTab(tab);
     onTabPress?.(tab);
   };
 
@@ -955,10 +961,9 @@ export default function Profile({
       </ScrollView>
 
       <Navigation
-        activeTab={profileTab}
+        activeTab={activeTab || 'Profile'}
         onTabPress={handleTabPress}
         messageBadgeCount={messageBadgeCount}
-        profileInitials={initials}
       />
 
       <AddExperience

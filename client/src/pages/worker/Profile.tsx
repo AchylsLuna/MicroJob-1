@@ -222,7 +222,7 @@ export function Profile() {
   };
 
   const handleEditProfile = () => {
-    navigate(`${ROUTES.settings}?tab=personal`);
+    navigate(`${ROUTES.worker.settings}?tab=personal`);
   };
 
   const safeLinkedinUrl = safeExternalUrl(profileData.linkedin);
@@ -481,7 +481,7 @@ export function Profile() {
                         <p className="text-[12px] text-[#475569] text-center">
                           View your uploaded professional resume
                         </p>
-                        <button type="button" onClick={() => navigate(`${ROUTES.settings}?tab=resume`)} className="w-full text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                        <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=resume`)} className="w-full text-[13px] font-semibold text-[#1C4D8D] hover:underline">
                           Replace or remove résumé
                         </button>
                       </div>
@@ -490,7 +490,7 @@ export function Profile() {
                         <FileText className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
                         <p className="text-[14px] text-[#64748b] mb-3">No resume uploaded</p>
                         <button
-                          onClick={() => navigate(`${ROUTES.settings}?tab=resume`)}
+                          onClick={() => navigate(`${ROUTES.worker.settings}?tab=resume`)}
                           className="bg-[#1C4D8D] text-white font-semibold py-2 px-4 rounded-[10px] hover:opacity-90 transition-all text-[13px]"
                         >
                           Upload Resume
@@ -531,7 +531,7 @@ export function Profile() {
             <div className="space-y-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-[20px] font-semibold text-[#1e293b]">Skills & Experience</h2>
-                <button type="button" onClick={() => navigate(`${ROUTES.settings}?tab=experience`)} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">Manage</button>
+                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">Manage</button>
               </div>
 
               <div>

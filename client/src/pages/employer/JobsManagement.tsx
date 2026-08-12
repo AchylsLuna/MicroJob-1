@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { 
   Users, 
   MessageSquare, 
-  MoreVertical,
   MapPin,
   CalendarDays,
   TrendingUp,
@@ -295,9 +294,6 @@ export function JobsManagement() {
                     </span>
                     <span className="text-xs text-slate-500">{job.department}</span>
                   </div>
-                  <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                    <MoreVertical className="w-4 h-4 text-gray-400" />
-                  </button>
                 </div>
 
                 {/* Job Title */}

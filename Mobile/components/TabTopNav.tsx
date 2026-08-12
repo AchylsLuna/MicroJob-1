@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { tokens } from '../theme/tokens';
+import { AnimatedMicroJobsLogoBadge } from './auth/MicroJobsLogo';
 
 type Role = 'worker' | 'employer';
 
@@ -37,9 +38,12 @@ export default function TabTopNav({
   return (
     <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
       <StatusBar style="dark" />
-      <Text style={styles.topHeaderTitle} numberOfLines={1}>
-        {title}
-      </Text>
+      <View style={styles.titleGroup}>
+        <AnimatedMicroJobsLogoBadge />
+        <Text style={styles.topHeaderTitle} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
 
       {shouldShowActions ? (
         <View style={styles.topHeaderActions}>
@@ -110,11 +114,18 @@ const styles = StyleSheet.create({
   topHeaderTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: tokens.colors.text,
+    color: tokens.colors.brandDark,
     letterSpacing: -0.3,
     flex: 1,
     minWidth: 0,
     paddingRight: 6,
+  },
+  titleGroup: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   topHeaderActions: {
     flexDirection: 'row',

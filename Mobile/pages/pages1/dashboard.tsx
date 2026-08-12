@@ -28,6 +28,8 @@ type Job = {
 
 export default function Dashboard({
   onNavigateToJobs,
+  onSelectCategory,
+  onUploadResume,
   onOpenSettings,
   onViewJobDetails,
   onSaveJob,
@@ -39,6 +41,8 @@ export default function Dashboard({
   messageBadgeCount = 0,
 }: {
   onNavigateToJobs?: () => void;
+  onSelectCategory?: (categoryId: string) => void;
+  onUploadResume?: () => void;
   onOpenSettings?: () => void;
   onViewJobDetails?: (job: any) => void;
   onSaveJob?: (job: any) => void;
@@ -49,7 +53,6 @@ export default function Dashboard({
   notificationBadgeCount?: number;
   messageBadgeCount?: number;
 }) {
-  const [activeTab, setActiveTab] = useState(externalActiveTab || 'Home');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
@@ -153,11 +156,7 @@ export default function Dashboard({
   }, [syncResumeStatus]);
 
   const handleTabPress = (tab: string) => {
-    setActiveTab(tab);
     externalOnTabPress?.(tab);
-    if (tab === 'Jobs' && onNavigateToJobs) {
-      onNavigateToJobs();
-    }
   };
 
   return (
@@ -170,9 +169,9 @@ export default function Dashboard({
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.searchContainer} onPress={onNavigateToJobs} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Search jobs, skills, or companies">
+        <TouchableOpacity style={styles.searchContainer} onPress={onNavigateToJobs} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Search local jobs, skills, or employers">
           <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
-          <Text style={styles.searchPlaceholder}>Search jobs, skills, or companies</Text>
+          <Text style={styles.searchPlaceholder}>Search local jobs, skills, or employers</Text>
           <Ionicons name="chevron-forward" size={18} color={tokens.colors.brand} />
         </TouchableOpacity>
 
@@ -184,9 +183,9 @@ export default function Dashboard({
               </View>
               <Text style={styles.uploadTitle}>Upload your resume</Text>
             </View>
-            <Text style={styles.uploadSubtitle}>Get matched with top companies automatically.</Text>
-            <TouchableOpacity style={styles.checkButton} activeOpacity={0.9} onPress={onNavigateToJobs}>
-              <Text style={styles.checkButtonText}>Explore jobs</Text>
+            <Text style={styles.uploadSubtitle}>Get matched with local employers across your community.</Text>
+            <TouchableOpacity style={styles.checkButton} activeOpacity={0.9} onPress={onUploadResume} accessibilityRole="button" accessibilityLabel="Upload CV or resume">
+              <Text style={styles.checkButtonText}>Upload resume</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -202,7 +201,14 @@ export default function Dashboard({
           {categories.map((category) => {
             const openingCount = jobsByCategory[category._id] || 0;
             return (
-              <View key={category._id} style={styles.categoryCard}>
+              <TouchableOpacity
+                key={category._id}
+                style={styles.categoryCard}
+                onPress={() => onSelectCategory?.(category._id)}
+                activeOpacity={0.86}
+                accessibilityRole="button"
+                accessibilityLabel={`Browse ${category.name}, ${openingCount} local openings`}
+              >
                 <View style={styles.categoryIconWrap}>
                   <Ionicons name="briefcase-outline" size={17} color={tokens.colors.brand} />
                 </View>
@@ -210,7 +216,7 @@ export default function Dashboard({
                 <Text style={styles.categoryLabel} numberOfLines={2}>
                   {category.name}
                 </Text>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -300,7 +306,7 @@ export default function Dashboard({
         {!isLoading && !errorMessage && recentJobs.length === 0 ? <InlineStateCard icon="briefcase-outline" title="No recent jobs yet" message="New opportunities in your area will appear here." actionLabel="Explore jobs" onAction={onNavigateToJobs} /> : null}
       </ScrollView>
 
-      <Navigation activeTab={activeTab} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
+      <Navigation activeTab={externalActiveTab || 'Home'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
     </View>
   );
 }

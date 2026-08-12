@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Book,
   ChevronDown,
@@ -131,6 +131,18 @@ export function Support() {
     priority: "medium" as NonNullable<SupportTicket["priority"]>,
     message: "",
   });
+  const supportFormRef = useRef<HTMLFormElement>(null);
+
+  const prepareSecurityEscalation = () => {
+    setSupportForm((current) => ({
+      ...current,
+      subject: current.subject || "Security escalation",
+      category: "account",
+      priority: "urgent",
+    }));
+    supportFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => document.getElementById("support-subject")?.focus(), 250);
+  };
 
   const selectedTicket = useMemo(
     () => tickets.find((ticket) => ticket._id === selectedTicketId) || null,
@@ -360,7 +372,7 @@ export function Support() {
               </div>
               <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Security Escalation</h3>
               <p className="text-[14px] text-[#6B7280] mb-4">Account compromise, payout disputes, and identity concerns.</p>
-              <button className="w-full border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]">
+              <button type="button" onClick={prepareSecurityEscalation} className="min-h-11 w-full border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]">
                 Escalate Issue
               </button>
             </div>
@@ -433,7 +445,7 @@ export function Support() {
               Create a ticket for payout issues, account access, application disputes, or platform bugs.
             </p>
 
-            <form onSubmit={handleSubmitTicket} className="space-y-4">
+            <form ref={supportFormRef} onSubmit={handleSubmitTicket} className="space-y-4" aria-label="Submit a support ticket">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
                   <label htmlFor="support-subject" className="block text-[14px] font-medium text-[#111827] mb-2">Subject</label>

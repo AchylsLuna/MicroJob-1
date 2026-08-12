@@ -2,14 +2,14 @@ export const webUi = {
   layout: {
     shell: "bg-[#f8fafc] flex h-screen h-[100dvh] w-full overflow-hidden",
     content: "h-full min-w-0 flex-1 flex flex-col overflow-y-auto overscroll-contain",
-    main: "min-w-0 flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-6",
+    main: "min-w-0 flex-1 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-8 lg:pt-6",
     maxContainer: "mx-auto w-full max-w-[1440px]",
   },
   navbar: {
     root: "sticky top-0 z-40 w-full bg-white/95 shadow-[inset_0_-1px_0_#e2e8f0] backdrop-blur",
     container:
       "mx-auto grid h-16 min-h-16 w-full max-w-[1440px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 sm:px-6 lg:px-8",
-    title: "truncate text-lg font-bold leading-tight tracking-tight text-slate-950 sm:text-xl",
+    title: "truncate text-lg font-bold leading-tight tracking-tight text-[#0F2954] sm:text-xl",
     subtitle: "hidden truncate text-xs text-slate-500 sm:block",
     searchInput:
       "h-full w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm text-slate-950 outline-none transition focus:border-transparent focus:bg-white focus:ring-2 focus:ring-[#1C4D8D]",

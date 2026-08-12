@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import { NavBar } from "./NavBar";
 import { webUi } from "../styles/webUi";
 import { useAuth } from "../contexts/AuthContext";
+import { ResponsiveBottomNavigation } from "./ResponsiveBottomNavigation";
 
 export function DashboardLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -94,6 +95,7 @@ export function DashboardLayout() {
         <main className={`${webUi.layout.main} dashboard-scope`}>
           <Outlet />
         </main>
+        {!isAdminView ? <ResponsiveBottomNavigation /> : null}
       </div>
     </div>
   );

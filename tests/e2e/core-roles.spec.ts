@@ -72,7 +72,7 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   for (const width of [320, 375, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/worker/find-jobs");
-    await expect(page.getByRole("heading", { name: "Find work that fits your skills and goals" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your next opportunity" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Jobs in: Quezon City" })).toBeVisible();
     await expect(page.getByText("Philippines", { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -87,6 +87,10 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
       expect(mainBounds?.x).toBe(0);
       expect(await navigation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     } else {
+      const bottomNavigation = page.getByRole("navigation", { name: "Worker mobile navigation" });
+      await expect(bottomNavigation).toBeVisible();
+      await expect(bottomNavigation.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
+      await expect(bottomNavigation.getByRole("tab", { name: "Profile" }).getByText("DU")).toBeVisible();
       const menuButton = page.getByRole("button", { name: "Open navigation menu" });
       await menuButton.click();
       const drawer = page.getByRole("dialog", { name: "Navigation menu" });
@@ -98,6 +102,31 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     }
   }
   await page.setViewportSize({ width: 375, height: 900 });
+  const workerBottomNavigation = page.getByRole("navigation", { name: "Worker mobile navigation" });
+  for (const target of [
+    { label: "Home", path: "/worker/dashboard" },
+    { label: "Jobs", path: "/worker/find-jobs" },
+    { label: "E-Wallet", path: "/worker/e-wallet" },
+    { label: "Messages", path: "/worker/messages" },
+    { label: "Profile", path: "/worker/profile" },
+  ]) {
+    await workerBottomNavigation.getByRole("tab", { name: target.label }).click();
+    await expect(page).toHaveURL(new RegExp(`${target.path.replaceAll("/", "\\/")}$`));
+    await expect(workerBottomNavigation.getByRole("tab", { name: target.label })).toHaveAttribute("aria-selected", "true");
+    await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+  }
+  await page.goto("/worker/saved-jobs");
+  await expect(workerBottomNavigation.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
+  await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+  await page.goto("/worker/settings?tab=personal");
+  await expect(page.getByRole("navigation", { name: "Worker mobile navigation" })).toBeVisible();
+  await expect(workerBottomNavigation.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
+  await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+  await page.getByRole("tab", { name: "Home" }).click();
+  await page.waitForURL(/\/worker\/dashboard/);
+  await expect(page.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
+  await page.goto("/settings?tab=privacy");
+  await expect(page).toHaveURL(/\/worker\/settings\?tab=privacy/);
   await page.goto("/worker/find-jobs");
   const heroSearch = page.getByRole("searchbox", { name: "Search jobs" });
   await heroSearch.fill("designer");
@@ -105,12 +134,19 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await expect(page.getByLabel("Sort jobs")).toBeVisible();
   await page.setViewportSize({ width: 1024, height: 900 });
   await page.goto("/worker/dashboard");
+  const categorySection = page.locator("section").filter({ has: page.getByRole("heading", { name: "Job Categories" }) });
+  const firstCategory = categorySection.getByRole("button").filter({ hasNotText: "Browse all" }).first();
+  if (await firstCategory.count()) {
+    await firstCategory.click();
+    await expect(page).toHaveURL(/\/worker\/find-jobs\?category=/);
+    await page.goto("/worker/dashboard");
+  }
   await expect(page.getByTestId("header-context-action")).toHaveCount(0);
   const moreButton = page.getByRole("button", { name: "More" });
   await moreButton.click();
-  await expect(page.getByRole("menu", { name: "More worker navigation" })).toBeVisible();
+  await expect(page.getByRole("menu", { name: "More navigation" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("menu", { name: "More worker navigation" })).toBeHidden();
+  await expect(page.getByRole("menu", { name: "More navigation" })).toBeHidden();
   await expect(moreButton).toBeFocused();
   await moreButton.click();
   await page.getByRole("menuitem", { name: "Saved Jobs" }).click();
@@ -131,6 +167,28 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await page.getByRole("button", { name: "Open account menu" }).click();
   await page.getByRole("button", { name: /Switch to Employer/i }).click();
   await page.waitForURL(/\/employer\//);
+  await page.goto("/settings?tab=personal");
+  await expect(page).toHaveURL(/\/employer\/settings\?tab=personal/);
+  const employerBottomNavigation = page.getByRole("navigation", { name: "Employer mobile navigation" });
+  await expect(employerBottomNavigation).toBeVisible();
+  await expect(employerBottomNavigation.getByRole("tab", { name: "Profile" }).getByText("DU")).toBeVisible();
+  await expect(employerBottomNavigation.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
+  await expect(employerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+  for (const target of [
+    { label: "Home", path: "/employer/dashboard" },
+    { label: "Applications", path: "/employer/applications" },
+    { label: "Post Job", path: "/employer/post-job" },
+    { label: "Messages", path: "/employer/messages" },
+    { label: "Alerts", path: "/employer/notifications" },
+    { label: "Profile", path: "/employer/profile" },
+  ]) {
+    await employerBottomNavigation.getByRole("tab", { name: target.label }).click();
+    await expect(page).toHaveURL(new RegExp(`${target.path.replaceAll("/", "\\/")}$`));
+    await expect(employerBottomNavigation.getByRole("tab", { name: target.label })).toHaveAttribute("aria-selected", "true");
+    await expect(employerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
+  }
+  await employerBottomNavigation.getByRole("tab", { name: "Home" }).click();
+  await page.waitForURL(/\/employer\/dashboard/);
   await page.goto("/employer/applications");
   await expect(page.getByRole("heading", { name: /Applications/i }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -154,7 +212,7 @@ test("profile settings support keyboard tabs and accessible validation", async (
   });
 
   await page.setViewportSize({ width: 375, height: 900 });
-  await page.goto("/settings?tab=personal");
+  await page.goto("/worker/settings?tab=personal");
   const mainTabs = page.getByRole("tablist", { name: "Settings sections" });
   const accountTab = mainTabs.getByRole("tab", { name: "Account" });
   await expect(accountTab).toHaveAttribute("aria-selected", "true");

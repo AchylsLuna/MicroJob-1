@@ -58,12 +58,12 @@ type AppSessionContextValue = {
   clearInitialWorkerChatTarget: () => void;
   setInitialEmployerChatTarget: (target: ChatTarget) => void;
   clearInitialEmployerChatTarget: () => void;
-  markMessagesViewed: () => void;
   dismissWorkerNotification: (notificationId: string) => void;
   toggleSavedJob: (job: any) => Promise<void>;
   removeSavedJob: (jobId: string) => Promise<void>;
   refreshSavedJobs: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
+  refreshUnreadMessages: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 };
 
@@ -261,6 +261,28 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  const refreshUnreadMessages = useCallback(async () => {
+    const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+    if (!token) {
+      setUnreadMessageCount(0);
+      return;
+    }
+    try {
+      const result = await apiRequest(`${API_URL}/messages/conversations`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }, 'Failed to load unread messages.');
+      if (!result.ok) throw new Error(result.message || 'Failed to load unread messages.');
+      const conversations = asList<any>(result.raw, ['conversations']);
+      const nextCount = conversations.reduce((total, conversation) => {
+        const unread = Number(conversation?.unreadCount || conversation?.unread || 0);
+        return total + (Number.isFinite(unread) && unread > 0 ? unread : 0);
+      }, 0);
+      setUnreadMessageCount(nextCount);
+    } catch (error) {
+      console.warn('Failed to refresh unread messages', error);
+    }
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
     if (!token) {
@@ -336,12 +358,13 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       if (token) {
         void refreshSavedJobs();
         void refreshNotifications();
+        void refreshUnreadMessages();
       }
     } catch (error) {
       console.warn('Session bootstrap failed', error);
       setIsReady(true);
     }
-  }, [refreshNotifications, refreshProfile, refreshSavedJobs]);
+  }, [refreshNotifications, refreshProfile, refreshSavedJobs, refreshUnreadMessages]);
 
   useEffect(() => {
     void loadSession();
@@ -399,6 +422,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         socketFailureCountRef.current = 0;
         socketErrorLogRef.current = { message: '', at: 0 };
         socket.emit('register', String(currentUserIdRef.current));
+        void refreshUnreadMessages();
       });
 
       socket.on('connect_error', (err: any) => {
@@ -477,7 +501,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     });
 
     return disconnectSocket;
-  }, [disconnectSocket, isAuthenticated, refreshNotifications, refreshProfile]);
+  }, [disconnectSocket, isAuthenticated, refreshNotifications, refreshProfile, refreshUnreadMessages]);
 
   const handleAuthSuccess = useCallback(async () => {
     await AsyncStorage.setItem(HAS_ONBOARDED_KEY, 'true');
@@ -485,9 +509,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     await refreshProfile();
     await refreshSavedJobs();
     await refreshNotifications();
+    await refreshUnreadMessages();
     setMessageEvents([]);
-    setUnreadMessageCount(0);
-  }, [refreshNotifications, refreshProfile, refreshSavedJobs]);
+  }, [refreshNotifications, refreshProfile, refreshSavedJobs, refreshUnreadMessages]);
 
   const logout = useCallback(async () => {
     setShowLogoutModal(false);
@@ -626,12 +650,12 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     clearInitialWorkerChatTarget: () => setInitialWorkerChatTarget(null),
     setInitialEmployerChatTarget,
     clearInitialEmployerChatTarget: () => setInitialEmployerChatTarget(null),
-    markMessagesViewed: () => setUnreadMessageCount(0),
     dismissWorkerNotification,
     toggleSavedJob,
     removeSavedJob,
     refreshSavedJobs,
     refreshNotifications,
+    refreshUnreadMessages,
     refreshProfile,
   }), [
     canAccessEmployer,
@@ -647,6 +671,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     refreshProfile,
     refreshSavedJobs,
     refreshNotifications,
+    refreshUnreadMessages,
     registerActivity,
     savedJobIds,
     savedJobs,
