@@ -32,7 +32,8 @@ const withMessagePopulate = (query) =>
   query
     .populate('sender', 'firstName lastName')
     .populate('receiver', 'firstName lastName')
-    .populate('job', 'title');
+    .populate('job', 'title')
+    .populate('attachment.settlementRequest', 'status expiresAt settledAt');
 
 const getConversationWithUser = async (req, res) => {
   try {
@@ -163,6 +164,9 @@ const MessageController = {
 
       if (String(message.sender) !== String(userId)) {
         return sendError(res, 403, 'You can only edit your own messages.');
+      }
+      if (message.attachment?.type === 'settlement_request') {
+        return sendError(res, 400, 'Payment invoice messages cannot be edited.');
       }
 
       const createdAtMs = new Date(message.createdAt).getTime();

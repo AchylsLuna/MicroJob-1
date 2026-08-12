@@ -10,4 +10,6 @@ const storedUploadSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+storedUploadSchema.index({ 'metadata.purgeAt': 1 }, { expireAfterSeconds: 0 });
+
 export default mongoose.models.StoredUpload || mongoose.model('StoredUpload', storedUploadSchema);

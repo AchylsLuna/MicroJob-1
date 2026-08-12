@@ -19,6 +19,7 @@ import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSection, WalletSkeleton, WalletTransactionRow } from '../../components/wallet/WalletUI';
+import { WorkerQrRequestModal } from '../../components/wallet/WalletQrFlow';
 
 type EWalletProps = {
   activeTab?: string;
@@ -26,6 +27,7 @@ type EWalletProps = {
   onOpenNotifications?: () => void;
   notificationBadgeCount?: number;
   messageBadgeCount?: number;
+  onOpenInvoiceChat?: (target: { id: string; name?: string }) => void;
 };
 
 type WalletTransaction = {
@@ -39,6 +41,7 @@ type WalletTransaction = {
   relatedEntityType?: string;
   balanceTarget?: string;
   createdAt?: string;
+  walletDirection?: 'credit' | 'debit' | 'neutral';
 };
 
 type PayoutRequest = {
@@ -127,6 +130,7 @@ export default function EWallet({
   onOpenNotifications,
   notificationBadgeCount = 0,
   messageBadgeCount = 0,
+  onOpenInvoiceChat,
 }: EWalletProps) {
   const scrollViewRef = useRef<NativeScrollView>(null);
   const payoutIdempotencyKeyRef = useRef<string | null>(null);
@@ -134,6 +138,12 @@ export default function EWallet({
   const [hasLoadedWallet, setHasLoadedWallet] = useState(false);
   const [walletError, setWalletError] = useState('');
   const [isPayoutFormExpanded, setIsPayoutFormExpanded] = useState(false);
+  const [isQrVisible, setIsQrVisible] = useState(false);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
+  const [collapsedSections, setCollapsedSections] = useState({ invoices: false, transactions: false, withdrawals: false });
+  const [isBalanceHidden, setIsBalanceHidden] = useState(false);
+  const [walletSummary, setWalletSummary] = useState({ credited: 0, spent: 0, pending: 0, transactionCount: 0 });
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
   const [payoutFormOffsetY, setPayoutFormOffsetY] = useState(0);
@@ -168,19 +178,20 @@ export default function EWallet({
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return;
 
-      const [profileResult, transactionsResult, payoutsResult] = await Promise.all([
+      const [profileResult, walletResult, payoutsResult, invoicesResult] = await Promise.all([
         apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load wallet profile.'),
-        apiRequest(`${API_URL}/payment/transactions`, {
+        apiRequest(`${API_URL}/payment/wallet?mode=worker`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load transactions.'),
         apiRequest(`${API_URL}/payment/payout-requests`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load payout requests.'),
+        apiRequest(`${API_URL}/payment/qr-requests`, { headers: { Authorization: `Bearer ${token}` } }, 'Failed to load invoices.'),
       ]);
 
-      const failedResult = [profileResult, transactionsResult, payoutsResult].find((result) => !result.ok);
+      const failedResult = [profileResult, walletResult, payoutsResult].find((result) => !result.ok);
       if (failedResult) setWalletError(failedResult.message || 'Some wallet details could not be refreshed.');
 
       if (profileResult.ok) {
@@ -196,10 +207,12 @@ export default function EWallet({
         setEmployerBalance(Number.isFinite(nextEmployerBalance) ? nextEmployerBalance : 0);
       }
 
-      if (transactionsResult.ok) {
-        const transactionPayload = asObject<any>(transactionsResult.data) || asObject<any>(transactionsResult.raw) || {};
-        const nextTransactions = asList<WalletTransaction>(transactionPayload.transactions || transactionsResult.raw, ['transactions']);
+      if (walletResult.ok) {
+        const transactionPayload = asObject<any>(walletResult.data) || asObject<any>(walletResult.raw) || {};
+        const nextTransactions = asList<WalletTransaction>(transactionPayload.transactions || walletResult.raw, ['transactions']);
         setTransactions(nextTransactions);
+        setWorkerBalance(Number(transactionPayload.balance || 0));
+        setWalletSummary({ credited: Number(transactionPayload.summary?.credited || 0), spent: Number(transactionPayload.summary?.spent || 0), pending: Number(transactionPayload.summary?.pending || 0), transactionCount: Number(transactionPayload.summary?.transactionCount || nextTransactions.length) });
       }
 
       if (payoutsResult.ok) {
@@ -209,6 +222,7 @@ export default function EWallet({
       } else {
         setPayoutRequests([]);
       }
+      if (invoicesResult.ok) setInvoices(asList<any>((asObject<any>(invoicesResult.data) || asObject<any>(invoicesResult.raw))?.requests || invoicesResult.raw, ['requests']));
     } catch (error: any) {
       setWalletError(error?.message || 'Check your connection and try again.');
     } finally {
@@ -316,6 +330,18 @@ export default function EWallet({
     setIsPayoutFormExpanded((expanded) => !expanded);
   };
 
+  const replaceInvoice = async (item: any) => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const result = await apiRequest(`${API_URL}/payment/qr-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jobId: item?.preview?.job?.id, replace: true }) }, 'Failed to replace invoice.');
+      if (!result.ok) throw new Error(result.message);
+      const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
+      setSelectedInvoiceId(payload.requestId || null); setIsQrVisible(true);
+      await refreshWalletData();
+    } catch (caught: any) { toast.error(caught?.message || 'Failed to replace invoice.'); }
+  };
+  const toggleSection = (section: keyof typeof collapsedSections) => setCollapsedSections((current) => ({ ...current, [section]: !current[section] }));
+
   return (
     <View style={styles.container}>
       <TabTopNav
@@ -339,12 +365,21 @@ export default function EWallet({
           actionIcon="arrow-down-outline"
           expanded={isPayoutFormExpanded}
           onAction={handleWithdrawPress}
+          hidden={isBalanceHidden}
+          onToggleHidden={() => setIsBalanceHidden((hidden) => !hidden)}
+          quickActionLabel="Request Invoice"
+          quickActionIcon="qr-code-outline"
+          onQuickAction={() => { setSelectedInvoiceId(null); setIsQrVisible(true); }}
         />
         <WalletMetrics items={[
-          { label: 'Worker balance', value: formatCurrency(workerBalance), icon: 'wallet-outline' },
-          { label: 'Pending withdrawals', value: formatCurrency(pendingPayoutTotal), icon: 'time-outline' },
-          { label: 'Transactions', value: String(transactions.length), icon: 'receipt-outline' },
+          { label: 'Total credited', value: isBalanceHidden ? '•••' : formatCurrency(walletSummary.credited), icon: 'arrow-down-outline' },
+          { label: 'Pending', value: isBalanceHidden ? '•••' : formatCurrency(walletSummary.pending || pendingPayoutTotal), icon: 'time-outline' },
+          { label: 'Transactions', value: String(walletSummary.transactionCount), icon: 'receipt-outline' },
         ]} />
+
+        <WalletSection title="Payment Invoices" subtitle="Secure job-payment requests delivered through chat and notifications." collapsible collapsed={collapsedSections.invoices} onToggle={() => toggleSection('invoices')}>
+          {invoices.length === 0 ? <WalletEmpty icon="qr-code-outline" title="No invoices yet" body="Request an invoice after you finish hired work that is still In Progress." /> : <View style={styles.listWrap}>{invoices.slice(0, 6).map((item) => { const preview = item.preview || {}; const active = String(preview.status) === 'active'; return <View key={preview.requestId} style={styles.listCard}><View style={styles.listHeader}><View style={styles.transactionTypeWrap}><Text style={styles.listTitle}>{preview.job?.title || 'Job payment'}</Text><Text style={styles.listSubtitle}>{formatCurrency(preview.totalAmount)} · {preview.status || 'unknown'}</Text></View></View><View style={styles.invoiceActions}><TouchableOpacity style={styles.invoiceAction} onPress={() => { setSelectedInvoiceId(preview.requestId); setIsQrVisible(true); }}><Text style={styles.invoiceActionText}>View QR</Text></TouchableOpacity>{onOpenInvoiceChat ? <TouchableOpacity style={styles.invoiceAction} onPress={() => onOpenInvoiceChat({ id: preview.employer?.id, name: preview.employer?.name })}><Text style={styles.invoiceActionText}>Open Chat</Text></TouchableOpacity> : null}<TouchableOpacity style={styles.invoiceAction} onPress={() => void replaceInvoice(item)}><Text style={styles.invoiceActionText}>Generate Replacement</Text></TouchableOpacity>{active ? <TouchableOpacity style={styles.invoiceAction} onPress={async () => { const token = await AsyncStorage.getItem('auth_token'); const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/cancel`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, 'Failed to cancel invoice.'); if (!result.ok) toast.error(result.message); await refreshWalletData(); }}><Text style={[styles.invoiceActionText, { color: tokens.colors.danger }]}>Cancel</Text></TouchableOpacity> : null}</View></View>; })}</View>}
+        </WalletSection>
 
         {hasWorkerWallet && isPayoutFormExpanded ? (
           <View
@@ -436,15 +471,15 @@ export default function EWallet({
           </View>
         )}
 
-        <WalletSection title="Recent Transactions" subtitle="Your latest worker-wallet activity.">
+        <WalletSection title="Recent Transactions" subtitle="Your latest worker-wallet activity." collapsible collapsed={collapsedSections.transactions} onToggle={() => toggleSection('transactions')}>
           {transactions.length === 0 ? (
             <WalletEmpty title="No transactions yet" body="Completed work, withdrawals, and refunds will appear here." />
           ) : (
-            transactions.slice(0, 15).map((transaction) => <WalletTransactionRow key={transaction._id} title={getTransactionLabel(transaction)} subtitle={transaction.reference || transaction.providerReference || transaction.type} amount={formatCurrency(transaction.amount)} date={formatDate(transaction.createdAt)} status={transaction.status || 'unknown'} direction={transaction.type === 'PAYOUT' || transaction.type === 'REFUND' ? 'credit' : transaction.type === 'ESCROW' ? 'debit' : 'neutral'} />)
+            transactions.slice(0, 15).map((transaction) => <WalletTransactionRow key={transaction._id} title={getTransactionLabel(transaction)} subtitle={transaction.reference || transaction.providerReference || transaction.type} amount={`${transaction.walletDirection === 'credit' ? '+' : transaction.walletDirection === 'debit' ? '-' : ''}${formatCurrency(transaction.amount)}`} date={formatDate(transaction.createdAt)} status={transaction.status || 'unknown'} direction={transaction.walletDirection || 'neutral'} />)
           )}
         </WalletSection>
 
-        <WalletSection title="Withdrawal History" subtitle="Track review and payment status.">
+        <WalletSection title="Withdrawal History" subtitle="Track review and payment status." collapsible collapsed={collapsedSections.withdrawals} onToggle={() => toggleSection('withdrawals')}>
           {payoutRequests.length === 0 ? <WalletEmpty icon="cash-outline" title="No withdrawals yet" body="Submitted withdrawal requests will appear here." /> : <View style={styles.listWrap}>{payoutRequests.map((request) => {
             const statusStyle = getPayoutStatusStyle(request.status);
             return <View key={request._id} style={styles.listCard}>
@@ -460,6 +495,7 @@ export default function EWallet({
       </ScrollView>
 
       <Navigation activeTab={activeTab} onTabPress={onTabPress} messageBadgeCount={messageBadgeCount} />
+      <WorkerQrRequestModal visible={isQrVisible} initialRequestId={selectedInvoiceId} onClose={() => { setIsQrVisible(false); setSelectedInvoiceId(null); }} onSettled={() => void refreshWalletData()} />
     </View>
   );
 }
@@ -667,6 +703,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  invoiceActions: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, invoiceAction: { minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, alignItems: 'center', justifyContent: 'center' }, invoiceActionText: { color: tokens.colors.brand, fontSize: 11, fontWeight: '800' },
   emptyState: {
     alignItems: 'center',
     paddingVertical: 24,

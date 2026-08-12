@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView, Image } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import { EmployerQrScannerModal } from '../../components/wallet/WalletQrFlow';
+import { php } from '../../components/wallet/walletFormat';
 
 interface Message {
   _id: string;
@@ -16,6 +18,7 @@ interface Message {
   createdAt: string;
   senderName?: string;
   receiverName?: string;
+  attachment?: { type?: string; settlementRequest?: any; qrImageName?: string; jobTitle?: string; totalAmount?: number; expiresAt?: string };
 }
 
 interface ChatScreenProps {
@@ -25,9 +28,10 @@ interface ChatScreenProps {
   liveMessages?: any[];
   onOpenNotifications?: () => void;
   notificationBadgeCount?: number;
+  isEmployer?: boolean;
 }
 
-export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [], onOpenNotifications, notificationBadgeCount = 0 }: ChatScreenProps) {
+export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [], onOpenNotifications, notificationBadgeCount = 0, isEmployer = false }: ChatScreenProps) {
   const [displayName, setDisplayName] = useState<string | undefined>(initialDisplayName);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -35,6 +39,23 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   const flatListRef = useRef<FlatList>(null);
   const insets = useSafeAreaInsets();
   const toast = useToast();
+  const [authToken, setAuthToken] = useState('');
+  const [invoiceRequestId, setInvoiceRequestId] = useState<string | null>(null);
+  const [invoiceCodes, setInvoiceCodes] = useState<Record<string, string>>({});
+  const [clock, setClock] = useState(Date.now());
+  useEffect(() => { void AsyncStorage.getItem('auth_token').then((value) => setAuthToken(value || '')); }, []);
+  useEffect(() => { const interval = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(interval); }, []);
+  useEffect(() => {
+    if (!authToken) return;
+    const ids = messages.map((item) => getEntityId(item.attachment?.settlementRequest)).filter(Boolean);
+    const missing = Array.from(new Set(ids)).filter((id) => !(id in invoiceCodes));
+    if (!missing.length) return;
+    void Promise.all(missing.map(async (id) => {
+      const result = await apiRequest(`${API_URL}/payment/qr-requests/${id}`, { headers: { Authorization: `Bearer ${authToken}` } }, 'Unable to load invoice code.');
+      const payload: any = result.data || result.raw || {};
+      return [id, result.ok && payload.shortCode ? String(payload.shortCode) : ''] as const;
+    })).then((entries) => setInvoiceCodes((current) => ({ ...current, ...Object.fromEntries(entries) })));
+  }, [authToken, invoiceCodes, messages]);
 
   const getEntityId = (value: any) => {
     if (!value) return '';
@@ -99,6 +120,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           createdAt: p?.createdAt || new Date().toISOString(),
           senderName: sender,
           receiverName: receiver,
+          attachment: p?.attachment || p?._doc?.attachment,
         });
       }
       if (toAdd.length === 0) return prev;
@@ -176,6 +198,15 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           windowSize={9}
           renderItem={({ item }) => {
             const isMine = String(getEntityId(item.sender)) === String(currentUserId);
+            const requestValue = item.attachment?.settlementRequest;
+            const requestId = getEntityId(requestValue);
+            const serverStatus = String(typeof requestValue === 'object' ? requestValue?.status || 'active' : 'active').toLowerCase();
+            const requestStatus = serverStatus === 'active' && new Date(item.attachment?.expiresAt || 0).getTime() <= clock ? 'expired' : serverStatus;
+            if (item.attachment?.type === 'settlement_request' && requestId) return <TouchableOpacity style={[styles.invoiceCard, isMine ? styles.invoiceMine : styles.invoiceTheirs]} disabled={!isEmployer || requestStatus !== 'active'} onPress={() => setInvoiceRequestId(requestId)} accessibilityRole={isEmployer && requestStatus === 'active' ? 'button' : undefined} accessibilityLabel={`Payment invoice for ${item.attachment?.jobTitle || 'job'}, ${php(item.attachment?.totalAmount)}, ${requestStatus}`}>
+              <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="qr-code-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>MICROJOBS PAYMENT INVOICE</Text><Text style={styles.invoiceTitle} numberOfLines={2}>{item.attachment?.jobTitle || 'Job settlement'}</Text></View><View style={[styles.invoiceStatus, requestStatus !== 'active' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{requestStatus}</Text></View></View>
+              {item.attachment.qrImageName && authToken ? <Image source={{ uri: `${API_URL}/payment/qr-requests/${requestId}/image`, headers: { Authorization: `Bearer ${authToken}` } }} style={styles.invoiceQr} resizeMode="contain" accessibilityLabel="Secure payment QR image" /> : null}
+              <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment?.totalAmount)}</Text>{invoiceCodes[requestId] ? <Text selectable style={styles.invoiceCode}>Manual code: {invoiceCodes[requestId]}</Text> : null}<Text style={styles.invoiceHint}>{isEmployer && requestStatus === 'active' ? 'Tap to review and confirm' : requestStatus === 'active' ? 'Sent to employer for review' : `Invoice ${requestStatus}`}</Text></View>
+            </TouchableOpacity>;
             return (
             <View style={[styles.msgBubble, isMine ? styles.myMsg : styles.theirMsg]}>
               <Text style={[styles.msgText, isMine ? styles.myMsgText : styles.theirMsgText]}>{item.content}</Text>
@@ -202,6 +233,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>
+      <EmployerQrScannerModal visible={Boolean(invoiceRequestId)} initialRequestId={invoiceRequestId} onClose={() => setInvoiceRequestId(null)} onSettled={() => { setInvoiceRequestId(null); void fetchMessages(); }} />
     </SafeAreaView>
   );
 }
@@ -278,6 +310,7 @@ const styles = StyleSheet.create({
   myMsgText: { color: tokens.colors.onBrand },
   theirMsgText: { color: tokens.colors.text },
   msgTime: { color: tokens.colors.textSubtle, fontSize: 11, marginTop: 4, textAlign: 'right' },
+  invoiceCard: { width: '88%', alignSelf: 'flex-start', marginBottom: 12, padding: 13, borderRadius: 19, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, ...tokens.shadow.card }, invoiceMine: { alignSelf: 'flex-end', borderColor: '#BFDBFE' }, invoiceTheirs: { alignSelf: 'flex-start' }, invoiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 }, invoiceIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: tokens.colors.brandSoft, alignItems: 'center', justifyContent: 'center' }, invoiceCopy: { flex: 1 }, invoiceEyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: .8, color: tokens.colors.brand }, invoiceTitle: { marginTop: 2, fontSize: 13, fontWeight: '800', color: tokens.colors.brandDark }, invoiceStatus: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 999, backgroundColor: tokens.colors.successSoft }, invoiceStatusMuted: { backgroundColor: tokens.colors.contentMuted }, invoiceStatusText: { fontSize: 8, fontWeight: '800', color: tokens.colors.textMuted, textTransform: 'uppercase' }, invoiceQr: { width: 180, height: 180, alignSelf: 'center', marginVertical: 12, backgroundColor: '#FFFFFF' }, invoiceFooter: { borderTopWidth: 1, borderTopColor: tokens.colors.border, paddingTop: 10 }, invoiceAmount: { fontSize: 19, fontWeight: '800', color: tokens.colors.brandDark }, invoiceCode: { marginTop: 5, fontSize: 11, fontWeight: '800', letterSpacing: 1, color: tokens.colors.brand }, invoiceHint: { marginTop: 3, fontSize: 10, color: tokens.colors.textMuted },
   inputRow: {
     flexDirection: 'row',
     paddingHorizontal: 12,

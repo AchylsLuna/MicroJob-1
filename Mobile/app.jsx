@@ -328,6 +328,7 @@ function WorkerEWalletScreen() {
       onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
       notificationBadgeCount={session.workerNotifications.length}
       messageBadgeCount={session.unreadMessageCount}
+      onOpenInvoiceChat={(target) => { session.setInitialWorkerChatTarget(target); workerTabPress('Messages'); }}
     />
   );
 }
@@ -641,6 +642,7 @@ function EmployerNotificationsScreen() {
     const type = String(item?.type || '').toLowerCase();
     if (type === 'application' || type === 'interview') employerTabPress('Applications');
     else if (type === 'message') employerTabPress('Messages');
+    else if (item?.entityType === 'payment_request') navigation.navigate('EmployerEWallet', { invoiceRequestId: item.entityId });
     else if (type === 'payment' || type === 'payout') navigation.navigate('EmployerEWallet');
     else if (type === 'support') navigation.navigate('EmployerSupport');
     else if (type === 'account') navigation.navigate('EmployerSettings');
@@ -715,12 +717,14 @@ function EmployerAccountInformationScreen() {
 
 function EmployerEWalletScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const employerTabPress = useEmployerTabNavigation();
   return (
     <EmployerEWallet
       onBack={() => navigation.goBack()}
       activeTab="Profile"
       onTabPress={employerTabPress}
+      initialInvoiceRequestId={route.params?.invoiceRequestId || null}
     />
   );
 }

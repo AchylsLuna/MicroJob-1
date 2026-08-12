@@ -283,6 +283,44 @@ export async function getUserTransactions(req, res) {
   }
 }
 
+export async function getMobileWallet(req, res) {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    const mode = String(req.query?.mode || '').toLowerCase();
+    const user = await User.findById(userId).select('role workerBalance employerBalance');
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (mode === 'worker' && !canWithdrawWorkerBalance(user.role)) return res.status(403).json({ message: 'Worker wallet is unavailable for this account.' });
+    if (mode === 'employer' && !canTopUpEmployerWallet(user.role)) return res.status(403).json({ message: 'Employer wallet is unavailable for this account.' });
+    if (!['worker', 'employer'].includes(mode)) return res.status(400).json({ message: 'Wallet mode must be worker or employer.' });
+
+    const balanceTarget = mode === 'worker' ? 'WORKER' : { $in: ['EMPLOYER', 'ESCROW'] };
+    const filter = { balanceTarget, $or: [{ sender: userId }, { receiver: userId }] };
+    const transactions = await populateTransactionQuery(Transaction.find(filter).sort({ createdAt: -1 }).limit(100));
+    const completed = transactions.filter((item) => item.status === 'COMPLETED');
+    const credited = completed.filter((item) => String(item.receiver?._id || item.receiver || '') === String(userId)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const spent = completed.filter((item) => String(item.sender?._id || item.sender || '') === String(userId)).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const pendingTransactions = transactions.filter((item) => item.status === 'PENDING').reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const pendingPayouts = mode === 'worker'
+      ? await PayoutRequest.aggregate([{ $match: { user: user._id, status: { $in: ['requested', 'approved'] } } }, { $group: { _id: null, total: { $sum: '$amount' } } }])
+      : [];
+    const ledger = transactions.map((item) => {
+      const entry = typeof item.toObject === 'function' ? item.toObject() : item;
+      const receiverId = String(item.receiver?._id || item.receiver || '');
+      const senderId = String(item.sender?._id || item.sender || '');
+      return { ...entry, walletDirection: receiverId === String(userId) ? 'credit' : senderId === String(userId) ? 'debit' : 'neutral' };
+    });
+    return res.status(200).json({
+      mode,
+      balance: mode === 'worker' ? Number(user.workerBalance || 0) : Number(user.employerBalance || 0),
+      summary: { credited, spent, pending: pendingTransactions + Number(pendingPayouts[0]?.total || 0), transactionCount: transactions.length },
+      transactions: ledger,
+    });
+  } catch (error) {
+    console.error('Get mobile wallet error:', error);
+    return res.status(500).json({ message: 'Failed to load wallet.' });
+  }
+}
+
 export async function createTopUpSession(req, res) {
   try {
     const ip = req.ip || req.headers['x-forwarded-for'] || null;

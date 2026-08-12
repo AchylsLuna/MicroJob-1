@@ -88,3 +88,12 @@ export const loginLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: buildAuthRateLimitKey,
 });
+
+export const qrSettlementLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 30,
+  message: { message: 'Too many QR payment attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `qr:${String(req.user?.id || req.user?.userId || ipKeyGenerator(req.ip || 'unknown'))}`,
+});

@@ -5,25 +5,27 @@ import { tokens } from '../../theme/tokens';
 
 export type WalletMetric = { label: string; value: string; icon: React.ComponentProps<typeof Ionicons>['name'] };
 
-export function WalletBalanceCard({ label, value, note, refreshing, onRefresh, actionLabel, actionIcon = 'add-outline', expanded, onAction, secondary }: {
+export function WalletBalanceCard({ label, value, note, refreshing, onRefresh, actionLabel, actionIcon = 'add-outline', expanded, onAction, secondary, hidden = false, onToggleHidden, quickActionLabel, quickActionIcon = 'qr-code-outline', onQuickAction }: {
   label: string; value: string; note: string; refreshing: boolean; onRefresh: () => void;
   actionLabel: string; actionIcon?: React.ComponentProps<typeof Ionicons>['name']; expanded: boolean; onAction: () => void;
   secondary?: string;
+  hidden?: boolean; onToggleHidden?: () => void; quickActionLabel?: string;
+  quickActionIcon?: React.ComponentProps<typeof Ionicons>['name']; onQuickAction?: () => void;
 }) {
   return <View style={styles.balanceCard}>
     <View style={styles.balanceHeader}>
-      <View style={styles.balanceCopy}><Text style={styles.balanceLabel}>{label}</Text><Text style={styles.balanceValue} adjustsFontSizeToFit numberOfLines={1}>{value}</Text></View>
+      <View style={styles.balanceCopy}><Text style={styles.balanceLabel}>{label}</Text><View style={styles.valueRow}><Text style={styles.balanceValue} adjustsFontSizeToFit numberOfLines={1}>{hidden ? '••••••' : value}</Text>{onToggleHidden ? <TouchableOpacity style={styles.eyeButton} onPress={onToggleHidden} accessibilityRole="button" accessibilityLabel={hidden ? 'Show wallet balance' : 'Hide wallet balance'}><Ionicons name={hidden ? 'eye-outline' : 'eye-off-outline'} size={20} color={tokens.colors.white} /></TouchableOpacity> : null}</View></View>
       <TouchableOpacity style={styles.refreshButton} onPress={onRefresh} disabled={refreshing} accessibilityRole="button" accessibilityLabel="Refresh wallet" accessibilityState={{ busy: refreshing, disabled: refreshing }}>
         {refreshing ? <ActivityIndicator color={tokens.colors.white} size="small" /> : <Ionicons name="refresh-outline" size={20} color={tokens.colors.white} />}
       </TouchableOpacity>
     </View>
     {secondary ? <Text style={styles.secondaryBalance}>{secondary}</Text> : null}
     <Text style={styles.balanceNote}>{note}</Text>
-    <TouchableOpacity style={styles.primaryAction} onPress={onAction} accessibilityRole="button" accessibilityState={{ expanded }}>
+    <View style={styles.actionRow}>{quickActionLabel && onQuickAction ? <TouchableOpacity style={styles.quickAction} onPress={onQuickAction} accessibilityRole="button"><Ionicons name={quickActionIcon} size={18} color={tokens.colors.white} /><Text style={styles.quickActionText}>{quickActionLabel}</Text></TouchableOpacity> : null}<TouchableOpacity style={[styles.primaryAction, quickActionLabel ? styles.flexAction : null]} onPress={onAction} accessibilityRole="button" accessibilityState={{ expanded }}>
       <Ionicons name={actionIcon} size={18} color={tokens.colors.brand} />
       <Text style={styles.primaryActionText}>{expanded ? `Hide ${actionLabel}` : actionLabel}</Text>
       <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={17} color={tokens.colors.brand} />
-    </TouchableOpacity>
+    </TouchableOpacity></View>
   </View>;
 }
 
@@ -35,8 +37,9 @@ export function WalletMetrics({ items }: { items: WalletMetric[] }) {
   </View>)}</View>;
 }
 
-export function WalletSection({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return <View style={styles.section}><View style={styles.sectionHeading}><Text style={styles.sectionTitle}>{title}</Text>{subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}</View>{children}</View>;
+export function WalletSection({ title, subtitle, children, collapsible = false, collapsed = false, onToggle }: { title: string; subtitle?: string; children: React.ReactNode; collapsible?: boolean; collapsed?: boolean; onToggle?: () => void }) {
+  const heading = <><View style={styles.sectionHeadingCopy}><Text style={styles.sectionTitle}>{title}</Text>{subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}</View>{collapsible ? <Ionicons name={collapsed ? 'chevron-down' : 'chevron-up'} size={20} color={tokens.colors.brand} /> : null}</>;
+  return <View style={styles.section}>{collapsible ? <TouchableOpacity style={styles.sectionToggle} onPress={onToggle} accessibilityRole="button" accessibilityState={{ expanded: !collapsed }} accessibilityLabel={`${collapsed ? 'Expand' : 'Collapse'} ${title}`}>{heading}</TouchableOpacity> : <View style={styles.sectionHeading}>{heading}</View>}{!collapsed ? children : null}</View>;
 }
 
 export function WalletError({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -76,11 +79,12 @@ const styles = StyleSheet.create({
   balanceHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, balanceCopy: { flex: 1 },
   balanceLabel: { color: tokens.colors.onBrandMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
   balanceValue: { marginTop: 7, color: tokens.colors.white, fontSize: 34, fontWeight: '800', letterSpacing: -0.8 },
+  valueRow: { flexDirection: 'row', alignItems: 'center', gap: 7 }, eyeButton: { width: 44, height: 44, marginTop: 5, alignItems: 'center', justifyContent: 'center' },
   refreshButton: { width: 44, height: 44, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.14)', alignItems: 'center', justifyContent: 'center' },
   secondaryBalance: { marginTop: 8, color: '#D8E3F5', fontSize: 13, fontWeight: '700' }, balanceNote: { marginTop: 12, color: '#D8E3F5', fontSize: 12, lineHeight: 18 },
-  primaryAction: { marginTop: 16, minHeight: 48, borderRadius: 15, backgroundColor: tokens.colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }, primaryActionText: { color: tokens.colors.brand, fontSize: 14, fontWeight: '800' },
+  actionRow: { marginTop: 16, flexDirection: 'row', gap: 9 }, primaryAction: { minHeight: 48, borderRadius: 15, backgroundColor: tokens.colors.white, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 12 }, flexAction: { flex: 1 }, primaryActionText: { color: tokens.colors.brand, fontSize: 13, fontWeight: '800' }, quickAction: { flex: 1, minHeight: 48, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,.35)', backgroundColor: 'rgba(255,255,255,.12)', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, paddingHorizontal: 10 }, quickActionText: { color: tokens.colors.white, fontSize: 13, fontWeight: '800' },
   metrics: { flexDirection: 'row', gap: 9 }, metric: { flex: 1, minHeight: 104, padding: 11, borderRadius: 17, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, ...tokens.shadow.card }, metricIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: tokens.colors.brandSoft, alignItems: 'center', justifyContent: 'center' }, metricValue: { marginTop: 9, fontSize: 16, fontWeight: '800', color: tokens.colors.brandDark }, metricLabel: { marginTop: 3, fontSize: 10, lineHeight: 14, fontWeight: '700', color: tokens.colors.textMuted },
-  section: { backgroundColor: tokens.colors.surface, borderRadius: 20, padding: 15, borderWidth: 1, borderColor: tokens.colors.border, ...tokens.shadow.card }, sectionHeading: { marginBottom: 12 }, sectionTitle: { fontSize: 18, fontWeight: '800', color: tokens.colors.brandDark }, sectionSubtitle: { marginTop: 4, fontSize: 12, lineHeight: 17, color: tokens.colors.textMuted },
+  section: { backgroundColor: tokens.colors.surface, borderRadius: 20, padding: 15, borderWidth: 1, borderColor: tokens.colors.border, ...tokens.shadow.card }, sectionHeading: { marginBottom: 12, flexDirection: 'row', alignItems: 'center' }, sectionHeadingCopy: { flex: 1 }, sectionToggle: { minHeight: 52, marginHorizontal: -4, marginTop: -4, marginBottom: 8, paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center' }, sectionTitle: { fontSize: 18, fontWeight: '800', color: tokens.colors.brandDark }, sectionSubtitle: { marginTop: 4, fontSize: 12, lineHeight: 17, color: tokens.colors.textMuted },
   error: { padding: 12, borderRadius: 15, backgroundColor: tokens.colors.dangerSoft, borderWidth: 1, borderColor: '#FECACA', flexDirection: 'row', alignItems: 'center', gap: 9 }, errorCopy: { flex: 1 }, errorTitle: { fontSize: 12, fontWeight: '800', color: '#991B1B' }, errorText: { marginTop: 2, fontSize: 11, color: '#B91C1C' }, retry: { minHeight: 44, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' }, retryText: { color: '#991B1B', fontWeight: '800', fontSize: 12 },
   skeleton: { gap: 12 }, skeletonBalance: { height: 218, borderRadius: 24, backgroundColor: tokens.colors.contentMuted }, skeletonMetrics: { flexDirection: 'row', gap: 9 }, skeletonMetric: { flex: 1, height: 104, borderRadius: 17, backgroundColor: tokens.colors.contentMuted }, skeletonSection: { height: 180, borderRadius: 20, backgroundColor: tokens.colors.contentMuted },
   empty: { alignItems: 'center', paddingVertical: 22, paddingHorizontal: 12 }, emptyIcon: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.contentMuted }, emptyTitle: { marginTop: 10, fontSize: 15, fontWeight: '800', color: tokens.colors.text }, emptyBody: { marginTop: 5, textAlign: 'center', fontSize: 12, lineHeight: 17, color: tokens.colors.textMuted },

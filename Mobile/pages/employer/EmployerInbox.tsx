@@ -41,6 +41,7 @@ export default function EmployerInbox({
             liveMessages={liveMessages}
             onOpenNotifications={onOpenNotifications}
             notificationBadgeCount={notificationBadgeCount}
+            isEmployer
           />
         ) : (
           <MessageList

@@ -3,6 +3,7 @@ import {
   createTopUpSession,
   handleWebhook,
   getUserTransactions,
+  getMobileWallet,
   getAllTransactions,
   confirmTopUp,
   simulateWebhook,
@@ -16,6 +17,8 @@ import {
   removePaymentMethod,
   setDefaultPaymentMethod,
 } from '../controllers/PaymentMethodController.js';
+import { createQrSettlementRequest, resolveQrSettlementRequest, settleQrSettlementRequest, cancelQrSettlementRequest, listQrSettlementRequests, getQrSettlementRequest, getQrSettlementImage } from '../controllers/QrSettlementController.js';
+import { qrSettlementLimiter } from '../lib/rateLimiters.js';
 import verifyToken from '../middleware/auth.js';
 import requireAdmin from '../middleware/admin.js';
 
@@ -23,6 +26,14 @@ const router = express.Router();
 
 router.post('/topup', verifyToken, createTopUpSession);
 router.get('/transactions', verifyToken, getUserTransactions);
+router.get('/wallet', verifyToken, getMobileWallet);
+router.post('/qr-requests', verifyToken, qrSettlementLimiter, createQrSettlementRequest);
+router.get('/qr-requests', verifyToken, listQrSettlementRequests);
+router.post('/qr-requests/resolve', verifyToken, qrSettlementLimiter, resolveQrSettlementRequest);
+router.get('/qr-requests/:requestId', verifyToken, getQrSettlementRequest);
+router.get('/qr-requests/:requestId/image', verifyToken, getQrSettlementImage);
+router.post('/qr-requests/:requestId/settle', verifyToken, qrSettlementLimiter, settleQrSettlementRequest);
+router.post('/qr-requests/:requestId/cancel', verifyToken, qrSettlementLimiter, cancelQrSettlementRequest);
 router.post('/topup/confirm', verifyToken, confirmTopUp);
 router.get('/methods', verifyToken, listPaymentMethods);
 router.post('/methods', verifyToken, addPaymentMethod);

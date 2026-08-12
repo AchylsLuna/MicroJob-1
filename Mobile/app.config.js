@@ -12,6 +12,10 @@ const expo = {
     '@react-native-community/datetimepicker',
     'expo-font',
     'expo-secure-store',
+    ['expo-camera', {
+      cameraPermission: 'Allow MicroJobs to scan secure job-payment QR codes.',
+      barcodeScannerEnabled: true,
+    }],
   ],
   platforms: ['ios', 'android', 'web'],
   android: {

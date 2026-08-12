@@ -22,6 +22,18 @@ const MessageSchema = new mongoose.Schema({
     trim: true,
     maxlength: Number.parseInt(process.env.MESSAGE_MAX_LENGTH || '4000', 10) || 4000,
   },
+  attachment: {
+    type: {
+      type: String,
+      enum: ['settlement_request'],
+      default: undefined,
+    },
+    settlementRequest: { type: mongoose.Schema.Types.ObjectId, ref: 'QrSettlementRequest', default: null },
+    qrImageName: { type: String, default: null },
+    jobTitle: { type: String, default: null, maxlength: 200 },
+    totalAmount: { type: Number, default: null, min: 0 },
+    expiresAt: { type: Date, default: null },
+  },
   clientMessageId: {
     type: String,
     trim: true,

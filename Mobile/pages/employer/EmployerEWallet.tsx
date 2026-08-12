@@ -22,11 +22,13 @@ import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSection, WalletSkeleton, WalletTransactionRow } from '../../components/wallet/WalletUI';
 import { php } from '../../components/wallet/walletFormat';
+import { EmployerQrScannerModal } from '../../components/wallet/WalletQrFlow';
 
 type EmployerEWalletProps = {
   onBack?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  initialInvoiceRequestId?: string | null;
 };
 
 const PENDING_TOPUP_KEY = 'pending_topup_checkout_employer';
@@ -48,6 +50,7 @@ export default function EmployerEWallet({
   onBack,
   activeTab = 'EWallet',
   onTabPress,
+  initialInvoiceRequestId = null,
 }: EmployerEWalletProps) {
   const insets = useSafeAreaInsets();
   const [topupAmount, setTopupAmount] = useState('');
@@ -56,6 +59,10 @@ export default function EmployerEWallet({
   const [hasLoadedWallet, setHasLoadedWallet] = useState(false);
   const [walletError, setWalletError] = useState('');
   const [isTopupExpanded, setIsTopupExpanded] = useState(false);
+  const [isScannerVisible, setIsScannerVisible] = useState(false);
+  const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(initialInvoiceRequestId);
+  const [isBalanceHidden, setIsBalanceHidden] = useState(false);
+  const [walletSummary, setWalletSummary] = useState({ credited: 0, spent: 0, pending: 0, transactionCount: 0 });
   const [liveBalance, setLiveBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
   const [profileRole, setProfileRole] = useState('');
@@ -93,6 +100,8 @@ export default function EmployerEWallet({
       : 'Pending';
     const direction: WalletTransaction['direction'] = status !== 'Completed'
       ? 'neutral'
+      : ['credit', 'debit', 'neutral'].includes(String(tx?.walletDirection))
+      ? tx.walletDirection
       : getPartyId(tx?.receiver) === userId
       ? 'credit'
       : getPartyId(tx?.sender) === userId
@@ -129,7 +138,7 @@ export default function EmployerEWallet({
         apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load wallet profile.'),
-        apiRequest(`${API_URL}/payment/transactions`, {
+        apiRequest(`${API_URL}/payment/wallet?mode=employer`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load transactions.'),
       ]);
@@ -154,6 +163,8 @@ export default function EmployerEWallet({
       if (txResult.ok) {
         const txPayload = asObject<any>(txResult.data) || asObject<any>(txResult.raw) || {};
         const list = Array.isArray(txPayload?.transactions) ? txPayload.transactions : [];
+        setLiveBalance(Number(txPayload.balance || 0));
+        setWalletSummary({ credited: Number(txPayload.summary?.credited || 0), spent: Number(txPayload.summary?.spent || 0), pending: Number(txPayload.summary?.pending || 0), transactionCount: Number(txPayload.summary?.transactionCount || list.length) });
         setTransactions(list.map((transaction: any) => mapTxToUi(transaction, walletOwnerId)));
       }
     } catch (error: any) {
@@ -238,6 +249,8 @@ export default function EmployerEWallet({
   useEffect(() => {
     if (isTopupExpanded) requestAnimationFrame(() => topupInputRef.current?.focus());
   }, [isTopupExpanded]);
+
+  useEffect(() => { if (initialInvoiceRequestId) { setPendingInvoiceId(initialInvoiceRequestId); setIsScannerVisible(true); } }, [initialInvoiceRequestId]);
 
   const handleTestPayment = async () => {
     if (!canCreatePayment) {
@@ -331,11 +344,16 @@ export default function EmployerEWallet({
           actionIcon="add-outline"
           expanded={isTopupExpanded}
           onAction={() => setIsTopupExpanded((expanded) => !expanded)}
+          hidden={isBalanceHidden}
+          onToggleHidden={() => setIsBalanceHidden((hidden) => !hidden)}
+          quickActionLabel="Scan to Pay"
+          quickActionIcon="scan-outline"
+          onQuickAction={() => { setPendingInvoiceId(null); setIsScannerVisible(true); }}
         />
         <WalletMetrics items={[
-          { label: 'Employer funds', value: php(liveBalance), icon: 'business-outline' },
-          { label: 'Transactions', value: String(transactions.length), icon: 'receipt-outline' },
-          { label: 'Minimum top up', value: php(100), icon: 'card-outline' },
+          { label: 'Total credited', value: isBalanceHidden ? '•••' : php(walletSummary.credited), icon: 'arrow-down-outline' },
+          { label: 'Spent / escrowed', value: isBalanceHidden ? '•••' : php(walletSummary.spent), icon: 'shield-checkmark-outline' },
+          { label: 'Pending', value: isBalanceHidden ? '•••' : php(walletSummary.pending), icon: 'time-outline' },
         ]} />
 
         {isTopupExpanded ? <View style={styles.card}>
@@ -382,6 +400,7 @@ export default function EmployerEWallet({
       </ScrollView>
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
+      <EmployerQrScannerModal visible={isScannerVisible} initialRequestId={pendingInvoiceId} onClose={() => { setIsScannerVisible(false); setPendingInvoiceId(null); }} onSettled={() => { setPendingInvoiceId(null); void refreshWalletData(); }} />
     </View>
   );
 }

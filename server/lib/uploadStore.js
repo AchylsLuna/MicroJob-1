@@ -40,7 +40,7 @@ export async function saveStoredUpload({ filename, buffer, contentType, metadata
         createdAt: new Date(),
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
