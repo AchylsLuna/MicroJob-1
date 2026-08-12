@@ -13,6 +13,8 @@ import {
   scheduleInterview,
   updateInterview,
 } from '../controllers/JobApplicationController.js';
+import { authorizePayment, requestChanges, settleDirect, submitWork } from '../controllers/ApplicationPaymentController.js';
+import { cancelJobOffer, confirmOfferHire, createJobOffer, respondToJobOffer } from '../controllers/JobOfferController.js';
 import authenticateToken from '../middleware/auth.js';
 
 const router = express.Router();
@@ -29,5 +31,13 @@ router.patch('/applications/:applicationId/employer/read', authenticateToken, ma
 router.patch('/applications/:applicationId/employer/remove', authenticateToken, hideEmployerApplication);
 router.delete('/applications/:applicationId/employer', authenticateToken, deleteEmployerApplication);
 router.patch('/applications/:applicationId/applicant/read', authenticateToken, markApplicantApplicationRead);
+router.post('/applications/:applicationId/offers', authenticateToken, createJobOffer);
+router.post('/job-offers/:offerId/respond', authenticateToken, respondToJobOffer);
+router.post('/job-offers/:offerId/cancel', authenticateToken, cancelJobOffer);
+router.post('/job-offers/:offerId/confirm-hire', authenticateToken, confirmOfferHire);
+router.post('/applications/:applicationId/payment/authorize', authenticateToken, authorizePayment);
+router.post('/applications/:applicationId/work/submit', authenticateToken, submitWork);
+router.post('/applications/:applicationId/work/request-changes', authenticateToken, requestChanges);
+router.post('/applications/:applicationId/payment/settle', authenticateToken, settleDirect);
 
 export default router;

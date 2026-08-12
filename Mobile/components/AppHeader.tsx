@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 import { StatusBar } from 'expo-status-bar';
+import { AnimatedMicroJobsLogoBadge } from './auth/MicroJobsLogo';
 
 type AppHeaderProps = {
   title: string;
@@ -12,6 +13,9 @@ type AppHeaderProps = {
   rightLabel?: string;
   onRightPress?: () => void;
   rightIconName?: React.ComponentProps<typeof Ionicons>['name'];
+  rightAccessibilityLabel?: string;
+  rightBadgeCount?: number;
+  showBrandBadge?: boolean;
 };
 
 export default function AppHeader({
@@ -21,9 +25,12 @@ export default function AppHeader({
   rightLabel,
   onRightPress,
   rightIconName,
+  rightAccessibilityLabel,
+  rightBadgeCount = 0,
+  showBrandBadge = false,
 }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
-  const showRightAction = Boolean(rightLabel && onRightPress);
+  const showRightAction = Boolean(onRightPress && (rightLabel || rightIconName));
 
   return (
     <View style={[styles.wrapper, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
@@ -39,18 +46,32 @@ export default function AppHeader({
           )}
         </View>
 
-        <View style={styles.center}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+        <View style={[styles.center, showBrandBadge && styles.brandedCenter]}>
+          {showBrandBadge ? <AnimatedMicroJobsLogoBadge /> : null}
+          <View style={showBrandBadge ? styles.titleCopy : undefined}>
+            <Text style={[styles.title, showBrandBadge && styles.brandedTitle]} numberOfLines={1}>{title}</Text>
+            {subtitle ? <Text style={[styles.subtitle, showBrandBadge && styles.brandedSubtitle]} numberOfLines={1}>{subtitle}</Text> : null}
+          </View>
         </View>
 
         <View style={[styles.side, styles.sideEnd]}>
           {showRightAction ? (
-            <TouchableOpacity onPress={onRightPress} style={styles.actionButton} activeOpacity={0.85}>
+            <TouchableOpacity
+              onPress={onRightPress}
+              style={[styles.actionButton, !rightLabel && styles.iconOnlyAction]}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel={rightAccessibilityLabel || rightLabel}
+            >
               {rightIconName ? (
                 <Ionicons name={rightIconName} size={15} color={tokens.colors.brand} style={styles.actionIcon} />
               ) : null}
-              <Text style={styles.actionText}>{rightLabel}</Text>
+              {rightLabel ? <Text style={styles.actionText}>{rightLabel}</Text> : null}
+              {rightBadgeCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{rightBadgeCount > 99 ? '99+' : String(rightBadgeCount)}</Text>
+                </View>
+              ) : null}
             </TouchableOpacity>
           ) : (
             <View style={styles.iconButtonPlaceholder} />
@@ -86,17 +107,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: tokens.spacing.sm,
   },
+  brandedCenter: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: tokens.spacing.sm,
+  },
+  titleCopy: {
+    minWidth: 0,
+    flexShrink: 1,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
     color: tokens.colors.text,
     textAlign: 'center',
   },
+  brandedTitle: {
+    color: tokens.colors.brandDark,
+    textAlign: 'left',
+  },
   subtitle: {
     marginTop: 2,
     fontSize: 13,
     color: tokens.colors.textMuted,
     textAlign: 'center',
+  },
+  brandedSubtitle: {
+    textAlign: 'left',
   },
   iconButton: {
     width: 44,
@@ -119,6 +156,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  iconOnlyAction: {
+    width: 44,
+    height: 44,
+    paddingHorizontal: 0,
+    borderRadius: tokens.radius.md,
+  },
   actionIcon: {
     marginRight: 4,
   },
@@ -126,5 +169,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: tokens.colors.brand,
     fontWeight: '700',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: tokens.colors.surface,
+    backgroundColor: tokens.colors.danger,
+  },
+  badgeText: {
+    color: tokens.colors.white,
+    fontSize: 10,
+    fontWeight: '800',
   },
 });

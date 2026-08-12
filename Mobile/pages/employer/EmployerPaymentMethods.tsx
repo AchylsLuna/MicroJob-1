@@ -216,11 +216,11 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
         onCancel={() => { if (!actionId) { setRemoveTarget(null); setRemoveError(null); } }}
         onConfirm={() => { if (removeTarget && !actionId) void removeMethod(removeTarget.id); }}
       />
-      <AppHeader title="Payment Methods" subtitle="Employer billing methods" onBack={onBack} />
+      <AppHeader title="Payment Methods" subtitle="Employer billing methods" onBack={onBack} showBrandBadge />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.introCard}>
           <View style={styles.introIcon}>
-            <Ionicons name="card-outline" size={25} color="#1C4D8D" />
+            <Ionicons name="card-outline" size={25} color={tokens.colors.brand} />
           </View>
           <View style={styles.introCopy}>
             <Text style={styles.title}>Saved cards</Text>
@@ -283,7 +283,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
           </View>
         ) : methods.length === 0 ? (
           <View style={styles.emptyCard}>
-            <Ionicons name="card-outline" size={34} color="#94A3B8" />
+            <Ionicons name="card-outline" size={34} color={tokens.colors.textSubtle} />
             <Text style={styles.emptyTitle}>No payment methods yet</Text>
             <Text style={styles.emptyText}>A card appears here only after you add it.</Text>
           </View>
@@ -310,7 +310,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity style={styles.methodActionButton} onPress={() => confirmRemove(method)} disabled={actionId === method.id} accessibilityRole="button" accessibilityLabel={`Remove ${method.brand} ending in ${method.last4}`}>
-                  <Ionicons name="trash-outline" size={21} color="#DC2626" />
+                  <Ionicons name="trash-outline" size={21} color={tokens.colors.danger} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#E5EAF1',
+    borderColor: tokens.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -339,13 +339,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#EAF2FF',
+    backgroundColor: tokens.colors.brandSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   introCopy: { flex: 1, gap: 3 },
-  title: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
-  subtitle: { fontSize: 12, lineHeight: 17, color: '#64748B' },
+  title: { fontSize: 17, fontWeight: '800', color: tokens.colors.brandDark },
+  subtitle: { fontSize: 12, lineHeight: 17, color: tokens.colors.textMuted },
   addButton: { minHeight: 44, borderRadius: 12, backgroundColor: tokens.colors.brand, paddingHorizontal: 15, paddingVertical: 10, justifyContent: 'center' },
   addButtonText: { color: tokens.colors.surface, fontSize: 13, fontWeight: '800' },
   card: {
@@ -353,19 +353,19 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#E5EAF1',
+    borderColor: tokens.colors.border,
     gap: 12,
   },
-  cardTitle: { fontSize: 17, fontWeight: '800', color: '#0F172A' },
-  helper: { fontSize: 12, lineHeight: 18, color: '#64748B' },
+  cardTitle: { fontSize: 17, fontWeight: '800', color: tokens.colors.brandDark },
+  helper: { fontSize: 12, lineHeight: 18, color: tokens.colors.textMuted },
   input: {
     minHeight: 52,
     borderWidth: 1,
-    borderColor: '#D7DEE8',
+    borderColor: tokens.colors.border,
     borderRadius: 14,
     paddingHorizontal: 14,
     fontSize: 15,
-    color: '#0F172A',
+    color: tokens.colors.text,
     backgroundColor: tokens.colors.surface,
   },
   inputRow: { flexDirection: 'row', gap: 10 },
@@ -386,21 +386,21 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
+    borderColor: tokens.colors.border,
     backgroundColor: tokens.colors.contentMuted,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
     gap: 7,
   },
-  emptyTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
-  emptyText: { fontSize: 13, color: '#64748B', textAlign: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '800', color: tokens.colors.brandDark },
+  emptyText: { fontSize: 13, color: tokens.colors.textMuted, textAlign: 'center' },
   methodCard: {
     borderRadius: 20,
     padding: 14,
     backgroundColor: tokens.colors.surface,
     borderWidth: 1,
-    borderColor: '#E5EAF1',
+    borderColor: tokens.colors.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -410,14 +410,14 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#D7DEE8',
+    borderColor: tokens.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  brandText: { fontSize: 11, fontWeight: '800', color: '#334155' },
+  brandText: { fontSize: 11, fontWeight: '800', color: tokens.colors.onCanvasMuted },
   methodCopy: { flex: 1, gap: 3 },
-  methodTitle: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
-  methodMeta: { fontSize: 11, color: '#64748B' },
+  methodTitle: { fontSize: 14, fontWeight: '800', color: tokens.colors.brandDark },
+  methodMeta: { fontSize: 11, color: tokens.colors.textMuted },
   defaultLabel: { marginTop: 3, fontSize: 10, fontWeight: '900', color: '#166534' },
   expiredLabel: { marginTop: 3, fontSize: 10, fontWeight: '900', color: '#B91C1C' },
   methodActions: { alignItems: 'flex-end', gap: 4 },

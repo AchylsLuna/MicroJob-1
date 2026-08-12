@@ -6,6 +6,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import Category from '../../models/Category.js';
 import Job from '../../models/Job.js';
 import JobApplication from '../../models/JobApplication.js';
+import JobOffer from '../../models/JobOffer.js';
 import Review from '../../models/Review.js';
 import User from '../../models/User.js';
 import {
@@ -84,6 +85,16 @@ test('employer applications include applicant match and rating data on the corre
     applicant: worker._id,
     status: 'Hired',
   });
+  const offer = await JobOffer.create({
+    job: job._id,
+    application: application._id,
+    employer: employer._id,
+    worker: worker._id,
+    amount: 2750,
+    additionalEscrow: 250,
+    status: 'accepted',
+    acceptedAt: new Date('2026-08-13T00:00:00.000Z'),
+  });
   await Review.create({
     job: job._id,
     application: application._id,
@@ -102,6 +113,13 @@ test('employer applications include applicant match and rating data on the corre
   assert.ok(employerResponse.payload[0].match.percentage > 0);
   assert.equal(employerResponse.payload[0].applicant.rating.averageRating, 5);
   assert.equal(employerResponse.payload[0].applicant.rating.totalReviews, 1);
+  assert.deepEqual(employerResponse.payload[0].offer, {
+    id: String(offer._id),
+    amount: 2750,
+    status: 'accepted',
+    createdAt: offer.createdAt,
+    acceptedAt: offer.acceptedAt,
+  });
 
   const reviewResponse = createResponse();
   await getUserReviews({

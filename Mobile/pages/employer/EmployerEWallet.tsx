@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '../../lib/storage';
 import EmployerNavigation from '../../components/employerNavigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
-import CanvasBackButton from '../../components/ui/CanvasBackButton';
+import AppHeader from '../../components/AppHeader';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { safeExternalUrl } from '../../lib/safeExternalUrl';
@@ -29,6 +29,8 @@ type EmployerEWalletProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   initialInvoiceRequestId?: string | null;
+  onOpenNotifications?: () => void;
+  notificationBadgeCount?: number;
 };
 
 const PENDING_TOPUP_KEY = 'pending_topup_checkout_employer';
@@ -51,6 +53,8 @@ export default function EmployerEWallet({
   activeTab = 'EWallet',
   onTabPress,
   initialInvoiceRequestId = null,
+  onOpenNotifications,
+  notificationBadgeCount = 0,
 }: EmployerEWalletProps) {
   const insets = useSafeAreaInsets();
   const [topupAmount, setTopupAmount] = useState('');
@@ -62,6 +66,7 @@ export default function EmployerEWallet({
   const [isScannerVisible, setIsScannerVisible] = useState(false);
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(initialInvoiceRequestId);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
+  const [areTransactionsCollapsed, setAreTransactionsCollapsed] = useState(false);
   const [walletSummary, setWalletSummary] = useState({ credited: 0, spent: 0, pending: 0, transactionCount: 0 });
   const [liveBalance, setLiveBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
@@ -320,11 +325,16 @@ export default function EmployerEWallet({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
-        {onBack ? <CanvasBackButton style={styles.headerButton} onPress={onBack} /> : <View style={styles.headerButtonPlaceholder} />}
-        <Text style={styles.headerTitle}>E-Wallet</Text>
-        <View style={styles.headerButtonPlaceholder} />
-      </View>
+      <AppHeader
+        title="E-Wallet"
+        subtitle="Employer funds and job payments"
+        onBack={onBack}
+        showBrandBadge
+        rightIconName="notifications-outline"
+        onRightPress={onOpenNotifications}
+        rightAccessibilityLabel={`Open notifications${notificationBadgeCount ? `, ${notificationBadgeCount} unread` : ''}`}
+        rightBadgeCount={notificationBadgeCount}
+      />
 
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: 112 + Math.max(insets.bottom, 10) }]}
@@ -389,7 +399,13 @@ export default function EmployerEWallet({
           </TouchableOpacity>
         </View> : null}
 
-        <WalletSection title="Recent Transactions" subtitle="Latest employer-wallet activity.">
+        <WalletSection
+          title="Recent Transactions"
+          subtitle={`${walletSummary.transactionCount} employer-wallet ${walletSummary.transactionCount === 1 ? 'entry' : 'entries'}`}
+          collapsible
+          collapsed={areTransactionsCollapsed}
+          onToggle={() => setAreTransactionsCollapsed((collapsed) => !collapsed)}
+        >
           {transactions.length === 0 ? (
             <WalletEmpty title="No transactions yet" body="Top-ups, job funding, and refunds will appear here." />
           ) : (
@@ -410,35 +426,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: tokens.colors.background,
   },
-  header: {
-    paddingBottom: 14,
-    paddingHorizontal: 16,
-    backgroundColor: tokens.colors.brand,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    borderWidth: 0,
-  },
-  headerButtonPlaceholder: {
-    width: 44,
-    height: 44,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: tokens.colors.surface,
-    letterSpacing: -0.3,
-  },
   scroll: {
-    paddingHorizontal: 16,
+    paddingTop: tokens.spacing.md,
+    paddingHorizontal: tokens.layout.gutter,
     gap: 14,
   },
   balanceCard: {
@@ -524,16 +514,16 @@ const styles = StyleSheet.create({
   comingSoon: { fontSize: 10, color: tokens.colors.textSubtle, fontWeight: '600' },
   card: {
     backgroundColor: tokens.colors.surface,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 20,
+    padding: tokens.spacing.lg,
     borderWidth: 1,
     borderColor: tokens.colors.border,
     ...tokens.shadow.card,
   },
   cardTitle: {
-    color: tokens.colors.text,
-    fontSize: 20,
-    fontWeight: '700',
+    color: tokens.colors.brandDark,
+    fontSize: tokens.typography.h3,
+    fontWeight: '800',
   },
   transactionsHeader: {
     flexDirection: 'row',
@@ -578,7 +568,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surfaceMuted,
     borderWidth: 1,
     borderColor: tokens.colors.border,
-    borderRadius: 10,
+    borderRadius: tokens.radius.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     color: tokens.colors.text,
@@ -614,7 +604,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     marginTop: 14,
     backgroundColor: tokens.colors.brand,
-    borderRadius: 10,
+    borderRadius: tokens.radius.md,
     alignItems: 'center',
     paddingVertical: 12,
   },

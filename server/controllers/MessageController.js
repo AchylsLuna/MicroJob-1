@@ -33,7 +33,8 @@ const withMessagePopulate = (query) =>
     .populate('sender', 'firstName lastName')
     .populate('receiver', 'firstName lastName')
     .populate('job', 'title')
-    .populate('attachment.settlementRequest', 'status expiresAt settledAt');
+    .populate('attachment.settlementRequest', 'status expiresAt settledAt')
+    .populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt');
 
 const getConversationWithUser = async (req, res) => {
   try {

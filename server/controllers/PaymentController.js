@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import PayoutRequest from '../models/PayoutRequest.js';
+import JobApplication from '../models/JobApplication.js';
 import monitor from '../lib/monitor.js';
 import { createNotification } from '../lib/notificationService.js';
 
@@ -303,6 +304,15 @@ export async function getMobileWallet(req, res) {
     const pendingPayouts = mode === 'worker'
       ? await PayoutRequest.aggregate([{ $match: { user: user._id, status: { $in: ['requested', 'approved'] } } }, { $group: { _id: null, total: { $sum: '$amount' } } }])
       : [];
+    const employerPendingAssignments = mode === 'employer'
+      ? await JobApplication.aggregate([
+          { $match: { status: 'Hired', paymentStatus: { $in: ['Authorized', 'Secured'] } } },
+          { $lookup: { from: 'jobs', localField: 'job', foreignField: '_id', as: 'jobDoc' } },
+          { $unwind: '$jobDoc' },
+          { $match: { 'jobDoc.jobPoster': user._id } },
+          { $group: { _id: null, total: { $sum: { $ifNull: ['$agreedAmount', '$jobDoc.salary'] } } } },
+        ])
+      : [];
     const ledger = transactions.map((item) => {
       const entry = typeof item.toObject === 'function' ? item.toObject() : item;
       const receiverId = String(item.receiver?._id || item.receiver || '');
@@ -312,7 +322,7 @@ export async function getMobileWallet(req, res) {
     return res.status(200).json({
       mode,
       balance: mode === 'worker' ? Number(user.workerBalance || 0) : Number(user.employerBalance || 0),
-      summary: { credited, spent, pending: pendingTransactions + Number(pendingPayouts[0]?.total || 0), transactionCount: transactions.length },
+      summary: { credited, spent, pending: pendingTransactions + Number(pendingPayouts[0]?.total || 0) + Number(employerPendingAssignments[0]?.total || 0), transactionCount: transactions.length },
       transactions: ledger,
     });
   } catch (error) {

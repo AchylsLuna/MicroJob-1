@@ -7,14 +7,22 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Alert } from 'react-native';
 import AsyncStorage from '../lib/storage';
 import io from 'socket.io-client';
-import { API_URL, SOCKET_URL } from '../config';
-import { apiRequest, asList, asObject } from '../lib/api';
+import { API_DIAGNOSTICS, API_URL, SOCKET_URL } from '../config';
+import { apiRequest, asList, asObject, classifyApiFailure, setInvalidSessionHandler } from '../lib/api';
 import { useToast } from './ToastContext';
+import { subscribeDataRefresh } from '../lib/dataRefresh';
 
 type ViewMode = 'worker' | 'employer';
+type BootstrapIssue = {
+  kind: 'unreachable' | 'server' | 'environment-mismatch';
+  title: string;
+  message: string;
+  apiUrl: string;
+  expectedEnvironment?: string;
+  actualEnvironment?: string;
+};
 type ChatTarget = { id: string; name?: string } | null;
 type SavedJobItem = {
   _id: string;
@@ -37,6 +45,9 @@ type AppSessionContextValue = {
   viewMode: ViewMode;
   canAccessEmployer: boolean;
   canSwitchAccountMode: boolean;
+  isSwitchingViewMode: boolean;
+  bootstrapIssue: BootstrapIssue | null;
+  apiDiagnostics: typeof API_DIAGNOSTICS & { environmentId?: string; databaseId?: string; revision?: string };
   savedJobs: SavedJobItem[];
   savedJobIds: string[];
   workerNotifications: any[];
@@ -54,7 +65,7 @@ type AppSessionContextValue = {
   closeLogoutConfirm: () => void;
   handleAuthSuccess: () => Promise<void>;
   logout: () => Promise<void>;
-  switchViewMode: (nextView: ViewMode) => Promise<void>;
+  switchViewMode: (nextView: ViewMode) => Promise<boolean>;
   setInitialWorkerChatTarget: (target: ChatTarget) => void;
   clearInitialWorkerChatTarget: () => void;
   setInitialEmployerChatTarget: (target: ChatTarget) => void;
@@ -66,6 +77,8 @@ type AppSessionContextValue = {
   refreshNotifications: () => Promise<void>;
   refreshUnreadMessages: () => Promise<void>;
   refreshProfile: () => Promise<boolean>;
+  retryBootstrap: () => Promise<void>;
+  resetSessionForCurrentApi: () => Promise<void>;
 };
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
@@ -75,6 +88,7 @@ const ACTIVE_VIEW_MODE_KEY = 'active_view_mode';
 const SAVED_JOBS_CACHE_KEY = 'saved_jobs_server_cache';
 const AUTH_TOKEN_KEY = 'auth_token';
 const AUTH_USER_KEY = 'auth_user';
+const API_IDENTITY_KEY = 'api_environment_identity';
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 10 * 1000;
 
@@ -165,6 +179,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   const [initialEmployerChatTarget, setInitialEmployerChatTarget] = useState<ChatTarget>(null);
   const [showIdleWarning, setShowIdleWarning] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isSwitchingViewMode, setIsSwitchingViewMode] = useState(false);
+  const [bootstrapIssue, setBootstrapIssue] = useState<BootstrapIssue | null>(null);
+  const [apiIdentity, setApiIdentity] = useState<{ environmentId?: string; databaseId?: string; revision?: string }>({});
 
   const socketRef = useRef<any>(null);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -173,6 +190,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   const socketFailureCountRef = useRef(0);
   const socketErrorLogRef = useRef({ message: '', at: 0 });
   const currentUserIdRef = useRef<string | null>(null);
+  const switchingViewModeRef = useRef(false);
+  const loggingOutRef = useRef(false);
 
   const canAccessEmployer = useMemo(() => {
     const role = normalizeRole(userRole);
@@ -298,6 +317,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         headers: { Authorization: `Bearer ${token}` },
       }, 'Failed to load profile.');
       if (!result.ok) {
+        if (classifyApiFailure(result) === 'unreachable' || classifyApiFailure(result) === 'server') {
+          throw Object.assign(new Error(result.message || 'Failed to load profile.'), { preserveSession: true });
+        }
         throw new Error(result.message || 'Failed to load profile.');
       }
 
@@ -322,7 +344,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser));
       await AsyncStorage.setItem(ACTIVE_VIEW_MODE_KEY, nextViewMode);
       return true;
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.preserveSession) return false;
       await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
       setUser(null);
       setUserRole(null);
@@ -354,10 +377,53 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         setSavedJobs(cachedSavedJobs);
       }
 
-      await refreshProfile();
+      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      const health = await apiRequest<any>(`${API_URL}/health`, undefined, 'Unable to reach the MicroJobs API.');
+      if (!health.ok) {
+        const kind = classifyApiFailure(health) === 'server' ? 'server' : 'unreachable';
+        setBootstrapIssue({
+          kind,
+          title: kind === 'server' ? 'MicroJobs server is unavailable' : 'Cannot connect to MicroJobs',
+          message: kind === 'server'
+            ? 'The API responded but could not complete startup. Your saved session and data were not removed.'
+            : 'Expo Go cannot reach the same API used by the web app. Check that both devices are on the same network and the API is running.',
+          apiUrl: API_DIAGNOSTICS.apiUrl,
+        });
+        setIsReady(true);
+        return;
+      }
+      const healthPayload = asObject<any>(health.raw) || {};
+      const actualIdentity = `${healthPayload.environment || 'unknown'}:${healthPayload.databaseId || 'unknown'}`;
+      setApiIdentity({ environmentId: healthPayload.environment, databaseId: healthPayload.databaseId, revision: healthPayload.revision });
+      const expectedIdentity = await AsyncStorage.getItem(API_IDENTITY_KEY);
+      if (token && expectedIdentity && expectedIdentity !== actualIdentity) {
+        setBootstrapIssue({
+          kind: 'environment-mismatch',
+          title: 'Different MicroJobs database detected',
+          message: 'This Expo session points to a different server/database than the one previously used. Sign in again only after confirming the API address.',
+          apiUrl: API_DIAGNOSTICS.apiUrl,
+          expectedEnvironment: expectedIdentity,
+          actualEnvironment: actualIdentity,
+        });
+        setIsReady(true);
+        return;
+      }
+
+      const authenticated = await refreshProfile();
+      if (token && !authenticated && (await AsyncStorage.getItem(AUTH_TOKEN_KEY))) {
+        setBootstrapIssue({
+          kind: 'server',
+          title: 'Unable to verify your session',
+          message: 'The server was reached, but your saved session could not be verified. Your local session was preserved so you can retry.',
+          apiUrl: API_DIAGNOSTICS.apiUrl,
+        });
+        setIsReady(true);
+        return;
+      }
+      if (authenticated) await AsyncStorage.setItem(API_IDENTITY_KEY, actualIdentity);
+      setBootstrapIssue(null);
       setIsReady(true);
 
-      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
         void refreshSavedJobs();
         void refreshNotifications();
@@ -369,9 +435,48 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     }
   }, [refreshNotifications, refreshProfile, refreshSavedJobs, refreshUnreadMessages]);
 
+  const retryBootstrap = useCallback(async () => {
+    setIsReady(false);
+    setBootstrapIssue(null);
+    await loadSession();
+  }, [loadSession]);
+
+  const resetSessionForCurrentApi = useCallback(async () => {
+    disconnectSocket();
+    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY, API_IDENTITY_KEY]);
+    currentUserIdRef.current = null;
+    setUser(null);
+    setUserRole(null);
+    setViewMode('worker');
+    setSavedJobs([]);
+    setWorkerNotifications([]);
+    setEmployerNotifications([]);
+    setMessageEvents([]);
+    setUnreadMessageCount(0);
+    setIsAuthenticated(false);
+    setBootstrapIssue(null);
+    setIsReady(true);
+  }, [disconnectSocket]);
+
   useEffect(() => {
     void loadSession();
   }, [loadSession]);
+
+  useEffect(() => {
+    setInvalidSessionHandler((result) => {
+      if (result.status !== 401 || !isAuthenticated || loggingOutRef.current) return;
+      void logoutRef.current();
+    });
+    return () => setInvalidSessionHandler(null);
+  }, [isAuthenticated]);
+
+  useEffect(() => subscribeDataRefresh((event) => {
+    if (!isAuthenticated) return;
+    if (event.domains.includes('profile') || event.domains.includes('session')) void refreshProfile();
+    if (event.domains.includes('savedJobs') || event.domains.includes('jobs')) void refreshSavedJobs();
+    if (event.domains.includes('notifications') || event.domains.includes('applications') || event.domains.includes('wallet')) void refreshNotifications();
+    if (event.domains.includes('messages')) void refreshUnreadMessages();
+  }), [isAuthenticated, refreshNotifications, refreshProfile, refreshSavedJobs, refreshUnreadMessages]);
 
   useEffect(() => {
     scheduleIdleTimers();
@@ -518,7 +623,11 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   }, [refreshNotifications, refreshProfile, refreshSavedJobs, refreshUnreadMessages]);
 
   const logout = useCallback(async () => {
+    if (loggingOutRef.current) return;
+    loggingOutRef.current = true;
     setShowLogoutModal(false);
+    switchingViewModeRef.current = false;
+    setIsSwitchingViewMode(false);
     try {
       const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
@@ -545,27 +654,41 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setInitialWorkerChatTarget(null);
     setInitialEmployerChatTarget(null);
     setIsAuthenticated(false);
+    loggingOutRef.current = false;
   }, [disconnectSocket]);
   logoutRef.current = logout;
 
   const switchViewMode = useCallback(async (nextView: ViewMode) => {
-    if (nextView !== viewMode && !canSwitchAccountMode) {
+    if (nextView === viewMode) return true;
+    if (switchingViewModeRef.current) return false;
+    if (!canSwitchAccountMode) {
       toast.info('Only Both accounts can switch account modes.');
-      return;
+      return false;
     }
-    const confirmed = await new Promise<boolean>((resolve) => {
-      Alert.alert(
-        'Switch role',
-        `Switch to ${nextView === 'employer' ? 'Employer' : 'Worker'} mode?`,
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Switch', onPress: () => resolve(true) },
-        ],
-      );
-    });
-    if (!confirmed) return;
-    setViewMode(nextView);
-    await AsyncStorage.setItem(ACTIVE_VIEW_MODE_KEY, nextView);
+    switchingViewModeRef.current = true;
+    setIsSwitchingViewMode(true);
+    try {
+      const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
+      const result = await apiRequest(`${API_URL}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }, 'Unable to verify your account mode.');
+      if (!result.ok) throw new Error(result.message || 'Unable to verify your account mode.');
+      const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
+      const profile = payload?.user || payload?.profile || payload;
+      if (normalizeRole(profile?.role || payload?.role) !== 'both') {
+        throw new Error('Only Both accounts can switch account modes.');
+      }
+      await AsyncStorage.setItem(ACTIVE_VIEW_MODE_KEY, nextView);
+      setViewMode(nextView);
+      return true;
+    } catch (error: any) {
+      toast.error(error?.message || 'Unable to switch account mode.');
+      return false;
+    } finally {
+      switchingViewModeRef.current = false;
+      setIsSwitchingViewMode(false);
+    }
   }, [canSwitchAccountMode, toast, viewMode]);
 
   const toggleSavedJob = useCallback(async (job: any) => {
@@ -630,6 +753,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     viewMode,
     canAccessEmployer,
     canSwitchAccountMode,
+    isSwitchingViewMode,
+    bootstrapIssue,
+    apiDiagnostics: { ...API_DIAGNOSTICS, ...apiIdentity },
     savedJobs,
     savedJobIds,
     workerNotifications,
@@ -662,9 +788,14 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     refreshNotifications,
     refreshUnreadMessages,
     refreshProfile,
+    retryBootstrap,
+    resetSessionForCurrentApi,
   }), [
     canAccessEmployer,
     canSwitchAccountMode,
+    apiIdentity,
+    bootstrapIssue,
+    isSwitchingViewMode,
     dismissWorkerNotification,
     handleAuthSuccess,
     hasOnboarded,
@@ -678,6 +809,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     refreshSavedJobs,
     refreshNotifications,
     refreshUnreadMessages,
+    retryBootstrap,
+    resetSessionForCurrentApi,
     registerActivity,
     savedJobIds,
     savedJobs,

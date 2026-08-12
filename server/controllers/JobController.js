@@ -319,7 +319,7 @@ export async function changeJobStatus(req, res){
                 const hiredApplications = await JobApplication.find({
                     job: job._id,
                     status: { $in: ['Hired', 'Accepted'] },
-                }).select('_id applicant').session(session);
+                }).select('_id applicant agreedAmount workStatus paymentStatus').session(session);
 
                 const payoutCandidates = [];
                 const seenApplicantIds = new Set();
@@ -328,7 +328,7 @@ export async function changeJobStatus(req, res){
                     const applicantId = String(app.applicant);
                     if (seenApplicantIds.has(applicantId)) continue;
                     seenApplicantIds.add(applicantId);
-                    payoutCandidates.push({ applicant: app.applicant, applicationId: String(app._id) });
+                    payoutCandidates.push({ applicant: app.applicant, applicationId: String(app._id), agreedAmount: Number(app.agreedAmount || job.salary || 0), hasLifecycle: Number(app.agreedAmount || 0) > 0, workStatus: app.workStatus, paymentStatus: app.paymentStatus });
                 }
 
                 if (job.selectedApplicant) {
@@ -394,6 +394,13 @@ export async function changeJobStatus(req, res){
                     existingUserIds.has(String(candidate.applicant)) && !paidReceiverIds.has(String(candidate.applicant))
                 );
 
+                const unfinishedCandidate = payableCandidates.find((candidate) => candidate.hasLifecycle && candidate.workStatus !== 'Submitted');
+                if (unfinishedCandidate) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    return res.status(409).json({ message: 'Each hired worker must submit finished work before the job can be completed.' });
+                }
+
                 // Debug: log payout decision variables to help diagnose why payouts may not run
                 console.debug('JobCompletionDebug: totals', { totalEscrowed, totalPaid, totalRefunded, remainingEscrow });
                 console.debug('JobCompletionDebug: payoutCandidates', payoutCandidates.map((c) => ({ applicant: String(c.applicant), applicationId: c.applicationId })));
@@ -412,7 +419,7 @@ export async function changeJobStatus(req, res){
 
                 let payoutsProcessed = 0;
                 for (const candidate of payableCandidates) {
-                    const payoutAmount = Math.min(Number(job.salary || 0), remainingEscrow);
+                    const payoutAmount = Math.min(Number(candidate.agreedAmount || job.salary || 0), remainingEscrow);
                     if (payoutAmount <= 0) break;
 
                     const worker = await User.findById(candidate.applicant).session(session);
@@ -439,6 +446,7 @@ export async function changeJobStatus(req, res){
                     ], { session });
                     payoutsProcessed += 1;
                     remainingEscrow = Number((remainingEscrow - payoutAmount).toFixed(2));
+                    if (candidate.applicationId) await JobApplication.updateOne({ _id: candidate.applicationId }, { $set: { workStatus: 'Completed', paymentStatus: 'Paid', completedAt: new Date(), paidAt: new Date() } }, { session });
 
                     await createNotification({
                         userId: worker._id,
@@ -681,9 +689,9 @@ export async function updateJob(req, res) {
         }
 
         const nextPositions = Number(updates.positionsNeeded ?? job.positionsNeeded ?? 1);
-        if (nextPositions < Number(job.hiredCount || 0)) {
+        if (nextPositions < Number(job.hiredCount || 0) + Number(job.reservedOfferCount || 0)) {
             return res.status(400).json({
-                message: `Workers needed cannot be lower than the ${job.hiredCount} worker${job.hiredCount === 1 ? '' : 's'} already hired.`,
+                message: 'Workers needed cannot be lower than workers already hired plus positions reserved by active formal offers.',
             });
         }
 

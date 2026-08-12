@@ -34,7 +34,7 @@ const normalizeApiBase = (value: unknown, fallbackOrigin: string): string => {
   return `${fallbackOrigin}/api`;
 };
 
-const DEV_API_PROXY_TARGET = normalizeOriginLikeValue(import.meta.env.VITE_API_PROXY_TARGET) || 'http://localhost:5000';
+const DEV_API_PROXY_TARGET = normalizeOriginLikeValue(import.meta.env.VITE_API_PROXY_TARGET) || 'http://localhost:5050';
 const API_BASE = normalizeApiBase(import.meta.env.VITE_API_BASE, DEV_API_PROXY_TARGET);
 const DIRECT_API_BASE = `${DEV_API_PROXY_TARGET}/api`;
 const REQUEST_TIMEOUT_MS = 12000;

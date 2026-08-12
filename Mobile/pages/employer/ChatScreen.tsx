@@ -9,6 +9,7 @@ import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { EmployerQrScannerModal } from '../../components/wallet/WalletQrFlow';
 import { php } from '../../components/wallet/walletFormat';
+import { AnimatedMicroJobsLogoBadge } from '../../components/auth/MicroJobsLogo';
 
 interface Message {
   _id: string;
@@ -18,7 +19,7 @@ interface Message {
   createdAt: string;
   senderName?: string;
   receiverName?: string;
-  attachment?: { type?: string; settlementRequest?: any; qrImageName?: string; jobTitle?: string; totalAmount?: number; expiresAt?: string };
+  attachment?: { type?: string; settlementRequest?: any; qrImageName?: string; jobTitle?: string; totalAmount?: number; expiresAt?: string; jobOffer?: any; application?: any; offerAmount?: number };
 }
 
 interface ChatScreenProps {
@@ -43,6 +44,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   const [invoiceRequestId, setInvoiceRequestId] = useState<string | null>(null);
   const [invoiceCodes, setInvoiceCodes] = useState<Record<string, string>>({});
   const [clock, setClock] = useState(Date.now());
+  const [processingOfferId, setProcessingOfferId] = useState<string | null>(null);
   useEffect(() => { void AsyncStorage.getItem('auth_token').then((value) => setAuthToken(value || '')); }, []);
   useEffect(() => { const interval = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(interval); }, []);
   useEffect(() => {
@@ -154,6 +156,20 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
     }
   };
 
+  const updateOffer = async (offerId: string, action: 'accept' | 'reject' | 'cancel' | 'confirm-hire') => {
+    if (processingOfferId) return;
+    setProcessingOfferId(offerId);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const url = action === 'accept' || action === 'reject' ? `${API_URL}/job-offers/${offerId}/respond` : `${API_URL}/job-offers/${offerId}/${action}`;
+      const result = await apiRequest(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(action === 'accept' || action === 'reject' ? { body: JSON.stringify({ action }) } : {}) }, 'Unable to update this offer.');
+      if (!result.ok) throw new Error(result.message);
+      toast.success(action === 'confirm-hire' ? 'Worker hired successfully.' : `Offer ${action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'cancelled'}.`);
+      await fetchMessages();
+    } catch (error: any) { toast.error(error?.message || 'Unable to update this offer.'); }
+    finally { setProcessingOfferId(null); }
+  };
+
   useEffect(() => {
     // Optionally, poll for new messages every 10s
     const interval = setInterval(fetchMessages, 10000);
@@ -171,12 +187,13 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backTouch} accessibilityRole="button" accessibilityLabel="Back to conversations">
-            <Ionicons name="chevron-back" size={20} color={tokens.colors.text} />
+            <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
           </TouchableOpacity>
-          <Text style={styles.headerText}>{displayName || 'Chat'}</Text>
+          <AnimatedMicroJobsLogoBadge />
+          <Text style={styles.headerText} numberOfLines={1}>{displayName || 'Chat'}</Text>
           {onOpenNotifications ? (
             <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} accessibilityRole="button" accessibilityLabel={`Open notifications${notificationBadgeCount ? `, ${notificationBadgeCount} unread` : ''}`}>
-              <Ionicons name="notifications-outline" size={20} color={tokens.colors.text} />
+              <Ionicons name="notifications-outline" size={20} color={tokens.colors.brand} />
               {notificationBadgeCount > 0 ? (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>{notificationBadgeCount > 99 ? '99+' : String(notificationBadgeCount)}</Text>
@@ -198,6 +215,18 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           windowSize={9}
           renderItem={({ item }) => {
             const isMine = String(getEntityId(item.sender)) === String(currentUserId);
+            const offerValue = item.attachment?.jobOffer;
+            const offerId = getEntityId(offerValue);
+            if (item.attachment?.type === 'job_offer' && offerId) {
+              const offerStatus = String(typeof offerValue === 'object' ? offerValue.status || 'pending' : 'pending').toLowerCase();
+              const busy = processingOfferId === offerId;
+              return <View style={[styles.invoiceCard, isMine ? styles.invoiceMine : styles.invoiceTheirs]} accessibilityLabel={`Formal job offer, ${php(item.attachment.offerAmount)}, ${offerStatus}`}>
+                <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="document-text-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>FORMAL JOB OFFER</Text><Text style={styles.invoiceTitle}>{item.attachment.jobTitle || 'Local job'}</Text></View><View style={[styles.invoiceStatus, offerStatus !== 'pending' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{offerStatus}</Text></View></View>
+                <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment.offerAmount)}</Text><Text style={styles.invoiceHint}>Escrow-backed guaranteed pay</Text></View>
+                {!isEmployer && !isMine && offerStatus === 'pending' ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'reject')}><Text style={styles.offerSecondaryText}>Decline</Text></TouchableOpacity><TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => void updateOffer(offerId, 'accept')}><Text style={styles.offerPrimaryText}>Accept Offer</Text></TouchableOpacity></View> : null}
+                {isEmployer && isMine && ['pending', 'accepted'].includes(offerStatus) ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'cancel')}><Text style={styles.offerSecondaryText}>Cancel</Text></TouchableOpacity>{offerStatus === 'accepted' ? <TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => void updateOffer(offerId, 'confirm-hire')}><Text style={styles.offerPrimaryText}>Confirm Hire</Text></TouchableOpacity> : null}</View> : null}
+              </View>;
+            }
             const requestValue = item.attachment?.settlementRequest;
             const requestId = getEntityId(requestValue);
             const serverStatus = String(typeof requestValue === 'object' ? requestValue?.status || 'active' : 'active').toLowerCase();
@@ -244,7 +273,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: tokens.colors.contentSurface,
+    backgroundColor: tokens.colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: tokens.colors.border,
   },
@@ -259,7 +288,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.colors.border,
     backgroundColor: tokens.colors.surface,
   },
-  headerText: { flex: 1, fontSize: 18, fontWeight: '800', color: tokens.colors.text },
+  headerText: { flex: 1, minWidth: 0, fontSize: 18, fontWeight: '800', color: tokens.colors.brandDark },
   notificationIcon: {
     position: 'relative',
     width: 44,
@@ -311,6 +340,7 @@ const styles = StyleSheet.create({
   theirMsgText: { color: tokens.colors.text },
   msgTime: { color: tokens.colors.textSubtle, fontSize: 11, marginTop: 4, textAlign: 'right' },
   invoiceCard: { width: '88%', alignSelf: 'flex-start', marginBottom: 12, padding: 13, borderRadius: 19, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, ...tokens.shadow.card }, invoiceMine: { alignSelf: 'flex-end', borderColor: '#BFDBFE' }, invoiceTheirs: { alignSelf: 'flex-start' }, invoiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 }, invoiceIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: tokens.colors.brandSoft, alignItems: 'center', justifyContent: 'center' }, invoiceCopy: { flex: 1 }, invoiceEyebrow: { fontSize: 8, fontWeight: '800', letterSpacing: .8, color: tokens.colors.brand }, invoiceTitle: { marginTop: 2, fontSize: 13, fontWeight: '800', color: tokens.colors.brandDark }, invoiceStatus: { paddingHorizontal: 7, paddingVertical: 4, borderRadius: 999, backgroundColor: tokens.colors.successSoft }, invoiceStatusMuted: { backgroundColor: tokens.colors.contentMuted }, invoiceStatusText: { fontSize: 8, fontWeight: '800', color: tokens.colors.textMuted, textTransform: 'uppercase' }, invoiceQr: { width: 180, height: 180, alignSelf: 'center', marginVertical: 12, backgroundColor: '#FFFFFF' }, invoiceFooter: { borderTopWidth: 1, borderTopColor: tokens.colors.border, paddingTop: 10 }, invoiceAmount: { fontSize: 19, fontWeight: '800', color: tokens.colors.brandDark }, invoiceCode: { marginTop: 5, fontSize: 11, fontWeight: '800', letterSpacing: 1, color: tokens.colors.brand }, invoiceHint: { marginTop: 3, fontSize: 10, color: tokens.colors.textMuted },
+  offerActions: { marginTop: 12, flexDirection: 'row', gap: 8 }, offerPrimary: { flex: 1, minHeight: 44, borderRadius: 12, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' }, offerPrimaryText: { color: tokens.colors.white, fontSize: 12, fontWeight: '800' }, offerSecondary: { flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, alignItems: 'center', justifyContent: 'center' }, offerSecondaryText: { color: tokens.colors.onCanvasMuted, fontSize: 12, fontWeight: '800' },
   inputRow: {
     flexDirection: 'row',
     paddingHorizontal: 12,

@@ -7,7 +7,7 @@ import Notification from '../models/Notification.js';
 import QrSettlementRequest from '../models/QrSettlementRequest.js';
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
-import { changeJobStatus } from './JobController.js';
+import { settleApplicationPayment } from '../services/applicationSettlement.js';
 import monitor from '../lib/monitor.js';
 import { createNotification } from '../lib/notificationService.js';
 import { deleteStoredUpload, getStoredUpload, saveStoredUpload } from '../lib/uploadStore.js';
@@ -45,42 +45,31 @@ const buildPreview = async (request) => {
     { path: 'job', select: 'title salary status positionsNeeded hiredCount jobPoster' },
     { path: 'requestingWorker', select: 'firstName lastName' },
     { path: 'employer', select: 'firstName lastName companyName' },
+    { path: 'application', select: 'applicant agreedAmount workStatus paymentStatus' },
   ]);
-  const applications = await JobApplication.find({ job: request.job._id, status: { $in: ['Hired', 'Accepted'] } })
-    .populate('applicant', 'firstName lastName').lean();
-  const workers = applications.map((item) => ({
-    applicationId: String(item._id),
-    workerId: String(item.applicant?._id || item.applicant),
-    name: [item.applicant?.firstName, item.applicant?.lastName].filter(Boolean).join(' ') || 'Worker',
-    amount: Number(request.job.salary || 0),
-  }));
+  const application = request.application;
+  const amount = Number(application?.agreedAmount || request.salarySnapshot || request.job.salary || 0);
+  const workers = [{ applicationId: String(application?._id), workerId: String(request.requestingWorker._id), name: [request.requestingWorker.firstName, request.requestingWorker.lastName].filter(Boolean).join(' ') || 'Worker', amount }];
   return {
     requestId: String(request._id), status: request.status, expiresAt: request.expiresAt,
     job: { id: String(request.job._id), title: request.job.title, status: request.job.status },
     requestingWorker: { id: String(request.requestingWorker._id), name: [request.requestingWorker.firstName, request.requestingWorker.lastName].filter(Boolean).join(' ') || 'Worker' },
     employer: { id: String(request.employer._id), name: request.employer.companyName || [request.employer.firstName, request.employer.lastName].filter(Boolean).join(' ') || 'Employer' },
     workers,
-    amountPerWorker: Number(request.job.salary || 0),
-    totalAmount: workers.length * Number(request.job.salary || 0),
+    application: { id: String(application?._id), workStatus: application?.workStatus, paymentStatus: application?.paymentStatus },
+    amountPerWorker: amount,
+    totalAmount: amount,
   };
 };
 
 const validateSettlementState = async (request) => {
   const job = await Job.findById(request.job).select('salary status jobPoster');
-  if (!job || job.status !== 'In Progress') return { status: 409, message: 'The job is no longer In Progress.' };
+  if (!job || !['Available', 'In Progress', 'Closed'].includes(job.status)) return { status: 409, message: 'The job is no longer active.' };
   if (String(job.jobPoster) !== String(request.employer)) return { status: 409, message: 'The job employer changed after this QR was created.' };
-  const applications = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } }).select('applicant').lean();
-  const currentWorkers = applications.map((item) => String(item.applicant)).sort();
-  const snapshotWorkers = request.hiredWorkerSnapshot.map(String).sort();
-  if (Number(job.salary || 0) !== Number(request.salarySnapshot || 0) || currentWorkers.join(',') !== snapshotWorkers.join(',')) {
-    return { status: 409, message: 'The job pay or hired-worker list changed. Ask the worker to generate a new QR.' };
-  }
-  const [escrow, payouts, refunds] = await Promise.all(['ESCROW', 'PAYOUT', 'REFUND'].map((type) => Transaction.aggregate([
-    { $match: { jobReference: job._id, type, status: 'COMPLETED' } }, { $group: { _id: null, total: { $sum: '$amount' } } },
-  ])));
-  const remaining = Number(escrow[0]?.total || 0) - Number(payouts[0]?.total || 0) - Number(refunds[0]?.total || 0);
-  const required = Number(job.salary || 0) * currentWorkers.length;
-  if (remaining < required) return { status: 409, message: 'The secured job funds are insufficient for every hired worker.' };
+  const application = await JobApplication.findOne({ _id: request.application, job: job._id, applicant: request.requestingWorker, status: 'Hired' });
+  if (!application || application.workStatus !== 'Submitted') return { status: 409, message: 'This worker has not submitted finished work.' };
+  if (application.paymentStatus === 'Paid') return { status: 409, message: 'This worker has already been paid.' };
+  if (Number(application.agreedAmount || job.salary) !== Number(request.salarySnapshot)) return { status: 409, message: 'The agreed payment changed. Ask the worker to generate a new QR.' };
   return null;
 };
 
@@ -95,18 +84,17 @@ export async function createQrSettlementRequest(req, res) {
     if (!user || !isWorkerRole(user.role)) return res.status(403).json({ message: 'Only worker accounts can request job settlement.' });
     const job = await Job.findById(req.body?.jobId);
     if (!job) return res.status(404).json({ message: 'Job not found.' });
-    if (job.status !== 'In Progress') return res.status(409).json({ message: 'Only an In Progress job can be settled by QR.' });
-    const application = await JobApplication.findOne({ job: job._id, applicant: userId, status: { $in: ['Hired', 'Accepted'] } });
+    if (!['Available', 'In Progress', 'Closed'].includes(job.status)) return res.status(409).json({ message: 'Only an active hired job can be settled by QR.' });
+    const application = await JobApplication.findOne({ job: job._id, applicant: userId, status: 'Hired' });
     if (!application) return res.status(403).json({ message: 'Only a hired worker can create this payment request.' });
-    const hiredApplications = await JobApplication.find({ job: job._id, status: { $in: ['Hired', 'Accepted'] } }).select('applicant').lean();
-    const hiredWorkerSnapshot = Array.from(new Set(hiredApplications.map((item) => String(item.applicant))));
-    if (!hiredWorkerSnapshot.length) return res.status(409).json({ message: 'This job has no hired workers to pay.' });
+    if (application.workStatus !== 'Submitted') return res.status(409).json({ message: 'Submit finished work before creating a payment QR.' });
+    if (application.paymentStatus === 'Paid') return res.status(409).json({ message: 'This work is already paid.' });
 
-    const existing = await QrSettlementRequest.findOne({ job: job._id, requestingWorker: userId, status: 'active', expiresAt: { $gt: new Date() } }).select('+shortCodeCipher');
+    const existing = await QrSettlementRequest.findOne({ application: application._id, status: 'active', expiresAt: { $gt: new Date() } }).select('+shortCodeCipher');
     if (existing?.shortCodeCipher && existing.qrImageName && req.body?.replace !== true) {
       return res.status(200).json({ requestId: String(existing._id), imageUrl: `/api/payment/qr-requests/${existing._id}/image`, shortCode: decryptCode(existing.shortCodeCipher), expiresAt: existing.expiresAt, preview: await buildPreview(existing), deduplicated: true });
     }
-    await QrSettlementRequest.updateMany({ job: job._id, requestingWorker: userId, status: 'active' }, { $set: { status: 'cancelled' } });
+    await QrSettlementRequest.updateMany({ application: application._id, status: 'active' }, { $set: { status: 'cancelled' } });
     const token = crypto.randomBytes(32).toString('base64url');
     const shortCode = crypto.randomBytes(5).toString('hex').slice(0, 8).toUpperCase();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -118,7 +106,7 @@ export async function createQrSettlementRequest(req, res) {
     request = await QrSettlementRequest.create({
       _id: requestId,
       job: job._id, application: application._id, requestingWorker: userId, employer: job.jobPoster,
-      salarySnapshot: Number(job.salary || 0), hiredWorkerSnapshot,
+      salarySnapshot: Number(application.agreedAmount || job.salary || 0), hiredWorkerSnapshot: [userId],
       tokenHash: hash(token), shortCodeHash: hash(shortCode), shortCodeCipher: encryptCode(shortCode), qrImageName, expiresAt,
       purgeAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     });
@@ -206,22 +194,13 @@ export async function settleQrSettlementRequest(req, res) {
       return res.status(invalidState.status).json({ message: invalidState.message });
     }
 
-    let statusCode = 200;
-    let payload;
-    await changeJobStatus(
-      { ...req, get: req.get?.bind(req), ip: req.ip, params: { id: String(request.job) }, body: { status: 'Completed' } },
-      { status(code) { statusCode = code; return this; }, json(body) { payload = body; return this; } },
-    );
-    if (statusCode >= 400) {
-      await QrSettlementRequest.updateOne({ _id: request._id, status: 'settling' }, { $set: { status: 'active' } });
-      return res.status(statusCode).json(payload || { message: 'Job settlement failed.' });
-    }
+    const payload = await settleApplicationPayment({ applicationId: request.application, employerId: userId });
     settlementCommitted = true;
-    const settlements = await Transaction.find({ jobReference: request.job, type: 'PAYOUT', status: 'COMPLETED' }).distinct('_id');
+    const settlements = await Transaction.find({ relatedEntityType: 'job_application', relatedEntityId: String(request.application), type: 'PAYOUT', status: 'COMPLETED' }).distinct('_id');
     request.status = 'settled'; request.settledAt = new Date(); request.settlementTransactions = settlements;
     await request.save();
     await monitor.audit({ actor: userId, action: 'qr_settlement_completed', status: 'success', meta: { job: String(request.job), request: String(request._id) } });
-    return res.status(200).json({ message: 'Job completed and escrow paid successfully.', job: payload?.job, settlementTransactions: settlements });
+    return res.status(200).json({ message: 'Worker payment completed successfully.', job: payload?.job, application: payload?.application, settlementTransactions: settlements });
   } catch (error) {
     if (request?._id) {
       await QrSettlementRequest.updateOne(

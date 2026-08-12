@@ -5,6 +5,7 @@ import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
+import JobOffer from '../models/JobOffer.js';
 import {
   APPLICATION_STATUSES,
   getApplicationTimelineLabel,
@@ -17,7 +18,6 @@ const EMPLOYER_MUTABLE_STATUSES = [
   'Interview Scheduled',
   'Interviewed',
   'Offer Sent',
-  'Hired',
   'Rejected',
 ];
 
@@ -77,7 +77,7 @@ const populateEmployerApplicationQuery = (query) =>
   query
     .populate({
       path: 'job',
-      select: 'title description company location jobType salary status deadline category skills requirements jobPoster positionsNeeded hiredCount',
+      select: 'title description company location jobType salary status deadline category skills requirements jobPoster positionsNeeded hiredCount createdAt',
       populate: { path: 'category', select: 'name' },
     })
     .populate(
@@ -447,6 +447,14 @@ export const getEmployerApplications = async (req, res) => {
       applications.map((application) => application.applicant?._id).filter(Boolean),
       'worker'
     );
+    const offers = await JobOffer.find({ application: { $in: applications.map((application) => application._id) } })
+      .sort({ createdAt: -1 })
+      .lean();
+    const latestOfferByApplication = new Map();
+    for (const offer of offers) {
+      const applicationId = String(offer.application);
+      if (!latestOfferByApplication.has(applicationId)) latestOfferByApplication.set(applicationId, offer);
+    }
 
     return res.status(200).json(applications.map((application) => {
       const value = serializeApplication(application);
@@ -454,6 +462,13 @@ export const getEmployerApplications = async (req, res) => {
       return {
         ...value,
         match: scoreJobForWorker(application.job, application.applicant),
+        offer: latestOfferByApplication.has(String(application._id)) ? {
+          id: String(latestOfferByApplication.get(String(application._id))._id),
+          amount: Number(latestOfferByApplication.get(String(application._id)).amount || 0),
+          status: latestOfferByApplication.get(String(application._id)).status,
+          createdAt: latestOfferByApplication.get(String(application._id)).createdAt,
+          acceptedAt: latestOfferByApplication.get(String(application._id)).acceptedAt,
+        } : null,
         applicant: value?.applicant ? {
           ...value.applicant,
           rating: ratings.get(applicantId) || { averageRating: 0, totalReviews: 0 },

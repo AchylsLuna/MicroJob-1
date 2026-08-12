@@ -86,6 +86,23 @@ export async function runDataBackfills() {
     { status: { $nin: APPLICATION_STATUSES } },
     { $set: { status: 'Applied' } }
   );
+  await Job.updateMany({ reservedOfferCount: { $exists: false } }, { $set: { reservedOfferCount: 0 } });
+
+  const lifecycleMissing = await JobApplication.find({ status: 'Hired', $or: [{ agreedAmount: null }, { agreedAmount: { $exists: false } }] }).select('_id job').lean();
+  for (const application of lifecycleMissing) {
+    const job = await Job.findById(application.job).select('salary status').lean();
+    if (!job) continue;
+    const paid = await Transaction.findOne({ jobReference: job._id, receiver: { $exists: true }, type: 'PAYOUT', relatedEntityId: String(application._id), status: 'COMPLETED' }).lean();
+    await JobApplication.updateOne({ _id: application._id }, { $set: { agreedAmount: Number(job.salary || 0), workStatus: paid || job.status === 'Completed' ? 'Completed' : 'In Progress', paymentStatus: paid ? 'Paid' : 'Secured', ...(paid ? { paidAt: paid.createdAt, completedAt: paid.createdAt } : {}) } });
+  }
+
+  // Whole-job QR invoices predate per-worker settlement. Keep settled records as
+  // history and cancel active incompatible requests so workers can regenerate.
+  const qrCollection = JobApplication.db.collection('qrsettlementrequests');
+  await qrCollection.updateMany(
+    { status: { $in: ['active', 'settling'] }, application: { $exists: false } },
+    { $set: { status: 'cancelled', migrationReason: 'per_worker_settlement' } },
+  );
 
   const applicationsWithoutTimeline = await JobApplication.find({
     $or: [{ timeline: { $exists: false } }, { timeline: { $size: 0 } }],

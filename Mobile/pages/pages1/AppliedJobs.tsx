@@ -33,6 +33,9 @@ type AppliedJob = {
     mode?: string;
     notes?: string | null;
   } | null;
+  agreedAmount?: number;
+  workStatus?: string;
+  paymentStatus?: string;
 };
 
 type ReviewEligibility = {
@@ -113,6 +116,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         jobType: app.job?.jobType,
         appliedAt: app.appliedDate || app.createdAt,
         nextInterview: app.nextInterview || null,
+        agreedAmount: app.agreedAmount,
+        workStatus: app.workStatus,
+        paymentStatus: app.paymentStatus,
       }));
       if (!mountedRef.current) return;
       setApplications(mapped);
@@ -174,6 +180,18 @@ export default function AppliedJobs(props: AppliedJobsProps) {
 
   const handleTabPress = (tab: string) => {
     externalOnTabPress?.(tab);
+  };
+
+  const submitFinishedWork = async (applicationId: string) => {
+    setIsLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      const result = await apiRequest(`${API_URL}/applications/${applicationId}/work/submit`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, 'Unable to submit finished work.');
+      if (!result.ok) throw new Error(result.message);
+      toast.success('Work submitted. You can now request a QR invoice from E-Wallet.');
+      await fetchApplications();
+    } catch (error: any) { toast.error(error?.message || 'Unable to submit finished work.'); }
+    finally { setIsLoading(false); }
   };
 
   return (
@@ -301,6 +319,12 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                 ) : null}
 
                 <View style={styles.cardActions}>
+                  {job.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
+                    <TouchableOpacity style={styles.messageButton} onPress={() => void submitFinishedWork(job.id)} accessibilityRole="button">
+                      <Ionicons name="checkmark-done-outline" size={16} color={tokens.colors.brand} />
+                      <Text style={styles.messageButtonText}>Submit Work</Text>
+                    </TouchableOpacity>
+                  ) : null}
                   {onMessageEmployer && job.employerId ? (
                     <TouchableOpacity
                       style={styles.messageButton}

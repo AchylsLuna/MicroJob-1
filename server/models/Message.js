@@ -25,7 +25,7 @@ const MessageSchema = new mongoose.Schema({
   attachment: {
     type: {
       type: String,
-      enum: ['settlement_request'],
+      enum: ['settlement_request', 'job_offer'],
       default: undefined,
     },
     settlementRequest: { type: mongoose.Schema.Types.ObjectId, ref: 'QrSettlementRequest', default: null },
@@ -33,6 +33,9 @@ const MessageSchema = new mongoose.Schema({
     jobTitle: { type: String, default: null, maxlength: 200 },
     totalAmount: { type: Number, default: null, min: 0 },
     expiresAt: { type: Date, default: null },
+    jobOffer: { type: mongoose.Schema.Types.ObjectId, ref: 'JobOffer', default: null },
+    application: { type: mongoose.Schema.Types.ObjectId, ref: 'JobApplication', default: null },
+    offerAmount: { type: Number, default: null, min: 0 },
   },
   clientMessageId: {
     type: String,

@@ -23,7 +23,7 @@ const QrSettlementRequestSchema = new mongoose.Schema({
 QrSettlementRequestSchema.index({ purgeAt: 1 }, { expireAfterSeconds: 0 });
 QrSettlementRequestSchema.index({ job: 1, status: 1 });
 QrSettlementRequestSchema.index(
-  { job: 1, requestingWorker: 1, status: 1 },
+  { application: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: 'active' } },
 );
 

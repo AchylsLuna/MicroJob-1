@@ -504,7 +504,7 @@ export default function EmployerPostJob({
             value={formData.title}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, title: value }))}
             placeholder="e.g. Weekend event assistant"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
             maxLength={100}
           />
 
@@ -521,13 +521,13 @@ export default function EmployerPostJob({
                 }}
                 onFocus={() => setShowCategoryOptions(true)}
                 placeholder="Search job categories"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={tokens.colors.textSubtle}
               />
               {showCategoryOptions && (
                 <View style={styles.categoryDropdown}>
                   {loadingCategories ? (
                     <View style={styles.dropdownItem}>
-                      <ActivityIndicator size="small" color="#1C4D8D" />
+                      <ActivityIndicator size="small" color={tokens.colors.brand} />
                     </View>
                   ) : (
                     <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
@@ -562,7 +562,7 @@ export default function EmployerPostJob({
             value={formData.description}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, description: value }))}
             placeholder="Describe the job role and responsibilities"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
             multiline
             maxLength={1000}
           />
@@ -573,7 +573,7 @@ export default function EmployerPostJob({
             value={formData.responsibilities}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, responsibilities: value }))}
             placeholder="List responsibilities"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
             multiline
           />
 
@@ -583,7 +583,7 @@ export default function EmployerPostJob({
             value={formData.requirements}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, requirements: value }))}
             placeholder="List requirements"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
             multiline
           />
 
@@ -593,7 +593,7 @@ export default function EmployerPostJob({
             value={formData.skills}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, skills: value }))}
             placeholder="React, TypeScript, GraphQL"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
           />
 
           <Text style={styles.label}>Minimum Guaranteed Pay per Worker (PHP)</Text>
@@ -602,7 +602,7 @@ export default function EmployerPostJob({
             value={formData.salary}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, salary: value.replace(/[^0-9]/g, '') }))}
             placeholder="e.g. 1500"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
             keyboardType="numeric"
           />
           <Text style={styles.helperText}>
@@ -649,7 +649,7 @@ export default function EmployerPostJob({
               }}
               onFocus={() => setShowProvinceOptions(true)}
               placeholder={isLoadingLocations ? 'Loading provinces...' : 'Type or select province'}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tokens.colors.textSubtle}
             />
             {showProvinceOptions ? (
               <View style={styles.categoryDropdown}>
@@ -696,7 +696,7 @@ export default function EmployerPostJob({
               }}
               onFocus={() => setShowCityOptions(true)}
               placeholder={!formData.province ? 'Select province first' : 'Type or select city'}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tokens.colors.textSubtle}
             />
             {showCityOptions ? (
               <View style={styles.categoryDropdown}>
@@ -740,7 +740,7 @@ export default function EmployerPostJob({
               }}
               onFocus={() => setShowBarangayOptions(true)}
               placeholder={!formData.city ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={tokens.colors.textSubtle}
             />
             {showBarangayOptions ? (
               <View style={styles.categoryDropdown}>
@@ -775,7 +775,7 @@ export default function EmployerPostJob({
             value={formData.address}
             onChangeText={(value) => setFormData((prev) => ({ ...prev, address: value }))}
             placeholder={formData.addressType === 'place' ? 'e.g. Near City Hall' : 'House no., street, subdivision'}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
           />
 
           <Text style={styles.helperText}>Location preview: {composeLocation(formData) || 'Select province, city, and barangay'}</Text>
@@ -788,7 +788,7 @@ export default function EmployerPostJob({
             value={positionsNeeded}
             onChangeText={setPositionsNeeded}
             placeholder="1"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={tokens.colors.textSubtle}
             keyboardType="number-pad"
           />
           <Text style={styles.helperText}>How many workers do you need? Job will auto-close when all positions are filled.</Text>
@@ -938,7 +938,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 18,
-    shadowColor: '#0f172a',
+    shadowColor: tokens.colors.brandDark,
     shadowOpacity: 0.08,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
@@ -966,14 +966,14 @@ const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: tokens.colors.text, marginBottom: 8, marginTop: 12 },
   input: {
     minHeight: 52,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.colors.surfaceMuted,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 14,
     color: tokens.colors.text,
   },
-  helperText: { fontSize: 12, color: '#6b7280', marginTop: 6 },
+  helperText: { fontSize: 12, color: tokens.colors.textMuted, marginTop: 6 },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   categoryRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   categoryInputWrapper: { flex: 1 },
@@ -982,13 +982,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 6,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: tokens.colors.border,
     maxHeight: 180,
   },
   dropdownScroll: { maxHeight: 180 },
   dropdownItem: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
   dropdownText: { color: tokens.colors.text, fontSize: 13 },
-  dropdownEmpty: { color: '#6b7280', fontSize: 12 },
+  dropdownEmpty: { color: tokens.colors.textMuted, fontSize: 12 },
   addCategoryButton: {
     width: 52,
     height: 52,
@@ -1003,7 +1003,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: tokens.colors.border,
     paddingHorizontal: 12,
     paddingVertical: 8,
     justifyContent: 'center',
@@ -1013,7 +1013,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.brand,
     borderColor: tokens.colors.brand,
   },
-  chipText: { color: '#475569', fontSize: 12, fontWeight: '600' },
+  chipText: { color: tokens.colors.onCanvasMuted, fontSize: 12, fontWeight: '600' },
   chipTextActive: { color: tokens.colors.surface },
   opportunityList: { gap: 10 },
   opportunityCard: {
@@ -1045,7 +1045,7 @@ const styles = StyleSheet.create({
   deadlineButton: {
     minHeight: 52,
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: tokens.colors.surfaceMuted,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -1085,7 +1085,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: tokens.colors.surface,
     padding: 24,
-    shadowColor: '#0f172a',
+    shadowColor: tokens.colors.brandDark,
     shadowOpacity: 0.2,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },

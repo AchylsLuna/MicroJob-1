@@ -17,6 +17,7 @@ type Preview = {
   employer: { id: string; name: string };
   workers: Array<{ applicationId: string; workerId: string; name: string; amount: number }>;
   amountPerWorker: number; totalAmount: number;
+  application?: { id: string; workStatus?: string; paymentStatus?: string };
 };
 
 const authHeaders = async () => {
@@ -43,7 +44,7 @@ export function WorkerQrRequestModal({ visible, onClose, onSettled, initialReque
       const result = await apiRequest(`${API_URL}/applications`, { headers: await authHeaders() }, 'Failed to load hired jobs.');
       if (!result.ok) throw new Error(result.message);
       const list = asList<any>(result.raw, ['applications']);
-      setJobs(list.filter((item) => ['hired', 'accepted'].includes(String(item.status || '').toLowerCase()) && String(item.job?.status || '') === 'In Progress'));
+      setJobs(list.filter((item) => String(item.status || '').toLowerCase() === 'hired' && String(item.workStatus || '') === 'Submitted' && ['Available', 'In Progress', 'Closed'].includes(String(item.job?.status || ''))));
     } catch (caught: any) { setError(caught?.message || 'Failed to load hired jobs.'); }
     finally { setLoading(false); }
   }, []);
@@ -78,14 +79,14 @@ export function WorkerQrRequestModal({ visible, onClose, onSettled, initialReque
         <View style={styles.qrFrame}>{request.imageUrl ? <Image source={{ uri: `${API_URL.replace(/\/api$/, '')}${request.imageUrl}`, headers: imageHeaders }} style={styles.qrImage} resizeMode="contain" accessibilityLabel="Secure MicroJobs payment QR" /> : request.qrPayload ? <QRCode value={request.qrPayload} size={210} color={tokens.colors.brandDark} backgroundColor="#FFFFFF" /> : null}</View>
         <Text style={styles.title}>{request.preview.job.title}</Text>
         <Text style={styles.amount}>{php(request.preview.totalAmount)}</Text>
-        <Text style={styles.muted}>{request.preview.workers.length} hired worker{request.preview.workers.length === 1 ? '' : 's'} · {remainingLabel(request.expiresAt, clock)}</Text>
+        <Text style={styles.muted}>Payment for {request.preview.requestingWorker.name} · {remainingLabel(request.expiresAt, clock)}</Text>
         <Text style={styles.codeLabel}>MANUAL CODE</Text><Text selectable style={styles.code}>{request.shortCode}</Text>
         <Text style={styles.security}>The employer must review and confirm. This QR never contains your balance or personal account details.</Text>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => void cancel()} accessibilityRole="button"><Text style={styles.secondaryText}>Cancel Request</Text></TouchableOpacity>
       </View> : <>
-        <Text style={styles.intro}>Choose finished work that is still marked In Progress. Payment uses the job’s secured escrow amount.</Text>
+        <Text style={styles.intro}>Choose work you submitted as finished. Payment uses your exact agreed amount secured in escrow.</Text>
         {!loading && jobs.length === 0 ? <View style={styles.empty}><Ionicons name="briefcase-outline" size={32} color={tokens.colors.textMuted} /><Text style={styles.title}>No jobs ready for QR payment</Text><Text style={styles.muted}>A job appears here after the employer hires you and work begins.</Text></View> : jobs.map((application) => <TouchableOpacity key={String(application._id)} style={styles.jobRow} onPress={() => void createRequest(String(application.job?._id || application.job))} accessibilityRole="button">
-          <View style={styles.jobIcon}><Ionicons name="briefcase-outline" size={20} color={tokens.colors.brand} /></View><View style={styles.grow}><Text style={styles.jobTitle}>{application.job?.title || 'Local job'}</Text><Text style={styles.muted}>{php(application.job?.salary)} secured pay</Text></View><Ionicons name="qr-code-outline" size={24} color={tokens.colors.brand} />
+          <View style={styles.jobIcon}><Ionicons name="briefcase-outline" size={20} color={tokens.colors.brand} /></View><View style={styles.grow}><Text style={styles.jobTitle}>{application.job?.title || 'Local job'}</Text><Text style={styles.muted}>{php(application.agreedAmount || application.job?.salary)} agreed pay</Text></View><Ionicons name="qr-code-outline" size={24} color={tokens.colors.brand} />
         </TouchableOpacity>)}
       </>}
     </ScrollView>
@@ -135,8 +136,8 @@ export function EmployerQrScannerModal({ visible, onClose, onSettled, initialReq
         <Text style={styles.eyebrow}>REVIEW JOB SETTLEMENT</Text><Text style={styles.title}>{preview.job.title}</Text><Text style={styles.amount}>{php(preview.totalAmount)}</Text>
         <Text style={styles.muted}>Requested by {preview.requestingWorker.name} · Employer {preview.employer.name}</Text>
         <View style={styles.workerList}>{preview.workers.map((worker) => <View key={worker.applicationId} style={styles.workerRow}><Text style={styles.jobTitle}>{worker.name}</Text><Text style={styles.jobTitle}>{php(worker.amount)}</Text></View>)}</View>
-        <Text style={styles.security}>Confirming completes the job and releases secured escrow to every hired worker. This cannot be paid twice.</Text>
-        <TouchableOpacity style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void settle()} disabled={busy} accessibilityRole="button" accessibilityState={{ busy, disabled: busy }}>{busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Confirm and Complete Job</Text>}</TouchableOpacity>
+        <Text style={styles.security}>Confirming approves this worker’s submitted work and releases only their agreed escrow payment. It cannot be paid twice.</Text>
+        <TouchableOpacity style={[styles.primaryButton, busy && styles.disabled]} onPress={() => void settle()} disabled={busy} accessibilityRole="button" accessibilityState={{ busy, disabled: busy }}>{busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryText}>Approve and Pay Worker</Text>}</TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => { setPreview(null); setScanned(false); }}><Text style={styles.secondaryText}>Scan Another</Text></TouchableOpacity>
       </View> : <>
         {!permission?.granted ? <View style={styles.permission}><Ionicons name="camera-outline" size={34} color={tokens.colors.brand} /><Text style={styles.title}>Camera permission needed</Text><Text style={styles.muted}>MicroJobs uses the camera only to scan its secure job-payment QR.</Text><TouchableOpacity style={styles.primaryButton} onPress={() => void requestPermission()}><Text style={styles.primaryText}>Allow Camera</Text></TouchableOpacity></View> : <View style={styles.cameraWrap}><CameraView style={styles.camera} active={visible && !preview} enableTorch={torch} barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={scanned ? undefined : ({ data }) => void resolve(data)} /><View pointerEvents="none" style={styles.scanFrame} /><TouchableOpacity style={styles.torch} onPress={() => setTorch((value) => !value)} accessibilityLabel="Toggle camera torch"><Ionicons name={torch ? 'flash' : 'flash-outline'} size={22} color="#FFFFFF" /></TouchableOpacity></View>}

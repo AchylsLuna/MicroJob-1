@@ -65,6 +65,11 @@ const JobSchema = new mongoose.Schema(
             default: 0,
             min: 0,
         },
+        reservedOfferCount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
         category: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Category',

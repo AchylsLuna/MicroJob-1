@@ -5,11 +5,18 @@ const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
 const envSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
 const extractHost = (value: unknown): string => {
   if (typeof value !== 'string' || !value.trim()) return '';
-  return value
-    .replace(/^https?:\/\//, '')
-    .split('/')[0]
-    .split(':')[0]
-    .trim();
+  const raw = value.trim();
+  try {
+    const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `http://${raw}`;
+    return new URL(withProtocol).hostname.trim();
+  } catch {
+    return raw
+      .replace(/^[a-z][a-z0-9+.-]*:\/\//i, '')
+      .split('/')[0]
+      .replace(/^\[|\]$/g, '')
+      .split(':')[0]
+      .trim();
+  }
 };
 
 const hostCandidates = [
@@ -39,3 +46,14 @@ export const API_URL = normalizedApiUrl.endsWith('/api')
   : `${normalizedApiUrl}/api`;
 
 export const SOCKET_URL = (envSocketUrl || API_URL.replace(/\/api$/, '')).replace(/\/$/, '');
+
+export const API_DIAGNOSTICS = Object.freeze({
+  apiUrl: API_URL,
+  socketUrl: SOCKET_URL,
+  source: envApiUrl ? 'environment' : host ? 'expo-host' : 'platform-fallback',
+  host: extractHost(API_URL),
+  port: (() => {
+    try { return new URL(API_URL).port || (API_URL.startsWith('https:') ? '443' : '80'); }
+    catch { return defaultApiPort; }
+  })(),
+});

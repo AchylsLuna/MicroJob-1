@@ -47,7 +47,6 @@ const TransactionSchema = new mongoose.Schema(
     reference: {
       type: String,
       default: null,
-      index: true,
     },
     provider: {
       type: String,
@@ -97,5 +96,9 @@ const TransactionSchema = new mongoose.Schema(
 TransactionSchema.index({ createdAt: -1 });
 TransactionSchema.index({ sender: 1, createdAt: -1 });
 TransactionSchema.index({ receiver: 1, createdAt: -1 });
+TransactionSchema.index(
+  { reference: 1 },
+  { unique: true, partialFilterExpression: { reference: { $type: 'string' } } },
+);
 
 export default mongoose.model('Transaction', TransactionSchema);

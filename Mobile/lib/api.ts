@@ -1,3 +1,7 @@
+import storage from './storage';
+import { inferMutationDomains, publishDataRefresh } from './dataRefresh';
+import { API_URL } from '../config';
+
 export type APIResult<T = unknown> = {
   ok: boolean;
   status: number;
@@ -7,6 +11,16 @@ export type APIResult<T = unknown> = {
 };
 
 const DEFAULT_REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS || 8000);
+const AUTH_TOKEN_KEY = 'auth_token';
+let invalidSessionHandler: ((result: APIResult) => void) | null = null;
+const isMicroJobsApiUrl = (url: string) => {
+  try { return new URL(url).origin === new URL(API_URL).origin && new URL(url).pathname.startsWith(new URL(API_URL).pathname); }
+  catch { return false; }
+};
+
+export const setInvalidSessionHandler = (handler: ((result: APIResult) => void) | null) => {
+  invalidSessionHandler = handler;
+};
 
 const LIST_KEYS = [
   'items',
@@ -62,8 +76,15 @@ export async function apiRequest<T = unknown>(
     }
   }
 
+  const headers = new Headers(init?.headers || {});
+  if (isMicroJobsApiUrl(url) && !headers.has('Authorization')) {
+    const token = await storage.getItem(AUTH_TOKEN_KEY);
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+  }
+
   const requestInit: RequestInit = {
     ...init,
+    headers,
     signal: controller.signal,
   };
 
@@ -79,13 +100,20 @@ export async function apiRequest<T = unknown>(
       raw = text || null;
     }
 
-    return {
+    const result: APIResult<T> = {
       ok: response.ok,
       status: response.status,
       message: getMessage(raw, fallbackMessage),
       data: inferData<T>(raw),
       raw,
     };
+    if (response.status === 401 && isMicroJobsApiUrl(url)) invalidSessionHandler?.(result);
+    const method = String(requestInit.method || 'GET').toUpperCase();
+    if (result.ok && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+      const domains = inferMutationDomains(url);
+      if (domains.length) publishDataRefresh({ domains, method, url, at: Date.now() });
+    }
+    return result;
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === 'AbortError';
     if (__DEV__) console.warn(`API request failed: ${url}`, error);
@@ -102,6 +130,17 @@ export async function apiRequest<T = unknown>(
     clearTimeout(timeoutId);
   }
 }
+
+export type ApiFailureKind = 'none' | 'unreachable' | 'unauthorized' | 'forbidden' | 'server' | 'request';
+
+export const classifyApiFailure = (result: APIResult): ApiFailureKind => {
+  if (result.ok) return 'none';
+  if (result.status === 0) return 'unreachable';
+  if (result.status === 401) return 'unauthorized';
+  if (result.status === 403) return 'forbidden';
+  if (result.status >= 500) return 'server';
+  return 'request';
+};
 
 export function asList<T = unknown>(raw: unknown, keys: string[] = []): T[] {
   if (Array.isArray(raw)) return raw as T[];

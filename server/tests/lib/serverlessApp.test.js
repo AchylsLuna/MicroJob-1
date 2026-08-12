@@ -22,6 +22,9 @@ test('serverless health endpoint responds without HTTPS redirects or a database 
     assert.equal(response.status, 200);
     assert.equal(body.status, 'ok');
     assert.equal(body.service, 'microjobs-api');
+    assert.match(body.databaseId, /^[a-f0-9]{12}$/);
+    assert.equal(typeof body.environment, 'string');
+    assert.equal(typeof body.revision, 'string');
   } finally {
     await stopServer(server);
   }

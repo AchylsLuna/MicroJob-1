@@ -3,7 +3,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import morgan from 'morgan';
 
-import { allowInMemoryMongo, allowedOrigins, config, isProduction } from './config/env.js';
+import { allowInMemoryMongo, allowedOrigins, apiIdentity, config, isProduction } from './config/env.js';
 import { connectDB } from './lib/db.js';
 import { ensureRuntimeData } from './lib/runtimeData.js';
 import { applySecurityMiddleware } from './middleware/security/security.js';
@@ -71,8 +71,7 @@ app.use(buildCorsMiddleware({ isProduction, allowedOrigins }));
 app.get('/api/health', (req, res) => {
 	res.json({
 		status: 'ok',
-		service: 'microjobs-api',
-		revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || 'local',
+		...apiIdentity,
 	});
 });
 

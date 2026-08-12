@@ -223,7 +223,7 @@ export default function EmployerJobPosts({
 
         {loading ? (
           <View style={styles.card}>
-            <ActivityIndicator color="#1C4D8D" />
+            <ActivityIndicator color={tokens.colors.brand} />
             <Text style={styles.loadingText}>Loading your job posts...</Text>
           </View>
         ) : null}
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
   },
-  loadingText: { marginTop: 10, color: '#475569', fontSize: 13 },
+  loadingText: { marginTop: 10, color: tokens.colors.onCanvasMuted, fontSize: 13 },
   errorCard: { borderWidth: 1, borderColor: '#fecaca' },
   errorText: { color: '#dc2626', fontSize: 13 },
   emptyCard: {
@@ -510,14 +510,14 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
   },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginBottom: 6 },
-  emptyText: { fontSize: 13, color: '#6b7280', textAlign: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: tokens.colors.brandDark, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: tokens.colors.textMuted, textAlign: 'center' },
   jobCard: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 18,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#0f172a',
+    shadowColor: tokens.colors.brandDark,
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -529,12 +529,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   statusColumn: { alignItems: 'flex-end', gap: 6 },
-  jobTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a' },
-  jobLocation: { fontSize: 13, color: '#64748b', marginTop: 4 },
+  jobTitle: { fontSize: 16, fontWeight: '700', color: tokens.colors.brandDark },
+  jobLocation: { fontSize: 13, color: tokens.colors.textMuted, marginTop: 4 },
   categoryTag: {
     marginTop: 6,
-    backgroundColor: '#eff6ff',
-    color: '#1C4D8D',
+    backgroundColor: tokens.colors.brandSoft,
+    color: tokens.colors.brand,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
@@ -561,7 +561,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 12,
   },
-  jobType: { color: '#1C4D8D', fontWeight: '700', fontSize: 12 },
+  jobType: { color: tokens.colors.brand, fontWeight: '700', fontSize: 12 },
   salary: { color: '#16a34a', fontWeight: '700', fontSize: 12 },
   footerRow: {
     marginTop: 16,
@@ -571,11 +571,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 10,
   },
-  footerText: { color: '#64748b', fontSize: 12 },
+  footerText: { color: tokens.colors.textMuted, fontSize: 12 },
   footerActions: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   doneButton: {
     minHeight: 44,
-    backgroundColor: '#1C4D8D',
+    backgroundColor: tokens.colors.brand,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneButtonDisabled: {
-    backgroundColor: '#94a3b8',
+    backgroundColor: tokens.colors.textSubtle,
   },
   doneButtonText: { color: tokens.colors.surface, fontSize: 12, fontWeight: '700' },
   editButton: {

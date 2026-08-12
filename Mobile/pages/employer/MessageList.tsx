@@ -302,13 +302,13 @@ export default function MessageList({
       />
 
       <View style={styles.searchWrap}>
-        <Ionicons style={styles.searchIcon} name="search-outline" size={18} color="#94A3B8" />
+        <Ionicons style={styles.searchIcon} name="search-outline" size={18} color={tokens.colors.textSubtle} />
         <TextInput
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search conversations..."
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={tokens.colors.textSubtle}
           accessibilityLabel="Search conversations"
         />
       </View>
@@ -376,7 +376,7 @@ export default function MessageList({
             </View>
           ) : (
             <View style={styles.emptyCard}>
-              <Ionicons name="chatbubble-ellipses-outline" size={28} color="#94A3B8" />
+              <Ionicons name="chatbubble-ellipses-outline" size={28} color={tokens.colors.textSubtle} />
               <Text style={styles.emptyTitle}>No conversations yet</Text>
               <Text style={styles.emptyText}>Messages with workers and employers will appear here.</Text>
             </View>
@@ -398,9 +398,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     minHeight: 52,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: tokens.colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#DCE1E9',
+    borderColor: tokens.colors.border,
     paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#334155',
+    color: tokens.colors.text,
   },
   listContent: {
     paddingTop: 2,
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: tokens.colors.brandMuted,
   },
   onlineDot: {
     position: 'absolute',
@@ -443,9 +443,9 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#10B981',
+    backgroundColor: tokens.colors.success,
     borderWidth: 2,
-    borderColor: '#F3F4F6',
+    borderColor: tokens.colors.surfaceMuted,
   },
   rowBody: {
     flex: 1,
@@ -461,12 +461,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '800',
-    color: '#0F172A',
+    color: tokens.colors.brandDark,
   },
   timeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#B8BFCC',
+    color: tokens.colors.textSubtle,
     letterSpacing: 0.7,
   },
   rowBottom: {
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   previewText: {
     flex: 1,
     fontSize: 15,
-    color: '#94A3B8',
+    color: tokens.colors.textMuted,
   },
   previewTextUnread: {
     color: tokens.colors.text,
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     minWidth: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#8A8F9C',
+    backgroundColor: tokens.colors.brand,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
@@ -504,12 +504,12 @@ const styles = StyleSheet.create({
   },
   processingText: {
     marginLeft: 8,
-    color: '#94A3B8',
+    color: tokens.colors.textSubtle,
     fontWeight: '700',
   },
   emptyText: {
     textAlign: 'center',
-    color: '#94A3B8',
+    color: tokens.colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
   },

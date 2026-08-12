@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import { buildAllowedOrigins } from '../lib/corsOrigins.js';
 import { getVercelOrigins, getWebOrigin } from '../lib/runtimeConfig.js';
+import crypto from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -18,6 +19,22 @@ export const config = {
     ORIGIN: getWebOrigin(),
     DB_NAME: process.env.DB_NAME || 'MicroJob',
 };
+
+const databaseIdentitySource = (() => {
+    try {
+        const parsed = new URL(String(config.MONGO_URI || '').replace(/^mongodb\+srv:/, 'https:').replace(/^mongodb:/, 'http:'));
+        return `${parsed.hostname}/${config.DB_NAME}`;
+    } catch {
+        return `unconfigured/${config.DB_NAME}`;
+    }
+})();
+
+export const apiIdentity = Object.freeze({
+    service: 'microjobs-api',
+    environment: process.env.API_ENVIRONMENT_ID || (process.env.NODE_ENV === 'production' ? 'production' : 'development'),
+    databaseId: crypto.createHash('sha256').update(databaseIdentitySource).digest('hex').slice(0, 12),
+    revision: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 12) || 'local',
+});
 
 export const isProduction = process.env.NODE_ENV === 'production';
 export const allowInMemoryMongo = process.env.ENABLE_IN_MEMORY_MONGO !== 'false';

@@ -9,6 +9,7 @@ import { tokens } from '../../theme/tokens';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { useToast } from '../../contexts/ToastContext';
 import { useFocusEffect } from '@react-navigation/native';
+import ConfirmModal from '../../components/ConfirmModal';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -25,7 +26,8 @@ type SettingsProps = {
   onNavigatePaymentMethods?: () => void;
   currentRole?: 'worker' | 'employer' | 'both';
   canSwitchAccountMode?: boolean;
-  onSwitchAccountMode?: (role: 'worker' | 'employer') => void;
+  onSwitchAccountMode?: (role: 'worker' | 'employer') => Promise<boolean>;
+  isSwitchingAccountMode?: boolean;
 };
 
 type SettingsItem = {
@@ -53,6 +55,7 @@ export default function Settings({
   currentRole = 'worker',
   canSwitchAccountMode = false,
   onSwitchAccountMode,
+  isSwitchingAccountMode = false,
 }: SettingsProps) {
   const insets = useSafeAreaInsets();
   const toast = useToast();
@@ -61,6 +64,7 @@ export default function Settings({
   const [profileAvatar, setProfileAvatar] = useState('');
   const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
   const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
+  const [requestedMode, setRequestedMode] = useState<'worker' | 'employer' | null>(null);
   const isEmployer = currentRole === 'employer';
 
   const handleLogout = () => {
@@ -323,12 +327,14 @@ export default function Settings({
                 <Text style={styles.modeDescription}>This Both account can work and hire from one profile.</Text>
               </View>
               <TouchableOpacity
-                style={styles.modeSwitchButton}
-                onPress={() => onSwitchAccountMode?.(isEmployer ? 'worker' : 'employer')}
+                style={[styles.modeSwitchButton, isSwitchingAccountMode && styles.modeSwitchButtonDisabled]}
+                onPress={() => setRequestedMode(isEmployer ? 'worker' : 'employer')}
+                disabled={isSwitchingAccountMode}
                 accessibilityRole="button"
                 accessibilityLabel={`Switch to ${isEmployer ? 'Worker' : 'Employer'} Mode`}
+                accessibilityState={{ disabled: isSwitchingAccountMode, busy: isSwitchingAccountMode }}
               >
-                <Text style={styles.modeSwitchText}>Switch</Text>
+                <Text style={styles.modeSwitchText}>Switch to {isEmployer ? 'Worker' : 'Employer'}</Text>
               </TouchableOpacity>
             </View>
           </>
@@ -370,6 +376,15 @@ export default function Settings({
 
         <View style={styles.footerActionsWrap}>{renderMenuCard(accountActions)}</View>
       </ScrollView>
+      <ConfirmModal
+        visible={Boolean(requestedMode)}
+        title={`Switch to ${requestedMode === 'employer' ? 'Employer' : 'Worker'} Mode?`}
+        description={`You will return to the ${requestedMode === 'employer' ? 'Employer' : 'Worker'} Home screen. Your account data stays connected to this Both profile.`}
+        confirmLabel={`Switch to ${requestedMode === 'employer' ? 'Employer' : 'Worker'}`}
+        pending={isSwitchingAccountMode}
+        onCancel={() => setRequestedMode(null)}
+        onConfirm={() => { if (!requestedMode || !onSwitchAccountMode) return; void onSwitchAccountMode(requestedMode).then((switched) => { if (switched) setRequestedMode(null); }); }}
+      />
     </View>
   );
 }
@@ -530,7 +545,7 @@ const styles = StyleSheet.create({
   modeCard: { minHeight: 104, borderRadius: 24, borderWidth: 1, borderColor: tokens.colors.brandMuted, backgroundColor: tokens.colors.surface, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, ...tokens.shadow.card },
   modeIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: tokens.colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
   modeCopy: { flex: 1, minWidth: 0 }, modeTitle: { fontSize: 16, fontWeight: '800', color: tokens.colors.brandDark }, modeDescription: { marginTop: 3, fontSize: 11, lineHeight: 16, color: tokens.colors.textMuted },
-  modeSwitchButton: { minHeight: 44, minWidth: 72, paddingHorizontal: 12, borderRadius: 14, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' }, modeSwitchText: { color: tokens.colors.white, fontSize: 12, fontWeight: '800' },
+  modeSwitchButton: { minHeight: 44, minWidth: 72, maxWidth: 136, paddingHorizontal: 12, borderRadius: 14, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' }, modeSwitchButtonDisabled: { opacity: 0.55 }, modeSwitchText: { color: tokens.colors.white, fontSize: 12, fontWeight: '800', textAlign: 'center' },
   menuCard: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 24,

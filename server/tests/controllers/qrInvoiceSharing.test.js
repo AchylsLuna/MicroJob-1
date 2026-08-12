@@ -25,7 +25,7 @@ test('invoice creation stores one private QR chat card and one employer notifica
   const [worker, employer] = await Promise.all([user('work', 'worker-qr@example.com'), user('hire', 'employer-qr@example.com')]);
   const job = await Job.create({ title: 'Barangay cleanup', description: 'Clean the covered court.', location: 'Pasig City, Metro Manila', salary: 750, jobType: 'Short-term', deadline: new Date('2027-01-01'), positionsNeeded: 1, hiredCount: 1, status: 'In Progress', jobPoster: employer._id, applicants: [worker._id] });
   await Promise.all([
-    JobApplication.create({ job: job._id, applicant: worker._id, status: 'Hired' }),
+    JobApplication.create({ job: job._id, applicant: worker._id, status: 'Hired', agreedAmount: 750, workStatus: 'Submitted', paymentStatus: 'Secured' }),
     Transaction.create({ sender: employer._id, amount: 750, type: 'ESCROW', status: 'COMPLETED', balanceTarget: 'ESCROW', jobReference: job._id }),
   ]);
 

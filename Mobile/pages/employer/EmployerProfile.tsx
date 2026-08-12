@@ -218,18 +218,18 @@ export default function EmployerProfile({
                 {avatarSource ? <Image source={avatarSource} style={styles.avatarImage} accessibilityLabel="Current employer profile photo" /> : <Text style={styles.avatarText}>{initials}</Text>}
                 {isUploadingAvatar ? (
                   <View style={styles.avatarLoadingOverlay}>
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={tokens.colors.white} />
                   </View>
                 ) : null}
               </TouchableOpacity>
               <TouchableOpacity style={styles.avatarEditButton} onPress={handleUploadAvatar} disabled={isUploadingAvatar} activeOpacity={0.92} accessible={false}>
-                <Ionicons name="camera-outline" size={16} color="#FFFFFF" />
+                <Ionicons name="camera-outline" size={16} color={tokens.colors.white} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.heroMeta}>
               <View style={styles.heroBadge}>
-                <Ionicons name="business-outline" size={15} color="#1C4D8D" />
+                <Ionicons name="business-outline" size={15} color={tokens.colors.brand} />
                 <Text style={styles.heroBadgeText}>Employer account</Text>
               </View>
               <Text style={styles.name}>{employerName}</Text>
@@ -258,7 +258,7 @@ export default function EmployerProfile({
               accessibilityLabel="Open settings"
               accessibilityState={{ disabled: !onOpenSettings }}
             >
-              <Ionicons name="settings-outline" size={18} color="#334155" />
+              <Ionicons name="settings-outline" size={18} color={tokens.colors.onCanvasMuted} />
               <Text style={styles.secondaryActionText}>Settings</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -270,7 +270,7 @@ export default function EmployerProfile({
               accessibilityLabel="Open wallet"
               accessibilityState={{ disabled: !onOpenWallet }}
             >
-              <Ionicons name="wallet-outline" size={18} color="#FFFFFF" />
+              <Ionicons name="wallet-outline" size={18} color={tokens.colors.white} />
               <Text style={styles.primaryActionText}>Wallet</Text>
             </TouchableOpacity>
           </View>
@@ -291,7 +291,7 @@ export default function EmployerProfile({
                 <Ionicons
                   name={item.complete ? 'checkmark-circle' : 'ellipse-outline'}
                   size={15}
-                  color={item.complete ? '#22C55E' : '#94A3B8'}
+                  color={item.complete ? tokens.colors.success : tokens.colors.textSubtle}
                 />
                 <Text style={[styles.checklistText, !item.complete && styles.checklistTextMuted]}>{item.label}</Text>
               </View>
@@ -310,7 +310,7 @@ export default function EmployerProfile({
             <TextInput
               style={[styles.input, styles.nameInput]}
               placeholder="First Name"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={tokens.colors.textSubtle}
               value={firstName}
               editable={false}
               maxLength={PROFILE_LIMITS.name}
@@ -320,7 +320,7 @@ export default function EmployerProfile({
             <TextInput
               style={[styles.input, styles.nameInput]}
               placeholder="Last Name"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={tokens.colors.textSubtle}
               value={lastName}
               editable={false}
               maxLength={PROFILE_LIMITS.name}
@@ -333,7 +333,7 @@ export default function EmployerProfile({
           <TextInput
             style={[styles.input, styles.inputReadOnly]}
             placeholder="Email"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={tokens.colors.textSubtle}
             value={email}
             autoCapitalize="none"
             keyboardType="email-address"
@@ -354,7 +354,7 @@ export default function EmployerProfile({
           <TextInput
             style={styles.input}
             placeholder="Add phone number"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={tokens.colors.textSubtle}
             value={phone}
             editable={false}
             maxLength={20}
@@ -367,7 +367,7 @@ export default function EmployerProfile({
           <TextInput
             style={styles.input}
             placeholder="City / Location"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={tokens.colors.textSubtle}
             value={city}
             editable={false}
             maxLength={PROFILE_LIMITS.city}
@@ -379,7 +379,7 @@ export default function EmployerProfile({
           <TextInput
             style={[styles.input, styles.addressInput]}
             placeholder="Full address"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor={tokens.colors.textSubtle}
             value={address}
             editable={false}
             maxLength={PROFILE_LIMITS.address}
@@ -390,7 +390,7 @@ export default function EmployerProfile({
         </View>
 
         <TouchableOpacity style={[styles.saveButton, !onEditProfile && styles.saveButtonDisabled]} onPress={onEditProfile} disabled={!onEditProfile} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Edit business information" accessibilityState={{ disabled: !onEditProfile }}>
-          <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+          <Ionicons name="create-outline" size={18} color={tokens.colors.white} />
           <Text style={styles.saveButtonText}>Edit Business Information</Text>
         </TouchableOpacity>
 
@@ -432,7 +432,7 @@ const styles = StyleSheet.create({
     width: 190,
     height: 190,
     borderRadius: 95,
-    backgroundColor: '#EAF2FF',
+    backgroundColor: tokens.colors.brandSoft,
     top: -60,
     right: -36,
   },
@@ -445,9 +445,9 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 28,
-    backgroundColor: '#EEF2F7',
+    backgroundColor: tokens.colors.surfaceMuted,
     borderWidth: 1,
-    borderColor: '#D7DEE9',
+    borderColor: tokens.colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#CBD5E1',
+    backgroundColor: tokens.colors.brandMuted,
   },
   avatarImage: {
     width: '100%',
@@ -467,7 +467,7 @@ const styles = StyleSheet.create({
     resizeMode: 'cover',
   },
   avatarText: {
-    color: '#0F172A',
+    color: tokens.colors.brandDark,
     fontWeight: '800',
     fontSize: 28,
   },
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#EAF2FF',
+    backgroundColor: tokens.colors.brandSoft,
   },
   heroBadgeText: {
     fontSize: 12,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#64748B',
+    color: tokens.colors.textMuted,
     fontWeight: '500',
   },
   heroStatsRow: {
@@ -550,7 +550,7 @@ const styles = StyleSheet.create({
   heroStatLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: tokens.colors.textMuted,
   },
   heroActionRow: {
     flexDirection: 'row',
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   secondaryActionText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#334155',
+    color: tokens.colors.onCanvasMuted,
   },
   primaryAction: {
     flex: 1,
@@ -633,13 +633,13 @@ const styles = StyleSheet.create({
   progressSubtitle: {
     fontSize: 14,
     lineHeight: 22,
-    color: '#64748B',
+    color: tokens.colors.textMuted,
     fontWeight: '500',
   },
   progressTrack: {
     height: 10,
     borderRadius: 999,
-    backgroundColor: '#DDE7FF',
+    backgroundColor: tokens.colors.brandMuted,
     overflow: 'hidden',
   },
   progressFill: {
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   },
   checklistRow: {
     borderTopWidth: 1,
-    borderTopColor: '#E5EAF2',
+    borderTopColor: tokens.colors.border,
     paddingTop: 12,
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -664,17 +664,17 @@ const styles = StyleSheet.create({
   },
   checklistText: {
     fontSize: 13,
-    color: '#475569',
+    color: tokens.colors.onCanvasMuted,
     fontWeight: '600',
   },
   checklistTextMuted: {
-    color: '#94A3B8',
+    color: tokens.colors.textSubtle,
   },
   fieldLabel: {
     marginTop: 4,
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: tokens.colors.onCanvasMuted,
   },
   nameRow: {
     flexDirection: 'row',
@@ -705,12 +705,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   inputReadOnly: {
-    color: '#64748B',
-    backgroundColor: '#E9EEF5',
+    color: tokens.colors.textMuted,
+    backgroundColor: tokens.colors.surfaceMuted,
   },
   helperText: {
     marginTop: 6,
-    color: '#64748B',
+    color: tokens.colors.textMuted,
     fontSize: 12,
   },
   addressInput: {

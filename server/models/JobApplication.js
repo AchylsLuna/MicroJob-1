@@ -130,6 +130,23 @@ const JobApplicationSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    agreedAmount: { type: Number, default: null, min: 1 },
+    workStatus: {
+      type: String,
+      enum: ['In Progress', 'Submitted', 'Changes Requested', 'Completed'],
+      default: 'In Progress',
+      index: true,
+    },
+    paymentStatus: {
+      type: String,
+      enum: ['Secured', 'Authorized', 'Processing', 'Paid', 'Failed'],
+      default: 'Secured',
+      index: true,
+    },
+    paymentAuthorizedAt: { type: Date, default: null },
+    workSubmittedAt: { type: Date, default: null },
+    changesRequestedAt: { type: Date, default: null },
+    paidAt: { type: Date, default: null },
     appliedDate: {
       type: Date,
       default: Date.now,

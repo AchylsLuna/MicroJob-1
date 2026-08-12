@@ -24,6 +24,8 @@ test('Vercel API entrypoint serves the serverless app without redirecting', asyn
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('x-microjobs-handler'), 'api-index-v2');
     assert.equal(body.status, 'ok');
+    assert.equal(body.service, 'microjobs-api');
+    assert.match(body.databaseId, /^[a-f0-9]{12}$/);
   } finally {
     await stopServer(server);
   }

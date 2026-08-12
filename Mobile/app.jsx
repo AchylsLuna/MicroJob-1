@@ -499,6 +499,7 @@ function WorkerSettingsScreen() {
       currentRole="worker"
       canSwitchAccountMode={session.canSwitchAccountMode}
       onSwitchAccountMode={session.switchViewMode}
+      isSwitchingAccountMode={session.isSwitchingViewMode}
     />
   );
 }
@@ -697,6 +698,7 @@ function EmployerSettingsScreen() {
       currentRole="employer"
       canSwitchAccountMode={session.canSwitchAccountMode}
       onSwitchAccountMode={session.switchViewMode}
+      isSwitchingAccountMode={session.isSwitchingViewMode}
     />
   );
 }
@@ -719,12 +721,15 @@ function EmployerEWalletScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
   return (
     <EmployerEWallet
       onBack={() => navigation.goBack()}
       activeTab="Profile"
       onTabPress={employerTabPress}
       initialInvoiceRequestId={route.params?.invoiceRequestId || null}
+      onOpenNotifications={() => navigateToEmployerTab(navigation, 'Notifications')}
+      notificationBadgeCount={session.employerNotifications.length}
     />
   );
 }
@@ -791,7 +796,41 @@ function AppNavigator() {
     return <View style={{ flex: 1, backgroundColor: tokens.colors.brand }} />;
   }
 
-  return session.isAuthenticated ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator /> : <WorkerStackNavigator />) : <AuthNavigator />;
+  if (session.bootstrapIssue) {
+    return <ApiConnectionScreen session={session} />;
+  }
+
+  return session.isAuthenticated ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator key="employer-mode" /> : <WorkerStackNavigator key="worker-mode" />) : <AuthNavigator />;
+}
+
+function ApiConnectionScreen({ session }) {
+  const issue = session.bootstrapIssue;
+  return (
+    <View style={styles.connectionScreen} accessibilityRole="alert">
+      <View style={styles.connectionIcon}>
+        <Ionicons name={issue?.kind === 'environment-mismatch' ? 'git-compare-outline' : 'cloud-offline-outline'} size={34} color={tokens.colors.brand} />
+      </View>
+      <Text style={styles.connectionTitle}>{issue?.title || 'Unable to connect'}</Text>
+      <Text style={styles.connectionMessage}>{issue?.message}</Text>
+      <View style={styles.connectionDetails}>
+        <Text style={styles.connectionLabel}>Mobile API</Text>
+        <Text selectable style={styles.connectionValue}>{session.apiDiagnostics.apiUrl}</Text>
+        <Text style={styles.connectionLabel}>Configuration</Text>
+        <Text style={styles.connectionValue}>{session.apiDiagnostics.source} · port {session.apiDiagnostics.port}</Text>
+        {session.apiDiagnostics.databaseId ? <Text style={styles.connectionValue}>Database {session.apiDiagnostics.databaseId} · {session.apiDiagnostics.environmentId}</Text> : null}
+      </View>
+      <TouchableOpacity style={styles.connectionRetry} onPress={() => void session.retryBootstrap()} accessibilityRole="button">
+        <Ionicons name="refresh" size={19} color={tokens.colors.white} />
+        <Text style={styles.connectionRetryText}>Retry connection</Text>
+      </TouchableOpacity>
+      {issue?.kind === 'environment-mismatch' ? (
+        <TouchableOpacity style={styles.connectionSecondary} onPress={() => void session.resetSessionForCurrentApi()} accessibilityRole="button">
+          <Text style={styles.connectionSecondaryText}>Sign in to this server</Text>
+        </TouchableOpacity>
+      ) : null}
+      <Text style={styles.connectionHint}>For Expo Go, start web/API with `npm run dev`, then connect the phone to the same Wi-Fi network.</Text>
+    </View>
+  );
 }
 
 function SessionOverlays() {
@@ -876,6 +915,18 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  connectionScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28, backgroundColor: tokens.colors.background },
+  connectionIcon: { width: 72, height: 72, borderRadius: 24, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.brandSoft },
+  connectionTitle: { marginTop: 20, color: tokens.colors.brandDark, fontSize: 24, fontWeight: '800', textAlign: 'center' },
+  connectionMessage: { maxWidth: 520, marginTop: 10, color: tokens.colors.textMuted, fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  connectionDetails: { width: '100%', maxWidth: 520, marginTop: 22, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surfaceMuted },
+  connectionLabel: { marginTop: 4, color: tokens.colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 },
+  connectionValue: { marginTop: 3, marginBottom: 8, color: tokens.colors.brandDark, fontSize: 12, fontWeight: '700' },
+  connectionRetry: { minHeight: 52, marginTop: 18, paddingHorizontal: 22, borderRadius: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: tokens.colors.brand },
+  connectionRetryText: { color: tokens.colors.white, fontSize: 15, fontWeight: '800' },
+  connectionSecondary: { minHeight: 48, marginTop: 10, paddingHorizontal: 20, borderRadius: 14, borderWidth: 1, borderColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' },
+  connectionSecondaryText: { color: tokens.colors.brand, fontSize: 14, fontWeight: '800' },
+  connectionHint: { maxWidth: 500, marginTop: 14, color: tokens.colors.textSubtle, fontSize: 11, lineHeight: 17, textAlign: 'center' },
   logoutOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 23, 42, 0.45)',
