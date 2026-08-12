@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   type ScrollView as NativeScrollView,
   StyleSheet,
   Text,
@@ -17,6 +18,7 @@ import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSection, WalletSkeleton, WalletTransactionRow } from '../../components/wallet/WalletUI';
 
 type EWalletProps = {
   activeTab?: string;
@@ -86,21 +88,6 @@ const normalizeAccountOptions = (value: unknown): Array<'worker' | 'employer'> =
   return Array.from(new Set(normalized));
 };
 
-const getTransactionStatusStyle = (status?: WalletTransaction['status']) => {
-  switch (status) {
-    case 'COMPLETED':
-      return { backgroundColor: '#DCFCE7', color: '#15803D' };
-    case 'PENDING':
-      return { backgroundColor: '#DBEAFE', color: tokens.colors.brand };
-    case 'FAILED':
-      return { backgroundColor: '#FEE2E2', color: '#B91C1C' };
-    case 'CANCELLED':
-      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
-    default:
-      return { backgroundColor: '#F3F4F6', color: tokens.colors.textMuted };
-  }
-};
-
 const getPayoutStatusStyle = (status: PayoutRequest['status']) => {
   switch (status) {
     case 'requested':
@@ -143,7 +130,10 @@ export default function EWallet({
 }: EWalletProps) {
   const scrollViewRef = useRef<NativeScrollView>(null);
   const payoutIdempotencyKeyRef = useRef<string | null>(null);
-  const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
+  const [isRefreshingWallet, setIsRefreshingWallet] = useState(true);
+  const [hasLoadedWallet, setHasLoadedWallet] = useState(false);
+  const [walletError, setWalletError] = useState('');
+  const [isPayoutFormExpanded, setIsPayoutFormExpanded] = useState(false);
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
   const [payoutFormOffsetY, setPayoutFormOffsetY] = useState(0);
@@ -164,8 +154,6 @@ export default function EWallet({
 
   const hasWorkerWallet = accountOptions.includes('worker') || profileRole === 'worker' || profileRole === 'both';
   const isBothRole = profileRole === 'both' || (accountOptions.includes('worker') && accountOptions.includes('employer'));
-  const activeBalance = isBothRole ? workerBalance + employerBalance : workerBalance;
-
   const pendingPayoutTotal = useMemo(
     () => payoutRequests
       .filter((request) => request.status === 'requested' || request.status === 'approved')
@@ -176,6 +164,7 @@ export default function EWallet({
   const refreshWalletData = useCallback(async () => {
     try {
       setIsRefreshingWallet(true);
+      setWalletError('');
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return;
 
@@ -190,6 +179,9 @@ export default function EWallet({
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load payout requests.'),
       ]);
+
+      const failedResult = [profileResult, transactionsResult, payoutsResult].find((result) => !result.ok);
+      if (failedResult) setWalletError(failedResult.message || 'Some wallet details could not be refreshed.');
 
       if (profileResult.ok) {
         const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
@@ -217,16 +209,22 @@ export default function EWallet({
       } else {
         setPayoutRequests([]);
       }
-    } catch {
-      // Preserve current wallet state on transient failures.
+    } catch (error: any) {
+      setWalletError(error?.message || 'Check your connection and try again.');
     } finally {
       setIsRefreshingWallet(false);
+      setHasLoadedWallet(true);
     }
   }, []);
 
   useEffect(() => {
     void refreshWalletData();
   }, [refreshWalletData]);
+
+  useEffect(() => {
+    if (!isPayoutFormExpanded || payoutFormOffsetY <= 0) return;
+    scrollViewRef.current?.scrollTo({ y: Math.max(payoutFormOffsetY - 20, 0), animated: true });
+  }, [isPayoutFormExpanded, payoutFormOffsetY]);
 
   const handleCreatePayout = async () => {
     if (!hasWorkerWallet) {
@@ -282,6 +280,7 @@ export default function EWallet({
         accountNumber: '',
       });
       payoutIdempotencyKeyRef.current = null;
+      setIsPayoutFormExpanded(false);
       toast.success('Your withdrawal has been submitted for admin review.');
       await refreshWalletData();
     } catch (error: any) {
@@ -314,10 +313,7 @@ export default function EWallet({
   };
 
   const handleWithdrawPress = () => {
-    scrollViewRef.current?.scrollTo({
-      y: Math.max(payoutFormOffsetY - 20, 0),
-      animated: true,
-    });
+    setIsPayoutFormExpanded((expanded) => !expanded);
   };
 
   return (
@@ -329,65 +325,28 @@ export default function EWallet({
         notificationBadgeCount={notificationBadgeCount}
       />
 
-      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.balanceCard}>
-          <View style={styles.balanceHeader}>
-            <View>
-              <Text style={styles.balanceLabel}>{isBothRole ? 'Combined Balance' : 'Available to withdraw'}</Text>
-              <Text style={styles.balanceValue}>{formatCurrency(activeBalance)}</Text>
-            </View>
-            <TouchableOpacity style={styles.refreshButton} onPress={() => void refreshWalletData()} disabled={isRefreshingWallet}>
-              {isRefreshingWallet ? (
-                <ActivityIndicator color={tokens.colors.white} size="small" />
-              ) : (
-                <Ionicons name="refresh-outline" size={18} color={tokens.colors.white} />
-              )}
-            </TouchableOpacity>
-          </View>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={isRefreshingWallet && hasLoadedWallet} onRefresh={() => void refreshWalletData()} tintColor={tokens.colors.brand} />}>
+        {!hasLoadedWallet && isRefreshingWallet ? <WalletSkeleton /> : <>
+        <WalletError message={walletError} onRetry={() => void refreshWalletData()} />
+        <WalletBalanceCard
+          label="Available to withdraw"
+          value={formatCurrency(workerBalance)}
+          secondary={isBothRole ? `Employer funds: ${formatCurrency(employerBalance)} (not withdrawable here)` : undefined}
+          note="Completed local-job earnings arrive here. Withdraw only your worker balance through a verified Philippine bank or mobile wallet."
+          refreshing={isRefreshingWallet}
+          onRefresh={() => void refreshWalletData()}
+          actionLabel="Withdraw Funds"
+          actionIcon="arrow-down-outline"
+          expanded={isPayoutFormExpanded}
+          onAction={handleWithdrawPress}
+        />
+        <WalletMetrics items={[
+          { label: 'Worker balance', value: formatCurrency(workerBalance), icon: 'wallet-outline' },
+          { label: 'Pending withdrawals', value: formatCurrency(pendingPayoutTotal), icon: 'time-outline' },
+          { label: 'Transactions', value: String(transactions.length), icon: 'receipt-outline' },
+        ]} />
 
-          <Text style={styles.balanceNote}>
-            {isBothRole
-              ? 'Your combined employer and worker balance. Top up from the employer wallet tab to fund jobs, and withdraw your earned worker balance here.'
-              : 'Workers cannot top up here. Employers fund jobs from their employer wallet, and completed earnings land in your worker balance for withdrawal.'}
-          </Text>
-
-          <View style={styles.balanceMetricsRow}>
-            {isBothRole ? (
-              <>
-                <View style={styles.balanceMetricCard}>
-                  <Text style={styles.balanceMetricLabel}>Employer Balance</Text>
-                  <Text style={styles.balanceMetricValue}>{formatCurrency(employerBalance)}</Text>
-                </View>
-                <View style={styles.balanceMetricCard}>
-                  <Text style={styles.balanceMetricLabel}>Worker Balance</Text>
-                  <Text style={styles.balanceMetricValue}>{formatCurrency(workerBalance)}</Text>
-                </View>
-              </>
-            ) : (
-              <View style={styles.balanceMetricCard}>
-                <Text style={styles.balanceMetricLabel}>Worker Balance</Text>
-                <Text style={styles.balanceMetricValue}>{formatCurrency(workerBalance)}</Text>
-              </View>
-            )}
-            <View style={styles.balanceMetricCard}>
-              <Text style={styles.balanceMetricLabel}>Pending Withdrawals</Text>
-              <Text style={styles.balanceMetricValue}>{formatCurrency(pendingPayoutTotal)}</Text>
-            </View>
-            <View style={styles.balanceMetricCard}>
-              <Text style={styles.balanceMetricLabel}>Transactions</Text>
-              <Text style={styles.balanceMetricValue}>{transactions.length}</Text>
-            </View>
-          </View>
-
-          {hasWorkerWallet ? (
-            <TouchableOpacity style={styles.balanceCtaButton} onPress={handleWithdrawPress} activeOpacity={0.9}>
-              <Ionicons name="arrow-down-outline" size={16} color="#1C4D8D" />
-              <Text style={styles.balanceCtaButtonText}>Withdraw Funds</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {hasWorkerWallet ? (
+        {hasWorkerWallet && isPayoutFormExpanded ? (
           <View
             style={styles.card}
             onLayout={(event) => setPayoutFormOffsetY(event.nativeEvent.layout.y)}
@@ -477,96 +436,27 @@ export default function EWallet({
           </View>
         )}
 
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Withdrawal History</Text>
-          <Text style={styles.cardSubtitle}>Track requested, approved, rejected, paid, and cancelled withdrawals.</Text>
-
-          {payoutRequests.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="cash-outline" size={30} color={tokens.colors.textMuted} />
-              <Text style={styles.emptyTitle}>No withdrawals yet</Text>
-              <Text style={styles.emptyBody}>Submitted withdrawals will appear here with review status and notes.</Text>
-            </View>
-          ) : (
-            <View style={styles.listWrap}>
-              {payoutRequests.map((request) => {
-                const statusStyle = getPayoutStatusStyle(request.status);
-                return (
-                  <View key={request._id} style={styles.listCard}>
-                    <View style={styles.listHeader}>
-                      <View>
-                        <Text style={styles.listTitle}>{formatCurrency(request.amount)}</Text>
-                        <Text style={styles.listSubtitle}>{request.destinationSnapshot.institutionName || 'Destination not set'} · {request.destinationSnapshot.accountName || 'Unknown account'}</Text>
-                      </View>
-                      <View style={[styles.badge, { backgroundColor: statusStyle.backgroundColor }]}>
-                        <Text style={[styles.badgeText, { color: statusStyle.color }]}>{request.status}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.metaText}>{request.destinationSnapshot.accountNumberMasked || request.destinationSnapshot.accountNumber || 'No account number'}</Text>
-                    <View style={styles.timelineRow}>
-                      <View style={styles.timelineItem}>
-                        <Text style={styles.timelineLabel}>Requested</Text>
-                        <Text style={styles.timelineValue}>{formatDate(request.createdAt)}</Text>
-                      </View>
-                      <View style={styles.timelineItem}>
-                        <Text style={styles.timelineLabel}>Reviewed</Text>
-                        <Text style={styles.timelineValue}>{formatDate(request.reviewedAt)}</Text>
-                      </View>
-                    </View>
-                    {request.reviewNotes ? <Text style={styles.reviewNotes}>{request.reviewNotes}</Text> : null}
-                    {request.status === 'requested' ? (
-                      <TouchableOpacity
-                        style={styles.secondaryButton}
-                        onPress={() => void handleCancelPayout(request._id)}
-                        disabled={cancellingPayoutId === request._id}
-                      >
-                        {cancellingPayoutId === request._id ? (
-                          <ActivityIndicator color={tokens.colors.danger} size="small" />
-                        ) : (
-                          <Text style={styles.secondaryButtonText}>Cancel Withdrawal</Text>
-                        )}
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Recent Transactions</Text>
-          <Text style={styles.cardSubtitle}>Top-up, payout, refund, and escrow records with linked references.</Text>
-
+        <WalletSection title="Recent Transactions" subtitle="Your latest worker-wallet activity.">
           {transactions.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="receipt-outline" size={30} color={tokens.colors.textMuted} />
-              <Text style={styles.emptyTitle}>No transactions yet</Text>
-              <Text style={styles.emptyBody}>Your transaction ledger will appear here once your wallet is active.</Text>
-            </View>
+            <WalletEmpty title="No transactions yet" body="Completed work, withdrawals, and refunds will appear here." />
           ) : (
-            <View style={styles.listWrap}>
-              {transactions.slice(0, 15).map((transaction) => {
-                const statusStyle = getTransactionStatusStyle(transaction.status);
-                return (
-                  <View key={transaction._id} style={styles.listCard}>
-                    <View style={styles.listHeader}>
-                      <View style={styles.transactionTypeWrap}>
-                        <Text style={styles.listTitle}>{getTransactionLabel(transaction)}</Text>
-                        <Text style={styles.listSubtitle}>{transaction.type} · {formatCurrency(transaction.amount)}</Text>
-                      </View>
-                      <View style={[styles.badge, { backgroundColor: statusStyle.backgroundColor }]}>
-                        <Text style={[styles.badgeText, { color: statusStyle.color }]}>{transaction.status || 'unknown'}</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.metaText}>Reference: {transaction.reference || transaction.providerReference || 'N/A'}</Text>
-                    <Text style={styles.metaDate}>{formatDate(transaction.createdAt)}</Text>
-                  </View>
-                );
-              })}
-            </View>
+            transactions.slice(0, 15).map((transaction) => <WalletTransactionRow key={transaction._id} title={getTransactionLabel(transaction)} subtitle={transaction.reference || transaction.providerReference || transaction.type} amount={formatCurrency(transaction.amount)} date={formatDate(transaction.createdAt)} status={transaction.status || 'unknown'} direction={transaction.type === 'PAYOUT' || transaction.type === 'REFUND' ? 'credit' : transaction.type === 'ESCROW' ? 'debit' : 'neutral'} />)
           )}
-        </View>
+        </WalletSection>
+
+        <WalletSection title="Withdrawal History" subtitle="Track review and payment status.">
+          {payoutRequests.length === 0 ? <WalletEmpty icon="cash-outline" title="No withdrawals yet" body="Submitted withdrawal requests will appear here." /> : <View style={styles.listWrap}>{payoutRequests.map((request) => {
+            const statusStyle = getPayoutStatusStyle(request.status);
+            return <View key={request._id} style={styles.listCard}>
+              <View style={styles.listHeader}><View style={styles.transactionTypeWrap}><Text style={styles.listTitle}>{formatCurrency(request.amount)}</Text><Text style={styles.listSubtitle} numberOfLines={1}>{request.destinationSnapshot.institutionName || 'Destination not set'} · {request.destinationSnapshot.accountName || 'Unknown account'}</Text></View><View style={[styles.badge, { backgroundColor: statusStyle.backgroundColor }]}><Text style={[styles.badgeText, { color: statusStyle.color }]}>{request.status}</Text></View></View>
+              <Text style={styles.metaText}>{request.destinationSnapshot.accountNumberMasked || request.destinationSnapshot.accountNumber || 'No account number'}</Text>
+              <Text style={styles.metaDate}>Requested {formatDate(request.createdAt)}{request.reviewedAt ? ` · Reviewed ${formatDate(request.reviewedAt)}` : ''}</Text>
+              {request.reviewNotes ? <Text style={styles.reviewNotes}>{request.reviewNotes}</Text> : null}
+              {request.status === 'requested' ? <TouchableOpacity style={styles.secondaryButton} onPress={() => void handleCancelPayout(request._id)} disabled={cancellingPayoutId === request._id} accessibilityRole="button" accessibilityState={{ busy: cancellingPayoutId === request._id, disabled: cancellingPayoutId === request._id }}>{cancellingPayoutId === request._id ? <ActivityIndicator color={tokens.colors.danger} size="small" /> : <Text style={styles.secondaryButtonText}>Cancel Withdrawal</Text>}</TouchableOpacity> : null}
+            </View>;
+          })}</View>}
+        </WalletSection>
+        </>}
       </ScrollView>
 
       <Navigation activeTab={activeTab} onTabPress={onTabPress} messageBadgeCount={messageBadgeCount} />
@@ -692,6 +582,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   input: {
+    minHeight: 52,
     backgroundColor: tokens.colors.surfaceMuted,
     borderWidth: 1,
     borderColor: tokens.colors.border,
@@ -707,6 +598,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   segmentChip: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: tokens.radius.pill,
@@ -744,7 +638,7 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     marginTop: 14,
-    minHeight: 42,
+    minHeight: 44,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#FCA5A5',

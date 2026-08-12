@@ -40,6 +40,9 @@ const logoSource = fs.readFileSync(path.join(projectRoot, 'components/auth/Micro
 if (!/AnimatedMicroJobsLogoBadge/.test(signedInHeader) || !/useReducedMotion/.test(logoSource)) {
   failures.push('Signed-in header: animated reduced-motion-aware MicroJobs branding is missing');
 }
+if (!/subtitleIcon/.test(signedInHeader) || !/onSubtitlePress/.test(signedInHeader) || !/homeContext/.test(signedInHeader)) {
+  failures.push('Signed-in header: local Home context and location action are missing');
+}
 
 const dashboardSource = fs.readFileSync(path.join(projectRoot, 'pages/pages1/dashboard.tsx'), 'utf8');
 if (!/onSelectCategory/.test(dashboardSource) || !/onUploadResume/.test(dashboardSource)) {
@@ -59,6 +62,20 @@ for (const file of ['components/navigation.tsx', 'components/employerNavigation.
 const sessionSource = fs.readFileSync(path.join(projectRoot, 'contexts/AppSessionContext.tsx'), 'utf8');
 if (!/refreshUnreadMessages/.test(sessionSource) || !/messages\/conversations/.test(sessionSource)) {
   failures.push('AppSessionContext.tsx: database-backed unread message reconciliation is missing');
+}
+if (!/role === 'employer' \|\| role === 'both'/.test(sessionSource) || !/canSwitchAccountMode = normalizeRole\(userRole\) === 'both'/.test(sessionSource)) {
+  failures.push('AppSessionContext.tsx: worker, employer, and Both account-mode eligibility is inconsistent');
+}
+
+const signUpSource = fs.readFileSync(path.join(projectRoot, 'pages/signUp.tsx'), 'utf8');
+if (!/Find work/.test(signUpSource) || !/Hire people/.test(signUpSource) || !/Both/.test(signUpSource)) failures.push('signUp.tsx: worker, employer, and Both choices are required');
+const settingsSource = fs.readFileSync(path.join(projectRoot, 'pages/pages1/Settings.tsx'), 'utf8');
+if (!/canSwitchAccountMode/.test(settingsSource) || !/ACCOUNT MODE/.test(settingsSource)) {
+  failures.push('Settings.tsx: Both-account mode switching is missing');
+}
+for (const file of ['pages/pages1/Profile.tsx', 'pages/employer/EmployerProfile.tsx']) {
+  const source = fs.readFileSync(path.join(projectRoot, file), 'utf8');
+  if (/showModeSwitch|canSwitchRole|onSwitchRole/.test(source)) failures.push(`${file}: account-mode switching must remain in Settings only`);
 }
 
 const tabNavigationSource = fs.readFileSync(path.join(projectRoot, 'components/tabNavigation.ts'), 'utf8');

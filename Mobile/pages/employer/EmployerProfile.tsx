@@ -33,9 +33,6 @@ type EmployerProfileProps = {
   onOpenWallet?: () => void;
   onOpenSettings?: () => void;
   onEditProfile?: () => void;
-  currentRole?: 'worker' | 'employer';
-  onSwitchRole?: (role: 'worker' | 'employer') => void;
-  canSwitchRole?: boolean;
 };
 
 export default function EmployerProfile({
@@ -45,9 +42,6 @@ export default function EmployerProfile({
   onOpenWallet,
   onOpenSettings,
   onEditProfile,
-  currentRole = 'employer',
-  onSwitchRole,
-  canSwitchRole = false,
 }: EmployerProfileProps) {
   const [firstName, setFirstName] = useState(employer?.firstName || '');
   const [lastName, setLastName] = useState(employer?.lastName || '');
@@ -210,10 +204,7 @@ export default function EmployerProfile({
     <View style={styles.container}>
       <TabTopNav
         title="My Profile"
-        currentRole={currentRole}
-        onSwitchRole={onSwitchRole}
         onOpenSettings={onOpenSettings}
-        showModeSwitch={canSwitchRole}
         showSettings
       />
 

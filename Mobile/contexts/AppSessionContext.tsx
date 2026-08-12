@@ -36,6 +36,7 @@ type AppSessionContextValue = {
   userRole: string | null;
   viewMode: ViewMode;
   canAccessEmployer: boolean;
+  canSwitchAccountMode: boolean;
   savedJobs: SavedJobItem[];
   savedJobIds: string[];
   workerNotifications: any[];
@@ -64,7 +65,7 @@ type AppSessionContextValue = {
   refreshSavedJobs: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   refreshUnreadMessages: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<boolean>;
 };
 
 const AppSessionContext = createContext<AppSessionContextValue | undefined>(undefined);
@@ -175,9 +176,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
 
   const canAccessEmployer = useMemo(() => {
     const role = normalizeRole(userRole);
-    const options = normalizeAccountOptions(user?.accountOptions || []);
-    return role === 'employer' || role === 'both' || options.includes('employer');
-  }, [user, userRole]);
+    return role === 'employer' || role === 'both';
+  }, [userRole]);
+  const canSwitchAccountMode = normalizeRole(userRole) === 'both';
 
   const savedJobIds = useMemo(() => savedJobs.map((item) => item._id).filter(Boolean), [savedJobs]);
 
@@ -289,7 +290,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       setUser(null);
       setUserRole(null);
       setIsAuthenticated(false);
-      return;
+      return false;
     }
 
     try {
@@ -306,11 +307,11 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       const accountOptions = normalizeAccountOptions(profile?.accountOptions || []);
       const normalizedOptions = accountOptions.length > 0 ? accountOptions : role === 'both' ? ['worker', 'employer'] : role === 'employer' ? ['employer'] : ['worker'];
       const storedViewMode = (await AsyncStorage.getItem(ACTIVE_VIEW_MODE_KEY)) as ViewMode | null;
-      const nextViewMode = storedViewMode && normalizedOptions.includes(storedViewMode)
-        ? storedViewMode
-        : normalizedOptions.includes('worker')
-          ? 'worker'
-          : 'employer';
+      const nextViewMode: ViewMode = role === 'employer'
+        ? 'employer'
+        : role === 'both' && storedViewMode === 'employer'
+          ? 'employer'
+          : 'worker';
 
       const nextUser = { ...profile, accountOptions: normalizedOptions };
       currentUserIdRef.current = String(nextUser?._id || nextUser?.id || '');
@@ -320,12 +321,14 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       setIsAuthenticated(true);
       await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser));
       await AsyncStorage.setItem(ACTIVE_VIEW_MODE_KEY, nextViewMode);
+      return true;
     } catch (error) {
       await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
       setUser(null);
       setUserRole(null);
       currentUserIdRef.current = null;
       setIsAuthenticated(false);
+      return false;
     }
   }, []);
 
@@ -506,7 +509,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   const handleAuthSuccess = useCallback(async () => {
     await AsyncStorage.setItem(HAS_ONBOARDED_KEY, 'true');
     setHasOnboarded(true);
-    await refreshProfile();
+    const authenticated = await refreshProfile();
+    if (!authenticated) return;
     await refreshSavedJobs();
     await refreshNotifications();
     await refreshUnreadMessages();
@@ -545,8 +549,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   logoutRef.current = logout;
 
   const switchViewMode = useCallback(async (nextView: ViewMode) => {
-    if (nextView === 'employer' && !canAccessEmployer) {
-      toast.info('This account does not have employer access.');
+    if (nextView !== viewMode && !canSwitchAccountMode) {
+      toast.info('Only Both accounts can switch account modes.');
       return;
     }
     const confirmed = await new Promise<boolean>((resolve) => {
@@ -562,7 +566,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     if (!confirmed) return;
     setViewMode(nextView);
     await AsyncStorage.setItem(ACTIVE_VIEW_MODE_KEY, nextView);
-  }, [canAccessEmployer, toast]);
+  }, [canSwitchAccountMode, toast, viewMode]);
 
   const toggleSavedJob = useCallback(async (job: any) => {
     const normalized = normalizeSavedJob(job);
@@ -625,6 +629,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     userRole,
     viewMode,
     canAccessEmployer,
+    canSwitchAccountMode,
     savedJobs,
     savedJobIds,
     workerNotifications,
@@ -659,6 +664,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     refreshProfile,
   }), [
     canAccessEmployer,
+    canSwitchAccountMode,
     dismissWorkerNotification,
     handleAuthSuccess,
     hasOnboarded,

@@ -66,6 +66,23 @@ export async function markNotificationRead(req, res) {
   }
 }
 
+export async function markNotificationUnread(req, res) {
+  try {
+    const userId = getUserId(req);
+    if (!userId) return res.status(401).json({ message: 'Authentication required.' });
+    const updated = await Notification.findOneAndUpdate(
+      { _id: req.params.notificationId, user: userId },
+      { $set: { readAt: null } },
+      { returnDocument: 'after' }
+    );
+    if (!updated) return res.status(404).json({ message: 'Notification not found.' });
+    return res.status(200).json(updated);
+  } catch (error) {
+    console.error('Mark notification unread error:', error);
+    return res.status(500).json({ message: 'Failed to mark notification as unread.' });
+  }
+}
+
 export async function markAllNotificationsRead(req, res) {
   try {
     const userId = getUserId(req);

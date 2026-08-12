@@ -39,6 +39,7 @@ export default function Dashboard({
   onOpenNotifications,
   notificationBadgeCount = 0,
   messageBadgeCount = 0,
+  headerSubtitle,
 }: {
   onNavigateToJobs?: () => void;
   onSelectCategory?: (categoryId: string) => void;
@@ -52,6 +53,7 @@ export default function Dashboard({
   onOpenNotifications?: () => void;
   notificationBadgeCount?: number;
   messageBadgeCount?: number;
+  headerSubtitle?: string;
 }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -163,6 +165,9 @@ export default function Dashboard({
     <View style={styles.container}>
       <TabTopNav
         title="Home"
+        subtitle={headerSubtitle}
+        onSubtitlePress={onOpenSettings}
+        homeContext
         showNotifications
         onOpenNotifications={onOpenNotifications}
         notificationBadgeCount={notificationBadgeCount}

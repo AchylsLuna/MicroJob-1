@@ -35,9 +35,6 @@ type ProfileProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   onOpenSettings?: () => void;
-  currentRole?: 'worker' | 'employer';
-  onSwitchRole?: (role: 'worker' | 'employer') => void;
-  canSwitchRole?: boolean;
   messageBadgeCount?: number;
   initialAction?: 'resume';
   actionNonce?: number;
@@ -71,9 +68,6 @@ export default function Profile({
   activeTab = 'Profile',
   onTabPress,
   onOpenSettings,
-  currentRole = 'worker',
-  onSwitchRole,
-  canSwitchRole = false,
   messageBadgeCount = 0,
   initialAction,
   actionNonce,
@@ -636,10 +630,7 @@ export default function Profile({
     <View style={styles.container}>
       <TabTopNav
         title="My Profile"
-        currentRole={currentRole}
-        onSwitchRole={onSwitchRole}
         onOpenSettings={onOpenSettings}
-        showModeSwitch={canSwitchRole}
         showSettings
       />
 

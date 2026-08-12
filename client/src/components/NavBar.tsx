@@ -1,5 +1,5 @@
 import { useCallback, useState, useRef, useEffect, type ReactNode } from "react";
-import { ArrowRight, Bell, ChevronDown, Ellipsis, Menu, Search } from "lucide-react";
+import { ArrowRight, Bell, ChevronDown, Ellipsis, MapPin, Menu, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -119,11 +119,23 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     icon?: ReactNode;
     search?: { placeholder: string; mode: "query" };
     action?: { label: string; to: string };
+    subtitleAction?: string;
+    homeContext?: boolean;
   };
 
+  const localArea = [user?.city, user?.province]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean)
+    .join(", ");
+
   const pageMeta: PageMeta = (() => {
-    if (isPath(ROUTES.worker.dashboard, ROUTES.legacyDashboard.root)) {
-      return { title: "Dashboard" };
+    if (isExactPath(ROUTES.worker.dashboard, ROUTES.legacyDashboard.root)) {
+      return {
+        title: "Home",
+        subtitle: localArea || "Set your local area",
+        subtitleAction: `${ROUTES.worker.settings}?tab=personal`,
+        homeContext: true,
+      };
     }
 
     if (
@@ -250,8 +262,10 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       )
     ) {
       return {
-        title: "Employer Dashboard",
-        subtitle: "Monitor your hiring pipeline and recent activity.",
+        title: "Home",
+        subtitle: localArea || "Set your local area",
+        subtitleAction: `${ROUTES.employer.settings}?tab=personal`,
+        homeContext: true,
         action: { label: "Post a job", to: ROUTES.employer.postJob },
       };
     }
@@ -518,7 +532,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
 
   return (
     <header className={webUi.navbar.root}>
-      <div className={webUi.navbar.container}>
+      <div className={`${webUi.navbar.container} ${pageMeta.homeContext ? "!h-20 !min-h-20" : ""}`}>
         <div className={`flex min-w-0 items-center gap-2 ${isWorkerView ? "lg:gap-7" : ""}`}>
           <button
             type="button"
@@ -569,7 +583,18 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
               )}
               <div className={`min-w-0 leading-tight ${isWorkerView ? "lg:hidden" : ""}`}>
                 <h1 className={webUi.navbar.title}>{pageMeta.title}</h1>
-                {pageMeta.subtitle && <p className={webUi.navbar.subtitle}>{pageMeta.subtitle}</p>}
+                {pageMeta.subtitle && pageMeta.subtitleAction ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(pageMeta.subtitleAction!)}
+                    className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full bg-[#EAF1FB] px-3 text-left text-xs font-bold text-[#0F2954] transition hover:bg-[#DCE6F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                    aria-label={`${pageMeta.subtitle}. Open Philippine location settings`}
+                  >
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#1C4D8D]" aria-hidden />
+                    <span className="truncate">{pageMeta.subtitle}</span>
+                    <span className="shrink-0 text-[#1C4D8D]" aria-hidden>›</span>
+                  </button>
+                ) : pageMeta.subtitle ? <p className={webUi.navbar.subtitle}>{pageMeta.subtitle}</p> : null}
               </div>
             </div>
           )}

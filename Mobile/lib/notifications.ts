@@ -12,6 +12,9 @@ export type NotificationListItem = {
   icon: ComponentProps<typeof Ionicons>['name'];
   accentColor: string;
   accentBackground: string;
+  link: string;
+  entityType: string;
+  entityId: string;
 };
 
 const FALLBACK_TIMESTAMP = () => new Date().toISOString();
@@ -82,6 +85,9 @@ export const normalizeNotificationItem = (raw: any): NotificationListItem => {
         createdAt: item?.createdAt || item?.updatedAt || FALLBACK_TIMESTAMP(),
         readAt: item?.readAt || null,
         actorName: getActorName(item),
+        link: String(item?.link || ''),
+        entityType: String(item?.entityType || ''),
+        entityId: String(item?.entityId || ''),
       }
     : normalizeApplicationPayload(item);
 
@@ -92,6 +98,9 @@ export const normalizeNotificationItem = (raw: any): NotificationListItem => {
     icon: appearance.icon,
     accentColor: appearance.accentColor,
     accentBackground: appearance.accentBackground,
+    link: 'link' in normalized ? normalized.link : '',
+    entityType: 'entityType' in normalized ? normalized.entityType : '',
+    entityId: 'entityId' in normalized ? normalized.entityId : '',
   };
 };
 

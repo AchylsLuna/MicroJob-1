@@ -257,6 +257,7 @@ function WorkerHomeScreen() {
   const workerTabPress = useWorkerTabNavigation();
   const session = useAppSession();
   const toast = useToast();
+  const localArea = [session.user?.city, session.user?.province].map((value) => String(value || '').trim()).filter(Boolean).join(', ');
   return (
     <Dashboard
       activeTab="Home"
@@ -277,6 +278,7 @@ function WorkerHomeScreen() {
       onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
       notificationBadgeCount={session.workerNotifications.length}
       messageBadgeCount={session.unreadMessageCount}
+      headerSubtitle={localArea || 'Set your local area'}
     />
   );
 }
@@ -354,15 +356,11 @@ function WorkerProfileScreen() {
   const route = useRoute();
   const workerTabPress = useWorkerTabNavigation();
   const session = useAppSession();
-  const canSwitchRole = String(session.userRole || '').toLowerCase() === 'both';
   return (
     <Profile
       activeTab="Profile"
       onTabPress={workerTabPress}
       onOpenSettings={() => navigation.navigate('WorkerSettings')}
-      currentRole={session.viewMode}
-      onSwitchRole={session.switchViewMode}
-      canSwitchRole={canSwitchRole}
       messageBadgeCount={session.unreadMessageCount}
       initialAction={route.params?.initialAction}
       actionNonce={route.params?.actionNonce}
@@ -457,8 +455,17 @@ function WorkerAppliedJobsScreen() {
 }
 
 function WorkerNotificationsScreen() {
+  const navigation = useNavigation();
   const session = useAppSession();
   const workerTabPress = useWorkerTabNavigation();
+  const openNotification = (item) => {
+    const type = String(item?.type || '').toLowerCase();
+    if (type === 'application' || type === 'interview') navigation.navigate('WorkerAppliedJobs');
+    else if (type === 'message') workerTabPress('Messages');
+    else if (type === 'payment' || type === 'payout') workerTabPress('EWallet');
+    else if (type === 'support') navigation.navigate('WorkerSupport');
+    else if (type === 'account') navigation.navigate('WorkerSettings');
+  };
   return (
     <NotificationsInbox
       activeTab="Home"
@@ -466,6 +473,8 @@ function WorkerNotificationsScreen() {
       liveNotifications={session.workerNotifications}
       messageBadgeCount={session.unreadMessageCount}
       onDismissLiveNotification={session.dismissWorkerNotification}
+      onBack={() => navigation.goBack()}
+      onOpenNotification={openNotification}
     />
   );
 }
@@ -487,6 +496,8 @@ function WorkerSettingsScreen() {
       onNavigateDeleteAccount={() => navigation.navigate('WorkerDeleteAccount')}
       onNavigateSupport={() => navigation.navigate('WorkerSupport')}
       currentRole="worker"
+      canSwitchAccountMode={session.canSwitchAccountMode}
+      onSwitchAccountMode={session.switchViewMode}
     />
   );
 }
@@ -559,12 +570,16 @@ function WorkerStackNavigator() {
 function EmployerHomeScreen() {
   const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
+  const localArea = [session.user?.city, session.user?.province].map((value) => String(value || '').trim()).filter(Boolean).join(', ');
   return (
     <EmployerJobPosts
       onEditJob={(job) => navigation.navigate('EmployerPostJobScreen', { jobToEdit: job })}
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
       activeTab="Home"
       onTabPress={employerTabPress}
+      headerSubtitle={localArea || 'Set your local area'}
+      onOpenLocation={() => navigation.navigate('EmployerLocationServices')}
     />
   );
 }
@@ -619,16 +634,24 @@ function EmployerMessagesScreen() {
 }
 
 function EmployerNotificationsScreen() {
+  const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
   const session = useAppSession();
-  return <EmployerNotifications activeTab="Notifications" onTabPress={employerTabPress} liveNotifications={session.employerNotifications} />;
+  const openNotification = (item) => {
+    const type = String(item?.type || '').toLowerCase();
+    if (type === 'application' || type === 'interview') employerTabPress('Applications');
+    else if (type === 'message') employerTabPress('Messages');
+    else if (type === 'payment' || type === 'payout') navigation.navigate('EmployerEWallet');
+    else if (type === 'support') navigation.navigate('EmployerSupport');
+    else if (type === 'account') navigation.navigate('EmployerSettings');
+  };
+  return <EmployerNotifications activeTab="Notifications" onTabPress={employerTabPress} liveNotifications={session.employerNotifications} onOpenNotification={openNotification} />;
 }
 
 function EmployerProfileScreen() {
   const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
   const session = useAppSession();
-  const canSwitchRole = String(session.userRole || '').toLowerCase() === 'both';
   return (
     <EmployerProfile
       activeTab="Profile"
@@ -636,9 +659,6 @@ function EmployerProfileScreen() {
       onOpenSettings={() => navigation.navigate('EmployerSettings')}
       onEditProfile={() => navigation.navigate('EmployerAccountInformation', { initialSection: 'profile' })}
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
-      currentRole="employer"
-      onSwitchRole={session.switchViewMode}
-      canSwitchRole={canSwitchRole}
     />
   );
 }
@@ -673,6 +693,8 @@ function EmployerSettingsScreen() {
       onNavigateSupport={() => navigation.navigate('EmployerSupport')}
       onNavigatePaymentMethods={() => navigation.navigate('EmployerPaymentMethods')}
       currentRole="employer"
+      canSwitchAccountMode={session.canSwitchAccountMode}
+      onSwitchAccountMode={session.switchViewMode}
     />
   );
 }
@@ -765,7 +787,7 @@ function AppNavigator() {
     return <View style={{ flex: 1, backgroundColor: tokens.colors.brand }} />;
   }
 
-  return session.isAuthenticated ? (session.viewMode === 'employer' ? <EmployerStackNavigator /> : <WorkerStackNavigator />) : <AuthNavigator />;
+  return session.isAuthenticated ? (session.viewMode === 'employer' && session.canAccessEmployer ? <EmployerStackNavigator /> : <WorkerStackNavigator />) : <AuthNavigator />;
 }
 
 function SessionOverlays() {

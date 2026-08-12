@@ -8,10 +8,10 @@ import {
   TextInput,
   ActivityIndicator,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '../../lib/storage';
-import { Ionicons } from '@expo/vector-icons';
 import EmployerNavigation from '../../components/employerNavigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import CanvasBackButton from '../../components/ui/CanvasBackButton';
@@ -20,6 +20,8 @@ import { apiRequest, asObject } from '../../lib/api';
 import { safeExternalUrl } from '../../lib/safeExternalUrl';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
+import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSection, WalletSkeleton, WalletTransactionRow } from '../../components/wallet/WalletUI';
+import { php } from '../../components/wallet/walletFormat';
 
 type EmployerEWalletProps = {
   onBack?: () => void;
@@ -50,7 +52,10 @@ export default function EmployerEWallet({
   const insets = useSafeAreaInsets();
   const [topupAmount, setTopupAmount] = useState('');
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
-  const [isRefreshingWallet, setIsRefreshingWallet] = useState(false);
+  const [isRefreshingWallet, setIsRefreshingWallet] = useState(true);
+  const [hasLoadedWallet, setHasLoadedWallet] = useState(false);
+  const [walletError, setWalletError] = useState('');
+  const [isTopupExpanded, setIsTopupExpanded] = useState(false);
   const [liveBalance, setLiveBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
   const [profileRole, setProfileRole] = useState('');
@@ -58,6 +63,7 @@ export default function EmployerEWallet({
   const appStateRef = useRef(AppState.currentState);
   const refreshAfterBrowserRef = useRef(false);
   const pendingTopupRef = useRef<{ referenceNumber?: string; checkoutId?: string; provider?: string } | null>(null);
+  const topupInputRef = useRef<TextInput>(null);
   const toast = useToast();
 
   const parsedTopupAmount = Number(String(topupAmount || '').replace(/[^0-9.]/g, ''));
@@ -105,6 +111,7 @@ export default function EmployerEWallet({
   const refreshWalletData = useCallback(async () => {
     try {
       setIsRefreshingWallet(true);
+      setWalletError('');
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return;
       const storedUser = await AsyncStorage.getItem('auth_user');
@@ -127,6 +134,9 @@ export default function EmployerEWallet({
         }, 'Failed to load transactions.'),
       ]);
 
+      const failedResult = [profileResult, txResult].find((result) => !result.ok);
+      if (failedResult) setWalletError(failedResult.message || 'Some wallet details could not be refreshed.');
+
       if (profileResult.ok) {
         const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
         const nextEmployer = Number(profilePayload?.employerBalance || 0);
@@ -146,10 +156,11 @@ export default function EmployerEWallet({
         const list = Array.isArray(txPayload?.transactions) ? txPayload.transactions : [];
         setTransactions(list.map((transaction: any) => mapTxToUi(transaction, walletOwnerId)));
       }
-    } catch {
-      // Keep existing values when refresh fails.
+    } catch (error: any) {
+      setWalletError(error?.message || 'Check your connection and try again.');
     } finally {
       setIsRefreshingWallet(false);
+      setHasLoadedWallet(true);
     }
   }, [mapTxToUi]);
 
@@ -224,6 +235,10 @@ export default function EmployerEWallet({
     return () => subscription.remove();
   }, [confirmPendingTopup, refreshWalletData]);
 
+  useEffect(() => {
+    if (isTopupExpanded) requestAnimationFrame(() => topupInputRef.current?.focus());
+  }, [isTopupExpanded]);
+
   const handleTestPayment = async () => {
     if (!canCreatePayment) {
       toast.error('Enter a valid top-up amount (minimum PHP 100).');
@@ -281,6 +296,7 @@ export default function EmployerEWallet({
 
       await Linking.openURL(safeCheckoutUrl);
       refreshAfterBrowserRef.current = true;
+      setIsTopupExpanded(false);
       toast.info('Opening payment link in your browser. Complete payment to top up your wallet.');
     } catch (error: any) {
       toast.error(error?.message || 'Unable to start top up right now.');
@@ -300,64 +316,43 @@ export default function EmployerEWallet({
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: 112 + Math.max(insets.bottom, 10) }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={isRefreshingWallet && hasLoadedWallet} onRefresh={() => void refreshWalletData()} tintColor={tokens.colors.brand} />}
       >
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>{profileRole === 'both' ? 'Employer Balance' : 'Employer Balance'}</Text>
-          <Text style={styles.balanceValue}>PHP {liveBalance.toLocaleString()}</Text>
-          {profileRole === 'both' ? (
-            <Text style={[styles.balanceLabel, { marginTop: 10, fontSize: 11 }]}>
-              Worker Balance: PHP {workerBalance.toLocaleString()}
-            </Text>
-          ) : null}
-          {profileRole === 'both' ? (
-            <Text style={[styles.balanceLabel, { marginTop: 4, fontSize: 13, color: 'rgba(255,255,255,0.55)' }]}>
-              Combined: PHP {(liveBalance + workerBalance).toLocaleString()}
-            </Text>
-          ) : null}
-          {isRefreshingWallet ? <Text style={styles.balanceRefreshing}>Refreshing wallet…</Text> : null}
-          <View style={styles.balanceActionsRow}>
-            <TouchableOpacity style={styles.balanceAction} onPress={handleTestPayment} disabled={isCreatingPayment}>
-              <Ionicons name="arrow-up-outline" size={14} color={tokens.colors.onBrand} />
-              <Text style={styles.balanceActionText}>Top Up</Text>
-            </TouchableOpacity>
-            <View style={[styles.balanceAction, styles.balanceActionMuted]}>
-              <Ionicons name="wallet-outline" size={14} color={tokens.colors.onBrandMuted} />
-              <Text style={styles.balanceActionTextMuted}>Employer wallet only</Text>
-            </View>
-          </View>
-        </View>
+        {!hasLoadedWallet && isRefreshingWallet ? <WalletSkeleton /> : <>
+        <WalletError message={walletError} onRetry={() => void refreshWalletData()} />
+        <WalletBalanceCard
+          label="Employer balance"
+          value={php(liveBalance)}
+          secondary={profileRole === 'both' ? `Worker earnings: ${php(workerBalance)} (not available for job funding)` : undefined}
+          note="Use employer funds to post and fund jobs in your Philippine community."
+          refreshing={isRefreshingWallet}
+          onRefresh={() => void refreshWalletData()}
+          actionLabel="Top Up"
+          actionIcon="add-outline"
+          expanded={isTopupExpanded}
+          onAction={() => setIsTopupExpanded((expanded) => !expanded)}
+        />
+        <WalletMetrics items={[
+          { label: 'Employer funds', value: php(liveBalance), icon: 'business-outline' },
+          { label: 'Transactions', value: String(transactions.length), icon: 'receipt-outline' },
+          { label: 'Minimum top up', value: php(100), icon: 'card-outline' },
+        ]} />
 
-        <View style={styles.quickIconRow}>
-          <View style={styles.quickIconCard}>
-            <Ionicons name="phone-portrait-outline" size={22} color="#1C4D8D" />
-            <Text style={styles.quickIconLabel}>Scan</Text>
-            <Text style={styles.comingSoon}>Coming soon</Text>
-          </View>
-          <View style={styles.quickIconCard}>
-            <Ionicons name="card-outline" size={22} color="#D97706" />
-            <Text style={styles.quickIconLabel}>Bills</Text>
-            <Text style={styles.comingSoon}>Coming soon</Text>
-          </View>
-          <View style={styles.quickIconCard}>
-            <Ionicons name="add-outline" size={22} color="#7C3AED" />
-            <Text style={styles.quickIconLabel}>More</Text>
-            <Text style={styles.comingSoon}>Coming soon</Text>
-          </View>
-        </View>
-
-        <View style={styles.card}>
+        {isTopupExpanded ? <View style={styles.card}>
           <Text style={styles.cardTitle}>Top Up Wallet</Text>
-          <Text style={styles.cardSubtitle}>Enter amount, then continue to secure top-up page.</Text>
+          <Text style={styles.cardSubtitle}>Add employer funds through the secure payment page.</Text>
 
           <View style={styles.formField}>
             <Text style={styles.inputLabel}>Top Up Amount (PHP)</Text>
             <TextInput
+              ref={topupInputRef}
               style={styles.input}
               value={topupAmount}
               onChangeText={setTopupAmount}
               placeholder="100"
               placeholderTextColor={tokens.colors.textSubtle}
               keyboardType="numeric"
+              accessibilityLabel="Top up amount in Philippine pesos"
             />
           </View>
 
@@ -365,6 +360,8 @@ export default function EmployerEWallet({
             style={[styles.primaryButton, !canCreatePayment && styles.primaryButtonDisabled]}
             onPress={handleTestPayment}
             disabled={!canCreatePayment}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: !canCreatePayment, busy: isCreatingPayment }}
           >
             {isCreatingPayment ? (
               <ActivityIndicator color={tokens.colors.onBrand} />
@@ -372,67 +369,16 @@ export default function EmployerEWallet({
               <Text style={styles.primaryButtonText}>Create Top Up</Text>
             )}
           </TouchableOpacity>
-        </View>
+        </View> : null}
 
-        <View style={styles.card}>
-          <View style={styles.transactionsHeader}>
-            <Text style={styles.cardTitle}>Transactions</Text>
-            <Text style={styles.fullReport}>Recent activity</Text>
-          </View>
-          <Text style={styles.cardSubtitle}>Latest wallet activity.</Text>
-
+        <WalletSection title="Recent Transactions" subtitle="Latest employer-wallet activity.">
           {transactions.length === 0 ? (
-            <View style={styles.emptyTransactions}>
-              <Ionicons name="receipt-outline" size={38} color={tokens.colors.textMuted} />
-              <Text style={styles.emptyTransactionsText}>No employer wallet transactions yet</Text>
-            </View>
+            <WalletEmpty title="No transactions yet" body="Top-ups, job funding, and refunds will appear here." />
           ) : (
-            transactions.map((txn, index) => {
-              const isCredit = txn.direction === 'credit';
-              const isDebit = txn.direction === 'debit';
-              const amountPrefix = isCredit ? '+' : isDebit ? '-' : '';
-              const statusStyle = txn.status === 'Completed'
-                ? styles.transactionStatusComplete
-                : txn.status === 'Pending'
-                ? styles.transactionStatusPending
-                : styles.transactionStatusFailed;
-              return (
-              <View
-                key={txn.id}
-                style={[styles.transactionRow, index === transactions.length - 1 ? styles.transactionRowLast : undefined]}
-              >
-                <View style={[
-                  styles.transactionIcon,
-                  isDebit && styles.transactionIconDebit,
-                  !isCredit && !isDebit && styles.transactionIconNeutral,
-                ]}>
-                  <Ionicons
-                    name={isCredit ? 'arrow-down-outline' : isDebit ? 'arrow-up-outline' : 'time-outline'}
-                    size={18}
-                    color={isCredit ? tokens.colors.success : isDebit ? tokens.colors.danger : tokens.colors.warning}
-                  />
-                </View>
-                <View style={styles.transactionLeft}>
-                  <Text style={styles.transactionTitle}>{txn.title}</Text>
-                  <Text style={styles.transactionDate}>{txn.date}</Text>
-                </View>
-                <View style={styles.transactionRight}>
-                  <Text style={[
-                    styles.transactionAmount,
-                    isDebit && styles.transactionAmountDebit,
-                    !isCredit && !isDebit && styles.transactionAmountNeutral,
-                  ]}>
-                    {amountPrefix}PHP {txn.amount.toLocaleString()}
-                  </Text>
-                  <Text style={statusStyle}>
-                    {txn.status}
-                  </Text>
-                </View>
-              </View>
-              );
-            })
+            transactions.map((txn) => <WalletTransactionRow key={txn.id} title={txn.title} amount={`${txn.direction === 'credit' ? '+' : txn.direction === 'debit' ? '-' : ''}${php(txn.amount)}`} date={txn.date} status={txn.status} direction={txn.direction} />)
           )}
-        </View>
+        </WalletSection>
+        </>}
       </ScrollView>
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
@@ -609,6 +555,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   input: {
+    minHeight: 52,
     backgroundColor: tokens.colors.surfaceMuted,
     borderWidth: 1,
     borderColor: tokens.colors.border,

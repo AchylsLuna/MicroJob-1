@@ -115,6 +115,14 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     await expect(workerBottomNavigation.getByRole("tab", { name: target.label })).toHaveAttribute("aria-selected", "true");
     await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
   }
+  await page.goto("/worker/dashboard");
+  const workerLocalArea = page.getByRole("button", { name: /Quezon City.*Open Philippine location settings/i });
+  await expect(workerLocalArea).toBeVisible();
+  await workerLocalArea.click();
+  await expect(page).toHaveURL(/\/worker\/settings\?tab=personal/);
+  await expect(page.getByLabel("First name")).toBeVisible();
+  await workerBottomNavigation.getByRole("tab", { name: "Home" }).click();
+  await expect(page).toHaveURL(/\/worker\/dashboard/);
   await page.goto("/worker/saved-jobs");
   await expect(workerBottomNavigation.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
   await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
@@ -189,6 +197,7 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   }
   await employerBottomNavigation.getByRole("tab", { name: "Home" }).click();
   await page.waitForURL(/\/employer\/dashboard/);
+  await expect(page.getByRole("button", { name: /Quezon City.*Open Philippine location settings/i })).toBeVisible();
   await page.goto("/employer/applications");
   await expect(page.getByRole("heading", { name: /Applications/i }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

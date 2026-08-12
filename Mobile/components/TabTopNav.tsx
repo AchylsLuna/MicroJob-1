@@ -10,6 +10,10 @@ type Role = 'worker' | 'employer';
 
 type TabTopNavProps = {
   title: string;
+  subtitle?: string;
+  subtitleIcon?: React.ComponentProps<typeof Ionicons>['name'];
+  onSubtitlePress?: () => void;
+  homeContext?: boolean;
   currentRole?: Role;
   onSwitchRole?: (role: Role) => void;
   onOpenSettings?: () => void;
@@ -22,6 +26,10 @@ type TabTopNavProps = {
 
 export default function TabTopNav({
   title,
+  subtitle,
+  subtitleIcon = 'location-outline',
+  onSubtitlePress,
+  homeContext = false,
   currentRole = 'worker',
   onSwitchRole,
   onOpenSettings,
@@ -36,13 +44,28 @@ export default function TabTopNav({
   const shouldShowActions = showModeSwitch || showSettings || showNotifications;
 
   return (
-    <View style={[styles.topHeader, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
+    <View style={[styles.topHeader, homeContext && styles.homeHeader, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
       <StatusBar style="dark" />
       <View style={styles.titleGroup}>
         <AnimatedMicroJobsLogoBadge />
-        <Text style={styles.topHeaderTitle} numberOfLines={1}>
-          {title}
-        </Text>
+        <View style={styles.titleCopy}>
+          <Text style={styles.topHeaderTitle} numberOfLines={1}>{title}</Text>
+          {subtitle ? (
+            <TouchableOpacity
+              style={[styles.subtitlePill, !onSubtitlePress && styles.subtitlePillStatic]}
+              onPress={onSubtitlePress}
+              disabled={!onSubtitlePress}
+              activeOpacity={0.82}
+              hitSlop={6}
+              accessibilityRole={onSubtitlePress ? 'button' : undefined}
+              accessibilityLabel={onSubtitlePress ? `${subtitle}. Open Philippine location settings` : undefined}
+            >
+              <Ionicons name={subtitleIcon} size={13} color={tokens.colors.brand} />
+              <Text style={styles.subtitleText} numberOfLines={1}>{subtitle}</Text>
+              {onSubtitlePress ? <Ionicons name="chevron-forward" size={12} color={tokens.colors.brand} /> : null}
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       {shouldShowActions ? (
@@ -116,9 +139,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: tokens.colors.brandDark,
     letterSpacing: -0.3,
-    flex: 1,
-    minWidth: 0,
-    paddingRight: 6,
+  },
+  homeHeader: {
+    borderBottomWidth: 3,
+    borderBottomColor: tokens.colors.brandSoft,
+    paddingBottom: 12,
   },
   titleGroup: {
     flex: 1,
@@ -126,6 +151,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  titleCopy: { flex: 1, minWidth: 0, gap: 4 },
+  subtitlePill: {
+    minHeight: 28,
+    maxWidth: '100%',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.colors.brandSoft,
+  },
+  subtitlePillStatic: { paddingRight: 10 },
+  subtitleText: {
+    flexShrink: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    color: tokens.colors.brandDark,
   },
   topHeaderActions: {
     flexDirection: 'row',

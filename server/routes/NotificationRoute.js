@@ -3,6 +3,7 @@ import auth from '../middleware/auth.js';
 import {
   listNotifications,
   markNotificationRead,
+  markNotificationUnread,
   markAllNotificationsRead,
   deleteNotification,
   deleteReadNotifications,
@@ -17,6 +18,7 @@ router.patch('/read-all', auth, markAllNotificationsRead);
 router.post('/devices', auth, registerPushDevice);
 router.delete('/devices/:deviceId', auth, removePushDevice);
 router.patch('/:notificationId/read', auth, markNotificationRead);
+router.patch('/:notificationId/unread', auth, markNotificationUnread);
 router.delete('/read', auth, deleteReadNotifications);
 router.delete('/:notificationId', auth, deleteNotification);
 

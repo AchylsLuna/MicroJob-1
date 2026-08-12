@@ -47,6 +47,8 @@ type EmployerJobPostsProps = {
   onOpenWallet?: () => void;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  headerSubtitle?: string;
+  onOpenLocation?: () => void;
 };
 
 type JobAction = 'complete' | 'close' | 'reopen' | 'delete';
@@ -56,6 +58,8 @@ export default function EmployerJobPosts({
   onOpenWallet,
   activeTab,
   onTabPress,
+  headerSubtitle,
+  onOpenLocation,
 }: EmployerJobPostsProps) {
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[]>([]);
@@ -193,7 +197,7 @@ export default function EmployerJobPosts({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title="Home" />
+      <TabTopNav title="Home" subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext />
 
       <FlatList
         data={jobs}
