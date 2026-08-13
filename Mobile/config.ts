@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
 const envSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
+const envApiSource = process.env.EXPO_PUBLIC_API_SOURCE;
 const extractHost = (value: unknown): string => {
   if (typeof value !== 'string' || !value.trim()) return '';
   const raw = value.trim();
@@ -30,16 +31,33 @@ const hostCandidates = [
   (Constants as any).linkingUri,
 ];
 
-const host = hostCandidates.map(extractHost).find(Boolean) || '';
+const detectedHosts = hostCandidates.map(extractHost).filter(Boolean);
+const isLoopbackHost = (value: string) => /^(?:localhost|127(?:\.\d{1,3}){3}|::1)$/i.test(value);
+const isWildcardHost = (value: string) => /^(?:0\.0\.0\.0|::)$/i.test(value);
+const host = detectedHosts.find((value) => !isLoopbackHost(value)) || detectedHosts[0] || '';
 // Keep this aligned with scripts/dev.cjs. Port 5000 is commonly occupied by
 // macOS Control Center/AirPlay and can surface misleading HTTP 0/CORS errors.
 const defaultApiPort = process.env.EXPO_PUBLIC_API_PORT || '5050';
 
 // Uses EXPO_PUBLIC_API_URL if provided, otherwise auto-detects the Expo host IP.
 // This keeps mobile working across different networks without editing this file.
-const fallbackHost = host || (Platform.OS === 'android' ? '10.0.2.2' : 'localhost');
+const fallbackHost = host && !(Platform.OS === 'android' && isLoopbackHost(host))
+  ? host
+  : Platform.OS === 'android'
+    ? '10.0.2.2'
+    : 'localhost';
 const fallbackOrigin = `http://${fallbackHost}:${defaultApiPort}`;
-const normalizedApiUrl = (envApiUrl || `${fallbackOrigin}/api`).replace(/\/$/, '');
+const resolveConfiguredApiUrl = (value: string | undefined) => {
+  if (!value) return `${fallbackOrigin}/api`;
+  try {
+    const configured = new URL(value);
+    if (isWildcardHost(configured.hostname)) configured.hostname = fallbackHost;
+    return configured.toString();
+  } catch {
+    return value;
+  }
+};
+const normalizedApiUrl = resolveConfiguredApiUrl(envApiUrl).replace(/\/$/, '');
 
 export const API_URL = normalizedApiUrl.endsWith('/api')
   ? normalizedApiUrl
@@ -50,7 +68,7 @@ export const SOCKET_URL = (envSocketUrl || API_URL.replace(/\/api$/, '')).replac
 export const API_DIAGNOSTICS = Object.freeze({
   apiUrl: API_URL,
   socketUrl: SOCKET_URL,
-  source: envApiUrl ? 'environment' : host ? 'expo-host' : 'platform-fallback',
+  source: envApiSource || (envApiUrl ? 'environment' : host && !isLoopbackHost(host) ? 'expo-host' : 'platform-fallback'),
   host: extractHost(API_URL),
   port: (() => {
     try { return new URL(API_URL).port || (API_URL.startsWith('https:') ? '443' : '80'); }

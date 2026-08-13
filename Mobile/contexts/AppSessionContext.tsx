@@ -13,6 +13,7 @@ import { API_DIAGNOSTICS, API_URL, SOCKET_URL } from '../config';
 import { apiRequest, asList, asObject, classifyApiFailure, setInvalidSessionHandler } from '../lib/api';
 import { useToast } from './ToastContext';
 import { subscribeDataRefresh } from '../lib/dataRefresh';
+import { getUserInitials } from '../lib/userIdentity';
 
 type ViewMode = 'worker' | 'employer';
 type BootstrapIssue = {
@@ -41,6 +42,7 @@ type AppSessionContextValue = {
   isAuthenticated: boolean;
   hasOnboarded: boolean;
   user: any;
+  navigationProfileInitials: string;
   userRole: string | null;
   viewMode: ViewMode;
   canAccessEmployer: boolean;
@@ -168,6 +170,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasOnboarded, setHasOnboarded] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [navigationProfileInitials, setNavigationProfileInitials] = useState('U');
   const [userRole, setUserRole] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('worker');
   const [savedJobs, setSavedJobs] = useState<SavedJobItem[]>([]);
@@ -307,7 +310,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
     if (!token) {
       setUser(null);
+      setNavigationProfileInitials('U');
       setUserRole(null);
+      currentUserIdRef.current = null;
       setIsAuthenticated(false);
       return false;
     }
@@ -336,7 +341,27 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
           : 'worker';
 
       const nextUser = { ...profile, accountOptions: normalizedOptions };
-      currentUserIdRef.current = String(nextUser?._id || nextUser?.id || '');
+      const nextUserId = String(nextUser?._id || nextUser?.id || '').trim();
+      if (!nextUserId) {
+        throw new Error('Authenticated profile is missing its user ID.');
+      }
+
+      const currentToken = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
+      if (currentToken !== token) {
+        return false;
+      }
+
+      const authenticatedUserId = currentUserIdRef.current;
+      if (authenticatedUserId && authenticatedUserId !== nextUserId) {
+        throw Object.assign(new Error('Profile response does not match the authenticated user.'), {
+          preserveSession: true,
+        });
+      }
+
+      if (!authenticatedUserId) {
+        setNavigationProfileInitials(getUserInitials(nextUser));
+      }
+      currentUserIdRef.current = nextUserId;
       setUser(nextUser);
       setUserRole(role);
       setViewMode(nextViewMode);
@@ -348,6 +373,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       if (error?.preserveSession) return false;
       await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
       setUser(null);
+      setNavigationProfileInitials('U');
       setUserRole(null);
       currentUserIdRef.current = null;
       setIsAuthenticated(false);
@@ -446,6 +472,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY, API_IDENTITY_KEY]);
     currentUserIdRef.current = null;
     setUser(null);
+    setNavigationProfileInitials('U');
     setUserRole(null);
     setViewMode('worker');
     setSavedJobs([]);
@@ -644,6 +671,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY]);
     currentUserIdRef.current = null;
     setUser(null);
+    setNavigationProfileInitials('U');
     setUserRole(null);
     setViewMode('worker');
     setSavedJobs([]);
@@ -749,6 +777,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     isAuthenticated,
     hasOnboarded,
     user,
+    navigationProfileInitials,
     userRole,
     viewMode,
     canAccessEmployer,
@@ -805,6 +834,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     isReady,
     logout,
     messageEvents,
+    navigationProfileInitials,
     refreshProfile,
     refreshSavedJobs,
     refreshNotifications,

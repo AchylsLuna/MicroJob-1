@@ -57,14 +57,14 @@ export const getPhoneOtpConfigStatus = (env = process.env) => {
   }
 
   const missingKeys = TWILIO_CONFIG_KEYS.filter((key) => !values[key]);
-  // If some Twilio keys are present but others are missing, treat this as partial
-  // configuration. In production this is an error; in development fall back to
-  // the development provider so local testing continues to work.
+  // Never silently ignore partial provider credentials. Local development can
+  // opt into the development provider explicitly with PHONE_OTP_PROVIDER.
   if (configuredKeys.length > 0 && missingKeys.length > 0) {
-    if (String(env.NODE_ENV || '').toLowerCase() === 'production') {
-      return { mode: 'twilio', valid: false, errors: [`Missing required Twilio Messaging variables: ${missingKeys.join(', ')}.`] };
-    }
-    return { mode: 'development', valid: true, errors: [`Partial Twilio configuration detected; using development fallback.`] };
+    return {
+      mode: 'twilio',
+      valid: false,
+      errors: [`Missing required Twilio Messaging variables: ${missingKeys.join(', ')}.`],
+    };
   }
 
   const errors = [];
@@ -238,7 +238,7 @@ export const sendPhoneVerificationOtp = async ({ userId, phoneNumber }) => {
   }
 
   const phoneE164 = toE164Phone(phoneNumber);
-  console.info('[phoneOtp] normalized phone to E.164', phoneE164);
+  console.info('[phoneOtp] normalized phone to E.164', maskPhone(phoneE164));
   const now = Date.now();
   const existing = getOtpRecord(userKey);
 

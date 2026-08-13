@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 const net = require('net');
+const os = require('os');
 const { spawn, spawnSync } = require('child_process');
 
 const extraArgs = process.argv.slice(2);
@@ -89,6 +90,30 @@ function canUseSimctl() {
   return result.status === 0;
 }
 
+function isPrivateIpv4(address) {
+  if (/^10\./.test(address) || /^192\.168\./.test(address)) return true;
+  const match = /^172\.(\d+)\./.exec(address);
+  return Boolean(match && Number(match[1]) >= 16 && Number(match[1]) <= 31);
+}
+
+function getLanAddress() {
+  const virtualInterfacePattern = /virtual|vmware|vmnet|vbox|virtualbox|hyper-v|loopback|docker|wsl/i;
+  const candidates = [];
+
+  for (const [interfaceName, addresses] of Object.entries(os.networkInterfaces())) {
+    for (const item of addresses || []) {
+      if (item.family !== 'IPv4' || item.internal || !isPrivateIpv4(item.address)) continue;
+      candidates.push({
+        address: item.address,
+        priority: virtualInterfacePattern.test(interfaceName) ? 1 : 0,
+      });
+    }
+  }
+
+  candidates.sort((left, right) => left.priority - right.priority);
+  return candidates[0]?.address || '';
+}
+
 function isPortFree(port) {
   return new Promise((resolve) => {
     const server = net.createServer();
@@ -132,16 +157,33 @@ async function main() {
     modeArgs.push(envClientMode === 'dev-client' ? '--dev-client' : '--go');
   }
 
-  // Optional host mode override via env (lan/localhost/tunnel).
-  if (!hasExplicitHostMode && explicitHostModes.has(`--${envHostMode}`)) {
-    modeArgs.push(`--${envHostMode}`);
+  // Physical devices need LAN mode by default. Callers can still explicitly
+  // select localhost (emulator/web only) or tunnel.
+  if (!hasExplicitHostMode) {
+    modeArgs.push(explicitHostModes.has(`--${envHostMode}`) ? `--${envHostMode}` : '--lan');
   }
 
   const wantsIOS = forwardedArgs.some((arg) => iosFlags.has(arg));
   const simctlAvailable = canUseSimctl();
   const childEnv = {
     ...process.env,
+    EXPO_NO_METRO_WORKSPACE_ROOT: process.env.EXPO_NO_METRO_WORKSPACE_ROOT || '1',
   };
+
+  const usesLocalhost = forwardedArgs.includes('--localhost') || modeArgs.includes('--localhost');
+  if (!childEnv.EXPO_PUBLIC_API_URL && !usesLocalhost) {
+    const lanAddress = getLanAddress();
+    const apiPort = String(childEnv.EXPO_PUBLIC_API_PORT || childEnv.DEV_API_PORT || childEnv.PORT || '5050');
+    if (lanAddress) {
+      childEnv.EXPO_PUBLIC_API_URL = `http://${lanAddress}:${apiPort}/api`;
+      childEnv.EXPO_PUBLIC_API_SOURCE = 'development-lan';
+      console.log(`Mobile API: ${childEnv.EXPO_PUBLIC_API_URL}`);
+    } else {
+      console.warn('No private LAN address was detected. Set EXPO_PUBLIC_API_URL to the API address reachable by your phone.');
+    }
+  } else if (childEnv.EXPO_PUBLIC_API_URL) {
+    console.log(`Mobile API: ${childEnv.EXPO_PUBLIC_API_URL}`);
+  }
 
   if (process.platform === 'darwin' && !simctlAvailable) {
     if (wantsIOS) {

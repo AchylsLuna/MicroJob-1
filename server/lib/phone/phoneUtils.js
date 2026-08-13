@@ -3,7 +3,7 @@ export function normalizePhoneNumber(value = '', defaultCountry = process.env.PH
   if (!s) return '';
 
   // Remove common separators and whitespace
-  s = s.replace(/[\s()-\.]/g, '');
+  s = s.replace(/[\s().-]/g, '');
 
   // If already in E.164 (starts with + and digits), return as-is
   if (/^\+\d+$/.test(s)) return s;

@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 import AnimatedPressable from './ui/AnimatedPressable';
 import { useAppSession } from '../contexts/AppSessionContext';
-import { getUserInitials } from '../lib/userIdentity';
 import { isNavigationTabActive } from './navigationState';
 import type { WorkerTab } from './tabNavigation';
 
@@ -20,7 +19,6 @@ type Props = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   messageBadgeCount?: number;
-  profileInitials?: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -37,12 +35,11 @@ export default function Navigation({
   activeTab = 'Home',
   onTabPress,
   messageBadgeCount,
-  profileInitials,
 }: Props) {
   const insets = useSafeAreaInsets();
   const session = useAppSession();
   const resolvedMessageBadgeCount = typeof messageBadgeCount === 'number' ? messageBadgeCount : session.unreadMessageCount;
-  const resolvedProfileInitials = profileInitials?.trim() || getUserInitials(session.user);
+  const resolvedProfileInitials = session.navigationProfileInitials;
   return (
     <View style={styles.navWrapper}>
       <View
