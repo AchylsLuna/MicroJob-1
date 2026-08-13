@@ -472,7 +472,10 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => subscribeDataRefresh((event) => {
     if (!isAuthenticated) return;
-    if (event.domains.includes('profile') || event.domains.includes('session')) void refreshProfile();
+    // Authentication transitions have explicit ordered bootstrap/logout flows.
+    // Refreshing /auth/me from a login/logout mutation can race local cleanup
+    // and restore a session that the user just ended.
+    if (event.domains.includes('profile')) void refreshProfile();
     if (event.domains.includes('savedJobs') || event.domains.includes('jobs')) void refreshSavedJobs();
     if (event.domains.includes('notifications') || event.domains.includes('applications') || event.domains.includes('wallet')) void refreshNotifications();
     if (event.domains.includes('messages')) void refreshUnreadMessages();
