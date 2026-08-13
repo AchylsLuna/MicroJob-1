@@ -3,6 +3,7 @@ import Transaction from '../models/Transaction.js';
 import Session from '../models/Session.js';
 import Job from '../models/Job.js';
 import Category from '../models/Category.js';
+import Notification from '../models/Notification.js';
 import { LEGACY_APPLICATION_STATUS_MAP, APPLICATION_STATUSES } from './applicationStatus.js';
 import { ensureDefaultJobCategories } from './jobCategories.js';
 
@@ -76,6 +77,31 @@ export async function runDataBackfills() {
   // Use the native collection because the legacy field is intentionally absent
   // from the current strict Mongoose schema.
   await Session.collection.updateMany({ token: { $exists: true } }, { $unset: { token: 1 } });
+
+  // Legacy notifications predate role-specific feeds. Shared is the safe,
+  // non-destructive fallback; relationship-backed records are refined below.
+  await Notification.updateMany(
+    { $or: [{ audience: { $exists: false } }, { audience: null }] },
+    { $set: { audience: 'shared' } },
+  );
+  await Notification.updateMany(
+    { audience: 'shared', entityType: 'payment_request' },
+    { $set: { audience: 'employer' } },
+  );
+  const legacyApplicationNotifications = await Notification.find({
+    audience: 'shared',
+    entityType: 'application',
+    entityId: { $nin: [null, ''] },
+  }).select('_id user entityId').lean();
+  for (const notification of legacyApplicationNotifications) {
+    const application = await JobApplication.findById(notification.entityId).select('applicant job').lean();
+    if (!application) continue;
+    const job = await Job.findById(application.job).select('jobPoster').lean();
+    const audience = String(application.applicant) === String(notification.user)
+      ? 'worker'
+      : String(job?.jobPoster || '') === String(notification.user) ? 'employer' : 'shared';
+    if (audience !== 'shared') await Notification.updateOne({ _id: notification._id }, { $set: { audience } });
+  }
 
   const legacyEntries = Object.entries(LEGACY_APPLICATION_STATUS_MAP);
   for (const [legacy, canonical] of legacyEntries) {

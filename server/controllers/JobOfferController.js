@@ -45,7 +45,7 @@ export async function createJobOffer(req, res) {
       created.chatMessage = message[0]._id; await created.save({ session });
       application.status = 'Offer Sent'; await application.save({ session });
     });
-    await createNotification({ userId: created.worker, type: 'application', title: 'Formal job offer', message: `You received a PHP ${Number(created.amount).toFixed(2)} job offer.`, entityType: 'job_offer', entityId: created._id, actor: created.employer, push: true });
+    await createNotification({ userId: created.worker, audience: 'worker', type: 'application', title: 'Formal job offer', message: `You received a PHP ${Number(created.amount).toFixed(2)} job offer.`, entityType: 'job_offer', entityId: created._id, actor: created.employer, push: true });
     const chatMessage = await Message.findById(created.chatMessage).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.jobOffer', 'status amount acceptedAt resolvedAt');
     if (chatMessage) { emitToUser(String(created.worker), 'new_message', chatMessage); emitToUser(String(created.employer), 'new_message_echo', chatMessage); }
     emitToUser(String(created.worker), 'job_offer_updated', serialize(created));
@@ -66,7 +66,7 @@ export async function respondToJobOffer(req, res) {
       if (action === 'reject') { await refundExtra(offer, session); await Job.updateOne({ _id: offer.job, reservedOfferCount: { $gt: 0 } }, { $inc: { reservedOfferCount: -1 } }, { session }); await JobApplication.updateOne({ _id: offer.application, status: 'Offer Sent' }, { $set: { status: 'Shortlisted' } }, { session }); }
       await offer.save({ session });
     });
-    await createNotification({ userId: offer.employer, type: 'application', title: `Offer ${offer.status}`, message: `The worker ${offer.status} your formal offer.`, entityType: 'job_offer', entityId: offer._id, actor: offer.worker, push: true });
+    await createNotification({ userId: offer.employer, audience: 'employer', type: 'application', title: `Offer ${offer.status}`, message: `The worker ${offer.status} your formal offer.`, entityType: 'job_offer', entityId: offer._id, actor: offer.worker, push: true });
     emitToUser(String(offer.employer), 'job_offer_updated', serialize(offer));
     return res.json({ offer: serialize(offer) });
   } catch (error) { return res.status(error.status || 500).json({ message: error.message || 'Unable to update offer.' }); }
@@ -81,7 +81,7 @@ export async function cancelJobOffer(req, res) {
       if (!offer) throw Object.assign(new Error('Active offer not found.'), { status: 404 });
       await refundExtra(offer, session); await Job.updateOne({ _id: offer.job, reservedOfferCount: { $gt: 0 } }, { $inc: { reservedOfferCount: -1 } }, { session }); await JobApplication.updateOne({ _id: offer.application, status: 'Offer Sent' }, { $set: { status: 'Shortlisted' } }, { session }); offer.status = 'cancelled'; offer.resolvedAt = new Date(); await offer.save({ session });
     });
-    await createNotification({ userId: offer.worker, type: 'application', title: 'Offer cancelled', message: 'The employer cancelled the formal job offer.', entityType: 'job_offer', entityId: offer._id, actor: offer.employer, push: true });
+    await createNotification({ userId: offer.worker, audience: 'worker', type: 'application', title: 'Offer cancelled', message: 'The employer cancelled the formal job offer.', entityType: 'job_offer', entityId: offer._id, actor: offer.employer, push: true });
     emitToUser(String(offer.worker), 'job_offer_updated', serialize(offer));
     return res.json({ offer: serialize(offer) });
   } catch (error) { return res.status(error.status || 500).json({ message: error.message || 'Unable to cancel offer.' }); }
@@ -100,7 +100,7 @@ export async function confirmOfferHire(req, res) {
       job.hiredCount = Number(job.hiredCount || 0) + 1; job.reservedOfferCount = Math.max(0, Number(job.reservedOfferCount || 0) - 1); job.status = job.hiredCount >= job.positionsNeeded ? 'Closed' : 'Available'; await job.save({ session });
       offer.status = 'hired'; offer.resolvedAt = new Date(); await offer.save({ session });
     });
-    await createNotification({ userId: offer.worker, type: 'application', title: 'You are hired', message: `Your PHP ${Number(offer.amount).toFixed(2)} offer was confirmed.`, entityType: 'application', entityId: application._id, actor: offer.employer, push: true });
+    await createNotification({ userId: offer.worker, audience: 'worker', type: 'application', title: 'You are hired', message: `Your PHP ${Number(offer.amount).toFixed(2)} offer was confirmed.`, entityType: 'application', entityId: application._id, actor: offer.employer, push: true });
     return res.json({ offer: serialize(offer), application });
   } catch (error) { return res.status(error.status || 500).json({ message: error.message || 'Unable to confirm hire.' }); }
   finally { await session.endSession(); }

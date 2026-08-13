@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   BarChart3,
@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { getNotifications } from "../services/api";
+import { useNotifications } from "../contexts/NotificationContext";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 import { MicroJobsLogo } from "./MicroJobsLogo";
@@ -60,6 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isCollapsed = false;
   const [, setAuthUpdateTrigger] = useState(0); // Force re-render on auth updates
   const { user: authUser } = useAuth();
+  const { unreadCount: notifCount } = useNotifications();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -180,33 +181,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     support: <CircleHelp className="h-5 w-5" />,
   };
 
-  const [notifCount, setNotifCount] = useState<number>(0);
   const [isEmployerGroupOpen, setIsEmployerGroupOpen] = useState<boolean>(true);
-
-  const loadNotifCount = useCallback(async () => {
-    try {
-      if (effectiveRole === "admin") {
-        setNotifCount(0);
-        return;
-      }
-
-      const notifications = await getNotifications({ unread: true, limit: 200 }).catch(() => [] as any[]);
-      setNotifCount(Array.isArray(notifications) ? notifications.length : 0);
-    } catch {
-      // ignore notification count errors
-    }
-  }, [effectiveRole]);
-
-  useEffect(() => {
-    loadNotifCount();
-    const handler = () => loadNotifCount();
-    window.addEventListener("auth_user_updated", handler);
-    window.addEventListener("notification-refresh", handler);
-    return () => {
-      window.removeEventListener("auth_user_updated", handler);
-      window.removeEventListener("notification-refresh", handler);
-    };
-  }, [effectiveRole, loadNotifCount]);
 
   const renderIcon = (iconKey: string) => (
     <span aria-hidden="true" className="text-current">

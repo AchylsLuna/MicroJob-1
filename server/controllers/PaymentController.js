@@ -241,6 +241,7 @@ async function notifyAdminsOfPayoutRequest(payoutRequest, userId) {
     admins.map((admin) =>
       createNotification({
         userId: admin._id,
+        audience: 'shared',
         type: 'payout',
         title: 'New payout request',
         message: `A payout request for PHP ${payoutRequest.amount.toFixed(2)} requires review.`,
@@ -257,6 +258,7 @@ async function notifyAdminsOfPayoutRequest(payoutRequest, userId) {
 async function notifyUserPayoutStatus(payoutRequest, actorId, title, message) {
   await createNotification({
     userId: payoutRequest.user,
+    audience: 'worker',
     type: 'payout',
     title,
     message,

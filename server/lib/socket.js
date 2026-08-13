@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { isAllowedOrigin } from './corsOrigins.js';
 import { getJwtSecret } from './jwtSecret.js';
 import Session from '../models/Session.js';
+import User from '../models/User.js';
 
 let io = null;
 const userSocketMap = new Map(); // userId -> Set(socketId)
@@ -124,6 +125,11 @@ export function initSocket(httpServer, opts = {}) {
         (session.expiresAt && session.expiresAt.getTime() < Date.now())
       ) {
         return next(new Error('Session invalid or expired'));
+      }
+      const user = await User.findById(tokenUserId).select('status');
+      if (!user || user.status !== 'active') {
+        await Session.updateOne({ _id: decoded.sessionId, active: true }, { $set: { active: false, endedAt: new Date() } });
+        return next(new Error('Account is not active'));
       }
       socket.data.sessionId = String(decoded.sessionId);
 

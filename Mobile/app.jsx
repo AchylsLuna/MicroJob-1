@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { DefaultTheme, NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
+import { createNavigationContainerRef, DefaultTheme, NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -46,12 +46,14 @@ import { ToastProvider, useToast } from './contexts/ToastContext';
 import { StatusBar } from 'expo-status-bar';
 import LaunchScreen from './components/LaunchScreen';
 import { isRoleTab, navigateToRoleTab } from './components/tabNavigation';
+import { resolveNotificationDestination } from './lib/notifications';
 
 const AuthStack = createNativeStackNavigator();
 const WorkerStack = createNativeStackNavigator();
 const EmployerStack = createNativeStackNavigator();
 const WorkerTab = createBottomTabNavigator();
 const EmployerTab = createBottomTabNavigator();
+const navigationRef = createNavigationContainerRef();
 
 const hiddenTabs = {
   headerShown: false,
@@ -276,7 +278,7 @@ function WorkerHomeScreen() {
       }}
       savedJobIds={session.savedJobIds}
       onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
-      notificationBadgeCount={session.workerNotifications.length}
+      notificationBadgeCount={session.workerNotificationUnreadCount}
       messageBadgeCount={session.unreadMessageCount}
       headerSubtitle={localArea || 'Set your local area'}
     />
@@ -310,7 +312,7 @@ function WorkerJobsScreen() {
       onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
       activeTab="Jobs"
       onTabPress={workerTabPress}
-      notificationBadgeCount={session.workerNotifications.length}
+      notificationBadgeCount={session.workerNotificationUnreadCount}
       messageBadgeCount={session.unreadMessageCount}
       initialCategory={route.params?.initialCategory}
     />
@@ -326,7 +328,7 @@ function WorkerEWalletScreen() {
       activeTab="EWallet"
       onTabPress={workerTabPress}
       onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
-      notificationBadgeCount={session.workerNotifications.length}
+      notificationBadgeCount={session.workerNotificationUnreadCount}
       messageBadgeCount={session.unreadMessageCount}
       onOpenInvoiceChat={(target) => { session.setInitialWorkerChatTarget(target); workerTabPress('Messages'); }}
     />
@@ -344,7 +346,7 @@ function WorkerMessagesScreen() {
       onTabPress={workerTabPress}
       liveMessages={session.messageEvents}
       onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
-      notificationBadgeCount={session.workerNotifications.length}
+      notificationBadgeCount={session.workerNotificationUnreadCount}
       messageBadgeCount={session.unreadMessageCount}
       initialChatTarget={session.initialWorkerChatTarget}
       onConsumeInitialChatTarget={session.clearInitialWorkerChatTarget}
@@ -460,12 +462,12 @@ function WorkerNotificationsScreen() {
   const session = useAppSession();
   const workerTabPress = useWorkerTabNavigation();
   const openNotification = (item) => {
-    const type = String(item?.type || '').toLowerCase();
-    if (type === 'application' || type === 'interview') navigation.navigate('WorkerAppliedJobs');
-    else if (type === 'message') workerTabPress('Messages');
-    else if (type === 'payment' || type === 'payout') workerTabPress('EWallet');
-    else if (type === 'support') navigation.navigate('WorkerSupport');
-    else if (type === 'account') navigation.navigate('WorkerSettings');
+    const destination = resolveNotificationDestination(item);
+    if (destination === 'applications') navigation.navigate('WorkerAppliedJobs');
+    else if (destination === 'messages') workerTabPress('Messages');
+    else if (destination === 'wallet') workerTabPress('EWallet');
+    else if (destination === 'support') navigation.navigate('WorkerSupport');
+    else if (destination === 'settings') navigation.navigate('WorkerSettings');
   };
   return (
     <NotificationsInbox
@@ -628,7 +630,7 @@ function EmployerMessagesScreen() {
       onTabPress={employerTabPress}
       liveMessages={session.messageEvents}
       onOpenNotifications={() => navigateToEmployerTab(navigation, 'Notifications')}
-      notificationBadgeCount={session.employerNotifications.length}
+      notificationBadgeCount={session.employerNotificationUnreadCount}
       initialChatTarget={session.initialEmployerChatTarget}
       onConsumeInitialChatTarget={session.clearInitialEmployerChatTarget}
     />
@@ -640,13 +642,12 @@ function EmployerNotificationsScreen() {
   const employerTabPress = useEmployerTabNavigation();
   const session = useAppSession();
   const openNotification = (item) => {
-    const type = String(item?.type || '').toLowerCase();
-    if (type === 'application' || type === 'interview') employerTabPress('Applications');
-    else if (type === 'message') employerTabPress('Messages');
-    else if (item?.entityType === 'payment_request') navigation.navigate('EmployerEWallet', { invoiceRequestId: item.entityId });
-    else if (type === 'payment' || type === 'payout') navigation.navigate('EmployerEWallet');
-    else if (type === 'support') navigation.navigate('EmployerSupport');
-    else if (type === 'account') navigation.navigate('EmployerSettings');
+    const destination = resolveNotificationDestination(item);
+    if (destination === 'applications') employerTabPress('Applications');
+    else if (destination === 'messages') employerTabPress('Messages');
+    else if (destination === 'wallet') navigation.navigate('EmployerEWallet', item?.entityType === 'payment_request' ? { invoiceRequestId: item.entityId } : undefined);
+    else if (destination === 'support') navigation.navigate('EmployerSupport');
+    else if (destination === 'settings') navigation.navigate('EmployerSettings');
   };
   return <EmployerNotifications activeTab="Notifications" onTabPress={employerTabPress} liveNotifications={session.employerNotifications} onOpenNotification={openNotification} />;
 }
@@ -729,7 +730,7 @@ function EmployerEWalletScreen() {
       onTabPress={employerTabPress}
       initialInvoiceRequestId={route.params?.invoiceRequestId || null}
       onOpenNotifications={() => navigateToEmployerTab(navigation, 'Notifications')}
-      notificationBadgeCount={session.employerNotifications.length}
+      notificationBadgeCount={session.employerNotificationUnreadCount}
     />
   );
 }
@@ -881,10 +882,41 @@ function SessionOverlays() {
 function RootApp() {
   const session = useAppSession();
   const [showLaunch, setShowLaunch] = useState(true);
+  const [navigationReady, setNavigationReady] = useState(false);
   const navigationTheme = useMemo(() => ({
     ...DefaultTheme,
     colors: { ...DefaultTheme.colors, background: tokens.colors.signedInCanvas, primary: tokens.colors.brand, card: tokens.colors.contentSurface },
   }), []);
+  React.useEffect(() => {
+    const data = session.pendingNotificationData;
+    if (!data || !session.isReady || !session.isAuthenticated || !navigationReady || !navigationRef.isReady()) return;
+    const audience = String(data.audience || 'shared').toLowerCase();
+    const destination = resolveNotificationDestination(data);
+    const targetMode = audience === 'employer' ? 'employer' : audience === 'worker' ? 'worker' : session.viewMode;
+    if (targetMode !== session.viewMode && session.canSwitchAccountMode) {
+      void session.switchViewMode(targetMode);
+      return;
+    }
+    const employer = session.viewMode === 'employer';
+    const entityId = String(data.entityId || '');
+    const conversationId = String(data.conversationId || data.senderId || '');
+    if (destination === 'messages') {
+      if (employer) session.setInitialEmployerChatTarget(conversationId ? { id: conversationId } : null);
+      else session.setInitialWorkerChatTarget(conversationId ? { id: conversationId } : null);
+      navigationRef.navigate(employer ? 'EmployerTabs' : 'WorkerTabs', { screen: 'Messages' });
+    } else if (destination === 'applications') {
+      navigationRef.navigate(employer ? 'EmployerTabs' : 'WorkerAppliedJobs', employer ? { screen: 'Applications', params: { applicationId: entityId } } : { applicationId: entityId });
+    } else if (destination === 'wallet') {
+      navigationRef.navigate(employer ? 'EmployerEWallet' : 'WorkerTabs', employer ? { invoiceRequestId: entityId } : { screen: 'EWallet' });
+    } else if (destination === 'support') {
+      navigationRef.navigate(employer ? 'EmployerSupport' : 'WorkerSupport', { ticketId: entityId });
+    } else if (destination === 'settings') {
+      navigationRef.navigate(employer ? 'EmployerSettings' : 'WorkerSettings');
+    } else {
+      navigationRef.navigate(employer ? 'EmployerTabs' : 'WorkerNotifications', employer ? { screen: 'Notifications' } : undefined);
+    }
+    session.consumePendingNotification();
+  }, [navigationReady, session.pendingNotificationData, session.isReady, session.isAuthenticated, session.viewMode, session.canSwitchAccountMode]);
   return (
     <View
       style={{ flex: 1, overflow: 'hidden', backgroundColor: tokens.colors.signedInCanvas }}
@@ -893,7 +925,7 @@ function RootApp() {
       onTouchStart={() => session.registerActivity()}
     >
       <StatusBar style="dark" />
-      <NavigationContainer theme={navigationTheme} onStateChange={() => session.registerActivity()}>
+      <NavigationContainer ref={navigationRef} theme={navigationTheme} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
         <AppNavigator />
       </NavigationContainer>
       <SessionOverlays />

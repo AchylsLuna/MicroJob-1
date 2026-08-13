@@ -35,7 +35,7 @@ const expireIfNeeded = async (request) => {
   if (request?.status === 'active' && request.expiresAt.getTime() <= Date.now()) {
     const result = await QrSettlementRequest.updateOne({ _id: request._id, status: 'active' }, { $set: { status: 'expired' } });
     request.status = 'expired';
-    if (result.modifiedCount > 0) await createNotification({ userId: request.requestingWorker, type: 'payment', title: 'Payment invoice expired', message: 'Your job payment invoice expired. You can generate a replacement from E-Wallet.', entityType: 'payment_request', entityId: request._id }).catch(() => undefined);
+    if (result.modifiedCount > 0) await createNotification({ userId: request.requestingWorker, audience: 'worker', type: 'payment', title: 'Payment invoice expired', message: 'Your job payment invoice expired. You can generate a replacement from E-Wallet.', entityType: 'payment_request', entityId: request._id }).catch(() => undefined);
   }
   return request;
 };
@@ -115,7 +115,7 @@ export async function createQrSettlementRequest(req, res) {
     const hydratedMessage = await Message.findById(message._id).populate('sender', 'firstName lastName').populate('receiver', 'firstName lastName').populate('job', 'title').populate('attachment.settlementRequest', 'status expiresAt settledAt');
     emitToUser(String(job.jobPoster), 'new_message', hydratedMessage || message);
     emitToUser(String(userId), 'new_message_echo', hydratedMessage || message);
-    notification = await createNotification({ userId: job.jobPoster, type: 'payment', title: 'Job payment requested', message: `${preview.requestingWorker.name} requested settlement for ${job.title}.`, entityType: 'payment_request', entityId: request._id, actor: userId, metadata: { requestId: String(request._id), jobId: String(job._id), messageId: String(message._id) }, pushData: { type: 'payment_request', requestId: String(request._id), jobId: String(job._id) } });
+    notification = await createNotification({ userId: job.jobPoster, audience: 'employer', type: 'payment', title: 'Job payment requested', message: `${preview.requestingWorker.name} requested settlement for ${job.title}.`, entityType: 'payment_request', entityId: request._id, actor: userId, metadata: { requestId: String(request._id), jobId: String(job._id), messageId: String(message._id) }, pushData: { type: 'payment_request', requestId: String(request._id), jobId: String(job._id), audience: 'employer' } });
     request.chatMessage = message._id; request.employerNotification = notification._id;
     await request.save();
     await monitor.audit({ actor: userId, action: 'qr_settlement_created', status: 'success', meta: { job: String(job._id), request: String(request._id) } });
@@ -219,6 +219,6 @@ export async function cancelQrSettlementRequest(req, res) {
     { $set: { status: 'cancelled' } }, { returnDocument: 'after' },
   );
   if (!updated) return res.status(404).json({ message: 'Active payment request not found.' });
-  await createNotification({ userId: updated.requestingWorker, type: 'payment', title: 'Payment invoice cancelled', message: 'Your job payment invoice was cancelled.', entityType: 'payment_request', entityId: updated._id, push: false }).catch(() => undefined);
+  await createNotification({ userId: updated.requestingWorker, audience: 'worker', type: 'payment', title: 'Payment invoice cancelled', message: 'Your job payment invoice was cancelled.', entityType: 'payment_request', entityId: updated._id, push: false }).catch(() => undefined);
   return res.status(200).json({ message: 'Payment request cancelled.' });
 }

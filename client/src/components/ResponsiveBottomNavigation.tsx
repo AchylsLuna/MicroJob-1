@@ -11,7 +11,8 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { getConversations, getNotifications } from "../services/api";
+import { getConversations } from "../services/api";
+import { useNotifications } from "../contexts/NotificationContext";
 import {
   activeNavigationItem,
   navigationForMode,
@@ -39,20 +40,14 @@ export function ResponsiveBottomNavigation() {
   const items = navigationForMode(mode);
   const activeItem = activeNavigationItem(location.pathname, items);
   const [unreadMessages, setUnreadMessages] = useState(0);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const { unreadCount: unreadNotifications } = useNotifications();
 
   const refreshBadges = useCallback(async () => {
-    const [conversationsResult, notificationsResult] = await Promise.allSettled([
-      getConversations(),
-      getNotifications({ unread: true, limit: 200 }),
-    ]);
+    const [conversationsResult] = await Promise.allSettled([getConversations()]);
     if (conversationsResult.status === "fulfilled") {
       const conversations = Array.isArray(conversationsResult.value) ? conversationsResult.value : [];
       setUnreadMessages(conversations.reduce((total, conversation) =>
         total + Number(conversation?.unreadCount || conversation?.unread || 0), 0));
-    }
-    if (notificationsResult.status === "fulfilled") {
-      setUnreadNotifications(Array.isArray(notificationsResult.value) ? notificationsResult.value.length : 0);
     }
   }, []);
 

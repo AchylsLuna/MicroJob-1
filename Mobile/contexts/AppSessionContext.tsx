@@ -14,6 +14,7 @@ import { apiRequest, asList, asObject, classifyApiFailure, setInvalidSessionHand
 import { useToast } from './ToastContext';
 import { subscribeDataRefresh } from '../lib/dataRefresh';
 import { getUserInitials } from '../lib/userIdentity';
+import { registerPushDevice, subscribeNotificationResponses, takeInitialNotificationData, unregisterPushDevice } from '../lib/pushNotifications';
 
 type ViewMode = 'worker' | 'employer';
 type BootstrapIssue = {
@@ -54,6 +55,9 @@ type AppSessionContextValue = {
   savedJobIds: string[];
   workerNotifications: any[];
   employerNotifications: any[];
+  workerNotificationUnreadCount: number;
+  employerNotificationUnreadCount: number;
+  pendingNotificationData: Record<string, unknown> | null;
   messageEvents: any[];
   unreadMessageCount: number;
   initialWorkerChatTarget: ChatTarget;
@@ -73,6 +77,7 @@ type AppSessionContextValue = {
   setInitialEmployerChatTarget: (target: ChatTarget) => void;
   clearInitialEmployerChatTarget: () => void;
   dismissWorkerNotification: (notificationId: string) => void;
+  consumePendingNotification: () => void;
   toggleSavedJob: (job: any) => Promise<void>;
   removeSavedJob: (jobId: string) => Promise<void>;
   refreshSavedJobs: () => Promise<void>;
@@ -177,6 +182,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   const [savedJobs, setSavedJobs] = useState<SavedJobItem[]>([]);
   const [workerNotifications, setWorkerNotifications] = useState<any[]>([]);
   const [employerNotifications, setEmployerNotifications] = useState<any[]>([]);
+  const [workerNotificationUnreadCount, setWorkerNotificationUnreadCount] = useState(0);
+  const [employerNotificationUnreadCount, setEmployerNotificationUnreadCount] = useState(0);
+  const [pendingNotificationData, setPendingNotificationData] = useState<Record<string, unknown> | null>(null);
   const [messageEvents, setMessageEvents] = useState<any[]>([]);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [initialWorkerChatTarget, setInitialWorkerChatTarget] = useState<ChatTarget>(null);
@@ -266,24 +274,34 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     if (!token) {
       setWorkerNotifications([]);
       setEmployerNotifications([]);
+      setWorkerNotificationUnreadCount(0);
+      setEmployerNotificationUnreadCount(0);
       return;
     }
 
     try {
-      const result = await apiRequest(`${API_URL}/notifications?unread=true&limit=100`, {
-        headers: { Authorization: `Bearer ${token}` },
-      }, 'Failed to load notifications.');
-      if (!result.ok) {
-        throw new Error(result.message || 'Failed to load notifications.');
-      }
-
-      const items = Array.isArray(result.raw) ? result.raw : asList<any>(result.raw, ['notifications']);
-      setWorkerNotifications(items);
-      setEmployerNotifications(items);
+      const modes: ViewMode[] = canAccessEmployer ? ['worker', 'employer'] : [viewMode];
+      const results = await Promise.all(modes.map(async (mode) => {
+        const result = await apiRequest(`${API_URL}/notifications?mode=${mode}&limit=100`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }, 'Failed to load notifications.');
+        if (!result.ok) throw new Error(result.message || 'Failed to load notifications.');
+        const payload = asObject<any>(result.raw) || {};
+        return { mode, items: asList<any>(payload, ['notifications']), unreadCount: Math.max(0, Number(payload.unreadCount || 0)) };
+      }));
+      results.forEach(({ mode, items, unreadCount }) => {
+        if (mode === 'employer') {
+          setEmployerNotifications(items);
+          setEmployerNotificationUnreadCount(unreadCount);
+        } else {
+          setWorkerNotifications(items);
+          setWorkerNotificationUnreadCount(unreadCount);
+        }
+      });
     } catch (error) {
       console.warn('Failed to refresh notifications', error);
     }
-  }, []);
+  }, [canAccessEmployer, viewMode]);
 
   const refreshUnreadMessages = useCallback(async () => {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
@@ -479,6 +497,8 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setSavedJobs([]);
     setWorkerNotifications([]);
     setEmployerNotifications([]);
+    setWorkerNotificationUnreadCount(0);
+    setEmployerNotificationUnreadCount(0);
     setMessageEvents([]);
     setUnreadMessageCount(0);
     setIsAuthenticated(false);
@@ -562,6 +582,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         socketErrorLogRef.current = { message: '', at: 0 };
         socket.emit('register', String(currentUserIdRef.current));
         void refreshUnreadMessages();
+        void refreshNotifications();
       });
 
       socket.on('connect_error', (err: any) => {
@@ -582,28 +603,12 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
         disconnectSocket();
       });
 
-      socket.on('new_application', (payload: any) => {
-        const nextId = getNotificationItemId(payload);
-        const append = (prev: any[]) => {
-          if (!nextId || prev.some((item) => getNotificationItemId(item) === nextId)) {
-            return prev;
-          }
-          return [payload, ...prev];
-        };
-        setWorkerNotifications(append);
-        setEmployerNotifications(append);
+      socket.on('new_application', () => {
+        void refreshNotifications();
       });
 
-      socket.on('application_status_updated', (payload: any) => {
-        const nextId = getNotificationItemId(payload);
-        const append = (prev: any[]) => {
-          if (!nextId || prev.some((item) => getNotificationItemId(item) === nextId)) {
-            return prev;
-          }
-          return [payload, ...prev];
-        };
-        setWorkerNotifications(append);
-        setEmployerNotifications(append);
+      socket.on('application_status_updated', () => {
+        void refreshNotifications();
       });
 
       socket.on('notification_created', (payload: any) => {
@@ -616,8 +621,15 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
           }
           return [notification, ...prev];
         };
-        setWorkerNotifications(append);
-        setEmployerNotifications(append);
+        const audience = String(notification?.audience || 'shared').toLowerCase();
+        if (audience === 'worker' || audience === 'shared') {
+          setWorkerNotifications(append);
+          if (!notification.readAt) setWorkerNotificationUnreadCount((count) => count + 1);
+        }
+        if (audience === 'employer' || audience === 'shared') {
+          setEmployerNotifications(append);
+          if (!notification.readAt) setEmployerNotificationUnreadCount((count) => count + 1);
+        }
         // If this notification is about a payment/payout, refresh profile to update balances
         try {
           const nType = String(notification?.type || '').toLowerCase();
@@ -627,6 +639,10 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
             void refreshNotifications();
           }
         } catch (e) {}
+      });
+
+      socket.on('notification_changed', () => {
+        void refreshNotifications();
       });
 
       socket.on('new_message', (payload: any) => {
@@ -653,6 +669,22 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setMessageEvents([]);
   }, [refreshNotifications, refreshProfile, refreshSavedJobs, refreshUnreadMessages]);
 
+  useEffect(() => {
+    if (!isAuthenticated || !isReady) return;
+    let active = true;
+    void registerPushDevice().catch((error) => {
+      console.warn('Push registration unavailable:', error?.name || 'registration_error');
+    });
+    void takeInitialNotificationData().then((data) => {
+      if (active && data) setPendingNotificationData(data);
+    });
+    const unsubscribe = subscribeNotificationResponses(
+      (data) => { if (active) setPendingNotificationData(data); },
+      () => { if (active) void refreshNotifications(); },
+    );
+    return () => { active = false; unsubscribe(); };
+  }, [isAuthenticated, isReady, refreshNotifications]);
+
   const logout = useCallback(async () => {
     if (loggingOutRef.current) return;
     loggingOutRef.current = true;
@@ -660,6 +692,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     switchingViewModeRef.current = false;
     setIsSwitchingViewMode(false);
     try {
+      await unregisterPushDevice();
       const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
       if (token) {
         await apiRequest(`${API_URL}/auth/logout`, {
@@ -681,6 +714,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setSavedJobs([]);
     setWorkerNotifications([]);
     setEmployerNotifications([]);
+    setWorkerNotificationUnreadCount(0);
+    setEmployerNotificationUnreadCount(0);
+    setPendingNotificationData(null);
     setMessageEvents([]);
     setUnreadMessageCount(0);
     setInitialWorkerChatTarget(null);
@@ -772,8 +808,11 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     const target = String(notificationId || '');
     if (!target) return;
     const remove = (prev: any[]) => prev.filter((item) => getNotificationItemId(item) !== target);
-    setWorkerNotifications(remove);
-    setEmployerNotifications(remove);
+    setWorkerNotifications((prev) => {
+      const removed = prev.find((item) => getNotificationItemId(item) === target);
+      if (removed && !removed.readAt) setWorkerNotificationUnreadCount((count) => Math.max(0, count - 1));
+      return remove(prev);
+    });
   }, []);
 
   const value = useMemo<AppSessionContextValue>(() => ({
@@ -793,6 +832,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     savedJobIds,
     workerNotifications,
     employerNotifications,
+    workerNotificationUnreadCount,
+    employerNotificationUnreadCount,
+    pendingNotificationData,
     messageEvents,
     unreadMessageCount,
     initialWorkerChatTarget,
@@ -815,6 +857,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     setInitialEmployerChatTarget,
     clearInitialEmployerChatTarget: () => setInitialEmployerChatTarget(null),
     dismissWorkerNotification,
+    consumePendingNotification: () => setPendingNotificationData(null),
     toggleSavedJob,
     removeSavedJob,
     refreshSavedJobs,
@@ -858,6 +901,9 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     viewMode,
     workerNotifications,
     employerNotifications,
+    workerNotificationUnreadCount,
+    employerNotificationUnreadCount,
+    pendingNotificationData,
     removeSavedJob,
   ]);
 

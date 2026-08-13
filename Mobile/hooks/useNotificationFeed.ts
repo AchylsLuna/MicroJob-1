@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
-import { apiRequest } from '../lib/api';
+import { apiRequest, asList, asObject } from '../lib/api';
 import { normalizeNotificationItem, type NotificationListItem } from '../lib/notifications';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { useToast } from '../contexts/ToastContext';
@@ -12,7 +12,7 @@ export default function useNotificationFeed(liveNotifications: any[] = [], onDis
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const { refreshNotifications } = useAppSession();
+  const { refreshNotifications, viewMode } = useAppSession();
   const toast = useToast();
 
   const load = useCallback(async (asRefresh = false) => {
@@ -21,11 +21,12 @@ export default function useNotificationFeed(liveNotifications: any[] = [], onDis
     setError('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/notifications?limit=100`, {
+      const result = await apiRequest(`${API_URL}/notifications?mode=${viewMode}&limit=100`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }, 'Failed to load notifications.');
       if (!result.ok) throw new Error(result.message || 'Failed to load notifications.');
-      const records = Array.isArray(result.raw) ? result.raw : [];
+      const payload = asObject<any>(result.raw) || {};
+      const records = asList<any>(payload, ['notifications']);
       setNotifications(records.map(normalizeNotificationItem));
       await refreshNotifications();
     } catch (caught: any) {
@@ -36,7 +37,7 @@ export default function useNotificationFeed(liveNotifications: any[] = [], onDis
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshNotifications, toast]);
+  }, [refreshNotifications, toast, viewMode]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -57,7 +58,7 @@ export default function useNotificationFeed(liveNotifications: any[] = [], onDis
     setProcessingId(item.id);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/notifications/${item.id}/${read ? 'read' : 'unread'}`, {
+      const result = await apiRequest(`${API_URL}/notifications/${item.id}/${read ? 'read' : 'unread'}?mode=${viewMode}`, {
         method: 'PATCH',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }, `Failed to mark notification as ${read ? 'read' : 'unread'}.`);
@@ -76,7 +77,7 @@ export default function useNotificationFeed(liveNotifications: any[] = [], onDis
     setProcessingId(item.id);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/notifications/${item.id}`, {
+      const result = await apiRequest(`${API_URL}/notifications/${item.id}?mode=${viewMode}`, {
         method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }, 'Failed to remove notification.');
       if (!result.ok) throw new Error(result.message || 'Failed to remove notification.');
@@ -92,7 +93,7 @@ export default function useNotificationFeed(liveNotifications: any[] = [], onDis
     setProcessingId('all-read');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/notifications/read-all`, {
+      const result = await apiRequest(`${API_URL}/notifications/read-all?mode=${viewMode}`, {
         method: 'PATCH', headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }, 'Failed to mark all notifications as read.');
       if (!result.ok) throw new Error(result.message || 'Failed to mark all notifications as read.');
@@ -107,7 +108,7 @@ export default function useNotificationFeed(liveNotifications: any[] = [], onDis
     setProcessingId('clear-read');
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/notifications/read`, {
+      const result = await apiRequest(`${API_URL}/notifications/read?mode=${viewMode}`, {
         method: 'DELETE', headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       }, 'Failed to clear read notifications.');
       if (!result.ok) throw new Error(result.message || 'Failed to clear read notifications.');

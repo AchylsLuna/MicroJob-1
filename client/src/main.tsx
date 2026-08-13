@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/react";
 import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
+import { NotificationProvider } from "./contexts/NotificationContext";
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
@@ -12,7 +13,9 @@ const root = ReactDOM.createRoot(
 root.render(
   <React.StrictMode>
     <AuthProvider>
-      <App />
+      <NotificationProvider>
+        <App />
+      </NotificationProvider>
     </AuthProvider>
     <Analytics />
   </React.StrictMode>,

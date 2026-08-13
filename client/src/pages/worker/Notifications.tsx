@@ -1,17 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
-import { deleteNotification, getNotifications, markAllNotificationsRead, markNotificationRead } from '../../services/api';
 import { toast } from '../../lib/toast';
 import { useAuth } from '../../hooks/useAuth';
 import { mapNotificationRecord, type FeedNotification, type NotificationFeedType } from '../../utils/notificationFeed';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<FeedNotification[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const notificationState = useNotifications();
   const [filterType, setFilterType] = useState<'all' | NotificationFeedType>('all');
   const normalizedRole = String(user?.role || '').toLowerCase();
   const isEmployerView =
@@ -26,39 +24,15 @@ export default function NotificationsPage() {
       ? 'employer'
       : 'worker';
 
-  const fetchNotifications = useCallback(async () => {
-    if (!user) {
-      setNotifications([]);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getNotifications({ limit: 100 });
-      const nextNotifications = (Array.isArray(data) ? data : [])
-        .map((item: any) => mapNotificationRecord(item, notificationAudience, 'full'))
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      setNotifications(nextNotifications);
-    } catch (err: any) {
-      setError(err?.message || 'Failed to load notifications');
-    } finally {
-      setLoading(false);
-    }
-  }, [notificationAudience, user]);
-
-  useEffect(() => {
-    fetchNotifications();
-    // Also refresh the global notification count in NavBar
-    window.dispatchEvent(new Event('notification-refresh'));
-  }, [fetchNotifications, notificationAudience]);
+  const notifications = useMemo<FeedNotification[]>(() => notificationState.notifications
+    .map((item: any) => mapNotificationRecord(item, notificationAudience, 'full')),
+  [notificationAudience, notificationState.notifications]);
+  const loading = notificationState.loading;
+  const error = notificationState.error;
 
   const markRead = async (notificationId: string) => {
     try {
-      await markNotificationRead(notificationId);
-      setNotifications((prev) => prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)));
-      // Refresh NavBar notification count
-      window.dispatchEvent(new Event('notification-refresh'));
+      await notificationState.setRead(notificationId, true);
     } catch (err) {
       console.warn('Failed to mark read', err);
       toast.error('Failed to mark as read');
@@ -67,10 +41,8 @@ export default function NotificationsPage() {
 
   const markAll = async () => {
     try {
-      await markAllNotificationsRead();
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      await notificationState.markAllRead();
       toast.success('All notifications marked as read');
-      window.dispatchEvent(new Event('notification-refresh'));
     } catch (err: any) {
       toast.error(err?.message || 'Failed to mark all as read');
     }
@@ -78,12 +50,7 @@ export default function NotificationsPage() {
 
   const removeNotification = async (id: string) => {
     try {
-      // Remove from UI immediately
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-      // Try to delete from server (if it's a global notification)
-      await deleteNotification(id).catch(() => null);
-      // Refresh NavBar notification count
-      window.dispatchEvent(new Event('notification-refresh'));
+      await notificationState.remove(id);
       toast.success('Notification removed');
     } catch (err) {
       console.warn('Failed to remove notification', err);
@@ -159,7 +126,7 @@ export default function NotificationsPage() {
             Mark all as read
           </button>
           <button
-            onClick={fetchNotifications}
+            onClick={() => void notificationState.refresh()}
             className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-700"
           >
             Refresh

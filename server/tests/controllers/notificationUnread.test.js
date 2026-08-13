@@ -20,9 +20,9 @@ test('mark unread scopes the mutation to the authenticated user', async () => {
 
   try {
     const res = response();
-    await markNotificationUnread({ user: { id: 'user-1' }, params: { notificationId: 'notification-1' } }, res);
+    await markNotificationUnread({ user: { id: 'user-1', role: 'work' }, query: {}, params: { notificationId: 'notification-1' } }, res);
     assert.equal(res.statusCode, 200);
-    assert.deepEqual(received[0], { _id: 'notification-1', user: 'user-1' });
+    assert.deepEqual(received[0], { _id: 'notification-1', user: 'user-1', audience: { $in: ['worker', 'shared', null] } });
     assert.deepEqual(received[1], { $set: { readAt: null } });
   } finally {
     Notification.findOneAndUpdate = original;
@@ -34,7 +34,7 @@ test('mark unread returns 404 when the owned notification does not exist', async
   Notification.findOneAndUpdate = async () => null;
   try {
     const res = response();
-    await markNotificationUnread({ user: { id: 'user-1' }, params: { notificationId: 'missing' } }, res);
+    await markNotificationUnread({ user: { id: 'user-1', role: 'work' }, query: {}, params: { notificationId: 'missing' } }, res);
     assert.equal(res.statusCode, 404);
   } finally {
     Notification.findOneAndUpdate = original;

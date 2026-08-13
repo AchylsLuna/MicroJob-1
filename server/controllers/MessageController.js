@@ -1,6 +1,8 @@
 import Message from '../models/Message.js';
 import User from '../models/User.js';
+import Job from '../models/Job.js';
 import { emitToUser } from '../lib/socket.js';
+import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { isValidObjectId, validateMessageContent } from '../lib/messageSecurity.js';
 
@@ -96,7 +98,7 @@ const MessageController = {
         return sendError(res, 400, 'You cannot message yourself.');
       }
 
-      const receiver = await User.findById(receiverId).select('blockedUsers');
+      const receiver = await User.findById(receiverId).select('blockedUsers role');
       if (!receiver) {
         return sendError(res, 404, 'Receiver not found.');
       }
@@ -143,6 +145,29 @@ const MessageController = {
       }
 
       const payload = hydratedMessage || message;
+      let audience = receiver.role === 'hire' ? 'employer' : receiver.role === 'work' ? 'worker' : 'shared';
+      if (receiver.role === 'both' && normalizedJobId) {
+        const job = await Job.findById(normalizedJobId).select('jobPoster').lean();
+        audience = String(job?.jobPoster || '') === String(receiverId) ? 'employer' : 'worker';
+      }
+    try {
+      await createNotification({
+        userId: receiverId,
+        audience,
+        type: 'message',
+        title: `New message from ${getDisplayName(payload.sender)}`,
+        message: trimmedContent,
+        entityType: 'message',
+        entityId: message._id,
+        actor: senderId,
+        metadata: { senderId: String(senderId), jobId: normalizedJobId ? String(normalizedJobId) : null },
+        push: true,
+        pushData: { type: 'message', entityType: 'message', entityId: String(message._id), senderId: String(senderId), jobId: normalizedJobId ? String(normalizedJobId) : null, audience },
+      });
+    } catch (notificationError) {
+      console.warn('Message notification delivery failed:', notificationError?.name || 'notification_error');
+    }
+
       return sendSuccess(res, 201, 'Message sent', payload, { data: payload });
     } catch (error) {
       return sendError(res, 500, 'Server error', { error: error.message });

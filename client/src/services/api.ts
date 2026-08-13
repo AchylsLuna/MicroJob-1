@@ -789,24 +789,30 @@ export function regenerateMfaBackupCodes(code: string) {
 }
 
 // Notifications APIs
+export type NotificationMode = 'worker' | 'employer';
+export type NotificationListResponse = { notifications: any[]; unreadCount: number; nextCursor: string | null };
 export function getNotifications(params?: QueryParams) {
-  return request<any[]>(`/notifications${buildQuery(params)}`, { method: 'GET' });
+  return request<NotificationListResponse>(`/notifications${buildQuery(params)}`, { method: 'GET' });
 }
 
-export function markNotificationRead(notificationId: string) {
-  return request(`/notifications/${notificationId}/read`, { method: 'PATCH' });
+export function markNotificationRead(notificationId: string, mode?: NotificationMode) {
+  return request(`/notifications/${notificationId}/read${buildQuery({ mode })}`, { method: 'PATCH' });
 }
 
-export function markAllNotificationsRead() {
-  return request(`/notifications/read-all`, { method: 'PATCH' });
+export function markNotificationUnread(notificationId: string, mode?: NotificationMode) {
+  return request(`/notifications/${notificationId}/unread${buildQuery({ mode })}`, { method: 'PATCH' });
 }
 
-export function deleteNotification(notificationId: string) {
-  return request(`/notifications/${notificationId}`, { method: 'DELETE' });
+export function markAllNotificationsRead(mode?: NotificationMode) {
+  return request(`/notifications/read-all${buildQuery({ mode })}`, { method: 'PATCH' });
 }
 
-export function deleteReadNotifications() {
-  return request(`/notifications/read`, { method: 'DELETE' });
+export function deleteNotification(notificationId: string, mode?: NotificationMode) {
+  return request(`/notifications/${notificationId}${buildQuery({ mode })}`, { method: 'DELETE' });
+}
+
+export function deleteReadNotifications(mode?: NotificationMode) {
+  return request(`/notifications/read${buildQuery({ mode })}`, { method: 'DELETE' });
 }
 
 export function registerPushDevice(payload: { token: string; deviceName?: string; platform?: 'expo' }) {

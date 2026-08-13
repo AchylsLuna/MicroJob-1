@@ -85,6 +85,7 @@ export async function createReview(req, res) {
     try {
       await createNotification({
         userId: reviewee,
+        audience: revieweeRole,
         type: 'achievement',
         title: 'New review received',
         message: `You received a ${ratingValue}-star review for ${application.job.title || 'a completed job'}.`,
@@ -265,6 +266,7 @@ export async function replyToReview(req, res) {
     try {
       await createNotification({
         userId: review.reviewer,
+        audience: review.reviewerRole,
         type: 'achievement',
         title: 'Reply to your review',
         message: 'The profile owner replied to your review.',

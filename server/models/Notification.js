@@ -14,6 +14,12 @@ const NotificationSchema = new mongoose.Schema(
       default: 'system',
       index: true,
     },
+    audience: {
+      type: String,
+      enum: ['worker', 'employer', 'shared'],
+      default: 'shared',
+      index: true,
+    },
     title: { type: String, required: true, trim: true },
     message: { type: String, required: true, trim: true },
     link: { type: String, default: '' },
@@ -42,5 +48,6 @@ const NotificationSchema = new mongoose.Schema(
 
 NotificationSchema.index({ user: 1, createdAt: -1 });
 NotificationSchema.index({ user: 1, readAt: 1, createdAt: -1 });
+NotificationSchema.index({ user: 1, audience: 1, readAt: 1, _id: -1 });
 
 export default mongoose.model('Notification', NotificationSchema);

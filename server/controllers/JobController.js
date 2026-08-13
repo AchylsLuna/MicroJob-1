@@ -450,6 +450,7 @@ export async function changeJobStatus(req, res){
 
                     await createNotification({
                         userId: worker._id,
+                        audience: 'worker',
                         type: 'payment',
                         title: 'Job payout completed',
                         message: `A payout of PHP ${Number(payoutAmount || 0).toFixed(2)} was added to your worker balance.`,

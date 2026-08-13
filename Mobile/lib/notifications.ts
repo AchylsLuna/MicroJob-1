@@ -17,6 +17,19 @@ export type NotificationListItem = {
   entityId: string;
 };
 
+export type NotificationDestination = 'applications' | 'messages' | 'wallet' | 'support' | 'settings' | 'feed';
+
+export const resolveNotificationDestination = (item: any): NotificationDestination => {
+  const type = String(item?.type || item?.entityType || '').toLowerCase();
+  const entityType = String(item?.entityType || '').toLowerCase();
+  if (type.includes('message')) return 'messages';
+  if (type.includes('application') || type.includes('interview') || type.includes('offer')) return 'applications';
+  if (type.includes('payment') || type.includes('payout') || type.includes('invoice') || type.includes('settlement') || entityType === 'payment_request') return 'wallet';
+  if (type.includes('support')) return 'support';
+  if (type.includes('account') || type.includes('security')) return 'settings';
+  return 'feed';
+};
+
 const FALLBACK_TIMESTAMP = () => new Date().toISOString();
 
 export const getNotificationId = (item: any): string =>

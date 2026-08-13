@@ -45,7 +45,7 @@ export async function settleApplicationPayment({ applicationId, employerId }) {
       if (unpaid === 0 && Number(job.hiredCount || 0) >= Number(job.positionsNeeded || 1)) { job.status = 'Completed'; await job.save({ session }); }
       result = { application, job, transaction, deduplicated: false };
     });
-    if (!result?.deduplicated) await createNotification({ userId: result.application.applicant, type: 'payment', title: 'Job payment completed', message: `PHP ${Number(result.transaction.amount).toFixed(2)} was added to your worker balance.`, entityType: 'application', entityId: result.application._id, actor: employerId, push: true });
+    if (!result?.deduplicated) await createNotification({ userId: result.application.applicant, audience: 'worker', type: 'payment', title: 'Job payment completed', message: `PHP ${Number(result.transaction.amount).toFixed(2)} was added to your worker balance.`, entityType: 'application', entityId: result.application._id, actor: employerId, push: true });
     return result;
   } finally { await session.endSession(); }
 }

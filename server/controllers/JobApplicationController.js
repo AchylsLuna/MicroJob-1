@@ -127,6 +127,7 @@ async function notifyEmployerOfNewApplication({ application, job, userId }) {
 
   await createNotification({
     userId: jobPosterId,
+    audience: 'employer',
     type: 'application',
     title: 'New application',
     message: `${applicantName} applied for ${job.title}.`,
@@ -155,6 +156,7 @@ async function notifyApplicantStatusChange(application, actorId, title, message)
 
   await createNotification({
     userId: applicantId,
+    audience: 'worker',
     type: 'application',
     title,
     message,
@@ -322,6 +324,7 @@ export const withdrawApplication = async (req, res) => {
     if (String(application.job?.jobPoster || '')) {
       await createNotification({
         userId: application.job.jobPoster,
+        audience: 'employer',
         type: 'application',
         title: 'Application withdrawn',
         message: `An applicant withdrew from ${application.job?.title || 'your job'}.`,

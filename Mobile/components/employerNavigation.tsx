@@ -32,7 +32,7 @@ export default function EmployerNavigation({
   const insets = useSafeAreaInsets();
   const session = useAppSession();
   const resolvedNotificationsCount =
-    typeof notificationsCount === 'number' ? notificationsCount : session.employerNotifications.length;
+    typeof notificationsCount === 'number' ? notificationsCount : session.employerNotificationUnreadCount;
   const resolvedProfileInitials = session.navigationProfileInitials;
 
   const navItems: NavItem[] = [

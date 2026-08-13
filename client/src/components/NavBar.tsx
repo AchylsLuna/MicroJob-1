@@ -1,15 +1,11 @@
-import { useCallback, useState, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { ArrowRight, Bell, ChevronDown, Ellipsis, MapPin, Menu, Search } from "lucide-react";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { jobsAPI } from "../services/jobs";
-import {
-  getNotifications,
-  markAllNotificationsRead,
-  markNotificationRead,
-} from "../services/api";
 import { mapNotificationRecord, type FeedNotification } from "../utils/notificationFeed";
+import { useNotifications } from "../contexts/NotificationContext";
 import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 import { MicroJobsLogo } from "./MicroJobsLogo";
@@ -28,8 +24,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const [notifications, setNotifications] = useState<FeedNotification[]>([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const notificationState = useNotifications();
+  const refreshNotifications = notificationState.refresh;
   const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
   
   const rawAccountOptions = user?.accountOptions;
@@ -63,7 +59,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const notifications = useMemo(() => notificationState.notifications
+    .map((item: any) => mapNotificationRecord(item, notificationAudience, "relative"))
+    .slice(0, 10), [notificationAudience, notificationState.notifications]);
+  const notificationsLoading = notificationState.loading;
+  const unreadCount = notificationState.unreadCount;
   const path = location.pathname;
   const isWorkerView = notificationAudience === "worker";
 
@@ -92,26 +92,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       isMounted = false;
     };
   }, [isAppliedJobsPage, path]);
-
-  const loadNotifications = useCallback(async () => {
-    if (!user) {
-      setNotifications([]);
-      return;
-    }
-
-    setNotificationsLoading(true);
-    try {
-      const data = await getNotifications({ limit: 10 }).catch(() => [] as any[]);
-      const nextNotifications = (Array.isArray(data) ? data : [])
-        .map((item: any) => mapNotificationRecord(item, notificationAudience, "relative"))
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-      setNotifications(nextNotifications);
-    } catch {
-      // avoid noisy toast when user is not authenticated
-    } finally {
-      setNotificationsLoading(false);
-    }
-  }, [notificationAudience, user]);
 
   type PageMeta = {
     title: string;
@@ -395,26 +375,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   };
 
   useEffect(() => {
-    loadNotifications();
-  }, [user, isEmployerView, loadNotifications]);
-
-  // Reload notifications when location changes (e.g., user marks notifications as read on a different page)
-  useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications, location.pathname]);
-
-  // Listen for custom notification refresh events from notification pages
-  useEffect(() => {
-    const handleNotificationRefresh = () => {
-      loadNotifications();
-    };
-    window.addEventListener('notification-refresh', handleNotificationRefresh);
-    return () => {
-      window.removeEventListener('notification-refresh', handleNotificationRefresh);
-    };
-  }, [loadNotifications]);
-
-  useEffect(() => {
     if (!showNotifications && !showUserMenu && !showMoreMenu) return;
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -435,9 +395,9 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
 
   useEffect(() => {
     if (showNotifications) {
-      loadNotifications();
+      void refreshNotifications();
     }
-  }, [loadNotifications, showNotifications]);
+  }, [refreshNotifications, showNotifications]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -461,20 +421,16 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   }, [location.pathname]);
 
   const markAsRead = async (notification: FeedNotification) => {
-    setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)));
     try {
-      await markNotificationRead(notification.id);
-      window.dispatchEvent(new Event("notification-refresh"));
+      await notificationState.setRead(notification.id, true);
     } catch (error: any) {
       toast.error(error?.message || "Failed to mark notification.");
     }
   };
 
   const markAllAsRead = async () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     try {
-      await markAllNotificationsRead();
-      window.dispatchEvent(new Event("notification-refresh"));
+      await notificationState.markAllRead();
       toast.success("All notifications marked as read");
     } catch (error: any) {
       toast.error(error?.message || "Failed to mark all as read.");
