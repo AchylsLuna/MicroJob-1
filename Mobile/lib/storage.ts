@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 const AUTH_TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 
 const usesSecureStorage = Platform.OS === 'android' || Platform.OS === 'ios';
 
@@ -34,18 +35,43 @@ export async function removeToken(): Promise<void> {
   await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
 }
 
+export async function getRefreshToken(): Promise<string | null> {
+  if (!usesSecureStorage) return AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+  return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+}
+
+export async function setRefreshToken(token: string): Promise<void> {
+  if (usesSecureStorage) {
+    await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, token);
+    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+    return;
+  }
+  await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
+export async function removeRefreshToken(): Promise<void> {
+  if (usesSecureStorage) await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
+  await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
 const storage = {
   async getItem(key: string) {
-    return key === AUTH_TOKEN_KEY ? getToken() : AsyncStorage.getItem(key);
+    if (key === AUTH_TOKEN_KEY) return getToken();
+    if (key === REFRESH_TOKEN_KEY) return getRefreshToken();
+    return AsyncStorage.getItem(key);
   },
   async setItem(key: string, value: string) {
-    return key === AUTH_TOKEN_KEY ? setToken(value) : AsyncStorage.setItem(key, value);
+    if (key === AUTH_TOKEN_KEY) return setToken(value);
+    if (key === REFRESH_TOKEN_KEY) return setRefreshToken(value);
+    return AsyncStorage.setItem(key, value);
   },
   async removeItem(key: string) {
-    return key === AUTH_TOKEN_KEY ? removeToken() : AsyncStorage.removeItem(key);
+    if (key === AUTH_TOKEN_KEY) return removeToken();
+    if (key === REFRESH_TOKEN_KEY) return removeRefreshToken();
+    return AsyncStorage.removeItem(key);
   },
   async multiRemove(keys: readonly string[]) {
-    await Promise.all(keys.map((key) => (key === AUTH_TOKEN_KEY ? removeToken() : AsyncStorage.removeItem(key))));
+    await Promise.all(keys.map((key) => key === AUTH_TOKEN_KEY ? removeToken() : key === REFRESH_TOKEN_KEY ? removeRefreshToken() : AsyncStorage.removeItem(key)));
   },
 };
 

@@ -9,6 +9,7 @@ import {
   verifyTotpCode,
 } from '../lib/mfaHelpers.js';
 import speakeasy from 'speakeasy';
+import monitor from '../lib/monitor.js';
 
 const getMfaStatus = async (req, res) => {
   try {
@@ -39,6 +40,7 @@ const setupMfa = async (req, res) => {
     user.mfaMethod = MFA_METHOD;
     user.mfaPendingSecret = secret.base32;
     await user.save();
+    await monitor.audit({ actor: user._id, action: 'mfa_setup_started', ip: req.ip || null, userAgent: req.get?.('user-agent') || null, status: 'success' });
 
     return sendSuccess(res, 200, 'MFA setup created', {
       method: MFA_METHOD,
@@ -76,6 +78,7 @@ const enableMfa = async (req, res) => {
     user.mfaPendingSecret = null;
     user.mfaBackupCodes = await hashBackupCodes(backupCodes);
     await user.save();
+    await monitor.audit({ actor: user._id, action: 'mfa_enabled', ip: req.ip || null, userAgent: req.get?.('user-agent') || null, status: 'success' });
 
     return sendSuccess(res, 200, 'MFA enabled successfully', {
       ...mfaStatusPayload(user),
@@ -113,6 +116,7 @@ const disableMfa = async (req, res) => {
     user.mfaPendingSecret = null;
     user.mfaBackupCodes = [];
     await user.save();
+    await monitor.audit({ actor: user._id, action: 'mfa_disabled', ip: req.ip || null, userAgent: req.get?.('user-agent') || null, status: 'success' });
 
     return sendSuccess(res, 200, 'MFA disabled successfully', mfaStatusPayload(user));
   } catch (error) {
@@ -144,6 +148,7 @@ const regenerateBackupCodes = async (req, res) => {
     const backupCodes = generateBackupCodes();
     user.mfaBackupCodes = await hashBackupCodes(backupCodes);
     await user.save();
+    await monitor.audit({ actor: user._id, action: 'mfa_backup_codes_regenerated', ip: req.ip || null, userAgent: req.get?.('user-agent') || null, status: 'success' });
 
     return sendSuccess(res, 200, 'Backup codes regenerated', {
       ...mfaStatusPayload(user),

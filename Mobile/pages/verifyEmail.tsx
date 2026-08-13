@@ -307,6 +307,8 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
 
       if (token && user) {
         await AsyncStorage.setItem('auth_token', token);
+        const refreshToken = dataPayload?.refreshToken || rawPayload?.refreshToken;
+        if (refreshToken) await AsyncStorage.setItem('auth_refresh_token', refreshToken);
         await AsyncStorage.setItem('auth_user', JSON.stringify(user));
         await AsyncStorage.setItem('has_onboarded', 'true');
       }

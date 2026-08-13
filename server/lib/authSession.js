@@ -14,6 +14,18 @@ export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const normalizeUsername = (value = '') => String(value).trim().replace(/\s+/g, ' ').toLowerCase();
 export const normalizeDisplayName = (value = '') => String(value).trim().replace(/\s+/g, ' ');
 
+export const isNativeAuthRequest = (req) =>
+  !req.get?.('Origin') && String(req.get?.('x-microjobs-client') || '').toLowerCase() === 'native';
+
+export const buildAuthTokensPayload = (req, authSession) => ({
+  token: authSession.accessToken,
+  accessTokenExpiresAt: authSession.accessTokenExpiresAt,
+  ...(isNativeAuthRequest(req) ? {
+    refreshToken: authSession.refreshToken,
+    sessionExpiresAt: authSession.expiresAt,
+  } : {}),
+});
+
 export const createAccessToken = (user, sessionId) =>
   jwt.sign(
     { userId: user._id, role: user.role || 'user', sessionId },

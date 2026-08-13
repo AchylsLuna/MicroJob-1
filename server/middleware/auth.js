@@ -1,5 +1,6 @@
 import jwt from "jsonwebtoken";
 import Session from '../models/Session.js';
+import User from '../models/User.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 
 const verifyToken = async (req, res, next) => {
@@ -26,10 +27,11 @@ const verifyToken = async (req, res, next) => {
             return res.status(401).json({ message: "Invalid token payload." });
         }
 
-        let sessionId = decoded?.sessionId;
-        // Legacy OTP tokens may not contain sessionId; allow them without session enforcement.
-        // New login tokens include sessionId and continue through strict session validation.
-        if (sessionId) {
+        const sessionId = decoded?.sessionId;
+        if (!sessionId) {
+            return res.status(401).json({ message: 'Active session required.' });
+        }
+        {
             try {
                 const sess = await Session.findById(sessionId);
                 if (!sess || !sess.active) {
@@ -51,11 +53,21 @@ const verifyToken = async (req, res, next) => {
             }
         }
 
+        const authoritativeUser = await User.findById(tokenUserId).select('role status');
+        if (!authoritativeUser || authoritativeUser.status !== 'active') {
+            await Session.updateOne(
+                { _id: sessionId, active: true },
+                { $set: { active: false, endedAt: new Date() } },
+            );
+            return res.status(401).json({ message: 'Account is not active.' });
+        }
+
         req.user = {
             ...decoded,
             id: tokenUserId,
             userId: tokenUserId,
             sessionId,
+            role: authoritativeUser.role,
         };
         next();
     } catch (error) {

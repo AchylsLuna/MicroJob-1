@@ -2,7 +2,8 @@ import crypto from 'crypto';
 import Session from '../models/Session.js';
 import User from '../models/User.js';
 import { disconnectSession } from '../lib/socket.js';
-import { createAccessToken, cookieSecurityOptions, SESSION_TTL_MS } from '../lib/authSession.js';
+import { createAccessToken, cookieSecurityOptions, isNativeAuthRequest, SESSION_TTL_MS } from '../lib/authSession.js';
+import monitor from '../lib/monitor.js';
 
 export const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
 
@@ -22,25 +23,34 @@ const refreshSession = async (req, res) => {
     }
 
     const user = await User.findById(session.user);
-    if (!user) return res.status(401).json({ message: 'Invalid session user' });
+    if (!user || !['active'].includes(user.status)) {
+      session.active = false;
+      session.endedAt = new Date();
+      await session.save();
+      return res.status(401).json({ message: 'Invalid session user' });
+    }
 
-    const newAccess = createAccessToken(user, session._id.toString());
     const newRefresh = crypto.randomBytes(64).toString('hex');
     const newHash = crypto.createHash('sha256').update(newRefresh).digest('hex');
-    session.refreshTokenHash = newHash;
     const sessionStart = session.createdAt ? new Date(session.createdAt).getTime() : Date.now();
-    session.expiresAt = new Date(sessionStart + SESSION_TTL_MS);
-    await session.save();
+    const expiresAt = new Date(sessionStart + SESSION_TTL_MS);
+    const rotatedSession = await Session.findOneAndUpdate(
+      { _id: session._id, refreshTokenHash: incomingHash, active: true },
+      { $set: { refreshTokenHash: newHash, expiresAt } },
+      { returnDocument: 'after' },
+    );
+    if (!rotatedSession) return res.status(401).json({ message: 'Refresh token already used' });
+    const newAccess = createAccessToken(user, rotatedSession._id.toString());
 
     res.cookie('refreshToken', newRefresh, {
       httpOnly: true,
       ...cookieSecurityOptions,
-      expires: session.expiresAt,
+      expires: rotatedSession.expiresAt,
     });
-    res.cookie('sessionId', session._id.toString(), {
+    res.cookie('sessionId', rotatedSession._id.toString(), {
       httpOnly: true,
       ...cookieSecurityOptions,
-      expires: session.expiresAt,
+      expires: rotatedSession.expiresAt,
     });
     res.cookie('token', newAccess, {
       httpOnly: true,
@@ -48,7 +58,20 @@ const refreshSession = async (req, res) => {
       expires: new Date(Date.now() + 15 * 60 * 1000),
     });
 
-    return res.status(200).json({ token: newAccess });
+    await monitor.audit({
+      actor: user._id,
+      action: 'session_refresh',
+      ip: req.ip || null,
+      userAgent: req.get('user-agent'),
+      status: 'success',
+      meta: { sessionId: String(rotatedSession._id), client: isNativeAuthRequest(req) ? 'native' : 'web' },
+    });
+
+    return res.status(200).json({
+      token: newAccess,
+      accessTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
+      ...(isNativeAuthRequest(req) ? { refreshToken: newRefresh, sessionExpiresAt: rotatedSession.expiresAt } : {}),
+    });
   } catch (err) {
     console.error('Refresh error', err);
     return res.status(500).json({ message: 'Failed to refresh token' });
@@ -100,6 +123,7 @@ const revokeSession = async (req, res) => {
 
     await Session.findByIdAndDelete(req.params.id);
     disconnectSession(req.params.id);
+    await monitor.audit({ actor: req.user.id, action: 'session_revoked', ip: req.ip || null, userAgent: req.get('user-agent'), status: 'success', meta: { sessionId: req.params.id } });
     return res.status(200).json({ message: 'Session revoked' });
   } catch (err) {
     console.error('Revoke session error', err);
@@ -119,6 +143,7 @@ const revokeAllSessions = async (req, res) => {
       await Session.findByIdAndDelete(req.user.sessionId);
     }
     sessionIds.forEach((sessionId) => disconnectSession(sessionId));
+    await monitor.audit({ actor: req.user.id, action: 'sessions_revoked_all', ip: req.ip || null, userAgent: req.get('user-agent'), status: 'success', meta: { count: sessionIds.length } });
 
     res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
     res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
@@ -173,6 +198,7 @@ const logout = async (req, res) => {
         session.active = false;
         await session.save();
         disconnectSession(sessionId);
+        await monitor.audit({ actor: req.user?.id || null, action: 'session_logout', ip: req.ip || null, userAgent: req.get('user-agent'), status: 'success', meta: { sessionId: String(sessionId) } });
       }
     } catch (err) {
       console.warn('Failed to update session on logout', err);

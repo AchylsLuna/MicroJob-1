@@ -74,6 +74,11 @@ export const createUploadsRouter = () => {
 
             if (isAvatar || isSensitiveFile) {
                 res.setHeader('Content-Type', storedUpload.contentType || 'application/octet-stream');
+                res.setHeader('X-Content-Type-Options', 'nosniff');
+                res.setHeader('Cache-Control', isSensitiveFile ? 'private, no-store' : 'public, max-age=3600');
+                if (isSensitiveFile) {
+                    res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/["\\\r\n]/g, '_')}"`);
+                }
                 return res.send(Buffer.from(storedUpload.data || []));
             }
 

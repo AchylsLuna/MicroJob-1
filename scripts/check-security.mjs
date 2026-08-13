@@ -94,6 +94,20 @@ const trackedSource = sourceFiles.map((file) => `${file}\n${readFileSync(new URL
 if (/\/api\/verify-phone/i.test(trackedSource)) failures.push('Legacy /api/verify-phone route is still referenced.');
 if (/PhoneVerification\.js|model\(['"]PhoneVerification/i.test(trackedSource)) failures.push('Plaintext legacy PhoneVerification storage is still referenced.');
 if (/TEXTBEE_/i.test(trackedSource)) failures.push('Obsolete TextBee configuration is still referenced.');
+const securityTokenSources = sourceFiles.filter((file) =>
+  /^server\/(?:controllers|lib)\//.test(file) && /(?:otp|auth|session|token|mfa)/i.test(file)
+);
+for (const file of securityTokenSources) {
+  const content = readFileSync(new URL(file, root), 'utf8');
+  if (/Math\.random\s*\(/.test(content)) failures.push(`Non-cryptographic security randomness in ${file}.`);
+  if (/\b(?:otp|challenge)\w*Store\s*=\s*new Map\s*\(/i.test(content) && !/phoneOtp\.js$/.test(file)) {
+    failures.push(`Process-local OTP challenge storage in ${file}.`);
+  }
+}
+const authMiddleware = readFileSync(new URL('server/middleware/auth.js', root), 'utf8');
+if (!/if\s*\(!sessionId\)\s*\{[\s\S]{0,160}status\(401\)/.test(authMiddleware)) {
+  failures.push('Authentication middleware does not reject sessionless access tokens.');
+}
 
 run(process.execPath, ['scripts/check-ui-security.mjs']);
 run(process.execPath, [

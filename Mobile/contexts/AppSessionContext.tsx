@@ -89,6 +89,7 @@ const HAS_ONBOARDED_KEY = 'has_onboarded';
 const ACTIVE_VIEW_MODE_KEY = 'active_view_mode';
 const SAVED_JOBS_CACHE_KEY = 'saved_jobs_server_cache';
 const AUTH_TOKEN_KEY = 'auth_token';
+const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const AUTH_USER_KEY = 'auth_user';
 const API_IDENTITY_KEY = 'api_environment_identity';
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
@@ -371,7 +372,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       return true;
     } catch (error: any) {
       if (error?.preserveSession) return false;
-      await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY]);
+      await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_USER_KEY]);
       setUser(null);
       setNavigationProfileInitials('U');
       setUserRole(null);
@@ -469,7 +470,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
 
   const resetSessionForCurrentApi = useCallback(async () => {
     disconnectSocket();
-    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY, API_IDENTITY_KEY]);
+    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY, API_IDENTITY_KEY]);
     currentUserIdRef.current = null;
     setUser(null);
     setNavigationProfileInitials('U');
@@ -671,7 +672,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     }
 
     disconnectSocket();
-    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY]);
+    await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY]);
     currentUserIdRef.current = null;
     setUser(null);
     setNavigationProfileInitials('U');

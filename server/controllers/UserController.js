@@ -6,8 +6,6 @@ import PayoutRequest from "../models/PayoutRequest.js";
 import PushDevice from "../models/PushDevice.js";
 import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
-import jwt from "jsonwebtoken";
-import { getJwtSecret } from "../lib/jwtSecret.js";
 import { getEmailTransporter } from "../lib/emailTransporter.js";
 import { disconnectSession } from "../lib/socket.js";
 import { deleteStoredUpload } from "../lib/uploadStore.js";
@@ -26,12 +24,11 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 import { getReviewSummary } from "../lib/reviewSummary.js";
+import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies } from "../lib/authSession.js";
+import crypto from "node:crypto";
+import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../lib/otpChallenges.js";
+import monitor from "../lib/monitor.js";
 
-const otpStore = new Map();
-const passwordResetOtpStore = new Map();
-const passwordChangeOtpStore = new Map();
-const OTP_TTL_MS = 5 * 60 * 1000;
-const OTP_MAX_ATTEMPTS = 5;
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
 
@@ -200,9 +197,7 @@ export async function anonymizeAndDeleteUser(userId) {
     await removeStoredUploads(storedUploads);
 
     await clearPhoneVerificationOtp(String(userId));
-    otpStore.delete(originalEmailKey);
-    passwordResetOtpStore.delete(originalEmailKey);
-    passwordChangeOtpStore.delete(originalEmailKey);
+    await clearOtpChallenges(originalEmailKey);
 
     return user;
 }
@@ -807,19 +802,14 @@ export async function sendOtp(req, res) {
             return res.status(200).json({ message: OTP_GENERIC_MESSAGE });
         }
 
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        otpStore.set(normalizedEmail, {
-            code,
-            expiresAt: Date.now() + OTP_TTL_MS,
-            attempts: 0,
-        });
+        const { code } = await issueOtpChallenge({ purpose: "email-verification", subject: normalizedEmail, user: user?._id });
 
         const transporter = getEmailTransporter();
         if (!transporter) {
             if (process.env.NODE_ENV === "production") {
                 return res.status(500).json({ message: "Email service is not configured." });
             }
-            console.warn(`SMTP is not configured. Development OTP for ${normalizedEmail}: ${code}`);
+            console.warn(`SMTP is not configured. Development OTP generated for …${normalizedEmail.slice(-6)}.`);
             return res.status(200).json({
                 message: OTP_GENERIC_MESSAGE,
                 code,
@@ -865,28 +855,8 @@ export async function verifyOtp(req, res) {
         }
 
         const key = email.toLowerCase().trim();
-        const record = otpStore.get(key);
-        if (!record) {
-            return res.status(400).json({ message: "OTP not found or expired." });
-        }
-
-        if (record.expiresAt < Date.now()) {
-            otpStore.delete(key);
-            return res.status(400).json({ message: "OTP expired." });
-        }
-
-        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
-            otpStore.delete(key);
-            return res.status(429).json({ message: "Too many invalid attempts. Request a new OTP." });
-        }
-
-        if (record.code !== code) {
-            otpStore.set(key, {
-                ...record,
-                attempts: (record.attempts || 0) + 1,
-            });
-            return res.status(400).json({ message: "Invalid OTP." });
-        }
+        const verification = await verifyOtpChallenge({ purpose: "email-verification", subject: key, code, consume: true });
+        if (!verification.ok) return res.status(verification.reason === "attempts" ? 429 : 400).json({ message: verification.reason === "attempts" ? "Too many invalid attempts. Request a new OTP." : "OTP not found, invalid, or expired." });
 
         const user = await User.findOne({ email: key });
         if (!user) {
@@ -898,27 +868,19 @@ export async function verifyOtp(req, res) {
         user.verification.emailVerified = true;
         await user.save();
 
-        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-        const requestIp = req.ip || req.socket.remoteAddress || "";
-        const userAgent = req.get("User-Agent") || "";
-        const session = await Session.create({
-            user: user._id,
-            userAgent,
-            ip: requestIp,
-            active: true,
-            expiresAt,
+        const authSession = await createSessionWithTokens(req, user);
+        setSessionCookies(res, {
+            refreshToken: authSession.refreshToken,
+            sessionId: authSession.sessionId,
+            accessToken: authSession.accessToken,
+            accessTokenExpiresAt: authSession.accessTokenExpiresAt,
+            expiresAt: authSession.expiresAt,
+            csrfToken: crypto.randomBytes(24).toString("hex"),
         });
-
-        const token = jwt.sign(
-            { userId: user._id, role: user.role, sessionId: session._id.toString() },
-            getJwtSecret(),
-            { expiresIn: "7d" }
-        );
-        otpStore.delete(key);
 
         return res.status(200).json({
             message: "Email verified and login successful.",
-            token,
+            ...buildAuthTokensPayload(req, authSession),
             user: {
                 id: user._id,
                 firstName: user.firstName,
@@ -949,12 +911,7 @@ export async function requestPasswordResetOtp(req, res) {
             return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
         }
 
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        passwordResetOtpStore.set(normalizedEmail, {
-            code,
-            expiresAt: Date.now() + OTP_TTL_MS,
-            attempts: 0,
-        });
+        const { code } = await issueOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, user: user._id });
 
         const transporter = getEmailTransporter();
         if (!transporter) {
@@ -999,27 +956,8 @@ export async function verifyPasswordResetOtp(req, res) {
             return res.status(400).json({ message: "Email and a valid 6-digit code are required." });
         }
 
-        const record = passwordResetOtpStore.get(normalizedEmail);
-        if (!record) {
-            return res.status(400).json({ message: "Reset code not found or expired." });
-        }
-        if (record.expiresAt < Date.now()) {
-            passwordResetOtpStore.delete(normalizedEmail);
-            return res.status(400).json({ message: "Reset code expired." });
-        }
-        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
-            passwordResetOtpStore.delete(normalizedEmail);
-            return res.status(429).json({ message: "Too many invalid attempts. Request a new reset code." });
-        }
-        if (record.code !== normalizedCode) {
-            passwordResetOtpStore.set(normalizedEmail, {
-                ...record,
-                attempts: (record.attempts || 0) + 1,
-            });
-            return res.status(400).json({ message: "Invalid reset code." });
-        }
-
-        passwordResetOtpStore.set(normalizedEmail, { ...record, verifiedAt: Date.now() });
+        const verification = await verifyOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, code: normalizedCode, markVerified: true });
+        if (!verification.ok) return res.status(verification.reason === "attempts" ? 429 : 400).json({ message: verification.reason === "attempts" ? "Too many invalid attempts. Request a new reset code." : "Reset code not found, invalid, or expired." });
         return res.status(200).json({ message: "Reset code verified." });
     } catch (error) {
         console.error("Verify password reset OTP error:", error);
@@ -1041,28 +979,8 @@ export async function resetPasswordWithOtp(req, res) {
             return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
         }
 
-        const record = passwordResetOtpStore.get(normalizedEmail);
-        if (!record) {
-            return res.status(400).json({ message: "Reset code not found or expired." });
-        }
-
-        if (record.expiresAt < Date.now()) {
-            passwordResetOtpStore.delete(normalizedEmail);
-            return res.status(400).json({ message: "Reset code expired." });
-        }
-
-        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
-            passwordResetOtpStore.delete(normalizedEmail);
-            return res.status(429).json({ message: "Too many invalid attempts. Request a new reset code." });
-        }
-
-        if (record.code !== normalizedCode) {
-            passwordResetOtpStore.set(normalizedEmail, {
-                ...record,
-                attempts: (record.attempts || 0) + 1,
-            });
-            return res.status(400).json({ message: "Invalid reset code." });
-        }
+        const verification = await verifyOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, code: normalizedCode, consume: true });
+        if (!verification.ok || !verification.challenge?.verifiedAt) return res.status(400).json({ message: "Reset code not verified, invalid, or expired." });
 
         const user = await User.findOne({ email: normalizedEmail });
         if (!user) {
@@ -1075,7 +993,7 @@ export async function resetPasswordWithOtp(req, res) {
         await user.setPassword(newPassword);
         await user.save();
         await revokeSessions(user._id);
-        passwordResetOtpStore.delete(normalizedEmail);
+        await monitor.audit({ actor: user._id, action: "password_reset", ip: req.ip || null, userAgent: req.get?.("user-agent") || null, status: "success" });
 
         return res.status(200).json({ message: "Password reset successful." });
     } catch (error) {
@@ -1105,21 +1023,15 @@ export async function requestPasswordChangeOtp(req, res) {
         if (!matches) {
             return res.status(401).json({ message: "Current password is incorrect." });
         }
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
         const emailKey = String(user.email || "").toLowerCase().trim();
-        passwordChangeOtpStore.set(emailKey, {
-            code,
-            expiresAt: Date.now() + OTP_TTL_MS,
-            userId: String(user._id),
-            attempts: 0,
-        });
+        const { code } = await issueOtpChallenge({ purpose: "password-change", subject: emailKey, user: user._id, metadata: { userId: String(user._id) } });
 
         const transporter = getEmailTransporter();
         if (!transporter) {
             if (process.env.NODE_ENV === "production") {
                 return res.status(500).json({ message: "Email service is not configured." });
             }
-            console.warn(`SMTP is not configured. Development change-password OTP for ${emailKey}: ${code}`);
+            console.warn(`SMTP is not configured. Development change-password OTP generated for user …${String(user._id).slice(-6)}.`);
             return res.status(200).json({ message: "OTP generated for development.", code });
         }
 
@@ -1179,37 +1091,27 @@ export async function changePasswordWithOtp(req, res) {
         }
 
         const emailKey = String(user.email || "").toLowerCase().trim();
-        const normalizedCode = String(code || "").trim();
-        const record = passwordChangeOtpStore.get(emailKey);
-
-        if (!record) {
-            return res.status(400).json({ message: "Password change code not found or expired." });
+        const verification = await verifyOtpChallenge({
+            purpose: "password-change",
+            subject: emailKey,
+            code: String(code || "").trim(),
+            consume: true,
+        });
+        if (!verification.ok) {
+            const status = verification.reason === "attempts" ? 429 : 400;
+            const message = verification.reason === "attempts"
+                ? "Too many invalid attempts. Request a new code."
+                : "Password change code not found, invalid, or expired.";
+            return res.status(status).json({ message });
         }
-        if (record.expiresAt < Date.now()) {
-            passwordChangeOtpStore.delete(emailKey);
-            return res.status(400).json({ message: "Password change code expired." });
-        }
-        if ((record.attempts || 0) >= OTP_MAX_ATTEMPTS) {
-            passwordChangeOtpStore.delete(emailKey);
-            return res.status(429).json({ message: "Too many invalid attempts. Request a new code." });
-        }
-        if (String(record.userId) !== String(user._id)) {
-            passwordChangeOtpStore.delete(emailKey);
-            return res.status(400).json({ message: "Invalid password change code." });
-        }
-        if (record.code !== normalizedCode) {
-            passwordChangeOtpStore.set(emailKey, {
-                ...record,
-                attempts: (record.attempts || 0) + 1,
-            });
+        if (String(verification.challenge.user || "") !== String(user._id)) {
             return res.status(400).json({ message: "Invalid password change code." });
         }
 
         await user.setPassword(newPassword);
         await user.save();
         await revokeSessions(user._id, req.user?.sessionId);
-        passwordChangeOtpStore.delete(emailKey);
-
+        await monitor.audit({ actor: user._id, action: "password_changed", ip: req.ip || null, userAgent: req.get?.("user-agent") || null, status: "success" });
         return res.status(200).json({ message: "Password changed successfully." });
     } catch (error) {
         console.error("Change password with OTP error:", error);

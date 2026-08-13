@@ -12,7 +12,9 @@ export type APIResult<T = unknown> = {
 
 const DEFAULT_REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS || 8000);
 const AUTH_TOKEN_KEY = 'auth_token';
+export const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 let invalidSessionHandler: ((result: APIResult) => void) | null = null;
+let refreshPromise: Promise<boolean> | null = null;
 const isMicroJobsApiUrl = (url: string) => {
   try { return new URL(url).origin === new URL(API_URL).origin && new URL(url).pathname.startsWith(new URL(API_URL).pathname); }
   catch { return false; }
@@ -20,6 +22,32 @@ const isMicroJobsApiUrl = (url: string) => {
 
 export const setInvalidSessionHandler = (handler: ((result: APIResult) => void) | null) => {
   invalidSessionHandler = handler;
+};
+
+const refreshNativeSession = async (): Promise<boolean> => {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const refreshToken = await storage.getItem(REFRESH_TOKEN_KEY);
+    if (!refreshToken) return false;
+    try {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-microjobs-client': 'native' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!response.ok) return false;
+      const payload = await response.json().catch(() => ({}));
+      if (!payload?.token || !payload?.refreshToken) return false;
+      await Promise.all([
+        storage.setItem(AUTH_TOKEN_KEY, payload.token),
+        storage.setItem(REFRESH_TOKEN_KEY, payload.refreshToken),
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => { refreshPromise = null; });
+  return refreshPromise;
 };
 
 const LIST_KEYS = [
@@ -60,7 +88,8 @@ const inferData = <T>(raw: unknown): T | null => {
 export async function apiRequest<T = unknown>(
   url: string,
   init?: RequestInit,
-  fallbackMessage = 'Request failed.'
+  fallbackMessage = 'Request failed.',
+  allowRefresh = true,
 ): Promise<APIResult<T>> {
   const controller = new AbortController();
   const timeoutMs = Number.isFinite(DEFAULT_REQUEST_TIMEOUT_MS) && DEFAULT_REQUEST_TIMEOUT_MS > 0
@@ -77,6 +106,7 @@ export async function apiRequest<T = unknown>(
   }
 
   const headers = new Headers(init?.headers || {});
+  if (isMicroJobsApiUrl(url) && !headers.has('x-microjobs-client')) headers.set('x-microjobs-client', 'native');
   if (isMicroJobsApiUrl(url) && !headers.has('Authorization')) {
     const token = await storage.getItem(AUTH_TOKEN_KEY);
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -107,7 +137,15 @@ export async function apiRequest<T = unknown>(
       data: inferData<T>(raw),
       raw,
     };
-    if (response.status === 401 && isMicroJobsApiUrl(url)) invalidSessionHandler?.(result);
+    const isRefreshEndpoint = /\/auth\/(?:login|refresh)(?:\/|$)/.test(new URL(url).pathname);
+    if (response.status === 401 && isMicroJobsApiUrl(url) && allowRefresh && !isRefreshEndpoint) {
+      if (await refreshNativeSession()) {
+        const retryHeaders = new Headers(init?.headers || {});
+        retryHeaders.delete('Authorization');
+        return apiRequest<T>(url, { ...init, headers: retryHeaders }, fallbackMessage, false);
+      }
+      invalidSessionHandler?.(result);
+    }
     const method = String(requestInit.method || 'GET').toUpperCase();
     if (result.ok && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
       const domains = inferMutationDomains(url);

@@ -8,11 +8,9 @@ export const buildAuthRateLimitKey = (req) => {
     body.emailOrUsername || body.email || body.username || body.phoneNumber || ''
   ).trim().toLowerCase();
 
-  if (identifier) {
-    return `auth:${identifier}`;
-  }
-
-  return `ip:${ipKeyGenerator(req.ip || req.connection?.remoteAddress || 'unknown')}`;
+  const ip = ipKeyGenerator(req.ip || req.connection?.remoteAddress || 'unknown');
+  const account = identifier || String(req.user?.id || req.user?.userId || 'anonymous');
+  return `auth:${ip}:${account}`;
 };
 
 export const registerLimiter = rateLimit({
@@ -30,6 +28,7 @@ export const otpSendLimiter = rateLimit({
   message: { message: 'Too many OTP requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 export const otpVerifyLimiter = rateLimit({
@@ -38,6 +37,7 @@ export const otpVerifyLimiter = rateLimit({
   message: { message: 'Too many OTP verification attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 export const passwordResetRequestLimiter = rateLimit({
@@ -46,6 +46,7 @@ export const passwordResetRequestLimiter = rateLimit({
   message: { message: 'Too many password reset requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 export const passwordResetConfirmLimiter = rateLimit({
@@ -54,6 +55,7 @@ export const passwordResetConfirmLimiter = rateLimit({
   message: { message: 'Too many password reset attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 export const passwordChangeLimiter = rateLimit({
@@ -62,6 +64,7 @@ export const passwordChangeLimiter = rateLimit({
   message: { message: 'Too many password change attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 export const verificationPhoneSendLimiter = rateLimit({
@@ -70,6 +73,7 @@ export const verificationPhoneSendLimiter = rateLimit({
   message: { message: 'Too many phone verification requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 export const verificationPhoneConfirmLimiter = rateLimit({
@@ -78,6 +82,7 @@ export const verificationPhoneConfirmLimiter = rateLimit({
   message: { message: 'Too many verification code attempts. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: buildAuthRateLimitKey,
 });
 
 export const loginLimiter = rateLimit({

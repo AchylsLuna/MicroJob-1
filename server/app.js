@@ -52,6 +52,7 @@ app.use((req, res, next) => {
 			delete safePayload.error;
 			delete safePayload.stack;
 			delete safePayload.details;
+			safePayload.message = 'Request could not be completed.';
 			return sendJson(safePayload);
 		};
 	}

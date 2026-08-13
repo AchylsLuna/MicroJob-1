@@ -66,16 +66,17 @@ export default function SignIn({
   const [errors, setErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
   const toast = useToast();
 
-  const continueAfterPrimaryAuth = async (token: string, user: any) => {
+  const continueAfterPrimaryAuth = async (token: string, user: any, refreshToken?: string) => {
     if (!token || !user) {
       throw new Error('Invalid login response.');
     }
 
-    await completeLogin(token, user);
+    await completeLogin(token, user, refreshToken);
   };
 
-  const completeLogin = async (token: string, user: any) => {
+  const completeLogin = async (token: string, user: any, refreshToken?: string) => {
     await AsyncStorage.setItem('auth_token', token);
+    if (refreshToken) await AsyncStorage.setItem('auth_refresh_token', refreshToken);
     if (user) {
       await AsyncStorage.setItem('auth_user', JSON.stringify(user));
     }
@@ -124,6 +125,7 @@ export default function SignIn({
       const responseRaw = asObject<any>(result.raw) || {};
       const token = responseData?.token || responseRaw?.token;
       const user = responseData?.user || responseRaw?.user;
+      const refreshToken = responseData?.refreshToken || responseRaw?.refreshToken;
       const nextMfaRequired = Boolean(responseData?.mfaRequired || responseRaw?.mfaRequired);
       const nextMfaToken = responseData?.mfaToken || responseRaw?.mfaToken;
       const nextOtpRequired = Boolean(responseData?.otpRequired || responseRaw?.otpRequired);
@@ -137,7 +139,7 @@ export default function SignIn({
       } else if (result.ok && nextOtpRequired && nextOtpToken) {
         onNavigateToVerify?.({ mode: 'loginOtp', email: normalizedEmail, otpToken: nextOtpToken });
       } else if (result.ok && token) {
-        await continueAfterPrimaryAuth(token, user);
+        await continueAfterPrimaryAuth(token, user, refreshToken);
       } else {
         const serverMessage = result.message || 'Unable to sign in.';
         if (result.status === 401 && /verify your email/i.test(serverMessage)) {
@@ -187,9 +189,10 @@ export default function SignIn({
       const responseRaw = asObject<any>(result.raw) || {};
       const token = responseData?.token || responseRaw?.token;
       const user = responseData?.user || responseRaw?.user;
+      const refreshToken = responseData?.refreshToken || responseRaw?.refreshToken;
 
       if (result.ok && token) {
-        await continueAfterPrimaryAuth(token, user);
+        await continueAfterPrimaryAuth(token, user, refreshToken);
         return;
       }
 

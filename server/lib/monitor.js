@@ -55,9 +55,16 @@ export async function recordTopUp({ userId = null, ip = null } = {}) {
 }
 
 export async function audit(opts = {}) {
-  // ensure we don't store secrets in meta
-  const safeMeta = Object.assign({}, opts.meta || {});
-  if (safeMeta.headers) delete safeMeta.headers;
+  const sensitiveKey = /authorization|cookie|token|secret|password|otp|code|email|phone|contact|card|cvv|cvc/i;
+  const redact = (value, depth = 0) => {
+    if (depth > 4 || value == null || typeof value !== 'object') return value;
+    if (Array.isArray(value)) return value.slice(0, 50).map((item) => redact(item, depth + 1));
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+      key,
+      sensitiveKey.test(key) ? '[REDACTED]' : redact(item, depth + 1),
+    ]));
+  };
+  const safeMeta = redact(opts.meta || {});
   try {
     await AuditLog.create({
       actor: opts.actor || null,

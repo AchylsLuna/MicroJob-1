@@ -15,6 +15,7 @@ import {
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from '../lib/passwordPolicy.js';
 import {
   buildLoginPayload,
+  buildAuthTokensPayload,
   createSessionWithTokens,
   setSessionCookies,
   normalizeUsername,
@@ -23,13 +24,12 @@ import {
 import {
   createMfaChallengeToken,
   issueLoginOtpChallenge,
-  loginOtpStore,
   LOGIN_OTP_PURPOSE,
-  LOGIN_OTP_MAX_ATTEMPTS,
   MFA_LOGIN_PURPOSE,
   MFA_METHOD,
   verifyMfaCodeForUser,
 } from '../lib/mfaHelpers.js';
+import { getOtpChallenge, verifyOtpChallenge } from '../lib/otpChallenges.js';
 import { SELF_SERVICE_ROLES } from './SessionController.js';
 
 const registerUser = async (req, res) => {
@@ -215,7 +215,7 @@ const loginUser = async (req, res) => {
     });
 
     const userPayload = buildLoginPayload(user, includePhone);
-    return sendSuccess(res, 200, 'Login successful', { token: authSession.accessToken, user: userPayload });
+    return sendSuccess(res, 200, 'Login successful', { ...buildAuthTokensPayload(req, authSession), user: userPayload });
   } catch (error) {
     console.error('Login error:', error);
     return sendError(res, 500, 'Server error during login');
@@ -277,7 +277,7 @@ const loginMfa = async (req, res) => {
     });
 
     const userPayload = buildLoginPayload(user, Boolean(decoded.includePhone));
-    return sendSuccess(res, 200, 'Login successful', { token: authSession.accessToken, user: userPayload });
+    return sendSuccess(res, 200, 'Login successful', { ...buildAuthTokensPayload(req, authSession), user: userPayload });
   } catch (error) {
     console.error('Login MFA error:', error);
     return sendError(res, 500, 'Server error during MFA verification');
@@ -303,27 +303,23 @@ const loginOtpVerify = async (req, res) => {
       return sendError(res, 401, 'Invalid OTP challenge token.');
     }
 
-    const challenge = loginOtpStore.get(decoded.challengeId);
-    if (!challenge) {
-      return sendError(res, 401, 'OTP challenge not found or expired.');
+    const verification = await verifyOtpChallenge({
+      purpose: 'login',
+      challengeId: decoded.challengeId,
+      code,
+      consume: true,
+    });
+    if (!verification.ok) {
+      const status = verification.reason === 'attempts' ? 429 : 401;
+      return sendError(res, status, verification.reason === 'attempts'
+        ? 'Too many OTP attempts. Please login again.'
+        : 'Invalid or expired OTP code.');
     }
-    if (challenge.expiresAt <= Date.now()) {
-      loginOtpStore.delete(decoded.challengeId);
-      return sendError(res, 401, 'OTP challenge expired.');
+    const challenge = verification.challenge;
+    if (String(challenge.user || '') !== String(decoded.userId)) {
+      return sendError(res, 401, 'Invalid OTP challenge token.');
     }
-
-    challenge.attempts = (challenge.attempts || 0) + 1;
-    if (challenge.attempts > LOGIN_OTP_MAX_ATTEMPTS) {
-      loginOtpStore.delete(decoded.challengeId);
-      return sendError(res, 429, 'Too many OTP attempts. Please login again.');
-    }
-
-    if (challenge.code !== code) {
-      return sendError(res, 401, 'Invalid OTP code.');
-    }
-
-    const user = await User.findById(challenge.userId);
-    loginOtpStore.delete(decoded.challengeId);
+    const user = await User.findById(challenge.user);
     if (!user) {
       return sendError(res, 404, 'User not found.');
     }
@@ -337,7 +333,7 @@ const loginOtpVerify = async (req, res) => {
       return sendError(res, 401, 'Account has been deleted.');
     }
 
-    const includePhone = challenge.includePhone || false;
+    const includePhone = Boolean(challenge.metadata?.includePhone);
     const authSession = await createSessionWithTokens(req, user);
     const csrfToken = crypto.randomBytes(24).toString('hex');
     setSessionCookies(res, {
@@ -350,7 +346,7 @@ const loginOtpVerify = async (req, res) => {
     });
 
     const payload = buildLoginPayload(user, includePhone);
-    return sendSuccess(res, 200, 'Login successful', { token: authSession.accessToken, user: payload });
+    return sendSuccess(res, 200, 'Login successful', { ...buildAuthTokensPayload(req, authSession), user: payload });
   } catch (e) {
     console.error('Login OTP verify error:', e);
     return sendError(res, 500, 'Server error');
@@ -374,18 +370,20 @@ const loginOtpResend = async (req, res) => {
       return sendError(res, 401, 'Invalid OTP challenge token.');
     }
 
-    const challenge = loginOtpStore.get(decoded.challengeId);
+    const challenge = await getOtpChallenge({ purpose: 'login', challengeId: decoded.challengeId });
     if (!challenge) {
       return sendError(res, 401, 'OTP challenge not found or expired.');
     }
 
-    const user = await User.findById(challenge.userId);
+    if (String(challenge.user || '') !== String(decoded.userId)) {
+      return sendError(res, 401, 'Invalid OTP challenge token.');
+    }
+    const user = await User.findById(challenge.user);
     if (!user) {
       return sendError(res, 404, 'User not found.');
     }
 
-    const renewed = await issueLoginOtpChallenge(user, challenge.includePhone || false);
-    loginOtpStore.delete(decoded.challengeId);
+    const renewed = await issueLoginOtpChallenge(user, Boolean(challenge.metadata?.includePhone));
     return sendSuccess(res, 200, 'OTP resent', {
       otpRequired: true,
       otpToken: renewed.otpToken,

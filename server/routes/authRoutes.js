@@ -1,5 +1,6 @@
 import express from 'express';
 import csrfProtection from '../middleware/csrf.js';
+import { isNativeAuthRequest } from '../lib/authSession.js';
 import verifyToken from '../middleware/auth.js';
 import {
   sendOtp,
@@ -62,6 +63,10 @@ export {
 export { normalizeExperience } from '../lib/profileValidation.js';
 
 const router = express.Router();
+const protectRefresh = (req, res, next) => {
+  if (isNativeAuthRequest(req) && !req.cookies?.refreshToken && req.body?.refreshToken) return next();
+  return csrfProtection(req, res, next);
+};
 
 router.post('/register', registerLimiter, registerUser);
 router.post('/otp/send', otpSendLimiter, sendOtp);
@@ -78,7 +83,7 @@ router.post('/login/mfa', loginLimiter, loginMfa);
 router.post('/login/otp/verify', loginLimiter, loginOtpVerify);
 router.post('/login/otp/resend', loginLimiter, loginOtpResend);
 
-router.post('/refresh', csrfProtection, refreshSession);
+router.post('/refresh', protectRefresh, refreshSession);
 router.get('/sessions', verifyToken, listSessions);
 router.delete('/sessions/:id', verifyToken, revokeSession);
 router.delete('/sessions', verifyToken, revokeAllSessions);

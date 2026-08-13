@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { setSessionCookies } from '../../lib/authSession.js';
+import { buildAuthTokensPayload, isNativeAuthRequest, setSessionCookies } from '../../lib/authSession.js';
 
 test('setSessionCookies uses the provided expiry dates for all auth cookies', () => {
   const cookies = [];
@@ -36,4 +36,20 @@ test('setSessionCookies uses the provided expiry dates for all auth cookies', ()
   assert.equal(refreshCookie.options.expires, expiresAt);
   assert.equal(sessionCookie.options.expires, expiresAt);
   assert.equal(tokenCookie.options.expires, accessTokenExpiresAt);
+});
+
+test('refresh tokens are returned only to native-style authentication requests', () => {
+  const authSession = {
+    accessToken: 'access-token',
+    accessTokenExpiresAt: new Date('2025-01-01T01:00:00.000Z'),
+    refreshToken: 'refresh-token',
+    expiresAt: new Date('2025-01-08T00:00:00.000Z'),
+  };
+  const nativeRequest = { get: (name) => name.toLowerCase() === 'x-microjobs-client' ? 'native' : undefined };
+  const browserRequest = { get: (name) => name.toLowerCase() === 'origin' ? 'https://microjobs.test' : (name.toLowerCase() === 'x-microjobs-client' ? 'native' : undefined) };
+
+  assert.equal(isNativeAuthRequest(nativeRequest), true);
+  assert.equal(isNativeAuthRequest(browserRequest), false);
+  assert.equal(buildAuthTokensPayload(nativeRequest, authSession).refreshToken, 'refresh-token');
+  assert.equal('refreshToken' in buildAuthTokensPayload(browserRequest, authSession), false);
 });

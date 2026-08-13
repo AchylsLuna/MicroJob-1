@@ -4,16 +4,14 @@ import bcrypt from 'bcryptjs';
 import speakeasy from 'speakeasy';
 import { getEmailTransporter } from './emailTransporter.js';
 import { getJwtSecret } from './jwtSecret.js';
+import { issueOtpChallenge } from './otpChallenges.js';
 
 export const MFA_LOGIN_PURPOSE = 'mfa-login';
 export const LOGIN_OTP_PURPOSE = 'login-otp';
 export const MFA_METHOD = 'authenticator';
 export const MFA_CHALLENGE_TTL = '1m';
 export const LOGIN_OTP_CHALLENGE_TTL = '5m';
-export const LOGIN_OTP_TTL_MS = 5 * 60 * 1000;
-export const LOGIN_OTP_MAX_ATTEMPTS = 5;
 export const MFA_BACKUP_CODES_COUNT = 8;
-export const loginOtpStore = new Map();
 
 export const normalizeMfaCode = (value = '') =>
   String(value).trim().replace(/\s+/g, '').replace(/-/g, '').toUpperCase();
@@ -33,26 +31,21 @@ export const createLoginOtpChallengeToken = (userId, challengeId, includePhone =
   );
 
 export const issueLoginOtpChallenge = async (user, includePhone = false) => {
-  const challengeId = crypto.randomBytes(18).toString('hex');
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpToken = createLoginOtpChallengeToken(String(user._id), challengeId, includePhone);
-  const expiresAt = Date.now() + LOGIN_OTP_TTL_MS;
-
-  loginOtpStore.set(challengeId, {
-    userId: String(user._id),
-    includePhone: Boolean(includePhone),
-    email: String(user.email || '').toLowerCase().trim(),
-    code,
-    attempts: 0,
-    expiresAt,
+  const email = String(user.email || '').toLowerCase().trim();
+  const { challenge, code } = await issueOtpChallenge({
+    purpose: 'login',
+    subject: String(user._id),
+    user: user._id,
+    metadata: { includePhone: Boolean(includePhone), email },
   });
+  const otpToken = createLoginOtpChallengeToken(String(user._id), challenge.challengeId, includePhone);
 
   const transporter = getEmailTransporter();
   if (!transporter) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Email service is not configured.');
     }
-    console.warn(`SMTP is not configured. Development login OTP for ${user.email}: ${code}`);
+    console.warn(`SMTP is not configured. Development login OTP generated for user …${String(user._id).slice(-6)}.`);
     return { otpToken, code };
   }
 
