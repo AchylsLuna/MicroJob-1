@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
 const net = require('net');
+const http = require('http');
 const os = require('os');
 const { spawn, spawnSync } = require('child_process');
 
 const extraArgs = process.argv.slice(2);
-const maxPortScan = Number(process.env.EXPO_PORT_SCAN_LIMIT || 20);
 const explicitClientModes = new Set(['--go', '--dev-client']);
 const explicitHostModes = new Set(['--lan', '--localhost', '--tunnel']);
 const iosFlags = new Set(['--ios', '-i']);
@@ -125,15 +125,74 @@ function isPortFree(port) {
   });
 }
 
-async function findFreePort(startPort, maxOffset) {
-  for (let offset = 0; offset <= maxOffset; offset += 1) {
-    const candidate = startPort + offset;
+function isMetroRunning(port) {
+  return new Promise((resolve) => {
+    const request = http.get({ hostname: '127.0.0.1', port, path: '/status', timeout: 1500 }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => resolve(response.statusCode === 200 && body.includes('packager-status:running')));
+    });
+    request.on('timeout', () => { request.destroy(); resolve(false); });
+    request.on('error', () => resolve(false));
+  });
+}
 
-    if (await isPortFree(candidate)) {
-      return candidate;
-    }
+function requestText(port, path) {
+  return new Promise((resolve) => {
+    const request = http.get({ hostname: '127.0.0.1', port, path, timeout: 2000 }, (response) => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', (chunk) => { body += chunk; });
+      response.on('end', () => resolve({ status: response.statusCode || 0, body }));
+    });
+    request.on('timeout', () => { request.destroy(); resolve({ status: 0, body: '' }); });
+    request.on('error', () => resolve({ status: 0, body: '' }));
+  });
+}
+
+function getPortOwnerCommand(port) {
+  if (process.platform === 'win32') return '';
+  const pids = spawnSync('lsof', ['-nP', '-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' })
+    .stdout.trim().split(/\s+/).filter(Boolean);
+  if (!pids.length) return '';
+  return spawnSync('ps', ['-o', 'command=', '-p', pids.join(',')], { encoding: 'utf8' }).stdout.trim();
+}
+
+async function printReusableMetroQr(port) {
+  const [apiHealth, socketHandshake] = await Promise.all([
+    requestText(port, '/microjobs-api/api/health'),
+    requestText(port, '/microjobs-socket/?EIO=4&transport=polling'),
+  ]);
+  if (apiHealth.status !== 200 || !apiHealth.body.includes('microjobs-api')) {
+    throw new Error(`Metro is running on port ${port}, but its MicroJobs API proxy is unavailable. Stop the existing Metro process and run \`npm run dev\` from the repository root.`);
   }
-  throw new Error(`Could not find a free Metro port between ${startPort} and ${startPort + maxOffset}.`);
+  if (socketHandshake.status !== 200 || !socketHandshake.body.includes('sid')) {
+    throw new Error(`Metro is running on port ${port}, but its MicroJobs realtime proxy is unavailable. Stop the existing Metro process and run \`npm run dev\` from the repository root.`);
+  }
+
+  const ownerCommand = getPortOwnerCommand(port);
+  if (/(?:^|\s)--tunnel(?:\s|$)/.test(ownerCommand)) {
+    console.log(`MicroJobs Metro is already healthy in tunnel mode on port ${port}.`);
+    console.log('The secure tunnel QR belongs to the running Expo terminal. Stop that process and run `npm run dev:tunnel` to print a new tunnel QR here.');
+    return;
+  }
+
+  const localhostMode = /(?:^|\s)--localhost(?:\s|$)/.test(ownerCommand);
+  const host = localhostMode ? '127.0.0.1' : getLanAddress();
+  if (!host) {
+    throw new Error('Metro is healthy, but no private LAN address is available. Stop it and run `npm run dev:tunnel`.');
+  }
+
+  const expoUrl = `exp://${host}:${port}`;
+  const mobileApiUrl = `http://${host}:${port}/microjobs-api/api`;
+  const qrcode = require('qrcode-terminal');
+  console.log('\nMicroJobs Expo Go is ready');
+  console.log(`  Expo:       ${expoUrl}`);
+  console.log(`  Mobile API: ${mobileApiUrl}`);
+  console.log('  Realtime:   verified through /microjobs-socket');
+  qrcode.generate(expoUrl, { small: true });
+  console.log('Scan this QR with Expo Go. The existing Metro process will continue serving the app.');
 }
 
 async function main() {
@@ -141,11 +200,14 @@ async function main() {
 
   const requestedPort = parseRequestedPort(extraArgs);
   const forwardedArgs = stripPortArgs(extraArgs);
-  const port = await findFreePort(requestedPort, maxPortScan);
-
-  if (port !== requestedPort) {
-    console.log(`Port ${requestedPort} is already in use. Starting Expo on port ${port} instead.`);
+  if (!(await isPortFree(requestedPort))) {
+    if (await isMetroRunning(requestedPort)) {
+      await printReusableMetroQr(requestedPort);
+      return;
+    }
+    throw new Error(`Metro port ${requestedPort} is already in use by another process. Stop that process or set METRO_PORT explicitly.`);
   }
+  const port = requestedPort;
 
   const hasExplicitClientMode = forwardedArgs.some((arg) => explicitClientModes.has(arg));
   const hasExplicitHostMode = forwardedArgs.some((arg) => explicitHostModes.has(arg));
@@ -172,15 +234,17 @@ async function main() {
 
   const usesLocalhost = forwardedArgs.includes('--localhost') || modeArgs.includes('--localhost');
   if (!childEnv.EXPO_PUBLIC_API_URL && !usesLocalhost) {
+    // Generic PORT is frequently set by hosting tools and belongs to the
+    // process being launched, not necessarily the MicroJobs API.
+    const apiPort = String(childEnv.EXPO_PUBLIC_API_PORT || childEnv.DEV_API_PORT || '5050');
     const lanAddress = getLanAddress();
-    const apiPort = String(childEnv.EXPO_PUBLIC_API_PORT || childEnv.DEV_API_PORT || childEnv.PORT || '5050');
-    if (lanAddress) {
-      childEnv.EXPO_PUBLIC_API_URL = `http://${lanAddress}:${apiPort}/api`;
-      childEnv.EXPO_PUBLIC_API_SOURCE = 'development-lan';
-      console.log(`Mobile API: ${childEnv.EXPO_PUBLIC_API_URL}`);
-    } else {
+    if (!lanAddress && !forwardedArgs.includes('--tunnel') && !modeArgs.includes('--tunnel')) {
       console.warn('No private LAN address was detected. Set EXPO_PUBLIC_API_URL to the API address reachable by your phone.');
     }
+    childEnv.MICROJOBS_METRO_API_TARGET = `http://127.0.0.1:${apiPort}`;
+    childEnv.EXPO_PUBLIC_SOCKET_PATH = '/microjobs-socket';
+    childEnv.EXPO_PUBLIC_API_SOURCE = 'development-metro-proxy';
+    console.log('Mobile API: derived from the Expo QR host through Metro proxy');
   } else if (childEnv.EXPO_PUBLIC_API_URL) {
     console.log(`Mobile API: ${childEnv.EXPO_PUBLIC_API_URL}`);
   }

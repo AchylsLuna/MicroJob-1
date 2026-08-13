@@ -188,7 +188,7 @@ export default function EWallet({
         apiRequest(`${API_URL}/payment/payout-requests`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load payout requests.'),
-        apiRequest(`${API_URL}/payment/qr-requests`, { headers: { Authorization: `Bearer ${token}` } }, 'Failed to load invoices.'),
+        apiRequest(`${API_URL}/payment/qr-requests?mode=worker`, { headers: { Authorization: `Bearer ${token}` } }, 'Failed to load invoices.'),
       ]);
 
       const failedResult = [profileResult, walletResult, payoutsResult].find((result) => !result.ok);
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: 16,
-    paddingBottom: 112,
+    paddingBottom: tokens.layout.tabBarClearance,
     gap: 14,
   },
   balanceCard: {

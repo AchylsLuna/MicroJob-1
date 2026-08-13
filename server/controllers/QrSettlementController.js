@@ -131,10 +131,38 @@ export async function createQrSettlementRequest(req, res) {
 }
 
 export async function listQrSettlementRequests(req, res) {
-  const userId = getUserId(req);
-  const requests = await QrSettlementRequest.find({ $or: [{ requestingWorker: userId }, { employer: userId }] }).sort({ createdAt: -1 }).limit(30);
-  const items = await Promise.all(requests.map(async (request) => { await expireIfNeeded(request); return { preview: await buildPreview(request), imageUrl: `/api/payment/qr-requests/${request._id}/image`, chatMessageId: request.chatMessage ? String(request.chatMessage) : null }; }));
-  return res.status(200).json({ requests: items });
+  try {
+    const userId = getUserId(req);
+    const user = await User.findById(userId).select('role');
+    if (!user) return res.status(401).json({ message: 'Authenticated account was not found.' });
+
+    const requestedMode = String(req.query?.mode || '').trim().toLowerCase();
+    if (requestedMode && !['worker', 'employer'].includes(requestedMode)) {
+      return res.status(400).json({ message: 'Wallet mode must be worker or employer.' });
+    }
+    const mode = requestedMode || (String(user.role).toLowerCase() === 'hire' ? 'employer' : 'worker');
+    if (mode === 'worker' && !isWorkerRole(user.role)) {
+      return res.status(403).json({ message: 'Worker payment requests are unavailable for this account.' });
+    }
+    if (mode === 'employer' && !isEmployerRole(user.role)) {
+      return res.status(403).json({ message: 'Employer payment requests are unavailable for this account.' });
+    }
+
+    const ownerQuery = mode === 'employer' ? { employer: userId } : { requestingWorker: userId };
+    const requests = await QrSettlementRequest.find(ownerQuery).sort({ createdAt: -1 }).limit(30);
+    const items = await Promise.all(requests.map(async (request) => {
+      await expireIfNeeded(request);
+      return {
+        preview: await buildPreview(request),
+        imageUrl: `/api/payment/qr-requests/${request._id}/image`,
+        chatMessageId: request.chatMessage ? String(request.chatMessage) : null,
+      };
+    }));
+    return res.status(200).json({ mode, requests: items });
+  } catch (error) {
+    console.error('List QR settlement requests error:', error);
+    return res.status(500).json({ message: 'Failed to load payment requests.' });
+  }
 }
 
 export async function getQrSettlementRequest(req, res) {

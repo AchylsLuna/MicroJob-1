@@ -1,5 +1,5 @@
 const apiPort = String(Number(process.argv[2]) || 5055);
-const clientPort = String(Number(process.argv[3]) || 5173);
+const clientPort = String(Number(process.argv[3]) || 8082);
 
 Object.assign(process.env, {
   NODE_ENV: "test",

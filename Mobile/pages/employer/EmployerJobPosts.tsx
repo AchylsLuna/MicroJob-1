@@ -229,7 +229,7 @@ export default function EmployerJobPosts({
         </View>
         <Text style={styles.operationsTitle}>Quick operations</Text>
         <View style={styles.operationsGrid}>
-          <EmployerAction icon="add-circle-outline" label="Post a job" onPress={onPostJob} disabled={!onPostJob} />
+          <EmployerAction icon="add-circle-outline" label="Post a job" onPress={onPostJob} disabled={!onPostJob} tone="primary" />
           <EmployerAction icon="people-outline" label="Review applicants" onPress={onOpenApplications} disabled={!onOpenApplications} />
           <EmployerAction icon="chatbubbles-outline" label="Messages" onPress={onOpenMessages} disabled={!onOpenMessages} />
           <EmployerAction icon="wallet-outline" label="Employer wallet" onPress={onOpenWallet} disabled={!onOpenWallet} />

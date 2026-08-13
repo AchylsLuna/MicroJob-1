@@ -14,8 +14,8 @@ import {
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScrollView from '../../components/ui/SmoothScrollView';
-import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
+import { apiRequest, asList } from '../../lib/api';
 import EmployerNavigation from '../../components/employerNavigation';
 import { tokens } from '../../theme/tokens';
 import TabTopNav from '../../components/TabTopNav';
@@ -191,10 +191,9 @@ export default function EmployerPostJob({
     const fetchCategories = async () => {
       setLoadingCategories(true);
       try {
-        const response = await fetch(`${API_URL}/categories`);
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data?.message || 'Failed to load categories.');
-        setCategories(data || []);
+        const result = await apiRequest(`${API_URL}/categories`, undefined, 'Failed to load categories.');
+        if (!result.ok) throw new Error(result.message || 'Failed to load categories.');
+        setCategories(asList<Category>(result.raw, ['categories']));
       } catch (error: any) {
         setErrorMessage(error?.message || 'Failed to load categories.');
       } finally {
@@ -431,17 +430,14 @@ export default function EmployerPostJob({
         positionsNeeded: normalizedPositions,
       };
 
-      const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/jobs/${isEditing ? jobToEdit._id : ''}`.replace(/\/$/, ''), {
+      const result = await apiRequest(`${API_URL}/jobs/${isEditing ? jobToEdit._id : ''}`.replace(/\/$/, ''), {
         method: isEditing ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(payload),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data?.message || 'Failed to post job.');
+      }, isEditing ? 'Failed to update job.' : 'Failed to post job.');
+      if (!result.ok) throw new Error(result.message || (isEditing ? 'Failed to update job.' : 'Failed to post job.'));
 
       toast.success(isEditing ? 'Job updated successfully.' : 'Job posted successfully.');
       onPosted?.();
@@ -485,7 +481,7 @@ export default function EmployerPostJob({
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
+          contentContainerStyle={[styles.scroll, { paddingBottom: tokens.layout.tabBarClearance }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

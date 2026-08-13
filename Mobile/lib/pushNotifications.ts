@@ -1,23 +1,42 @@
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { API_URL } from '../config';
 import { apiRequest, asObject } from './api';
 import storage from './storage';
 
 const DEVICE_ID_KEY = 'push_device_registration_id';
+type NotificationsModule = typeof import('expo-notifications');
+let notificationsPromise: Promise<NotificationsModule | null> | null = null;
+let handlerConfigured = false;
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+const canUseNativePush = () =>
+  (Platform.OS === 'android' || Platform.OS === 'ios')
+  && Constants.executionEnvironment !== 'storeClient';
+
+const getNotifications = async (): Promise<NotificationsModule | null> => {
+  if (!canUseNativePush()) return null;
+  if (!notificationsPromise) {
+    notificationsPromise = import('expo-notifications').then((module) => {
+      if (!handlerConfigured) {
+        module.setNotificationHandler({
+          handleNotification: async () => ({
+            shouldShowBanner: true,
+            shouldShowList: true,
+            shouldPlaySound: true,
+            shouldSetBadge: false,
+          }),
+        });
+        handlerConfigured = true;
+      }
+      return module;
+    });
+  }
+  return notificationsPromise;
+};
 
 export async function registerPushDevice(): Promise<string | null> {
-  if (Platform.OS !== 'android' && Platform.OS !== 'ios') return null;
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'MicroJobs updates',
@@ -55,16 +74,20 @@ export async function unregisterPushDevice(): Promise<void> {
 }
 
 export async function takeInitialNotificationData(): Promise<Record<string, unknown> | null> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
   const response = await Notifications.getLastNotificationResponseAsync();
   if (!response) return null;
   await Notifications.clearLastNotificationResponseAsync();
   return (response.notification.request.content.data || null) as Record<string, unknown> | null;
 }
 
-export function subscribeNotificationResponses(
+export async function subscribeNotificationResponses(
   onResponse: (data: Record<string, unknown>) => void,
   onReceive?: () => void,
-) {
+): Promise<() => void> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return () => undefined;
   const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
     onResponse((response.notification.request.content.data || {}) as Record<string, unknown>);
   });

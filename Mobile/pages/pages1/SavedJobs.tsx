@@ -66,7 +66,7 @@ export default function SavedJobs({
         data={savedJobs}
         keyExtractor={(job) => job._id}
         style={styles.list}
-        contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: tokens.layout.tabBarClearance }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={Platform.OS === 'android'}

@@ -592,7 +592,7 @@ export default function Jobs(props: JobsProps) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 112, gap: 14 },
+  scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: tokens.layout.tabBarClearance, gap: 14 },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -325,7 +325,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
-  scroll: { padding: 16, paddingBottom: 112, gap: 12 },
+  scroll: { padding: 16, paddingBottom: tokens.layout.tabBarClearance, gap: 12 },
   introCard: {
     borderRadius: 22,
     padding: 16,

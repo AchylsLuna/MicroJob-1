@@ -13,25 +13,37 @@ cd C:\Users\Admin\Desktop\MicroJobs
 npm ci
 ```
 
-Run the web application and API together from the repository root with `npm run dev`.
-Use `npm run dev:client` for only the web application or `npm run dev:server` for
-only the API. The `client/` directory intentionally has no `package.json`, so do
-not run npm commands from inside that directory.
+Run the complete local environment from the repository root:
+
+```bash
+npm run dev
+```
+
+This is the authoritative development command. It starts or safely reuses the
+MicroJobs API, responsive web app, and Expo Go QR server. Scan the QR shown in
+that terminal. Ctrl+C stops only services started by that invocation. Use
+`npm run dev:tunnel` when guest Wi-Fi, client isolation, or different networks
+prevent the phone from reaching the computer.
+
+Use `npm run dev:client` or `npm run dev:server` only when intentionally working
+on one service in isolation. The `client/` directory intentionally has no
+`package.json`, so do not run npm commands from inside that directory.
+
+Local ports are fixed by service: API `5050`, web `8082`, and Expo Metro `8081`.
+Override them only with `DEV_API_PORT`, `DEV_CLIENT_PORT`, and `METRO_PORT`
+respectively. `EXPO_PUBLIC_API_PORT` may override the API port visible to Expo.
+Avoid a generic `PORT` when starting Expo because it is intentionally ignored.
 
 Android builds require JDK 17. Expo Go compatibility is intentionally pinned to
 Expo SDK 54 and React Native 0.81; do not run a forced audit upgrade that changes
 that compatibility set.
-Always start Expo from the repository root with `npm run mobile:start` (or from
-`Mobile/` with `npm start`) so the authoritative `Mobile/app.config.js` is used.
-For local testing on a physical phone, keep the API running in one terminal with
-`npm run dev:server`, then start Expo in a second terminal with
-`npm run mobile:start:clear`. The phone and development computer must be on the
-same local network. The Expo launcher selects the computer's LAN address and
-prints the resulting Mobile API URL; it must not show `localhost` on a physical
-device. The API server itself listens on `0.0.0.0`, but `0.0.0.0` must never be
-used as the phone's API destination. Restart Expo after changing networks so it
-detects the computer's new LAN address. Devices on a different network require
-the deployed HTTPS API URL (or a separately configured secure API tunnel).
+For normal Expo Go development, use the unified `npm run dev` command rather
+than starting another Metro process. Mobile API requests derive their origin
+from the current Expo QR host and use Metro's `/microjobs-api/api/*` proxy to API
+port `5050`; Socket.IO uses `/microjobs-socket/*`. This prevents stale LAN
+addresses and works the same way in explicit tunnel mode. Restart the unified
+launcher after changing networks, or bring the app to the foreground and use
+Retry while the new QR is loading.
 If Expo Go reports a version mismatch after installing the SDK 54-compatible
 client, restart Metro with `npm run mobile:start:clear`. Compatible historical
 Expo Go clients can be installed on Android devices/emulators and iOS simulators

@@ -10,7 +10,6 @@ import {
   Linking,
   RefreshControl,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '../../lib/storage';
 import EmployerNavigation from '../../components/employerNavigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -57,7 +56,6 @@ export default function EmployerEWallet({
   onOpenNotifications,
   notificationBadgeCount = 0,
 }: EmployerEWalletProps) {
-  const insets = useSafeAreaInsets();
   const [topupAmount, setTopupAmount] = useState('');
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [isRefreshingWallet, setIsRefreshingWallet] = useState(true);
@@ -149,7 +147,7 @@ export default function EmployerEWallet({
         apiRequest(`${API_URL}/payment/wallet?mode=employer`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load transactions.'),
-        apiRequest(`${API_URL}/payment/qr-requests`, {
+        apiRequest(`${API_URL}/payment/qr-requests?mode=employer`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load payment requests.'),
       ]);
@@ -349,7 +347,7 @@ export default function EmployerEWallet({
       />
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: 112 + Math.max(insets.bottom, 10) }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: tokens.layout.tabBarClearance }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isRefreshingWallet && hasLoadedWallet} onRefresh={() => void refreshWalletData()} tintColor={tokens.colors.brand} />}
       >

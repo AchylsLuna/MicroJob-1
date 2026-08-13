@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   tabActive: { borderBottomColor: tokens.colors.brand },
   tabText: { fontSize: 14, fontWeight: '700', color: tokens.colors.textMuted },
   tabTextActive: { color: tokens.colors.brand },
-  scrollView: { flex: 1 }, scroll: { padding: 16, paddingBottom: 120, gap: 18 },
+  scrollView: { flex: 1 }, scroll: { padding: 16, paddingBottom: tokens.layout.tabBarClearance, gap: 18 },
   group: { gap: 8 }, groupTitle: { fontSize: 12, fontWeight: '800', color: tokens.colors.onCanvasMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 },
   row: { minHeight: 92, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, flexDirection: 'row', alignItems: 'center', gap: 11 },
   rowUnread: { borderColor: tokens.colors.brandMuted, backgroundColor: '#F7FAFF' }, rowBusy: { opacity: 0.55 },

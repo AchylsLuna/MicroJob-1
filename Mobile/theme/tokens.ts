@@ -66,7 +66,7 @@ export const tokens = {
     gutter: 16,
     gutterWide: 20,
     sectionGap: 16,
-    tabBarClearance: 112,
+    tabBarClearance: 24,
     contentMaxWidth: 720,
   },
   controls: {
@@ -80,9 +80,10 @@ export const tokens = {
   },
   navigation: {
     iconSize: 22,
-    labelSize: 10,
-    itemMinHeight: 48,
-    barMinHeight: 72,
+    labelSize: 9,
+    itemMinHeight: 44,
+    barContentHeight: 64,
+    barMinHeight: 64,
   },
   shadow: {
     card: {

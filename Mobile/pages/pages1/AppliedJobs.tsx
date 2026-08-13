@@ -249,7 +249,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         data={filteredJobs}
         keyExtractor={(job) => job.id}
         style={styles.mainScroll}
-        contentContainerStyle={[styles.scroll, { paddingBottom: 96 + Math.max(insets.bottom, 10) }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: tokens.layout.tabBarClearance }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={Platform.OS === 'android'}
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   },
   mainScroll: { flex: 1 },
   itemSeparator: { height: 12 },
-  scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 112 },
+  scroll: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: tokens.layout.tabBarClearance },
   emptyState: {
     flex: 1,
     alignItems: 'center',

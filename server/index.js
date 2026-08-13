@@ -37,7 +37,7 @@ export const startServer = async () => {
 
     initSocket(server, { allowedOrigins });
 
-    server.on('error', (error) => {
+    server.once('error', (error) => {
       if (error?.code === 'EADDRINUSE') {
         console.error(
           `Port ${config.PORT} is already in use. Stop the existing process or set PORT in .env to another value.`
@@ -45,7 +45,9 @@ export const startServer = async () => {
       } else {
         console.error('Server failed to start:', error);
       }
-      process.exitCode = 1;
+      closeDB()
+        .catch((closeError) => console.error('Failed to close the database after server startup failure:', closeError))
+        .finally(() => process.exit(1));
     });
 
     server.listen(config.PORT, '0.0.0.0', () => {

@@ -3,7 +3,24 @@ import { Platform } from 'react-native';
 
 const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
 const envSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
+const envSocketPath = process.env.EXPO_PUBLIC_SOCKET_PATH;
 const envApiSource = process.env.EXPO_PUBLIC_API_SOURCE;
+const normalizeExpoOrigin = (value: unknown): string => {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  const raw = value.trim();
+  try {
+    const normalized = raw
+      .replace(/^exps:\/\//i, 'https://')
+      .replace(/^exp:\/\//i, 'http://');
+    const withProtocol = /^[a-z][a-z0-9+.-]*:\/\//i.test(normalized)
+      ? normalized
+      : `${/\.exp\.direct(?::|\/|$)/i.test(normalized) ? 'https' : 'http'}://${normalized}`;
+    const parsed = new URL(withProtocol);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return '';
+  }
+};
 const extractHost = (value: unknown): string => {
   if (typeof value !== 'string' || !value.trim()) return '';
   const raw = value.trim();
@@ -32,6 +49,7 @@ const hostCandidates = [
 ];
 
 const detectedHosts = hostCandidates.map(extractHost).filter(Boolean);
+const detectedExpoOrigin = hostCandidates.map(normalizeExpoOrigin).find(Boolean) || '';
 const isLoopbackHost = (value: string) => /^(?:localhost|127(?:\.\d{1,3}){3}|::1)$/i.test(value);
 const isWildcardHost = (value: string) => /^(?:0\.0\.0\.0|::)$/i.test(value);
 const host = detectedHosts.find((value) => !isLoopbackHost(value)) || detectedHosts[0] || '';
@@ -57,18 +75,24 @@ const resolveConfiguredApiUrl = (value: string | undefined) => {
     return value;
   }
 };
-const normalizedApiUrl = resolveConfiguredApiUrl(envApiUrl).replace(/\/$/, '');
+const usesMetroProxy = envApiSource === 'development-metro-proxy' && Boolean(detectedExpoOrigin);
+const normalizedApiUrl = (usesMetroProxy
+  ? `${detectedExpoOrigin}/microjobs-api/api`
+  : resolveConfiguredApiUrl(envApiUrl)).replace(/\/$/, '');
 
 export const API_URL = normalizedApiUrl.endsWith('/api')
   ? normalizedApiUrl
   : `${normalizedApiUrl}/api`;
 
-export const SOCKET_URL = (envSocketUrl || API_URL.replace(/\/api$/, '')).replace(/\/$/, '');
+export const SOCKET_URL = (usesMetroProxy ? detectedExpoOrigin : envSocketUrl || API_URL.replace(/\/api$/, '')).replace(/\/$/, '');
+export const SOCKET_PATH = envSocketPath || '/socket.io';
 
 export const API_DIAGNOSTICS = Object.freeze({
   apiUrl: API_URL,
   socketUrl: SOCKET_URL,
   source: envApiSource || (envApiUrl ? 'environment' : host && !isLoopbackHost(host) ? 'expo-host' : 'platform-fallback'),
+  transport: usesMetroProxy ? 'metro-proxy' : API_URL.startsWith('https:') ? 'https' : 'direct-http',
+  expoOrigin: detectedExpoOrigin || undefined,
   host: extractHost(API_URL),
   port: (() => {
     try { return new URL(API_URL).port || (API_URL.startsWith('https:') ? '443' : '80'); }

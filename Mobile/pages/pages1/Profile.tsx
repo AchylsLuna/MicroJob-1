@@ -99,7 +99,7 @@ export default function Profile({
       if (parsed.port) return parsed.port;
       return parsed.protocol === 'https:' ? '443' : '80';
     } catch {
-      return '5000';
+      return '5050';
     }
   })();
   const apiProtocol = (() => {
@@ -1007,7 +1007,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 18,
     paddingTop: 8,
-    paddingBottom: 112,
+    paddingBottom: tokens.layout.tabBarClearance,
     gap: 24,
   },
   errorCard: {

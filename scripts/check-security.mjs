@@ -49,6 +49,9 @@ const allowedAdvisories = new Set([
   1124252,
   1124288,
   1130709,
+  // PostCSS is bundled by Expo SDK 54's Metro toolchain. Resolving this
+  // development-only source-map advisory requires an Expo SDK upgrade.
+  1139510,
   1138808,
   1138809,
 ]);

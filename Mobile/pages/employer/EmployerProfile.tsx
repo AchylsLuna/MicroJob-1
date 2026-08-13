@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   scroll: {
     paddingHorizontal: 18,
     paddingTop: 8,
-    paddingBottom: 112,
+    paddingBottom: tokens.layout.tabBarClearance,
     gap: 18,
   },
   heroCard: {

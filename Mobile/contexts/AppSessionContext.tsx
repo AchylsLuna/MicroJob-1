@@ -7,9 +7,10 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { AppState } from 'react-native';
 import AsyncStorage from '../lib/storage';
 import io from 'socket.io-client';
-import { API_DIAGNOSTICS, API_URL, SOCKET_URL } from '../config';
+import { API_DIAGNOSTICS, API_URL, SOCKET_PATH, SOCKET_URL } from '../config';
 import { apiRequest, asList, asObject, classifyApiFailure, setInvalidSessionHandler } from '../lib/api';
 import { useToast } from './ToastContext';
 import { subscribeDataRefresh } from '../lib/dataRefresh';
@@ -511,6 +512,14 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   }, [loadSession]);
 
   useEffect(() => {
+    if (!bootstrapIssue || !['unreachable', 'server'].includes(bootstrapIssue.kind)) return;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void retryBootstrap();
+    });
+    return () => subscription.remove();
+  }, [bootstrapIssue, retryBootstrap]);
+
+  useEffect(() => {
     setInvalidSessionHandler((result) => {
       if (result.status !== 401 || !isAuthenticated || loggingOutRef.current) return;
       void logoutRef.current();
@@ -567,6 +576,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       }
 
       const socket = io(SOCKET_URL, {
+        path: SOCKET_PATH,
         auth: { token },
         transports: ['websocket', 'polling'],
         timeout: 10000,
@@ -678,10 +688,14 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     void takeInitialNotificationData().then((data) => {
       if (active && data) setPendingNotificationData(data);
     });
-    const unsubscribe = subscribeNotificationResponses(
+    let unsubscribe: () => void = () => undefined;
+    void subscribeNotificationResponses(
       (data) => { if (active) setPendingNotificationData(data); },
       () => { if (active) void refreshNotifications(); },
-    );
+    ).then((nextUnsubscribe) => {
+      if (active) unsubscribe = nextUnsubscribe;
+      else nextUnsubscribe();
+    });
     return () => { active = false; unsubscribe(); };
   }, [isAuthenticated, isReady, refreshNotifications]);
 

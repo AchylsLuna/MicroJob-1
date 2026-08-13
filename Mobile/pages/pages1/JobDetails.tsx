@@ -202,17 +202,14 @@ export default function JobDetails({
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const response = await fetch(`${API_URL}/jobs/${jobDetails._id}/apply`, {
+      const result = await apiRequest(`${API_URL}/jobs/${jobDetails._id}/apply`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to apply.');
+      }, 'Failed to apply.');
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to apply.');
       }
       setHasApplied(true);
       setShowSuccess(true);
@@ -233,11 +230,11 @@ export default function JobDetails({
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const response = await fetch(`${API_URL}/jobs/${job._id}`);
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(data?.message || 'Failed to load job.');
+      const result = await apiRequest(`${API_URL}/jobs/${job._id}`, undefined, 'Failed to load job.');
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to load job.');
       }
+      const data = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setJobDetails(data);
 
       const userId = await getCurrentUserId();
@@ -309,7 +306,7 @@ export default function JobDetails({
           styles.scroll,
           {
             paddingTop: Math.max(insets.top, 20) + 24,
-            paddingBottom: 108 + Math.max(insets.bottom, 10),
+            paddingBottom: tokens.layout.tabBarClearance,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -640,7 +637,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 112,
+    paddingBottom: tokens.layout.tabBarClearance,
     backgroundColor: tokens.colors.signedInCanvas,
     paddingHorizontal: 20,
   },

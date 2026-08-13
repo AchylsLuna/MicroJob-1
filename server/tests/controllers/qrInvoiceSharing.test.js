@@ -11,7 +11,7 @@ import QrSettlementRequest from '../../models/QrSettlementRequest.js';
 import StoredUpload from '../../models/StoredUpload.js';
 import Transaction from '../../models/Transaction.js';
 import User from '../../models/User.js';
-import { createQrSettlementRequest, getQrSettlementImage } from '../../controllers/QrSettlementController.js';
+import { createQrSettlementRequest, getQrSettlementImage, listQrSettlementRequests } from '../../controllers/QrSettlementController.js';
 
 let mongoServer;
 const response = () => ({ statusCode: 200, payload: null, headers: {}, status(code) { this.statusCode = code; return this; }, json(value) { this.payload = value; return this; }, set(key, value) { this.headers[key] = value; return this; }, type(value) { this.headers['Content-Type'] = value; return this; }, send(value) { this.payload = value; return this; } });
@@ -63,4 +63,42 @@ test('invoice creation stores one private QR chat card and one employer notifica
   const deniedImage = response();
   await getQrSettlementImage({ user: { id: String(outsider._id) }, params: { requestId: first.payload.requestId } }, deniedImage);
   assert.equal(deniedImage.statusCode, 404);
+});
+
+test('invoice listing isolates worker and employer modes for Both accounts', async () => {
+  const [both, worker, employer] = await Promise.all([
+    user('both', 'both-qr@example.com'),
+    user('work', 'other-worker-qr@example.com'),
+    user('hire', 'other-employer-qr@example.com'),
+  ]);
+  const jobFields = { description: 'Community work.', location: 'Pasig City, Metro Manila', salary: 500, jobType: 'Short-term', deadline: new Date('2027-01-01'), positionsNeeded: 1, hiredCount: 1, status: 'In Progress' };
+  const [workerJob, employerJob] = await Promise.all([
+    Job.create({ ...jobFields, title: 'Worker invoice', jobPoster: employer._id, applicants: [both._id] }),
+    Job.create({ ...jobFields, title: 'Employer invoice', jobPoster: both._id, applicants: [worker._id] }),
+  ]);
+  const [workerApplication, employerApplication] = await Promise.all([
+    JobApplication.create({ job: workerJob._id, applicant: both._id, status: 'Hired', agreedAmount: 500, workStatus: 'Submitted', paymentStatus: 'Secured' }),
+    JobApplication.create({ job: employerJob._id, applicant: worker._id, status: 'Hired', agreedAmount: 500, workStatus: 'Submitted', paymentStatus: 'Secured' }),
+  ]);
+  const requestFields = { salarySnapshot: 500, status: 'active', expiresAt: new Date(Date.now() + 600_000), purgeAt: new Date(Date.now() + 86_400_000) };
+  await Promise.all([
+    QrSettlementRequest.create({ ...requestFields, job: workerJob._id, application: workerApplication._id, requestingWorker: both._id, employer: employer._id, hiredWorkerSnapshot: [both._id], tokenHash: 'worker-token', shortCodeHash: 'worker-code' }),
+    QrSettlementRequest.create({ ...requestFields, job: employerJob._id, application: employerApplication._id, requestingWorker: worker._id, employer: both._id, hiredWorkerSnapshot: [worker._id], tokenHash: 'employer-token', shortCodeHash: 'employer-code' }),
+  ]);
+
+  const workerResponse = response();
+  await listQrSettlementRequests({ user: { id: String(both._id) }, query: { mode: 'worker' } }, workerResponse);
+  assert.equal(workerResponse.statusCode, 200);
+  assert.equal(workerResponse.payload.mode, 'worker');
+  assert.deepEqual(workerResponse.payload.requests.map((item) => item.preview.job.title), ['Worker invoice']);
+
+  const employerResponse = response();
+  await listQrSettlementRequests({ user: { id: String(both._id) }, query: { mode: 'employer' } }, employerResponse);
+  assert.equal(employerResponse.statusCode, 200);
+  assert.equal(employerResponse.payload.mode, 'employer');
+  assert.deepEqual(employerResponse.payload.requests.map((item) => item.preview.job.title), ['Employer invoice']);
+
+  const forbidden = response();
+  await listQrSettlementRequests({ user: { id: String(worker._id) }, query: { mode: 'employer' } }, forbidden);
+  assert.equal(forbidden.statusCode, 403);
 });

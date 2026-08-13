@@ -1,4 +1,4 @@
-const LOCAL_WEB_ORIGIN = 'http://localhost:5173';
+const LOCAL_WEB_ORIGIN = 'http://localhost:8082';
 
 const trimTrailingSlashes = (value) => String(value || '').trim().replace(/\/+$/, '');
 

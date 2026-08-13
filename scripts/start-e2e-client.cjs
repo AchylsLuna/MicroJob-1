@@ -1,4 +1,4 @@
-const clientPort = String(Number(process.argv[2]) || 5173);
+const clientPort = String(Number(process.argv[2]) || 8082);
 const apiPort = String(Number(process.argv[3]) || 5055);
 const { spawn } = require("node:child_process");
 const path = require("node:path");

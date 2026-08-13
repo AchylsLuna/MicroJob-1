@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const e2eClientPort = Number(process.env.E2E_CLIENT_PORT || 5173);
+const e2eClientPort = Number(process.env.E2E_CLIENT_PORT || 8082);
 const e2eApiPort = Number(process.env.E2E_API_PORT || 5055);
 
 export default defineConfig({
