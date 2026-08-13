@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../theme/tokens';
 import { useAppSession } from '../contexts/AppSessionContext';
 import AnimatedPressable from './ui/AnimatedPressable';
-import { getUserInitials } from '../lib/userIdentity';
 import { isNavigationTabActive } from './navigationState';
 import type { EmployerTab } from './tabNavigation';
 
@@ -21,7 +20,6 @@ type Props = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   notificationsCount?: number;
-  profileInitials?: string;
 };
 
 const formatBadgeCount = (count: number) => (count > 99 ? '99+' : String(count));
@@ -30,13 +28,12 @@ export default function EmployerNavigation({
   activeTab = 'Home',
   onTabPress,
   notificationsCount,
-  profileInitials,
 }: Props) {
   const insets = useSafeAreaInsets();
   const session = useAppSession();
   const resolvedNotificationsCount =
     typeof notificationsCount === 'number' ? notificationsCount : session.employerNotifications.length;
-  const resolvedProfileInitials = profileInitials?.trim() || getUserInitials(session.user);
+  const resolvedProfileInitials = session.navigationProfileInitials;
 
   const navItems: NavItem[] = [
     { label: 'Home', screen: 'Home', iconInactive: 'home-outline', iconActive: 'home' },

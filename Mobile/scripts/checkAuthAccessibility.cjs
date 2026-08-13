@@ -54,8 +54,11 @@ for (const file of ['components/navigation.tsx', 'components/employerNavigation.
   if (/profileInitials\s*=\s*['"]JD['"]/.test(source)) {
     failures.push(`${file}: uses a hard-coded profile identity`);
   }
-  if (!/useAppSession/.test(source) || !/getUserInitials/.test(source) || !/isNavigationTabActive/.test(source)) {
+  if (!/useAppSession/.test(source) || !/session\.navigationProfileInitials/.test(source) || !/isNavigationTabActive/.test(source)) {
     failures.push(`${file}: authenticated identity or normalized active-tab state is missing`);
+  }
+  if (/profileInitials\?:/.test(source)) {
+    failures.push(`${file}: allows a screen to override the authenticated navigation identity`);
   }
 }
 
@@ -65,6 +68,11 @@ if (!/refreshUnreadMessages/.test(sessionSource) || !/messages\/conversations/.t
 }
 if (!/role === 'employer' \|\| role === 'both'/.test(sessionSource) || !/canSwitchAccountMode = normalizeRole\(userRole\) === 'both'/.test(sessionSource)) {
   failures.push('AppSessionContext.tsx: worker, employer, and Both account-mode eligibility is inconsistent');
+}
+if (!/setNavigationProfileInitials\(getUserInitials\(nextUser\)\)/.test(sessionSource)
+  || !/currentToken !== token/.test(sessionSource)
+  || !/authenticatedUserId !== nextUserId/.test(sessionSource)) {
+  failures.push('AppSessionContext.tsx: authenticated navigation identity is not stable across tabs and stale profile responses');
 }
 
 const signUpSource = fs.readFileSync(path.join(projectRoot, 'pages/signUp.tsx'), 'utf8');

@@ -23,6 +23,15 @@ Expo SDK 54 and React Native 0.81; do not run a forced audit upgrade that change
 that compatibility set.
 Always start Expo from the repository root with `npm run mobile:start` (or from
 `Mobile/` with `npm start`) so the authoritative `Mobile/app.config.js` is used.
+For local testing on a physical phone, keep the API running in one terminal with
+`npm run dev:server`, then start Expo in a second terminal with
+`npm run mobile:start:clear`. The phone and development computer must be on the
+same local network. The Expo launcher selects the computer's LAN address and
+prints the resulting Mobile API URL; it must not show `localhost` on a physical
+device. The API server itself listens on `0.0.0.0`, but `0.0.0.0` must never be
+used as the phone's API destination. Restart Expo after changing networks so it
+detects the computer's new LAN address. Devices on a different network require
+the deployed HTTPS API URL (or a separately configured secure API tunnel).
 If Expo Go reports a version mismatch after installing the SDK 54-compatible
 client, restart Metro with `npm run mobile:start:clear`. Compatible historical
 Expo Go clients can be installed on Android devices/emulators and iOS simulators
