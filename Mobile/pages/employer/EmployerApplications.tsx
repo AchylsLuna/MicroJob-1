@@ -27,6 +27,7 @@ import {
   type ApplicationStatus,
 } from "../../lib/status";
 import { useToast } from "../../contexts/ToastContext";
+import { EmployerModeBanner } from "../../components/employer/EmployerUI";
 
 type JobItem = {
   _id: string;
@@ -419,7 +420,7 @@ export default function EmployerApplications({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title={selectedJob ? "Candidates" : "Applications"} />
+      <TabTopNav title={selectedJob ? "Candidates" : "Applications"} employerMode />
       <ScrollView
         refreshControl={
           <RefreshControl
@@ -431,6 +432,7 @@ export default function EmployerApplications({
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
+        <EmployerModeBanner title={selectedJob ? "Candidate workspace" : "Application pipeline"} detail={selectedJob ? "Review this opening's candidates and take the next valid hiring action." : "Choose a job opening to review candidates by hiring stage."} />
         {selectedJob ? (
           <>
             <TouchableOpacity

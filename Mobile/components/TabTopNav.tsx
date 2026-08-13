@@ -22,6 +22,7 @@ type TabTopNavProps = {
   showModeSwitch?: boolean;
   showSettings?: boolean;
   showNotifications?: boolean;
+  employerMode?: boolean;
 };
 
 export default function TabTopNav({
@@ -38,6 +39,7 @@ export default function TabTopNav({
   showModeSwitch = false,
   showSettings = false,
   showNotifications = false,
+  employerMode = false,
 }: TabTopNavProps) {
   const insets = useSafeAreaInsets();
   const nextRole: Role = currentRole === 'worker' ? 'employer' : 'worker';
@@ -50,6 +52,7 @@ export default function TabTopNav({
         <AnimatedMicroJobsLogoBadge />
         <View style={styles.titleCopy}>
           <Text style={styles.topHeaderTitle} numberOfLines={1}>{title}</Text>
+          {employerMode ? <View style={styles.employerPill}><Ionicons name="business-outline" size={11} color={tokens.colors.brand} /><Text style={styles.employerPillText}>Employer Mode</Text></View> : null}
           {subtitle ? (
             <TouchableOpacity
               style={[styles.subtitlePill, !onSubtitlePress && styles.subtitlePillStatic]}
@@ -153,6 +156,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   titleCopy: { flex: 1, minWidth: 0, gap: 4 },
+  employerPill: { minHeight: 24, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: tokens.radius.pill, paddingHorizontal: 8, backgroundColor: tokens.colors.brandSoft },
+  employerPillText: { color: tokens.colors.brand, fontSize: 10, fontWeight: '900' },
   subtitlePill: {
     minHeight: 28,
     maxWidth: '100%',

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
 import AsyncStorage from '../../lib/storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -15,6 +15,8 @@ import {
   validateMobileAvatar,
 } from '../../lib/profileValidation';
 import ProfileReviewsLoader from '../../components/reviews/ProfileReviewsLoader';
+import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
+import { useFocusEffect } from '@react-navigation/native';
 
 type EmployerProfileProps = {
   employer?: {
@@ -52,6 +54,7 @@ export default function EmployerProfile({
   const [avatarUrl, setAvatarUrl] = useState('');
   const [profileId, setProfileId] = useState('');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [expandedSection, setExpandedSection] = useState<'readiness' | 'identity' | 'contact' | 'reviews' | null>('readiness');
   const toast = useToast();
 
   const employerName = firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Employer';
@@ -63,12 +66,14 @@ export default function EmployerProfile({
     .slice(0, 2)
     .toUpperCase();
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
+    let active = true;
     const loadProfile = async () => {
       try {
         const storedUser = await AsyncStorage.getItem('auth_user');
         if (storedUser) {
           const parsed = JSON.parse(storedUser);
+          if (!active) return;
           setProfileId(String(parsed?.id || parsed?._id || parsed?.userId || ''));
           setFirstName(parsed?.firstName || '');
           setLastName(parsed?.lastName || '');
@@ -92,6 +97,7 @@ export default function EmployerProfile({
         const dataPayload = asObject<any>(result.data) || {};
         const profile = dataPayload?.user || payload?.user || dataPayload?.profile || payload?.profile || dataPayload;
         if (profile) {
+          if (!active) return;
           setProfileId(String(profile.id || profile._id || profile.userId || ''));
           setFirstName(profile.firstName || '');
           setLastName(profile.lastName || '');
@@ -101,13 +107,14 @@ export default function EmployerProfile({
           setAddress(profile.address || '');
           setAvatarUrl(profile.avatarUrl || '');
         }
-      } catch (error) {
-        console.log('Failed to load employer profile', error);
+      } catch {
+        // Keep the last authenticated profile visible during temporary refresh failures.
       }
     };
 
-    loadProfile();
-  }, []);
+    void loadProfile();
+    return () => { active = false; };
+  }, []));
 
   const handleUploadAvatar = async () => {
     try {
@@ -206,9 +213,11 @@ export default function EmployerProfile({
         title="My Profile"
         onOpenSettings={onOpenSettings}
         showSettings
+        employerMode
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <EmployerModeBanner title="Business profile" detail="Build trust with workers and keep your hiring identity ready." />
         <View style={styles.heroCard}>
           <View style={styles.heroGlow} />
 
@@ -276,7 +285,8 @@ export default function EmployerProfile({
           </View>
         </View>
 
-        <View style={styles.progressCard}>
+        <EmployerAccordion title="Employer readiness" subtitle="Complete the details workers use to evaluate your jobs." icon="shield-checkmark-outline" badge={`${completionRate}%`} expanded={expandedSection === 'readiness'} onToggle={() => setExpandedSection((section) => section === 'readiness' ? null : 'readiness')}>
+        <View style={styles.progressContent}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Employer readiness</Text>
             <Text style={styles.sectionHint}>{completionRate}%</Text>
@@ -298,8 +308,10 @@ export default function EmployerProfile({
             ))}
           </View>
         </View>
+        </EmployerAccordion>
 
-        <View style={styles.sectionCard} pointerEvents="none">
+        <EmployerAccordion title="Company and identity" subtitle="Verified account details shown with your job posts." icon="business-outline" expanded={expandedSection === 'identity'} onToggle={() => setExpandedSection((section) => section === 'identity' ? null : 'identity')}>
+        <View pointerEvents="none">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Identity</Text>
             <Text style={styles.sectionHint}>Visible on employer profile</Text>
@@ -343,8 +355,10 @@ export default function EmployerProfile({
           />
           <Text style={styles.helperText}>Email changes require a verified change flow and are currently locked.</Text>
         </View>
+        </EmployerAccordion>
 
-        <View style={styles.sectionCard} pointerEvents="none">
+        <EmployerAccordion title="Contact and Philippine location" subtitle={city || 'Add your local hiring area'} icon="location-outline" expanded={expandedSection === 'contact'} onToggle={() => setExpandedSection((section) => section === 'contact' ? null : 'contact')}>
+        <View pointerEvents="none">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Contact & location</Text>
             <Text style={styles.sectionHint}>Used for support and job context</Text>
@@ -388,17 +402,20 @@ export default function EmployerProfile({
             accessibilityLabel="Address"
           />
         </View>
+        </EmployerAccordion>
 
         <TouchableOpacity style={[styles.saveButton, !onEditProfile && styles.saveButtonDisabled]} onPress={onEditProfile} disabled={!onEditProfile} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Edit business information" accessibilityState={{ disabled: !onEditProfile }}>
           <Ionicons name="create-outline" size={18} color={tokens.colors.white} />
           <Text style={styles.saveButtonText}>Edit Business Information</Text>
         </TouchableOpacity>
 
+        <EmployerAccordion title="Worker reviews" subtitle="Feedback from completed local jobs." icon="star-outline" expanded={expandedSection === 'reviews'} onToggle={() => setExpandedSection((section) => section === 'reviews' ? null : 'reviews')}>
         <ProfileReviewsLoader
           profileOwnerId={profileId}
           profileOwnerName={employerName}
           viewAs="employer"
         />
+        </EmployerAccordion>
       </ScrollView>
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
@@ -604,6 +621,7 @@ const styles = StyleSheet.create({
     gap: 12,
     ...tokens.shadow.card,
   },
+  progressContent: { paddingVertical: 2 },
   sectionCard: {
     borderRadius: 20,
     borderWidth: 1,

@@ -584,6 +584,9 @@ function EmployerHomeScreen() {
       onTabPress={employerTabPress}
       headerSubtitle={localArea || 'Set your local area'}
       onOpenLocation={() => navigation.navigate('EmployerLocationServices')}
+      onOpenApplications={() => employerTabPress('Applications')}
+      onPostJob={() => employerTabPress('Post Job')}
+      onOpenMessages={() => employerTabPress('Messages')}
     />
   );
 }

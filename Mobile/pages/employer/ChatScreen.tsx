@@ -190,7 +190,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
             <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
           </TouchableOpacity>
           <AnimatedMicroJobsLogoBadge />
-          <Text style={styles.headerText} numberOfLines={1}>{displayName || 'Chat'}</Text>
+          <View style={styles.headerCopy}><Text style={styles.headerText} numberOfLines={1}>{displayName || 'Chat'}</Text>{isEmployer ? <Text style={styles.employerContext}>EMPLOYER CONVERSATION</Text> : null}</View>
           {onOpenNotifications ? (
             <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} accessibilityRole="button" accessibilityLabel={`Open notifications${notificationBadgeCount ? `, ${notificationBadgeCount} unread` : ''}`}>
               <Ionicons name="notifications-outline" size={20} color={tokens.colors.brand} />
@@ -288,7 +288,9 @@ const styles = StyleSheet.create({
     borderColor: tokens.colors.border,
     backgroundColor: tokens.colors.surface,
   },
-  headerText: { flex: 1, minWidth: 0, fontSize: 18, fontWeight: '800', color: tokens.colors.brandDark },
+  headerCopy: { flex: 1, minWidth: 0 },
+  headerText: { fontSize: 18, fontWeight: '800', color: tokens.colors.brandDark },
+  employerContext: { marginTop: 2, color: tokens.colors.brand, fontSize: 9, fontWeight: '900', letterSpacing: 0.8 },
   notificationIcon: {
     position: 'relative',
     width: 44,

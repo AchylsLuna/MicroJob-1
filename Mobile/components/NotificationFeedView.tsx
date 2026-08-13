@@ -21,6 +21,7 @@ type Props = {
   onMarkAllRead: () => void;
   onClearRead: () => void;
   footer: React.ReactNode;
+  employerMode?: boolean;
 };
 
 const isApplication = (item: NotificationListItem) => ['application', 'interview'].includes(item.type.toLowerCase());
@@ -63,7 +64,10 @@ export default function NotificationFeedView(props: Props) {
   return <View style={styles.container}>
     <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 8 }]}>
       {props.onBack ? <TouchableOpacity style={styles.headerButton} onPress={props.onBack} accessibilityRole="button" accessibilityLabel="Back"><Ionicons name="arrow-back" size={23} color={tokens.colors.brandDark} /></TouchableOpacity> : <View style={styles.headerSpacer} />}
-      <Text style={styles.headerTitle}>Notifications</Text>
+      <View style={styles.headerTitleWrap}>
+        {props.employerMode ? <Text style={styles.headerEyebrow}>EMPLOYER MODE</Text> : null}
+        <Text style={styles.headerTitle}>Notifications</Text>
+      </View>
       <TouchableOpacity
         style={[styles.headerButton, !props.notifications.length && styles.headerButtonDisabled]}
         onPress={showBulkMenu}
@@ -99,7 +103,9 @@ const styles = StyleSheet.create({
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   headerButtonDisabled: { opacity: 0.4 },
   headerSpacer: { width: 44 },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 21, fontWeight: '800', color: tokens.colors.brandDark },
+  headerTitleWrap: { flex: 1, alignItems: 'center' },
+  headerEyebrow: { color: tokens.colors.brand, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
+  headerTitle: { textAlign: 'center', fontSize: 21, fontWeight: '800', color: tokens.colors.brandDark },
   tabs: { flexDirection: 'row', backgroundColor: tokens.colors.surface, borderBottomWidth: 1, borderBottomColor: tokens.colors.border },
   tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabActive: { borderBottomColor: tokens.colors.brand },

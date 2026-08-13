@@ -72,6 +72,7 @@ const formatConversationTime = (input?: string) => {
 
 export default function MessageList({
   onOpenChat,
+  isEmployer = false,
   liveMessages = [],
   onOpenNotifications,
   notificationBadgeCount = 0,
@@ -296,9 +297,11 @@ export default function MessageList({
     <View style={styles.container}>
       <TabTopNav
         title="Messages"
+        subtitle={isEmployer ? 'Employer hiring conversations' : undefined}
         showNotifications={Boolean(onOpenNotifications)}
         onOpenNotifications={onOpenNotifications}
         notificationBadgeCount={notificationBadgeCount}
+        employerMode={isEmployer}
       />
 
       <View style={styles.searchWrap}>

@@ -16,6 +16,7 @@ import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
 import { tokens } from '../../theme/tokens';
+import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
 
 type PaymentMethod = {
   id: string;
@@ -216,8 +217,9 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
         onCancel={() => { if (!actionId) { setRemoveTarget(null); setRemoveError(null); } }}
         onConfirm={() => { if (removeTarget && !actionId) void removeMethod(removeTarget.id); }}
       />
-      <AppHeader title="Payment Methods" subtitle="Employer billing methods" onBack={onBack} showBrandBadge />
+      <AppHeader title="Payment Methods" subtitle="Employer billing methods" onBack={onBack} showBrandBadge employerMode />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <EmployerModeBanner title="Employer billing" detail="Manage the payment methods used to securely fund local jobs." />
         <View style={styles.introCard}>
           <View style={styles.introIcon}>
             <Ionicons name="card-outline" size={25} color={tokens.colors.brand} />
@@ -231,8 +233,8 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
           </TouchableOpacity>
         </View>
 
-        {isFormOpen ? (
-          <View style={styles.card}>
+        <EmployerAccordion title="Add payment method" subtitle="Card details are validated before safe metadata is stored." icon="card-outline" expanded={isFormOpen} onToggle={() => setIsFormOpen((value) => !value)}>
+          <View>
             <Text style={styles.cardTitle}>Add a card</Text>
             <Text style={styles.helper}>
               Only the brand, last four digits, cardholder name, and expiry are sent and saved.
@@ -275,7 +277,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
               <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save card'}</Text>
             </TouchableOpacity>
           </View>
-        ) : null}
+        </EmployerAccordion>
 
         {isLoading ? (
           <View style={styles.loading}>

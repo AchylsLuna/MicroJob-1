@@ -16,6 +16,7 @@ type AppHeaderProps = {
   rightAccessibilityLabel?: string;
   rightBadgeCount?: number;
   showBrandBadge?: boolean;
+  employerMode?: boolean;
 };
 
 export default function AppHeader({
@@ -28,6 +29,7 @@ export default function AppHeader({
   rightAccessibilityLabel,
   rightBadgeCount = 0,
   showBrandBadge = false,
+  employerMode = false,
 }: AppHeaderProps) {
   const insets = useSafeAreaInsets();
   const showRightAction = Boolean(onRightPress && (rightLabel || rightIconName));
@@ -50,6 +52,7 @@ export default function AppHeader({
           {showBrandBadge ? <AnimatedMicroJobsLogoBadge /> : null}
           <View style={showBrandBadge ? styles.titleCopy : undefined}>
             <Text style={[styles.title, showBrandBadge && styles.brandedTitle]} numberOfLines={1}>{title}</Text>
+            {employerMode ? <View style={styles.employerPill}><Ionicons name="business-outline" size={10} color={tokens.colors.brand} /><Text style={styles.employerPillText}>Employer Mode</Text></View> : null}
             {subtitle ? <Text style={[styles.subtitle, showBrandBadge && styles.brandedSubtitle]} numberOfLines={1}>{subtitle}</Text> : null}
           </View>
         </View>
@@ -116,6 +119,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexShrink: 1,
   },
+  employerPill: { minHeight: 22, marginTop: 2, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: tokens.radius.pill, paddingHorizontal: 7, backgroundColor: tokens.colors.brandSoft },
+  employerPillText: { color: tokens.colors.brand, fontSize: 9, fontWeight: '900' },
   title: {
     fontSize: 22,
     fontWeight: '700',

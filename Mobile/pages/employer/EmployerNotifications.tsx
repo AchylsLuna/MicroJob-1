@@ -23,5 +23,6 @@ export default function EmployerNotifications({ activeTab = 'Notifications', onT
     onMarkAllRead={() => void feed.markAllRead()}
     onClearRead={() => void feed.clearRead()}
     footer={<EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />}
+    employerMode
   />;
 }

@@ -20,6 +20,7 @@ import EmployerNavigation from '../../components/employerNavigation';
 import { tokens } from '../../theme/tokens';
 import TabTopNav from '../../components/TabTopNav';
 import { useToast } from '../../contexts/ToastContext';
+import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
 
 type Category = { _id: string; name: string };
 
@@ -109,6 +110,7 @@ export default function EmployerPostJob({
   activeTab,
   onTabPress,
 }: PostJobProps) {
+  const [expandedSection, setExpandedSection] = useState<'basics' | 'location' | 'hiring' | null>('basics');
   const insets = useSafeAreaInsets();
   const [formData, setFormData] = useState<FormData>({
     title: '',
@@ -365,12 +367,14 @@ export default function EmployerPostJob({
       if (!deadlineValue) missingFields.push('application deadline');
 
       if (missingFields.length > 0) {
+        setExpandedSection(missingFields.includes('location') ? 'location' : missingFields.some((field) => ['job type', 'application deadline'].includes(field)) ? 'hiring' : 'basics');
         setErrorMessage(`Missing required fields: ${missingFields.join(', ')}.`);
         setSubmitting(false);
         return;
       }
 
       if (!Number.isFinite(normalizedSalary) || normalizedSalary <= 0) {
+        setExpandedSection('basics');
         setErrorMessage('Minimum guaranteed pay must be greater than zero.');
         setSubmitting(false);
         return;
@@ -378,6 +382,7 @@ export default function EmployerPostJob({
 
       const normalizedPositions = Number(positionsNeeded);
       if (!Number.isInteger(normalizedPositions) || normalizedPositions < 1) {
+        setExpandedSection('hiring');
         setErrorMessage('Workers needed must be a positive whole number.');
         setSubmitting(false);
         return;
@@ -385,6 +390,7 @@ export default function EmployerPostJob({
 
       const parsedDeadline = deadlineValue ? new Date(deadlineValue) : null;
       if (!parsedDeadline || Number.isNaN(parsedDeadline.getTime())) {
+        setExpandedSection('hiring');
         setErrorMessage('Please provide a valid deadline date.');
         setSubmitting(false);
         return;
@@ -398,6 +404,7 @@ export default function EmployerPostJob({
       }
 
       if (!formData.category && !(isEditing && jobToEdit?.category)) {
+        setExpandedSection('basics');
         setErrorMessage('Please select a valid category from the list.');
         setSubmitting(false);
         return;
@@ -470,7 +477,7 @@ export default function EmployerPostJob({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title={isEditing ? 'Edit Job' : 'Post a Job'} />
+      <TabTopNav title={isEditing ? 'Edit Job' : 'Post a Job'} employerMode />
 
       <KeyboardAvoidingView
         style={styles.flex}
@@ -495,8 +502,9 @@ export default function EmployerPostJob({
               Post short-term work, a flexible side hustle, or recruit for an ongoing role.
             </Text>
           </View>
+          <EmployerModeBanner title={isEditing ? 'Update opportunity' : 'Create an opportunity'} detail="Clear details help local workers understand the job and your secured pay." />
 
-          <Text style={styles.sectionTitle}>Opportunity basics</Text>
+          <EmployerAccordion title="Opportunity basics" subtitle="Title, category, work details, skills, and guaranteed pay." icon="document-text-outline" expanded={expandedSection === 'basics'} onToggle={() => setExpandedSection((section) => section === 'basics' ? null : 'basics')}>
 
           <Text style={styles.label}>Job Title</Text>
           <TextInput
@@ -608,8 +616,9 @@ export default function EmployerPostJob({
           <Text style={styles.helperText}>
             This is the minimum amount guaranteed to each hired worker and secured in escrow.
           </Text>
+          </EmployerAccordion>
 
-          <Text style={styles.sectionTitle}>Work location</Text>
+          <EmployerAccordion title="Philippine work location" subtitle={composeLocation(formData) || 'Province, city or municipality, and barangay'} icon="location-outline" expanded={expandedSection === 'location'} onToggle={() => setExpandedSection((section) => section === 'location' ? null : 'location')}>
 
           <Text style={styles.label}>Location Type</Text>
           <View style={styles.chipRow}>
@@ -779,8 +788,9 @@ export default function EmployerPostJob({
           />
 
           <Text style={styles.helperText}>Location preview: {composeLocation(formData) || 'Select province, city, and barangay'}</Text>
+          </EmployerAccordion>
 
-          <Text style={styles.sectionTitle}>Hiring details</Text>
+          <EmployerAccordion title="Pay and hiring" subtitle="Workers needed, opportunity type, deadline, and urgency." icon="people-outline" expanded={expandedSection === 'hiring'} onToggle={() => setExpandedSection((section) => section === 'hiring' ? null : 'hiring')}>
 
           <Text style={styles.label}>Workers Needed</Text>
           <TextInput
@@ -839,6 +849,7 @@ export default function EmployerPostJob({
             <Text style={styles.urgentLabel}>Mark as urgent</Text>
             <Switch value={isUrgent} onValueChange={setIsUrgent} />
           </View>
+          </EmployerAccordion>
 
           <TouchableOpacity
             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
@@ -943,6 +954,7 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 3,
+    gap: 14,
   },
   formIntro: {
     backgroundColor: tokens.colors.brandSoft,

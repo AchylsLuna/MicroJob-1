@@ -23,6 +23,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSection, WalletSkeleton, WalletTransactionRow } from '../../components/wallet/WalletUI';
 import { php } from '../../components/wallet/walletFormat';
 import { EmployerQrScannerModal } from '../../components/wallet/WalletQrFlow';
+import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
 
 type EmployerEWalletProps = {
   onBack?: () => void;
@@ -67,6 +68,8 @@ export default function EmployerEWallet({
   const [pendingInvoiceId, setPendingInvoiceId] = useState<string | null>(initialInvoiceRequestId);
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
   const [areTransactionsCollapsed, setAreTransactionsCollapsed] = useState(false);
+  const [areInvoicesCollapsed, setAreInvoicesCollapsed] = useState(false);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [walletSummary, setWalletSummary] = useState({ credited: 0, spent: 0, pending: 0, transactionCount: 0 });
   const [liveBalance, setLiveBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
@@ -139,16 +142,19 @@ export default function EmployerEWallet({
         }
       }
 
-      const [profileResult, txResult] = await Promise.all([
+      const [profileResult, txResult, invoiceResult] = await Promise.all([
         apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load wallet profile.'),
         apiRequest(`${API_URL}/payment/wallet?mode=employer`, {
           headers: { Authorization: `Bearer ${token}` },
         }, 'Failed to load transactions.'),
+        apiRequest(`${API_URL}/payment/qr-requests`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }, 'Failed to load payment requests.'),
       ]);
 
-      const failedResult = [profileResult, txResult].find((result) => !result.ok);
+      const failedResult = [profileResult, txResult, invoiceResult].find((result) => !result.ok);
       if (failedResult) setWalletError(failedResult.message || 'Some wallet details could not be refreshed.');
 
       if (profileResult.ok) {
@@ -171,6 +177,11 @@ export default function EmployerEWallet({
         setLiveBalance(Number(txPayload.balance || 0));
         setWalletSummary({ credited: Number(txPayload.summary?.credited || 0), spent: Number(txPayload.summary?.spent || 0), pending: Number(txPayload.summary?.pending || 0), transactionCount: Number(txPayload.summary?.transactionCount || list.length) });
         setTransactions(list.map((transaction: any) => mapTxToUi(transaction, walletOwnerId)));
+      }
+      if (invoiceResult.ok) {
+        const invoicePayload = asObject<any>(invoiceResult.data) || asObject<any>(invoiceResult.raw) || {};
+        const requests = Array.isArray(invoicePayload.requests) ? invoicePayload.requests : [];
+        setInvoices(requests.filter((item: any) => !walletOwnerId || String(item?.preview?.employer?.id || '') === walletOwnerId));
       }
     } catch (error: any) {
       setWalletError(error?.message || 'Check your connection and try again.');
@@ -330,6 +341,7 @@ export default function EmployerEWallet({
         subtitle="Employer funds and job payments"
         onBack={onBack}
         showBrandBadge
+        employerMode
         rightIconName="notifications-outline"
         onRightPress={onOpenNotifications}
         rightAccessibilityLabel={`Open notifications${notificationBadgeCount ? `, ${notificationBadgeCount} unread` : ''}`}
@@ -343,6 +355,7 @@ export default function EmployerEWallet({
       >
         {!hasLoadedWallet && isRefreshingWallet ? <WalletSkeleton /> : <>
         <WalletError message={walletError} onRetry={() => void refreshWalletData()} />
+        <EmployerModeBanner title="Employer wallet" detail="Fund local opportunities and release secured payments after work approval." />
         <WalletBalanceCard
           label="Employer balance"
           value={php(liveBalance)}
@@ -366,7 +379,8 @@ export default function EmployerEWallet({
           { label: 'Pending', value: isBalanceHidden ? '•••' : php(walletSummary.pending), icon: 'time-outline' },
         ]} />
 
-        {isTopupExpanded ? <View style={styles.card}>
+        <EmployerAccordion title="Top up employer funds" subtitle="Minimum PHP 100 through secure checkout." icon="add-circle-outline" expanded={isTopupExpanded} onToggle={() => setIsTopupExpanded((expanded) => !expanded)}>
+          <View>
           <Text style={styles.cardTitle}>Top Up Wallet</Text>
           <Text style={styles.cardSubtitle}>Add employer funds through the secure payment page.</Text>
 
@@ -397,7 +411,19 @@ export default function EmployerEWallet({
               <Text style={styles.primaryButtonText}>Create Top Up</Text>
             )}
           </TouchableOpacity>
-        </View> : null}
+          </View>
+        </EmployerAccordion>
+
+        <WalletSection title="Worker Payment Requests" subtitle="Submitted QR invoices awaiting review or already settled." collapsible collapsed={areInvoicesCollapsed} onToggle={() => setAreInvoicesCollapsed((collapsed) => !collapsed)}>
+          {invoices.length === 0 ? <WalletEmpty icon="qr-code-outline" title="No payment requests" body="Invoices submitted by hired workers will appear here." /> : (
+            <View style={styles.invoiceList}>{invoices.map((item) => { const preview = item?.preview || {}; const active = String(preview.status || '').toLowerCase() === 'active'; return (
+              <View key={String(preview.requestId)} style={styles.invoiceCard}>
+                <View style={styles.invoiceCopy}><Text style={styles.invoiceTitle} numberOfLines={1}>{preview.job?.title || 'Job payment'}</Text><Text style={styles.invoiceMeta}>{preview.requestingWorker?.name || 'Worker'} · {php(preview.totalAmount || 0)}</Text><Text style={[styles.invoiceStatus, active && styles.invoiceStatusActive]}>{String(preview.status || 'unknown').toUpperCase()}</Text></View>
+                <TouchableOpacity style={[styles.reviewButton, !active && styles.reviewButtonDisabled]} disabled={!active} onPress={() => { setPendingInvoiceId(String(preview.requestId)); setIsScannerVisible(true); }} accessibilityRole="button" accessibilityLabel={`Review payment request for ${preview.job?.title || 'job'}`} accessibilityState={{ disabled: !active }}><Text style={styles.reviewButtonText}>{active ? 'Review' : 'Closed'}</Text></TouchableOpacity>
+              </View>
+            ); })}</View>
+          )}
+        </WalletSection>
 
         <WalletSection
           title="Recent Transactions"
@@ -431,6 +457,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: tokens.layout.gutter,
     gap: 14,
   },
+  invoiceList: { gap: 9 },
+  invoiceCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 15, padding: 12, backgroundColor: tokens.colors.surface },
+  invoiceCopy: { flex: 1, minWidth: 0 }, invoiceTitle: { color: tokens.colors.brandDark, fontSize: 14, fontWeight: '900' }, invoiceMeta: { marginTop: 3, color: tokens.colors.textMuted, fontSize: 11 }, invoiceStatus: { marginTop: 5, alignSelf: 'flex-start', color: tokens.colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 }, invoiceStatusActive: { color: tokens.colors.success },
+  reviewButton: { minHeight: 44, justifyContent: 'center', borderRadius: 12, paddingHorizontal: 14, backgroundColor: tokens.colors.brand }, reviewButtonDisabled: { backgroundColor: tokens.colors.textSubtle }, reviewButtonText: { color: tokens.colors.onBrand, fontSize: 12, fontWeight: '900' },
   balanceCard: {
     backgroundColor: tokens.colors.brandDark,
     borderRadius: 24,

@@ -4,6 +4,7 @@ import {
   FlatList,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { formatMinimumPay } from '../../lib/jobCompensation';
+import { EmployerAction, EmployerInlineState, EmployerMetric, EmployerModeBanner } from '../../components/employer/EmployerUI';
 
 type JobItem = {
   _id: string;
@@ -49,6 +51,9 @@ type EmployerJobPostsProps = {
   onTabPress?: (tab: string) => void;
   headerSubtitle?: string;
   onOpenLocation?: () => void;
+  onOpenApplications?: () => void;
+  onPostJob?: () => void;
+  onOpenMessages?: () => void;
 };
 
 type JobAction = 'complete' | 'close' | 'reopen' | 'delete';
@@ -60,6 +65,9 @@ export default function EmployerJobPosts({
   onTabPress,
   headerSubtitle,
   onOpenLocation,
+  onOpenApplications,
+  onPostJob,
+  onOpenMessages,
 }: EmployerJobPostsProps) {
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[]>([]);
@@ -67,6 +75,7 @@ export default function EmployerJobPosts({
   const [actionJobId, setActionJobId] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ action: JobAction; job: JobItem } | null>(null);
   const [viewingJob, setViewingJob] = useState<JobItem | null>(null);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const mountedRef = useRef(true);
@@ -74,6 +83,8 @@ export default function EmployerJobPosts({
   const actionInFlightRef = useRef(false);
 
   const totalApplicants = jobs.reduce((sum, job) => sum + (job.applicants?.length || 0), 0);
+  const activeJobs = jobs.filter((job) => ['Available', 'In Progress'].includes(String(job.status || 'Available'))).length;
+  const filledPositions = jobs.reduce((sum, job) => sum + Number(job.hiredCount || 0), 0);
 
   const fetchJobs = useCallback(async () => {
     if (fetchInFlightRef.current) return;
@@ -197,7 +208,7 @@ export default function EmployerJobPosts({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title="Home" subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext />
+      <TabTopNav title="Home" subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode />
 
       <FlatList
         data={jobs}
@@ -208,30 +219,29 @@ export default function EmployerJobPosts({
         initialNumToRender={7}
         maxToRenderPerBatch={7}
         windowSize={7}
+        refreshControl={<RefreshControl refreshing={loading && jobs.length > 0} onRefresh={() => void fetchJobs()} tintColor={tokens.colors.brand} />}
         ListHeaderComponent={<>
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{jobs.length}</Text>
-            <Text style={styles.summaryLabel}>Job Posts</Text>
-          </View>
-          <View style={styles.summaryDivider} />
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryValue}>{totalApplicants}</Text>
-            <Text style={styles.summaryLabel}>Total Applicants</Text>
-          </View>
+        <EmployerModeBanner title="Hiring operations" detail="Manage local job posts, candidates, conversations, and secured employer funds." />
+        <View style={styles.metricRow}>
+          <EmployerMetric icon="briefcase-outline" value={activeJobs} label="Active jobs" />
+          <EmployerMetric icon="people-outline" value={totalApplicants} label="Applicants" tone="amber" />
+          <EmployerMetric icon="checkmark-circle-outline" value={filledPositions} label="Workers hired" tone="green" />
         </View>
+        <Text style={styles.operationsTitle}>Quick operations</Text>
+        <View style={styles.operationsGrid}>
+          <EmployerAction icon="add-circle-outline" label="Post a job" onPress={onPostJob} disabled={!onPostJob} />
+          <EmployerAction icon="people-outline" label="Review applicants" onPress={onOpenApplications} disabled={!onOpenApplications} />
+          <EmployerAction icon="chatbubbles-outline" label="Messages" onPress={onOpenMessages} disabled={!onOpenMessages} />
+          <EmployerAction icon="wallet-outline" label="Employer wallet" onPress={onOpenWallet} disabled={!onOpenWallet} />
+        </View>
+        <View style={styles.sectionHeadingRow}><Text style={styles.operationsTitle}>Your job openings</Text><Text style={styles.sectionCount}>{jobs.length}</Text></View>
 
         {loading ? (
-          <View style={styles.card}>
-            <ActivityIndicator color={tokens.colors.brand} />
-            <Text style={styles.loadingText}>Loading your job posts...</Text>
-          </View>
+          jobs.length === 0 ? <EmployerInlineState loading title="Loading hiring workspace" body="Getting your employer jobs and applicant totals." /> : null
         ) : null}
 
         {errorMessage ? (
-          <View style={[styles.card, styles.errorCard]}>
-            <Text style={styles.errorText}>{errorMessage}</Text>
-          </View>
+          <EmployerInlineState icon="cloud-offline-outline" title="Hiring data unavailable" body={errorMessage} onRetry={() => void fetchJobs()} />
         ) : null}
         </>}
         ListEmptyComponent={!loading ? (
@@ -280,7 +290,7 @@ export default function EmployerJobPosts({
               </Text>
             </View>
 
-            <View style={styles.footerActions}>
+            <View style={styles.primaryJobActions}>
                 <TouchableOpacity style={styles.viewButton} onPress={() => setViewingJob(job)}>
                   <Ionicons name="eye-outline" size={15} color={tokens.colors.brand} />
                   <Text style={styles.viewButtonText}>View</Text>
@@ -289,6 +299,12 @@ export default function EmployerJobPosts({
                   <Ionicons name="create-outline" size={15} color={tokens.colors.surface} />
                   <Text style={styles.editButtonText}>Edit</Text>
                 </TouchableOpacity>
+                <TouchableOpacity style={styles.moreButton} onPress={() => setExpandedJobId((id) => id === job._id ? null : job._id)} accessibilityRole="button" accessibilityState={{ expanded: expandedJobId === job._id }} accessibilityLabel={`${expandedJobId === job._id ? 'Hide' : 'Show'} actions for ${job.title}`}>
+                  <Ionicons name={expandedJobId === job._id ? 'chevron-up' : 'ellipsis-horizontal'} size={17} color={tokens.colors.brand} />
+                  <Text style={styles.moreButtonText}>More</Text>
+                </TouchableOpacity>
+            </View>
+            {expandedJobId === job._id ? <View style={styles.footerActions}>
                 {status === 'Available' ? (
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -327,12 +343,12 @@ export default function EmployerJobPosts({
                   <Ionicons name="trash-outline" size={15} color="#b91c1c" />
                   <Text style={styles.deleteButtonText}>Delete</Text>
                 </TouchableOpacity>
-            </View>
-            <Text style={styles.autoPayHint}>
+            </View> : null}
+            {expandedJobId === job._id ? <Text style={styles.autoPayHint}>
               {canComplete
                 ? 'Marking this job done automatically releases escrow to hired workers.'
                 : 'Hire at least one worker before marking this job as done.'}
-            </Text>
+            </Text> : null}
           </View>
           );
         }}
@@ -482,6 +498,11 @@ function DetailSection({ title, value, values }: { title: string; value?: string
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
   scroll: { paddingHorizontal: tokens.layout.gutterWide, paddingTop: tokens.layout.sectionGap, paddingBottom: tokens.layout.tabBarClearance + 16 },
+  metricRow: { marginTop: 14, marginBottom: 16, flexDirection: 'row', gap: 9 },
+  operationsTitle: { marginBottom: 10, color: tokens.colors.brandDark, fontSize: 17, fontWeight: '900' },
+  operationsGrid: { marginBottom: 18, gap: 9 },
+  sectionHeadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionCount: { minWidth: 24, height: 24, borderRadius: 12, overflow: 'hidden', paddingHorizontal: 7, paddingTop: 4, backgroundColor: tokens.colors.brand, color: tokens.colors.onBrand, fontSize: 11, fontWeight: '900', textAlign: 'center' },
   summaryCard: {
     backgroundColor: tokens.colors.cardStrong,
     borderRadius: 18,
@@ -573,6 +594,9 @@ const styles = StyleSheet.create({
   },
   footerText: { color: tokens.colors.textMuted, fontSize: 12 },
   footerActions: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  primaryJobActions: { marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  moreButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, borderRadius: 10, borderWidth: 1, borderColor: tokens.colors.brandMuted, backgroundColor: tokens.colors.brandSoft, paddingHorizontal: 12 },
+  moreButtonText: { color: tokens.colors.brand, fontSize: 12, fontWeight: '800' },
   doneButton: {
     minHeight: 44,
     backgroundColor: tokens.colors.brand,

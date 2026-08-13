@@ -10,6 +10,7 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import { useToast } from '../../contexts/ToastContext';
 import { useFocusEffect } from '@react-navigation/native';
 import ConfirmModal from '../../components/ConfirmModal';
+import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -65,6 +66,7 @@ export default function Settings({
   const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
   const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
   const [requestedMode, setRequestedMode] = useState<'worker' | 'employer' | null>(null);
+  const [expandedEmployerSection, setExpandedEmployerSection] = useState<'account' | 'security' | 'preferences' | 'support' | null>('account');
   const isEmployer = currentRole === 'employer';
 
   const handleLogout = () => {
@@ -276,6 +278,11 @@ export default function Settings({
       </View>
     );
   };
+  const renderSettingsSection = (key: 'account' | 'security' | 'preferences' | 'support', title: string, icon: React.ComponentProps<typeof Ionicons>['name'], items: SettingsItem[]) => isEmployer ? (
+    <EmployerAccordion title={title} icon={icon} expanded={expandedEmployerSection === key} onToggle={() => setExpandedEmployerSection((section) => section === key ? null : key)}>
+      {renderMenuCard(items)}
+    </EmployerAccordion>
+  ) : <><Text style={styles.sectionLabel}>{title.toUpperCase()}</Text>{renderMenuCard(items)}</>;
 
   return (
     <View style={styles.container}>
@@ -290,6 +297,7 @@ export default function Settings({
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        {isEmployer ? <EmployerModeBanner title="Employer controls" detail="Manage hiring identity, security, payments, privacy, and support." /> : null}
         <TouchableOpacity style={styles.profileCard} onPress={handleOpenPersonalInfo} activeOpacity={0.9}>
           <View style={styles.profileGlow} />
           <View style={styles.profileLeft}>
@@ -340,11 +348,9 @@ export default function Settings({
           </>
         ) : null}
 
-        <Text style={styles.sectionLabel}>ACCOUNT</Text>
-        {renderMenuCard(accountMenus)}
+        {renderSettingsSection('account', 'Account', 'business-outline', accountMenus)}
 
-        <Text style={styles.sectionLabel}>SECURITY</Text>
-        {renderMenuCard(securityMenus)}
+        {renderSettingsSection('security', 'Security', 'shield-checkmark-outline', securityMenus)}
 
         {isEmployer ? (
           <>
@@ -368,11 +374,9 @@ export default function Settings({
           </>
         ) : null}
 
-        <Text style={styles.sectionLabel}>PREFERENCES</Text>
-        {renderMenuCard(preferencesMenus)}
+        {renderSettingsSection('preferences', 'Preferences', 'options-outline', preferencesMenus)}
 
-        <Text style={styles.sectionLabel}>SUPPORT & INFO</Text>
-        {renderMenuCard(supportMenus)}
+        {renderSettingsSection('support', 'Support & info', 'help-buoy-outline', supportMenus)}
 
         <View style={styles.footerActionsWrap}>{renderMenuCard(accountActions)}</View>
       </ScrollView>
