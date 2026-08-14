@@ -1,6 +1,7 @@
 import storage from './storage';
 import { inferMutationDomains, publishDataRefresh } from './dataRefresh';
 import { API_URL } from '../config';
+import { Platform } from 'react-native';
 
 export type APIResult<T = unknown> = {
   ok: boolean;
@@ -15,10 +16,19 @@ const AUTH_TOKEN_KEY = 'auth_token';
 export const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 let invalidSessionHandler: ((result: APIResult) => void) | null = null;
 let refreshPromise: Promise<boolean> | null = null;
+const isWeb = Platform.OS === 'web';
 const isMicroJobsApiUrl = (url: string) => {
   try { return new URL(url).origin === new URL(API_URL).origin && new URL(url).pathname.startsWith(new URL(API_URL).pathname); }
   catch { return false; }
 };
+
+const getBrowserCsrfToken = () => {
+  if (!isWeb || typeof document === 'undefined') return '';
+  const match = String(document.cookie || '').match(/(?:^|; )csrfToken=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : '';
+};
+
+const isMutationMethod = (method: string) => !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
 
 export const setInvalidSessionHandler = (handler: ((result: APIResult) => void) | null) => {
   invalidSessionHandler = handler;
@@ -49,6 +59,31 @@ const refreshNativeSession = async (): Promise<boolean> => {
   })().finally(() => { refreshPromise = null; });
   return refreshPromise;
 };
+
+const refreshBrowserSession = async (): Promise<boolean> => {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    const csrfToken = getBrowserCsrfToken();
+    if (!csrfToken) return false;
+    try {
+      const response = await fetch(`${API_URL}/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrfToken },
+      });
+      if (!response.ok) return false;
+      const payload = await response.json().catch(() => ({}));
+      if (!payload?.token) return false;
+      await storage.setItem(AUTH_TOKEN_KEY, payload.token);
+      return true;
+    } catch {
+      return false;
+    }
+  })().finally(() => { refreshPromise = null; });
+  return refreshPromise;
+};
+
+const refreshSession = () => isWeb ? refreshBrowserSession() : refreshNativeSession();
 
 const LIST_KEYS = [
   'items',
@@ -106,7 +141,12 @@ export async function apiRequest<T = unknown>(
   }
 
   const headers = new Headers(init?.headers || {});
-  if (isMicroJobsApiUrl(url) && !headers.has('x-microjobs-client')) headers.set('x-microjobs-client', 'native');
+  const method = String(init?.method || 'GET').toUpperCase();
+  if (!isWeb && isMicroJobsApiUrl(url) && !headers.has('x-microjobs-client')) headers.set('x-microjobs-client', 'native');
+  if (isWeb && isMicroJobsApiUrl(url) && isMutationMethod(method) && !headers.has('x-csrf-token')) {
+    const csrfToken = getBrowserCsrfToken();
+    if (csrfToken) headers.set('x-csrf-token', csrfToken);
+  }
   if (isMicroJobsApiUrl(url) && !headers.has('Authorization')) {
     const token = await storage.getItem(AUTH_TOKEN_KEY);
     if (token) headers.set('Authorization', `Bearer ${token}`);
@@ -115,6 +155,7 @@ export async function apiRequest<T = unknown>(
   const requestInit: RequestInit = {
     ...init,
     headers,
+    credentials: isWeb && isMicroJobsApiUrl(url) ? 'include' : init?.credentials,
     signal: controller.signal,
   };
 
@@ -139,14 +180,13 @@ export async function apiRequest<T = unknown>(
     };
     const isRefreshEndpoint = /\/auth\/(?:login|refresh)(?:\/|$)/.test(new URL(url).pathname);
     if (response.status === 401 && isMicroJobsApiUrl(url) && allowRefresh && !isRefreshEndpoint) {
-      if (await refreshNativeSession()) {
+      if (await refreshSession()) {
         const retryHeaders = new Headers(init?.headers || {});
         retryHeaders.delete('Authorization');
         return apiRequest<T>(url, { ...init, headers: retryHeaders }, fallbackMessage, false);
       }
       invalidSessionHandler?.(result);
     }
-    const method = String(requestInit.method || 'GET').toUpperCase();
     if (result.ok && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
       const domains = inferMutationDomains(url);
       if (domains.length) publishDataRefresh({ domains, method, url, at: Date.now() });

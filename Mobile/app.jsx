@@ -587,6 +587,8 @@ function EmployerHomeScreen() {
       onOpenApplications={() => employerTabPress('Applications')}
       onPostJob={() => employerTabPress('Post Job')}
       onOpenMessages={() => employerTabPress('Messages')}
+      onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
+      notificationBadgeCount={session.employerNotificationUnreadCount}
     />
   );
 }
@@ -599,6 +601,8 @@ function EmployerApplicationsScreen() {
     <EmployerApplications
       activeTab="Applications"
       onTabPress={employerTabPress}
+      onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
+      notificationBadgeCount={session.employerNotificationUnreadCount}
       onMessageWorker={({ workerId, workerName }) => {
         if (!workerId) return;
         session.setInitialEmployerChatTarget({ id: String(workerId), name: workerName || 'Worker' });
@@ -612,6 +616,7 @@ function EmployerPostJobScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const employerTabPress = useEmployerTabNavigation();
+  const session = useAppSession();
   return (
     <EmployerPostJob
       onPosted={() => navigateToEmployerTab(navigation, 'Home')}
@@ -619,6 +624,8 @@ function EmployerPostJobScreen() {
       jobToEdit={route.params?.jobToEdit || null}
       activeTab="Post Job"
       onTabPress={employerTabPress}
+      onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
+      notificationBadgeCount={session.employerNotificationUnreadCount}
     />
   );
 }
@@ -632,7 +639,7 @@ function EmployerMessagesScreen() {
       activeTab="Messages"
       onTabPress={employerTabPress}
       liveMessages={session.messageEvents}
-      onOpenNotifications={() => navigateToEmployerTab(navigation, 'Notifications')}
+      onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
       notificationBadgeCount={session.employerNotificationUnreadCount}
       initialChatTarget={session.initialEmployerChatTarget}
       onConsumeInitialChatTarget={session.clearInitialEmployerChatTarget}
@@ -652,13 +659,12 @@ function EmployerNotificationsScreen() {
     else if (destination === 'support') navigation.navigate('EmployerSupport');
     else if (destination === 'settings') navigation.navigate('EmployerSettings');
   };
-  return <EmployerNotifications activeTab="Notifications" onTabPress={employerTabPress} liveNotifications={session.employerNotifications} onOpenNotification={openNotification} />;
+  return <EmployerNotifications onBack={() => navigation.goBack()} liveNotifications={session.employerNotifications} onOpenNotification={openNotification} />;
 }
 
 function EmployerProfileScreen() {
   const navigation = useNavigation();
   const employerTabPress = useEmployerTabNavigation();
-  const session = useAppSession();
   return (
     <EmployerProfile
       activeTab="Profile"
@@ -677,7 +683,6 @@ function EmployerTabsNavigator() {
       <EmployerTab.Screen name="Applications" component={EmployerApplicationsScreen} />
       <EmployerTab.Screen name="Post Job" component={EmployerPostJobScreen} />
       <EmployerTab.Screen name="Messages" component={EmployerMessagesScreen} />
-      <EmployerTab.Screen name="Notifications" component={EmployerNotificationsScreen} />
       <EmployerTab.Screen name="Profile" component={EmployerProfileScreen} />
     </EmployerTab.Navigator>
   );
@@ -692,7 +697,7 @@ function EmployerSettingsScreen() {
       onLogout={session.openLogoutConfirm}
       onNavigatePersonalDetails={() => navigation.navigate('EmployerAccountInformation', { initialSection: 'profile' })}
       onNavigateChangePassword={() => navigation.navigate('EmployerChangePassword')}
-      onNavigateNotifications={() => navigation.navigate('EmployerTabs', { screen: 'Notifications' })}
+      onNavigateNotifications={() => navigation.navigate('EmployerNotifications')}
       onNavigateLocation={() => navigation.navigate('EmployerLocationServices')}
       onNavigateMfa={() => navigation.navigate('EmployerMfa')}
       onNavigateAbout={() => navigation.navigate('EmployerAbout')}
@@ -732,7 +737,7 @@ function EmployerEWalletScreen() {
       activeTab="Profile"
       onTabPress={employerTabPress}
       initialInvoiceRequestId={route.params?.invoiceRequestId || null}
-      onOpenNotifications={() => navigateToEmployerTab(navigation, 'Notifications')}
+      onOpenNotifications={() => navigation.navigate('EmployerNotifications')}
       notificationBadgeCount={session.employerNotificationUnreadCount}
     />
   );
@@ -780,6 +785,7 @@ function EmployerStackNavigator() {
       <EmployerStack.Screen name="EmployerTabs" component={EmployerTabsNavigator} />
       <EmployerStack.Screen name="EmployerPostJobScreen" component={EmployerPostJobScreen} />
       <EmployerStack.Screen name="EmployerEWallet" component={EmployerEWalletScreen} />
+      <EmployerStack.Screen name="EmployerNotifications" component={EmployerNotificationsScreen} />
       <EmployerStack.Screen name="EmployerSettings" component={EmployerSettingsScreen} />
       <EmployerStack.Screen name="EmployerAccountInformation" component={EmployerAccountInformationScreen} />
       <EmployerStack.Screen name="EmployerPaymentMethods" component={EmployerPaymentMethodsScreen} />
@@ -916,7 +922,7 @@ function RootApp() {
     } else if (destination === 'settings') {
       navigationRef.navigate(employer ? 'EmployerSettings' : 'WorkerSettings');
     } else {
-      navigationRef.navigate(employer ? 'EmployerTabs' : 'WorkerNotifications', employer ? { screen: 'Notifications' } : undefined);
+      navigationRef.navigate(employer ? 'EmployerNotifications' : 'WorkerNotifications');
     }
     session.consumePendingNotification();
   }, [navigationReady, session.pendingNotificationData, session.isReady, session.isAuthenticated, session.viewMode, session.canSwitchAccountMode]);

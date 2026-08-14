@@ -12,8 +12,6 @@ const aliases: Record<string, string> = {
   profile: 'profile',
   applications: 'applications',
   postjob: 'postjob',
-  notifications: 'notifications',
-  alerts: 'notifications',
 };
 
 export const normalizedNavigationTab = (value: unknown) => aliases[normalize(value)] || normalize(value);

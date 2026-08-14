@@ -30,6 +30,8 @@ type PostJobProps = {
   jobToEdit?: any;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
+  onOpenNotifications?: () => void;
+  notificationBadgeCount?: number;
 };
 
 type FormData = {
@@ -109,6 +111,8 @@ export default function EmployerPostJob({
   jobToEdit,
   activeTab,
   onTabPress,
+  onOpenNotifications,
+  notificationBadgeCount = 0,
 }: PostJobProps) {
   const [expandedSection, setExpandedSection] = useState<'basics' | 'location' | 'hiring' | null>('basics');
   const insets = useSafeAreaInsets();
@@ -473,7 +477,7 @@ export default function EmployerPostJob({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title={isEditing ? 'Edit Job' : 'Post a Job'} employerMode />
+      <TabTopNav title={isEditing ? 'Edit Job' : 'Post a Job'} employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
 
       <KeyboardAvoidingView
         style={styles.flex}

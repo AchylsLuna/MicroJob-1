@@ -54,6 +54,8 @@ type EmployerJobPostsProps = {
   onOpenApplications?: () => void;
   onPostJob?: () => void;
   onOpenMessages?: () => void;
+  onOpenNotifications?: () => void;
+  notificationBadgeCount?: number;
 };
 
 type JobAction = 'complete' | 'close' | 'reopen' | 'delete';
@@ -68,6 +70,8 @@ export default function EmployerJobPosts({
   onOpenApplications,
   onPostJob,
   onOpenMessages,
+  onOpenNotifications,
+  notificationBadgeCount = 0,
 }: EmployerJobPostsProps) {
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[]>([]);
@@ -208,7 +212,7 @@ export default function EmployerJobPosts({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title="Home" subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode />
+      <TabTopNav title="Home" subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
 
       <FlatList
         data={jobs}

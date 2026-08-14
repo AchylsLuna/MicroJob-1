@@ -10,7 +10,7 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import { useToast } from '../../contexts/ToastContext';
 import { useFocusEffect } from '@react-navigation/native';
 import ConfirmModal from '../../components/ConfirmModal';
-import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
+import { EmployerAccordion } from '../../components/employer/EmployerUI';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -297,7 +297,6 @@ export default function Settings({
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        {isEmployer ? <EmployerModeBanner title="Employer controls" detail="Manage hiring identity, security, payments, privacy, and support." /> : null}
         <TouchableOpacity style={styles.profileCard} onPress={handleOpenPersonalInfo} activeOpacity={0.9}>
           <View style={styles.profileGlow} />
           <View style={styles.profileLeft}>

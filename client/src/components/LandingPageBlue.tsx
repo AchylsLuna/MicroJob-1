@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, CheckCircle, Briefcase, TrendingUp, Star, ChevronRight, MapPin, Sparkles } from "lucide-react";
+import { ArrowRight, Briefcase, ChevronRight, MapPin } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { motion, useScroll, useTransform } from "motion/react";
+import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { useCallback, useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
@@ -81,6 +81,7 @@ export function LandingPageBlue() {
   const { isAuthenticated, user } = useAuth();
   const dashboardPath = getDefaultDashboardPath(user);
   const { scrollYProgress } = useScroll();
+  const prefersReducedMotion = useReducedMotion();
 
   const scale = useTransform(scrollYProgress, [0, 0.5], [1, 0.8]);
 
@@ -194,57 +195,37 @@ export function LandingPageBlue() {
     {
       name: "Ashriel Mejia",
       role: "Project Manager",
-      avatarClass: "from-[#1C4D8D] to-[#1C4D8D]",
-      avatarImage: "/team/pic-portrait.png",
-      positionClass: "top-6 left-4 sm:left-8 md:left-10",
+      status: "Employer",
+      statusKind: "employer",
       delay: 0.2,
-      hoverRotate: 5,
-      spinRotate: 360,
-      spinDuration: 20,
     },
     {
       name: "Jonas Enriquez",
       role: "Full Stack Developer",
-      avatarClass: "from-[#6BCF7F] to-[#4CAF50]",
-      avatarImage: "/team/pic-portrait.png",
-      positionClass: "top-1/4 right-4 sm:right-8 md:right-10",
+      status: "Finding Work",
+      statusKind: "worker",
       delay: 0.35,
-      hoverRotate: -5,
-      spinRotate: -360,
-      spinDuration: 15,
     },
     {
       name: "Nicholas Gonzales",
       role: "Backend Developer",
-      avatarClass: "from-[#FFD93D] to-[#FFA500]",
-      avatarImage: "/team/pic-portrait.png",
-      positionClass: "bottom-10 left-6 sm:left-12 md:left-14",
+      status: "Finding Work",
+      statusKind: "worker",
       delay: 0.5,
-      hoverRotate: 5,
-      spinRotate: 360,
-      spinDuration: 10,
     },
     {
       name: "Elijah Vinluan",
       role: "Front-end Developer",
-      avatarClass: "from-[#A78BFA] to-[#7C3AED]",
-      avatarImage: "/team/pic-portrait.png",
-      positionClass: "bottom-16 right-5 sm:right-10 md:right-14",
+      status: "Finding Work",
+      statusKind: "worker",
       delay: 0.65,
-      hoverRotate: -5,
-      spinRotate: -360,
-      spinDuration: 18,
     },
     {
       name: "Winona Gamba",
       role: "Documentator",
-      avatarClass: "from-[#FB7185] to-[#E11D48]",
-      avatarImage: "/team/pic-portrait.png",
-      positionClass: "top-4 left-1/2 -translate-x-1/2 sm:top-6 md:top-8",
+      status: "Finding Work",
+      statusKind: "worker",
       delay: 0.8,
-      hoverRotate: 5,
-      spinRotate: 360,
-      spinDuration: 12,
     },
   ] as const;
 
@@ -368,18 +349,8 @@ export function LandingPageBlue() {
                 transition={{ delay: 0.6 }}
                 className="mb-6 rounded-[20px] border border-[#1C4D8D]/10 bg-white p-6 shadow-lg"
               >
-                <div className="flex items-center gap-4 mb-4">
-                  <motion.div
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className="w-12 h-12 rounded-full bg-[#1C4D8D] flex items-center justify-center"
-                  >
-                    <Sparkles className="w-6 h-6 text-white" />
-                  </motion.div>
-                  <div>
-                    <p className="text-[16px] font-bold text-gray-900">Ready to Get Started?</p>
-                    <p className="text-[13px] text-gray-600">Join over 10,000+ active job seekers</p>
-                  </div>
+                <div className="mb-4 text-center sm:text-left">
+                  <p className="text-[16px] font-bold text-gray-900">Ready to Get Started?</p>
                 </div>
                 <motion.button
                   whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.4)" }}
@@ -411,35 +382,54 @@ export function LandingPageBlue() {
               className="relative"
               style={{ scale }}
             >
-              <div className="w-full aspect-square rounded-[32px] bg-[#1C4D8D]/[0.08] p-12 relative overflow-hidden backdrop-blur-sm border border-white/50 shadow-2xl">
-                {/* Floating Cards */}
-                {heroTeamCards.map((member) => (
+              <div className="relative flex min-h-[540px] w-full flex-col overflow-hidden rounded-[32px] border border-white/70 bg-gradient-to-br from-[#F5F9FF] via-[#EAF2FC] to-[#DCE9F8] p-4 shadow-[0_28px_70px_rgba(15,41,84,0.18)] sm:min-h-0 sm:aspect-square sm:p-6 lg:p-7">
+                <div aria-hidden="true" className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#1C4D8D]/10 blur-3xl" />
+                <div aria-hidden="true" className="absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-[#7DB8F4]/20 blur-3xl" />
+                <div aria-hidden="true" className="absolute inset-0 opacity-35 [background-image:radial-gradient(#7DA8D8_1px,transparent_1px)] [background-size:22px_22px]" />
+
+                {/* Illustrated local marketplace community */}
+                <div className="relative z-10 flex flex-1 items-end justify-center pt-2">
                   <motion.div
-                    key={member.name}
-                    initial={false}
-                    animate={{ opacity: 1, y: 0 }}
-                    whileHover={{ scale: 1.08, rotate: member.hoverRotate }}
-                    transition={{ delay: member.delay }}
-                    className={`absolute ${member.positionClass} w-[140px] sm:w-[150px] bg-white/90 backdrop-blur-md rounded-[16px] p-4 shadow-xl cursor-pointer`}
-                  >
-                    <motion.div
-                      className={`w-12 h-12 rounded-full mb-2 overflow-hidden ${member.avatarImage ? "bg-gray-100" : `bg-gradient-to-br ${member.avatarClass}`}`}
-                      animate={member.avatarImage ? undefined : { rotate: member.spinRotate }}
-                      transition={member.avatarImage ? undefined : { duration: member.spinDuration, repeat: Infinity, ease: "linear" }}
+                    aria-hidden="true"
+                    className="absolute bottom-3 left-[8%] right-[8%] h-12 rounded-[50%] bg-[#0F2954]/12 blur-xl"
+                    animate={prefersReducedMotion ? undefined : { scaleX: [1, 0.94, 1], opacity: [0.45, 0.3, 0.45] }}
+                    transition={prefersReducedMotion ? undefined : { duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                  <motion.img
+                    src={toAbsoluteAssetUrl("/team/illustrations/community-conversation.png") || undefined}
+                    alt="Five Filipino professionals talking together: Ashriel the employer with Jonas, Nicholas, Elijah, and Winona finding work"
+                    className="relative z-10 mx-auto h-[270px] w-full object-contain object-bottom drop-shadow-[0_16px_18px_rgba(15,41,84,0.2)] sm:h-[315px]"
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.97 }}
+                    animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: [0, -3, 0], scale: 1 }}
+                    transition={prefersReducedMotion ? { duration: 0 } : { opacity: { duration: 0.5 }, scale: { duration: 0.5 }, y: { delay: 0.5, duration: 5, repeat: Infinity, ease: "easeInOut" } }}
+                  />
+                </div>
+
+                <div className="relative z-20 -mt-1 px-1 pb-2 sm:px-2">
+                  <div className="mb-3 text-center">
+                    <p className="text-[12px] font-extrabold text-[#0F2954] sm:text-sm">Meet your local network</p>
+                    <p className="mt-0.5 text-[9px] text-slate-500 sm:text-[10px]">People ready to hire, connect, and work</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-4">
+                  {heroTeamCards.map((member) => (
+                    <motion.article
+                      key={member.name}
+                      initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      whileHover={prefersReducedMotion ? undefined : { y: -2 }}
+                      transition={prefersReducedMotion ? { duration: 0 } : { delay: member.delay, duration: 0.35 }}
+                      aria-label={`${member.name}, ${member.role}, ${member.status}`}
+                      className="min-w-0 px-1 text-center"
                     >
-                      {member.avatarImage ? (
-                        <img
-                          src={toAbsoluteAssetUrl(member.avatarImage) || undefined}
-                          alt={member.name}
-                          className="w-full h-full object-cover object-center"
-                          loading="lazy"
-                        />
-                      ) : null}
-                    </motion.div>
-                    <p className="text-[13px] font-semibold text-gray-900 leading-tight">{member.name}</p>
-                    <p className="text-[11px] text-gray-500 leading-snug mt-1">{member.role}</p>
-                  </motion.div>
-                ))}
+                      <p className="truncate text-[10px] font-bold leading-tight text-[#0F2954] sm:text-[11px]">{member.name}</p>
+                      <p className="mt-1 truncate text-[8px] leading-snug text-slate-500 sm:text-[9px]">{member.role}</p>
+                      <p className={`mt-1 text-[8px] font-bold sm:text-[9px] ${member.statusKind === "employer" ? "text-[#0F2954]" : "text-[#1C4D8D]"}`}>
+                        {member.status}
+                      </p>
+                    </motion.article>
+                  ))}
+                  </div>
+                </div>
 
                 {/* Floating Particles */}
                 <FloatingParticles />
@@ -531,13 +521,6 @@ export function LandingPageBlue() {
               transition={{ type: "spring", stiffness: 200 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all perspective-1000"
             >
-              <motion.div 
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-                className="w-14 h-14 rounded-[16px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-6"
-              >
-                <span className="text-[28px]">🎯</span>
-              </motion.div>
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Skill-Based Matching</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed mb-6">
                 Our advanced algorithm matches your skills with the perfect job opportunities, ensuring you find roles that truly fit your expertise.
@@ -568,29 +551,14 @@ export function LandingPageBlue() {
               transition={{ type: "spring", stiffness: 200 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
-              <motion.div 
-                whileHover={{ scale: 1.2 }}
-                className="w-14 h-14 rounded-[16px] bg-emerald-50 flex items-center justify-center mb-6"
-              >
-                <CheckCircle className="w-7 h-7 text-[#10B981]" />
-              </motion.div>
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Verified Companies</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed mb-6">
                 All companies on our platform are thoroughly vetted to ensure you connect with legitimate employers offering quality opportunities.
               </p>
-              <motion.div 
-                whileHover={{ scale: 1.05 }}
-                className="bg-gradient-to-br from-[#E8FFE8] to-green-50 rounded-[16px] p-6 text-center"
-              >
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <CheckCircle className="w-16 h-16 text-[#10B981] mx-auto mb-3" />
-                </motion.div>
+              <div className="rounded-[16px] bg-gradient-to-br from-[#E8FFE8] to-green-50 p-6 text-center">
                 <p className="text-[14px] font-semibold text-gray-900">All Companies Are</p>
                 <p className="text-[14px] font-semibold text-[#10B981]">Fully Verified</p>
-              </motion.div>
+              </div>
             </motion.div>
 
             {/* Tailored Job Matches */}
@@ -601,13 +569,6 @@ export function LandingPageBlue() {
               whileHover={{ scale: 1.05 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
-              <motion.div 
-                whileHover={{ rotate: 360 }}
-                transition={{ duration: 0.6 }}
-                className="w-14 h-14 rounded-[16px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-6"
-              >
-                <Star className="w-7 h-7 text-[#1C4D8D]" />
-              </motion.div>
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Tailored Job Matches</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed">
                 Receive personalized job recommendations based on your profile, experience, and career goals. Find opportunities that align perfectly with your aspirations.
@@ -622,12 +583,6 @@ export function LandingPageBlue() {
               whileHover={{ scale: 1.05 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
-              <motion.div 
-                whileHover={{ scale: 1.2 }}
-                className="w-14 h-14 rounded-[16px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-6"
-              >
-                <TrendingUp className="w-7 h-7 text-[#1C4D8D]" />
-              </motion.div>
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Streamlined Application Process</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed">
                 Apply to multiple positions with ease. Track your applications, schedule interviews, and manage your job search all in one place.
@@ -800,7 +755,7 @@ export function LandingPageBlue() {
         </div>
       </section>
 
-      {/* Testimonials Section */}
+      {/* Successful Hires Section */}
       <section className="bg-slate-50 px-6 py-20">
         <div className="max-w-7xl mx-auto">
           <motion.div 
@@ -809,9 +764,9 @@ export function LandingPageBlue() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-[36px] font-bold text-gray-900 mb-2">What Our Users</h2>
+            <h2 className="text-[36px] font-bold text-gray-900 mb-2">Meet Some of Our</h2>
             <p className="text-[36px] font-bold text-[#1C4D8D]">
-              Say About Micro Jobs
+              Successful Hires
             </p>
           </motion.div>
 
@@ -820,14 +775,14 @@ export function LandingPageBlue() {
               {
                 name: "Aisha M.",
                 role: "HR Professional",
-                gradient: "from-[#1C4D8D] to-[#1C4D8D]",
-                text: '"Micro Jobs transformed my job search experience. Within weeks, I connected with amazing employers and found my dream role. The platform\'s matching algorithm is incredibly accurate!"'
+                status: "Successfully hired",
+                text: '"Micro Jobs connected me with an HR opportunity in my local community. The application process was clear, quick, and easy to follow."'
               },
               {
                 name: "David K.",
                 role: "Software Engineer",
-                gradient: "from-[#6BCF7F] to-[#4CAF50]",
-                text: '"As a hiring manager, Micro Jobs has been a game-changer. The quality of candidates is exceptional, and the streamlined process saves us so much time. Highly recommended!"'
+                status: "Successfully hired",
+                text: '"I found a software engineering role that matched my skills and location. Micro Jobs helped me move from application to hiring with confidence."'
               }
             ].map((testimonial, index) => (
               <motion.div 
@@ -838,29 +793,10 @@ export function LandingPageBlue() {
                 whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.2)" }}
                 className="bg-white/80 backdrop-blur-sm rounded-[24px] p-8 shadow-lg border border-white/50"
               >
-                <div className="flex items-center gap-4 mb-6">
-                  <motion.div 
-                    whileHover={{ scale: 1.1, rotate: 360 }}
-                    transition={{ duration: 0.6 }}
-                    className={`w-16 h-16 rounded-full bg-gradient-to-br ${testimonial.gradient}`}
-                  />
-                  <div>
-                    <p className="text-[16px] font-bold text-gray-900">{testimonial.name}</p>
-                    <p className="text-[13px] text-gray-600">{testimonial.role}</p>
-                  </div>
-                </div>
-                <div className="flex gap-1 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, scale: 0 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: i * 0.1 }}
-                    >
-                      <Star className="w-5 h-5 fill-[#FFD93D] text-[#FFD93D]" />
-                    </motion.div>
-                  ))}
+                <div className="mb-5">
+                  <p className="text-[17px] font-bold text-[#0F2954]">{testimonial.name}</p>
+                  <p className="mt-1 text-[13px] text-gray-600">Hired as {testimonial.role}</p>
+                  <p className="mt-1 text-[12px] font-semibold text-[#1C4D8D]">{testimonial.status}</p>
                 </div>
                 <p className="text-[14px] text-gray-600 leading-relaxed">
                   {testimonial.text}

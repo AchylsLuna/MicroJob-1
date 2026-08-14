@@ -120,6 +120,8 @@ export default function EmployerApplications({
   activeTab = "Applications",
   onTabPress,
   onMessageWorker,
+  onOpenNotifications,
+  notificationBadgeCount = 0,
 }: {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
@@ -128,6 +130,8 @@ export default function EmployerApplications({
     workerName?: string;
     jobId: string;
   }) => void;
+  onOpenNotifications?: () => void;
+  notificationBadgeCount?: number;
 }) {
   const toast = useToast();
   const [jobs, setJobs] = useState<JobItem[]>([]);
@@ -420,7 +424,7 @@ export default function EmployerApplications({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title={selectedJob ? "Candidates" : "Applications"} employerMode />
+      <TabTopNav title={selectedJob ? "Candidates" : "Applications"} employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
       <ScrollView
         refreshControl={
           <RefreshControl

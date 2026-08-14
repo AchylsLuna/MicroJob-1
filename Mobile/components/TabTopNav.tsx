@@ -109,7 +109,9 @@ export default function TabTopNav({
               onPress={onOpenNotifications}
               activeOpacity={0.9}
               disabled={!onOpenNotifications}
-              accessibilityLabel="Open notifications"
+              accessibilityRole="button"
+              accessibilityLabel={`Open notifications${notificationBadgeCount > 0 ? `, ${notificationBadgeCount > 99 ? '99+' : notificationBadgeCount} unread` : ''}`}
+              accessibilityState={{ disabled: !onOpenNotifications }}
             >
               <Ionicons name="notifications-outline" size={19} color={tokens.colors.brand} />
               {notificationBadgeCount > 0 ? (

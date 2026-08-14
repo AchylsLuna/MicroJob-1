@@ -1,17 +1,15 @@
 import React from 'react';
-import EmployerNavigation from '../../components/employerNavigation';
 import NotificationFeedView from '../../components/NotificationFeedView';
 import useNotificationFeed from '../../hooks/useNotificationFeed';
 import type { NotificationListItem } from '../../lib/notifications';
 
 type Props = {
-  activeTab?: string;
-  onTabPress?: (tab: string) => void;
+  onBack?: () => void;
   liveNotifications?: any[];
   onOpenNotification?: (item: NotificationListItem) => void;
 };
 
-export default function EmployerNotifications({ activeTab = 'Notifications', onTabPress, liveNotifications = [], onOpenNotification = () => undefined }: Props) {
+export default function EmployerNotifications({ onBack, liveNotifications = [], onOpenNotification = () => undefined }: Props) {
   const feed = useNotificationFeed(liveNotifications);
   return <NotificationFeedView
     {...feed}
@@ -22,7 +20,8 @@ export default function EmployerNotifications({ activeTab = 'Notifications', onT
     onRemove={(item) => void feed.remove(item)}
     onMarkAllRead={() => void feed.markAllRead()}
     onClearRead={() => void feed.clearRead()}
-    footer={<EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />}
+    onBack={onBack}
+    footer={null}
     employerMode
   />;
 }
