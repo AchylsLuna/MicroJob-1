@@ -28,6 +28,8 @@ import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
 
+// Every stage an application can sit in — used for board columns and filters so
+// hired applicants stay visible.
 const PIPELINE_STATUSES: ApplicationStatus[] = [
   "Applied",
   "Shortlisted",
@@ -37,6 +39,14 @@ const PIPELINE_STATUSES: ApplicationStatus[] = [
   "Hired",
   "Rejected",
 ];
+
+// Stages an employer may set directly. "Hired" is deliberately excluded: hiring
+// reserves a position, pins the agreed amount, and secures escrow, so it only
+// happens through the formal offer flow. The status API rejects "Hired" too, so
+// offering it here would just fail.
+const EDITABLE_STATUSES: ApplicationStatus[] = PIPELINE_STATUSES.filter(
+  (status) => status !== "Hired",
+);
 
 type EmployerApplication = {
   _id: string;
@@ -225,7 +235,14 @@ function ApplicationCard({
           onChange={(event) => onStatusChange(application._id, event.target.value as ApplicationStatus)}
           className="w-full h-10 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
         >
-          {PIPELINE_STATUSES.map((status) => (
+          {/* A hired application keeps showing "Hired" as its current value, but
+              it cannot be re-selected; hiring is driven by the offer flow. */}
+          {application.status === "Hired" ? (
+            <option value="Hired" disabled>
+              Hired (via offer)
+            </option>
+          ) : null}
+          {EDITABLE_STATUSES.map((status) => (
             <option key={status} value={status}>
               {status}
             </option>
@@ -585,7 +602,7 @@ export function ApplicationsManagement() {
                 onChange={(event) => setBulkStatus(event.target.value as ApplicationStatus)}
                 className="h-10 rounded-[10px] border border-[#1C4D8D]/20 px-3 text-[13px] text-[#111827]"
               >
-                {PIPELINE_STATUSES.map((status) => (
+                {EDITABLE_STATUSES.map((status) => (
                   <option key={status} value={status}>
                     Move to {status}
                   </option>
@@ -715,7 +732,12 @@ export function ApplicationsManagement() {
                         onChange={(event) => handleStatusChange(application._id, event.target.value as ApplicationStatus)}
                         className="h-10 rounded-[10px] border border-[#E5E7EB] px-3 text-[12px] text-[#111827]"
                       >
-                        {PIPELINE_STATUSES.map((status) => (
+                        {application.status === "Hired" ? (
+                          <option value="Hired" disabled>
+                            Hired (via offer)
+                          </option>
+                        ) : null}
+                        {EDITABLE_STATUSES.map((status) => (
                           <option key={status} value={status}>
                             {status}
                           </option>

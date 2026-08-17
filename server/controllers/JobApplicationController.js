@@ -1,5 +1,6 @@
 import JobApplication from '../models/JobApplication.js';
 import Job from '../models/Job.js';
+import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
@@ -12,14 +13,18 @@ import {
   toCanonicalApplicationStatus,
 } from '../lib/applicationStatus.js';
 
-const EMPLOYER_MUTABLE_STATUSES = [
-  'Applied',
-  'Shortlisted',
-  'Interview Scheduled',
-  'Interviewed',
-  'Offer Sent',
-  'Rejected',
-];
+// Hiring is not a plain status edit: it reserves a position, pins an agreed
+// amount, and secures escrow. That happens in the offer flow
+// (JobOfferController.confirmOfferHire), so 'Hired' is intentionally absent
+// from the statuses an employer may set directly here.
+import {
+  EMPLOYER_MUTABLE_STATUSES,
+  canUnhireApplication,
+  computeUnhireRefund,
+  isUnhireTransition,
+  nextHiredCount,
+  resolveJobAvailability,
+} from '../lib/hiringState.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 
@@ -98,19 +103,109 @@ async function syncJobHiringState(application, previousStatus, nextStatus) {
   const jobDoc = await Job.findById(application.job?._id || application.job);
   if (!jobDoc) return;
 
-  if (previousStatus !== 'Hired' && nextStatus === 'Hired') {
-    jobDoc.hiredCount = (jobDoc.hiredCount || 0) + 1;
-  } else if (previousStatus === 'Hired' && nextStatus !== 'Hired') {
-    jobDoc.hiredCount = Math.max(0, (jobDoc.hiredCount || 0) - 1);
-  }
+  jobDoc.hiredCount = nextHiredCount({
+    previousStatus,
+    nextStatus,
+    hiredCount: jobDoc.hiredCount,
+  });
 
-  if (jobDoc.hiredCount >= (jobDoc.positionsNeeded || 1)) {
-    jobDoc.status = 'Closed';
-  } else if (jobDoc.status === 'Closed') {
-    jobDoc.status = 'Available';
-  }
+  // Availability follows committed positions (hires + pending offer holds) and
+  // never reopens a post the employer closed by hand.
+  jobDoc.status = resolveJobAvailability({
+    status: jobDoc.status,
+    hiredCount: jobDoc.hiredCount,
+    reservedOfferCount: jobDoc.reservedOfferCount,
+    positionsNeeded: jobDoc.positionsNeeded,
+    closedManually: jobDoc.closedManually,
+  });
 
   await jobDoc.save();
+}
+
+/**
+ * Undo a hire: free the position and return the negotiated escrow that was
+ * debited for this specific worker.
+ *
+ * The base salary escrow stays held for the now-vacant position and is settled
+ * when the job completes; only the above-base amount is refunded here, mirroring
+ * the refund path for a rejected/cancelled offer. Idempotent via the reference
+ * key, so a retried un-hire cannot double-refund.
+ */
+async function refundUnhireEscrow(application, actorId) {
+  const jobId = application.job?._id || application.job;
+  const [jobDoc, offer] = await Promise.all([
+    Job.findById(jobId).select('salary jobPoster'),
+    JobOffer.findOne({
+      application: application._id,
+      status: { $in: ['accepted', 'hired'] },
+    }).sort({ createdAt: -1 }),
+  ]);
+
+  const refund = computeUnhireRefund({
+    offerAmount: offer?.amount ?? application.agreedAmount,
+    additionalEscrow: offer?.additionalEscrow,
+    jobSalary: jobDoc?.salary,
+  });
+  if (refund <= 0) return;
+
+  const employerId = application.job?.jobPoster || jobDoc?.jobPoster || actorId;
+  const reference = `unhire-refund:${application._id}`;
+  if (await Transaction.exists({ reference })) return;
+
+  await User.updateOne({ _id: employerId }, { $inc: { employerBalance: refund } });
+  await Transaction.create({
+    sender: null,
+    receiver: employerId,
+    amount: refund,
+    type: 'REFUND',
+    status: 'COMPLETED',
+    balanceTarget: 'EMPLOYER',
+    jobReference: jobId,
+    reference,
+    label: 'Hire reverted escrow refund',
+    relatedEntityType: 'application',
+    relatedEntityId: String(application._id),
+    actor: actorId || employerId,
+  });
+}
+
+/**
+ * Release a hired application back into the pipeline: validate that the payment
+ * state still allows it, refund negotiated escrow, and clear the hire lifecycle
+ * fields so a stale 'Secured' payment cannot strand the money.
+ *
+ * Returns an error object when the un-hire must be refused.
+ */
+async function revertHire(application, nextStatus, actorId) {
+  const permission = canUnhireApplication({ paymentStatus: application.paymentStatus });
+  if (!permission.allowed) {
+    return { error: permission.reason, status: 409 };
+  }
+
+  await refundUnhireEscrow(application, actorId);
+
+  application.agreedAmount = null;
+  application.workStatus = 'In Progress';
+  application.paymentStatus = 'Secured';
+  application.paymentAuthorizedAt = null;
+  application.workSubmittedAt = null;
+  application.changesRequestedAt = null;
+  application.completedAt = null;
+
+  await JobOffer.updateMany(
+    { application: application._id, status: { $in: ['pending', 'accepted', 'hired'] } },
+    { $set: { status: 'cancelled', resolvedAt: new Date() } }
+  );
+
+  appendTimeline(application, {
+    type: 'hire_reverted',
+    status: nextStatus,
+    note: 'Hire reverted; reserved escrow returned to the employer.',
+    actor: actorId,
+    meta: { previousStatus: 'Hired' },
+  });
+
+  return { error: null };
 }
 
 async function notifyEmployerOfNewApplication({ application, job, userId }) {
@@ -374,6 +469,16 @@ export const updateApplicationStatus = async (req, res) => {
     const application = result.application;
 
     const previousStatus = application.status;
+
+    // Moving off a hired state frees the position and returns the escrow that
+    // was reserved for this worker; refuse when payment is already in flight.
+    if (isUnhireTransition({ previousStatus, nextStatus: canonicalStatus })) {
+      const reverted = await revertHire(application, canonicalStatus, getUserId(req));
+      if (reverted.error) {
+        return sendError(res, reverted.status, reverted.error);
+      }
+    }
+
     application.status = canonicalStatus;
     application.applicantReadAt = null;
     appendTimeline(application, {
@@ -530,7 +635,13 @@ export const deleteEmployerApplication = async (req, res) => {
     if (result.error) return sendError(res, result.status, result.error);
 
     const application = result.application;
-    if (application.status === 'Hired') {
+    // Deleting a hired application destroys the record, so the escrow reserved
+    // for that worker has to be returned before it becomes unreachable.
+    if (isUnhireTransition({ previousStatus: application.status, nextStatus: 'Rejected' })) {
+      const reverted = await revertHire(application, 'Rejected', getUserId(req));
+      if (reverted.error) {
+        return sendError(res, reverted.status, reverted.error);
+      }
       await syncJobHiringState(application, 'Hired', 'Rejected');
     }
 

@@ -555,6 +555,14 @@ export async function changeJobStatus(req, res){
         }
 
         job.status = status;
+        // Record the employer's intent so hiring-state changes cannot silently
+        // reopen a post that was closed by hand (or keep one closed after the
+        // employer explicitly makes it available again).
+        if (status === 'Closed') {
+            job.closedManually = true;
+        } else if (status === 'Available') {
+            job.closedManually = false;
+        }
         await job.save();
         if (status === 'Completed') {
             await JobApplication.updateMany(
@@ -919,6 +927,9 @@ export async function reopenJob(req, res) {
         job.applicants = [];
         job.selectedApplicant = null;
         job.status = 'Available';
+        // An explicit reopen clears the manual-close flag so capacity can manage
+        // Available/Closed again.
+        job.closedManually = false;
         await job.save();
 
         // Remove old JobApplication records so workers can apply again fresh

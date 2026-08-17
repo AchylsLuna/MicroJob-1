@@ -70,6 +70,14 @@ const JobSchema = new mongoose.Schema(
             default: 0,
             min: 0,
         },
+        // True when the employer closed this post by hand rather than it being
+        // closed automatically because every position was filled/reserved.
+        // Capacity changes must not silently reopen a deliberately closed post.
+        closedManually: {
+            type: Boolean,
+            default: false,
+        },
+
         category: {
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Category',
