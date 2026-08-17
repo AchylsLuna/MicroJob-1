@@ -14,7 +14,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "../lib/toast";
-import { applyForJob, getJobDetails } from "../services/api";
+import { applyForJob, getJobDetails, startJobInquiry } from "../services/api";
 import { ROUTES } from "../utils/routes";
 import { useSavedJobs } from "../hooks/useSavedJobs";
 import { useAuth } from "../hooks/useAuth";
@@ -148,6 +148,7 @@ export function JobDetails() {
   const [job, setJob] = useState<ApiJob | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [startingInquiry, setStartingInquiry] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -211,30 +212,42 @@ export function JobDetails() {
     }
   };
 
-  const handleMessageEmployer = () => {
+  const handleMessageEmployer = async () => {
     if (!job?._id) {
       toast.error("Job information not available.");
       return;
     }
+    if (startingInquiry) return;
 
-    const employerId = typeof job.jobPoster === "object" && job.jobPoster?._id ? job.jobPoster._id : null;
-    if (!employerId) {
-      toast.error("Employer information not available.");
-      return;
+    setStartingInquiry(true);
+    try {
+      // The server resolves the employer from the job post, so the inquiry always
+      // lands in the worker <-> job poster thread instead of Admin/Support.
+      const response = await startJobInquiry(job._id, { sendInitialMessage: false });
+      const conversation = (response as any)?.data?.conversation ?? (response as any)?.conversation;
+      const employerId = conversation?.otherUserId;
+      if (!employerId) {
+        toast.error("Employer information not available for this job.");
+        return;
+      }
+
+      const employerName = conversation.otherUserName || "Employer";
+      const params = new URLSearchParams({
+        contact: conversation.conversationId || `${employerId}::${job._id}`,
+        startUser: employerId,
+        jobId: conversation.jobId || job._id,
+        startName: employerName,
+        source: "job-details",
+        draft: `Hi ${employerName}, I'm interested in the ${job.title} position. I would like to discuss this opportunity further.`,
+      });
+      navigate(`/worker/messages?${params.toString()}`);
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to start a conversation with this employer.");
+    } finally {
+      setStartingInquiry(false);
     }
-
-    const employerName = `${job.jobPoster?.firstName || ""} ${job.jobPoster?.lastName || ""}`.trim() || "Employer";
-    const initialMessage = `Hi ${employerName}, I'm interested in the ${job.title} position. I would like to discuss this opportunity further.`;
-    const params = new URLSearchParams({
-      contact: `${employerId}::${job._id}`,
-      startUser: employerId,
-      jobId: job._id,
-      startName: employerName,
-      source: "job-details",
-      draft: initialMessage,
-    });
-    navigate(`/worker/messages?${params.toString()}`);
   };
+
 
   const handleCompanyProfile = () => {
     const employerId = typeof job?.jobPoster === "object" ? job.jobPoster?._id : null;
@@ -368,7 +381,8 @@ export function JobDetails() {
 
                     <button
                       onClick={handleMessageEmployer}
-                      className="min-h-12 rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0"
+                      disabled={startingInquiry}
+                      className="min-h-12 rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
                       title="Message employer"
                       aria-label="Message employer"
                     >

@@ -141,50 +141,57 @@ export default function JobDetails({
   };
 
   const handleMessageEmployer = async () => {
-    const recipientCandidate = jobDetails?.jobPoster || job?.jobPoster;
-    const recipientId =
-      typeof recipientCandidate === 'string'
-        ? recipientCandidate
-        : recipientCandidate && (recipientCandidate._id || recipientCandidate.id || recipientCandidate.email);
-
-    const recipientName =
-      typeof recipientCandidate === 'string'
-        ? 'Employer'
-        : `${recipientCandidate?.firstName || ''} ${recipientCandidate?.lastName || ''}`.trim() || 'Employer';
-
-    if (!recipientId) {
-      toast.error('Employer details are not available for this job yet.');
+    const targetJobId = jobDetails?._id || job?._id;
+    if (!targetJobId) {
+      toast.error('Job details are not available yet.');
       return;
     }
 
-    const defaultMessage = `Hi ${recipientName}, I'm interested in your job "${jobDetails?.title || job?.title || 'this job'}".`;
-
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      if (token) {
-        await apiRequest(
-          `${API_URL}/messages`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ receiverId: recipientId, content: defaultMessage, jobId: jobDetails?._id || job?._id }),
-          },
-          'Failed to send message.'
-        );
+      if (!token) {
+        toast.error('Please sign in again to message this employer.');
+        return;
       }
-    } catch (error) {
-      console.warn('Initial message send failed', error);
-    } finally {
+
+      // Ask the server to resolve the job poster so the inquiry opens a worker <->
+      // employer thread tied to this job instead of the Admin/Support channel.
+      const result = await apiRequest(
+        `${API_URL}/messages/inquiries/${targetJobId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ sendInitialMessage: false }),
+        },
+        'Failed to open a conversation with this employer.'
+      );
+
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to open a conversation with this employer.');
+      }
+
+      const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
+      const conversation = payload.conversation || payload;
+      const recipientId = conversation?.otherUserId;
+      if (!recipientId) {
+        toast.error('Employer details are not available for this job yet.');
+        return;
+      }
+
       onMessageEmployer?.({
-        userId: recipientId,
-        userName: recipientName,
-        jobId: jobDetails?._id || job?._id,
+        userId: String(recipientId),
+        userName: conversation.otherUserName || 'Employer',
+        jobId: String(conversation.jobId || targetJobId),
       });
+
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to open a conversation with this employer.');
     }
   };
+
 
   const handleFindMoreJobs = () => {
     setShowSuccess(false);

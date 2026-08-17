@@ -6,7 +6,7 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
-import { apiRequest, asList } from '../../lib/api';
+import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { formatMinimumPay } from '../../lib/jobCompensation';
 
@@ -257,6 +257,44 @@ export default function Jobs(props: JobsProps) {
   const handleToggleSave = (job: Job) => {
     onToggleSave?.(job);
   };
+
+  // Resolve the employer from the job post server-side so the inquiry opens the
+  // worker <-> job poster thread rather than the Admin/Support channel.
+  const handleMessageEmployer = async (job: Job) => {
+    if (!job?._id) return;
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) return;
+
+      const result = await apiRequest(
+        `${API_URL}/messages/inquiries/${job._id}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ sendInitialMessage: false }),
+        },
+        'Failed to open a conversation with this employer.'
+      );
+
+      if (!result.ok) return;
+
+      const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
+      const conversation = payload.conversation || payload;
+      if (!conversation?.otherUserId) return;
+
+      onMessageEmployer?.({
+        userId: String(conversation.otherUserId),
+        userName: conversation.otherUserName || 'Employer',
+        jobId: String(conversation.jobId || job._id),
+      });
+    } catch (error) {
+      console.warn('Job inquiry could not be started', error);
+    }
+  };
+
 
   const saveMatchingPreferences = async () => {
     setSavingPreferences(true);
@@ -535,45 +573,9 @@ export default function Jobs(props: JobsProps) {
               {job.jobPoster && currentUserId && !((typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) || (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))) ? (
                 <TouchableOpacity
                   style={styles.messageEmployerButton}
-                  onPress={async () => {
-                    const recipientCandidate = job.jobPoster as any;
-                    const recipientId =
-                      typeof recipientCandidate === 'string'
-                        ? recipientCandidate
-                        : recipientCandidate && (recipientCandidate._id || recipientCandidate.id || recipientCandidate.email);
-
-                    const recipientName =
-                      typeof recipientCandidate === 'string'
-                        ? 'Employer'
-                        : `${recipientCandidate?.firstName || ''} ${recipientCandidate?.lastName || ''}`.trim() || 'Employer';
-
-                    const defaultMessage = `Hi ${recipientName}, I'm interested in your job "${job.title}".`;
-
-                    try {
-                      const token = await AsyncStorage.getItem('auth_token');
-                      if (recipientId && token) {
-                        await apiRequest(
-                          `${API_URL}/messages`,
-                          {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              Authorization: `Bearer ${token}`,
-                            },
-                            body: JSON.stringify({ receiverId: recipientId, content: defaultMessage, jobId: job._id }),
-                          },
-                          'Failed to send message.'
-                        );
-                      }
-                    } catch (e) {
-                      console.warn('Initial message send failed', e);
-                    } finally {
-                      onMessageEmployer?.({
-                        userId: recipientId,
-                        userName: recipientName,
-                        jobId: job._id,
-                      });
-                    }
+                  onPress={(e: any) => {
+                    e?.stopPropagation?.();
+                    handleMessageEmployer(job);
                   }}
                 >
                   <Ionicons name="chatbubble-ellipses-outline" size={14} color={tokens.colors.onBrand} />

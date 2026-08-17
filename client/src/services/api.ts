@@ -1034,9 +1034,32 @@ export function sendMessage(payload: { receiverId: string; content: string; jobI
   return request<any>('/messages', { method: 'POST', body: payload });
 }
 
+export type JobInquiryConversation = {
+  conversationId: string;
+  otherUserId: string;
+  otherUserName: string;
+  jobId: string | null;
+  jobTitle: string | null;
+};
+
+/**
+ * Opens the worker -> employer inquiry thread for a job. The server resolves the
+ * employer from the job post, so the caller never has to guess the recipient.
+ */
+export function startJobInquiry(
+  jobId: string,
+  payload?: { content?: string; sendInitialMessage?: boolean; clientMessageId?: string },
+) {
+  return request<{ conversation: JobInquiryConversation; message: any | null }>(
+    `/messages/inquiries/${jobId}`,
+    { method: 'POST', body: payload || {} },
+  );
+}
+
 export function getConversations() {
   return request<any[]>('/messages/conversations', { method: 'GET' });
 }
+
 
 export function getConversationWithUser(otherUserId: string, jobId?: string) {
   return request<any[]>(`/messages/conversation/${otherUserId}${buildQuery(jobId ? { jobId } : undefined)}`, { method: 'GET' });

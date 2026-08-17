@@ -15,6 +15,9 @@ const messageWriteLimiter = rateLimit({
 router.post('/', messageWriteLimiter, auth, MessageController.sendMessage);
 // Backward-compatible alias for older deployed clients; new clients use POST /api/messages.
 router.post('/send', messageWriteLimiter, auth, MessageController.sendMessage);
+// Open a job inquiry thread with the employer who posted the job.
+router.post('/inquiries/:jobId', messageWriteLimiter, auth, MessageController.startJobInquiry);
+
 // Get all conversations for logged-in user
 router.get('/conversations', auth, MessageController.getConversations);
 // Get messages between two users (optionally for a job)

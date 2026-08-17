@@ -14,6 +14,7 @@ import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import { ROUTES } from "../../utils/routes";
+import { isStaffConversation } from "../../utils/staffConversation";
 import { useAuth } from "../../contexts/AuthContext";
 import { 
   getConversations, 
@@ -42,6 +43,8 @@ interface Contact {
   conversationId: string;
   otherUserId: string;
   otherUserName: string;
+  // Admin/Support accounts are platform staff and expose no public profile.
+  otherUserIsStaff?: boolean;
   jobId: string | null;
   jobTitle: string | null;
   lastMessage: string;
@@ -219,6 +222,10 @@ export function Messages() {
           conversationId,
           otherUserId,
           otherUserName,
+          otherUserIsStaff: isStaffConversation(
+            { otherUserIsStaff: existing?.otherUserIsStaff, otherUserId },
+            supportStartUserId,
+          ),
           jobId: messageJobId,
           jobTitle: message?.job?.title || existing?.jobTitle || null,
           lastMessage: message?.content || existing?.lastMessage || "",
@@ -293,7 +300,7 @@ export function Messages() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, selectedContact, supportDisplayNameFor]);
+  }, [currentUserId, selectedContact, supportDisplayNameFor, supportStartUserId]);
 
   useEffect(() => {
     if (!selectedContact) return;
@@ -671,8 +678,13 @@ export function Messages() {
     setShowMoreMenu(false);
   };
 
+  const canViewSelectedProfile =
+    Boolean(selectedContact?.otherUserId) && !isStaffConversation(selectedContact, supportStartUserId);
+
   const handleViewProfile = () => {
     if (!selectedContact?.otherUserId) return;
+    // Admin/Support has no public profile, so never navigate there.
+    if (!canViewSelectedProfile) return;
     navigate(`${ROUTES.publicProfile(selectedContact.otherUserId)}?viewAs=worker`);
   };
 
@@ -927,13 +939,19 @@ export function Messages() {
                       Archive
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={handleViewProfile}
-                    className="hidden rounded-full bg-[#1C4D8D] px-5 py-2 text-[14px] font-semibold text-white transition hover:opacity-90 md:block"
-                  >
-                    View Profile
-                  </button>
+                  {canViewSelectedProfile ? (
+                    <button
+                      type="button"
+                      onClick={handleViewProfile}
+                      className="hidden rounded-full bg-[#1C4D8D] px-5 py-2 text-[14px] font-semibold text-white transition hover:opacity-90 md:block"
+                    >
+                      View Profile
+                    </button>
+                  ) : (
+                    <span className="hidden rounded-full border border-[#D7DCE7] bg-[#F5F7FB] px-5 py-2 text-[14px] font-semibold text-[#4B5563] md:block">
+                      Platform Support
+                    </span>
+                  )}
                   <div className="relative" ref={moreMenuRef}>
                     <button
                       type="button"

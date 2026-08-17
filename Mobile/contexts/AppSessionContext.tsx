@@ -26,7 +26,7 @@ type BootstrapIssue = {
   expectedEnvironment?: string;
   actualEnvironment?: string;
 };
-type ChatTarget = { id: string; name?: string } | null;
+type ChatTarget = { id: string; name?: string; jobId?: string } | null;
 type SavedJobItem = {
   _id: string;
   title: string;

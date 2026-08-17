@@ -8,6 +8,8 @@ import { tokens } from '../../theme/tokens';
 type ChatTarget = {
   id: string;
   name?: string;
+  /** Set when the chat was opened as an inquiry about a specific job posting. */
+  jobId?: string;
 };
 
 export default function WorkerInbox({
@@ -44,6 +46,7 @@ export default function WorkerInbox({
           <ChatScreen
             userId={selectedUser.id}
             displayName={selectedUser.name}
+            jobId={selectedUser.jobId}
             onBack={() => setSelectedUser(null)}
             liveMessages={liveMessages}
             onOpenNotifications={onOpenNotifications}
@@ -51,7 +54,7 @@ export default function WorkerInbox({
           />
         ) : (
           <MessageList
-            onOpenChat={(id, name) => setSelectedUser(id ? { id, name } : null)}
+            onOpenChat={(id, name, jobId) => setSelectedUser(id ? { id, name, jobId } : null)}
             liveMessages={liveMessages}
             onOpenNotifications={onOpenNotifications}
             notificationBadgeCount={notificationBadgeCount}

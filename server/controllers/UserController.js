@@ -6,6 +6,7 @@ import PayoutRequest from "../models/PayoutRequest.js";
 import PushDevice from "../models/PushDevice.js";
 import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
+import { getPublicProfileAccessError } from "../lib/staffProfileVisibility.js";
 import { getEmailTransporter } from "../lib/emailTransporter.js";
 import { disconnectSession } from "../lib/socket.js";
 import { deleteStoredUpload } from "../lib/uploadStore.js";
@@ -708,6 +709,19 @@ export async function getPublicProfile(req, res) {
 
         if (!user) {
             return res.status(404).json({ message: "User not found." });
+        }
+
+        // Admin/Support accounts are platform staff and have no public profile.
+        // Answer with 404 so support conversations cannot be used to browse or
+        // enumerate administrator accounts.
+        const staffAccessError = getPublicProfileAccessError({
+            targetRole: user.role,
+            requesterRole: req.user?.role,
+            targetId: user._id,
+            requesterId: requesterId,
+        });
+        if (staffAccessError) {
+            return res.status(staffAccessError.status).json({ message: staffAccessError.message });
         }
 
         const [workerAppliedCount, workerHiredCount, postedJobs] = await Promise.all([

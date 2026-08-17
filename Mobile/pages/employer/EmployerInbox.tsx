@@ -19,10 +19,10 @@ export default function EmployerInbox({
   liveMessages?: any[];
   onOpenNotifications?: () => void;
   notificationBadgeCount?: number;
-  initialChatTarget?: { id: string; name?: string } | null;
+  initialChatTarget?: { id: string; name?: string; jobId?: string } | null;
   onConsumeInitialChatTarget?: () => void;
 }) {
-  const [selectedUser, setSelectedUser] = useState<{ id: string; name?: string } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name?: string; jobId?: string } | null>(null);
 
   React.useEffect(() => {
     if (!initialChatTarget?.id) return;
@@ -37,6 +37,7 @@ export default function EmployerInbox({
           <ChatScreen
             userId={selectedUser.id}
             displayName={selectedUser.name}
+            jobId={selectedUser.jobId}
             onBack={() => setSelectedUser(null)}
             liveMessages={liveMessages}
             onOpenNotifications={onOpenNotifications}
@@ -45,7 +46,7 @@ export default function EmployerInbox({
           />
         ) : (
           <MessageList
-            onOpenChat={(id: string | null, name?: string) => setSelectedUser(id ? { id, name } : null)}
+            onOpenChat={(id: string | null, name?: string, jobId?: string) => setSelectedUser(id ? { id, name, jobId } : null)}
             isEmployer
             liveMessages={liveMessages}
             onOpenNotifications={onOpenNotifications}

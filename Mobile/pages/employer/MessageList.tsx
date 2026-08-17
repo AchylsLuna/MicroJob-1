@@ -35,7 +35,7 @@ interface ConversationSummary {
 }
 
 interface MessageListProps {
-  onOpenChat: (userId: string, name?: string) => void;
+  onOpenChat: (userId: string, name?: string, jobId?: string) => void;
   isEmployer?: boolean;
   liveMessages?: any[];
   onOpenNotifications?: () => void;
@@ -228,7 +228,7 @@ export default function MessageList({
       toast.info('Cannot open this conversation.');
       return;
     }
-    onOpenChat(conversation.userId, conversation.name);
+    onOpenChat(conversation.userId, conversation.name, conversation.jobId || undefined);
     if (conversation.unreadCount <= 0) return;
     try {
       const token = await AsyncStorage.getItem('auth_token');

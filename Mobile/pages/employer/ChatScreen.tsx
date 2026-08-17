@@ -30,9 +30,11 @@ interface ChatScreenProps {
   onOpenNotifications?: () => void;
   notificationBadgeCount?: number;
   isEmployer?: boolean;
+  /** Links messages sent from this thread to a specific job posting (job inquiries). */
+  jobId?: string;
 }
 
-export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [], onOpenNotifications, notificationBadgeCount = 0, isEmployer = false }: ChatScreenProps) {
+export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [], onOpenNotifications, notificationBadgeCount = 0, isEmployer = false, jobId }: ChatScreenProps) {
   const [displayName, setDisplayName] = useState<string | undefined>(initialDisplayName);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -140,7 +142,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ receiverId: userId, content: input }),
+        body: JSON.stringify({ receiverId: userId, content: input, ...(jobId ? { jobId } : {}) }),
       }, 'Unable to send message');
       if (!result.ok) {
         console.warn('Send message failed', result.status, result.raw);

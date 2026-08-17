@@ -303,7 +303,7 @@ function WorkerJobsScreen() {
       }}
       onMessageEmployer={({ userId, userName, jobId }) => {
         if (!userId) return;
-        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
+        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer', jobId: jobId ? String(jobId) : undefined });
         navigation.navigate('Messages');
       }}
       savedJobIds={session.savedJobIds}
@@ -400,9 +400,9 @@ function WorkerJobDetailsScreen() {
           toast.error(error?.message || 'Failed to update saved jobs.');
         }
       }}
-      onMessageEmployer={({ userId, userName }) => {
+      onMessageEmployer={({ userId, userName, jobId }) => {
         if (!userId) return;
-        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
+        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer', jobId: jobId ? String(jobId) : undefined });
         workerTabPress('Messages');
       }}
       isSaved={job?._id ? session.savedJobIds.includes(String(job._id)) : false}
@@ -447,9 +447,9 @@ function WorkerAppliedJobsScreen() {
       onTabPress={workerTabPress}
       onViewDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
       onViewSavedJobs={() => navigation.navigate('WorkerSavedJobs')}
-      onMessageEmployer={({ userId, userName }) => {
+      onMessageEmployer={({ userId, userName, jobId }) => {
         if (!userId) return;
-        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer' });
+        session.setInitialWorkerChatTarget({ id: String(userId), name: userName || 'Employer', jobId: jobId ? String(jobId) : undefined });
         workerTabPress('Messages');
       }}
       messageBadgeCount={session.unreadMessageCount}
