@@ -490,7 +490,6 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, color: '#6b7280' },
   loadingRow: { paddingVertical: 8 },
   errorText: { color: '#b91c1c', fontSize: 12, marginBottom: 8 },
-  jobsList: { gap: 12, marginTop: 2 },
   jobCard: {
     backgroundColor: tokens.colors.surface,
     borderRadius: 14,

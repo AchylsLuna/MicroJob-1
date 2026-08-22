@@ -1,21 +1,24 @@
 import { useRef, useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Shield } from "lucide-react";
 import { toast } from "../../lib/toast";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { isAdmin } from "../../utils/dashboardRoutes";
+import { getPostSignInPath } from "../../utils/authRedirects";
 import { ROUTES } from "../../utils/routes";
 import { MfaLoginForm } from "../../components/auth/MfaLoginForm";
 
 export function AdminSignIn() {
   const { login, isAuthenticated, user, logout, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
+  const location = useLocation();
+  const redirectPath = getPostSignInPath((location.state as { from?: unknown } | null)?.from, ROUTES.admin.dashboard);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   if (!isLoading && isAuthenticated && isAdmin(user)) {
-    return <Navigate to={ROUTES.admin.dashboard} replace />;
+    return <Navigate to={redirectPath} replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {

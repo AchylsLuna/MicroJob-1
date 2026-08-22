@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { X, Mail, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 
 interface OTPVerificationProps {
@@ -156,7 +156,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
           });
           return;
         }
-        const computedDestination = getDefaultDashboardPath(
+        const computedDestination = getPostAuthLandingPath(
           nextUser && typeof nextUser === "object" ? (nextUser as any) : null,
         );
         const destination = sessionStorage.getItem("post_verify_redirect") || computedDestination;

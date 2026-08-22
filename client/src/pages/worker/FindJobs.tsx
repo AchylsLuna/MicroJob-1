@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Heart, Clock, MapPin, Search, SlidersHorizontal } from "lucide-react";
+import { MapPin, Search, SlidersHorizontal } from "lucide-react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getJobs, getProfile, updateJobPreferences } from "../../services/api";
@@ -7,20 +7,40 @@ import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button, StatusState } from "../../components/ui";
+import { DateField } from "../../components/ui/DateField";
+import { isDateDisabled, type DateRange } from "../../lib/calendarModel";
+import { JobCard } from "../../components/job/JobCard";
+import { toJobCardData } from "../../components/job/jobCardModel";
+
+// Converts between the "YYYY-MM-DD" strings stored in the URL (?from=&to=)
+// and the Date objects DateField works with.
+function parseDateOnly(value: string): Date | null {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+function formatDateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 interface Job {
   id: string;
   title: string;
   company: string;
-  companyLogo: string;
   applicants: number;
   type: "Short-term" | "Side hustle" | "Recruiting" | "Full-Time" | "Part-Time" | "Contract" | "Project Work";
-  description: string;
   location: string;
   salary: string;
   postedDaysAgo: number;
   saved: boolean;
   category: string;
+  categoryId?: string;
+  skills: string[];
+  urgent: boolean;
+  deadline?: string;
 }
 
 interface ApiJob {
@@ -31,9 +51,12 @@ interface ApiJob {
   salary?: string | number;
   jobType?: string;
   createdAt?: string;
-  category?: { name?: string } | string;
+  category?: { _id?: string; name?: string } | string;
   applicants?: string[];
   requirements?: string[];
+  skills?: string[];
+  urgent?: boolean;
+  deadline?: string;
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 }
 
@@ -52,6 +75,20 @@ export function FindJobs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
   const selectedCategory = searchParams.get("category") || "";
+  const dateFromParam = searchParams.get("from") || "";
+  const dateToParam = searchParams.get("to") || "";
+  const deadlineRange: DateRange = {
+    start: dateFromParam ? parseDateOnly(dateFromParam) : null,
+    end: dateToParam ? parseDateOnly(dateToParam) : null,
+  };
+  const setDeadlineRange = (next: DateRange) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (next.start) nextParams.set("from", formatDateOnly(next.start));
+    else nextParams.delete("from");
+    if (next.end) nextParams.set("to", formatDateOnly(next.end));
+    else nextParams.delete("to");
+    setSearchParams(nextParams);
+  };
   const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -178,15 +215,17 @@ export function FindJobs() {
       id: job._id,
       title: job.title,
       company: companyName,
-      companyLogo: companyName.charAt(0) || "M",
       applicants: job.applicants?.length || 0,
       type: getJobTypeLabel(job.jobType),
-      description: job.description,
       location: job.location || "Location not specified",
       salary: salaryLabel,
       postedDaysAgo: getPostedDays(job.createdAt),
       saved: false,
       category: categoryName,
+      categoryId: typeof job.category === "string" ? undefined : job.category?._id,
+      skills: job.skills || [],
+      urgent: Boolean(job.urgent),
+      deadline: job.deadline,
     };
   }, []);
 
@@ -266,27 +305,6 @@ export function FindJobs() {
     };
   }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob]);
 
-  const getJobTypeColor = (type: string) => {
-    switch (type) {
-      case "Full-Time":
-        return "bg-[#DFE8FF] text-[#1C4D8D]";
-      case "Part-Time":
-        return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
-      case "Contract":
-        return "bg-[#FFEDD5] text-[#C2410C]";
-      case "Project Work":
-        return "bg-[#FEF3C7] text-[#B45309]";
-      case "Short-term":
-        return "bg-[#E0F2FE] text-[#0369A1]";
-      case "Side hustle":
-        return "bg-[#FEF3C7] text-[#B45309]";
-      case "Recruiting":
-        return "bg-[#DCFCE7] text-[#15803D]";
-      default:
-        return "bg-[#F3F4F6] text-[#6B7280]";
-    }
-  };
-
   const parseSalaryValue = (value: string | number) => {
     if (typeof value === "number") {
       return Number.isFinite(value) ? value : 0;
@@ -304,12 +322,6 @@ export function FindJobs() {
     return " minimum";
   };
 
-  const getPostedLabel = (postedDaysAgo: number) => {
-    if (postedDaysAgo <= 0) return "Today";
-    if (postedDaysAgo === 1) return "1d ago";
-    return `${postedDaysAgo}d ago`;
-  };
-
   const jobsWithSavedState = jobs.map((job) => ({
     ...job,
     saved: savedJobIds.has(job.id),
@@ -319,6 +331,12 @@ export function FindJobs() {
     const workerCity = normalizeToken(workerLocation.city);
     if (!workerCity || !normalizeToken(job.location).includes(workerCity)) {
       return false;
+    }
+    if (deadlineRange.start && deadlineRange.end) {
+      if (!job.deadline) return false;
+      const deadlineDate = new Date(job.deadline);
+      if (Number.isNaN(deadlineDate.getTime())) return false;
+      if (isDateDisabled(deadlineDate, { minDate: deadlineRange.start, maxDate: deadlineRange.end })) return false;
     }
     if (!searchQuery) {
       return true;
@@ -373,7 +391,7 @@ export function FindJobs() {
         </div>
 
         <form
-          className="relative mt-6 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.35fr)_minmax(12rem,0.35fr)]"
+          className="relative mt-6 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.3fr)_minmax(11rem,0.3fr)_minmax(11rem,0.3fr)]"
           role="search"
           onSubmit={(event) => event.preventDefault()}
         >
@@ -413,6 +431,15 @@ export function FindJobs() {
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
             <span className="truncate text-sm font-semibold">{workerLocationLabel}</span>
           </button>
+          <DateField
+            mode="range"
+            minDate={new Date()}
+            value={deadlineRange}
+            onChange={setDeadlineRange}
+            placeholder="Any deadline"
+            className="min-w-0"
+            buttonClassName="flex h-14 w-full items-center gap-2 rounded-xl border-0 bg-white px-4 text-left text-sm font-semibold text-slate-700 outline-none transition focus:ring-2 focus:ring-blue-500"
+          />
         </form>
       </section>
 
@@ -509,76 +536,27 @@ export function FindJobs() {
 
       {!isLoading && !loadError && sortedJobs.length > 0 && (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {sortedJobs.map((job) => (
-            <div
+          {sortedJobs.map((job, index) => (
+            <JobCard
               key={job.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => navigate(ROUTES.worker.jobDetails(job.id))}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  navigate(ROUTES.worker.jobDetails(job.id));
-                }
-              }}
-              className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_12px_32px_rgba(15,23,42,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:p-6"
-              aria-label={`View ${job.title} at ${job.company}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-4 min-w-0">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl font-bold text-blue-700 ring-1 ring-blue-100">
-                    {job.companyLogo || job.company.charAt(0)}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="line-clamp-1 text-lg font-bold leading-tight text-slate-950 group-hover:text-blue-700">
-                      {job.title}
-                    </h3>
-                    <p className="mt-1 line-clamp-1 text-sm text-slate-500">
-                      {job.company} · {job.applicants} Applicants
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleSaveJob(job.id);
-                  }}
-                  className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-slate-400 transition hover:bg-rose-50 hover:text-rose-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                  title={job.saved ? "Remove from saved" : "Save job"}
-                  aria-label={job.saved ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}
-                  aria-pressed={job.saved}
-                >
-                  <Heart className={`h-5 w-5 ${job.saved ? "fill-rose-500 text-rose-500" : ""}`} />
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mt-4">
-                <span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${getJobTypeColor(job.type)}`}>
-                  {job.type}
-                </span>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                  {job.category}
-                </span>
-              </div>
-
-              <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-600">
-                {job.description}
-              </p>
-
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500"><MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /><span className="line-clamp-1">{job.location}</span></p>
-
-              <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
-                <p className="min-w-0 truncate text-lg font-bold text-slate-950">
-                  {job.salary}
-                  <span className="text-[14px] font-medium text-[#6B7280]">{getSalarySuffix(job.salary)}</span>
-                </p>
-                <div className="flex items-center gap-1.5 text-[14px] text-[#6B7280]">
-                  <Clock className="w-4 h-4" />
-                  <span>{getPostedLabel(job.postedDaysAgo)}</span>
-                </div>
-              </div>
-            </div>
+              job={toJobCardData({
+                id: job.id,
+                title: job.title,
+                company: job.company,
+                location: job.location,
+                type: job.type,
+                salary: `${job.salary}${getSalarySuffix(job.salary)}`,
+                categoryId: job.categoryId,
+                categoryName: job.category,
+                skills: job.skills,
+                urgent: job.urgent,
+              })}
+              variant="list"
+              saved={job.saved}
+              index={index}
+              onPress={() => navigate(ROUTES.worker.jobDetails(job.id))}
+              onToggleSave={() => handleSaveJob(job.id)}
+            />
           ))}
         </div>
       )}

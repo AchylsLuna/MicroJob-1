@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { sendOtp } from "../services/api";
-import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 
 const EmailVerification: React.FC = () => {
@@ -99,7 +99,7 @@ const EmailVerification: React.FC = () => {
       }
 
       const targetUser = user || getStoredUser();
-      const fallbackDestination = getDefaultDashboardPath(targetUser);
+      const fallbackDestination = getPostAuthLandingPath(targetUser);
       const destination = sessionStorage.getItem("post_verify_redirect") || fallbackDestination;
       sessionStorage.removeItem("post_verify_redirect");
       window.location.replace(destination);

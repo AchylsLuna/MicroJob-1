@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   BriefcaseBusiness,
   ClipboardList,
@@ -14,7 +15,22 @@ import {
 } from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 import { ConfirmDialog } from "../../components/ui";
+import { DateField } from "../../components/ui/DateField";
 import { ROUTES } from "../../utils/routes";
+
+// Converts between the "YYYY-MM-DD" strings this form stores (matching native
+// <input type="date"> value format) and the Date objects DateField works with.
+function parseDateInputValue(value: string): Date | null {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+function formatDateInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 type JobEdit = {
   _id: string;
@@ -207,6 +223,7 @@ const PostJob: React.FC = () => {
   const location = useLocation();
   const locationState = location.state as { job?: JobEdit; returnTo?: string } | null;
   const incomingJobToEdit = locationState?.job;
+  const prefersReducedMotion = useReducedMotion();
 
   const [jobs, setJobs] = useState<JobEdit[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -1078,17 +1095,14 @@ const PostJob: React.FC = () => {
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
-                      <label htmlFor="job-deadline" className="mb-2 block text-sm font-semibold text-slate-700">
-                        Deadline <span className="text-red-500">*</span>
-                      </label>
-                      <input
+                      <DateField
                         id="job-deadline"
-                        type="date"
-                        data-field="deadline"
-                        value={formData.deadline}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, deadline: e.target.value }))}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        label="Deadline *"
+                        dataField="deadline"
                         required
+                        minDate={new Date()}
+                        value={formData.deadline ? parseDateInputValue(formData.deadline) : null}
+                        onChange={(next) => setFormData((prev) => ({ ...prev, deadline: next ? formatDateInputValue(next) : "" }))}
                       />
                     </div>
 
@@ -1211,52 +1225,56 @@ const PostJob: React.FC = () => {
           </div>
         </div>
       )}
-      {hasInsufficientBalanceError && typeof document !== "undefined" && createPortal(
-        <div
-          className="flex items-center justify-center p-4"
-          style={{
-            position: "fixed",
-            inset: 0,
-            width: "100vw",
-            height: "100dvh",
-            zIndex: 9999,
-            backgroundColor: "rgba(107, 114, 128, 0.72)",
-          }}
-        >
-          <div
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="insufficient-balance-title"
-            aria-describedby="insufficient-balance-description"
-            className="w-full max-w-md rounded-3xl border border-red-100 bg-white p-6 text-center shadow-2xl"
-          >
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600">
-              !
-            </div>
-            <h3 id="insufficient-balance-title" className="mt-4 text-xl font-bold text-slate-900">
-              Insufficient balance
-            </h3>
-            <p id="insufficient-balance-description" className="mt-2 text-sm leading-6 text-slate-600">
-              {formError}
-            </p>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setFormError(null)}
-                className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+      {typeof document !== "undefined" && createPortal(
+        <AnimatePresence>
+          {hasInsufficientBalanceError && (
+            <motion.div
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4"
+              initial={prefersReducedMotion ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
+            >
+              <motion.div
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby="insufficient-balance-title"
+                aria-describedby="insufficient-balance-description"
+                className="w-full max-w-md rounded-3xl border border-red-100 bg-white p-6 text-center shadow-2xl"
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
               >
-                Not now
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate(ROUTES.employer.eWallet)}
-                className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
-              >
-                Top up wallet
-              </button>
-            </div>
-          </div>
-        </div>,
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600">
+                  !
+                </div>
+                <h3 id="insufficient-balance-title" className="mt-4 text-xl font-bold text-slate-900">
+                  Insufficient balance
+                </h3>
+                <p id="insufficient-balance-description" className="mt-2 text-sm leading-6 text-slate-600">
+                  {formError}
+                </p>
+                <div className="mt-6 grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormError(null)}
+                    className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                  >
+                    Not now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(ROUTES.employer.eWallet)}
+                    className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+                  >
+                    Top up wallet
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
         document.body,
       )}
       <ConfirmDialog

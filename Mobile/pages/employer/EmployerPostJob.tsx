@@ -14,6 +14,7 @@ import {
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScrollView from '../../components/ui/SmoothScrollView';
+import CalendarSheet from '../../components/ui/CalendarSheet';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import EmployerNavigation from '../../components/employerNavigation';
@@ -845,6 +846,22 @@ export default function EmployerPostJob({
             </TouchableOpacity>
           </View>
 
+          <CalendarSheet
+            open={showDatePicker}
+            onClose={() => setShowDatePicker(false)}
+            mode="single"
+            value={deadlineDate}
+            onChange={(next) => setDeadlineDate(next)}
+            minDate={new Date()}
+            title="Application deadline"
+            footer={{
+              primaryLabel: 'Set deadline',
+              onPrimary: () => setShowDatePicker(false),
+              clearLabel: 'Clear',
+              onClear: () => setDeadlineDate(null),
+            }}
+          />
+
           <View style={styles.urgentRow}>
             <Text style={styles.urgentLabel}>Mark as urgent</Text>
             <Switch value={isUrgent} onValueChange={setIsUrgent} />
@@ -865,20 +882,6 @@ export default function EmployerPostJob({
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {showDatePicker ? (
-        <DateTimePicker
-          value={deadlineDate || new Date()}
-          mode="date"
-          display="default"
-          onChange={(_event: DateTimePickerEvent, selectedDate?: Date) => {
-            setShowDatePicker(false);
-            if (selectedDate) {
-              setDeadlineDate(selectedDate);
-            }
-          }}
-        />
-      ) : null}
 
       {showTimePicker ? (
         <DateTimePicker
@@ -964,17 +967,6 @@ const styles = StyleSheet.create({
   },
   formIntroTitle: { fontSize: 16, fontWeight: '700', color: tokens.colors.text },
   formIntroText: { marginTop: 4, fontSize: 13, lineHeight: 19, color: tokens.colors.textMuted },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: tokens.colors.brand,
-    marginTop: 22,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: tokens.colors.border,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
   label: { fontSize: 14, fontWeight: '600', color: tokens.colors.text, marginBottom: 8, marginTop: 12 },
   input: {
     minHeight: 52,
@@ -1001,15 +993,6 @@ const styles = StyleSheet.create({
   dropdownItem: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 10, justifyContent: 'center' },
   dropdownText: { color: tokens.colors.text, fontSize: 13 },
   dropdownEmpty: { color: tokens.colors.textMuted, fontSize: 12 },
-  addCategoryButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: tokens.colors.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addCategoryText: { color: tokens.colors.surface, fontSize: 20, fontWeight: '700' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: {
     minHeight: 44,

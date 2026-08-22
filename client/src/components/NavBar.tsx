@@ -501,14 +501,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
             <Menu className="h-5 w-5" />
           </button>
           {isWorkerView && (
-            <button
-              type="button"
+            <MicroJobsLogo
               onClick={() => navigate(ROUTES.worker.dashboard)}
-              className="hidden min-h-11 shrink-0 items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 lg:flex"
-              aria-label="MicroJobs worker dashboard"
-            >
-              <MicroJobsLogo />
-            </button>
+              ariaLabel="MicroJobs worker dashboard"
+              className="hidden min-h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 lg:flex"
+            />
           )}
           {isWorkerView && (
             <nav className="hidden min-w-0 items-stretch gap-1 lg:flex" aria-label="Worker primary navigation">

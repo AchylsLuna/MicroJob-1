@@ -249,7 +249,7 @@ export function Profile() {
   };
 
   return (
-    <div className="max-w-[1100px] mx-auto space-y-6">
+    <div className="ui-page">
       {profileError && (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-[14px] text-[#991B1B]">
           <span>{profileError}</span>

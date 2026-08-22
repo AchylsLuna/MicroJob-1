@@ -1,12 +1,21 @@
 import { Shield, ShieldCheck, UserCog, UserMinus } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminSecurityContent() {
   const { isLoading, loadError, stats, users, recentActivity } = useAdminData();
+  const prefersReducedMotion = useReducedMotion();
 
   const adminCount = users.filter((user) => user.role === "admin").length;
   const recentUsers = recentActivity.filter((activity) => activity.type === "user");
+
+  const securityCards = [
+    { icon: ShieldCheck, iconBg: "bg-[#E8F2FF]", iconColor: "text-[#1C4D8D]", label: "Active Users", value: isLoading ? "—" : stats.activeUsers },
+    { icon: UserMinus, iconBg: "bg-[#FEE2E2]", iconColor: "text-[#DC2626]", label: "Disabled Accounts", value: isLoading ? "—" : stats.disabledUsers },
+    { icon: Shield, iconBg: "bg-[#FEF3C7]", iconColor: "text-[#D97706]", label: "Pending Approvals", value: isLoading ? "—" : stats.pendingUsers },
+    { icon: UserCog, iconBg: "bg-[#EDE9FE]", iconColor: "text-[#7C3AED]", label: "Admin Accounts", value: isLoading ? "—" : adminCount },
+  ];
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
@@ -17,34 +26,21 @@ function AdminSecurityContent() {
       )}
 
       <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-          <div className="w-12 h-12 rounded-[12px] bg-[#E8F2FF] flex items-center justify-center mb-4">
-            <ShieldCheck className="w-6 h-6 text-[#1C4D8D]" />
-          </div>
-          <p className="text-[13px] text-[#6B7280]">Active Users</p>
-          <p className="text-[26px] font-semibold text-[#111827] mt-2">{isLoading ? "—" : stats.activeUsers}</p>
-        </div>
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-          <div className="w-12 h-12 rounded-[12px] bg-[#FEE2E2] flex items-center justify-center mb-4">
-            <UserMinus className="w-6 h-6 text-[#DC2626]" />
-          </div>
-          <p className="text-[13px] text-[#6B7280]">Disabled Accounts</p>
-          <p className="text-[26px] font-semibold text-[#111827] mt-2">{isLoading ? "—" : stats.disabledUsers}</p>
-        </div>
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-          <div className="w-12 h-12 rounded-[12px] bg-[#FEF3C7] flex items-center justify-center mb-4">
-            <Shield className="w-6 h-6 text-[#D97706]" />
-          </div>
-          <p className="text-[13px] text-[#6B7280]">Pending Approvals</p>
-          <p className="text-[26px] font-semibold text-[#111827] mt-2">{isLoading ? "—" : stats.pendingUsers}</p>
-        </div>
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-          <div className="w-12 h-12 rounded-[12px] bg-[#EDE9FE] flex items-center justify-center mb-4">
-            <UserCog className="w-6 h-6 text-[#7C3AED]" />
-          </div>
-          <p className="text-[13px] text-[#6B7280]">Admin Accounts</p>
-          <p className="text-[26px] font-semibold text-[#111827] mt-2">{isLoading ? "—" : adminCount}</p>
-        </div>
+        {securityCards.map((card, index) => (
+          <motion.div
+            key={card.label}
+            className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:-translate-y-0.5 hover:shadow-md"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05, duration: 0.3 }}
+          >
+            <div className={`w-12 h-12 rounded-[12px] ${card.iconBg} flex items-center justify-center mb-4`}>
+              <card.icon className={`w-6 h-6 ${card.iconColor}`} />
+            </div>
+            <p className="text-[13px] text-[#6B7280]">{card.label}</p>
+            <p className="text-[26px] font-semibold text-[#111827] mt-2">{card.value}</p>
+          </motion.div>
+        ))}
       </section>
 
       <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
@@ -63,17 +59,20 @@ function AdminSecurityContent() {
             <div className="text-[13px] text-[#9CA3AF]">No recent user activity.</div>
           )}
           {!isLoading &&
-            recentUsers.map((activity) => (
-              <div
+            recentUsers.map((activity, index) => (
+              <motion.div
                 key={activity.id}
-                className="flex items-center justify-between gap-4 p-3 rounded-[12px] border border-[#F3F4F6]"
+                className="flex items-center justify-between gap-4 p-3 rounded-[12px] border border-[#F3F4F6] transition-colors hover:bg-slate-50"
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.25 }}
               >
                 <div>
                   <p className="text-[14px] font-medium text-[#111827]">{activity.subtitle}</p>
                   <p className="text-[12px] text-[#6B7280]">{activity.title}</p>
                 </div>
                 <span className="text-[12px] text-[#9CA3AF]">{activity.date.toLocaleDateString()}</span>
-              </div>
+              </motion.div>
             ))}
         </div>
       </section>

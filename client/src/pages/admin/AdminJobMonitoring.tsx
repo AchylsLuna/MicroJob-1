@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Eye, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AdminGate } from "./admin/AdminGate";
@@ -19,6 +20,7 @@ function AdminJobMonitoringContent() {
     formatSalary,
   } = useAdminData();
 
+  const prefersReducedMotion = useReducedMotion();
   const [currentPage, setCurrentPage] = useState(1);
   const [deletedJobIds, setDeletedJobIds] = useState<Record<string, boolean>>({});
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
@@ -130,12 +132,18 @@ function AdminJobMonitoringContent() {
               )}
 
               {!isLoading &&
-                paginatedJobs.map((job) => {
+                paginatedJobs.map((job, index) => {
                   const postedDate = job.createdAt
                     ? new Date(job.createdAt).toLocaleDateString()
                     : formatDateFromObjectId(job._id);
                   return (
-                    <tr key={job._id} className="border-b border-[#F3F4F6]">
+                    <motion.tr
+                      key={job._id}
+                      className="border-b border-[#F3F4F6] transition-colors hover:bg-slate-50"
+                      initial={prefersReducedMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.03, duration: 0.25 }}
+                    >
                       <td className="py-3 pr-4 text-[#111827] font-medium">{job.title}</td>
                       <td className="py-3 pr-4 text-[#6B7280]">{getCategoryName(job)}</td>
                       <td className="py-3 pr-4">
@@ -173,7 +181,7 @@ function AdminJobMonitoringContent() {
                           </button>
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   );
                 })}
             </tbody>

@@ -267,13 +267,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       className={`${webUi.sidebar.root} w-full p-4 sm:p-5 [@media(max-height:700px)]:p-2`}
     >
       <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between [@media(max-height:700px)]:mb-0">
-        <button
-          type="button"
-          className="flex min-h-11 min-w-0 items-center gap-2 cursor-pointer"
-          onClick={() => navigate(ROUTES.home)}
-        >
-          <MicroJobsLogo />
-        </button>
+        <MicroJobsLogo onClick={() => navigate(ROUTES.home)} className="min-h-11 min-w-0 cursor-pointer" />
         {mobile ? (
           <button
             ref={closeButtonRef}

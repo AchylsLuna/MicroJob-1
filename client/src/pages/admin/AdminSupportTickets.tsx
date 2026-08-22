@@ -184,7 +184,7 @@ function AdminSupportTicketsContent() {
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 space-y-4">
+        <div className="bg-white rounded-[16px] border border-slate-200 p-6 space-y-4">
           <div>
             <h1 className="text-[22px] font-semibold text-[#111827]">Support Tickets</h1>
             <p className="text-[13px] text-[#6B7280] mt-1">Review ticket queues, update status, and respond directly from the admin console.</p>

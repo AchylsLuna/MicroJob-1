@@ -12,7 +12,7 @@ import {
   resetPasswordWithOtp,
 } from "../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
-import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import {
   EMAIL_VALIDATION_MESSAGE,
   FULL_NAME_VALIDATION_MESSAGE,
@@ -535,7 +535,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(newUser));
       localStorage.setItem(AUTH_USER_KEY, JSON.stringify(newUser));
       window.dispatchEvent(new Event("auth_user_updated"));
-      sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, getDefaultDashboardPath(newUser));
+      // Don't clobber a destination SignIn already staged for a bookmarked deep
+      // link -- only fall back to the default dashboard when nothing is staged
+      // (e.g. a direct sign-in with no prior redirect, or the signup-verification
+      // flow, which doesn't stage anything).
+      if (!sessionStorage.getItem(POST_VERIFY_REDIRECT_KEY)) {
+        sessionStorage.setItem(POST_VERIFY_REDIRECT_KEY, getPostAuthLandingPath(newUser));
+      }
 
       localStorage.removeItem("pending_account_preference");
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);

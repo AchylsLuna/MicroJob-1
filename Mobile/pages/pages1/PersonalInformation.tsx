@@ -1154,16 +1154,6 @@ const styles = StyleSheet.create({
   bioInput: {
     minHeight: 136,
   },
-  inputError: {
-    borderColor: '#EF4444',
-    backgroundColor: '#FEE2E2',
-  },
-  errorText: {
-    color: '#DC2626',
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 6,
-  },
   saveButton: {
     marginTop: 18,
     backgroundColor: tokens.colors.brandAccent,

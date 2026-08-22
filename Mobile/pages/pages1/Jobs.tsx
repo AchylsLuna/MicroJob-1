@@ -8,7 +8,10 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
-import { formatMinimumPay } from '../../lib/jobCompensation';
+import JobCard from '../../components/job/JobCard';
+import { toJobCardData } from '../../components/job/jobCardModel';
+import CalendarSheet from '../../components/ui/CalendarSheet';
+import { isDateDisabled, type DateRange } from '../../lib/calendarModel';
 
 type Category = { _id: string; name: string };
 export type Job = {
@@ -21,9 +24,12 @@ export type Job = {
   urgent?: boolean;
   skills?: string[];
   createdAt?: string;
+  deadline?: string;
   category?: { _id: string; name: string } | string;
   jobPoster?: { _id?: string; id?: string; firstName?: string; lastName?: string; email?: string };
 };
+
+type DateFilterPreset = 'all' | '7' | '30' | 'custom';
 
 type JobsProps = {
   onViewDetails?: (job: Job) => void;
@@ -60,6 +66,9 @@ export default function Jobs(props: JobsProps) {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
+  const [dateFilter, setDateFilter] = useState<DateFilterPreset>('all');
+  const [customDateRange, setCustomDateRange] = useState<DateRange>({ start: null, end: null });
+  const [showDateFilterSheet, setShowDateFilterSheet] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -99,18 +108,39 @@ export default function Jobs(props: JobsProps) {
     return score;
   }, [normalizeToken, workerLocation]);
 
+  const deadlineRange = useMemo((): DateRange | null => {
+    if (dateFilter === 'all') return null;
+    if (dateFilter === '7' || dateFilter === '30') {
+      const days = dateFilter === '7' ? 7 : 30;
+      const end = new Date();
+      end.setDate(end.getDate() + days);
+      return { start: new Date(), end };
+    }
+    if (dateFilter === 'custom' && customDateRange.start) {
+      return { start: customDateRange.start, end: customDateRange.end || customDateRange.start };
+    }
+    return null;
+  }, [dateFilter, customDateRange]);
+
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return jobs.filter((job) => {
       // Exclude jobs already applied to
       if (appliedJobIds.includes(job._id)) return false;
-      
+
+      if (deadlineRange && deadlineRange.start && deadlineRange.end) {
+        if (!job.deadline) return false;
+        const deadlineDate = new Date(job.deadline);
+        if (Number.isNaN(deadlineDate.getTime())) return false;
+        if (isDateDisabled(deadlineDate, { minDate: deadlineRange.start, maxDate: deadlineRange.end })) return false;
+      }
+
       if (!query) return true;
       return [job.title, job.description, job.location]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query));
     });
-  }, [jobs, searchQuery, appliedJobIds]);
+  }, [jobs, searchQuery, appliedJobIds, deadlineRange]);
 
   const nearestJobs = useMemo(
     () =>
@@ -295,7 +325,6 @@ export default function Jobs(props: JobsProps) {
     }
   };
 
-
   const saveMatchingPreferences = async () => {
     setSavingPreferences(true);
     setErrorMessage('');
@@ -411,6 +440,70 @@ export default function Jobs(props: JobsProps) {
         </View>
 
         <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionLabel}>Deadline</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
+          {(
+            [
+              { key: 'all', label: 'Any dates' },
+              { key: '7', label: 'Next 7 days' },
+              { key: '30', label: 'Next 30 days' },
+              {
+                key: 'custom',
+                label:
+                  dateFilter === 'custom' && customDateRange.start
+                    ? `${customDateRange.start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${
+                        customDateRange.end
+                          ? ` – ${customDateRange.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                          : ''
+                      }`
+                    : 'Custom',
+              },
+            ] as const
+          ).map((preset) => (
+            <TouchableOpacity
+              key={preset.key}
+              style={[styles.filterChip, dateFilter === preset.key && styles.filterChipActive]}
+              onPress={() => {
+                if (preset.key === 'custom') {
+                  setShowDateFilterSheet(true);
+                  return;
+                }
+                setDateFilter(preset.key);
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: dateFilter === preset.key }}
+              accessibilityLabel={preset.label}
+            >
+              <Text style={[styles.filterChipText, dateFilter === preset.key && styles.filterChipTextActive]}>{preset.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <CalendarSheet
+          open={showDateFilterSheet}
+          onClose={() => setShowDateFilterSheet(false)}
+          mode="range"
+          range={customDateRange}
+          minDate={new Date()}
+          title="Application deadline"
+          onChange={setCustomDateRange}
+          footer={{
+            clearLabel: 'Clear all',
+            onClear: () => {
+              setCustomDateRange({ start: null, end: null });
+              setDateFilter('all');
+            },
+            primaryLabel: 'Apply',
+            onPrimary: () => {
+              setDateFilter('custom');
+              setShowDateFilterSheet(false);
+            },
+            primaryDisabled: !customDateRange.start,
+          }}
+        />
+
+        <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionLabel}>Categories</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
@@ -492,98 +585,40 @@ export default function Jobs(props: JobsProps) {
         ) : null}
 
         <View style={styles.jobsList}>
-          {filteredJobs.map((job) => (
-            <TouchableOpacity
-              key={job._id}
-              style={styles.jobCard}
-              onPress={() => onViewDetails?.(job)}
-              activeOpacity={0.86}
-              accessibilityRole="button"
-              accessibilityLabel={`View ${job.title}${job.location ? ` in ${job.location}` : ''}`}
-            >
-              <View style={styles.jobCardHeader}>
-                <View style={styles.jobInfo}>
-                  <View style={styles.titleRow}>
-                    <Text style={styles.jobTitle}>{job.title}</Text>
-                    {job.urgent ? (
-                      <View style={styles.urgentBadge}>
-                        <Text style={styles.urgentText}>Urgent</Text>
-                      </View>
-                    ) : null}
-                  </View>
-                  <Text style={styles.jobCompany}>
-                    {job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ''}`.trim() : 'Job Poster'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.bookmarkBtn}
-                  onPress={(e: any) => {
-                    e?.stopPropagation?.();
-                    handleToggleSave(job);
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={savedJobIds.includes(job._id) ? `Remove ${job.title} from saved jobs` : `Save ${job.title}`}
-                  accessibilityState={{ selected: savedJobIds.includes(job._id) }}
-                >
-                  <Ionicons
-                    name={savedJobIds.includes(job._id) ? 'bookmark' : 'bookmark-outline'}
-                    size={18}
-                    color={savedJobIds.includes(job._id) ? tokens.colors.brand : tokens.colors.textMuted}
-                  />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.jobTags}>
-                {(job.skills || []).slice(0, 3).map((tag, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.jobFooter}>
-                <View style={styles.jobMetaLeft}>
-                  <View style={styles.locationRow}>
-                    <Ionicons name="location-outline" size={12} color={tokens.colors.textSubtle} />
-                    <Text style={styles.timeText}>{job.location}</Text>
-                  </View>
-                </View>
-                <View style={styles.viewDetailsRow}>
-                  <Text style={styles.viewDetails}>View details</Text>
-                  <Ionicons name="arrow-forward-outline" size={13} color={tokens.colors.brandAccent} />
-                </View>
-              </View>
-
-              <View style={styles.jobBottomMeta}>
-                <View style={styles.metaTags}>
-                  <View style={styles.metaPill}>
-                    <Ionicons name="time-outline" size={12} color={tokens.colors.textMuted} />
-                    <Text style={styles.metaText}>{job.jobType}</Text>
-                  </View>
-                  {job.category && typeof job.category !== 'string' ? (
-                    <View style={styles.metaPill}>
-                      <Ionicons name="grid-outline" size={12} color={tokens.colors.textMuted} />
-                      <Text style={styles.metaText}>{job.category.name}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={styles.salary}>{formatMinimumPay(job.salary)}</Text>
-              </View>
-
-              {job.jobPoster && currentUserId && !((typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) || (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))) ? (
-                <TouchableOpacity
-                  style={styles.messageEmployerButton}
-                  onPress={(e: any) => {
-                    e?.stopPropagation?.();
-                    handleMessageEmployer(job);
-                  }}
-                >
-                  <Ionicons name="chatbubble-ellipses-outline" size={14} color={tokens.colors.onBrand} />
-                  <Text style={styles.messageEmployerButtonText}>Message Employer</Text>
-                </TouchableOpacity>
-              ) : null}
-            </TouchableOpacity>
-          ))}
+          {filteredJobs.map((job) => {
+            const canMessageEmployer = Boolean(
+              job.jobPoster &&
+                currentUserId &&
+                !(
+                  (typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) ||
+                  (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))
+                ),
+            );
+            return (
+              <JobCard
+                key={job._id}
+                job={toJobCardData(job)}
+                variant="list"
+                saved={savedJobIds.includes(job._id)}
+                onPress={() => onViewDetails?.(job)}
+                onToggleSave={() => handleToggleSave(job)}
+                footerSlot={
+                  canMessageEmployer ? (
+                    <TouchableOpacity
+                      style={styles.messageEmployerButton}
+                      onPress={(e: any) => {
+                        e?.stopPropagation?.();
+                        handleMessageEmployer(job);
+                      }}
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={tokens.colors.onBrand} />
+                      <Text style={styles.messageEmployerButtonText}>Message Employer</Text>
+                    </TouchableOpacity>
+                  ) : null
+                }
+              />
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -757,84 +792,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   jobsList: { gap: 12 },
-  jobCard: {
-    backgroundColor: tokens.colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-    ...tokens.shadow.card,
-  },
-  jobCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  jobInfo: { flex: 1 },
-  jobTitle: { fontSize: 15, fontWeight: '700', color: tokens.colors.text, marginBottom: 2, flexShrink: 1 },
-  urgentBadge: {
-    backgroundColor: '#FEE2E2',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  urgentText: { color: '#B91C1C', fontSize: 10, fontWeight: '700' },
-  jobCompany: { fontSize: 13, color: tokens.colors.textMuted },
-  bookmarkBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: tokens.colors.contentMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  jobTags: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  tag: {
-    backgroundColor: tokens.colors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  tagText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
-  jobFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  jobMetaLeft: {
-    flex: 1,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  timeText: { fontSize: 12, color: tokens.colors.textSubtle },
-  viewDetailsRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  viewDetails: { fontSize: 12, color: tokens.colors.brandAccent, fontWeight: '700' },
-  jobBottomMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: tokens.colors.border,
-    gap: 8,
-  },
-  metaTags: { flexDirection: 'row', gap: 8, flex: 1, flexWrap: 'wrap' },
-  metaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: tokens.colors.contentMuted,
-  },
-  metaText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
-  salary: { fontSize: 13, fontWeight: '700', color: tokens.colors.text },
   messageEmployerButton: {
     marginTop: 2,
     backgroundColor: tokens.colors.brandAccent,

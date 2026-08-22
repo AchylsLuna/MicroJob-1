@@ -21,6 +21,11 @@ export default function LaunchScreen({ sessionReady, onFinished }: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
   const badgeOpacity = useRef(new Animated.Value(0)).current;
   const badgeScale = useRef(new Animated.Value(0.88)).current;
+  // Small rotation overshoot layered onto the badge's static 30deg tilt, settling
+  // to 0 as it fades/scales in -- the same spin-settle language as the header
+  // badge's entrance (components/auth/MicroJobsLogo.tsx), so both entrance sites
+  // read as one design.
+  const badgeRotate = useRef(new Animated.Value(-0.03)).current;
   const wordmarkOpacity = useRef(new Animated.Value(0)).current;
   const wordmarkTranslateY = useRef(new Animated.Value(10)).current;
 
@@ -35,6 +40,7 @@ export default function LaunchScreen({ sessionReady, onFinished }: Props) {
     opacity.setValue(0);
     badgeOpacity.setValue(0);
     badgeScale.setValue(reduceMotion ? 1 : 0.88);
+    badgeRotate.setValue(reduceMotion ? 0 : -0.03);
     wordmarkOpacity.setValue(0);
     wordmarkTranslateY.setValue(reduceMotion ? 0 : motion.distance.small);
     Animated.sequence([
@@ -56,6 +62,11 @@ export default function LaunchScreen({ sessionReady, onFinished }: Props) {
           mass: motion.spring.mass,
           useNativeDriver: true,
         }),
+        Animated.timing(badgeRotate, {
+          toValue: 0,
+          duration: motion.duration.standard,
+          useNativeDriver: true,
+        }),
       ]),
       Animated.parallel([
         Animated.timing(wordmarkOpacity, {
@@ -70,7 +81,7 @@ export default function LaunchScreen({ sessionReady, onFinished }: Props) {
         }),
       ]),
     ]).start();
-  }, [badgeOpacity, badgeScale, opacity, reduceMotion, wordmarkOpacity, wordmarkTranslateY]);
+  }, [badgeOpacity, badgeRotate, badgeScale, opacity, reduceMotion, wordmarkOpacity, wordmarkTranslateY]);
 
   useEffect(() => {
     if (!minimumElapsed || !sessionReady || reduceMotion == null || finishedRef.current) return;
@@ -94,7 +105,15 @@ export default function LaunchScreen({ sessionReady, onFinished }: Props) {
       <View pointerEvents="none" style={styles.glowLarge} />
       <View pointerEvents="none" style={styles.glowSmall} />
       <View style={styles.logoGroup}>
-        <Animated.View style={{ opacity: badgeOpacity, transform: [{ scale: reduceMotion ? 1 : badgeScale }] }}>
+        <Animated.View
+          style={{
+            opacity: badgeOpacity,
+            transform: [
+              { scale: reduceMotion ? 1 : badgeScale },
+              { rotate: reduceMotion ? '0deg' : badgeRotate.interpolate({ inputRange: [-0.03, 0], outputRange: ['-11deg', '0deg'] }) },
+            ],
+          }}
+        >
           <MicroJobsLogoBadge variant="launch" />
         </Animated.View>
         <Animated.View style={{ opacity: wordmarkOpacity, transform: [{ translateY: reduceMotion ? 0 : wordmarkTranslateY }] }}>

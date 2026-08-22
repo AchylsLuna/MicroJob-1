@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -8,8 +8,12 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
-import { formatMinimumPay } from '../../lib/jobCompensation';
 import InlineStateCard from '../../components/ui/InlineStateCard';
+import AnimatedPressable from '../../components/ui/AnimatedPressable';
+import CategoryTile from '../../components/ui/CategoryTile';
+import SectionHeader from '../../components/ui/SectionHeader';
+import JobCard from '../../components/job/JobCard';
+import { toJobCardData } from '../../components/job/jobCardModel';
 
 type Category = { _id: string; name: string };
 type Job = {
@@ -79,7 +83,7 @@ export default function Dashboard({
     try {
       const result = await apiRequest<Category[]>(`${API_URL}/categories`, undefined, 'Failed to load categories.');
       if (result.ok) {
-        setCategories(asList<Category>(result.raw, ['categories']).slice(0, 3));
+        setCategories(asList<Category>(result.raw, ['categories']).slice(0, 10));
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
@@ -174,11 +178,20 @@ export default function Dashboard({
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.searchContainer} onPress={onNavigateToJobs} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Search local jobs, skills, or employers">
-          <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
-          <Text style={styles.searchPlaceholder}>Search local jobs, skills, or employers</Text>
-          <Ionicons name="chevron-forward" size={18} color={tokens.colors.brand} />
-        </TouchableOpacity>
+        <AnimatedPressable containerStyle={styles.searchContainer} onPress={onNavigateToJobs} accessibilityRole="button" accessibilityLabel="Search local jobs, skills, or employers">
+          <View style={styles.searchRow}>
+            <View style={styles.searchIconWrap}>
+              <Ionicons name="search-outline" size={17} color={tokens.colors.brand} />
+            </View>
+            <View style={styles.searchCopy}>
+              <Text style={styles.searchTitle}>Search local jobs</Text>
+              <Text style={styles.searchSubtitle}>Skills, employers, or job titles</Text>
+            </View>
+            <View style={styles.searchFilterDot}>
+              <Ionicons name="options-outline" size={16} color={tokens.colors.brand} />
+            </View>
+          </View>
+        </AnimatedPressable>
 
         {!hasUploadedResume ? (
           <View style={styles.uploadCard}>
@@ -189,49 +202,31 @@ export default function Dashboard({
               <Text style={styles.uploadTitle}>Upload your resume</Text>
             </View>
             <Text style={styles.uploadSubtitle}>Get matched with local employers across your community.</Text>
-            <TouchableOpacity style={styles.checkButton} activeOpacity={0.9} onPress={onUploadResume} accessibilityRole="button" accessibilityLabel="Upload CV or resume">
+            <AnimatedPressable containerStyle={styles.checkButton} onPress={onUploadResume} accessibilityRole="button" accessibilityLabel="Upload CV or resume">
               <Text style={styles.checkButtonText}>Upload resume</Text>
-            </TouchableOpacity>
+            </AnimatedPressable>
           </View>
         ) : null}
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Job Categories</Text>
-          <TouchableOpacity onPress={onNavigateToJobs}>
-            <Text style={styles.seeAll}>Browse all</Text>
-          </TouchableOpacity>
-        </View>
+        <SectionHeader title="Job Categories" onSeeAll={onNavigateToJobs} seeAllLabel="Browse all" />
 
-        <View style={styles.categoryRow}>
+        <ScrollView horizontal contentContainerStyle={styles.categoryRow}>
           {categories.map((category) => {
             const openingCount = jobsByCategory[category._id] || 0;
             return (
-              <TouchableOpacity
+              <AnimatedPressable
                 key={category._id}
-                style={styles.categoryCard}
                 onPress={() => onSelectCategory?.(category._id)}
-                activeOpacity={0.86}
                 accessibilityRole="button"
                 accessibilityLabel={`Browse ${category.name}, ${openingCount} local openings`}
               >
-                <View style={styles.categoryIconWrap}>
-                  <Ionicons name="briefcase-outline" size={17} color={tokens.colors.brand} />
-                </View>
-                <Text style={styles.categoryCount}>{openingCount}</Text>
-                <Text style={styles.categoryLabel} numberOfLines={2}>
-                  {category.name}
-                </Text>
-              </TouchableOpacity>
+                <CategoryTile category={category} size="lg" showLabel count={openingCount} />
+              </AnimatedPressable>
             );
           })}
-        </View>
+        </ScrollView>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Jobs Matching Your Skills</Text>
-          <TouchableOpacity onPress={onNavigateToJobs}>
-            <Text style={styles.seeAll}>See all</Text>
-          </TouchableOpacity>
-        </View>
+        <SectionHeader title="Jobs Matching Your Skills" onSeeAll={onNavigateToJobs} />
 
         {errorMessage ? <InlineStateCard
           icon={needsLocation ? 'location-outline' : 'cloud-offline-outline'}
@@ -247,68 +242,40 @@ export default function Dashboard({
           </View>
         ) : null}
 
-        <View style={styles.jobsList}>
-          {recommendedJobs.map((job) => (
-            <TouchableOpacity key={job._id} style={styles.jobCard} onPress={() => onViewJobDetails?.(job)} activeOpacity={0.88}>
-              <View style={styles.jobCardHeader}>
-                <View style={styles.jobLogo}>
-                  <Text style={styles.jobLogoText}>{job.title?.slice(0, 1)?.toUpperCase() || 'J'}</Text>
-                </View>
-                <View style={styles.jobInfo}>
-                  <Text style={styles.jobTitle} numberOfLines={1}>
-                    {job.title}
-                  </Text>
-                  <Text style={styles.jobCompany} numberOfLines={1}>
-                    {job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ''}`.trim() : 'Job Poster'}
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  style={styles.bookmarkBtn}
-                  onPress={(event: any) => {
-                    event?.stopPropagation?.();
-                    onSaveJob?.(job);
-                  }}
-                >
-                  <Ionicons
-                    name={savedJobIds.includes(job._id) ? 'bookmark' : 'bookmark-outline'}
-                    size={18}
-                    color={savedJobIds.includes(job._id) ? tokens.colors.brand : tokens.colors.textMuted}
-                  />
-                </TouchableOpacity>
-              </View>
+        {recommendedJobs.length > 0 ? (
+          <ScrollView horizontal contentContainerStyle={styles.jobsCarousel} snapToInterval={256} decelerationRate="fast">
+            {recommendedJobs.map((job) => (
+              <JobCard
+                key={job._id}
+                job={toJobCardData(job)}
+                variant="carousel"
+                showMatch
+                saved={savedJobIds.includes(job._id)}
+                onPress={() => onViewJobDetails?.(job)}
+                onToggleSave={() => onSaveJob?.(job)}
+              />
+            ))}
+          </ScrollView>
+        ) : null}
+        {!isLoading && !errorMessage && recommendedJobs.length === 0 ? <InlineStateCard icon="briefcase-outline" title="No recent jobs yet" message="New opportunities in your area will appear here." actionLabel="Explore jobs" onAction={onNavigateToJobs} /> : null}
 
-              <View style={styles.matchRow}>
-                <Text style={styles.matchBadge}>{Number(job.match?.percentage || 0)}% Match</Text>
-                <Text style={styles.matchLevel}>{job.match?.level || 'Potential match'}</Text>
-              </View>
-
-              <View style={styles.jobTags}>
-                {(job.skills || []).slice(0, 3).map((skill, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{skill}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.jobFooter}>
-                <View style={styles.jobMetaRow}>
-                  <View style={styles.metaPill}>
-                    <Ionicons name="time-outline" size={12} color={tokens.colors.textMuted} />
-                    <Text style={styles.jobMetaText}>{job.jobType}</Text>
-                  </View>
-                  {job.category && typeof job.category !== 'string' ? (
-                    <View style={styles.metaPill}>
-                      <Ionicons name="grid-outline" size={12} color={tokens.colors.textMuted} />
-                      <Text style={styles.jobMetaText}>{job.category.name}</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <Text style={styles.jobSalary}>{formatMinimumPay(job.salary)}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-        {!isLoading && !errorMessage && recentJobs.length === 0 ? <InlineStateCard icon="briefcase-outline" title="No recent jobs yet" message="New opportunities in your area will appear here." actionLabel="Explore jobs" onAction={onNavigateToJobs} /> : null}
+        {recentJobs.length > 0 ? (
+          <>
+            <SectionHeader title="Recent in Your Area" onSeeAll={onNavigateToJobs} />
+            <View style={styles.jobsList}>
+              {recentJobs.map((job) => (
+                <JobCard
+                  key={job._id}
+                  job={toJobCardData(job)}
+                  variant="list"
+                  saved={savedJobIds.includes(job._id)}
+                  onPress={() => onViewJobDetails?.(job)}
+                  onToggleSave={() => onSaveJob?.(job)}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
       </ScrollView>
 
       <Navigation activeTab={externalActiveTab || 'Home'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
@@ -320,17 +287,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
   scroll: { paddingHorizontal: tokens.layout.gutterWide, paddingTop: 16, paddingBottom: tokens.layout.tabBarClearance + 16, gap: tokens.layout.sectionGap },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: tokens.colors.cardSoft,
-    borderRadius: 14,
-    paddingHorizontal: 14,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: tokens.radius.pill,
+    paddingHorizontal: tokens.spacing.sm,
     minHeight: tokens.controls.fieldHeight,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
+    ...tokens.shadow.card,
   },
-  searchPlaceholder: { fontSize: 14, color: tokens.colors.textSubtle },
   uploadCard: {
     backgroundColor: tokens.colors.cardStrong,
     borderRadius: tokens.radius.lg,
@@ -363,96 +325,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkButtonText: { color: tokens.colors.brand, fontSize: 12, fontWeight: '800' },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: tokens.colors.onCanvas },
-  seeAll: { fontSize: 13, color: tokens.colors.onCanvasMuted, fontWeight: '700' },
-  categoryRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
-  categoryCard: {
-    flex: 1,
-    borderRadius: 14,
-    padding: 14,
-    gap: 6,
-    minHeight: 122,
-    backgroundColor: tokens.colors.cardSoft,
-    ...tokens.shadow.card,
-  },
-  categoryIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: tokens.colors.contentSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryCount: { fontSize: 22, fontWeight: '800', color: tokens.colors.text },
-  categoryLabel: { fontSize: 12, color: tokens.colors.textMuted, fontWeight: '700', lineHeight: 16 },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm, width: '100%' },
+  searchIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: tokens.colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
+  searchCopy: { flex: 1 },
+  searchTitle: { fontSize: 14, fontWeight: '800', color: tokens.colors.text },
+  searchSubtitle: { fontSize: 12, color: tokens.colors.textSubtle, marginTop: 1 },
+  searchFilterDot: { width: 30, height: 30, borderRadius: 15, backgroundColor: tokens.colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
+  categoryRow: { flexDirection: 'row', gap: tokens.spacing.sm, paddingRight: tokens.spacing.md },
+  jobsCarousel: { flexDirection: 'row', gap: tokens.spacing.sm, paddingRight: tokens.spacing.md },
   jobsList: { gap: 12 },
   loadingRow: { paddingVertical: 8 },
-  jobCard: {
-    backgroundColor: tokens.colors.surface,
-    borderRadius: 14,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-    ...tokens.shadow.card,
-  },
-  jobCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  jobLogo: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: tokens.colors.brandSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  jobLogoText: { fontSize: 14, color: tokens.colors.brand, fontWeight: '700' },
-  jobInfo: { flex: 1 },
-  jobTitle: { fontSize: 15, fontWeight: '700', color: tokens.colors.text, marginBottom: 2 },
-  jobCompany: { fontSize: 12, color: tokens.colors.textMuted },
-  bookmarkBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: tokens.colors.contentMuted,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  jobTags: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  matchRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  matchBadge: { overflow: 'hidden', borderRadius: 999, backgroundColor: '#DCFCE7', paddingHorizontal: 10, paddingVertical: 5, color: '#166534', fontSize: 11, fontWeight: '800' },
-  matchLevel: { color: tokens.colors.textMuted, fontSize: 11, fontWeight: '600' },
-  tag: {
-    backgroundColor: tokens.colors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  tagText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
-  jobFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 10,
-  },
-  jobMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, flex: 1 },
-  metaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: tokens.colors.contentMuted,
-  },
-  jobMetaText: { fontSize: 11, color: tokens.colors.textMuted, fontWeight: '600' },
-  jobSalary: { fontSize: 13, fontWeight: '700', color: tokens.colors.text },
 });

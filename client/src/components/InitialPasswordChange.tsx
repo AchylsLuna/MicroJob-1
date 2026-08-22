@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { changeInitialPassword } from "../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import { useAuth } from "../hooks/useAuth";
-import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { toast } from "../lib/toast";
 
 export function InitialPasswordChange() {
@@ -25,7 +25,7 @@ export function InitialPasswordChange() {
       await changeInitialPassword({ currentPassword, newPassword });
       updateProfile({ passwordChangeRequired: false });
       toast.success("Password changed successfully.");
-      navigate(getDefaultDashboardPath(user), { replace: true });
+      navigate(getPostAuthLandingPath(user), { replace: true });
     } catch (requestError: any) {
       setError(requestError?.message || "Failed to change password.");
     } finally {

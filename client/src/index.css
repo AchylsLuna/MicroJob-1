@@ -209,9 +209,15 @@ select {
 }
 
 @keyframes microjobs-logo-enter {
-	0% { transform: rotate(30deg) scale(0.88); }
-	70% { transform: rotate(30deg) scale(1.05); }
-	100% { transform: rotate(30deg) scale(1); }
+	0% { transform: rotate(0deg) scale(0.82); opacity: 0; }
+	70% { transform: rotate(34deg) scale(1.05); opacity: 1; }
+	100% { transform: rotate(30deg) scale(1); opacity: 1; }
+}
+
+@keyframes microjobs-logo-spin {
+	0% { transform: rotate(30deg) scale(1); }
+	45% { transform: rotate(210deg) scale(0.85); }
+	100% { transform: rotate(390deg) scale(1); } /* 390deg is 30deg, so it lands without a snap-back */
 }
 
 @keyframes microjobs-wordmark-enter {
@@ -220,12 +226,17 @@ select {
 }
 
 .microjobs-logo-mark {
-	animation: microjobs-logo-enter 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+	animation: microjobs-logo-enter 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 	transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
+/* Tap-triggered flourish, toggled by MicroJobsLogo.tsx only where the logo is a button. */
+.microjobs-logo-mark.microjobs-logo-mark--spin {
+	animation: microjobs-logo-spin 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 .microjobs-logo-wordmark {
-	animation: microjobs-wordmark-enter 260ms ease-out 80ms both;
+	animation: microjobs-wordmark-enter 240ms ease-out 80ms both;
 }
 
 button.microjobs-logo:hover .microjobs-logo-mark,

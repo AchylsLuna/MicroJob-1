@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import {
   Calendar,
   CheckSquare,
@@ -27,6 +28,22 @@ import {
 import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
+import { DateField } from "../../components/ui/DateField";
+
+// Converts between the "YYYY-MM-DD" date portion of scheduleForm.scheduledAt
+// (a "YYYY-MM-DDTHH:mm" string, same shape <input type="datetime-local"> used)
+// and the Date objects DateField works with.
+function parseDateOnly(value: string): Date | null {
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+function formatDateOnly(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 // Every stage an application can sit in — used for board columns and filters so
 // hired applicants stay visible.
@@ -312,6 +329,7 @@ function ApplicationCard({
 
 export function ApplicationsManagement() {
   const navigate = useNavigate();
+  const prefersReducedMotion = useReducedMotion();
   const [viewMode, setViewMode] = useState<"board" | "table">("board");
   const [statusFilter, setStatusFilter] = useState<"all" | ApplicationStatus>("all");
   const [jobFilter, setJobFilter] = useState("all");
@@ -521,12 +539,12 @@ export function ApplicationsManagement() {
   };
 
   return (
-    <div className="max-w-[1341px] mx-auto space-y-6">
-      <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 space-y-5">
+    <div className="ui-page">
+      <div className="ui-card p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
-            <h1 className="text-[24px] font-semibold text-[#111827]">Applications</h1>
-            <p className="text-[13px] text-[#6B7280] mt-1">Review applicants by stage, schedule interviews, and run bulk workflow actions safely.</p>
+            <h1 className="ui-page-title">Applications</h1>
+            <p className="ui-page-subtitle">Review applicants by stage, schedule interviews, and run bulk workflow actions safely.</p>
           </div>
           <div className="inline-flex items-center rounded-[12px] border border-[#E5E7EB] overflow-hidden self-start">
             <button
@@ -666,20 +684,26 @@ export function ApplicationsManagement() {
                     No applicants here.
                   </div>
                 ) : (
-                  groupedApplications[status].map((application) => (
-                    <ApplicationCard
+                  groupedApplications[status].map((application, index) => (
+                    <motion.div
                       key={application._id}
-                      application={application}
-                      selected={selectedSet.has(application._id)}
-                      onToggleSelected={handleToggleSelected}
-                      onStatusChange={handleStatusChange}
-                      onHide={(applicationId) => handleHideApplications([applicationId])}
-                      onScheduleInterview={handleOpenSchedule}
-                      onOpenProfile={handleOpenProfile}
-                      onMessage={handleMessage}
-                      reviewEligibility={reviewEligibility[application._id]}
-                      onRate={handleRateWorker}
-                    />
+                      initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
+                    >
+                      <ApplicationCard
+                        application={application}
+                        selected={selectedSet.has(application._id)}
+                        onToggleSelected={handleToggleSelected}
+                        onStatusChange={handleStatusChange}
+                        onHide={(applicationId) => handleHideApplications([applicationId])}
+                        onScheduleInterview={handleOpenSchedule}
+                        onOpenProfile={handleOpenProfile}
+                        onMessage={handleMessage}
+                        reviewEligibility={reviewEligibility[application._id]}
+                        onRate={handleRateWorker}
+                      />
+                    </motion.div>
                   ))
                 )}
               </div>
@@ -712,10 +736,16 @@ export function ApplicationsManagement() {
               </tr>
             </thead>
             <tbody>
-              {visibleApplications.map((application) => {
+              {visibleApplications.map((application, index) => {
                 const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
                 return (
-                  <tr key={application._id} className="border-b border-[#F3F4F6] align-top">
+                  <motion.tr
+                    key={application._id}
+                    className="border-b border-[#F3F4F6] align-top transition-colors hover:bg-slate-50"
+                    initial={prefersReducedMotion ? false : { opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.25 }}
+                  >
                     <td className="py-3 pr-4">
                       <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-[#64748B] hover:opacity-80">
                         {selectedSet.has(application._id) ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
@@ -787,7 +817,7 @@ export function ApplicationsManagement() {
                         ) : null}
                       </div>
                     </td>
-                  </tr>
+                  </motion.tr>
                 );
               })}
             </tbody>
@@ -811,15 +841,36 @@ export function ApplicationsManagement() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="interview-date" className="block text-[13px] text-[#374151] mb-2">Date and time</label>
-                <input
-                  id="interview-date"
-                  type="datetime-local"
-                  value={scheduleForm.scheduledAt}
-                  onChange={(event) => setScheduleForm((current) => ({ ...current, scheduledAt: event.target.value }))}
-                  className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <DateField
+                    id="interview-date"
+                    label="Date"
+                    minDate={new Date()}
+                    value={scheduleForm.scheduledAt ? parseDateOnly(scheduleForm.scheduledAt.slice(0, 10)) : null}
+                    onChange={(next) =>
+                      setScheduleForm((current) => ({
+                        ...current,
+                        scheduledAt: `${next ? formatDateOnly(next) : ""}T${current.scheduledAt.slice(11, 16) || "09:00"}`,
+                      }))
+                    }
+                  />
+                </div>
+                <div>
+                  <label htmlFor="interview-time" className="block text-[13px] text-[#374151] mb-2">Time</label>
+                  <input
+                    id="interview-time"
+                    type="time"
+                    value={scheduleForm.scheduledAt.slice(11, 16)}
+                    onChange={(event) =>
+                      setScheduleForm((current) => ({
+                        ...current,
+                        scheduledAt: `${current.scheduledAt.slice(0, 10) || formatDateOnly(new Date())}T${event.target.value}`,
+                      }))
+                    }
+                    className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
+                  />
+                </div>
               </div>
               <div>
                 <label htmlFor="interview-mode" className="block text-[13px] text-[#374151] mb-2">Mode</label>

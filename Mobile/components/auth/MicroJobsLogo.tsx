@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import { AUTH_COLORS } from '../../theme/authTheme';
 import useReducedMotion from '../../hooks/useReducedMotion';
 import { motion } from '../../theme/motion';
+import AnimatedPressable from '../ui/AnimatedPressable';
 
 type LogoVariant = 'default' | 'compact' | 'launch';
 
@@ -15,13 +16,22 @@ export function MicroJobsLogoBadge({ variant = 'default', style }: { variant?: L
 
 export function AnimatedMicroJobsLogoBadge({ variant = 'compact' }: { variant?: LogoVariant }) {
   const reducedMotion = useReducedMotion();
+  const size = variant === 'launch' ? 82 : variant === 'compact' ? 34 : 42;
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.9)).current;
+  // Turns of *extra* rotation layered on top of the badge's own static 30deg
+  // tilt. Entrance settles this from a small overshoot down to 0; a tap
+  // animates it 0 -> 1 (one full turn, landing back at the resting tilt) as a
+  // delight-only easter egg -- the badge is purely decorative branding and
+  // doesn't navigate anywhere, so this has zero functional consequence.
+  const spin = useRef(new Animated.Value(-0.03)).current;
+  const spinningRef = useRef(false);
 
   useEffect(() => {
     if (reducedMotion == null) return;
     opacity.setValue(0);
     scale.setValue(reducedMotion ? 1 : 0.9);
+    spin.setValue(reducedMotion ? 0 : -0.03);
     const animation = Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
@@ -35,19 +45,45 @@ export function AnimatedMicroJobsLogoBadge({ variant = 'compact' }: { variant?: 
         mass: motion.spring.mass,
         useNativeDriver: true,
       }),
+      Animated.timing(spin, {
+        toValue: 0,
+        duration: reducedMotion ? motion.duration.instant : motion.duration.enter,
+        useNativeDriver: true,
+      }),
     ]);
     animation.start();
     return () => animation.stop();
-  }, [opacity, reducedMotion, scale]);
+  }, [opacity, reducedMotion, scale, spin]);
+
+  const handlePress = useCallback(() => {
+    // Reduced motion means skip, not shorten -- a tap does nothing at all rather
+    // than play a fast version, since the whole interaction is decorative.
+    if (reducedMotion !== false || spinningRef.current) return;
+    spinningRef.current = true;
+    spin.setValue(0);
+    Animated.timing(spin, {
+      toValue: 1,
+      duration: motion.duration.standard,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      spinningRef.current = false;
+      if (finished) spin.setValue(0); // 360deg reads identical to 0deg -- no visible reset
+    });
+  }, [reducedMotion, spin]);
+
+  const rotate = spin.interpolate({ inputRange: [-0.03, 0, 1], outputRange: ['-11deg', '0deg', '360deg'] });
 
   return (
-    <Animated.View
+    <AnimatedPressable
+      onPress={handlePress}
+      containerStyle={{ width: size, height: size }}
       accessible={false}
       importantForAccessibility="no"
-      style={{ opacity, transform: [{ scale: reducedMotion ? 1 : scale }] }}
     >
-      <MicroJobsLogoBadge variant={variant} />
-    </Animated.View>
+      <Animated.View style={{ opacity, transform: [{ scale: reducedMotion ? 1 : scale }, { rotate: reducedMotion ? '0deg' : rotate }] }}>
+        <MicroJobsLogoBadge variant={variant} />
+      </Animated.View>
+    </AnimatedPressable>
   );
 }
 

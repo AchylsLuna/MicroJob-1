@@ -350,14 +350,6 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12, lineHeight: 17, color: tokens.colors.textMuted },
   addButton: { minHeight: 44, borderRadius: 12, backgroundColor: tokens.colors.brand, paddingHorizontal: 15, paddingVertical: 10, justifyContent: 'center' },
   addButtonText: { color: tokens.colors.surface, fontSize: 13, fontWeight: '800' },
-  card: {
-    borderRadius: 22,
-    padding: 16,
-    backgroundColor: tokens.colors.surface,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-    gap: 12,
-  },
   cardTitle: { fontSize: 17, fontWeight: '800', color: tokens.colors.brandDark },
   helper: { fontSize: 12, lineHeight: 18, color: tokens.colors.textMuted },
   input: {

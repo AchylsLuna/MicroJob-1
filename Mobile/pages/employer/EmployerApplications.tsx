@@ -18,6 +18,7 @@ import { API_URL } from "../../config";
 import { apiRequest, asList } from "../../lib/api";
 import EmployerNavigation from "../../components/employerNavigation";
 import ScrollView from "../../components/ui/SmoothScrollView";
+import CalendarSheet from "../../components/ui/CalendarSheet";
 import TabTopNav from "../../components/TabTopNav";
 import ConfirmModal from "../../components/ConfirmModal";
 import PublicProfile from "../shared/PublicProfile";
@@ -869,27 +870,28 @@ export default function EmployerApplications({
         onNotes={setInterviewNotes}
         onSave={() => void saveInterview()}
       />
-      {datePicker ? (
-        <DateTimePicker
-          value={interviewAt}
-          mode="date"
-          minimumDate={new Date()}
-          onChange={(_, value) => {
-            setDatePicker(false);
-            if (value)
-              setInterviewAt(
-                (current) =>
-                  new Date(
-                    value.getFullYear(),
-                    value.getMonth(),
-                    value.getDate(),
-                    current.getHours(),
-                    current.getMinutes(),
-                  ),
-              );
-          }}
-        />
-      ) : null}
+      <CalendarSheet
+        open={datePicker}
+        onClose={() => setDatePicker(false)}
+        mode="single"
+        value={interviewAt}
+        minDate={new Date()}
+        title="Interview date"
+        onChange={(value) => {
+          if (value)
+            setInterviewAt(
+              (current) =>
+                new Date(
+                  value.getFullYear(),
+                  value.getMonth(),
+                  value.getDate(),
+                  current.getHours(),
+                  current.getMinutes(),
+                ),
+            );
+        }}
+        footer={{ primaryLabel: 'Set date', onPrimary: () => setDatePicker(false) }}
+      />
       {timePicker ? (
         <DateTimePicker
           value={interviewAt}

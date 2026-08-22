@@ -372,8 +372,10 @@ function WorkerProfileScreen() {
 }
 
 function WorkerTabsNavigator() {
+  // Workers enter on Jobs, mirroring the web post-auth landing — browsing
+  // work is why they opened the app; Home stays one tab away.
   return (
-    <WorkerTab.Navigator screenOptions={hiddenTabs}>
+    <WorkerTab.Navigator screenOptions={hiddenTabs} initialRouteName="Jobs">
       <WorkerTab.Screen name="Home" component={WorkerHomeScreen} />
       <WorkerTab.Screen name="Jobs" component={WorkerJobsScreen} />
       <WorkerTab.Screen name="EWallet" component={WorkerEWalletScreen} />

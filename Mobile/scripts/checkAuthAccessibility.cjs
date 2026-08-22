@@ -15,7 +15,6 @@ const files = [
   'pages/forgotPass.tsx',
   'pages/createPass.tsx',
   'pages/passChanged.tsx',
-  'pages/signSuccess.tsx',
 ];
 
 const failures = [];

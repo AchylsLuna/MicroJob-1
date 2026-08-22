@@ -1,8 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  ArrowUpRight,
   BriefcaseBusiness,
-  Building2,
   Calendar,
   CheckCircle2,
   Clock,
@@ -10,6 +8,7 @@ import {
   MapPin,
   Search,
   Send,
+  SlidersHorizontal,
   Users,
 } from "lucide-react";
 import { toast } from "../../lib/toast";
@@ -21,6 +20,10 @@ import { jobsAPI } from "../../services/jobs";
 import { ROUTES } from "../../utils/routes";
 import { calculateProfileCompletion } from "../../lib/profileCompletion";
 import { formatMinimumPay } from "../../lib/jobCompensation";
+import { CategoryTile } from "../../components/ui/CategoryTile";
+import { SectionHeader } from "../../components/ui/SectionHeader";
+import { JobCard } from "../../components/job/JobCard";
+import { toJobCardData } from "../../components/job/jobCardModel";
 
 type DashboardApplication = {
   status?: string;
@@ -189,47 +192,63 @@ function WorkerDashboardContent() {
     const loadJobs = async () => {
       setJobsLoading(true);
       try {
-        const [jobsResponse, categoryRecords, availableJobs] = await Promise.all([
+        // Settled independently — recommended jobs, categories, and the
+        // available-jobs list (used only for per-category counts) used to
+        // share one Promise.all/catch, so one failing request silently
+        // blanked all three sections instead of just the one that failed.
+        const [jobsResult, categoriesResult, availableJobsResult] = await Promise.allSettled([
           jobsAPI.getRecommendedJobs(6),
           getCategories(),
           getJobs({ excludeOwn: true }),
         ]);
         if (!isMounted) return;
-        
-        const jobs = jobsResponse.data;
 
-        // Transform jobs for display
-        const transformedJobs = jobs.slice(0, 3).map((job: any) => ({
-          id: job._id,
-          title: job.title,
-          company: job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ""}` : "Company",
-          salary: formatMinimumPay(job.salary),
-          location: job.location || "Location not specified",
-          type: job.jobType || "Full-time",
-          posted: job.createdAt ? new Date(job.createdAt).toLocaleDateString() : "Recently",
-          logo: (job.title && job.title[0]) || "J",
-          matchPercentage: Number(job.match?.percentage || 0),
-          matchLevel: job.match?.level || "Potential match",
-          matchReasons: Array.isArray(job.match?.reasons) ? job.match.reasons : [],
-        }));
-        
-        setRecommendedJobs(transformedJobs);
+        if (jobsResult.status === "fulfilled") {
+          const jobs = jobsResult.value.data;
+          const transformedJobs = jobs.slice(0, 6).map((job: any) => ({
+            id: job._id,
+            title: job.title,
+            company: job.jobPoster?.firstName ? `${job.jobPoster.firstName} ${job.jobPoster.lastName || ""}` : "Company",
+            salary: formatMinimumPay(job.salary),
+            location: job.location || "Location not specified",
+            type: job.jobType || "Full-time",
+            categoryId: typeof job.category === "string" ? undefined : job.category?._id,
+            categoryName: typeof job.category === "string" ? job.category : job.category?.name,
+            skills: Array.isArray(job.skills) ? job.skills : [],
+            urgent: Boolean(job.urgent),
+            matchPercentage: Number(job.match?.percentage || 0),
+            matchLevel: job.match?.level || "Potential match",
+          }));
+          setRecommendedJobs(transformedJobs);
+        } else {
+          console.error("Failed to load recommended jobs:", jobsResult.reason);
+          setRecommendedJobs([]);
+        }
+
+        if (categoriesResult.status === "rejected") console.error("Failed to load categories:", categoriesResult.reason);
+        if (availableJobsResult.status === "rejected") console.error("Failed to load available jobs:", availableJobsResult.reason);
+
+        const categoryRecords = categoriesResult.status === "fulfilled" ? categoriesResult.value : [];
+        const availableJobs = availableJobsResult.status === "fulfilled" ? availableJobsResult.value : [];
         const allJobs = Array.isArray(availableJobs) ? availableJobs : [];
         const counts = allJobs.reduce<Record<string, number>>((result, job: any) => {
           const categoryId = typeof job?.category === "string" ? job.category : job?.category?._id;
           if (categoryId) result[String(categoryId)] = (result[String(categoryId)] || 0) + 1;
           return result;
         }, {});
-        setCategories((Array.isArray(categoryRecords) ? categoryRecords : []).slice(0, 3).map((category: any) => ({
+        setCategories((Array.isArray(categoryRecords) ? categoryRecords : []).slice(0, 10).map((category: any) => ({
           _id: String(category._id || category.id || ""),
           name: String(category.name || "Category"),
           count: counts[String(category._id || category.id || "")] || 0,
         })));
+
+        const allFailed = [jobsResult, categoriesResult, availableJobsResult].every((r) => r.status === "rejected");
+        if (allFailed) toast.error("Failed to load recommended jobs.");
       } catch (error: any) {
+        // Promise.allSettled never rejects, so this only catches a bug in the
+        // handling above, not a network/API failure.
         if (!isMounted) return;
         console.error("Failed to load jobs:", error);
-        toast.error(error?.message || "Failed to load recommended jobs.");
-        setRecommendedJobs([]);
       } finally {
         if (isMounted) setJobsLoading(false);
       }
@@ -290,11 +309,18 @@ function WorkerDashboardContent() {
       <button
         type="button"
         onClick={() => navigate(ROUTES.worker.findJobs)}
-        className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#D7E1EF] bg-[#EAF2FC] px-5 text-left text-sm font-semibold text-slate-500 transition hover:border-[#B8CBE5] hover:bg-[#E2ECF9] lg:hidden"
+        className="mx-auto flex min-h-14 w-full max-w-2xl items-center gap-3 rounded-full border border-slate-200 bg-white px-5 text-left text-sm font-semibold text-slate-500 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
       >
-        <Search className="h-5 w-5" aria-hidden />
-        <span className="flex-1">Search local jobs, skills, or employers</span>
-        <span className="text-xl text-[#1C4D8D]" aria-hidden>›</span>
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAF1FB] text-[#1C4D8D]">
+          <Search className="h-4 w-4" aria-hidden />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate font-bold text-slate-900">Search local jobs</span>
+          <span className="block truncate text-xs font-medium text-slate-400">Skills, employers, or job titles</span>
+        </span>
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EAF1FB] text-[#1C4D8D]" aria-hidden>
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+        </span>
       </button>
 
       {!hasResume && !profileLoading ? (
@@ -310,16 +336,16 @@ function WorkerDashboardContent() {
 
       {categories.length > 0 ? (
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-extrabold tracking-tight text-[#0F2954]">Job Categories</h2>
-            <button type="button" onClick={() => navigate(ROUTES.worker.findJobs)} className="min-h-11 px-2 text-sm font-bold text-slate-600">Browse all</button>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
+          <SectionHeader title="Job Categories" onSeeAll={() => navigate(ROUTES.worker.findJobs)} seeAllLabel="Browse all" />
+          <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:overflow-visible">
             {categories.map((category) => (
-              <button key={category._id} type="button" onClick={() => navigate(`${ROUTES.worker.findJobs}?category=${encodeURIComponent(category._id)}`)} className="min-h-32 rounded-2xl bg-[#EAF2FC] p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#1C4D8D]"><BriefcaseBusiness className="h-4 w-4" aria-hidden /></span>
-                <span className="mt-3 block text-2xl font-extrabold text-slate-950">{category.count}</span>
-                <span className="mt-1 block text-xs font-bold leading-4 text-slate-500 sm:text-sm">{category.name}</span>
+              <button
+                key={category._id}
+                type="button"
+                onClick={() => navigate(`${ROUTES.worker.findJobs}?category=${encodeURIComponent(category._id)}`)}
+                className="shrink-0 snap-start"
+              >
+                <CategoryTile category={category} size="lg" showLabel count={category.count} />
               </button>
             ))}
           </div>
@@ -438,17 +464,7 @@ function WorkerDashboardContent() {
 
         <div className="space-y-6">
           <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[18px] font-semibold text-[#111827]">Recommended Jobs</h3>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-[13px] font-medium text-[#1C4D8D] hover:opacity-80"
-                onClick={handleViewAllJobs}
-              >
-                View all
-                <ArrowUpRight className="h-4 w-4" />
-              </button>
-            </div>
+            <SectionHeader title="Recommended Jobs" onSeeAll={handleViewAllJobs} seeAllLabel="View all" />
             {jobsLoading ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {[1, 2, 3].map((i) => (
@@ -464,56 +480,31 @@ function WorkerDashboardContent() {
                 <p className="text-[14px] text-[#6B7280]">No jobs available at the moment. Check back later!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {recommendedJobs.map((job) => (
-                <button
-                  key={job.id}
-                  type="button"
-                  onClick={() => handleJobClick(job.id)}
-                  className="rounded-[14px] border border-[#E5E7EB] bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#C7D8F9] hover:shadow-md"
-                >
-                  <div className="mb-3 flex items-start justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-[#1C4D8D] text-[12px] font-bold text-white">
-                      {job.logo}
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                        {job.matchPercentage}% Match
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-[10px] text-[#64748B]">
-                        <Clock className="h-3 w-3" />
-                        {job.posted}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-[15px] font-semibold text-[#111827]">{job.title}</p>
-                  <p className="mt-1 flex items-center gap-1 text-[12px] text-[#64748B]">
-                    <Building2 className="h-3.5 w-3.5" />
-                    {job.company}
-                  </p>
-                  <p className="mt-2 text-[13px] font-semibold text-[#10B981]">{job.salary}</p>
-                  {job.matchReasons.length ? (
-                    <p className="mt-2 line-clamp-1 text-[11px] text-[#64748B]">{job.matchReasons.join(" · ")}</p>
-                  ) : null}
-                  <div className="mt-3 flex items-center justify-between border-t border-[#EEF2F7] pt-3">
-                    <span className="flex items-center gap-1 text-[11px] text-[#64748B]">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {job.location}
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                        job.type === "Remote"
-                          ? "bg-[#1C4D8D]/10 text-[#1C4D8D]"
-                          : job.type === "Hybrid"
-                          ? "bg-[#FEF3C7] text-[#92400E]"
-                          : "bg-[#D1FAE5] text-[#065F46]"
-                      }`}
-                    >
-                      {job.type}
-                    </span>
-                  </div>
-                </button>
-              ))}
+              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-3 lg:overflow-visible">
+                {recommendedJobs.map((job, index) => (
+                  <JobCard
+                    key={job.id}
+                    job={toJobCardData({
+                      id: job.id,
+                      title: job.title,
+                      posterName: job.company,
+                      location: job.location,
+                      jobType: job.type,
+                      salaryLabel: job.salary,
+                      categoryId: job.categoryId,
+                      categoryName: job.categoryName,
+                      skills: job.skills,
+                      urgent: job.urgent,
+                      matchPercentage: job.matchPercentage,
+                      matchLevel: job.matchLevel,
+                    })}
+                    variant="carousel"
+                    showMatch
+                    index={index}
+                    onPress={() => handleJobClick(job.id)}
+                    className="min-w-[240px] snap-start lg:min-w-0 lg:w-full"
+                  />
+                ))}
               </div>
             )}
           </div>

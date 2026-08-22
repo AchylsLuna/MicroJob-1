@@ -10,7 +10,13 @@ export default function SupportRouter() {
   const location = useLocation();
 
   if (!user) {
-    return <Navigate to={ROUTES.signIn} replace />;
+    return (
+      <Navigate
+        to={ROUTES.signIn}
+        state={{ from: `${location.pathname}${location.search}${location.hash}` }}
+        replace
+      />
+    );
   }
 
   const normalizedRole = String(user.role || "").toLowerCase();

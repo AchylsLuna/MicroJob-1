@@ -3,7 +3,8 @@ import { Mail, Lock, Eye, EyeOff, Award, Users, TrendingUp, ArrowLeft } from "lu
 import { toast } from "../lib/toast";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
+import { getPostSignInPath } from "../utils/authRedirects";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { OTPVerification } from "./OTPVerification";
@@ -13,7 +14,7 @@ export function SignIn() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
-  const dashboardPath = getDefaultDashboardPath(user);
+  const landingPath = getPostAuthLandingPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -21,9 +22,15 @@ export function SignIn() {
   const [isLoading, setIsLoading] = useState(false);
   const [showOTP, setShowOTP] = useState(false);
   const successMessage = (location.state as { message?: string } | null)?.message;
+  const rawFrom = (location.state as { from?: unknown } | null)?.from;
+  const redirectPath = getPostSignInPath(rawFrom, landingPath);
+  // Validated separately with an empty-string fallback: this is staged into
+  // sessionStorage for the OTP step below, so "no legitimate destination" must
+  // be distinguishable from "the default dashboard" rather than defaulting to it.
+  const validatedFrom = getPostSignInPath(rawFrom, "");
 
   if (!isLoading && isAuthenticated && user?.role) {
-    return <Navigate to={dashboardPath} replace />;
+    return <Navigate to={redirectPath} replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -53,6 +60,15 @@ export function SignIn() {
       if (result.status === "mfa_required") {
         toast.info("Enter your authenticator code to continue.");
       } else if (result.status === "otp_required") {
+        // Stage the bookmarked destination now, before OTP entry -- AuthContext's
+        // verifyOTP only fills in the default dashboard when nothing is staged.
+        // Always write (clearing when there's nothing to stage) so an abandoned
+        // OTP attempt from an earlier "from" can't leak into this one.
+        if (validatedFrom) {
+          sessionStorage.setItem("post_verify_redirect", validatedFrom);
+        } else {
+          sessionStorage.removeItem("post_verify_redirect");
+        }
         setShowOTP(true);
         toast.success("OTP sent to your email. Please verify to continue.");
       }

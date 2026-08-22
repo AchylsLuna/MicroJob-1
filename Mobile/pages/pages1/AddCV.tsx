@@ -286,9 +286,6 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#f9fafb',
   },
-  filePickerIcon: {
-    fontSize: 32,
-  },
   filePickerText: {
     fontSize: 14,
     color: '#6b7280',
@@ -325,9 +322,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fileIconText: {
-    fontSize: 20,
-  },
   fileInfo: {
     flex: 1,
   },
@@ -340,11 +334,6 @@ const styles = StyleSheet.create({
   fileSize: {
     fontSize: 12,
     color: '#6b7280',
-  },
-  removeIcon: {
-    fontSize: 20,
-    color: '#9ca3af',
-    fontWeight: '700',
   },
   uploadButton: {
     backgroundColor: tokens.colors.brand,

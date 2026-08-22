@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Book,
   ChevronDown,
@@ -114,6 +115,7 @@ const extractTicket = (response: any): SupportTicket | undefined => {
 export function Support() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const prefersReducedMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const [openFAQ, setOpenFAQ] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "account" | "payments" | "jobs">("all");
@@ -416,8 +418,14 @@ export function Support() {
             </div>
 
             <div className="space-y-3">
-              {filteredFAQs.map((faq) => (
-                <div key={faq.id} className="border border-[#E5E7EB] rounded-[12px] overflow-hidden">
+              {filteredFAQs.map((faq, index) => (
+                <motion.div
+                  key={faq.id}
+                  className="border border-[#E5E7EB] rounded-[12px] overflow-hidden"
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
+                >
                   <button
                     onClick={() => setOpenFAQ(openFAQ === faq.id ? null : faq.id)}
                     className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition-colors"
@@ -429,12 +437,22 @@ export function Support() {
                       <ChevronDown className="w-5 h-5 text-[#6B7280] shrink-0" />
                     )}
                   </button>
-                  {openFAQ === faq.id ? (
-                    <div className="px-4 pb-4 pt-0">
-                      <p className="text-[14px] text-[#6B7280] leading-relaxed">{faq.answer}</p>
-                    </div>
-                  ) : null}
-                </div>
+                  <AnimatePresence initial={false}>
+                    {openFAQ === faq.id && (
+                      <motion.div
+                        initial={prefersReducedMotion ? false : { height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={prefersReducedMotion ? undefined : { height: 0, opacity: 0 }}
+                        transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
+                        style={{ overflow: "hidden" }}
+                      >
+                        <div className="px-4 pb-4 pt-0">
+                          <p className="text-[14px] text-[#6B7280] leading-relaxed">{faq.answer}</p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               ))}
             </div>
           </div>
@@ -542,17 +560,20 @@ export function Support() {
               </div>
             ) : (
               <div className="space-y-3">
-                {tickets.map((ticket) => {
+                {tickets.map((ticket, index) => {
                   const latestMessage = ticket.messages?.[ticket.messages.length - 1];
                   return (
-                    <button
+                    <motion.button
                       key={ticket._id}
                       onClick={() => setSelectedTicketId(ticket._id)}
-                      className={`w-full text-left rounded-[14px] border p-4 transition-colors ${
+                      className={`w-full text-left rounded-[12px] border p-4 transition-colors ${
                         selectedTicketId === ticket._id
                           ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]"
                           : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
                       }`}
+                      initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
                     >
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
@@ -573,7 +594,7 @@ export function Support() {
                         </span>
                       </div>
                       <p className="text-[13px] text-[#6B7280] line-clamp-2">{latestMessage?.body || "No messages yet."}</p>
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
@@ -590,7 +611,7 @@ export function Support() {
               <div className="py-8 text-center text-[14px] text-[#6B7280]">Select a ticket to review the thread.</div>
             ) : (
               <div className="space-y-4">
-                <div className="rounded-[14px] bg-[#F8FAFC] border border-[#E5E7EB] p-4">
+                <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] p-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <p className="text-[17px] font-semibold text-[#111827]">{selectedTicket.subject}</p>
@@ -608,7 +629,7 @@ export function Support() {
                     return (
                       <div
                         key={message._id}
-                        className={`rounded-[14px] p-4 border ${
+                        className={`rounded-[12px] p-4 border ${
                           isAdmin
                             ? "bg-[#1C4D8D]/[0.06] border-[#1C4D8D]/20"
                             : "bg-[#F9FAFB] border-[#E5E7EB]"

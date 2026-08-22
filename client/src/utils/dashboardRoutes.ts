@@ -8,6 +8,8 @@ export interface DashboardRouteUser {
 
 export const PATIENT_DASHBOARD_PATH = ROUTES.worker.dashboard;
 export const WORKER_DASHBOARD_PATH = PATIENT_DASHBOARD_PATH;
+/** Where a worker enters the app — see `getPostAuthLandingPath`. */
+export const WORKER_LANDING_PATH = ROUTES.worker.findJobs;
 export const EMPLOYER_DASHBOARD_PATH = ROUTES.employer.dashboard;
 export const DOCTOR_DASHBOARD_PATH = EMPLOYER_DASHBOARD_PATH;
 export const ADMIN_DASHBOARD_PATH = ROUTES.admin.dashboard;
@@ -72,6 +74,29 @@ export function getDefaultDashboardPath(user?: DashboardRouteUser | null) {
   }
 
   return PATIENT_DASHBOARD_PATH;
+}
+
+/**
+ * Where to send someone who is *entering* the app — after sign-in, OTP, email
+ * verification, signup, or the landing-page CTA when already authenticated.
+ *
+ * Workers land on Find Jobs rather than their dashboard: browsing work is the
+ * reason they opened the app, and the dashboard stays one nav click away.
+ *
+ * Deliberately separate from `getDefaultDashboardPath`, which is still the
+ * right answer for *bounces* (wrong-role redirects, the legacy /dashboard
+ * route) where "your home" — not "get to work" — is the intent.
+ */
+export function getPostAuthLandingPath(user?: DashboardRouteUser | null) {
+  if (isAdmin(user)) {
+    return ADMIN_DASHBOARD_PATH;
+  }
+
+  if (isEmployer(user)) {
+    return EMPLOYER_DASHBOARD_PATH;
+  }
+
+  return WORKER_LANDING_PATH;
 }
 
 // Legacy aliases retained for backward compatibility.

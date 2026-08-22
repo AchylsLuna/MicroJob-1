@@ -84,8 +84,6 @@ export const ROUTES = {
     findJobs: "/dashboard/find-jobs",
     jobDetailsPattern: "/dashboard/job-details/:jobId",
     jobDetailsNewPattern: "/dashboard/job-details-new/:jobId",
-    jobDetails: (jobId: string) => `/dashboard/job-details/${jobId}`,
-    jobDetailsNew: (jobId: string) => `/dashboard/job-details-new/${jobId}`,
     eWallet: "/dashboard/e-wallet",
     messages: "/dashboard/messages",
     appliedJobs: "/dashboard/applied-jobs",
@@ -133,7 +131,6 @@ export const ROUTES = {
   legacyShortcuts: {
     findJobs: "/find-jobs",
     jobDetailsPattern: "/job-details/:jobId",
-    jobDetails: (jobId: string) => `/job-details/${jobId}`,
     eWallet: "/e-wallet",
     messages: "/messages",
     appliedJobs: "/applied-jobs",

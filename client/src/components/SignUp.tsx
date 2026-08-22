@@ -18,7 +18,7 @@ import {
   normalizePhone,
   sanitizeFullNameInput,
 } from "../lib/authValidation";
-import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
+import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 
@@ -114,7 +114,7 @@ export function SignUp() {
   useEffect(() => {
     if (isAuthenticated) {
       sessionStorage.removeItem(SIGN_UP_DRAFT_KEY);
-      navigate(getDefaultDashboardPath(user), { replace: true });
+      navigate(getPostAuthLandingPath(user), { replace: true });
     }
   }, [isAuthenticated, navigate, user]);
 

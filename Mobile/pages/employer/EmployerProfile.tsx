@@ -612,25 +612,7 @@ const styles = StyleSheet.create({
   disabledAction: {
     opacity: 0.55,
   },
-  progressCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-    backgroundColor: tokens.colors.surface,
-    padding: 18,
-    gap: 12,
-    ...tokens.shadow.card,
-  },
   progressContent: { paddingVertical: 2 },
-  sectionCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-    backgroundColor: tokens.colors.surface,
-    padding: 18,
-    gap: 10,
-    ...tokens.shadow.card,
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -711,16 +693,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 14,
     color: tokens.colors.text,
-  },
-  formError: {
-    color: '#991B1B',
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FECACA',
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 13,
-    lineHeight: 18,
   },
   inputReadOnly: {
     color: tokens.colors.textMuted,

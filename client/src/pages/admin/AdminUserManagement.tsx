@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
@@ -35,6 +36,7 @@ function AdminUserManagementContent() {
     reload,
   } = useAdminData();
 
+  const prefersReducedMotion = useReducedMotion();
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "privileged" | "work" | "hire" | "both">("all");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -240,15 +242,21 @@ function AdminUserManagementContent() {
             { label: "Administrators", value: adminCount, detail: "Admins and superadmins", icon: ShieldCheck, tone: "bg-violet-50 text-violet-700" },
             { label: "Active accounts", value: activeToday, detail: "Currently enabled", icon: UserCheck, tone: "bg-emerald-50 text-emerald-700" },
             { label: "Pending review", value: pendingCount, detail: "Awaiting approval", icon: UserPlus, tone: "bg-amber-50 text-amber-700" },
-          ].map((card) => {
+          ].map((card, index) => {
             const Icon = card.icon;
             return (
-              <article key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <motion.article
+                key={card.label}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05, duration: 0.3 }}
+              >
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></div>
                 <p className="mt-4 text-sm font-medium text-slate-500">{card.label}</p>
                 <p className="mt-1 text-2xl font-bold text-slate-950">{isLoading ? "—" : card.value}</p>
                 <p className="mt-2 text-xs text-slate-500">{card.detail}</p>
-              </article>
+              </motion.article>
             );
           })}
         </div>
@@ -293,8 +301,14 @@ function AdminUserManagementContent() {
 
           <div className="space-y-3 md:hidden" aria-label="Users">
             {isLoading && <p className="py-6 text-center text-sm text-slate-500">Loading users…</p>}
-            {!isLoading && paginatedUsers.map((user) => (
-              <article key={user._id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            {!isLoading && paginatedUsers.map((user, index) => (
+              <motion.article
+                key={user._id}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04, duration: 0.3 }}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="font-semibold text-slate-900">{getUserName(user)}</p><p className="truncate text-xs text-slate-600">{user.email}</p></div>
                   <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(user.status)}`}>{user.status || "active"}</span>
@@ -305,7 +319,7 @@ function AdminUserManagementContent() {
                   <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? "Edit" : "Restricted"}</Button>
                   {canManageUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>Delete user</Button>}
                 </div>
-              </article>
+              </motion.article>
             ))}
             {!isLoading && paginatedUsers.length === 0 && <p className="py-6 text-center text-sm text-slate-500">No users found.</p>}
           </div>
@@ -338,8 +352,14 @@ function AdminUserManagementContent() {
                 )}
 
                 {!isLoading &&
-                  paginatedUsers.map((user) => (
-                    <tr key={user._id} className="border-b border-[#F3F4F6]">
+                  paginatedUsers.map((user, index) => (
+                    <motion.tr
+                      key={user._id}
+                      className="border-b border-[#F3F4F6] transition-colors hover:bg-slate-50"
+                      initial={prefersReducedMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.03, duration: 0.25 }}
+                    >
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
@@ -459,7 +479,7 @@ function AdminUserManagementContent() {
                           )}
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   ))}
               </tbody>
             </table>

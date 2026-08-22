@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Briefcase, DollarSign, TrendingUp, Users } from "lucide-react";
 import type { AdminJob, AdminUser } from "../../hooks/useAdminData";
 import type { PaymentTransaction } from "../../services/api";
@@ -29,6 +30,7 @@ export function AnalyticsOverview({
   topCategories,
   formatCurrency,
 }: AnalyticsOverviewProps) {
+  const prefersReducedMotion = useReducedMotion();
   const monthBuckets = useMemo(() => {
     const now = new Date();
     return Array.from({ length: CHART_MONTHS }, (_, index) => {
@@ -194,8 +196,14 @@ export function AnalyticsOverview({
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {cardItems.map((card) => (
-          <div key={card.label} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        {cardItems.map((card, index) => (
+          <motion.div
+            key={card.label}
+            className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:-translate-y-0.5 hover:shadow-md"
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.05, duration: 0.3 }}
+          >
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-[13px] text-[#6B7280]">{card.label}</p>
@@ -213,12 +221,12 @@ export function AnalyticsOverview({
                 {card.icon}
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
           <h3 className="text-[18px] font-semibold text-[#111827]">Monthly Activity</h3>
           <div className="mt-6 flex items-end gap-4 h-[220px]">
             {monthBuckets.map((bucket, index) => {
@@ -243,12 +251,15 @@ export function AnalyticsOverview({
           </div>
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
           <h3 className="text-[18px] font-semibold text-[#111827]">Completed Payout Trend</h3>
           <div className="mt-6 flex gap-4">
             <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
-              {payoutVolumeTicks.map((tick) => (
-                <span key={tick}>{formatCurrency(tick)}</span>
+              {payoutVolumeTicks.map((tick, index) => (
+                // Keyed by position, not value: ticks are a fixed-length axis that
+                // never reorders, and rounding repeats values at low maxima
+                // (maxValue 1 yields [1, 1, 0, 0]).
+                <span key={index}>{formatCurrency(tick)}</span>
               ))}
             </div>
             <svg viewBox="0 0 360 180" className="w-full h-[200px]">
@@ -267,7 +278,7 @@ export function AnalyticsOverview({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
           <h3 className="text-[18px] font-semibold text-[#111827]">Jobs by Category</h3>
           <div className="mt-6 flex flex-col items-center gap-6">
             <svg width="200" height="200" viewBox="0 0 200 200">
@@ -307,12 +318,13 @@ export function AnalyticsOverview({
           </div>
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
           <h3 className="text-[18px] font-semibold text-[#111827]">User Growth</h3>
           <div className="mt-6 flex gap-4">
             <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
-              {userGrowthTicks.map((tick) => (
-                <span key={tick}>{tick}</span>
+              {userGrowthTicks.map((tick, index) => (
+                // Keyed by position — see the payout-trend axis above.
+                <span key={index}>{tick}</span>
               ))}
             </div>
             <svg viewBox="0 0 360 180" className="w-full h-[200px]">

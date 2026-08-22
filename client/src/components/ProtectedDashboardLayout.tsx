@@ -33,9 +33,16 @@ export function ProtectedDashboardLayout() {
     );
   }
 
-  // Redirect to role-aware sign-in page if not authenticated
+  // Redirect to role-aware sign-in page if not authenticated, carrying the page
+  // they asked for so signing in returns them there instead of a generic dashboard.
   if (!isAuthenticated && !hasAuthenticatedSession) {
-    return <Navigate to={getSignInRouteForPath(location.pathname)} replace />;
+    return (
+      <Navigate
+        to={getSignInRouteForPath(location.pathname)}
+        state={{ from: `${location.pathname}${location.search}${location.hash}` }}
+        replace
+      />
+    );
   }
 
   return <DashboardLayout />;

@@ -35,7 +35,13 @@ export function RoleRoute({ requiredRole }: { requiredRole: RouteRole }) {
   const user = contextUser || storedUser;
 
   if (!user) {
-    return <Navigate to={getSignInRouteForPath(location.pathname)} replace />;
+    return (
+      <Navigate
+        to={getSignInRouteForPath(location.pathname)}
+        state={{ from: `${location.pathname}${location.search}${location.hash}` }}
+        replace
+      />
+    );
   }
 
   const hasAccess =

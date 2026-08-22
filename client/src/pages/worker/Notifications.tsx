@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
 import { toast } from '../../lib/toast';
@@ -9,6 +10,7 @@ import { useNotifications } from '../../contexts/NotificationContext';
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const prefersReducedMotion = useReducedMotion();
   const notificationState = useNotifications();
   const [filterType, setFilterType] = useState<'all' | NotificationFeedType>('all');
   const normalizedRole = String(user?.role || '').toLowerCase();
@@ -144,8 +146,14 @@ export default function NotificationsPage() {
 
         {notifications
           .filter((n) => filterType === 'all' || n.type === filterType)
-          .map((n) => (
-          <div key={n.id} className={`rounded-xl p-4 shadow-sm border ${!n.read ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'}`}>
+          .map((n, index) => (
+          <motion.div
+            key={n.id}
+            className={`rounded-xl p-4 shadow-sm border transition-colors hover:shadow-md ${!n.read ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
+            initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
+          >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3 flex-1">
                 {/* Icon based on notification type */}
@@ -210,7 +218,7 @@ export default function NotificationsPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
     </div>

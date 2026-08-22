@@ -30,6 +30,7 @@ const SignIn = lazy(() => import("./components/SignIn").then((module) => ({ defa
 const SignUp = lazy(() => import("./components/SignUp").then((module) => ({ default: module.SignUp })));
 const TermsAndConditions = lazy(() => import("./components/TermsAndConditions").then((module) => ({ default: module.TermsAndConditions })));
 const EmailVerification = lazy(() => import("./pages/emailVerification"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 const TopUpSuccess = lazy(() => import("./pages/TopUpSuccess").then((module) => ({ default: module.TopUpSuccess })));
 const PublicProfile = lazy(() => import("./pages/shared/PublicProfile").then((module) => ({ default: module.PublicProfile })));
 const NotificationsRouter = lazy(() => import("./pages/NotificationsRouter"));
@@ -298,10 +299,6 @@ const App: React.FC = () => {
             />
             <Route path={ROUTES.employer.dashboard} element={<EmployerDashboard />} />
             <Route path={ROUTES.employer.postJob} element={<PostJob />} />
-            <Route
-              path="/employer/job-posts"
-              element={<PreserveRedirect to={ROUTES.employer.postJob} />}
-            />
             <Route path={ROUTES.employer.applications} element={<Applications />} />
             <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
             <Route path={ROUTES.employer.messages} element={<WorkerMessages />} />
@@ -310,51 +307,6 @@ const App: React.FC = () => {
             <Route path={ROUTES.employer.support} element={<SupportRouter />} />
             <Route path={ROUTES.employer.settings} element={<Settings />} />
             <Route path={ROUTES.employer.profile} element={<Settings />} />
-
-            <Route
-              path={ROUTES.doctor.root}
-              element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
-            />
-            <Route
-              path={ROUTES.doctor.dashboard}
-              element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
-            />
-            <Route
-              path={ROUTES.doctor.postJob}
-              element={<PreserveRedirect to={ROUTES.employer.postJob} />}
-            />
-            <Route
-              path="/doctor/job-posts"
-              element={<PreserveRedirect to={ROUTES.employer.postJob} />}
-            />
-            <Route
-              path={ROUTES.doctor.applications}
-              element={<PreserveRedirect to={ROUTES.employer.applications} />}
-            />
-            <Route
-              path={ROUTES.doctor.jobs}
-              element={<PreserveRedirect to={ROUTES.employer.jobs} />}
-            />
-            <Route
-              path={ROUTES.doctor.messages}
-              element={<PreserveRedirect to={ROUTES.employer.messages} />}
-            />
-            <Route
-              path={ROUTES.doctor.eWallet}
-              element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
-            />
-            <Route
-              path={ROUTES.doctor.notifications}
-              element={<PreserveRedirect to={ROUTES.employer.notifications} />}
-            />
-            <Route
-              path={ROUTES.doctor.support}
-              element={<PreserveRedirect to={ROUTES.employer.support} />}
-            />
-            <Route
-              path={ROUTES.doctor.settings}
-              element={<PreserveRedirect to={ROUTES.employer.settings} />}
-            />
           </Route>
 
           <Route element={<RoleRoute requiredRole="admin" />}>
@@ -378,199 +330,236 @@ const App: React.FC = () => {
           <Route path={ROUTES.publicProfilePattern} element={<PublicProfile />} />
           <Route path={ROUTES.notifications} element={<NotificationsRouter />} />
           <Route path={ROUTES.support} element={<SupportRouter />} />
-
-          <Route path={ROUTES.legacyDashboard.root} element={<DashboardHomeRoute />} />
-          <Route
-            path={ROUTES.legacyDashboard.findJobs}
-            element={<PreserveRedirect to={ROUTES.worker.findJobs} />}
-          />
-          <Route path={ROUTES.legacyDashboard.jobDetailsPattern} element={<LegacyJobDetailsRedirect />} />
-          <Route path={ROUTES.legacyDashboard.jobDetailsNewPattern} element={<LegacyJobDetailsRedirect />} />
-          <Route
-            path={ROUTES.legacyDashboard.eWallet}
-            element={<PreserveRedirect to={ROUTES.worker.eWallet} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.messages}
-            element={<PreserveRedirect to={ROUTES.worker.messages} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.appliedJobs}
-            element={<PreserveRedirect to={ROUTES.worker.appliedJobs} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.savedJobs}
-            element={<PreserveRedirect to={ROUTES.worker.savedJobs} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.notifications}
-            element={<PreserveRedirect to={ROUTES.worker.notifications} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.support}
-            element={<PreserveRedirect to={ROUTES.worker.support} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.profile}
-            element={<PreserveRedirect to={ROUTES.worker.profile} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.settings}
-            element={<PreserveRedirect to={ROUTES.settings} />}
-          />
-
-          <Route
-            path={ROUTES.legacyDashboard.doctor.root}
-            element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.applications}
-            element={<PreserveRedirect to={ROUTES.employer.applications} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.postJob}
-            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
-          />
-          <Route
-            path="/dashboard/doctor/job-posts"
-            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.jobs}
-            element={<PreserveRedirect to={ROUTES.employer.jobs} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.messages}
-            element={<PreserveRedirect to={ROUTES.employer.messages} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.eWallet}
-            element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.notifications}
-            element={<PreserveRedirect to={ROUTES.employer.notifications} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.support}
-            element={<PreserveRedirect to={ROUTES.employer.support} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.doctor.settings}
-            element={<PreserveRedirect to={ROUTES.employer.settings} />}
-          />
-
-          <Route
-            path={ROUTES.legacyDashboard.employer.root}
-            element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.applications}
-            element={<PreserveRedirect to={ROUTES.employer.applications} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.postJob}
-            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
-          />
-          <Route
-            path="/dashboard/employer/job-posts"
-            element={<PreserveRedirect to={ROUTES.employer.postJob} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.jobs}
-            element={<PreserveRedirect to={ROUTES.employer.jobs} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.messages}
-            element={<PreserveRedirect to={ROUTES.employer.messages} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.eWallet}
-            element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.notifications}
-            element={<PreserveRedirect to={ROUTES.employer.notifications} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.support}
-            element={<PreserveRedirect to={ROUTES.employer.support} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.employer.settings}
-            element={<PreserveRedirect to={ROUTES.employer.settings} />}
-          />
-
-          <Route
-            path={ROUTES.legacyDashboard.admin.root}
-            element={<PreserveRedirect to={ROUTES.admin.dashboard} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.messages}
-            element={<PreserveRedirect to={ROUTES.admin.messages} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.payouts}
-            element={<PreserveRedirect to={ROUTES.admin.payouts} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.support}
-            element={<PreserveRedirect to={ROUTES.admin.support} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.analytics}
-            element={<PreserveRedirect to={ROUTES.admin.analytics} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.reports}
-            element={<PreserveRedirect to={ROUTES.admin.reports} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.eWallet}
-            element={<PreserveRedirect to={ROUTES.admin.eWallet} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.jobs}
-            element={<PreserveRedirect to={ROUTES.admin.jobs} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.security}
-            element={<PreserveRedirect to={ROUTES.admin.security} />}
-          />
-          <Route
-            path={ROUTES.legacyDashboard.admin.userManagement}
-            element={<PreserveRedirect to={ROUTES.admin.userManagement} />}
-          />
-
-          <Route
-            path={ROUTES.legacyShortcuts.findJobs}
-            element={<PreserveRedirect to={ROUTES.worker.findJobs} />}
-          />
-          <Route path={ROUTES.legacyShortcuts.jobDetailsPattern} element={<LegacyJobDetailsRedirect />} />
-          <Route
-            path={ROUTES.legacyShortcuts.eWallet}
-            element={<PreserveRedirect to={ROUTES.worker.eWallet} />}
-          />
-          <Route
-            path={ROUTES.legacyShortcuts.messages}
-            element={<PreserveRedirect to={ROUTES.worker.messages} />}
-          />
-          <Route
-            path={ROUTES.legacyShortcuts.appliedJobs}
-            element={<PreserveRedirect to={ROUTES.worker.appliedJobs} />}
-          />
-          <Route
-            path={ROUTES.legacyShortcuts.savedJobs}
-            element={<PreserveRedirect to={ROUTES.worker.savedJobs} />}
-          />
-          <Route
-            path={ROUTES.legacyShortcuts.profile}
-            element={<PreserveRedirect to={ROUTES.worker.profile} />}
-          />
-
         </Route>
 
-        <Route path="*" element={<Navigate to={ROUTES.home} replace />} />
+        {/* Legacy URL redirects. These only rewrite the URL, so they sit
+            outside <SidebarLayout> -- inside it, ProtectedDashboardLayout
+            bounced logged-out visitors to sign-in and the old bookmark was
+            discarded before the redirect could run. Auth is still enforced
+            by whichever protected route each one lands on. */}
+        <Route
+          path={ROUTES.doctor.root}
+          element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+        />
+        <Route
+          path={ROUTES.doctor.dashboard}
+          element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+        />
+        <Route
+          path={ROUTES.doctor.postJob}
+          element={<PreserveRedirect to={ROUTES.employer.postJob} />}
+        />
+        <Route
+          path={ROUTES.doctor.applications}
+          element={<PreserveRedirect to={ROUTES.employer.applications} />}
+        />
+        <Route
+          path={ROUTES.doctor.jobs}
+          element={<PreserveRedirect to={ROUTES.employer.jobs} />}
+        />
+        <Route
+          path={ROUTES.doctor.messages}
+          element={<PreserveRedirect to={ROUTES.employer.messages} />}
+        />
+        <Route
+          path={ROUTES.doctor.eWallet}
+          element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
+        />
+        <Route
+          path={ROUTES.doctor.notifications}
+          element={<PreserveRedirect to={ROUTES.employer.notifications} />}
+        />
+        <Route
+          path={ROUTES.doctor.support}
+          element={<PreserveRedirect to={ROUTES.employer.support} />}
+        />
+        <Route
+          path={ROUTES.doctor.settings}
+          element={<PreserveRedirect to={ROUTES.employer.settings} />}
+        />
+
+        <Route path={ROUTES.legacyDashboard.root} element={<DashboardHomeRoute />} />
+        <Route
+          path={ROUTES.legacyDashboard.findJobs}
+          element={<PreserveRedirect to={ROUTES.worker.findJobs} />}
+        />
+        <Route path={ROUTES.legacyDashboard.jobDetailsPattern} element={<LegacyJobDetailsRedirect />} />
+        <Route path={ROUTES.legacyDashboard.jobDetailsNewPattern} element={<LegacyJobDetailsRedirect />} />
+        <Route
+          path={ROUTES.legacyDashboard.eWallet}
+          element={<PreserveRedirect to={ROUTES.worker.eWallet} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.messages}
+          element={<PreserveRedirect to={ROUTES.worker.messages} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.appliedJobs}
+          element={<PreserveRedirect to={ROUTES.worker.appliedJobs} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.savedJobs}
+          element={<PreserveRedirect to={ROUTES.worker.savedJobs} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.notifications}
+          element={<PreserveRedirect to={ROUTES.worker.notifications} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.support}
+          element={<PreserveRedirect to={ROUTES.worker.support} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.profile}
+          element={<PreserveRedirect to={ROUTES.worker.profile} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.settings}
+          element={<PreserveRedirect to={ROUTES.settings} />}
+        />
+
+        <Route
+          path={ROUTES.legacyDashboard.doctor.root}
+          element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.applications}
+          element={<PreserveRedirect to={ROUTES.employer.applications} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.postJob}
+          element={<PreserveRedirect to={ROUTES.employer.postJob} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.jobs}
+          element={<PreserveRedirect to={ROUTES.employer.jobs} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.messages}
+          element={<PreserveRedirect to={ROUTES.employer.messages} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.eWallet}
+          element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.notifications}
+          element={<PreserveRedirect to={ROUTES.employer.notifications} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.support}
+          element={<PreserveRedirect to={ROUTES.employer.support} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.doctor.settings}
+          element={<PreserveRedirect to={ROUTES.employer.settings} />}
+        />
+
+        <Route
+          path={ROUTES.legacyDashboard.employer.root}
+          element={<PreserveRedirect to={ROUTES.employer.dashboard} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.applications}
+          element={<PreserveRedirect to={ROUTES.employer.applications} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.postJob}
+          element={<PreserveRedirect to={ROUTES.employer.postJob} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.jobs}
+          element={<PreserveRedirect to={ROUTES.employer.jobs} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.messages}
+          element={<PreserveRedirect to={ROUTES.employer.messages} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.eWallet}
+          element={<PreserveRedirect to={ROUTES.employer.eWallet} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.notifications}
+          element={<PreserveRedirect to={ROUTES.employer.notifications} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.support}
+          element={<PreserveRedirect to={ROUTES.employer.support} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.employer.settings}
+          element={<PreserveRedirect to={ROUTES.employer.settings} />}
+        />
+
+        <Route
+          path={ROUTES.legacyDashboard.admin.root}
+          element={<PreserveRedirect to={ROUTES.admin.dashboard} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.messages}
+          element={<PreserveRedirect to={ROUTES.admin.messages} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.payouts}
+          element={<PreserveRedirect to={ROUTES.admin.payouts} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.support}
+          element={<PreserveRedirect to={ROUTES.admin.support} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.analytics}
+          element={<PreserveRedirect to={ROUTES.admin.analytics} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.reports}
+          element={<PreserveRedirect to={ROUTES.admin.reports} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.eWallet}
+          element={<PreserveRedirect to={ROUTES.admin.eWallet} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.jobs}
+          element={<PreserveRedirect to={ROUTES.admin.jobs} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.security}
+          element={<PreserveRedirect to={ROUTES.admin.security} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.userManagement}
+          element={<PreserveRedirect to={ROUTES.admin.userManagement} />}
+        />
+
+        <Route
+          path={ROUTES.legacyShortcuts.findJobs}
+          element={<PreserveRedirect to={ROUTES.worker.findJobs} />}
+        />
+        <Route path={ROUTES.legacyShortcuts.jobDetailsPattern} element={<LegacyJobDetailsRedirect />} />
+        <Route
+          path={ROUTES.legacyShortcuts.eWallet}
+          element={<PreserveRedirect to={ROUTES.worker.eWallet} />}
+        />
+        <Route
+          path={ROUTES.legacyShortcuts.messages}
+          element={<PreserveRedirect to={ROUTES.worker.messages} />}
+        />
+        <Route
+          path={ROUTES.legacyShortcuts.appliedJobs}
+          element={<PreserveRedirect to={ROUTES.worker.appliedJobs} />}
+        />
+        <Route
+          path={ROUTES.legacyShortcuts.savedJobs}
+          element={<PreserveRedirect to={ROUTES.worker.savedJobs} />}
+        />
+        <Route
+          path={ROUTES.legacyShortcuts.profile}
+          element={<PreserveRedirect to={ROUTES.worker.profile} />}
+        />
+
+        <Route path="*" element={<NotFound />} />
       </Routes>
       </Suspense>
     </Router>
