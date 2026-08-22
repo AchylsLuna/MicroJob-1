@@ -1,12 +1,15 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Briefcase, ChevronRight, MapPin } from "lucide-react";
+import { ArrowRight, Briefcase, ChevronRight, MapPin, Menu, Search, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
-import { useCallback, useState, useEffect } from "react";
+import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
-import { getJobs } from "../services/api";
+import { getCategories, getJobs } from "../services/api";
+
+type LandingCategory = { _id: string; name: string };
+type HeroIntent = "work" | "hire";
 
 const toAbsoluteAssetUrl = (value?: string): string | null => {
   if (!value) return null;
@@ -96,12 +99,123 @@ export function LandingPageBlue() {
   const [isJobsLoading, setIsJobsLoading] = useState(false);
   const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
 
+  // Shared by both the hero chips and the nav mega-menu — fetched once.
+  // GET /categories is a public endpoint, so this works signed-out.
+  const [categories, setCategories] = useState<LandingCategory[]>([]);
+  const [heroIntent, setHeroIntent] = useState<HeroIntent>("work");
+  const [heroQuery, setHeroQuery] = useState("");
+  const [openMenu, setOpenMenu] = useState<HeroIntent | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const navMenuRef = useRef<HTMLDivElement>(null);
+
   const getJobsPath = isAuthenticated
     ? user?.accountType === "employer"
       ? ROUTES.employer.jobs
       : ROUTES.worker.findJobs
     : ROUTES.signIn;
   const startJourneyPath = getJobsPath;
+
+  useEffect(() => {
+    let isMounted = true;
+    getCategories()
+      .then((records) => {
+        if (!isMounted) return;
+        const list = (Array.isArray(records) ? records : [])
+          .map((category: any) => ({
+            _id: String(category?._id || category?.id || ""),
+            name: String(category?.name || "").trim(),
+          }))
+          .filter((category) => category._id && category.name);
+        setCategories(list);
+      })
+      .catch(() => {
+        // Categories are decorative here — the hero and nav both degrade to
+        // their non-category state rather than surfacing an error.
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (navMenuRef.current && !navMenuRef.current.contains(event.target as Node)) setOpenMenu(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenu(null);
+    };
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [openMenu]);
+
+  /**
+   * Where a hero search / category chip should land.
+   *
+   * Signed-out users can't reach /worker/find-jobs (it's behind RoleRoute), so
+   * instead of dropping them on a bare login wall we hand SignIn the intended
+   * URL as `location.state.from` — `getPostSignInPath` then delivers them to
+   * their actual search once they authenticate, query intact.
+   */
+  const goToSearch = useCallback(
+    (options?: { query?: string; categoryId?: string; intent?: HeroIntent }) => {
+      const intent = options?.intent ?? heroIntent;
+
+      if (intent === "hire") {
+        if (!isAuthenticated) {
+          navigate(ROUTES.signUp, { state: { from: ROUTES.employer.postJob } });
+          return;
+        }
+        navigate(user?.accountType === "employer" ? ROUTES.employer.postJob : ROUTES.employer.dashboard);
+        return;
+      }
+
+      const params = new URLSearchParams();
+      const query = (options?.query ?? "").trim();
+      if (query) params.set("q", query);
+      if (options?.categoryId) params.set("category", options.categoryId);
+      const search = params.toString();
+      const target = `${ROUTES.worker.findJobs}${search ? `?${search}` : ""}`;
+
+      if (!isAuthenticated) {
+        navigate(ROUTES.signIn, { state: { from: target } });
+        return;
+      }
+      navigate(target);
+    },
+    [heroIntent, isAuthenticated, navigate, user?.accountType],
+  );
+
+  const heroCopy = useMemo(
+    () =>
+      heroIntent === "hire"
+        ? {
+            leadIn: "Hire local talent",
+            highlight: "Ready to Work",
+            trailing: "in your community",
+            subhead:
+              "Post a job in minutes and reach verified workers near you. Track applicants, schedule interviews, and pay securely through escrow.",
+            placeholder: "What do you need done?",
+            action: "Post a job",
+          }
+        : {
+            leadIn: "Unlock Your",
+            highlight: "Career Potential",
+            trailing: "with Micro Jobs",
+            subhead:
+              "Discover local job opportunities with all the information you need. It's your future. Come find it — and manage every application from start to finish.",
+            placeholder: "Search local jobs, skills, or employers",
+            action: "Search jobs",
+          },
+    [heroIntent],
+  );
+
+  const chipCategories = useMemo(() => categories.slice(0, 4), [categories]);
+  const chipCategoriesFull = useMemo(() => categories.slice(0, 8), [categories]);
 
   const normalizeCadenceLabel = useCallback((raw: string) => {
     const source = raw.toLowerCase();
@@ -250,12 +364,95 @@ export function LandingPageBlue() {
               />
             </motion.div>
 
-            <div className="hidden md:flex items-center gap-8">
-              <a href="#jobs" className="text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Jobs</a>
-              <a href="#features" className="text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Features</a>
-              <a href="#employers" className="text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Employers</a>
-              <a href="#help" className="text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Help</a>
-              <a href="#contact" className="text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Contact Us</a>
+            <div className="hidden md:flex items-center gap-6" ref={navMenuRef}>
+              {(["work", "hire"] as const).map((intent) => {
+                const label = intent === "work" ? "Find work" : "Hire talent";
+                const isOpen = openMenu === intent;
+                return (
+                  <div key={intent} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setOpenMenu(isOpen ? null : intent)}
+                      aria-haspopup="true"
+                      aria-expanded={isOpen}
+                      className={`inline-flex min-h-11 items-center gap-1 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
+                        isOpen ? "text-[#1C4D8D]" : "text-gray-600 hover:text-gray-900"
+                      }`}
+                    >
+                      {label}
+                      <ChevronRight className={`h-4 w-4 transition-transform ${isOpen ? "rotate-90" : "rotate-0"}`} aria-hidden />
+                    </button>
+
+                    <AnimatePresence>
+                      {isOpen ? (
+                        <motion.div
+                          initial={prefersReducedMotion ? false : { opacity: 0, y: -6 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={prefersReducedMotion ? undefined : { opacity: 0, y: -6 }}
+                          transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                          className="absolute left-0 top-full z-50 mt-3 w-[740px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                        >
+                          <div className="grid grid-cols-[190px_minmax(0,1fr)]">
+                            <div className="border-r border-slate-100 bg-slate-50 px-5 py-6">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Categories</p>
+                              <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
+                                {intent === "work"
+                                  ? "Browse local openings by the kind of work you do."
+                                  : "Find verified workers by the kind of help you need."}
+                              </p>
+                            </div>
+                            <div className="px-6 py-6">
+                              {chipCategoriesFull.length === 0 ? (
+                                <p className="py-6 text-[13px] text-slate-500">Categories are loading…</p>
+                              ) : (
+                                <div className="grid grid-cols-2 gap-x-8 gap-y-5">
+                                  {chipCategoriesFull.map((category) => (
+                                    <button
+                                      key={category._id}
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMenu(null);
+                                        goToSearch({ categoryId: category._id, intent });
+                                      }}
+                                      className="group/item block text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                    >
+                                      <span className="block text-[15px] font-bold leading-snug text-slate-900 group-hover/item:text-[#1C4D8D]">
+                                        {category.name}
+                                      </span>
+                                      <span className="mt-0.5 block text-[13px] leading-snug text-slate-500">
+                                        {intent === "work"
+                                          ? `Local ${category.name.toLowerCase()} jobs`
+                                          : `Hire for ${category.name.toLowerCase()}`}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="border-t border-slate-100 px-6 py-4">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOpenMenu(null);
+                                goToSearch({ intent });
+                              }}
+                              className="inline-flex items-center gap-1 text-[14px] font-bold text-[#1C4D8D] transition hover:opacity-80"
+                            >
+                              {intent === "work" ? "See all jobs" : "Post a job"}
+                              <ChevronRight className="h-4 w-4" aria-hidden />
+                            </button>
+                          </div>
+                        </motion.div>
+                      ) : null}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+
+              <a href="#features" className="inline-flex min-h-11 items-center text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Features</a>
+              <a href="#help" className="inline-flex min-h-11 items-center text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">How it works</a>
+              <a href="#contact" className="inline-flex min-h-11 items-center text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Contact Us</a>
             </div>
 
             <div className="flex items-center gap-3">
@@ -263,54 +460,83 @@ export function LandingPageBlue() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate(isAuthenticated ? appEntryPath : ROUTES.signIn)}
-                className="text-[14px] font-semibold text-gray-700 px-5 py-2 rounded-full hover:bg-gray-100 transition-colors"
+                className="hidden text-[14px] font-semibold text-gray-700 px-5 py-2 rounded-full hover:bg-gray-100 transition-colors sm:inline-flex"
               >
-                Sign In
+                {isAuthenticated ? "Go to app" : "Sign In"}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: "0 10px 30px rgba(73, 136, 196, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => navigate(ROUTES.signUp)}
-                className="brand-primary-interactive rounded-full px-6 py-2.5 text-[14px] font-semibold hover:shadow-lg"
+                className="brand-primary-interactive hidden rounded-full px-6 py-2.5 text-[14px] font-semibold hover:shadow-lg sm:inline-flex"
               >
                 Get Started
               </motion.button>
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen((prev) => !prev)}
+                aria-expanded={mobileNavOpen}
+                aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-600 transition hover:bg-slate-50 md:hidden"
+              >
+                {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Mobile menu — the landing nav previously had no navigation at all below md. */}
+        <AnimatePresence>
+          {mobileNavOpen ? (
+            <motion.div
+              initial={prefersReducedMotion ? false : { opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, y: -8 }}
+              transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+              className="border-t border-slate-100 bg-white px-6 py-4 md:hidden"
+            >
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => { setMobileNavOpen(false); goToSearch({ intent: "work" }); }}
+                  className="min-h-11 text-left text-[15px] font-semibold text-slate-800"
+                >
+                  Find work
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMobileNavOpen(false); goToSearch({ intent: "hire" }); }}
+                  className="min-h-11 text-left text-[15px] font-semibold text-slate-800"
+                >
+                  Hire talent
+                </button>
+                <a href="#features" onClick={() => setMobileNavOpen(false)} className="min-h-11 text-[15px] font-medium leading-[44px] text-slate-600">Features</a>
+                <a href="#help" onClick={() => setMobileNavOpen(false)} className="min-h-11 text-[15px] font-medium leading-[44px] text-slate-600">How it works</a>
+                <a href="#contact" onClick={() => setMobileNavOpen(false)} className="min-h-11 text-[15px] font-medium leading-[44px] text-slate-600">Contact Us</a>
+                <button
+                  type="button"
+                  onClick={() => { setMobileNavOpen(false); navigate(isAuthenticated ? appEntryPath : ROUTES.signIn); }}
+                  className="mt-2 min-h-11 rounded-full border border-slate-200 text-[15px] font-semibold text-slate-700"
+                >
+                  {isAuthenticated ? "Go to app" : "Sign In"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setMobileNavOpen(false); navigate(ROUTES.signUp); }}
+                  className="brand-primary-interactive mt-2 min-h-11 rounded-full text-[15px] font-semibold sm:hidden"
+                >
+                  Get Started
+                </button>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </motion.nav>
 
       <main>
 
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-slate-50 px-6 pb-20 pt-32">
-        {/* Animated Background Gradient */}
-        <div className="hidden" aria-hidden="true" />
-        <motion.div 
-          className="hidden"
-          animate={{
-            scale: [1, 1.2, 1],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-        <motion.div 
-          className="hidden"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            opacity: [0.3, 0.5, 0.3],
-          }}
-          transition={{
-            duration: 8,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
             {/* Left Content */}
@@ -319,59 +545,84 @@ export function LandingPageBlue() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
             >
-              <motion.div
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-              >
-                <h1 className="text-[48px] lg:text-[56px] font-bold leading-tight text-gray-900 mb-6">
-                  Unlock Your<br />
-                  <span className="text-[#1C4D8D]">
-                    Career Potential
-                  </span><br />
-                  with Micro Jobs
-                </h1>
-              </motion.div>
-              
-              <motion.p 
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="text-[16px] text-gray-600 mb-8 leading-relaxed"
-              >
-                Discover thousands of job opportunities with all the information you need. It's your future. Come find it. Manage all your job applications from start to finish.
-              </motion.p>
-              
-              {/* Enhanced Get Started Card */}
-              <motion.div
-                initial={false}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="mb-6 rounded-[20px] border border-[#1C4D8D]/10 bg-white p-6 shadow-lg"
-              >
-                <div className="mb-4 text-center sm:text-left">
-                  <p className="text-[16px] font-bold text-gray-900">Ready to Get Started?</p>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.05, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.4)" }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => navigate(ROUTES.signUp)}
-                  className="brand-primary-interactive group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-full px-8 py-4 text-[16px] font-semibold hover:shadow-xl"
-                >
-                  <span className="relative z-10">Create Free Account</span>
-                  <motion.div
-                    className="absolute inset-0 bg-[#1C4D8D]"
-                    initial={{ x: "100%" }}
-                    whileHover={{ x: 0 }}
-                    transition={{ duration: 0.3 }}
-                  />
-                  <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-                </motion.button>
-                <p className="text-[11px] text-gray-500 text-center mt-3">
-                  ✓ No credit card required • ✓ Free forever • ✓ Cancel anytime
-                </p>
-              </motion.div>
+              {/* Intent toggle — flips the hero copy and where search sends you. */}
+              <div className="mb-6 inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="group" aria-label="What do you want to do?">
+                {(["work", "hire"] as const).map((intent) => (
+                  <button
+                    key={intent}
+                    type="button"
+                    onClick={() => setHeroIntent(intent)}
+                    aria-pressed={heroIntent === intent}
+                    className={`min-h-11 rounded-full px-6 text-[14px] font-semibold transition ${
+                      heroIntent === intent ? "bg-[#1C4D8D] text-white" : "text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {intent === "work" ? "I want to work" : "I want to hire"}
+                  </button>
+                ))}
+              </div>
 
+              <h1 className="text-[48px] lg:text-[56px] font-bold leading-tight text-gray-900 mb-6">
+                {heroCopy.leadIn}<br />
+                <span className="text-[#1C4D8D]">{heroCopy.highlight}</span><br />
+                {heroCopy.trailing}
+              </h1>
+
+              <p className="text-[16px] text-gray-600 mb-8 leading-relaxed">{heroCopy.subhead}</p>
+
+              {/* Search */}
+              <form
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  goToSearch({ query: heroQuery });
+                }}
+                className="flex flex-col gap-3 sm:flex-row sm:items-center"
+              >
+                <label className="relative min-w-0 flex-1">
+                  <span className="sr-only">{heroCopy.placeholder}</span>
+                  <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden />
+                  <input
+                    type="search"
+                    value={heroQuery}
+                    onChange={(event) => setHeroQuery(event.target.value)}
+                    placeholder={heroCopy.placeholder}
+                    className="h-14 w-full rounded-full border border-slate-200 bg-white pl-13 pr-4 text-[15px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20"
+                    style={{ paddingLeft: "3.25rem" }}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="brand-primary-interactive inline-flex h-14 shrink-0 items-center justify-center gap-2 rounded-full px-8 text-[15px] font-semibold transition hover:opacity-90"
+                >
+                  {heroCopy.action}
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </button>
+              </form>
+
+              {/* Quick category chips, from the real category list */}
+              {chipCategories.length > 0 ? (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {chipCategories.map((category) => (
+                    <button
+                      key={category._id}
+                      type="button"
+                      onClick={() => goToSearch({ categoryId: category._id })}
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 transition hover:border-[#1C4D8D] hover:text-[#1C4D8D]"
+                    >
+                      {category.name}
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              <p className="mt-5 text-[13px] text-slate-500">
+                <button type="button" onClick={() => navigate(ROUTES.signUp)} className="font-bold text-[#1C4D8D] hover:underline">
+                  Create a free account
+                </button>{" "}
+                · No credit card required · Free forever
+              </p>
             </motion.div>
 
             {/* Right Content - Illustration */}
@@ -382,10 +633,9 @@ export function LandingPageBlue() {
               className="relative"
               style={{ scale }}
             >
-              <div className="relative flex min-h-[540px] w-full flex-col overflow-hidden rounded-[32px] border border-white/70 bg-gradient-to-br from-[#F5F9FF] via-[#EAF2FC] to-[#DCE9F8] p-4 shadow-[0_28px_70px_rgba(15,41,84,0.18)] sm:min-h-0 sm:aspect-square sm:p-6 lg:p-7">
+              <div className="relative flex min-h-[540px] w-full flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-[#EAF1FB] p-4 shadow-[0_28px_70px_rgba(15,41,84,0.18)] sm:min-h-0 sm:aspect-square sm:p-6 lg:p-7">
                 <div aria-hidden="true" className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#1C4D8D]/10 blur-3xl" />
                 <div aria-hidden="true" className="absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-[#7DB8F4]/20 blur-3xl" />
-                <div aria-hidden="true" className="absolute inset-0 opacity-35 [background-image:radial-gradient(#7DA8D8_1px,transparent_1px)] [background-size:22px_22px]" />
 
                 {/* Illustrated local marketplace community */}
                 <div className="relative z-10 flex flex-1 items-end justify-center pt-2">
@@ -509,11 +759,15 @@ export function LandingPageBlue() {
             <h2 className="text-[36px] font-bold text-gray-900 mb-2">
               Why <span className="text-[#1C4D8D]">Micro Jobs?</span>
             </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-[15px] leading-relaxed text-gray-600">
+              We start in your community — cleaning, delivery, tutoring, repairs, child care and more, right in your city.
+              When an employer is ready to hire beyond their area, we open the post nationwide and help them run it end to end.
+            </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            {/* Skill-Based Matching */}
-            <motion.div 
+            {/* Local first */}
+            <motion.div
               initial={{ opacity: 0, x: -50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -521,29 +775,33 @@ export function LandingPageBlue() {
               transition={{ type: "spring", stiffness: 200 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all perspective-1000"
             >
-              <h3 className="text-[22px] font-bold text-gray-900 mb-3">Skill-Based Matching</h3>
+              <h3 className="text-[22px] font-bold text-gray-900 mb-3">Local jobs, first</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed mb-6">
-                Our advanced algorithm matches your skills with the perfect job opportunities, ensuring you find roles that truly fit your expertise.
+                Set your city and see work happening around you. Every listing is matched to your area first, so the commute is short and the pay is real.
               </p>
               <div className="space-y-3 rounded-[16px] bg-slate-50 p-4">
-                {["React.js - Expert", "Node.js - Advanced", "UI/UX Design - Intermediate"].map((skill, i) => (
+                {[
+                  ["Cleaning", "In your barangay"],
+                  ["Delivery", "Same-day routes"],
+                  ["Tutoring", "After school"],
+                ].map(([label, detail], i) => (
                   <motion.div
-                    key={i}
-                    initial={{ width: 0 }}
-                    whileInView={{ width: "100%" }}
+                    key={label}
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
-                    transition={{ delay: i * 0.2 }}
+                    transition={{ delay: i * 0.15 }}
                     className="flex items-center justify-between"
                   >
-                    <span className="text-[12px] font-semibold text-gray-700">{skill.split(" - ")[0]}</span>
-                    <span className="text-[12px] text-gray-500">{skill.split(" - ")[1]}</span>
+                    <span className="text-[12px] font-semibold text-gray-700">{label}</span>
+                    <span className="text-[12px] text-gray-500">{detail}</span>
                   </motion.div>
                 ))}
               </div>
             </motion.div>
 
-            {/* Verified Companies */}
-            <motion.div 
+            {/* National reach */}
+            <motion.div
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
@@ -551,41 +809,41 @@ export function LandingPageBlue() {
               transition={{ type: "spring", stiffness: 200 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
-              <h3 className="text-[22px] font-bold text-gray-900 mb-3">Verified Companies</h3>
+              <h3 className="text-[22px] font-bold text-gray-900 mb-3">National when you need it</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed mb-6">
-                All companies on our platform are thoroughly vetted to ensure you connect with legitimate employers offering quality opportunities.
+                Hiring outside your city? If the employer allows it, we open the listing nationwide and support the whole process — from applicants to interviews to payout.
               </p>
-              <div className="rounded-[16px] bg-gradient-to-br from-[#E8FFE8] to-green-50 p-6 text-center">
-                <p className="text-[14px] font-semibold text-gray-900">All Companies Are</p>
-                <p className="text-[14px] font-semibold text-[#10B981]">Fully Verified</p>
+              <div className="rounded-[16px] bg-[#ECFDF5] p-6 text-center">
+                <p className="text-[14px] font-semibold text-gray-900">Local by default</p>
+                <p className="text-[14px] font-semibold text-[#047857]">Nationwide on request</p>
               </div>
             </motion.div>
 
-            {/* Tailored Job Matches */}
-            <motion.div 
+            {/* Verified people */}
+            <motion.div
               initial={{ opacity: 0, x: -50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.05 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
-              <h3 className="text-[22px] font-bold text-gray-900 mb-3">Tailored Job Matches</h3>
+              <h3 className="text-[22px] font-bold text-gray-900 mb-3">People you can verify</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed">
-                Receive personalized job recommendations based on your profile, experience, and career goals. Find opportunities that align perfectly with your aspirations.
+                Employers and workers both go through ID and address checks, and every finished job leaves a public review. You know who you are working with before you commit.
               </p>
             </motion.div>
 
-            {/* Streamlined Application Process */}
-            <motion.div 
+            {/* Paid safely */}
+            <motion.div
               initial={{ opacity: 0, x: 50 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               whileHover={{ scale: 1.05 }}
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
-              <h3 className="text-[22px] font-bold text-gray-900 mb-3">Streamlined Application Process</h3>
+              <h3 className="text-[22px] font-bold text-gray-900 mb-3">Get paid, safely</h3>
               <p className="text-[14px] text-gray-600 leading-relaxed">
-                Apply to multiple positions with ease. Track your applications, schedule interviews, and manage your job search all in one place.
+                Pay is secured in escrow the moment a job is posted and released when the work is accepted. Apply, track your applications, schedule interviews, and cash out — all in one place.
               </p>
             </motion.div>
           </div>

@@ -42,19 +42,24 @@ interface StatCardProps {
   helper: string;
   iconClass: string;
   onClick?: () => void;
+  loading?: boolean;
 }
 
-function StatCard({ icon, title, count, helper, iconClass, onClick }: StatCardProps) {
+function StatCard({ icon, title, count, helper, iconClass, onClick, loading = false }: StatCardProps) {
   return (
     <button
       type="button"
-      className="ui-card flex min-h-[138px] flex-col justify-between rounded-2xl border-slate-200 p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#B8CBE5] hover:shadow-md"
+      className="ui-card flex min-h-[138px] flex-col justify-between p-5 text-left transition hover:-translate-y-0.5 hover:border-[#B8CBE5] hover:shadow-md"
       onClick={onClick}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-sm font-semibold text-slate-500">{title}</p>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{count}</p>
+          {loading ? (
+            <div className="mt-2 h-8 w-12 animate-pulse rounded bg-slate-100" />
+          ) : (
+            <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{count}</p>
+          )}
         </div>
         <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${iconClass}`}>{icon}</div>
       </div>
@@ -324,7 +329,7 @@ function WorkerDashboardContent() {
       </button>
 
       {!hasResume && !profileLoading ? (
-        <section className="rounded-[24px] bg-[#255796] p-6 text-white shadow-[0_12px_32px_rgba(28,77,141,0.2)] lg:hidden">
+        <section className="rounded-2xl bg-[#255796] p-6 text-white shadow-[0_12px_32px_rgba(28,77,141,0.2)]">
           <div className="flex items-center gap-4">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/15"><FileText className="h-6 w-6" aria-hidden /></span>
             <h2 className="text-xl font-extrabold">Upload your resume</h2>
@@ -334,7 +339,19 @@ function WorkerDashboardContent() {
         </section>
       ) : null}
 
-      {categories.length > 0 ? (
+      {jobsLoading ? (
+        <section>
+          <SectionHeader title="Job Categories" />
+          <div className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:overflow-visible">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex w-[116px] shrink-0 flex-col items-center gap-1.5">
+                <div className="h-24 w-24 animate-pulse rounded-2xl bg-slate-100" />
+                <div className="h-3 w-16 animate-pulse rounded bg-slate-100" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : categories.length > 0 ? (
         <section>
           <SectionHeader title="Job Categories" onSeeAll={() => navigate(ROUTES.worker.findJobs)} seeAllLabel="Browse all" />
           <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:overflow-visible">
@@ -364,7 +381,8 @@ function WorkerDashboardContent() {
         <StatCard
           icon={<Send className="h-5 w-5" />}
           title="Applications"
-          count={isStatsLoading ? 0 : applicationCount}
+          count={applicationCount}
+          loading={isStatsLoading}
           helper="All submitted applications"
           iconClass="bg-[#EAF2FC] text-[#1C4D8D]"
           onClick={() => navigate(ROUTES.worker.appliedJobs)}
@@ -372,7 +390,8 @@ function WorkerDashboardContent() {
         <StatCard
           icon={<Calendar className="h-5 w-5" />}
           title="Interviews"
-          count={isStatsLoading ? 0 : interviewCount}
+          count={interviewCount}
+          loading={isStatsLoading}
           helper="Scheduled or completed interviews"
           iconClass="bg-sky-50 text-sky-700"
           onClick={() => navigate(`${ROUTES.worker.appliedJobs}?status=${encodeURIComponent("Interview Scheduled")}`)}
@@ -380,7 +399,8 @@ function WorkerDashboardContent() {
         <StatCard
           icon={<CheckCircle2 className="h-5 w-5" />}
           title="Hired"
-          count={isStatsLoading ? 0 : hiredCount}
+          count={hiredCount}
+          loading={isStatsLoading}
           helper="Successful applications"
           iconClass="bg-emerald-50 text-emerald-700"
           onClick={() => navigate(`${ROUTES.worker.appliedJobs}?status=Hired`)}
@@ -389,7 +409,7 @@ function WorkerDashboardContent() {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
         <div className="space-y-6">
-          <div className="rounded-2xl border border-[#CFE0F5] bg-[#F5F9FE] p-5 shadow-sm">
+          <div className="rounded-2xl border border-slate-200 bg-[#F5F9FE] p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-slate-900">Profile strength</p>
@@ -399,15 +419,24 @@ function WorkerDashboardContent() {
               </div>
               {isProfileComplete ? <CheckCircle2 className="h-6 w-6 shrink-0 text-emerald-600" /> : null}
             </div>
-            <div className="mt-5 flex items-center justify-between text-sm">
-              <span className="font-semibold text-[#1C4D8D]">{profileLoading ? "Loading..." : `${profileCompletion}% complete`}</span>
-            </div>
-            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-blue-100">
-              <div
-                className="h-full rounded-full bg-[#1C4D8D] transition-all"
-                style={{ width: `${profileLoading ? 0 : profileCompletion}%` }}
-              />
-            </div>
+            {profileLoading ? (
+              <div className="mt-5 space-y-2">
+                <div className="h-4 w-24 animate-pulse rounded bg-slate-200/70" />
+                <div className="h-2.5 w-full animate-pulse rounded-full bg-slate-200/70" />
+              </div>
+            ) : (
+              <>
+                <div className="mt-5 flex items-center justify-between text-sm">
+                  <span className="font-semibold text-[#1C4D8D]">{profileCompletion}% complete</span>
+                </div>
+                <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-blue-100">
+                  <div
+                    className="h-full rounded-full bg-[#1C4D8D] transition-all"
+                    style={{ width: `${profileCompletion}%` }}
+                  />
+                </div>
+              </>
+            )}
             <button
               type="button"
               onClick={() => navigate(ROUTES.worker.profile)}
@@ -417,67 +446,80 @@ function WorkerDashboardContent() {
             </button>
           </div>
 
-          <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[18px] font-semibold text-[#111827]">Recent Activities</h3>
-              <button
-                type="button"
-                className="text-[13px] font-medium text-[#1C4D8D] hover:opacity-80"
-                onClick={handleViewAllActivities}
-              >
-                View all
-              </button>
-            </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <SectionHeader title="Recent Activities" onSeeAll={handleViewAllActivities} seeAllLabel="View all" />
             <div className="space-y-3">
-              {recentActivities.map((activity, index) => (
-                <button
-                  key={index}
-                  type="button"
-                  className="flex w-full items-start gap-3 rounded-[12px] p-3 text-left transition-colors hover:bg-[#F8FAFC]"
-                  onClick={handleActivityClick}
-                >
-                  <div
-                    className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] ${
-                      activity.type === "success"
-                        ? "bg-[#D1FAE5]"
-                        : activity.type === "info"
-                        ? "bg-[#1C4D8D]/10"
-                        : "bg-[#F1F5F9]"
-                    }`}
+              {isStatsLoading ? (
+                [1, 2, 3].map((i) => <div key={i} className="h-[68px] animate-pulse rounded-xl bg-slate-100" />)
+              ) : recentActivities.length === 0 ? (
+                <div className="rounded-xl border border-slate-100 bg-slate-50 p-6 text-center">
+                  <p className="text-[14px] text-slate-500">No activity yet — apply to a job to see updates here.</p>
+                  <button
+                    type="button"
+                    onClick={handleViewAllJobs}
+                    className="mt-3 text-sm font-semibold text-[#1C4D8D] transition hover:text-[#163F75]"
                   >
-                    {activity.type === "success" && <CheckCircle2 className="h-5 w-5 text-[#10B981]" />}
-                    {activity.type === "info" && <Clock className="h-5 w-5 text-[#1C4D8D]" />}
-                    {activity.type === "view" && <Users className="h-5 w-5 text-[#64748B]" />}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-[13px] leading-relaxed text-[#111827]">{activity.text}</p>
-                    <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9CA3AF]">
-                      <Clock className="h-3 w-3" />
-                      {activity.time}
-                    </p>
-                  </div>
-                </button>
-              ))}
+                    Browse jobs
+                  </button>
+                </div>
+              ) : (
+                recentActivities.map((activity, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    className="flex w-full items-start gap-3 rounded-xl p-3 text-left transition-colors hover:bg-[#F8FAFC]"
+                    onClick={handleActivityClick}
+                  >
+                    <div
+                      className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl ${
+                        activity.type === "success"
+                          ? "bg-[#D1FAE5]"
+                          : activity.type === "info"
+                          ? "bg-[#1C4D8D]/10"
+                          : "bg-slate-100"
+                      }`}
+                    >
+                      {activity.type === "success" && <CheckCircle2 className="h-5 w-5 text-[#10B981]" />}
+                      {activity.type === "info" && <Clock className="h-5 w-5 text-[#1C4D8D]" />}
+                      {activity.type === "view" && <Users className="h-5 w-5 text-slate-500" />}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[13px] leading-relaxed text-[#111827]">{activity.text}</p>
+                      <p className="mt-1 flex items-center gap-1 text-[11px] text-[#9CA3AF]">
+                        <Clock className="h-3 w-3" />
+                        {activity.time}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-[20px] border border-[#E5EAF2] bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <SectionHeader title="Recommended Jobs" onSeeAll={handleViewAllJobs} seeAllLabel="View all" />
             {jobsLoading ? (
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-3 lg:overflow-visible">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="rounded-[14px] border border-[#E5E7EB] bg-white p-4 animate-pulse">
-                    <div className="mb-3 h-10 w-10 rounded-[10px] bg-[#E5E7EB]" />
-                    <div className="h-5 w-3/4 rounded bg-[#E5E7EB]" />
-                    <div className="mt-2 h-4 w-1/2 rounded bg-[#E5E7EB]" />
+                  <div key={i} className="min-w-[240px] shrink-0 animate-pulse rounded-2xl border border-slate-100 bg-white p-4 lg:min-w-0 lg:w-full">
+                    <div className="mb-3 h-24 w-full rounded-xl bg-slate-100" />
+                    <div className="h-5 w-3/4 rounded bg-slate-100" />
+                    <div className="mt-2 h-4 w-1/2 rounded bg-slate-100" />
                   </div>
                 ))}
               </div>
             ) : recommendedJobs.length === 0 ? (
-              <div className="rounded-[14px] border border-[#E5E7EB] bg-[#F8FAFC] p-6 text-center">
-                <p className="text-[14px] text-[#6B7280]">No jobs available at the moment. Check back later!</p>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 p-6 text-center">
+                <p className="text-[14px] text-slate-500">No jobs available at the moment. Check back later!</p>
+                <button
+                  type="button"
+                  onClick={handleViewAllJobs}
+                  className="mt-3 text-sm font-semibold text-[#1C4D8D] transition hover:text-[#163F75]"
+                >
+                  Browse all jobs
+                </button>
               </div>
             ) : (
               <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-3 lg:overflow-visible">

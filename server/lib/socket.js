@@ -168,6 +168,19 @@ export function initSocket(httpServer, opts = {}) {
       addSocketForUser(authenticatedUserId, socket.id);
     });
 
+    // Ephemeral typing-state relay for the messages UI — not persisted.
+    // The sender is always the authenticated socket's own user id, never a
+    // client-supplied value, so a peer can't be impersonated as "typing".
+    socket.on('typing', ({ toUserId, jobId, isTyping } = {}) => {
+      const normalizedToUserId = normalizeUserId(toUserId);
+      if (!normalizedToUserId) return;
+      emitToUser(normalizedToUserId, 'peer_typing', {
+        fromUserId: authenticatedUserId,
+        jobId: jobId || null,
+        isTyping: Boolean(isTyping),
+      });
+    });
+
     socket.on('disconnect', () => {
       removeSocket(socket.id);
     });

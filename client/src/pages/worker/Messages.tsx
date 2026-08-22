@@ -2,31 +2,42 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive,
   Ban,
+  Check,
+  CheckCheck,
   ChevronLeft,
   Ellipsis,
+  MessagesSquare,
   MoreVertical,
   Search,
   Send,
-  SquarePen,
   Trash2,
 } from "lucide-react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import { ROUTES } from "../../utils/routes";
 import { isStaffConversation } from "../../utils/staffConversation";
 import { useAuth } from "../../contexts/AuthContext";
-import { 
-  getConversations, 
+import {
+  getConversations,
   getArchivedConversations,
-  getConversationWithUser, 
-  sendMessage, 
+  getConversationWithUser,
+  sendMessage,
   editMessage,
-  blockUser, 
-  archiveConversation, 
+  blockUser,
+  archiveConversation,
   deleteConversation,
-  markMessagesAsRead
+  markMessagesAsRead,
 } from "../../services/api";
+
+// Consecutive messages from the same sender inside this window collapse into
+// one avatar/name/time header instead of repeating on every bubble.
+const GROUP_WINDOW_MS = 5 * 60 * 1000;
+// How long a peer's typing indicator stays up without a fresh "still typing" ping.
+const TYPING_STALE_MS = 5000;
+// How long after the user stops typing we tell the peer they've stopped.
+const TYPING_STOP_DELAY_MS = 2500;
 
 interface Message {
   _id: string;
@@ -37,6 +48,12 @@ interface Message {
   isEdited?: boolean;
   editedAt?: string;
   job?: { _id: string; title: string };
+  read?: boolean;
+  clientMessageId?: string;
+  /** Client-only: optimistic send in flight. */
+  pending?: boolean;
+  /** Client-only: optimistic send failed; tap to remove and retry. */
+  failed?: boolean;
 }
 
 interface Contact {
@@ -49,6 +66,7 @@ interface Contact {
   jobTitle: string | null;
   lastMessage: string;
   lastMessageAt: string;
+  unreadCount?: number;
 }
 
 const getInitials = (name: string): string => {
@@ -97,15 +115,6 @@ const formatMessageDay = (dateString: string): string => {
   });
 };
 
-const formatHandle = (name: string): string => {
-  const normalized = String(name || "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s]/g, "")
-    .replace(/\s+/g, "");
-  return `@${normalized || "user"}`;
-};
-
 const pickArray = <T,>(...candidates: any[]): T[] => {
   for (const candidate of candidates) {
     if (Array.isArray(candidate)) {
@@ -140,14 +149,20 @@ export function Messages() {
   const [sending, setSending] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [peerTyping, setPeerTyping] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
   const currentUserId = user?.id || "";
   const listMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const startChatHandledRef = useRef(false);
   const prefilledDraftHandledRef = useRef(false);
   const socketRef = useRef<Socket | null>(null);
   const loadConversationsRef = useRef<() => Promise<void>>(async () => undefined);
+  const typingStopTimeoutRef = useRef<number | null>(null);
+  const typingActiveRef = useRef(false);
+  const peerTypingClearTimeoutRef = useRef<number | null>(null);
   const supportSource = searchParams.get("source") || "";
   const supportStartUserId = supportSource === "support-center" ? (searchParams.get("startUser") || "") : "";
 
@@ -196,7 +211,7 @@ export function Messages() {
           setMessages(synchronized);
         })
         .catch(() => {
-          // The existing polling fallback retries transient reconnect failures.
+          // The polling safety net retries transient reconnect failures.
         });
     };
     socket.on("connect", synchronizeAfterConnect);
@@ -210,13 +225,18 @@ export function Messages() {
       const conversationId = `${otherUserId}::${messageJobId || "general"}`;
       const senderName = getUserName(message?.sender);
       const receiverName = getUserName(message?.receiver);
+      const isCurrentConversation = Boolean(
+        selectedContact &&
+        selectedContact.otherUserId === otherUserId &&
+        (selectedContact.jobId || "") === (messageJobId || ""),
+      );
+      const isFromSelf = senderId === currentUserId;
 
       setContacts((prev) => {
         const existing = prev.find((item) => item.conversationId === conversationId);
-        const resolvedName =
-          senderId === currentUserId
-            ? receiverName || existing?.otherUserName || "User"
-            : senderName || existing?.otherUserName || "User";
+        const resolvedName = isFromSelf
+          ? receiverName || existing?.otherUserName || "User"
+          : senderName || existing?.otherUserName || "User";
         const otherUserName = supportDisplayNameFor(otherUserId, resolvedName);
         const updated: Contact = {
           conversationId,
@@ -230,23 +250,30 @@ export function Messages() {
           jobTitle: message?.job?.title || existing?.jobTitle || null,
           lastMessage: message?.content || existing?.lastMessage || "",
           lastMessageAt: message?.createdAt || new Date().toISOString(),
+          unreadCount: isFromSelf || isCurrentConversation ? 0 : (existing?.unreadCount || 0) + 1,
         };
         const filtered = prev.filter((item) => item.conversationId !== conversationId);
         return [updated, ...filtered];
       });
       setArchivedContacts((prev) => prev.filter((item) => item.conversationId !== conversationId));
 
-      const isCurrentConversation =
-        selectedContact &&
-        selectedContact.otherUserId === otherUserId &&
-        (selectedContact.jobId || "") === (messageJobId || "");
-
       if (isCurrentConversation) {
         setMessages((prev) => {
           const normalizedId = String(message?._id || "");
           if (normalizedId && prev.some((item) => item._id === normalizedId)) return prev;
+          const incomingClientId = message?.clientMessageId ? String(message.clientMessageId) : null;
+          if (incomingClientId) {
+            const optimisticIndex = prev.findIndex((item) => item.pending && item.clientMessageId === incomingClientId);
+            if (optimisticIndex !== -1) {
+              const next = [...prev];
+              next[optimisticIndex] = message as Message;
+              return next;
+            }
+          }
           return [...prev, message as Message];
         });
+        if (!isFromSelf) void markMessagesAsRead(otherUserId, messageJobId || undefined).catch(() => undefined);
+        setPeerTyping(false);
       }
     };
 
@@ -288,23 +315,58 @@ export function Messages() {
       setArchivedContacts((prev) => patchPreview(prev));
     };
 
+    const handleMessagesRead = (incoming: any) => {
+      const payload = incoming?.data || incoming;
+      const readerId = String(payload?.readerId || "");
+      if (!readerId || !selectedContact || selectedContact.otherUserId !== readerId) return;
+      const payloadJobId = payload?.jobId || null;
+      if ((selectedContact.jobId || null) !== payloadJobId) return;
+      setMessages((prev) =>
+        prev.map((item) => (String(item.sender?._id) === currentUserId ? { ...item, read: true } : item)),
+      );
+    };
+
+    const handlePeerTyping = (incoming: any) => {
+      const payload = incoming?.data || incoming;
+      const fromUserId = String(payload?.fromUserId || "");
+      if (!selectedContact || fromUserId !== selectedContact.otherUserId) return;
+      const payloadJobId = payload?.jobId || null;
+      if ((selectedContact.jobId || null) !== payloadJobId) return;
+
+      if (peerTypingClearTimeoutRef.current) window.clearTimeout(peerTypingClearTimeoutRef.current);
+      if (payload?.isTyping) {
+        setPeerTyping(true);
+        peerTypingClearTimeoutRef.current = window.setTimeout(() => setPeerTyping(false), TYPING_STALE_MS);
+      } else {
+        setPeerTyping(false);
+      }
+    };
+
     socket.on("new_message", handleIncomingMessage);
     socket.on("new_message_echo", handleIncomingMessage);
     socket.on("message_edited", handleMessageEdited);
+    socket.on("messages_read", handleMessagesRead);
+    socket.on("peer_typing", handlePeerTyping);
 
     return () => {
       socket.off("connect", synchronizeAfterConnect);
       socket.off("new_message", handleIncomingMessage);
       socket.off("new_message_echo", handleIncomingMessage);
       socket.off("message_edited", handleMessageEdited);
+      socket.off("messages_read", handleMessagesRead);
+      socket.off("peer_typing", handlePeerTyping);
       socket.disconnect();
       socketRef.current = null;
     };
   }, [currentUserId, selectedContact, supportDisplayNameFor, supportStartUserId]);
 
+  // A single, slower safety net now that the socket does the real-time work —
+  // covers a dropped connection between the "connect" resync and the next one.
   useEffect(() => {
-    if (!selectedContact) return;
     const interval = window.setInterval(() => {
+      void loadConversationsRef.current();
+      void loadArchivedConversations();
+      if (!selectedContact) return;
       getConversationWithUser(selectedContact.otherUserId, selectedContact.jobId || undefined)
         .then((response: any) => {
           const messagesArray = pickArray<Message>(
@@ -312,24 +374,19 @@ export function Messages() {
             response?.data?.messages,
             response?.meta?.messages,
             response?.data,
-            response
+            response,
           );
-          setMessages(messagesArray);
+          setMessages((prev) => {
+            const pendingOnly = prev.filter((item) => item.pending || item.failed);
+            return pendingOnly.length ? [...messagesArray, ...pendingOnly] : messagesArray;
+          });
         })
         .catch(() => {
           // polling fallback only; ignore transient errors
         });
-    }, 5000);
+    }, 20000);
     return () => window.clearInterval(interval);
   }, [selectedContact]);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      void loadConversationsRef.current();
-      loadArchivedConversations();
-    }, 10000);
-    return () => window.clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     // Keep message search local-only (do not persist to URL query string).
@@ -350,7 +407,7 @@ export function Messages() {
       source === "job-details" ||
       (Boolean(draft) && Boolean(startUserId) && Boolean(startJobId));
 
-    if (contactId && contacts.length > 0) {
+    if (contactId && contacts.length > 0 && selectedContact?.conversationId !== contactId) {
       const match = contacts.find((contact) => contact.conversationId === contactId);
       if (match) {
         startChatHandledRef.current = true;
@@ -390,7 +447,7 @@ export function Messages() {
       nextParams.delete("source");
       setSearchParams(nextParams, { replace: true });
     }
-  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor]);
+  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor, selectedContact?.conversationId]);
 
   useEffect(() => {
     // Close menu when clicking outside
@@ -408,8 +465,24 @@ export function Messages() {
 
   useEffect(() => {
     // Scroll to bottom when messages change
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+  }, [messages, prefersReducedMotion]);
+
+  useEffect(() => {
+    // Auto-grow the composer up to a cap instead of a fixed 88px block.
+    const el = composerRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [messageText]);
+
+  useEffect(() => {
+    // Reset typing state and any pending timers when the open thread changes.
+    typingActiveRef.current = false;
+    setPeerTyping(false);
+    if (typingStopTimeoutRef.current) window.clearTimeout(typingStopTimeoutRef.current);
+    if (peerTypingClearTimeoutRef.current) window.clearTimeout(peerTypingClearTimeoutRef.current);
+  }, [selectedContact?.conversationId]);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -429,7 +502,7 @@ export function Messages() {
       const archivedSet = new Set(archivedContacts.map((contact) => contact.conversationId));
       const inboxOnly = namedConversations.filter((contact) => !archivedSet.has(contact.conversationId));
       setContacts(inboxOnly);
-      
+
       // Select first contact by default if none selected
       if (inboxOnly.length > 0 && !selectedContact) {
         handleSelectContact(inboxOnly[0]);
@@ -520,7 +593,8 @@ export function Messages() {
   const handleSelectContact = async (contact: Contact) => {
     setSelectedContact(contact);
     setShowMoreMenu(false);
-    
+    setContacts((prev) => prev.map((c) => (c.conversationId === contact.conversationId ? { ...c, unreadCount: 0 } : c)));
+
     try {
       const response: any = await getConversationWithUser(contact.otherUserId, contact.jobId || undefined);
       const messagesArray = pickArray<Message>(
@@ -531,7 +605,7 @@ export function Messages() {
         response
       );
       setMessages(messagesArray);
-      
+
       // Mark messages as read
       if (messagesArray.length > 0) {
         try {
@@ -548,54 +622,99 @@ export function Messages() {
     }
   };
 
+  const emitTyping = (isTyping: boolean) => {
+    if (!selectedContact || !socketRef.current) return;
+    socketRef.current.emit('typing', {
+      toUserId: selectedContact.otherUserId,
+      jobId: selectedContact.jobId || null,
+      isTyping,
+    });
+  };
+
+  const handleComposerChange = (value: string) => {
+    setMessageText(value);
+    if (!selectedContact) return;
+
+    if (value.trim()) {
+      if (!typingActiveRef.current) {
+        typingActiveRef.current = true;
+        emitTyping(true);
+      }
+      if (typingStopTimeoutRef.current) window.clearTimeout(typingStopTimeoutRef.current);
+      typingStopTimeoutRef.current = window.setTimeout(() => {
+        typingActiveRef.current = false;
+        emitTyping(false);
+      }, TYPING_STOP_DELAY_MS);
+    } else if (typingActiveRef.current) {
+      typingActiveRef.current = false;
+      if (typingStopTimeoutRef.current) window.clearTimeout(typingStopTimeoutRef.current);
+      emitTyping(false);
+    }
+  };
+
   const handleSendMessage = async () => {
-    if (!messageText.trim() || !selectedContact) return;
-    
+    const trimmed = messageText.trim();
+    if (!trimmed || !selectedContact) return;
+
+    if (typingActiveRef.current) {
+      typingActiveRef.current = false;
+      if (typingStopTimeoutRef.current) window.clearTimeout(typingStopTimeoutRef.current);
+      emitTyping(false);
+    }
+
+    const clientMessageId = crypto.randomUUID();
+    const optimisticMessage: Message = {
+      _id: `pending-${clientMessageId}`,
+      sender: { _id: currentUserId },
+      receiver: { _id: selectedContact.otherUserId },
+      content: trimmed,
+      createdAt: new Date().toISOString(),
+      clientMessageId,
+      pending: true,
+      job: selectedContact.jobId ? { _id: selectedContact.jobId, title: selectedContact.jobTitle || "" } : undefined,
+    };
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessageText("");
+
     try {
       setSending(true);
       await sendMessage({
         receiverId: selectedContact.otherUserId,
-        content: messageText.trim(),
+        content: trimmed,
         jobId: selectedContact.jobId || undefined,
-        clientMessageId: crypto.randomUUID(),
+        clientMessageId,
       });
-      
-      setMessageText("");
-      
-      // Reload messages to show the sent message
-      const response: any = await getConversationWithUser(selectedContact.otherUserId, selectedContact.jobId || undefined);
-      const messagesArray = pickArray<Message>(
-        response?.messages,
-        response?.data?.messages,
-        response?.meta?.messages,
-        response?.data,
-        response
-      );
-      setMessages(messagesArray);
-      
-      // Reload conversations to update last message
-      await loadConversations();
-      
-      toast.success("Message sent!");
+      // Reconciliation happens via the "new_message_echo" socket event
+      // matching this clientMessageId (see handleIncomingMessage above); the
+      // 20s polling safety net covers a dropped socket.
     } catch (error: any) {
+      setMessages((prev) =>
+        prev.map((item) => (item.clientMessageId === clientMessageId ? { ...item, pending: false, failed: true } : item)),
+      );
       toast.error(error.message || 'Failed to send message');
     } finally {
       setSending(false);
     }
   };
 
+  const retryFailedMessage = (message: Message) => {
+    setMessages((prev) => prev.filter((item) => item._id !== message._id));
+    setMessageText(message.content);
+    composerRef.current?.focus();
+  };
+
   const handleBlockUser = async () => {
     if (!selectedContact) return;
-    
+
     if (!confirm(`Are you sure you want to block ${selectedContact.otherUserName}? They will no longer be able to send you messages.`)) {
       return;
     }
-    
+
     try {
       await blockUser(selectedContact.otherUserId);
       toast.success(`${selectedContact.otherUserName} has been blocked`);
       setShowMoreMenu(false);
-      
+
       // Remove from contacts list and reload
       await loadConversations();
       setSelectedContact(null);
@@ -607,7 +726,7 @@ export function Messages() {
 
   const handleArchiveConversation = async () => {
     if (!selectedContact) return;
-    
+
     try {
       await archiveConversation(selectedContact.otherUserId, selectedContact.jobId || undefined);
       toast.success("Conversation archived");
@@ -617,7 +736,7 @@ export function Messages() {
       setContacts((prev) => prev.filter((contact) => contact.conversationId !== archivedConversationId));
 
       await loadArchivedConversations();
-      
+
       // Remove from contacts list and reload
       await loadConversations();
       setSelectedContact(null);
@@ -647,16 +766,16 @@ export function Messages() {
 
   const handleDeleteConversation = async () => {
     if (!selectedContact) return;
-    
+
     if (!confirm(`Remove this conversation with ${selectedContact.otherUserName} from your inbox? The other person will keep their copy.`)) {
       return;
     }
-    
+
     try {
       await deleteConversation(selectedContact.otherUserId, selectedContact.jobId || undefined);
       toast.success("Conversation removed from your inbox");
       setShowMoreMenu(false);
-      
+
       // Remove from contacts list and reload
       await loadConversations();
       setSelectedContact(null);
@@ -685,6 +804,7 @@ export function Messages() {
     if (!selectedContact?.otherUserId) return;
     // Admin/Support has no public profile, so never navigate there.
     if (!canViewSelectedProfile) return;
+    setShowMoreMenu(false);
     navigate(`${ROUTES.publicProfile(selectedContact.otherUserId)}?viewAs=worker`);
   };
 
@@ -709,6 +829,11 @@ export function Messages() {
   const effectiveContacts = useMemo(
     () => (canInjectSelectedContact ? [selectedContact as Contact, ...contactsArray] : contactsArray),
     [canInjectSelectedContact, contactsArray, selectedContact],
+  );
+
+  const unreadTotal = useMemo(
+    () => contacts.reduce((sum, contact) => sum + (contact.unreadCount || 0), 0),
+    [contacts],
   );
 
   const filteredContacts = useMemo(
@@ -737,20 +862,37 @@ export function Messages() {
     [messages]
   );
 
+  const lastOwnMessageId = useMemo(() => {
+    for (let i = orderedMessages.length - 1; i >= 0; i -= 1) {
+      if (currentUserId && orderedMessages[i].sender._id === currentUserId && !orderedMessages[i].pending) {
+        return orderedMessages[i]._id;
+      }
+    }
+    return null;
+  }, [orderedMessages, currentUserId]);
+
   const messageRows = useMemo(() => {
-    const rows: Array<{ type: "divider"; label: string } | { type: "message"; message: Message }> = [];
+    const rows: Array<
+      | { type: "divider"; label: string }
+      | { type: "message"; message: Message; showMeta: boolean }
+    > = [];
     let previousDay = "";
+    let previousMessage: Message | null = null;
 
     orderedMessages.forEach((message) => {
       const currentDay = new Date(message.createdAt).toDateString();
       if (currentDay !== previousDay) {
-        rows.push({
-          type: "divider",
-          label: formatMessageDay(message.createdAt),
-        });
+        rows.push({ type: "divider", label: formatMessageDay(message.createdAt) });
         previousDay = currentDay;
+        previousMessage = null;
       }
-      rows.push({ type: "message", message });
+
+      const sameSender = previousMessage?.sender._id === message.sender._id;
+      const withinWindow =
+        previousMessage != null &&
+        Math.abs(new Date(message.createdAt).getTime() - new Date(previousMessage.createdAt).getTime()) < GROUP_WINDOW_MS;
+      rows.push({ type: "message", message, showMeta: !(sameSender && withinWindow) });
+      previousMessage = message;
     });
 
     return rows;
@@ -758,10 +900,28 @@ export function Messages() {
 
   if (loading) {
     return (
-      <div className="mx-auto flex h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] items-center justify-center lg:h-[calc(100dvh-160px)]">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[#1C4D8D] border-t-transparent" />
-          <p className="text-[#6B7280]">Loading conversations...</p>
+      <div className="mx-auto h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] pt-1 lg:h-[calc(100dvh-160px)]">
+        <div className="flex h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex w-full flex-col border-r border-slate-100 md:w-[34%] md:min-w-[320px] md:max-w-[460px]">
+            <div className="space-y-3 border-b border-slate-100 p-4">
+              <div className="h-7 w-32 animate-pulse rounded bg-slate-100" />
+              <div className="h-11 w-full animate-pulse rounded-full bg-slate-100" />
+            </div>
+            <div className="space-y-3 p-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-slate-100" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3.5 w-1/2 animate-pulse rounded bg-slate-100" />
+                    <div className="h-3 w-3/4 animate-pulse rounded bg-slate-100" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="hidden flex-1 items-center justify-center md:flex">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#1C4D8D] border-t-transparent" />
+          </div>
         </div>
       </div>
     );
@@ -769,78 +929,86 @@ export function Messages() {
 
   return (
     <div className="mx-auto h-[calc(100dvh-120px)] min-h-[28rem] max-w-[1341px] pt-1 lg:h-[calc(100dvh-160px)]">
-      <div className="flex h-full overflow-hidden rounded-[20px] border border-[#DDE2EB] bg-white shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
-        <div className={`${selectedContact ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-[#E5E7EB] bg-white md:w-[34%] md:min-w-[320px] md:max-w-[460px]`}>
-          <div className="border-b border-[#E5E7EB] px-4 py-4">
+      <div className="flex h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className={`${selectedContact ? "hidden md:flex" : "flex"} w-full min-w-0 flex-col border-r border-slate-100 bg-white md:w-[34%] md:min-w-[320px] md:max-w-[460px]`}>
+          <div className="border-b border-slate-100 px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h3 className="text-[28px] font-semibold leading-none text-[#111827] md:text-[30px]">Inbox Chat</h3>
-                <span className="rounded-full bg-[#1C4D8D] px-3 py-1 text-[12px] font-semibold text-white">
-                  {effectiveContacts.length}
-                </span>
+                <h1 className="ui-page-title text-[22px]">Messages</h1>
+                {unreadTotal > 0 ? (
+                  <span className="rounded-full bg-[#1C4D8D] px-2.5 py-0.5 text-[12px] font-semibold text-white">
+                    {unreadTotal}
+                  </span>
+                ) : null}
               </div>
-              <div className="relative flex items-center gap-2" ref={listMenuRef}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedContact(null);
-                    setMessages([]);
-                    setShowListMenu(false);
-                    setShowMoreMenu(false);
-                  }}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
-                  title="New message"
-                >
-                  <SquarePen className="h-4 w-4" />
-                </button>
+              <div className="relative" ref={listMenuRef}>
                 <button
                   type="button"
                   onClick={() => setShowListMenu((prev) => !prev)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB]"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
                   title="List options"
+                  aria-label="List options"
+                  aria-expanded={showListMenu}
                 >
                   <Ellipsis className="h-4 w-4" />
                 </button>
-                {showListMenu ? (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-[#E5E7EB] bg-white py-2 shadow-[0_10px_24px_rgba(15,23,42,0.12)]">
-                    <button
-                      type="button"
-                      onClick={toggleArchiveMode}
-                      className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#374151] hover:bg-[#F5F7FB]"
+                <AnimatePresence>
+                  {showListMenu ? (
+                    <motion.div
+                      initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={prefersReducedMotion ? undefined : { opacity: 0, y: -4 }}
+                      transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                      className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
                     >
-                      <Archive className="h-4 w-4" />
-                      {showArchived ? "Back To Inbox" : "View Archived"}
-                    </button>
-                  </div>
-                ) : null}
+                      <button
+                        type="button"
+                        onClick={toggleArchiveMode}
+                        className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                      >
+                        <Archive className="h-4 w-4" />
+                        {showArchived ? "Back To Inbox" : "View Archived"}
+                      </button>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
               </div>
             </div>
 
             <div className="relative mt-4">
-              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 aria-label="Search conversations"
-                className="w-full rounded-full border border-[#D8DEE8] bg-white py-3 pl-11 pr-4 text-[14px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20"
+                className="w-full rounded-full border border-slate-200 bg-white py-3 pl-11 pr-4 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20"
               />
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto bg-white">
             {filteredContacts.length === 0 ? (
-              <div className="flex h-full items-center justify-center px-6 text-center text-[15px] text-[#9AA3B2]">
-                <span>No conversations yet.</span>
+              <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-slate-100">
+                  <MessagesSquare className="h-6 w-6 text-slate-400" />
+                </div>
+                <p className="text-[15px] font-medium text-slate-500">
+                  {showArchived ? "No archived conversations." : "No conversations yet."}
+                </p>
               </div>
             ) : (
-              filteredContacts.map((contact) => {
+              filteredContacts.map((contact, index) => {
                 const isActive = selectedContact?.conversationId === contact.conversationId;
+                const hasUnread = (contact.unreadCount || 0) > 0;
                 return (
-                  <button
+                  <motion.button
                     key={contact.conversationId}
                     type="button"
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.2 }}
                     onClick={() => {
                       handleSelectContact(contact);
                       setShowListMenu(false);
@@ -848,39 +1016,33 @@ export function Messages() {
                       nextParams.set("contact", contact.conversationId);
                       setSearchParams(nextParams);
                     }}
-                    className={`w-full border-b border-[#EDF1F6] px-4 py-4 text-left transition hover:bg-[#F8FBFF] ${
+                    className={`w-full border-b border-slate-50 px-4 py-4 text-left transition hover:bg-slate-50 ${
                       isActive ? "bg-[#EAF2FD]" : "bg-white"
                     }`}
                   >
                     <div className="flex items-start gap-3">
-                      {!isActive ? <span className="mt-4 h-2.5 w-2.5 flex-shrink-0 rounded-full bg-[#E11D48]" /> : <span className="mt-4 h-2.5 w-2.5 flex-shrink-0" />}
-                      <div className="relative mt-0.5">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
-                          {getInitials(contact.otherUserName)}
-                        </div>
-                        <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#1D9BF0]" />
+                      <span className={`mt-4 h-2 w-2 flex-shrink-0 rounded-full ${hasUnread ? "bg-[#1C4D8D]" : ""}`} />
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
+                        {getInitials(contact.otherUserName)}
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="truncate text-[15px] font-semibold leading-tight text-[#111827] md:text-[16px]">
-                              {contact.otherUserName}
-                            </p>
-                            <p className="truncate text-[15px] leading-tight text-[#4B5563] md:text-[16px]">
-                              {formatHandle(contact.otherUserName)}
-                            </p>
-                          </div>
-                          <span className="whitespace-nowrap text-[13px] text-[#6B7280]">
+                          <p className={`truncate text-[15px] leading-tight text-slate-900 ${hasUnread ? "font-bold" : "font-semibold"}`}>
+                            {contact.otherUserName}
+                          </p>
+                          <span className="whitespace-nowrap text-[12px] text-slate-400">
                             {formatTime(contact.lastMessageAt)}
                           </span>
                         </div>
                         {contact.jobTitle ? (
-                          <p className="mt-1 truncate text-[13px] text-[#6B7280]">Re: {contact.jobTitle}</p>
+                          <p className="mt-0.5 truncate text-[12px] text-slate-400">Re: {contact.jobTitle}</p>
                         ) : null}
-                        <p className="mt-2 line-clamp-2 text-[13px] text-[#4B5563]">{contact.lastMessage || "No messages yet"}</p>
+                        <p className={`mt-1 line-clamp-2 text-[13px] ${hasUnread ? "font-medium text-slate-700" : "text-slate-500"}`}>
+                          {contact.lastMessage || "No messages yet"}
+                        </p>
                       </div>
                     </div>
-                  </button>
+                  </motion.button>
                 );
               })
             )}
@@ -889,12 +1051,15 @@ export function Messages() {
 
         <div className={`${selectedContact ? "flex" : "hidden md:flex"} min-w-0 flex-1 flex-col bg-[#F9FAFC]`}>
           {!selectedContact ? (
-            <div className="flex flex-1 items-center justify-center px-6 text-center text-[16px] text-[#9AA3B2]">
-              Select a conversation to start messaging.
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                <MessagesSquare className="h-7 w-7 text-slate-400" />
+              </div>
+              <p className="text-[15px] font-medium text-slate-500">Select a conversation to start messaging.</p>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-4 border-b border-[#E5E7EB] bg-white px-5 py-4">
+              <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-white px-5 py-4">
                 <div className="flex min-w-0 items-center gap-3">
                   <button
                     type="button"
@@ -903,102 +1068,110 @@ export function Messages() {
                       setMessages([]);
                       setShowMoreMenu(false);
                     }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-[#D7DCE7] text-[#4B5563] transition hover:bg-[#F5F7FB] md:hidden"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 md:hidden"
                     title="Back"
                     aria-label="Back to conversations"
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
-                  <div className="relative">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
-                      {getInitials(selectedContact.otherUserName)}
-                    </div>
-                    <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-[#1D9BF0]" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1C4D8D] text-[14px] font-bold text-white">
+                    {getInitials(selectedContact.otherUserName)}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-[16px] font-semibold text-[#111827]">{selectedContact.otherUserName}</p>
-                    <p className="truncate text-[14px] text-[#4B5563]">{formatHandle(selectedContact.otherUserName)}</p>
+                    <p className="truncate text-[16px] font-semibold text-slate-900">{selectedContact.otherUserName}</p>
+                    {peerTyping ? (
+                      <p className="text-[13px] font-medium text-[#1C4D8D]">typing…</p>
+                    ) : selectedContact.jobTitle ? (
+                      <p className="truncate text-[13px] text-slate-400">Re: {selectedContact.jobTitle}</p>
+                    ) : null}
                   </div>
                 </div>
 
-                  <div className="flex items-center gap-2">
-                  {showArchived ? (
-                    <button
-                      type="button"
-                      onClick={handleUnarchiveConversation}
-                      className="hidden rounded-full border border-[#D7DCE7] px-4 py-2 text-[14px] font-medium text-[#111827] transition hover:bg-[#F5F7FB] md:block"
-                    >
-                      Unarchive
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleArchiveConversation}
-                      className="hidden rounded-full border border-[#D7DCE7] px-4 py-2 text-[14px] font-medium text-[#111827] transition hover:bg-[#F5F7FB] md:block"
-                    >
-                      Archive
-                    </button>
-                  )}
-                  {canViewSelectedProfile ? (
-                    <button
-                      type="button"
-                      onClick={handleViewProfile}
-                      className="hidden rounded-full bg-[#1C4D8D] px-5 py-2 text-[14px] font-semibold text-white transition hover:opacity-90 md:block"
-                    >
-                      View Profile
-                    </button>
-                  ) : (
-                    <span className="hidden rounded-full border border-[#D7DCE7] bg-[#F5F7FB] px-5 py-2 text-[14px] font-semibold text-[#4B5563] md:block">
-                      Platform Support
-                    </span>
-                  )}
-                  <div className="relative" ref={moreMenuRef}>
-                    <button
-                      type="button"
-                      onClick={() => setShowMoreMenu((prev) => !prev)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border border-[#D7DCE7] text-[#374151] transition hover:bg-[#F5F7FB]"
-                      title="More options"
-                      aria-label="Open conversation options"
-                      aria-expanded={showMoreMenu}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+                <div className="relative" ref={moreMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowMoreMenu((prev) => !prev)}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
+                    title="More options"
+                    aria-label="Open conversation options"
+                    aria-expanded={showMoreMenu}
+                  >
+                    <MoreVertical className="h-4 w-4" />
+                  </button>
+                  <AnimatePresence>
                     {showMoreMenu ? (
-                      <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-[#E5E7EB] bg-white py-2 shadow-[0_8px_20px_rgba(15,23,42,0.14)]">
+                      <motion.div
+                        initial={prefersReducedMotion ? false : { opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={prefersReducedMotion ? undefined : { opacity: 0, y: -4 }}
+                        transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
+                        className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
+                      >
+                        {showArchived ? (
+                          <button
+                            type="button"
+                            onClick={handleUnarchiveConversation}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                          >
+                            <Archive className="h-4 w-4" />
+                            Unarchive
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleArchiveConversation}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                          >
+                            <Archive className="h-4 w-4" />
+                            Archive
+                          </button>
+                        )}
+                        {canViewSelectedProfile ? (
+                          <button
+                            type="button"
+                            onClick={handleViewProfile}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
+                          >
+                            View profile
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={handleBlockUser}
-                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#DC2626] hover:bg-[#FEF2F2]"
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
                         >
                           <Ban className="h-4 w-4" />
-                          Block User
+                          Block user
                         </button>
                         <button
                           type="button"
                           onClick={handleDeleteConversation}
-                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#DC2626] hover:bg-[#FEF2F2]"
+                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete Conversation
+                          Delete conversation
                         </button>
-                      </div>
+                      </motion.div>
                     ) : null}
-                  </div>
+                  </AnimatePresence>
                 </div>
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFD] px-5 py-5">
                 {orderedMessages.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-[#9CA3AF]">
-                    No messages yet. Start the conversation!
+                  <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
+                      <MessagesSquare className="h-6 w-6 text-slate-400" />
+                    </div>
+                    <p className="text-[14px] font-medium text-slate-500">No messages yet. Start the conversation!</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-1.5">
                     {messageRows.map((row, index) => {
                       if (row.type === "divider") {
                         return (
-                          <div key={`divider-${index}`} className="py-1">
-                            <div className="mx-auto w-full max-w-[420px] rounded-[10px] border border-[#DDE2EB] bg-[#F3F5F9] px-3 py-1 text-center text-[12px] font-medium text-[#6B7280]">
+                          <div key={`divider-${index}`} className="py-2">
+                            <div className="mx-auto w-full max-w-[420px] rounded-full border border-slate-200 bg-white px-3 py-1 text-center text-[12px] font-medium text-slate-500">
                               {row.label}
                             </div>
                           </div>
@@ -1006,47 +1179,63 @@ export function Messages() {
                       }
 
                       const message = row.message;
-                      const isOwn = currentUserId && message.sender._id === currentUserId;
+                      const isOwn = Boolean(currentUserId && message.sender._id === currentUserId);
                       const isEditing = editingMessageId === message._id;
+                      const isLastOwn = message._id === lastOwnMessageId;
 
                       return (
-                        <div key={message._id || `message-${index}`} className={`flex gap-3 ${isOwn ? "justify-end" : "justify-start"}`}>
+                        <motion.div
+                          key={message._id || `message-${index}`}
+                          initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className={`flex gap-3 ${isOwn ? "justify-end" : "justify-start"} ${row.showMeta ? "mt-3" : "mt-0.5"}`}
+                        >
                           {!isOwn ? (
-                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
-                              {getInitials(selectedContact.otherUserName)}
+                            <div className="w-10 shrink-0">
+                              {row.showMeta ? (
+                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
+                                  {getInitials(selectedContact.otherUserName)}
+                                </div>
+                              ) : null}
                             </div>
                           ) : null}
                           <div className={`flex max-w-[78%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
-                            {isOwn ? (
-                              <div className="mb-1 text-[12px] text-[#6B7280]">{formatMessageTime(message.createdAt)}</div>
-                            ) : null}
-                            {!isOwn ? (
-                              <div className="mb-1 flex items-center gap-2 text-[13px] text-[#6B7280]">
-                                <span className="font-semibold text-[#111827]">{selectedContact.otherUserName}</span>
+                            {row.showMeta ? (
+                              <div className={`mb-1 flex items-center gap-2 text-[12px] text-slate-400 ${isOwn ? "" : ""}`}>
+                                {!isOwn ? <span className="font-semibold text-slate-700">{selectedContact.otherUserName}</span> : null}
                                 <span>{formatMessageTime(message.createdAt)}</span>
                               </div>
                             ) : null}
-                            <div
-                              className={`rounded-[14px] px-4 py-3 ${
+                            <button
+                              type="button"
+                              disabled={!message.failed}
+                              onClick={() => message.failed && retryFailedMessage(message)}
+                              className={`rounded-2xl px-4 py-3 text-left transition ${
                                 isOwn
-                                  ? "bg-[#1C4D8D] text-white"
-                                  : "border border-[#DDE2EB] bg-white text-[#111827]"
-                              }`}
+                                  ? message.failed
+                                    ? "border border-red-300 bg-red-50 text-red-700"
+                                    : "bg-[#1C4D8D] text-white"
+                                  : "border border-slate-200 bg-white text-slate-900"
+                              } ${message.pending ? "opacity-60" : ""} ${message.failed ? "cursor-pointer" : "cursor-default"}`}
                             >
                               {isEditing ? (
+                                // The failed-only retry handler above is disabled whenever isEditing is
+                                // true (edit only applies to persisted, non-failed messages), so clicks
+                                // inside here never reach it — no stopPropagation needed.
                                 <div className="space-y-2">
                                   <input
                                     type="text"
                                     value={editingText}
                                     onChange={(e) => setEditingText(e.target.value)}
-                                    className="w-full rounded-[8px] border border-[#D1D5DB] px-3 py-2 text-[14px] text-[#111827]"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-[14px] text-slate-900"
                                     disabled={isEditingSaving}
                                   />
                                   <div className="flex justify-end gap-2">
                                     <button
                                       type="button"
                                       onClick={cancelEditMessage}
-                                      className="rounded bg-[#E5E7EB] px-2 py-1 text-[12px] text-[#374151]"
+                                      className="rounded bg-slate-200 px-2 py-1 text-[12px] text-slate-700"
                                       disabled={isEditingSaving}
                                     >
                                       Cancel
@@ -1064,21 +1253,40 @@ export function Messages() {
                               ) : (
                                 <p className="text-[14px] leading-relaxed">{message.content}</p>
                               )}
-                            </div>
-                            <div className={`mt-1 flex items-center gap-2 text-[11px] text-[#9CA3AF] ${isOwn ? "justify-end" : "justify-start"}`}>
-                              {message.isEdited ? <span>(edited)</span> : null}
-                              {isOwn && !isEditing && canEditMessage(message) ? (
-                                <button
-                                  type="button"
-                                  onClick={() => beginEditMessage(message)}
-                                  className="font-medium text-[#1C4D8D] hover:underline"
-                                >
-                                  Edit
-                                </button>
-                              ) : null}
+                            </button>
+                            <div className={`mt-1 flex items-center gap-2 text-[11px] text-slate-400 ${isOwn ? "justify-end" : "justify-start"}`}>
+                              {message.failed ? (
+                                <span className="font-medium text-red-600">Failed to send · tap to retry</span>
+                              ) : message.pending ? (
+                                <span>Sending…</span>
+                              ) : (
+                                <>
+                                  {message.isEdited ? <span>(edited)</span> : null}
+                                  {isOwn && !isEditing && canEditMessage(message) ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => beginEditMessage(message)}
+                                      className="font-medium text-[#1C4D8D] hover:underline"
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+                                  {isOwn && isLastOwn ? (
+                                    message.read ? (
+                                      <span className="flex items-center gap-0.5 text-[#1C4D8D]">
+                                        <CheckCheck className="h-3.5 w-3.5" /> Read
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-0.5">
+                                        <Check className="h-3.5 w-3.5" /> Sent
+                                      </span>
+                                    )
+                                  ) : null}
+                                </>
+                              )}
                             </div>
                           </div>
-                        </div>
+                        </motion.div>
                       );
                     })}
                     <div ref={messagesEndRef} />
@@ -1086,38 +1294,38 @@ export function Messages() {
                 )}
               </div>
 
-              <div className="border-t border-[#E5E7EB] bg-white px-5 py-4">
-                <textarea
-                  placeholder="Enter message"
-                  value={messageText}
-                  onChange={(e) => setMessageText(e.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      if (!sending) {
-                        handleSendMessage();
+              <div className="border-t border-slate-100 bg-white px-5 py-4">
+                <div className="flex items-end gap-3">
+                  <textarea
+                    ref={composerRef}
+                    placeholder="Enter message"
+                    value={messageText}
+                    onChange={(e) => handleComposerChange(e.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        if (!sending) {
+                          handleSendMessage();
+                        }
                       }
-                    }
-                  }}
-                  disabled={sending}
-                  maxLength={4000}
-                  aria-label="Message"
-                  className="min-h-[88px] w-full resize-none rounded-[12px] border border-[#DDE2EB] bg-[#FBFCFE] px-4 py-3 text-[15px] text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20 disabled:opacity-60"
-                />
-                <div className="mt-3 flex items-center justify-end">
+                    }}
+                    disabled={sending}
+                    maxLength={4000}
+                    rows={1}
+                    aria-label="Message"
+                    className="min-h-[44px] max-h-40 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20 disabled:opacity-60"
+                  />
                   <button
                     type="button"
                     onClick={handleSendMessage}
                     disabled={!messageText.trim() || sending}
-                    className="inline-flex min-w-[112px] items-center justify-center gap-2 rounded-full bg-[#1C4D8D] px-6 py-3 text-[15px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label="Send message"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sending ? (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                     ) : (
-                      <>
-                        Send
-                        <Send className="h-4 w-4" />
-                      </>
+                      <Send className="h-4 w-4" />
                     )}
                   </button>
                 </div>

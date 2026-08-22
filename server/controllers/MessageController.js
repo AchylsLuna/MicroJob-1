@@ -450,6 +450,15 @@ const MessageController = {
       if (normalizedJobId) filter.job = normalizedJobId;
       const setRead = read === false ? false : true; // default to true
       await Message.updateMany(filter, { $set: { read: setRead } });
+
+      try {
+        // Notify the original sender (otherUserId) so their sent messages can
+        // flip to a "read" state without them having to poll or reopen the thread.
+        emitToUser(otherUserId, 'messages_read', { readerId: userId, jobId: normalizedJobId || null, read: setRead });
+      } catch (e) {
+        // ignore emit errors
+      }
+
       return sendSuccess(
         res,
         200,
