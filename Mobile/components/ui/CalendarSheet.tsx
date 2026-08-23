@@ -13,6 +13,8 @@ import {
   type DateRange,
   type MonthModel,
 } from '../../lib/calendarModel';
+import { getActiveDateLocale } from '../../lib/formatters';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 type FooterConfig = {
   clearLabel?: string;
@@ -49,8 +51,8 @@ type Props = (SingleProps | RangeProps) & {
 const WEEKDAYS = getWeekdayLabels();
 const CELL_SIZE = tokens.controls.minimumTouch;
 
-function formatFullDate(date: Date): string {
-  return new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(date);
+function formatFullDate(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(date);
 }
 
 export default function CalendarSheet(props: Props) {
@@ -59,8 +61,10 @@ export default function CalendarSheet(props: Props) {
   const translateY = useRef(new Animated.Value(1)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const [mounted, setMounted] = useState(open);
+  useLanguage(); // subscribes this component to language changes so dateLocale below stays current
+  const dateLocale = getActiveDateLocale();
 
-  const months = useMemo(() => buildMonths(minDate || new Date(), monthsToRender), [minDate, monthsToRender]);
+  const months = useMemo(() => buildMonths(minDate || new Date(), monthsToRender, dateLocale), [minDate, monthsToRender, dateLocale]);
 
   useEffect(() => {
     if (open) {
@@ -127,7 +131,7 @@ export default function CalendarSheet(props: Props) {
                     disabled={disabled}
                     onPress={() => handleDayPress(date)}
                     accessibilityRole="button"
-                    accessibilityLabel={formatFullDate(date)}
+                    accessibilityLabel={formatFullDate(date, dateLocale)}
                     accessibilityState={{ disabled, selected }}
                     style={[styles.day, selected && styles.daySelected, isToday && !selected && styles.dayToday]}
                     hitSlop={4}

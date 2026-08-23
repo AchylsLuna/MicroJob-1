@@ -1,0 +1,856 @@
+{
+  "about": {
+    "headerTitle": "About",
+    "headerSubtitle": "Platform information",
+    "cardTitle": "Micro Jobs",
+    "version": "Version 1.0.0",
+    "body": "Micro Jobs connects workers and employers for fast local hiring and messaging."
+  },
+  "addCv": {
+    "modalTitle": "Upload CV",
+    "selectLabel": "Select your CV file",
+    "filePicker": {
+      "changeAccessibility": "Change résumé file",
+      "chooseAccessibility": "Choose résumé file",
+      "hint": "Supported formats are PDF, DOC, and DOCX up to 5 MB",
+      "changeLabel": "Change file",
+      "chooseLabel": "Choose file"
+    },
+    "info": "Supported formats: PDF, DOC, DOCX (Max 5MB)",
+    "selectedFile": {
+      "accessibilityLabel": "{{name}}, {{extension}}, {{size}}",
+      "removeAccessibility": "Remove {{name}}"
+    },
+    "upload": {
+      "accessibilityLabel": "Upload résumé",
+      "button": "Upload CV"
+    },
+    "cancel": {
+      "accessibilityLabel": "Cancel résumé upload",
+      "button": "Cancel"
+    },
+    "toast": {
+      "pickFailed": "Failed to pick file. Please try again.",
+      "authMissing": "Authentication token not found. Please log in again.",
+      "uploadSuccess": "Résumé uploaded successfully.",
+      "uploadFailed": "Failed to upload resume. Please check your connection and try again."
+    },
+    "apiFallback": {
+      "uploadFailed": "Failed to upload résumé."
+    }
+  },
+  "addExperience": {
+    "modalTitle": {
+      "edit": "Edit work experience",
+      "add": "Add work experience"
+    },
+    "modalSubtitle": {
+      "edit": "Keep this role accurate and up to date.",
+      "add": "Add a job, client project, or self-employment role."
+    },
+    "close": "Close",
+    "fields": {
+      "title": "Job title *",
+      "titlePlaceholder": "e.g., Math tutor",
+      "company": "Company or client *",
+      "companyPlaceholder": "e.g., Self-employed",
+      "location": "Location",
+      "locationPlaceholder": "City or Remote",
+      "startDate": "Start date *",
+      "endDate": "End date *",
+      "datePlaceholder": "YYYY-MM"
+    },
+    "current": {
+      "label": "I currently work here"
+    },
+    "description": {
+      "label": "Description",
+      "placeholder": "Describe your responsibilities and results",
+      "accessibilityLabel": "Experience description"
+    },
+    "characterCount": "{{count}}/{{max}}",
+    "save": {
+      "update": "Update experience",
+      "save": "Save experience"
+    },
+    "errors": {
+      "titleCompanyRequired": "Job title and company or client are required.",
+      "invalidStartDate": "Enter the start date as YYYY-MM.",
+      "invalidEndDate": "Enter the end date as YYYY-MM or mark this as your current role.",
+      "endBeforeStart": "End date cannot be before start date.",
+      "futureDates": "Work experience dates cannot be in the future.",
+      "fieldTooLong": "One or more fields exceed the allowed length.",
+      "saveFailed": "Could not save work experience."
+    }
+  },
+  "appliedJobs": {
+    "headerTitle": "Applied jobs",
+    "headerSubtitle_one": "{{count}} total application",
+    "headerSubtitle_other": "{{count}} total applications",
+    "backAccessibility": "Back to jobs",
+    "toggle": {
+      "appliedLabel": "Applied Job details",
+      "savedLabel": "Save job",
+      "savedAccessibility": "Open saved jobs"
+    },
+    "filter": {
+      "accessibilityLabel": "Filter applications by {{filter}}"
+    },
+    "empty": {
+      "title": "No applications",
+      "text": "You don't have any {{filter}} applications yet"
+    },
+    "logoPlaceholder": "logo",
+    "viewDetails": "View details ›",
+    "appliedDate": "Applied {{date}}",
+    "interview": {
+      "title": "Interview scheduled",
+      "modeFallback": "other"
+    },
+    "messageButton": {
+      "submitWork": "Submit Work",
+      "message": "Message"
+    },
+    "withdrawButton": {
+      "label": "Withdraw"
+    },
+    "rateButton": {
+      "label": "Rate Employer",
+      "accessibilityLabel": "Rate employer for {{title}}"
+    },
+    "reviewedText": "★ Review submitted",
+    "modal": {
+      "title": "Withdraw application?",
+      "text": "Your application for {{title}} will be withdrawn and removed from the employer's active list.",
+      "keepButton": "Keep application",
+      "withdrawButton": "Withdraw"
+    },
+    "toast": {
+      "withdrawSuccess": "Application withdrawn. The employer was notified.",
+      "submitWorkSuccess": "Work submitted. You can now request a QR invoice from E-Wallet."
+    },
+    "apiFallback": {
+      "loadApplicationsFailed": "Failed to load applications.",
+      "loadEligibilityFailed": "Failed to load review eligibility.",
+      "withdrawFailed": "Failed to withdraw application.",
+      "submitWorkFailed": "Unable to submit finished work.",
+      "markReadFailed": "Failed to mark application as read."
+    },
+    "job": {
+      "untitled": "Untitled job",
+      "posterFallback": "Job Poster",
+      "employerFallback": "Employer",
+      "thisJobFallback": "this job"
+    }
+  },
+  "contactSupport": {
+    "header": {
+      "title": "Support Center",
+      "subtitle": "Open tickets and track replies"
+    },
+    "hero": {
+      "title": "Need help with payouts, applications, or account issues?",
+      "body": "Submit a ticket, monitor status changes, and continue the thread without leaving the app."
+    },
+    "metrics": {
+      "open": "Open",
+      "waiting": "Waiting",
+      "resolved": "Resolved"
+    },
+    "faqs": {
+      "payoutReviews": {
+        "title": "Payout reviews",
+        "body": "Payout requests are reviewed manually. Track every review decision from your wallet history."
+      },
+      "applicationStages": {
+        "title": "Application stages",
+        "body": "Applications now move through Applied, Shortlisted, Interview Scheduled, Offer Sent, and Hired."
+      },
+      "accountSafety": {
+        "title": "Account safety",
+        "body": "Use a strong password, keep MFA enabled, and review your sessions regularly."
+      }
+    },
+    "categories": {
+      "general": "General",
+      "payments": "Payments",
+      "jobs": "Jobs",
+      "account": "Account",
+      "technical": "Technical"
+    },
+    "priorities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "createForm": {
+      "title": "Create Support Ticket",
+      "subtitle": "Describe the issue clearly so support can route it correctly.",
+      "subjectLabel": "Subject",
+      "subjectPlaceholder": "Payout review delay",
+      "categoryLabel": "Category",
+      "priorityLabel": "Priority",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Explain what happened, what you expected, and any relevant dates or references.",
+      "submitButton": "Submit Ticket"
+    },
+    "history": {
+      "title": "Ticket History",
+      "refreshing": "Refreshing...",
+      "refreshButton": "Refresh",
+      "loading": "Loading support tickets...",
+      "empty": {
+        "title": "No support tickets yet",
+        "body": "Your submitted tickets and support replies will appear here."
+      },
+      "messagesCount_one": "{{count}} message",
+      "messagesCount_other": "{{count}} messages",
+      "updatedLabel": "Updated {{date}}"
+    },
+    "thread": {
+      "subtitle": "Track the latest replies and continue the thread below.",
+      "noBody": "No message body.",
+      "replyLabel": "Reply",
+      "replyPlaceholder": "Add more details or respond to support.",
+      "sendButton": "Send Reply",
+      "closedBanner": "This ticket is closed and cannot receive new replies."
+    },
+    "common": {
+      "noDate": "No date",
+      "supportAuthor": "Support",
+      "youFallback": "You"
+    },
+    "errors": {
+      "subjectMessageRequired": "Subject and message are required."
+    },
+    "apiFallback": {
+      "loadTicketsFailed": "Failed to load support tickets.",
+      "loadTicketFailed": "Failed to load support ticket.",
+      "submitTicketFailed": "Failed to submit support ticket.",
+      "sendReplyFailed": "Failed to send reply."
+    }
+  },
+  "changePassword": {
+    "headerTitle": "Change Password",
+    "headerSubtitle": "Update your account credentials",
+    "errors": {
+      "notSignedIn": "Please sign in again to continue.",
+      "passwordMismatch": "New password and confirmation do not match.",
+      "weakPassword": "Your new password does not meet all requirements."
+    },
+    "toast": {
+      "enterCurrentPassword": "Enter your current password first.",
+      "otpSent": "Check your email for the password change OTP code.",
+      "completeFields": "Complete all fields to continue.",
+      "samePassword": "New password must be different from your current password.",
+      "passwordUpdated": "Your password has been updated."
+    },
+    "apiFallback": {
+      "requestOtpFailed": "Failed to request OTP.",
+      "changePasswordFailed": "Failed to change password."
+    },
+    "labels": {
+      "currentPassword": "Current Password",
+      "otpCode": "OTP Code",
+      "newPassword": "New Password",
+      "confirmPassword": "Confirm Password"
+    },
+    "placeholders": {
+      "currentPassword": "Enter current password",
+      "otpCode": "Enter 6-digit OTP",
+      "newPassword": "Enter new password",
+      "confirmPassword": "Re-enter new password"
+    },
+    "otpHint": "Enter the OTP sent to your email to continue.",
+    "button": {
+      "sendOtp": "Send OTP",
+      "updatePassword": "Update Password"
+    }
+  },
+  "dashboard": {
+    "headerTitle": "Home",
+    "apiFallback": {
+      "loadCategoriesFailed": "Failed to load categories.",
+      "loadJobsFailed": "Failed to load jobs.",
+      "loadRecommendedFailed": "Failed to load recommended jobs.",
+      "loadProfileFailed": "Failed to load profile."
+    },
+    "search": {
+      "accessibilityLabel": "Search local jobs, skills, or employers",
+      "title": "Search local jobs",
+      "subtitle": "Skills, employers, or job titles"
+    },
+    "resumeCard": {
+      "title": "Upload your resume",
+      "subtitle": "Get matched with local employers across your community.",
+      "uploadAccessibility": "Upload CV or resume",
+      "uploadButton": "Upload resume"
+    },
+    "sections": {
+      "categories": "Job Categories",
+      "browseAll": "Browse all",
+      "matchingSkills": "Jobs Matching Your Skills",
+      "recentInArea": "Recent in Your Area"
+    },
+    "category": {
+      "accessibilityLabel_one": "Browse {{name}}, {{count}} local opening",
+      "accessibilityLabel_other": "Browse {{name}}, {{count}} local openings"
+    },
+    "state": {
+      "locationTitle": "Set your work location",
+      "locationMessage": "Add your city or municipality to see nearby opportunities.",
+      "locationAction": "Open settings",
+      "unavailableTitle": "Jobs are unavailable",
+      "unavailableAction": "Try again",
+      "emptyTitle": "No recent jobs yet",
+      "emptyMessage": "New opportunities in your area will appear here.",
+      "emptyAction": "Explore jobs"
+    }
+  },
+  "deleteAccount": {
+    "headerTitle": "Delete Account",
+    "headerSubtitle": "Soft delete with blocker checks",
+    "errors": {
+      "passwordRequired": "Enter your current password to continue.",
+      "confirmMismatch": "Type DELETE exactly to confirm this action."
+    },
+    "apiFallback": {
+      "deleteFailed": "Failed to delete account."
+    },
+    "toast": {
+      "deleted": "Account deleted. Signing out..."
+    },
+    "warning": {
+      "title": "Before you continue",
+      "body": "Deletion is only allowed when balances are zero, payout requests are resolved, and active jobs or applications are closed.",
+      "sessionsRevoked": "Current sessions are revoked after deletion.",
+      "identifiersAnonymized": "Personal identifiers are anonymized for audit retention.",
+      "savedRemoved": "Saved jobs and push devices are removed automatically."
+    },
+    "confirmCard": {
+      "title": "Confirm account deletion",
+      "subtitle": "Enter your password and type DELETE to confirm.",
+      "passwordLabel": "Current Password",
+      "passwordPlaceholder": "Current password",
+      "confirmationLabel": "Confirmation",
+      "confirmationPlaceholder": "Type DELETE",
+      "deleteButton": "Delete My Account"
+    },
+    "blockers": {
+      "title": "Resolve these blockers first",
+      "subtitle": "The backend rejected deletion until the following conditions are cleared."
+    }
+  },
+  "eWallet": {
+    "headerTitle": "E-Wallet",
+    "balanceCard": {
+      "label": "Available to withdraw",
+      "employerSecondary": "Employer funds: {{amount}} (not withdrawable here)",
+      "note": "Completed local-job earnings arrive here. Withdraw only your worker balance through a verified Philippine bank or mobile wallet.",
+      "withdrawAction": "Withdraw Funds",
+      "requestInvoiceAction": "Request Invoice"
+    },
+    "metrics": {
+      "totalCredited": "Total credited",
+      "pending": "Pending",
+      "transactions": "Transactions"
+    },
+    "invoices": {
+      "sectionTitle": "Payment Invoices",
+      "sectionSubtitle": "Secure job-payment requests delivered through chat and notifications.",
+      "jobFallback": "Job payment",
+      "empty": {
+        "title": "No invoices yet",
+        "body": "Request an invoice after you finish hired work that is still In Progress."
+      },
+      "actions": {
+        "viewQr": "View QR",
+        "openChat": "Open Chat",
+        "generateReplacement": "Generate Replacement",
+        "cancel": "Cancel"
+      }
+    },
+    "payoutForm": {
+      "title": "Withdraw Funds",
+      "availableSubtitle": "Available to withdraw: {{amount}}",
+      "amountLabel": "Amount (PHP)",
+      "amountAccessibility": "Withdrawal amount in Philippine pesos",
+      "methodLabel": "Method",
+      "methodOptions": {
+        "bank": "Bank",
+        "gcash": "GCash",
+        "maya": "Maya"
+      },
+      "methodAccessibility": "{{method}} withdrawal method",
+      "institutionLabel": "Institution",
+      "institutionPlaceholder": "BDO, GCash, Maya",
+      "institutionAccessibility": "Financial institution",
+      "accountNameLabel": "Account Name",
+      "accountNamePlaceholder": "Juan Dela Cruz",
+      "accountNameAccessibility": "Account holder name",
+      "accountNumberLabel": "Account Number",
+      "accountNumberPlaceholder": "09171234567 or bank account number",
+      "accountNumberAccessibility": "Bank or mobile wallet account number",
+      "submitAccessibility": "Submit withdrawal request",
+      "submitButton": "Withdraw Funds"
+    },
+    "notice": {
+      "workerOnly": "This screen is for worker withdrawals only. Switch to employer mode to fund jobs from the employer wallet."
+    },
+    "transactions": {
+      "sectionTitle": "Recent Transactions",
+      "sectionSubtitle": "Your latest worker-wallet activity.",
+      "empty": {
+        "title": "No transactions yet",
+        "body": "Completed work, withdrawals, and refunds will appear here."
+      },
+      "type": {
+        "topUp": "Top-up",
+        "escrow": "Escrow",
+        "payout": "Payout",
+        "refund": "Refund",
+        "generic": "Transaction"
+      }
+    },
+    "withdrawals": {
+      "sectionTitle": "Withdrawal History",
+      "sectionSubtitle": "Track review and payment status.",
+      "empty": {
+        "title": "No withdrawals yet",
+        "body": "Submitted withdrawal requests will appear here."
+      },
+      "destinationFallback": "Destination not set",
+      "accountNameFallback": "Unknown account",
+      "accountNumberFallback": "No account number",
+      "requestedLabel": "Requested {{date}}",
+      "reviewedLabel": "Reviewed {{date}}",
+      "cancelButton": "Cancel Withdrawal"
+    },
+    "common": {
+      "noDate": "No date",
+      "statusUnknown": "unknown"
+    },
+    "toast": {
+      "workerOnlyPayout": "Payout requests are only available from worker balances.",
+      "invalidAmount": "Enter a valid payout amount.",
+      "amountExceedsBalance": "Payout amount cannot exceed your worker balance.",
+      "incompleteDestination": "Complete the destination details before submitting your withdrawal.",
+      "payoutSubmitted": "Your withdrawal has been submitted for admin review.",
+      "payoutCancelled": "The amount was restored to your worker balance."
+    },
+    "apiFallback": {
+      "loadProfileFailed": "Failed to load wallet profile.",
+      "loadTransactionsFailed": "Failed to load transactions.",
+      "loadPayoutsFailed": "Failed to load payout requests.",
+      "loadInvoicesFailed": "Failed to load invoices.",
+      "refreshFailed": "Some wallet details could not be refreshed.",
+      "connectionFailed": "Check your connection and try again.",
+      "createPayoutFailed": "Failed to create withdrawal.",
+      "submitPayoutFailed": "Unable to submit withdrawal.",
+      "cancelWithdrawalFailed": "Failed to cancel withdrawal.",
+      "cancelPayoutFailed": "Unable to cancel withdrawal.",
+      "replaceInvoiceFailed": "Failed to replace invoice.",
+      "cancelInvoiceFailed": "Failed to cancel invoice."
+    }
+  },
+  "settings": {
+    "profile": {
+      "defaultName": "Account User",
+      "defaultEmail": "No email set",
+      "badge": {
+        "employer": "Employer settings",
+        "worker": "Worker settings"
+      },
+      "openButton": "Open"
+    },
+    "apiFallback": {
+      "refreshFailed": "Failed to refresh settings.",
+      "savePrivacyFailed": "Failed to save employer privacy setting."
+    },
+    "errors": {
+      "notAuthenticated": "Not authenticated. Please sign in again."
+    },
+    "toast": {
+      "privacySaved": "Employer privacy setting saved."
+    },
+    "menu": {
+      "businessInformation": "Business Information",
+      "paymentMethods": "Payment Methods",
+      "personalInformation": "Personal Information",
+      "resumeDocuments": "Resume & Documents",
+      "changePassword": "Change Password",
+      "twoFactorAuth": "Two-Factor Authentication",
+      "notificationInbox": "Notification Inbox",
+      "locationServices": "Location Services",
+      "contactSupport": "Contact Support",
+      "about": "About",
+      "logOut": "Log Out",
+      "deleteAccount": "Delete Account"
+    },
+    "sections": {
+      "account": "Account",
+      "security": "Security",
+      "preferences": "Preferences",
+      "supportInfo": "Support & info"
+    },
+    "header": {
+      "backAccessibility": "Go back",
+      "title": "Settings",
+      "subtitle": "Manage profile, security, support, and account controls."
+    },
+    "modeCard": {
+      "sectionLabel": "ACCOUNT MODE",
+      "employerModeTitle": "Employer Mode",
+      "workerModeTitle": "Worker Mode",
+      "description": "This Both account can work and hire from one profile.",
+      "switchAccessibility": {
+        "toWorker": "Switch to Worker Mode",
+        "toEmployer": "Switch to Employer Mode"
+      },
+      "switchLabel": {
+        "toWorker": "Switch to Worker",
+        "toEmployer": "Switch to Employer"
+      }
+    },
+    "confirmMode": {
+      "titleToEmployer": "Switch to Employer Mode?",
+      "titleToWorker": "Switch to Worker Mode?",
+      "descriptionToEmployer": "You will return to the Employer Home screen. Your account data stays connected to this Both profile.",
+      "descriptionToWorker": "You will return to the Worker Home screen. Your account data stays connected to this Both profile."
+    },
+    "employerPrivacy": {
+      "sectionLabel": "EMPLOYER PRIVACY",
+      "title": "Hide number of hired candidates",
+      "description": "Keep your hiring count private across web and mobile.",
+      "accessibilityLabel": "Hide number of hired candidates"
+    }
+  },
+  "jobDetails": {
+    "titleFallback": "Job Details",
+    "urgentBadge": "Urgent",
+    "stats": {
+      "locationLabel": "LOCATION",
+      "typeLabel": "TYPE",
+      "payLabel": "MINIMUM PAY"
+    },
+    "postedBy": {
+      "text": "This job post is managed by {{name}}",
+      "employerFallback": "the employer"
+    },
+    "employerPreview": {
+      "nameFallback": "Employer",
+      "rating": "Rating {{stars}}/5 • {{percentage}}% success"
+    },
+    "actions": {
+      "viewProfile": "View Profile",
+      "viewProfileAccessibility": "View employer profile",
+      "saveLabel": "Saved job",
+      "savedLabel": "Saved ✓",
+      "saveAccessibility": "Save job",
+      "removeSavedAccessibility": "Remove job from saved jobs",
+      "applyLabel": "Apply now",
+      "applyingLabel": "Applying...",
+      "appliedLabel": "Already submitted",
+      "applyAccessibility": "Apply for this job",
+      "appliedAccessibility": "Application already submitted",
+      "messageLabel": "Message Employer",
+      "messageAccessibility": "Message employer"
+    },
+    "sections": {
+      "skills": "Must have skills",
+      "description": "Description",
+      "requirements": "Requirements"
+    },
+    "success": {
+      "title": "Successful!",
+      "message": "Congratulations, your application has been sent. Good luck!",
+      "findJobsButton": "Find more jobs",
+      "findJobsAccessibility": "Find more jobs",
+      "backHomeButton": "Back to home",
+      "backHomeAccessibility": "Back to home"
+    },
+    "common": {
+      "notAvailable": "N/A",
+      "noDescription": "No description provided.",
+      "employerFallback": "Employer"
+    },
+    "toast": {
+      "employerInfoUnavailable": "Employer information not available.",
+      "jobDetailsUnavailable": "Job details are not available yet.",
+      "signInRequired": "Please sign in again to message this employer.",
+      "employerDetailsUnavailable": "Employer details are not available for this job yet."
+    },
+    "apiFallback": {
+      "loadEmployerProfileFailed": "Failed to load employer profile.",
+      "openConversationFailed": "Failed to open a conversation with this employer.",
+      "applyFailed": "Failed to apply.",
+      "loadJobFailed": "Failed to load job."
+    }
+  },
+  "jobs": {
+    "headerTitle": "Jobs",
+    "search": {
+      "placeholder": "Search jobs",
+      "accessibility": "Search jobs",
+      "hint": "Search by job title, company, or location",
+      "clearAccessibility": "Clear job search"
+    },
+    "toolbar": {
+      "refreshAccessibility": "Refresh jobs",
+      "refreshLabel": "Refresh",
+      "sortedByRelevance": "Sorted by relevance"
+    },
+    "quickActions": {
+      "savedAccessibility": "Open saved jobs",
+      "savedLabel": "Saved Jobs",
+      "appliedAccessibility": "Open applied jobs",
+      "appliedLabel": "Applied Jobs"
+    },
+    "preferences": {
+      "title": "Improve your job matches",
+      "subtitle": "Choose preferred categories and work interests.",
+      "inputPlaceholder": "repair, installation, maintenance",
+      "saveButton": "Save matching preferences"
+    },
+    "sections": {
+      "deadline": "Deadline",
+      "categories": "Categories",
+      "jobType": "Job Type"
+    },
+    "datePresets": {
+      "any": "Any dates",
+      "next7": "Next 7 days",
+      "next30": "Next 30 days",
+      "custom": "Custom"
+    },
+    "dateSheet": {
+      "title": "Application deadline",
+      "clearAll": "Clear all",
+      "apply": "Apply"
+    },
+    "categoriesFilter": {
+      "allAccessibility": "All categories",
+      "allLabel": "All",
+      "categoryAccessibility": "{{name}} category"
+    },
+    "jobTypes": {
+      "all": "All",
+      "shortTerm": "Short-term",
+      "sideHustle": "Side hustle",
+      "recruiting": "Recruiting"
+    },
+    "jobTypeFilter": {
+      "accessibility": "{{type}} job type"
+    },
+    "jobsAvailable_one": "{{count}} Job Available",
+    "jobsAvailable_other": "{{count}} Jobs Available",
+    "nearest": {
+      "title": "Suggested Near You",
+      "viewAccessibility": "View {{title}} near {{location}}"
+    },
+    "jobCard": {
+      "messageEmployerButton": "Message Employer"
+    },
+    "common": {
+      "employerFallback": "Employer"
+    },
+    "errors": {
+      "locationRequired": "Set your city or municipality in Settings before searching for local jobs."
+    },
+    "apiFallback": {
+      "loadCategoriesFailed": "Failed to load categories.",
+      "loadApplicationsFailed": "Failed to load applications.",
+      "loadJobsFailed": "Failed to load jobs.",
+      "loadProfileLocationFailed": "Failed to load profile location.",
+      "openConversationFailed": "Failed to open a conversation with this employer.",
+      "saveJobPreferencesFailed": "Failed to save job preferences."
+    }
+  },
+  "personalInformation": {
+    "header": {
+      "backAccessibility": "Go back",
+      "titleEmployer": "Business Information",
+      "titleWorker": "Personal Information",
+      "saveAccessibility": "Save profile",
+      "saveButton": "Save"
+    },
+    "loadingAccessibility": "Loading profile",
+    "avatar": {
+      "currentPhotoAccessibility": "Current profile photo",
+      "changeAccessibility": "Change profile photo",
+      "changeHint": "Opens your photo library",
+      "changeButton": "Change"
+    },
+    "fields": {
+      "fullName": {
+        "label": "Full Name",
+        "placeholder": "e.g. Alex Morgan",
+        "accessibility": "Full name",
+        "hint": "Enter your first and last name"
+      },
+      "email": {
+        "label": "Email Address",
+        "placeholder": "name@example.com",
+        "accessibility": "Email address",
+        "helper": "Email changes require a verified change flow and are currently locked."
+      },
+      "phone": {
+        "label": "Phone Number",
+        "placeholder": "09XXXXXXXXX",
+        "accessibility": "Phone number"
+      },
+      "province": {
+        "label": "Province",
+        "placeholderLoading": "Loading provinces...",
+        "placeholder": "Type or select province",
+        "accessibility": "Province",
+        "hint": "Type to filter province suggestions",
+        "selectAccessibility": "Select {{name}} province"
+      },
+      "retry": {
+        "accessibility": "Retry loading Philippine locations",
+        "button": "Retry"
+      },
+      "city": {
+        "label": "City / Municipality",
+        "placeholderNoProvince": "Select province first",
+        "placeholder": "Type or select city",
+        "accessibility": "City or municipality",
+        "hint": "Type to filter city suggestions",
+        "selectAccessibility": "Select {{name}}"
+      },
+      "barangay": {
+        "label": "Barangay",
+        "placeholderNoCity": "Select city first",
+        "placeholderLoading": "Loading barangays...",
+        "placeholder": "Type or select barangay",
+        "accessibility": "Barangay",
+        "hint": "Type to filter barangay suggestions",
+        "selectAccessibility": "Select {{name}} barangay"
+      },
+      "address": {
+        "labelEmployer": "Business Address",
+        "labelWorker": "Street Address",
+        "placeholderEmployer": "Enter your business address",
+        "placeholderWorker": "Enter your street address",
+        "accessibilityEmployer": "Business address",
+        "accessibilityWorker": "Street address"
+      },
+      "companyName": {
+        "label": "Company Name",
+        "placeholder": "Enter your company or business name",
+        "accessibility": "Company name"
+      },
+      "jobPosition": {
+        "label": "Professional Headline",
+        "placeholder": "e.g. House cleaner, Tutor, Delivery specialist",
+        "accessibility": "Professional headline"
+      },
+      "about": {
+        "labelEmployer": "Company Description",
+        "labelWorker": "Bio",
+        "placeholderEmployer": "Tell workers about your company or business.",
+        "placeholderWorker": "Tell us a short introduction about you.",
+        "accessibilityEmployer": "Company description",
+        "accessibilityWorker": "Bio",
+        "charCount": "{{count}}/{{max}}"
+      },
+      "linkedin": {
+        "label": "LinkedIn URL",
+        "placeholder": "https://linkedin.com/in/your-name",
+        "accessibility": "LinkedIn URL"
+      },
+      "website": {
+        "labelEmployer": "Company Website",
+        "labelWorker": "Portfolio or Website",
+        "placeholder": "https://your-portfolio.example",
+        "accessibility": "Portfolio or website"
+      }
+    },
+    "saveChanges": {
+      "accessibility": "Save profile changes",
+      "button": "Save Changes"
+    },
+    "fieldNames": {
+      "province": "Province",
+      "city": "City",
+      "barangay": "Barangay",
+      "companyName": "Company name",
+      "professionalHeadline": "Professional headline",
+      "companyDescription": "Company description",
+      "bio": "Bio",
+      "address": "Address"
+    },
+    "toast": {
+      "loginRequired": "Please log in again to continue.",
+      "sessionExpired": "Your session has expired. Please log in again.",
+      "photoPermission": "Please allow photo access to update your profile picture.",
+      "loginRequiredShort": "Please log in again.",
+      "authTokenMissing": "Authentication token not found.",
+      "noChanges": "No profile changes to save.",
+      "profileUpdated": "Profile updated successfully."
+    },
+    "errors": {
+      "nameInvalid": "Enter both first and last name using letters, spaces, apostrophes, periods, or hyphens.",
+      "phoneInvalid": "Phone number must be a Philippine mobile number in 09XXXXXXXXX format.",
+      "lengthExceeded": "{{field}} must be {{max}} characters or fewer.",
+      "urlInvalid": "LinkedIn and website links must be valid HTTPS URLs.",
+      "profileStillLoading": "Your profile is still loading. Please wait and try again.",
+      "locationLoading": "Please wait for the Philippine location options to finish loading.",
+      "locationUnavailable": "Location options are unavailable. Retry before saving location changes.",
+      "locationSelectValid": "Select a valid Province, City/Municipality, and Barangay from the suggestions.",
+      "phoneInUse": "This phone number is already in use. Please use a different number.",
+      "locationOptionsUnavailable": "Philippine location options are unavailable."
+    },
+    "apiFallback": {
+      "loadProfileFailed": "Failed to load profile.",
+      "uploadAvatarFailed": "Failed to upload profile picture.",
+      "saveProfileFailed": "Failed to save personal information."
+    }
+  },
+  "locationServices": {
+    "headerTitle": "Location Services",
+    "headerSubtitle": "Control location permissions",
+    "toast": {
+      "permissionDenied": "Location permission was denied.",
+      "enabled": "Location enabled.",
+      "getLocationFailed": "Failed to get location.",
+      "disabled": "Location disabled."
+    },
+    "city": {
+      "notAvailable": "Not available",
+      "permissionDenied": "Permission denied",
+      "unknown": "Unknown location"
+    },
+    "useLocation": {
+      "title": "Use Your Location",
+      "subtitle": "Allow location access to show nearby jobs and enable location-based alerts.",
+      "enabledLabel": "Enabled",
+      "enableLabel": "Enable Location"
+    },
+    "currentLocation": {
+      "title": "Current Location",
+      "subtitle": "Based on your device settings.",
+      "cityLabel": "City",
+      "coordinatesLabel": "Coordinates"
+    },
+    "mapPreview": {
+      "title": "Map Preview",
+      "subtitle": "Location preview (UI only).",
+      "placeholder": "Map Preview"
+    }
+  },
+  "savedJobs": {
+    "backAccessibility": "Back to jobs",
+    "headerTitle": "Saved jobs",
+    "headerSubtitle_one": "{{count}} job saved for later",
+    "headerSubtitle_other": "{{count}} jobs saved for later",
+    "empty": {
+      "title": "No saved jobs yet",
+      "text": "Jobs you save will appear here"
+    },
+    "removeAccessibility": "Remove {{title}} from saved jobs",
+    "removeButton": "Remove"
+  }
+}

@@ -44,12 +44,12 @@ export function isDateDisabled(date: Date, bounds: { minDate?: Date; maxDate?: D
   return false;
 }
 
-function monthLabel(year: number, month: number): string {
-  return new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date(year, month, 1));
+function monthLabel(year: number, month: number, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(new Date(year, month, 1));
 }
 
 /** Builds `count` consecutive months starting from `from`'s month, each as a fixed 6x7 grid. */
-export function buildMonths(from: Date, count: number): MonthModel[] {
+export function buildMonths(from: Date, count: number, locale = 'en-US'): MonthModel[] {
   const months: MonthModel[] = [];
   const startYear = from.getFullYear();
   const startMonth = from.getMonth();
@@ -72,7 +72,7 @@ export function buildMonths(from: Date, count: number): MonthModel[] {
     const weeks: (Date | null)[][] = [];
     for (let w = 0; w < cells.length; w += 7) weeks.push(cells.slice(w, w + 7));
 
-    months.push({ year, month, label: monthLabel(year, month), weeks });
+    months.push({ year, month, label: monthLabel(year, month, locale), weeks });
   }
 
   return months;

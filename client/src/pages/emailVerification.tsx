@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { sendOtp } from "../services/api";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 
 const EmailVerification: React.FC = () => {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const { verifyOTP, resendOTP, user } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -41,7 +43,7 @@ const EmailVerification: React.FC = () => {
         }
       } catch (error) {
         if (!isCancelled) {
-          setErrorMessage("Failed to send verification code. Please try again.");
+          setErrorMessage(t("emailVerification.errors.sendFailed"));
         }
       } finally {
         if (!isCancelled) {
@@ -55,7 +57,7 @@ const EmailVerification: React.FC = () => {
     return () => {
       isCancelled = true;
     };
-  }, [email, hasSent]);
+  }, [email, hasSent, t]);
 
   const handleOtpChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
@@ -81,12 +83,12 @@ const EmailVerification: React.FC = () => {
     const otpCode = otp.join("");
 
     if (!email) {
-      setErrorMessage("Missing email for verification. Please sign in again.");
+      setErrorMessage(t("emailVerification.errors.missingEmail"));
       return;
     }
 
     if (otpCode.length !== 6) {
-      setErrorMessage("Please enter the complete 6-digit code.");
+      setErrorMessage(t("emailVerification.errors.incompleteCode"));
       return;
     }
 
@@ -94,7 +96,7 @@ const EmailVerification: React.FC = () => {
     try {
       const success = await verifyOTP(otpCode);
       if (!success) {
-        setErrorMessage("Invalid verification code. Please try again.");
+        setErrorMessage(t("emailVerification.errors.invalidCode"));
         return;
       }
 
@@ -104,7 +106,7 @@ const EmailVerification: React.FC = () => {
       sessionStorage.removeItem("post_verify_redirect");
       window.location.replace(destination);
     } catch {
-      setErrorMessage("Invalid verification code. Please try again.");
+      setErrorMessage(t("emailVerification.errors.invalidCode"));
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +114,7 @@ const EmailVerification: React.FC = () => {
 
   const handleResendCode = async () => {
     if (!email) {
-      setErrorMessage("Missing email for verification. Please sign in again.");
+      setErrorMessage(t("emailVerification.errors.missingEmail"));
       return;
     }
 
@@ -122,7 +124,7 @@ const EmailVerification: React.FC = () => {
       await resendOTP();
       setOtp(["", "", "", "", "", ""]);
     } catch {
-      setErrorMessage("Failed to resend verification code. Please try again.");
+      setErrorMessage(t("emailVerification.errors.resendFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -137,16 +139,16 @@ const EmailVerification: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-[#1C4D8D] p-4 page-transition">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-3xl shadow-2xl p-8">
-            <h2 className="text-2xl font-bold text-center text-gray-800 mb-3">Email Required</h2>
+            <h2 className="text-2xl font-bold text-center text-gray-800 mb-3">{t("emailVerification.missingEmail.title")}</h2>
             <p className="text-center text-gray-600 text-sm mb-6">
-              Please sign in again to receive a verification code.
+              {t("emailVerification.missingEmail.description")}
             </p>
             <button
               type="button"
               onClick={handleBackToLogin}
               className="brand-primary-interactive w-full rounded-xl py-3 font-semibold"
             >
-              Back to Login
+              {t("emailVerification.missingEmail.backToLogin")}
             </button>
           </div>
         </div>
@@ -180,9 +182,9 @@ const EmailVerification: React.FC = () => {
             </div>
           </div>
 
-          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">Verify Email</h2>
+          <h2 className="text-2xl font-bold text-center text-gray-800 mb-2">{t("emailVerification.title")}</h2>
           <p className="text-center text-gray-500 text-sm mb-2">
-            {hasSent ? "We've sent a 6-digit code to" : "Sending a 6-digit code to"}
+            {hasSent ? t("emailVerification.statusSent") : t("emailVerification.statusSending")}
           </p>
           <p className="text-center text-gray-700 font-medium mb-8">{email}</p>
 
@@ -216,18 +218,18 @@ const EmailVerification: React.FC = () => {
               disabled={isLoading || otp.join("").length !== 6}
               className="brand-primary-interactive mb-4 w-full rounded-xl py-3 font-semibold"
             >
-              {isLoading ? "Verifying..." : "Verify Code"}
+              {isLoading ? t("emailVerification.submitLoading") : t("emailVerification.submit")}
             </button>
 
             <div className="text-center">
-              <span className="text-gray-600 text-sm">Didn't receive the code? </span>
+              <span className="text-gray-600 text-sm">{t("emailVerification.resendPrompt")} </span>
               <button
                 type="button"
                 onClick={handleResendCode}
                 disabled={isLoading}
                 className="text-[#1C4D8D] font-medium hover:underline disabled:opacity-50"
               >
-                Resend Code
+                {t("emailVerification.resend")}
               </button>
             </div>
           </form>

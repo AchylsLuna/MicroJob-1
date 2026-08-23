@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../lib/toast";
 import { requestAccountDeletion } from "../../services/api";
 
 export function DeleteAccountCard() {
+  const { t } = useTranslation("worker");
   const { logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -12,11 +14,11 @@ export function DeleteAccountCard() {
 
   const handleDelete = async () => {
     if (!currentPassword) {
-      toast.error("Enter your current password.");
+      toast.error(t("settings.deleteAccount.toast.enterPassword"));
       return;
     }
     if (confirmation.trim().toUpperCase() !== "DELETE") {
-      toast.error("Type DELETE to confirm account deletion.");
+      toast.error(t("settings.deleteAccount.toast.typeDeleteConfirm"));
       return;
     }
 
@@ -27,10 +29,10 @@ export function DeleteAccountCard() {
         confirm: confirmation.trim(),
       });
       logout({ silent: true });
-      toast.success("Your account has been deleted.");
+      toast.success(t("settings.deleteAccount.toast.deleteSuccess"));
       window.location.assign("/sign-in");
     } catch (error: any) {
-      toast.error(error?.message || "Failed to delete account.");
+      toast.error(error?.message || t("settings.deleteAccount.toast.deleteFailed"));
     } finally {
       setIsDeleting(false);
     }
@@ -38,9 +40,9 @@ export function DeleteAccountCard() {
 
   return (
     <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-      <h3 className="text-[16px] font-semibold text-[#111827]">Delete My Account</h3>
+      <h3 className="text-[16px] font-semibold text-[#111827]">{t("settings.deleteAccount.title")}</h3>
       <p className="mt-1 text-[13px] text-[#6B7280]">
-        Permanently remove your account after active jobs, payments, and disputes are resolved.
+        {t("settings.deleteAccount.description")}
       </p>
 
       {!isOpen ? (
@@ -49,15 +51,15 @@ export function DeleteAccountCard() {
           onClick={() => setIsOpen(true)}
           className="mt-4 rounded-full border border-[#FCA5A5] px-6 py-3 text-[14px] font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]"
         >
-          Delete Account
+          {t("settings.deleteAccount.deleteButton")}
         </button>
       ) : (
         <div className="mt-5 max-w-lg space-y-4 rounded-[12px] border border-[#FECACA] bg-[#FEF2F2] p-4">
           <p className="text-[13px] font-semibold text-[#991B1B]">
-            This action is permanent. Enter your password and type DELETE to continue.
+            {t("settings.deleteAccount.confirmWarning")}
           </p>
           <label className="block text-[13px] font-medium text-[#374151]">
-            Current password
+            {t("settings.deleteAccount.currentPasswordLabel")}
             <input
               type="password"
               value={currentPassword}
@@ -67,7 +69,7 @@ export function DeleteAccountCard() {
             />
           </label>
           <label className="block text-[13px] font-medium text-[#374151]">
-            Type DELETE
+            {t("settings.deleteAccount.typeDeleteLabel")}
             <input
               type="text"
               value={confirmation}
@@ -87,7 +89,7 @@ export function DeleteAccountCard() {
               disabled={isDeleting}
               className="rounded-[10px] border border-[#CBD5E1] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569]"
             >
-              Cancel
+              {t("settings.deleteAccount.cancelButton")}
             </button>
             <button
               type="button"
@@ -95,7 +97,7 @@ export function DeleteAccountCard() {
               disabled={isDeleting || confirmation.trim().toUpperCase() !== "DELETE"}
               className="rounded-[10px] bg-[#B91C1C] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
             >
-              {isDeleting ? "Deleting..." : "Permanently delete account"}
+              {isDeleting ? t("settings.deleteAccount.deletingButton") : t("settings.deleteAccount.confirmButton")}
             </button>
           </div>
         </div>

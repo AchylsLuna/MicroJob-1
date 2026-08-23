@@ -1,7 +1,9 @@
 import { useState, useMemo } from "react";
 import { DollarSign, Wallet, X, Search, Receipt, ArrowRightLeft } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
+import { formatCurrency, formatDate, formatDateTime } from "../../lib/formatters";
 import type { PaymentTransaction } from "../../services/api";
 
 // ── Receipt Modal ──────────────────────────────────────────────────────────────
@@ -26,6 +28,7 @@ function userLabel(u: any) {
 }
 
 function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => void }) {
+  const { t } = useTranslation("admin");
   const payout = tx.payoutRequest && typeof tx.payoutRequest === "object" ? tx.payoutRequest : null;
   const dest = (payout as any)?.destinationSnapshot ?? null;
   const linked = tx.linkedTransaction && typeof tx.linkedTransaction === "object" ? tx.linkedTransaction : null;
@@ -48,9 +51,9 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
               <Receipt className="w-5 h-5 text-[#047857]" />
             </div>
             <div>
-              <h3 className="text-[15px] font-semibold text-[#111827]">Transaction Receipt</h3>
+              <h3 className="text-[15px] font-semibold text-[#111827]">{t("eWallet.receipt.title")}</h3>
               <p className="text-[11px] text-[#9CA3AF] mt-0.5">
-                {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : "—"}
+                {tx.createdAt ? formatDateTime(tx.createdAt) : "—"}
               </p>
             </div>
           </div>
@@ -80,25 +83,25 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
 
           {/* Amount */}
           <div className="bg-[#F9FAFB] rounded-[12px] p-4 text-center">
-            <p className="text-[11px] text-[#9CA3AF] mb-1">Amount</p>
+            <p className="text-[11px] text-[#9CA3AF] mb-1">{t("eWallet.receipt.amount")}</p>
             <p className="text-[28px] font-bold text-[#111827]">
-              ₱{Number(tx.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatCurrency(tx.amount)}
             </p>
           </div>
 
           {/* References */}
           <div className="grid grid-cols-1 gap-3">
-            <Field label="Transaction ID" value={tx._id} />
-            {tx.reference && <Field label="Reference No." value={tx.reference} />}
-            {tx.provider && <Field label="Provider" value={tx.provider} />}
-            {tx.providerReference && <Field label="Provider Reference" value={tx.providerReference} />}
-            {tx.label && <Field label="Label" value={tx.label} />}
+            <Field label={t("eWallet.receipt.fields.transactionId")} value={tx._id} />
+            {tx.reference && <Field label={t("eWallet.receipt.fields.referenceNo")} value={tx.reference} />}
+            {tx.provider && <Field label={t("eWallet.receipt.fields.provider")} value={tx.provider} />}
+            {tx.providerReference && <Field label={t("eWallet.receipt.fields.providerReference")} value={tx.providerReference} />}
+            {tx.label && <Field label={t("eWallet.receipt.fields.label")} value={tx.label} />}
           </div>
 
           {/* Sender / Receiver */}
           <div className="grid grid-cols-2 gap-4 border-t border-[#F3F4F6] pt-4">
             <div>
-              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">Paid By (Sender)</p>
+              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">{t("eWallet.receipt.paidBySender")}</p>
               {tx.sender && typeof tx.sender === "object" ? (
                 <div className="space-y-1">
                   <p className="text-[13px] font-medium text-[#111827]">{userLabel(tx.sender)}</p>
@@ -109,14 +112,14 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
                 <div className="space-y-1">
                   <p className="text-[13px] font-medium text-[#111827]">{userLabel((job as any).jobPoster)}</p>
                   <p className="text-[11px] text-[#6B7280]">{(job as any).jobPoster.email || ""}</p>
-                  <p className="text-[11px] text-[#9CA3AF]">Employer · via escrow</p>
+                  <p className="text-[11px] text-[#9CA3AF]">{t("eWallet.receipt.employerViaEscrow")}</p>
                 </div>
               ) : (
-                <p className="text-[13px] text-[#9CA3AF]">Escrow / System</p>
+                <p className="text-[13px] text-[#9CA3AF]">{t("eWallet.receipt.escrowOrSystem")}</p>
               )}
             </div>
             <div>
-              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">Receiver</p>
+              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">{t("eWallet.receipt.fields.receiver")}</p>
               {tx.receiver && typeof tx.receiver === "object" ? (
                 <div className="space-y-1">
                   <p className="text-[13px] font-medium text-[#111827]">{userLabel(tx.receiver)}</p>
@@ -124,7 +127,7 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
                   <p className="text-[11px] text-[#9CA3AF] capitalize">{(tx.receiver as any).role || ""}</p>
                 </div>
               ) : (
-                <p className="text-[13px] text-[#9CA3AF]">System / External</p>
+                <p className="text-[13px] text-[#9CA3AF]">{t("eWallet.receipt.systemOrExternal")}</p>
               )}
             </div>
           </div>
@@ -132,12 +135,12 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
           {/* Payment Destination (from payout request) */}
           {dest && (
             <div className="border border-[#E5E7EB] rounded-[12px] p-4 space-y-3 bg-[#FAFAFA]">
-              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">Payment Destination</p>
+              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">{t("eWallet.receipt.paymentDestination")}</p>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Method / Channel" value={dest.methodType} />
-                <Field label="Institution" value={dest.institutionName} />
-                <Field label="Account Name" value={dest.accountName} />
-                <Field label="Account No." value={dest.accountNumberMasked || dest.accountNumber} />
+                <Field label={t("eWallet.receipt.fields.methodChannel")} value={dest.methodType} />
+                <Field label={t("eWallet.receipt.fields.institution")} value={dest.institutionName} />
+                <Field label={t("eWallet.receipt.fields.accountName")} value={dest.accountName} />
+                <Field label={t("eWallet.receipt.fields.accountNo")} value={dest.accountNumberMasked || dest.accountNumber} />
               </div>
             </div>
           )}
@@ -145,21 +148,21 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
           {/* Job Reference */}
           {job && (
             <div className="border-t border-[#F3F4F6] pt-4 space-y-2">
-              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">Job Reference</p>
-              <Field label="Title" value={job.title} />
-              <Field label="Status" value={job.status} />
+              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">{t("eWallet.receipt.jobReference")}</p>
+              <Field label={t("eWallet.receipt.fields.title")} value={job.title} />
+              <Field label={t("eWallet.receipt.fields.status")} value={job.status} />
             </div>
           )}
 
           {/* Linked Transaction */}
           {linked && (
             <div className="border-t border-[#F3F4F6] pt-4 space-y-2">
-              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">Linked Transaction</p>
+              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">{t("eWallet.receipt.linkedTransaction")}</p>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Type" value={(linked as any).type} />
-                <Field label="Status" value={(linked as any).status} />
-                <Field label="Amount" value={(linked as any).amount != null ? `₱${Number((linked as any).amount).toLocaleString()}` : "—"} />
-                <Field label="Reference" value={(linked as any).reference} />
+                <Field label={t("eWallet.receipt.fields.type")} value={(linked as any).type} />
+                <Field label={t("eWallet.receipt.fields.status")} value={(linked as any).status} />
+                <Field label={t("eWallet.receipt.fields.amount")} value={(linked as any).amount != null ? formatCurrency((linked as any).amount) : "—"} />
+                <Field label={t("eWallet.receipt.fields.reference")} value={(linked as any).reference} />
               </div>
             </div>
           )}
@@ -171,7 +174,8 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
 
 // ── Main Content ───────────────────────────────────────────────────────────────
 function AdminEWalletMonitoringContent() {
-  const { isLoading, loadError, walletStats, transactions, formatCurrency } = useAdminData();
+  const { t } = useTranslation("admin");
+  const { isLoading, loadError, walletStats, transactions, formatCurrency: formatCurrencyHook } = useAdminData();
 
   const [activeTab, setActiveTab] = useState<"payouts" | "logs">("payouts");
   const [selectedTx, setSelectedTx] = useState<PaymentTransaction | null>(null);
@@ -204,14 +208,14 @@ function AdminEWalletMonitoringContent() {
 
   const cards = [
     {
-      label: "Completed Payouts",
+      label: t("eWallet.cards.completedPayouts"),
       value: isLoading ? "—" : walletStats.completedCount,
       icon: <Wallet className="w-6 h-6 text-[#0F766E]" />,
       accent: "from-[#CCFBF1] to-[#99F6E4]",
     },
     {
-      label: "Completed Total",
-      value: isLoading ? "—" : formatCurrency(walletStats.completedTotal),
+      label: t("eWallet.cards.completedTotal"),
+      value: isLoading ? "—" : formatCurrencyHook(walletStats.completedTotal),
       icon: <DollarSign className="w-6 h-6 text-[#047857]" />,
       accent: "from-[#D1FAE5] to-[#A7F3D0]",
     },
@@ -254,7 +258,7 @@ function AdminEWalletMonitoringContent() {
               : "text-[#6B7280] hover:text-[#374151]"
           }`}
         >
-          <span className="flex items-center gap-2"><Wallet className="w-4 h-4" />Completed Payouts</span>
+          <span className="flex items-center gap-2"><Wallet className="w-4 h-4" />{t("eWallet.cards.completedPayouts")}</span>
         </button>
         <button
           onClick={() => setActiveTab("logs")}
@@ -264,7 +268,7 @@ function AdminEWalletMonitoringContent() {
               : "text-[#6B7280] hover:text-[#374151]"
           }`}
         >
-          <span className="flex items-center gap-2"><ArrowRightLeft className="w-4 h-4" />Transaction Logs</span>
+          <span className="flex items-center gap-2"><ArrowRightLeft className="w-4 h-4" />{t("eWallet.logs.title")}</span>
         </button>
       </div>
 
@@ -272,9 +276,9 @@ function AdminEWalletMonitoringContent() {
       {activeTab === "payouts" && (
         <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <div className="mb-6">
-            <h3 className="text-[18px] font-semibold text-[#111827]">Completed Payouts</h3>
+            <h3 className="text-[18px] font-semibold text-[#111827]">{t("eWallet.cards.completedPayouts")}</h3>
             <p className="text-[13px] text-[#6B7280] mt-1">
-              All payout transactions — includes auto-pay from job completion and manual withdrawal requests.
+              {t("eWallet.payouts.subtitle")}
             </p>
           </div>
 
@@ -282,27 +286,27 @@ function AdminEWalletMonitoringContent() {
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                  <th className="py-3 pr-4 font-medium">From (Sender)</th>
-                  <th className="py-3 pr-4 font-medium">To (Receiver)</th>
-                  <th className="py-3 pr-4 font-medium">Destination / Channel</th>
-                  <th className="py-3 pr-4 font-medium">Amount</th>
-                  <th className="py-3 pr-4 font-medium">Status</th>
-                  <th className="py-3 pr-4 font-medium">Date</th>
-                  <th className="py-3 font-medium">Receipt</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.fromSender")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.toReceiver")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.destinationChannel")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.amount")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.status")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.date")}</th>
+                  <th className="py-3 font-medium">{t("eWallet.table.receipt")}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-[#9CA3AF]">
-                      Loading payouts…
+                      {t("eWallet.payouts.loading")}
                     </td>
                   </tr>
                 )}
                 {!isLoading && completedPayouts.length === 0 && (
                   <tr>
                     <td colSpan={7} className="py-8 text-center text-[#9CA3AF]">
-                      No payout transactions yet.
+                      {t("eWallet.payouts.empty")}
                     </td>
                   </tr>
                 )}
@@ -324,10 +328,10 @@ function AdminEWalletMonitoringContent() {
                             <>
                               <div className="font-medium">{userLabel((job as any).jobPoster)}</div>
                               <div className="text-[11px] text-[#6B7280] mt-0.5">{(job as any).jobPoster.email || ""}</div>
-                              <div className="text-[11px] text-[#9CA3AF] mt-0.5">via escrow</div>
+                              <div className="text-[11px] text-[#9CA3AF] mt-0.5">{t("eWallet.viaEscrow")}</div>
                             </>
                           ) : (
-                            <span className="text-[#9CA3AF]">Escrow (System)</span>
+                            <span className="text-[#9CA3AF]">{t("eWallet.escrowSystem")}</span>
                           )}
                         </td>
                         {/* Receiver */}
@@ -348,14 +352,14 @@ function AdminEWalletMonitoringContent() {
                             </div>
                           ) : (
                             <div>
-                              <div className="text-[#374151]">Auto-Pay (Escrow)</div>
+                              <div className="text-[#374151]">{t("eWallet.autoPayEscrow")}</div>
                               {job && <div className="text-[11px] text-[#9CA3AF] mt-0.5">{job.title}</div>}
                             </div>
                           )}
                         </td>
                         {/* Amount */}
                         <td className="py-3 pr-4 font-semibold text-[#111827]">
-                          ₱{Number(tx.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {formatCurrency(tx.amount)}
                         </td>
                         {/* Status */}
                         <td className="py-3 pr-4">
@@ -365,7 +369,7 @@ function AdminEWalletMonitoringContent() {
                         </td>
                         {/* Date */}
                         <td className="py-3 pr-4 text-[#6B7280] whitespace-nowrap">
-                          {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                          {tx.createdAt ? formatDate(tx.createdAt, { month: "short", day: "numeric", year: "numeric" }) : "—"}
                         </td>
                         {/* Receipt */}
                         <td className="py-3">
@@ -374,7 +378,7 @@ function AdminEWalletMonitoringContent() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#F0FDF4] text-[#047857] hover:bg-[#DCFCE7] transition-colors"
                           >
                             <Receipt className="w-3.5 h-3.5" />
-                            View
+                            {t("eWallet.viewAction")}
                           </button>
                         </td>
                       </tr>
@@ -386,7 +390,7 @@ function AdminEWalletMonitoringContent() {
 
           {!isLoading && completedPayouts.length > 0 && (
             <p className="mt-4 text-[12px] text-[#9CA3AF] text-right">
-              {completedPayouts.length} payout transaction{completedPayouts.length !== 1 ? "s" : ""}
+              {t("eWallet.payouts.count", { count: completedPayouts.length })}
             </p>
           )}
         </section>
@@ -397,9 +401,9 @@ function AdminEWalletMonitoringContent() {
         <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h3 className="text-[18px] font-semibold text-[#111827]">Transaction Logs</h3>
+              <h3 className="text-[18px] font-semibold text-[#111827]">{t("eWallet.logs.title")}</h3>
               <p className="text-[13px] text-[#6B7280] mt-1">
-                All platform transactions — top-ups, escrow, payouts, refunds. Click <strong>View</strong> for the full receipt.
+                <Trans t={t} i18nKey="eWallet.logs.subtitle" components={{ strong: <strong /> }} />
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -409,11 +413,11 @@ function AdminEWalletMonitoringContent() {
                 onChange={(e) => setTypeFilter(e.target.value)}
                 className="text-[13px] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
               >
-                <option value="ALL">All Types</option>
-                <option value="TOP_UP">Top-Up</option>
-                <option value="ESCROW">Escrow</option>
-                <option value="PAYOUT">Payout</option>
-                <option value="REFUND">Refund</option>
+                <option value="ALL">{t("eWallet.logs.typeOptions.all")}</option>
+                <option value="TOP_UP">{t("eWallet.logs.typeOptions.topUp")}</option>
+                <option value="ESCROW">{t("eWallet.logs.typeOptions.escrow")}</option>
+                <option value="PAYOUT">{t("eWallet.logs.typeOptions.payout")}</option>
+                <option value="REFUND">{t("eWallet.logs.typeOptions.refund")}</option>
               </select>
               {/* Status filter */}
               <select
@@ -421,18 +425,18 @@ function AdminEWalletMonitoringContent() {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="text-[13px] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
               >
-                <option value="ALL">All Statuses</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="PENDING">Pending</option>
-                <option value="FAILED">Failed</option>
-                <option value="CANCELLED">Cancelled</option>
+                <option value="ALL">{t("eWallet.logs.statusOptions.all")}</option>
+                <option value="COMPLETED">{t("eWallet.logs.statusOptions.completed")}</option>
+                <option value="PENDING">{t("eWallet.logs.statusOptions.pending")}</option>
+                <option value="FAILED">{t("eWallet.logs.statusOptions.failed")}</option>
+                <option value="CANCELLED">{t("eWallet.logs.statusOptions.cancelled")}</option>
               </select>
               {/* Search */}
               <div className="flex items-center gap-2 border border-[#E5E7EB] rounded-[8px] px-3 py-2 bg-white">
                 <Search className="w-4 h-4 text-[#9CA3AF] shrink-0" />
                 <input
                   type="text"
-                  placeholder="Search name, email, ref…"
+                  placeholder={t("eWallet.logs.searchPlaceholder")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="text-[13px] text-[#374151] bg-transparent outline-none w-48"
@@ -445,28 +449,28 @@ function AdminEWalletMonitoringContent() {
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                  <th className="py-3 pr-4 font-medium">Type</th>
-                  <th className="py-3 pr-4 font-medium">From (Sender)</th>
-                  <th className="py-3 pr-4 font-medium">To (Receiver)</th>
-                  <th className="py-3 pr-4 font-medium">Destination / Channel</th>
-                  <th className="py-3 pr-4 font-medium">Amount</th>
-                  <th className="py-3 pr-4 font-medium">Status</th>
-                  <th className="py-3 pr-4 font-medium">Date</th>
-                  <th className="py-3 font-medium">Receipt</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.type")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.fromSender")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.toReceiver")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.destinationChannel")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.amount")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.status")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.table.date")}</th>
+                  <th className="py-3 font-medium">{t("eWallet.table.receipt")}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-[#9CA3AF]">
-                      Loading transactions…
+                      {t("eWallet.logs.loading")}
                     </td>
                   </tr>
                 )}
                 {!isLoading && filteredTxs.length === 0 && (
                   <tr>
                     <td colSpan={8} className="py-8 text-center text-[#9CA3AF]">
-                      No transactions match your filters.
+                      {t("eWallet.logs.empty")}
                     </td>
                   </tr>
                 )}
@@ -511,7 +515,7 @@ function AdminEWalletMonitoringContent() {
                         </td>
                         {/* Amount */}
                         <td className="py-3 pr-4 font-semibold text-[#111827]">
-                          ₱{Number(tx.amount || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {formatCurrency(tx.amount)}
                         </td>
                         {/* Status */}
                         <td className="py-3 pr-4">
@@ -521,7 +525,7 @@ function AdminEWalletMonitoringContent() {
                         </td>
                         {/* Date */}
                         <td className="py-3 pr-4 text-[#6B7280] whitespace-nowrap">
-                          {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                          {tx.createdAt ? formatDate(tx.createdAt, { month: "short", day: "numeric", year: "numeric" }) : "—"}
                         </td>
                         {/* View */}
                         <td className="py-3">
@@ -530,7 +534,7 @@ function AdminEWalletMonitoringContent() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#F0FDF4] text-[#047857] hover:bg-[#DCFCE7] transition-colors"
                           >
                             <Receipt className="w-3.5 h-3.5" />
-                            View
+                            {t("eWallet.viewAction")}
                           </button>
                         </td>
                       </tr>
@@ -542,7 +546,7 @@ function AdminEWalletMonitoringContent() {
 
           {!isLoading && filteredTxs.length > 0 && (
             <p className="mt-4 text-[12px] text-[#9CA3AF] text-right">
-              Showing {filteredTxs.length} of {transactions.length} transactions
+              {t("eWallet.logs.showingCount", { shown: filteredTxs.length, total: transactions.length })}
             </p>
           )}
         </section>

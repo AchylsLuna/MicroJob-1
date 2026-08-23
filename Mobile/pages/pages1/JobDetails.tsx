@@ -10,6 +10,7 @@ import PublicProfile from '../shared/PublicProfile';
 import { useToast } from '../../contexts/ToastContext';
 import { tokens } from '../../theme/tokens';
 import { formatMinimumPay } from '../../lib/jobCompensation';
+import { useTranslation } from 'react-i18next';
 
 type EmployerPreview = {
   profile?: {
@@ -58,6 +59,7 @@ export default function JobDetails({
   const [employerPreview, setEmployerPreview] = useState<EmployerPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const toast = useToast();
+  const { t } = useTranslation('worker');
 
   const getCurrentUserId = async () => {
     const raw = await AsyncStorage.getItem('auth_user');
@@ -100,7 +102,7 @@ export default function JobDetails({
     return directId ? String(directId).trim() : '';
   };
 
-  const fetchEmployerPreview = async (employerId: string) => {
+  const fetchEmployerPreview = useCallback(async (employerId: string) => {
     if (!employerId) {
       setEmployerPreview(null);
       return;
@@ -113,10 +115,10 @@ export default function JobDetails({
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      }, 'Failed to load employer profile.');
+      }, t('jobDetails.apiFallback.loadEmployerProfileFailed'));
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to load employer profile.');
+        throw new Error(result.message || t('jobDetails.apiFallback.loadEmployerProfileFailed'));
       }
 
       const payload = asObject<EmployerPreview>(result.data) || asObject<EmployerPreview>(result.raw);
@@ -126,16 +128,16 @@ export default function JobDetails({
     } finally {
       setPreviewLoading(false);
     }
-  };
+  }, [t]);
 
   const handleViewEmployerProfile = () => {
     const employerId = resolveEmployerId(jobDetails) || resolveEmployerId(job);
-    
+
     if (!employerId) {
-      toast.error('Employer information not available.');
+      toast.error(t('jobDetails.toast.employerInfoUnavailable'));
       return;
     }
-    
+
     setProfileUserId(employerId);
     setShowProfile(true);
   };
@@ -143,14 +145,14 @@ export default function JobDetails({
   const handleMessageEmployer = async () => {
     const targetJobId = jobDetails?._id || job?._id;
     if (!targetJobId) {
-      toast.error('Job details are not available yet.');
+      toast.error(t('jobDetails.toast.jobDetailsUnavailable'));
       return;
     }
 
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        toast.error('Please sign in again to message this employer.');
+        toast.error(t('jobDetails.toast.signInRequired'));
         return;
       }
 
@@ -166,29 +168,29 @@ export default function JobDetails({
           },
           body: JSON.stringify({ sendInitialMessage: false }),
         },
-        'Failed to open a conversation with this employer.'
+        t('jobDetails.apiFallback.openConversationFailed')
       );
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to open a conversation with this employer.');
+        throw new Error(result.message || t('jobDetails.apiFallback.openConversationFailed'));
       }
 
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       const conversation = payload.conversation || payload;
       const recipientId = conversation?.otherUserId;
       if (!recipientId) {
-        toast.error('Employer details are not available for this job yet.');
+        toast.error(t('jobDetails.toast.employerDetailsUnavailable'));
         return;
       }
 
       onMessageEmployer?.({
         userId: String(recipientId),
-        userName: conversation.otherUserName || 'Employer',
+        userName: conversation.otherUserName || t('jobDetails.common.employerFallback'),
         jobId: String(conversation.jobId || targetJobId),
       });
 
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to open a conversation with this employer.');
+      toast.error(error?.message || t('jobDetails.apiFallback.openConversationFailed'));
     }
   };
 
@@ -214,14 +216,14 @@ export default function JobDetails({
         headers: {
           'Content-Type': 'application/json',
         },
-      }, 'Failed to apply.');
+      }, t('jobDetails.apiFallback.applyFailed'));
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to apply.');
+        throw new Error(result.message || t('jobDetails.apiFallback.applyFailed'));
       }
       setHasApplied(true);
       setShowSuccess(true);
     } catch (error: any) {
-      const message = error?.message || 'Failed to apply.';
+      const message = error?.message || t('jobDetails.apiFallback.applyFailed');
       if (/already applied/i.test(message)) {
         setHasApplied(true);
       }
@@ -237,9 +239,9 @@ export default function JobDetails({
     setIsLoading(true);
     setErrorMessage('');
     try {
-      const result = await apiRequest(`${API_URL}/jobs/${job._id}`, undefined, 'Failed to load job.');
+      const result = await apiRequest(`${API_URL}/jobs/${job._id}`, undefined, t('jobDetails.apiFallback.loadJobFailed'));
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to load job.');
+        throw new Error(result.message || t('jobDetails.apiFallback.loadJobFailed'));
       }
       const data = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setJobDetails(data);
@@ -253,11 +255,11 @@ export default function JobDetails({
         setHasApplied(false);
       }
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load job.');
+      setErrorMessage(error?.message || t('jobDetails.apiFallback.loadJobFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, [job?._id]);
+  }, [job?._id, t]);
 
   useEffect(() => {
     fetchDetails();
@@ -266,7 +268,7 @@ export default function JobDetails({
   useEffect(() => {
     const employerId = resolveEmployerId(jobDetails) || resolveEmployerId(job);
     fetchEmployerPreview(employerId);
-  }, [jobDetails._id, jobDetails.jobPoster, job._id, jobDetails, job]);
+  }, [jobDetails._id, jobDetails.jobPoster, job._id, jobDetails, job, fetchEmployerPreview]);
 
   if (showProfile && profileUserId) {
     return (
@@ -289,15 +291,15 @@ export default function JobDetails({
             <View style={styles.successIcon}>
               <Text style={styles.checkmark}>✓</Text>
             </View>
-            <Text style={styles.successTitle}>Successful!</Text>
+            <Text style={styles.successTitle}>{t('jobDetails.success.title')}</Text>
             <Text style={styles.successMessage}>
-              Congratulations, your application has been sent. Good luck!
+              {t('jobDetails.success.message')}
             </Text>
-            <TouchableOpacity style={styles.findJobsBtn} onPress={handleFindMoreJobs} accessibilityRole="button" accessibilityLabel="Find more jobs">
-              <Text style={styles.findJobsBtnText}>Find more jobs</Text>
+            <TouchableOpacity style={styles.findJobsBtn} onPress={handleFindMoreJobs} accessibilityRole="button" accessibilityLabel={t('jobDetails.success.findJobsAccessibility')}>
+              <Text style={styles.findJobsBtnText}>{t('jobDetails.success.findJobsButton')}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleBackToHome} accessibilityRole="button" accessibilityLabel="Back to home">
-              <Text style={styles.backToHomeText}>Back to home</Text>
+            <TouchableOpacity onPress={handleBackToHome} accessibilityRole="button" accessibilityLabel={t('jobDetails.success.backHomeAccessibility')}>
+              <Text style={styles.backToHomeText}>{t('jobDetails.success.backHomeButton')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -321,11 +323,11 @@ export default function JobDetails({
         {/* Header Container with Light Blue Background */}
         <View style={styles.headerContainer}>
           {/* Job Title */}
-          <Text style={styles.jobTitle}>{jobDetails?.title || 'Job Details'}</Text>
+          <Text style={styles.jobTitle}>{jobDetails?.title || t('jobDetails.titleFallback')}</Text>
           <Text style={styles.jobMeta}>{jobDetails?.jobType || ''} {jobDetails?.location ? `• ${jobDetails.location}` : ''}</Text>
           {jobDetails?.urgent ? (
             <View style={styles.urgentBadge}>
-              <Text style={styles.urgentText}>Urgent</Text>
+              <Text style={styles.urgentText}>{t('jobDetails.urgentBadge')}</Text>
             </View>
           ) : null}
 
@@ -341,43 +343,48 @@ export default function JobDetails({
           <View style={styles.statsRow}>
           <View style={styles.statItem}>
             <Text style={styles.statIcon}>📍</Text>
-            <Text style={styles.statLabel}>LOCATION</Text>
-            <Text style={styles.statValue}>{jobDetails?.location || 'N/A'}</Text>
+            <Text style={styles.statLabel}>{t('jobDetails.stats.locationLabel')}</Text>
+            <Text style={styles.statValue}>{jobDetails?.location || t('jobDetails.common.notAvailable')}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statIcon}>⏰</Text>
-            <Text style={styles.statLabel}>TYPE</Text>
-            <Text style={styles.statValue}>{jobDetails?.jobType || 'N/A'}</Text>
+            <Text style={styles.statLabel}>{t('jobDetails.stats.typeLabel')}</Text>
+            <Text style={styles.statValue}>{jobDetails?.jobType || t('jobDetails.common.notAvailable')}</Text>
           </View>
           <View style={styles.statItem}>
             <Text style={styles.statIcon}>💰</Text>
-            <Text style={styles.statLabel}>MINIMUM PAY</Text>
-            <Text style={styles.statValue}>{formatMinimumPay(jobDetails?.salary, 'N/A')}</Text>
+            <Text style={styles.statLabel}>{t('jobDetails.stats.payLabel')}</Text>
+            <Text style={styles.statValue}>{formatMinimumPay(jobDetails?.salary, t('jobDetails.common.notAvailable'))}</Text>
           </View>
         </View>
         </View>
 
         {/* Posted Info */}
         <View style={styles.postedInfoContainer}>
-          <Text style={styles.postedInfo}>
-            This job post is managed by{' '}
-            <Text style={styles.highlight}>
-              {jobDetails?.jobPoster?.firstName ? `${jobDetails.jobPoster.firstName} ${jobDetails.jobPoster.lastName || ''}`.trim() : 'the employer'}
-            </Text>
-          </Text>
+          {(() => {
+            const employerName = jobDetails?.jobPoster?.firstName ? `${jobDetails.jobPoster.firstName} ${jobDetails.jobPoster.lastName || ''}`.trim() : t('jobDetails.postedBy.employerFallback');
+            const [postedByPrefix, postedBySuffix] = t('jobDetails.postedBy.text', { name: '\u0000' }).split('\u0000');
+            return (
+              <Text style={styles.postedInfo}>
+                {postedByPrefix}
+                <Text style={styles.highlight}>{employerName}</Text>
+                {postedBySuffix}
+              </Text>
+            );
+          })()}
 
           {previewLoading ? (
             <ActivityIndicator size="small" color="#64748b" style={styles.previewLoader} />
           ) : employerPreview?.profile ? (
             <View style={styles.previewCard}>
               <Text style={styles.previewName}>
-                {`${employerPreview.profile.firstName || ''} ${employerPreview.profile.lastName || ''}`.trim() || employerPreview.profile.companyName || 'Employer'}
+                {`${employerPreview.profile.firstName || ''} ${employerPreview.profile.lastName || ''}`.trim() || employerPreview.profile.companyName || t('jobDetails.employerPreview.nameFallback')}
               </Text>
               {employerPreview.profile.companyName ? (
                 <Text style={styles.previewCompany}>{employerPreview.profile.companyName}</Text>
               ) : null}
               <Text style={styles.previewMeta}>
-                Rating {Number(employerPreview.rating?.stars || 0).toFixed(1)}/5 • {Number(employerPreview.rating?.percentage || 0)}% success
+                {t('jobDetails.employerPreview.rating', { stars: Number(employerPreview.rating?.stars || 0).toFixed(1), percentage: Number(employerPreview.rating?.percentage || 0) })}
               </Text>
               {(employerPreview.profile.city || employerPreview.profile.province) ? (
                 <Text style={styles.previewMeta}>
@@ -387,13 +394,13 @@ export default function JobDetails({
             </View>
           ) : null}
 
-          <TouchableOpacity onPress={handleViewEmployerProfile} style={styles.viewProfileBtn} accessibilityRole="button" accessibilityLabel="View employer profile">
-            <Text style={styles.viewProfileText}>View Profile</Text>
+          <TouchableOpacity onPress={handleViewEmployerProfile} style={styles.viewProfileBtn} accessibilityRole="button" accessibilityLabel={t('jobDetails.actions.viewProfileAccessibility')}>
+            <Text style={styles.viewProfileText}>{t('jobDetails.actions.viewProfile')}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Skills */}
-        <Text style={styles.sectionTitle}>Must have skills</Text>
+        <Text style={styles.sectionTitle}>{t('jobDetails.sections.skills')}</Text>
         <View style={styles.skillsGrid}>
           {(jobDetails?.skills || []).map((skill: string, index: number) => (
             <View key={index} style={styles.skillTag}>
@@ -403,15 +410,15 @@ export default function JobDetails({
         </View>
 
         {/* Description */}
-        <Text style={styles.sectionTitle}>Description</Text>
+        <Text style={styles.sectionTitle}>{t('jobDetails.sections.description')}</Text>
         <Text style={styles.description}>
-          {jobDetails?.description || 'No description provided.'}
+          {jobDetails?.description || t('jobDetails.common.noDescription')}
         </Text>
 
         {/* Requirements */}
         {jobDetails?.requirements?.length ? (
           <>
-            <Text style={styles.sectionTitle}>Requirements</Text>
+            <Text style={styles.sectionTitle}>{t('jobDetails.sections.requirements')}</Text>
             <View style={styles.requirementsList}>
               {jobDetails.requirements.map((req: string, index: number) => (
                 <Text key={index} style={styles.requirementItem}>• {req}</Text>
@@ -426,11 +433,11 @@ export default function JobDetails({
             style={[styles.actionBtn, styles.saveBtn, saved && styles.savedBtn]} 
             onPress={handleSave}
             accessibilityRole="button"
-            accessibilityLabel={saved ? "Remove job from saved jobs" : "Save job"}
+            accessibilityLabel={saved ? t('jobDetails.actions.removeSavedAccessibility') : t('jobDetails.actions.saveAccessibility')}
             accessibilityState={{ selected: saved }}
           >
             <Text style={[styles.actionBtnText, styles.saveBtnText, saved && styles.savedBtnText]}>
-              {saved ? 'Saved ✓' : 'Saved job'}
+              {saved ? t('jobDetails.actions.savedLabel') : t('jobDetails.actions.saveLabel')}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -438,17 +445,17 @@ export default function JobDetails({
             onPress={handleApply}
             disabled={isLoading || hasApplied}
             accessibilityRole="button"
-            accessibilityLabel={hasApplied ? "Application already submitted" : "Apply for this job"}
+            accessibilityLabel={hasApplied ? t('jobDetails.actions.appliedAccessibility') : t('jobDetails.actions.applyAccessibility')}
             accessibilityState={{ disabled: isLoading || hasApplied }}
           >
             <Text style={styles.actionBtnText}>
-              {hasApplied ? 'Already submitted' : isLoading ? 'Applying...' : 'Apply now'}
+              {hasApplied ? t('jobDetails.actions.appliedLabel') : isLoading ? t('jobDetails.actions.applyingLabel') : t('jobDetails.actions.applyLabel')}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={[styles.actionBtn, styles.messageBtn]} onPress={handleMessageEmployer} accessibilityRole="button" accessibilityLabel="Message employer">
-          <Text style={[styles.actionBtnText, styles.messageBtnText]}>Message Employer</Text>
+        <TouchableOpacity style={[styles.actionBtn, styles.messageBtn]} onPress={handleMessageEmployer} accessibilityRole="button" accessibilityLabel={t('jobDetails.actions.messageAccessibility')}>
+          <Text style={[styles.actionBtnText, styles.messageBtnText]}>{t('jobDetails.actions.messageLabel')}</Text>
         </TouchableOpacity>
       </ScrollView>
 

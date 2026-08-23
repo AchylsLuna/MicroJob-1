@@ -7,9 +7,12 @@ import {
   Loader2,
   Wallet,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { useAuth } from "../../hooks/useAuth";
+import { formatCurrency, formatDateTime } from "../../lib/formatters";
 import {
   cancelPayoutRequest,
   createPayoutRequest,
@@ -20,12 +23,6 @@ import {
   type PaymentTransaction,
   type PayoutRequest,
 } from "../../services/api";
-
-const currency = new Intl.NumberFormat("en-PH", {
-  style: "currency",
-  currency: "PHP",
-  maximumFractionDigits: 2,
-});
 
 const toAmount = (value: unknown) => {
   const amount = Number(value);
@@ -49,22 +46,22 @@ const formatDate = (value?: string) => {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleString();
+  return formatDateTime(date);
 };
 
-const txLabel = (tx: PaymentTransaction) => {
+const txLabel = (t: TFunction, tx: PaymentTransaction) => {
   if (tx.label) return tx.label;
   switch (tx.type) {
     case "TOP_UP":
-      return "Top-up";
+      return t("eWallet.txLabel.topUp");
     case "ESCROW":
-      return "Escrow";
+      return t("eWallet.txLabel.escrow");
     case "PAYOUT":
-      return "Payout";
+      return t("eWallet.txLabel.payout");
     case "REFUND":
-      return "Refund";
+      return t("eWallet.txLabel.refund");
     default:
-      return "Transaction";
+      return t("eWallet.txLabel.transaction");
   }
 };
 
@@ -101,6 +98,7 @@ const getTransactionStatusClasses = (status?: PaymentTransaction["status"]) => {
 };
 
 export function EWallet() {
+  const { t } = useTranslation("worker");
   const { user } = useAuth();
   const payoutRequestRef = useRef<HTMLDivElement | null>(null);
   const payoutIdempotencyKeyRef = useRef<string | null>(null);
@@ -162,12 +160,12 @@ export function EWallet() {
       setPayoutRequests(nextPayouts);
     } catch (error: any) {
       if (!error?.message?.includes("304")) {
-        toast.error(error?.message || "Failed to load wallet data.");
+        toast.error(error?.message || t("eWallet.toast.loadFailed"));
       }
     } finally {
       if (!skipLoader) setIsLoading(false);
     }
-  }, [isWorkerWalletView]);
+  }, [isWorkerWalletView, t]);
 
   useEffect(() => {
     let isActive = true;
@@ -227,7 +225,7 @@ export function EWallet() {
 
     const amount = Number(topUpAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount.");
+      toast.error(t("eWallet.toast.invalidAmount"));
       return;
     }
 
@@ -243,7 +241,7 @@ export function EWallet() {
 
       window.location.assign(checkoutUrl);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to initialize top-up.");
+      toast.error(error?.message || t("eWallet.toast.topUpInitFailed"));
       setIsCreatingTopUp(false);
     }
   };
@@ -253,15 +251,15 @@ export function EWallet() {
 
     const amount = Number(payoutForm.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Enter a valid payout amount.");
+      toast.error(t("eWallet.toast.invalidPayoutAmount"));
       return;
     }
     if (amount > workerBalance) {
-      toast.error("Payout amount cannot exceed your worker balance.");
+      toast.error(t("eWallet.toast.payoutExceedsBalance"));
       return;
     }
     if (!payoutForm.institutionName.trim() || !payoutForm.accountName.trim() || !payoutForm.accountNumber.trim()) {
-      toast.error("Complete the destination details before submitting your withdrawal.");
+      toast.error(t("eWallet.toast.incompleteDestination"));
       return;
     }
 
@@ -287,10 +285,10 @@ export function EWallet() {
         accountNumber: "",
       });
       payoutIdempotencyKeyRef.current = null;
-      toast.success("Withdrawal submitted.");
+      toast.success(t("eWallet.toast.withdrawalSubmitted"));
       await loadWallet();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to submit withdrawal.");
+      toast.error(error?.message || t("eWallet.toast.withdrawalSubmitFailed"));
     } finally {
       setIsSubmittingPayout(false);
     }
@@ -300,10 +298,10 @@ export function EWallet() {
     setCancellingPayoutId(payoutRequestId);
     try {
       await cancelPayoutRequest(payoutRequestId);
-      toast.success("Withdrawal cancelled.");
+      toast.success(t("eWallet.toast.withdrawalCancelled"));
       await loadWallet();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to cancel withdrawal.");
+      toast.error(error?.message || t("eWallet.toast.withdrawalCancelFailed"));
     } finally {
       setCancellingPayoutId(null);
     }
@@ -326,17 +324,21 @@ export function EWallet() {
           <div className="flex items-start justify-between mb-8 gap-4 flex-wrap">
             <div>
               <p className="text-[14px] opacity-80 mb-2">
-                {isBothRole ? "Combined Balance" : `Current Balance (${isEmployerWalletView ? "employer" : "worker"})`}
+                {isBothRole
+                  ? t("eWallet.balanceCard.combinedBalance")
+                  : t("eWallet.balanceCard.currentBalance", {
+                      role: isEmployerWalletView ? t("eWallet.role.employer") : t("eWallet.role.worker"),
+                    })}
               </p>
               <h2 className="text-[42px] font-bold tracking-tight">
-                {isLoading ? "Loading..." : currency.format(activeBalance)}
+                {isLoading ? t("eWallet.balanceCard.loading") : formatCurrency(activeBalance)}
               </h2>
               <p className="text-[14px] text-white/75 mt-3">
                 {isBothRole
-                  ? "Your combined employer and worker balance. Top up your wallet to fund jobs, and withdraw your earned balance."
+                  ? t("eWallet.balanceCard.descriptionBoth")
                   : isEmployerWalletView
-                  ? "Employers add funds here to pay into escrow and cover worker earnings."
-                  : "Workers can only withdraw completed earnings here once payouts are available."}
+                  ? t("eWallet.balanceCard.descriptionEmployer")
+                  : t("eWallet.balanceCard.descriptionWorker")}
               </p>
             </div>
             <div className="bg-white/20 backdrop-blur-sm rounded-[16px] p-4">
@@ -348,32 +350,32 @@ export function EWallet() {
             {isBothRole ? (
               <>
                 <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
-                  <p className="text-[12px] opacity-80">Employer Balance</p>
-                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : currency.format(employerBalance)}</p>
+                  <p className="text-[12px] opacity-80">{t("eWallet.balanceCard.employerBalance")}</p>
+                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : formatCurrency(employerBalance)}</p>
                 </div>
                 <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
-                  <p className="text-[12px] opacity-80">Worker Balance</p>
-                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : currency.format(workerBalance)}</p>
+                  <p className="text-[12px] opacity-80">{t("eWallet.balanceCard.workerBalance")}</p>
+                  <p className="text-[20px] font-semibold mt-1">{isLoading ? "—" : formatCurrency(workerBalance)}</p>
                 </div>
               </>
             ) : isEmployerWalletView ? (
               <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
-                <p className="text-[12px] opacity-80">Employer Balance</p>
-                <p className="text-[20px] font-semibold mt-1">{currency.format(employerBalance)}</p>
+                <p className="text-[12px] opacity-80">{t("eWallet.balanceCard.employerBalance")}</p>
+                <p className="text-[20px] font-semibold mt-1">{formatCurrency(employerBalance)}</p>
               </div>
             ) : (
               <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
-                <p className="text-[12px] opacity-80">Worker Balance</p>
-                <p className="text-[20px] font-semibold mt-1">{currency.format(workerBalance)}</p>
+                <p className="text-[12px] opacity-80">{t("eWallet.balanceCard.workerBalance")}</p>
+                <p className="text-[20px] font-semibold mt-1">{formatCurrency(workerBalance)}</p>
               </div>
             )}
             <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
-              <p className="text-[12px] opacity-80">Pending Withdrawals</p>
-              <p className="text-[20px] font-semibold mt-1">{currency.format(pendingPayoutTotal)}</p>
+              <p className="text-[12px] opacity-80">{t("eWallet.balanceCard.pendingWithdrawals")}</p>
+              <p className="text-[20px] font-semibold mt-1">{formatCurrency(pendingPayoutTotal)}</p>
             </div>
             {!isBothRole && (
               <div className="bg-white/10 backdrop-blur-sm rounded-[12px] p-4">
-                <p className="text-[12px] opacity-80">Total Transactions</p>
+                <p className="text-[12px] opacity-80">{t("eWallet.balanceCard.totalTransactions")}</p>
                 <p className="text-[20px] font-semibold mt-1">{transactions.length}</p>
               </div>
             )}
@@ -386,14 +388,14 @@ export function EWallet() {
                 onClick={() => setIsTopUpOpen(true)}
                 className="w-full md:w-auto bg-white text-[#1C4D8D] font-semibold py-3 px-6 rounded-[12px] hover:bg-gray-100 transition"
               >
-                Top Up
+                {t("eWallet.balanceCard.topUp")}
               </button>
               <button
                 type="button"
                 onClick={handleWithdrawClick}
                 className="w-full md:w-auto bg-white/20 text-white font-semibold py-3 px-6 rounded-[12px] hover:bg-white/30 transition"
               >
-                Withdraw Worker Funds
+                {t("eWallet.balanceCard.withdrawWorkerFunds")}
               </button>
             </div>
           ) : isEmployerWalletView ? (
@@ -402,7 +404,7 @@ export function EWallet() {
               onClick={() => setIsTopUpOpen(true)}
               className="w-full md:w-auto bg-white text-[#1C4D8D] font-semibold py-3 px-6 rounded-[12px] hover:bg-gray-100 transition"
             >
-              Top Up
+              {t("eWallet.balanceCard.topUp")}
             </button>
           ) : isWorkerWalletView ? (
             <button
@@ -410,7 +412,7 @@ export function EWallet() {
               onClick={handleWithdrawClick}
               className="w-full md:w-auto bg-white text-[#1C4D8D] font-semibold py-3 px-6 rounded-[12px] hover:bg-gray-100 transition"
             >
-              Withdraw Funds
+              {t("eWallet.balanceCard.withdrawFunds")}
             </button>
           ) : null}
         </div>
@@ -420,25 +422,25 @@ export function EWallet() {
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
           <div className="flex items-center gap-2 text-[#10B981] mb-2">
             <ArrowDownLeft className="w-4 h-4" />
-            <span className="text-[13px]">Money In</span>
+            <span className="text-[13px]">{t("eWallet.stats.moneyIn")}</span>
           </div>
-          <p className="text-[26px] font-bold text-[#111827]">{currency.format(totalMoneyIn)}</p>
-          <p className="mt-1 text-[11px] text-[#6B7280]">Completed top-ups, payouts, and refunds received</p>
+          <p className="text-[26px] font-bold text-[#111827]">{formatCurrency(totalMoneyIn)}</p>
+          <p className="mt-1 text-[11px] text-[#6B7280]">{t("eWallet.stats.moneyInHelper")}</p>
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
           <div className="flex items-center gap-2 text-[#EF4444] mb-2">
             <ArrowUpRight className="w-4 h-4" />
-            <span className="text-[13px]">Money Out</span>
+            <span className="text-[13px]">{t("eWallet.stats.moneyOut")}</span>
           </div>
-          <p className="text-[26px] font-bold text-[#111827]">{currency.format(totalMoneyOut)}</p>
-          <p className="mt-1 text-[11px] text-[#6B7280]">Completed job escrow and wallet withdrawals</p>
+          <p className="text-[26px] font-bold text-[#111827]">{formatCurrency(totalMoneyOut)}</p>
+          <p className="mt-1 text-[11px] text-[#6B7280]">{t("eWallet.stats.moneyOutHelper")}</p>
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 shadow-sm">
           <div className="flex items-center gap-2 text-[#1C4D8D] mb-2">
             <Landmark className="w-4 h-4" />
-            <span className="text-[13px]">Withdrawals</span>
+            <span className="text-[13px]">{t("eWallet.stats.withdrawals")}</span>
           </div>
           <p className="text-[26px] font-bold text-[#111827]">{payoutRequests.length}</p>
         </div>
@@ -449,23 +451,23 @@ export function EWallet() {
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
             <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <div>
-                <h3 className="text-[20px] font-semibold text-[#111827]">Withdrawal History</h3>
-                <p className="text-[13px] text-[#6B7280] mt-1">Track requested, approved, rejected, paid, and cancelled withdrawals.</p>
+                <h3 className="text-[20px] font-semibold text-[#111827]">{t("eWallet.history.title")}</h3>
+                <p className="text-[13px] text-[#6B7280] mt-1">{t("eWallet.history.subtitle")}</p>
               </div>
-              <div className="text-[12px] text-[#6B7280]">Worker wallet only</div>
+              <div className="text-[12px] text-[#6B7280]">{t("eWallet.history.workerOnly")}</div>
             </div>
 
             {isLoading ? (
-              <div className="text-[14px] text-[#6B7280] py-6">Loading withdrawals...</div>
+              <div className="text-[14px] text-[#6B7280] py-6">{t("eWallet.history.loading")}</div>
             ) : payoutRequests.length === 0 ? (
-              <div className="text-[14px] text-[#6B7280] py-6">No withdrawals yet.</div>
+              <div className="text-[14px] text-[#6B7280] py-6">{t("eWallet.history.empty")}</div>
             ) : (
               <div className="space-y-3">
                 {payoutRequests.map((request) => (
                   <div key={request._id} className="rounded-[14px] border border-[#E5E7EB] p-4">
                     <div className="flex items-start justify-between gap-3 flex-wrap">
                       <div>
-                        <p className="text-[18px] font-semibold text-[#111827]">{currency.format(toAmount(request.amount))}</p>
+                        <p className="text-[18px] font-semibold text-[#111827]">{formatCurrency(toAmount(request.amount))}</p>
                         <p className="text-[13px] text-[#6B7280] mt-1">
                           {request.destinationSnapshot.institutionName} · {request.destinationSnapshot.accountName}
                         </p>
@@ -474,20 +476,20 @@ export function EWallet() {
                         </p>
                       </div>
                       <span className={`px-3 py-1.5 rounded-full text-[11px] font-semibold ${getPayoutStatusClasses(request.status)}`}>
-                        {request.status}
+                        {t(`eWallet.payoutStatus.${request.status}`)}
                       </span>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 text-[13px] text-[#6B7280]">
                       <div>
-                        <p className="text-[#111827] font-medium">Requested</p>
+                        <p className="text-[#111827] font-medium">{t("eWallet.history.requested")}</p>
                         <p>{formatDate(request.createdAt)}</p>
                       </div>
                       <div>
-                        <p className="text-[#111827] font-medium">Reviewed</p>
+                        <p className="text-[#111827] font-medium">{t("eWallet.history.reviewed")}</p>
                         <p>{formatDate(request.reviewedAt || undefined)}</p>
                       </div>
                       <div>
-                        <p className="text-[#111827] font-medium">Paid</p>
+                        <p className="text-[#111827] font-medium">{t("eWallet.history.paid")}</p>
                         <p>{formatDate(request.paidAt || undefined)}</p>
                       </div>
                     </div>
@@ -504,7 +506,7 @@ export function EWallet() {
                           disabled={cancellingPayoutId === request._id}
                           className="px-4 py-2 rounded-[10px] border border-[#FCA5A5] text-[#B91C1C] text-[14px] font-medium hover:bg-[#FEF2F2] disabled:opacity-60"
                         >
-                          {cancellingPayoutId === request._id ? "Cancelling..." : "Cancel Withdrawal"}
+                          {cancellingPayoutId === request._id ? t("eWallet.history.cancelling") : t("eWallet.history.cancel")}
                         </button>
                       </div>
                     ) : null}
@@ -517,15 +519,15 @@ export function EWallet() {
           <div ref={payoutRequestRef} className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 h-fit">
             <div className="flex items-center gap-3 mb-4">
               <Wallet className="w-5 h-5 text-[#1C4D8D]" />
-              <h3 className="text-[20px] font-semibold text-[#111827]">Withdraw Funds</h3>
+              <h3 className="text-[20px] font-semibold text-[#111827]">{t("eWallet.form.title")}</h3>
             </div>
             <p className="text-[13px] text-[#6B7280] mb-6">
-              Available to withdraw: {currency.format(workerBalance)}. Withdrawals debit your worker balance immediately and remain pending until reviewed.
+              {t("eWallet.form.availableToWithdraw", { amount: formatCurrency(workerBalance) })}
             </p>
 
             <div className="space-y-4">
               <div>
-                <label htmlFor="payout-amount" className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
+                <label htmlFor="payout-amount" className="text-[13px] text-[#374151] mb-2 block">{t("eWallet.form.amountLabel")}</label>
                 <input
                   id="payout-amount"
                   type="number"
@@ -539,52 +541,52 @@ export function EWallet() {
               </div>
 
               <div>
-                <label htmlFor="payout-method" className="text-[13px] text-[#374151] mb-2 block">Method</label>
+                <label htmlFor="payout-method" className="text-[13px] text-[#374151] mb-2 block">{t("eWallet.form.methodLabel")}</label>
                 <select
                   id="payout-method"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.methodType}
                   onChange={(event) => setPayoutForm((current) => ({ ...current, methodType: event.target.value }))}
                 >
-                  <option value="bank_transfer">Bank transfer</option>
-                  <option value="gcash">GCash</option>
-                  <option value="maya">Maya</option>
+                  <option value="bank_transfer">{t("eWallet.form.methodOptions.bankTransfer")}</option>
+                  <option value="gcash">{t("eWallet.form.methodOptions.gcash")}</option>
+                  <option value="maya">{t("eWallet.form.methodOptions.maya")}</option>
                 </select>
               </div>
 
               <div>
-                <label htmlFor="payout-institution" className="text-[13px] text-[#374151] mb-2 block">Institution</label>
+                <label htmlFor="payout-institution" className="text-[13px] text-[#374151] mb-2 block">{t("eWallet.form.institutionLabel")}</label>
                 <input
                   id="payout-institution"
                   type="text"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.institutionName}
                   onChange={(event) => setPayoutForm((current) => ({ ...current, institutionName: event.target.value }))}
-                  placeholder="BDO, GCash, Maya"
+                  placeholder={t("eWallet.form.institutionPlaceholder")}
                 />
               </div>
 
               <div>
-                <label htmlFor="payout-account-name" className="text-[13px] text-[#374151] mb-2 block">Account Name</label>
+                <label htmlFor="payout-account-name" className="text-[13px] text-[#374151] mb-2 block">{t("eWallet.form.accountNameLabel")}</label>
                 <input
                   id="payout-account-name"
                   type="text"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.accountName}
                   onChange={(event) => setPayoutForm((current) => ({ ...current, accountName: event.target.value }))}
-                  placeholder="Juan Dela Cruz"
+                  placeholder={t("eWallet.form.accountNamePlaceholder")}
                 />
               </div>
 
               <div>
-                <label htmlFor="payout-account-number" className="text-[13px] text-[#374151] mb-2 block">Account Number</label>
+                <label htmlFor="payout-account-number" className="text-[13px] text-[#374151] mb-2 block">{t("eWallet.form.accountNumberLabel")}</label>
                 <input
                   id="payout-account-number"
                   type="text"
                   className="w-full border border-[#D1D5DB] rounded-[10px] px-3 py-2 text-[14px]"
                   value={payoutForm.accountNumber}
                   onChange={(event) => setPayoutForm((current) => ({ ...current, accountNumber: event.target.value }))}
-                  placeholder="09171234567 or bank account number"
+                  placeholder={t("eWallet.form.accountNumberPlaceholder")}
                 />
               </div>
 
@@ -594,7 +596,7 @@ export function EWallet() {
                 onClick={handlePayoutSubmit}
                 disabled={isSubmittingPayout}
               >
-                {isSubmittingPayout ? "Submitting withdrawal..." : "Withdraw Funds"}
+                {isSubmittingPayout ? t("eWallet.form.submitting") : t("eWallet.form.submit")}
               </button>
             </div>
           </div>
@@ -604,27 +606,27 @@ export function EWallet() {
       <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
         <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
           <h3 className="text-[20px] font-semibold text-[#111827]">
-            {isEmployerWalletView ? "Payment History" : "Recent Transactions"}
+            {isEmployerWalletView ? t("eWallet.transactions.titlePayment") : t("eWallet.transactions.titleRecent")}
           </h3>
-          <div className="text-[12px] text-[#6B7280]">Linked transaction status and payout references included</div>
+          <div className="text-[12px] text-[#6B7280]">{t("eWallet.transactions.helper")}</div>
         </div>
 
         {isLoading ? (
-          <div className="text-[14px] text-[#6B7280] py-6">Loading transactions...</div>
+          <div className="text-[14px] text-[#6B7280] py-6">{t("eWallet.transactions.loading")}</div>
         ) : transactions.length === 0 ? (
-          <div className="text-[14px] text-[#6B7280] py-6">No transactions yet.</div>
+          <div className="text-[14px] text-[#6B7280] py-6">{t("eWallet.transactions.empty")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                  <th className="py-3 pr-4 font-medium">Type</th>
-                  <th className="py-3 pr-4 font-medium">Status</th>
-                  <th className="py-3 pr-4 font-medium">Label</th>
-                  <th className="py-3 pr-4 font-medium">Amount</th>
-                  <th className="py-3 pr-4 font-medium">Reference</th>
-                  <th className="py-3 pr-4 font-medium">Linked Entity</th>
-                  <th className="py-3 font-medium">Date</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.type")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.status")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.label")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.amount")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.reference")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("eWallet.transactions.columns.linkedEntity")}</th>
+                  <th className="py-3 font-medium">{t("eWallet.transactions.columns.date")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -645,12 +647,12 @@ export function EWallet() {
                     </td>
                     <td className="py-3 pr-4">
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold ${getTransactionStatusClasses(tx.status)}`}>
-                        {tx.status || "-"}
+                        {tx.status ? t(`eWallet.transactionStatus.${tx.status}`) : "-"}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 text-[#111827]">{txLabel(tx)}</td>
+                    <td className="py-3 pr-4 text-[#111827]">{txLabel(t, tx)}</td>
                     <td className={`py-3 pr-4 font-semibold ${amountClass}`}>
-                      {amountPrefix}{currency.format(toAmount(tx.amount))}
+                      {amountPrefix}{formatCurrency(toAmount(tx.amount))}
                     </td>
                     <td className="py-3 pr-4 text-[#6B7280]">
                       <div>{tx.reference || "-"}</div>
@@ -674,10 +676,10 @@ export function EWallet() {
           <div className="w-full max-w-md bg-white rounded-[16px] p-6 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
               <Wallet className="w-5 h-5 text-[#1C4D8D]" />
-              <h4 className="text-[18px] font-semibold text-[#111827]">Top Up</h4>
+              <h4 className="text-[18px] font-semibold text-[#111827]">{t("eWallet.topUpModal.title")}</h4>
             </div>
 
-            <label htmlFor="topup-amount" className="text-[13px] text-[#374151] mb-2 block">Amount (PHP)</label>
+            <label htmlFor="topup-amount" className="text-[13px] text-[#374151] mb-2 block">{t("eWallet.topUpModal.amountLabel")}</label>
             <input
               id="topup-amount"
               type="number"
@@ -689,7 +691,7 @@ export function EWallet() {
               placeholder="1000"
             />
             <p className="text-[13px] text-[#6B7280] mb-6">
-              Employer funding is the only top-up flow here. Worker accounts withdraw from earned balance instead.
+              {t("eWallet.topUpModal.description")}
             </p>
 
             <div className="flex items-center gap-2 justify-end">
@@ -703,7 +705,7 @@ export function EWallet() {
                 }}
                 disabled={isCreatingTopUp}
               >
-                Cancel
+                {t("eWallet.topUpModal.cancel")}
               </button>
               <button
                 type="button"
@@ -713,10 +715,10 @@ export function EWallet() {
               >
                 {isCreatingTopUp ? (
                   <span className="inline-flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Redirecting...
+                    <Loader2 className="w-4 h-4 animate-spin" /> {t("eWallet.topUpModal.redirecting")}
                   </span>
                 ) : (
-                  "Proceed to Checkout"
+                  t("eWallet.topUpModal.proceed")
                 )}
               </button>
             </div>

@@ -43,6 +43,8 @@ import EmployerInbox from './pages/employer/EmployerInbox';
 import EmployerPaymentMethods from './pages/employer/EmployerPaymentMethods';
 import { AppSessionProvider, useAppSession } from './contexts/AppSessionContext';
 import { ToastProvider, useToast } from './contexts/ToastContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
+import './i18n';
 import { StatusBar } from 'expo-status-bar';
 import LaunchScreen from './components/LaunchScreen';
 import { isRoleTab, navigateToRoleTab } from './components/tabNavigation';
@@ -892,6 +894,7 @@ function SessionOverlays() {
 
 function RootApp() {
   const session = useAppSession();
+  const language = useLanguage();
   const [showLaunch, setShowLaunch] = useState(true);
   const [navigationReady, setNavigationReady] = useState(false);
   const navigationTheme = useMemo(() => ({
@@ -940,20 +943,22 @@ function RootApp() {
         <AppNavigator />
       </NavigationContainer>
       <SessionOverlays />
-      {showLaunch ? <LaunchScreen sessionReady={session.isReady} onFinished={() => setShowLaunch(false)} /> : null}
+      {showLaunch ? <LaunchScreen sessionReady={session.isReady && language.isReady} onFinished={() => setShowLaunch(false)} /> : null}
     </View>
   );
 }
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <ToastProvider>
-        <AppSessionProvider>
-          <RootApp />
-        </AppSessionProvider>
-      </ToastProvider>
-    </SafeAreaProvider>
+    <LanguageProvider>
+      <SafeAreaProvider>
+        <ToastProvider>
+          <AppSessionProvider>
+            <RootApp />
+          </AppSessionProvider>
+        </ToastProvider>
+      </SafeAreaProvider>
+    </LanguageProvider>
   );
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -14,6 +14,7 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
+import { useTranslation, type TFunction } from 'react-i18next';
 
 type SupportMessage = {
   _id?: string;
@@ -45,37 +46,37 @@ type ContactSupportProps = {
   onBack?: () => void;
 };
 
-const FAQS = [
+const getFaqs = (t: TFunction) => [
   {
     icon: 'wallet-outline' as const,
-    title: 'Payout reviews',
-    body: 'Payout requests are reviewed manually. Track every review decision from your wallet history.',
+    title: t('contactSupport.faqs.payoutReviews.title'),
+    body: t('contactSupport.faqs.payoutReviews.body'),
   },
   {
     icon: 'briefcase-outline' as const,
-    title: 'Application stages',
-    body: 'Applications now move through Applied, Shortlisted, Interview Scheduled, Offer Sent, and Hired.',
+    title: t('contactSupport.faqs.applicationStages.title'),
+    body: t('contactSupport.faqs.applicationStages.body'),
   },
   {
     icon: 'shield-checkmark-outline' as const,
-    title: 'Account safety',
-    body: 'Use a strong password, keep MFA enabled, and review your sessions regularly.',
+    title: t('contactSupport.faqs.accountSafety.title'),
+    body: t('contactSupport.faqs.accountSafety.body'),
   },
 ];
 
-const CATEGORIES = [
-  { value: 'general', label: 'General' },
-  { value: 'payments', label: 'Payments' },
-  { value: 'jobs', label: 'Jobs' },
-  { value: 'account', label: 'Account' },
-  { value: 'technical', label: 'Technical' },
+const getCategories = (t: TFunction) => [
+  { value: 'general', label: t('contactSupport.categories.general') },
+  { value: 'payments', label: t('contactSupport.categories.payments') },
+  { value: 'jobs', label: t('contactSupport.categories.jobs') },
+  { value: 'account', label: t('contactSupport.categories.account') },
+  { value: 'technical', label: t('contactSupport.categories.technical') },
 ];
 
-const PRIORITIES: Array<{ value: NonNullable<SupportTicket['priority']>; label: string }> = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-  { value: 'urgent', label: 'Urgent' },
+const getPriorities = (t: TFunction): Array<{ value: NonNullable<SupportTicket['priority']>; label: string }> => [
+  { value: 'low', label: t('contactSupport.priorities.low') },
+  { value: 'medium', label: t('contactSupport.priorities.medium') },
+  { value: 'high', label: t('contactSupport.priorities.high') },
+  { value: 'urgent', label: t('contactSupport.priorities.urgent') },
 ];
 
 const getStatusColor = (status: SupportTicket['status']) => {
@@ -108,10 +109,10 @@ const getPriorityColor = (priority?: SupportTicket['priority']) => {
   }
 };
 
-const formatDate = (value?: string) => {
-  if (!value) return 'No date';
+const formatDate = (value: string | undefined, t: TFunction) => {
+  if (!value) return t('contactSupport.common.noDate');
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'No date';
+  if (Number.isNaN(parsed.getTime())) return t('contactSupport.common.noDate');
   return parsed.toLocaleString('en-PH', {
     month: 'short',
     day: '2-digit',
@@ -121,15 +122,19 @@ const formatDate = (value?: string) => {
   });
 };
 
-const getAuthorName = (message: SupportMessage) => {
-  if (message.actorRole === 'admin') return 'Support';
+const getAuthorName = (message: SupportMessage, t: TFunction) => {
+  if (message.actorRole === 'admin') return t('contactSupport.common.supportAuthor');
   const firstName = message.author?.firstName || '';
   const lastName = message.author?.lastName || '';
   const fullName = `${firstName} ${lastName}`.trim();
-  return fullName || message.author?.email || 'You';
+  return fullName || message.author?.email || t('contactSupport.common.youFallback');
 };
 
 export default function ContactSupport({ onBack }: ContactSupportProps) {
+  const { t } = useTranslation('worker');
+  const FAQS = useMemo(() => getFaqs(t), [t]);
+  const CATEGORIES = useMemo(() => getCategories(t), [t]);
+  const PRIORITIES = useMemo(() => getPriorities(t), [t]);
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -149,17 +154,17 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
     [selectedTicketId, tickets],
   );
 
-  const loadTickets = async (targetTicketId?: string | null) => {
+  const loadTickets = useCallback(async (targetTicketId?: string | null) => {
     setIsLoading(true);
     setErrorMessage('');
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const result = await apiRequest(`${API_URL}/support/tickets`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }, 'Failed to load support tickets.');
+      }, t('contactSupport.apiFallback.loadTicketsFailed'));
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to load support tickets.');
+        throw new Error(result.message || t('contactSupport.apiFallback.loadTicketsFailed'));
       }
 
       const nextTickets = asList<SupportTicket>(result.raw, ['tickets']);
@@ -170,21 +175,21 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
         setSelectedTicketId(null);
       }
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load support tickets.');
+      setErrorMessage(error?.message || t('contactSupport.apiFallback.loadTicketsFailed'));
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
-  const loadTicketDetails = async (ticketId: string) => {
+  const loadTicketDetails = useCallback(async (ticketId: string) => {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       const result = await apiRequest(`${API_URL}/support/tickets/${ticketId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }, 'Failed to load support ticket.');
+      }, t('contactSupport.apiFallback.loadTicketFailed'));
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to load support ticket.');
+        throw new Error(result.message || t('contactSupport.apiFallback.loadTicketFailed'));
       }
 
       const payload = asObject<any>(result.raw) || {};
@@ -195,22 +200,22 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
         return [ticket, ...others];
       });
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load support ticket.');
+      setErrorMessage(error?.message || t('contactSupport.apiFallback.loadTicketFailed'));
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     void loadTickets();
-  }, []);
+  }, [loadTickets]);
 
   useEffect(() => {
     if (!selectedTicketId) return;
     void loadTicketDetails(selectedTicketId);
-  }, [selectedTicketId]);
+  }, [selectedTicketId, loadTicketDetails]);
 
   const handleCreateTicket = async () => {
     if (!form.subject.trim() || !form.message.trim()) {
-      setErrorMessage('Subject and message are required.');
+      setErrorMessage(t('contactSupport.errors.subjectMessageRequired'));
       return;
     }
 
@@ -230,10 +235,10 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
           priority: form.priority,
           message: form.message.trim(),
         }),
-      }, 'Failed to submit support ticket.');
+      }, t('contactSupport.apiFallback.submitTicketFailed'));
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to submit support ticket.');
+        throw new Error(result.message || t('contactSupport.apiFallback.submitTicketFailed'));
       }
 
       const payload = asObject<any>(result.raw) || {};
@@ -246,7 +251,7 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
         await loadTickets();
       }
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to submit support ticket.');
+      setErrorMessage(error?.message || t('contactSupport.apiFallback.submitTicketFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -268,10 +273,10 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ message: replyDraft.trim() }),
-      }, 'Failed to send reply.');
+      }, t('contactSupport.apiFallback.sendReplyFailed'));
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to send reply.');
+        throw new Error(result.message || t('contactSupport.apiFallback.sendReplyFailed'));
       }
 
       const payload = asObject<any>(result.raw) || {};
@@ -283,7 +288,7 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
       }
       setReplyDraft('');
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to send reply.');
+      setErrorMessage(error?.message || t('contactSupport.apiFallback.sendReplyFailed'));
     } finally {
       setIsReplying(false);
     }
@@ -299,45 +304,45 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Support Center" subtitle="Open tickets and track replies" onBack={onBack} />
+      <AppHeader title={t('contactSupport.header.title')} subtitle={t('contactSupport.header.subtitle')} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>Need help with payouts, applications, or account issues?</Text>
+          <Text style={styles.heroTitle}>{t('contactSupport.hero.title')}</Text>
           <Text style={styles.heroBody}>
-            Submit a ticket, monitor status changes, and continue the thread without leaving the app.
+            {t('contactSupport.hero.body')}
           </Text>
         </View>
 
         <View style={styles.metricsRow}>
           <View style={styles.metricCard}>
             <Text style={styles.metricValue}>{summary.open}</Text>
-            <Text style={styles.metricLabel}>Open</Text>
+            <Text style={styles.metricLabel}>{t('contactSupport.metrics.open')}</Text>
           </View>
           <View style={styles.metricCard}>
             <Text style={styles.metricValue}>{summary.waiting}</Text>
-            <Text style={styles.metricLabel}>Waiting</Text>
+            <Text style={styles.metricLabel}>{t('contactSupport.metrics.waiting')}</Text>
           </View>
           <View style={styles.metricCard}>
             <Text style={styles.metricValue}>{summary.resolved}</Text>
-            <Text style={styles.metricLabel}>Resolved</Text>
+            <Text style={styles.metricLabel}>{t('contactSupport.metrics.resolved')}</Text>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Create Support Ticket</Text>
-          <Text style={styles.cardSubtitle}>Describe the issue clearly so support can route it correctly.</Text>
+          <Text style={styles.cardTitle}>{t('contactSupport.createForm.title')}</Text>
+          <Text style={styles.cardSubtitle}>{t('contactSupport.createForm.subtitle')}</Text>
 
-          <Text style={styles.inputLabel}>Subject</Text>
+          <Text style={styles.inputLabel}>{t('contactSupport.createForm.subjectLabel')}</Text>
           <TextInput
             style={styles.input}
             value={form.subject}
             onChangeText={(subject) => setForm((current) => ({ ...current, subject }))}
-            placeholder="Payout review delay"
+            placeholder={t('contactSupport.createForm.subjectPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
           />
 
-          <Text style={styles.inputLabel}>Category</Text>
+          <Text style={styles.inputLabel}>{t('contactSupport.createForm.categoryLabel')}</Text>
           <View style={styles.choiceRow}>
             {CATEGORIES.map((category) => {
               const isActive = form.category === category.value;
@@ -353,7 +358,7 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
             })}
           </View>
 
-          <Text style={styles.inputLabel}>Priority</Text>
+          <Text style={styles.inputLabel}>{t('contactSupport.createForm.priorityLabel')}</Text>
           <View style={styles.choiceRow}>
             {PRIORITIES.map((priority) => {
               const isActive = form.priority === priority.value;
@@ -369,12 +374,12 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
             })}
           </View>
 
-          <Text style={styles.inputLabel}>Message</Text>
+          <Text style={styles.inputLabel}>{t('contactSupport.createForm.messageLabel')}</Text>
           <TextInput
             style={[styles.input, styles.messageInput]}
             value={form.message}
             onChangeText={(message) => setForm((current) => ({ ...current, message }))}
-            placeholder="Explain what happened, what you expected, and any relevant dates or references."
+            placeholder={t('contactSupport.createForm.messagePlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             multiline
             textAlignVertical="top"
@@ -387,28 +392,28 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
             onPress={handleCreateTicket}
             disabled={isSubmitting}
           >
-            {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>Submit Ticket</Text>}
+            {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>{t('contactSupport.createForm.submitButton')}</Text>}
           </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.cardTitle}>Ticket History</Text>
+            <Text style={styles.cardTitle}>{t('contactSupport.history.title')}</Text>
             <TouchableOpacity onPress={() => void loadTickets(selectedTicketId)} disabled={isLoading}>
-              <Text style={styles.linkText}>{isLoading ? 'Refreshing...' : 'Refresh'}</Text>
+              <Text style={styles.linkText}>{isLoading ? t('contactSupport.history.refreshing') : t('contactSupport.history.refreshButton')}</Text>
             </TouchableOpacity>
           </View>
 
           {isLoading ? (
             <View style={styles.loadingWrap}>
               <ActivityIndicator color={tokens.colors.brand} />
-              <Text style={styles.loadingText}>Loading support tickets...</Text>
+              <Text style={styles.loadingText}>{t('contactSupport.history.loading')}</Text>
             </View>
           ) : tickets.length === 0 ? (
             <View style={styles.emptyCard}>
               <Ionicons name="chatbubble-ellipses-outline" size={30} color={tokens.colors.textMuted} />
-              <Text style={styles.emptyTitle}>No support tickets yet</Text>
-              <Text style={styles.emptyBody}>Your submitted tickets and support replies will appear here.</Text>
+              <Text style={styles.emptyTitle}>{t('contactSupport.history.empty.title')}</Text>
+              <Text style={styles.emptyBody}>{t('contactSupport.history.empty.body')}</Text>
             </View>
           ) : (
             <View style={styles.ticketList}>
@@ -432,9 +437,9 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
                       <View style={[styles.badge, { backgroundColor: priorityStyle.backgroundColor }]}> 
                         <Text style={[styles.badgeText, { color: priorityStyle.color }]}>{ticket.priority || 'low'}</Text>
                       </View>
-                      <Text style={styles.ticketMeta}>{ticket.messageCount || ticket.messages?.length || 0} messages</Text>
+                      <Text style={styles.ticketMeta}>{t('contactSupport.history.messagesCount', { count: ticket.messageCount || ticket.messages?.length || 0 })}</Text>
                     </View>
-                    <Text style={styles.ticketDate}>Updated {formatDate(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt)}</Text>
+                    <Text style={styles.ticketDate}>{t('contactSupport.history.updatedLabel', { date: formatDate(ticket.lastMessageAt || ticket.updatedAt || ticket.createdAt, t) })}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -445,7 +450,7 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
         {selectedTicket ? (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{selectedTicket.subject}</Text>
-            <Text style={styles.cardSubtitle}>Track the latest replies and continue the thread below.</Text>
+            <Text style={styles.cardSubtitle}>{t('contactSupport.thread.subtitle')}</Text>
 
             <View style={styles.threadList}>
               {(selectedTicket.messages || []).map((message, index) => {
@@ -456,10 +461,10 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
                     style={[styles.threadBubble, isSupport ? styles.threadBubbleSupport : styles.threadBubbleUser]}
                   >
                     <View style={styles.threadHeader}>
-                      <Text style={[styles.threadAuthor, isSupport && styles.threadAuthorSupport]}>{getAuthorName(message)}</Text>
-                      <Text style={[styles.threadDate, isSupport && styles.threadDateSupport]}>{formatDate(message.createdAt)}</Text>
+                      <Text style={[styles.threadAuthor, isSupport && styles.threadAuthorSupport]}>{getAuthorName(message, t)}</Text>
+                      <Text style={[styles.threadDate, isSupport && styles.threadDateSupport]}>{formatDate(message.createdAt, t)}</Text>
                     </View>
-                    <Text style={[styles.threadBody, isSupport && styles.threadBodySupport]}>{message.body || 'No message body.'}</Text>
+                    <Text style={[styles.threadBody, isSupport && styles.threadBodySupport]}>{message.body || t('contactSupport.thread.noBody')}</Text>
                   </View>
                 );
               })}
@@ -467,12 +472,12 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
 
             {selectedTicket.status !== 'closed' ? (
               <>
-                <Text style={styles.inputLabel}>Reply</Text>
+                <Text style={styles.inputLabel}>{t('contactSupport.thread.replyLabel')}</Text>
                 <TextInput
                   style={[styles.input, styles.messageInput]}
                   value={replyDraft}
                   onChangeText={setReplyDraft}
-                  placeholder="Add more details or respond to support."
+                  placeholder={t('contactSupport.thread.replyPlaceholder')}
                   placeholderTextColor={tokens.colors.textSubtle}
                   multiline
                   textAlignVertical="top"
@@ -482,13 +487,13 @@ export default function ContactSupport({ onBack }: ContactSupportProps) {
                   onPress={handleReply}
                   disabled={isReplying || !replyDraft.trim()}
                 >
-                  {isReplying ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>Send Reply</Text>}
+                  {isReplying ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>{t('contactSupport.thread.sendButton')}</Text>}
                 </TouchableOpacity>
               </>
             ) : (
               <View style={styles.closedBanner}>
                 <Ionicons name="lock-closed-outline" size={16} color="#6B7280" />
-                <Text style={styles.closedBannerText}>This ticket is closed and cannot receive new replies.</Text>
+                <Text style={styles.closedBannerText}>{t('contactSupport.thread.closedBanner')}</Text>
               </View>
             )}
           </View>

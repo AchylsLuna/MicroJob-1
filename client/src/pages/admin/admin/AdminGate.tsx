@@ -1,5 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { toast } from "../../../lib/toast";
 import { useAuth } from "../../../contexts/AuthContext";
 import { getDefaultDashboardPath } from "../../../utils/dashboardRoutes";
@@ -18,6 +19,7 @@ export function AdminGate({
   allowedRoles?: readonly AllowedRole[];
   fallbackPath?: string;
 }) {
+  const { t } = useTranslation("admin");
   const { user } = useAuth();
   const role = (user?.role ?? "") as AllowedRole | "";
   const hasAccess = Boolean(user) && allowedRoles.includes(role as AllowedRole);
@@ -25,9 +27,9 @@ export function AdminGate({
 
   useEffect(() => {
     if (user && !hasAccess) {
-      toast.error("You don't have access to this admin section.");
+      toast.error(t("gate.toast.accessDenied"));
     }
-  }, [user, hasAccess]);
+  }, [user, hasAccess, t]);
 
   if (!user) {
     return <Navigate to={ROUTES.adminSignIn} replace />;

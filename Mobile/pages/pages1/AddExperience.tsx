@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { PROFILE_LIMITS } from '../../lib/profileValidation';
 import { tokens } from '../../theme/tokens';
@@ -46,6 +47,7 @@ const initialDraft: ExperienceDraft = {
 const isValidMonth = (value: string) => /^\d{4}-(0[1-9]|1[0-2])$/.test(value.trim());
 
 export default function AddExperience({ visible, onClose, onAdd, initialValue }: AddExperienceProps) {
+  const { t } = useTranslation('worker');
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<ExperienceDraft>(initialDraft);
   const [error, setError] = useState('');
@@ -65,24 +67,24 @@ export default function AddExperience({ visible, onClose, onAdd, initialValue }:
 
   const handleAddExperience = async () => {
     if (!draft.title.trim() || !draft.company.trim()) {
-      setError('Job title and company or client are required.');
+      setError(t('addExperience.errors.titleCompanyRequired'));
       return;
     }
     if (!isValidMonth(draft.startDate)) {
-      setError('Enter the start date as YYYY-MM.');
+      setError(t('addExperience.errors.invalidStartDate'));
       return;
     }
     if (!draft.current && (!draft.endDate || !isValidMonth(draft.endDate))) {
-      setError('Enter the end date as YYYY-MM or mark this as your current role.');
+      setError(t('addExperience.errors.invalidEndDate'));
       return;
     }
     if (draft.endDate && draft.endDate < draft.startDate) {
-      setError('End date cannot be before start date.');
+      setError(t('addExperience.errors.endBeforeStart'));
       return;
     }
     const currentMonth = new Date().toISOString().slice(0, 7);
     if (draft.startDate > currentMonth || (!draft.current && String(draft.endDate) > currentMonth)) {
-      setError('Work experience dates cannot be in the future.');
+      setError(t('addExperience.errors.futureDates'));
       return;
     }
     if (
@@ -91,7 +93,7 @@ export default function AddExperience({ visible, onClose, onAdd, initialValue }:
       draft.location.trim().length > PROFILE_LIMITS.experienceLocation ||
       draft.description.trim().length > PROFILE_LIMITS.experienceDescription
     ) {
-      setError('One or more fields exceed the allowed length.');
+      setError(t('addExperience.errors.fieldTooLong'));
       return;
     }
 
@@ -107,7 +109,7 @@ export default function AddExperience({ visible, onClose, onAdd, initialValue }:
       });
       onClose?.();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Could not save work experience.');
+      setError(saveError instanceof Error ? saveError.message : t('addExperience.errors.saveFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -121,37 +123,37 @@ export default function AddExperience({ visible, onClose, onAdd, initialValue }:
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <View style={styles.overlay} accessible={false} />
-        <View style={[styles.modal, { paddingBottom: 24 + Math.max(insets.bottom, 8) }]} accessibilityViewIsModal accessibilityLabel={initialValue ? 'Edit work experience' : 'Add work experience'}>
+        <View style={[styles.modal, { paddingBottom: 24 + Math.max(insets.bottom, 8) }]} accessibilityViewIsModal accessibilityLabel={initialValue ? t('addExperience.modalTitle.edit') : t('addExperience.modalTitle.add')}>
           <View style={styles.headerRow}>
             <View>
-              <Text style={styles.modalTitle} accessibilityRole="header">{initialValue ? 'Edit work experience' : 'Add work experience'}</Text>
-              <Text style={styles.modalSubtitle}>{initialValue ? 'Keep this role accurate and up to date.' : 'Add a job, client project, or self-employment role.'}</Text>
+              <Text style={styles.modalTitle} accessibilityRole="header">{initialValue ? t('addExperience.modalTitle.edit') : t('addExperience.modalTitle.add')}</Text>
+              <Text style={styles.modalSubtitle}>{initialValue ? t('addExperience.modalSubtitle.edit') : t('addExperience.modalSubtitle.add')}</Text>
             </View>
-            <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Close add experience">
-              <Text style={styles.closeText}>Close</Text>
+            <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel={t('addExperience.close')}>
+              <Text style={styles.closeText}>{t('addExperience.close')}</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <Field label="Job title *" value={draft.title} onChangeText={(value) => updateDraft('title', value)} placeholder="e.g., Math tutor" maxLength={PROFILE_LIMITS.experienceTitle} />
-            <Field label="Company or client *" value={draft.company} onChangeText={(value) => updateDraft('company', value)} placeholder="e.g., Self-employed" maxLength={PROFILE_LIMITS.experienceCompany} />
-            <Field label="Location" value={draft.location} onChangeText={(value) => updateDraft('location', value)} placeholder="City or Remote" maxLength={PROFILE_LIMITS.experienceLocation} />
+            <Field label={t('addExperience.fields.title')} value={draft.title} onChangeText={(value) => updateDraft('title', value)} placeholder={t('addExperience.fields.titlePlaceholder')} maxLength={PROFILE_LIMITS.experienceTitle} />
+            <Field label={t('addExperience.fields.company')} value={draft.company} onChangeText={(value) => updateDraft('company', value)} placeholder={t('addExperience.fields.companyPlaceholder')} maxLength={PROFILE_LIMITS.experienceCompany} />
+            <Field label={t('addExperience.fields.location')} value={draft.location} onChangeText={(value) => updateDraft('location', value)} placeholder={t('addExperience.fields.locationPlaceholder')} maxLength={PROFILE_LIMITS.experienceLocation} />
 
             <View style={styles.dateRow}>
               <View style={styles.dateField}>
-                <Field label="Start date *" value={draft.startDate} onChangeText={(value) => updateDraft('startDate', value)} placeholder="YYYY-MM" keyboardType="numbers-and-punctuation" maxLength={7} />
+                <Field label={t('addExperience.fields.startDate')} value={draft.startDate} onChangeText={(value) => updateDraft('startDate', value)} placeholder={t('addExperience.fields.datePlaceholder')} keyboardType="numbers-and-punctuation" maxLength={7} />
               </View>
               <View style={styles.dateField}>
-                <Field label="End date *" value={draft.endDate || ''} onChangeText={(value) => updateDraft('endDate', value)} placeholder="YYYY-MM" keyboardType="numbers-and-punctuation" maxLength={7} editable={!draft.current} />
+                <Field label={t('addExperience.fields.endDate')} value={draft.endDate || ''} onChangeText={(value) => updateDraft('endDate', value)} placeholder={t('addExperience.fields.datePlaceholder')} keyboardType="numbers-and-punctuation" maxLength={7} editable={!draft.current} />
               </View>
             </View>
 
             <View style={styles.currentRow}>
-              <Text style={styles.currentLabel}>I currently work here</Text>
+              <Text style={styles.currentLabel}>{t('addExperience.current.label')}</Text>
               <Switch
                 value={draft.current}
                 onValueChange={(value) => setDraft((previous) => ({ ...previous, current: value, endDate: value ? '' : previous.endDate }))}
-                accessibilityLabel="I currently work here"
+                accessibilityLabel={t('addExperience.current.label')}
                 accessibilityRole="switch"
                 accessibilityState={{ checked: draft.current }}
                 trackColor={{ false: '#CBD5E1', true: '#93C5FD' }}
@@ -160,25 +162,25 @@ export default function AddExperience({ visible, onClose, onAdd, initialValue }:
             </View>
 
             <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Description</Text>
+              <Text style={styles.label}>{t('addExperience.description.label')}</Text>
               <TextInput
                 style={[styles.input, styles.descriptionInput]}
                 value={draft.description}
                 onChangeText={(value) => updateDraft('description', value)}
-                placeholder="Describe your responsibilities and results"
+                placeholder={t('addExperience.description.placeholder')}
                 placeholderTextColor="#94A3B8"
                 maxLength={PROFILE_LIMITS.experienceDescription}
                 multiline
                 textAlignVertical="top"
-                accessibilityLabel="Experience description"
+                accessibilityLabel={t('addExperience.description.accessibilityLabel')}
               />
-              <Text style={styles.characterCount}>{draft.description.length}/{PROFILE_LIMITS.experienceDescription}</Text>
+              <Text style={styles.characterCount}>{t('addExperience.characterCount', { count: draft.description.length, max: PROFILE_LIMITS.experienceDescription })}</Text>
             </View>
 
             {error ? <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="assertive">{error}</Text> : null}
 
-            <TouchableOpacity style={[styles.addButton, isSaving && styles.addButtonDisabled]} onPress={handleAddExperience} disabled={isSaving} accessibilityRole="button" accessibilityLabel={initialValue ? 'Update experience' : 'Save experience'} accessibilityState={{ disabled: isSaving, busy: isSaving }}>
-              {isSaving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.addButtonText}>{initialValue ? 'Update experience' : 'Save experience'}</Text>}
+            <TouchableOpacity style={[styles.addButton, isSaving && styles.addButtonDisabled]} onPress={handleAddExperience} disabled={isSaving} accessibilityRole="button" accessibilityLabel={initialValue ? t('addExperience.save.update') : t('addExperience.save.save')} accessibilityState={{ disabled: isSaving, busy: isSaving }}>
+              {isSaving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.addButtonText}>{initialValue ? t('addExperience.save.update') : t('addExperience.save.save')}</Text>}
             </TouchableOpacity>
           </ScrollView>
         </View>

@@ -7,6 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import AppHeader from '../../components/AppHeader';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -38,22 +39,23 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
   const [code, setCode] = useState('');
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const toast = useToast();
+  const { t } = useTranslation('auth');
 
-  const authHeaders = async () => {
+  const authHeaders = useCallback(async () => {
     const token = await AsyncStorage.getItem('auth_token');
     if (!token) {
-      throw new Error('Not authenticated. Please sign in again.');
+      throw new Error(t('mfa.toast.notAuthenticated'));
     }
     return { Authorization: `Bearer ${token}` };
-  };
+  }, [t]);
 
   const loadStatus = useCallback(async () => {
     setIsLoading(true);
     try {
       const headers = await authHeaders();
-      const result = await apiRequest(`${API_URL}/auth/mfa/status`, { headers }, 'Failed to load MFA status.');
+      const result = await apiRequest(`${API_URL}/auth/mfa/status`, { headers }, t('mfa.toast.loadStatusFailedFallback'));
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to load MFA status.');
+        throw new Error(result.message || t('mfa.toast.loadStatusFailedFallback'));
       }
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setStatus({
@@ -67,11 +69,11 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
         setOtpauthUrl('');
       }
     } catch (error: any) {
-      toast.error(error?.message || 'Unable to load MFA status.');
+      toast.error(error?.message || t('mfa.toast.loadStatusUnavailable'));
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, t, authHeaders]);
 
   useEffect(() => {
     loadStatus();
@@ -84,20 +86,20 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
       const result = await apiRequest(
         `${API_URL}/auth/mfa/setup`,
         { method: 'POST', headers },
-        'Failed to start MFA setup.'
+        t('mfa.toast.setupFailedFallback')
       );
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to start MFA setup.');
+        throw new Error(result.message || t('mfa.toast.setupFailedFallback'));
       }
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setSecret(payload.secret || '');
       setOtpauthUrl(payload.otpauthUrl || '');
       setBackupCodes([]);
       setCode('');
-      toast.info('Use the secret key in your authenticator app, then enter your code below.');
+      toast.info(t('mfa.toast.setupHint'));
       await loadStatus();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to start MFA setup.');
+      toast.error(error?.message || t('mfa.toast.setupFailedFallback'));
     } finally {
       setIsSubmitting(false);
     }
@@ -105,7 +107,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   const handleEnable = async () => {
     if (!code.trim()) {
-      toast.error('Enter the verification code from your authenticator app.');
+      toast.error(t('mfa.toast.codeRequired'));
       return;
     }
 
@@ -122,20 +124,20 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
           },
           body: JSON.stringify({ code: code.trim() }),
         },
-        'Failed to enable MFA.'
+        t('mfa.toast.enableFailedFallback')
       );
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to enable MFA.');
+        throw new Error(result.message || t('mfa.toast.enableFailedFallback'));
       }
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setBackupCodes(Array.isArray(payload.backupCodes) ? payload.backupCodes : []);
       setCode('');
       setSecret('');
       setOtpauthUrl('');
-      toast.success('MFA enabled successfully.');
+      toast.success(t('mfa.toast.enableSuccess'));
       await loadStatus();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to enable MFA.');
+      toast.error(error?.message || t('mfa.toast.enableFailedFallback'));
     } finally {
       setIsSubmitting(false);
     }
@@ -143,7 +145,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   const handleDisable = async () => {
     if (!code.trim()) {
-      toast.error('Enter your current authenticator or backup code.');
+      toast.error(t('mfa.toast.currentCodeRequired'));
       return;
     }
 
@@ -160,19 +162,19 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
           },
           body: JSON.stringify({ code: code.trim() }),
         },
-        'Failed to disable MFA.'
+        t('mfa.toast.disableFailedFallback')
       );
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to disable MFA.');
+        throw new Error(result.message || t('mfa.toast.disableFailedFallback'));
       }
       setCode('');
       setBackupCodes([]);
       setSecret('');
       setOtpauthUrl('');
-      toast.success('MFA disabled.');
+      toast.success(t('mfa.toast.disableSuccess'));
       await loadStatus();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to disable MFA.');
+      toast.error(error?.message || t('mfa.toast.disableFailedFallback'));
     } finally {
       setIsSubmitting(false);
     }
@@ -180,7 +182,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   const handleRegenerateCodes = async () => {
     if (!code.trim()) {
-      toast.error('Enter your current authenticator or backup code first.');
+      toast.error(t('mfa.toast.currentCodeRequiredFirst'));
       return;
     }
 
@@ -197,18 +199,18 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
           },
           body: JSON.stringify({ code: code.trim() }),
         },
-        'Failed to regenerate backup codes.'
+        t('mfa.toast.regenerateFailedFallback')
       );
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to regenerate backup codes.');
+        throw new Error(result.message || t('mfa.toast.regenerateFailedFallback'));
       }
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setBackupCodes(Array.isArray(payload.backupCodes) ? payload.backupCodes : []);
       setCode('');
-      toast.success('Backup codes regenerated.');
+      toast.success(t('mfa.toast.regenerateSuccess'));
       await loadStatus();
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to regenerate backup codes.');
+      toast.error(error?.message || t('mfa.toast.regenerateFailedFallback'));
     } finally {
       setIsSubmitting(false);
     }
@@ -216,7 +218,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Two-Factor Auth" subtitle="Extra account protection" onBack={onBack} />
+      <AppHeader title={t('mfa.headerTitle')} subtitle={t('mfa.headerSubtitle')} onBack={onBack} />
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
@@ -225,12 +227,12 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>MFA Status</Text>
+            <Text style={styles.sectionTitle}>{t('mfa.statusTitle')}</Text>
             <Text style={styles.sectionSubtitle}>
-              {status.enabled ? 'Enabled' : 'Not enabled'} {status.method ? `(${status.method})` : ''}
+              {status.enabled ? t('mfa.statusEnabled') : t('mfa.statusNotEnabled')} {status.method ? `(${status.method})` : ''}
             </Text>
             <Text style={styles.sectionSubtitle}>
-              Backup codes remaining: {status.backupCodesRemaining}
+              {t('mfa.backupCodesRemaining', { count: status.backupCodesRemaining })}
             </Text>
             {!status.enabled ? (
               <TouchableOpacity
@@ -239,7 +241,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
                 disabled={isSubmitting}
               >
                 <Text style={styles.primaryButtonText}>
-                  {status.hasPendingSetup ? 'Regenerate Setup Secret' : 'Start MFA Setup'}
+                  {status.hasPendingSetup ? t('mfa.regenerateSetupSecret') : t('mfa.startSetup')}
                 </Text>
               </TouchableOpacity>
             ) : (
@@ -248,30 +250,30 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
                 onPress={handleDisable}
                 disabled={isSubmitting}
               >
-                <Text style={styles.dangerButtonText}>Disable MFA</Text>
+                <Text style={styles.dangerButtonText}>{t('mfa.disableMfa')}</Text>
               </TouchableOpacity>
             )}
           </View>
 
           {(status.hasPendingSetup || secret) && !status.enabled ? (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Authenticator Setup</Text>
+              <Text style={styles.sectionTitle}>{t('mfa.setupTitle')}</Text>
               <Text style={styles.sectionSubtitle}>
-                Add this secret key in Google Authenticator / Microsoft Authenticator.
+                {t('mfa.setupSubtitle')}
               </Text>
-              <Text selectable style={styles.secretText}>{secret || 'Secret key loading...'}</Text>
-              {otpauthUrl ? <Text style={styles.urlHint}>URI: {otpauthUrl}</Text> : null}
+              <Text selectable style={styles.secretText}>{secret || t('mfa.secretLoading')}</Text>
+              {otpauthUrl ? <Text style={styles.urlHint}>{t('mfa.otpauthUrl', { url: otpauthUrl })}</Text> : null}
             </View>
           ) : null}
 
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Verification</Text>
+            <Text style={styles.sectionTitle}>{t('mfa.verificationTitle')}</Text>
             <Text style={styles.sectionSubtitle}>
-              Enter authenticator code (or backup code) for enable/disable/regenerate actions.
+              {t('mfa.verificationSubtitle')}
             </Text>
             <TextInput
               style={styles.input}
-              placeholder="123456 or AAAA-BBBB"
+              placeholder={t('mfa.codeInputPlaceholder')}
               placeholderTextColor={tokens.colors.textSubtle}
               value={code}
               onChangeText={setCode}
@@ -283,7 +285,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
                 onPress={handleEnable}
                 disabled={isSubmitting}
               >
-                <Text style={styles.primaryButtonText}>Enable MFA</Text>
+                <Text style={styles.primaryButtonText}>{t('mfa.enableMfa')}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -291,15 +293,15 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
                 onPress={handleRegenerateCodes}
                 disabled={isSubmitting}
               >
-                <Text style={styles.secondaryButtonText}>Regenerate Backup Codes</Text>
+                <Text style={styles.secondaryButtonText}>{t('mfa.regenerateBackupCodes')}</Text>
               </TouchableOpacity>
             )}
           </View>
 
           {backupCodes.length > 0 ? (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Backup Codes</Text>
-              <Text style={styles.sectionSubtitle}>Store these somewhere safe. Each code works once.</Text>
+              <Text style={styles.sectionTitle}>{t('mfa.backupCodesTitle')}</Text>
+              <Text style={styles.sectionSubtitle}>{t('mfa.backupCodesSubtitle')}</Text>
               <View style={styles.codesBox}>
                 {backupCodes.map((backupCode) => (
                   <Text key={backupCode} style={styles.codeText}>{backupCode}</Text>

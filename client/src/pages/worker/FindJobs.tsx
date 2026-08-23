@@ -1,5 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapPin, Search, SlidersHorizontal } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getJobs, getProfile, updateJobPreferences } from "../../services/api";
@@ -11,6 +13,7 @@ import { DateField } from "../../components/ui/DateField";
 import { isDateDisabled, type DateRange } from "../../lib/calendarModel";
 import { JobCard } from "../../components/job/JobCard";
 import { toJobCardData } from "../../components/job/jobCardModel";
+import { formatCurrency } from "../../lib/formatters";
 
 // Converts between the "YYYY-MM-DD" strings stored in the URL (?from=&to=)
 // and the Date objects DateField works with.
@@ -43,6 +46,20 @@ interface Job {
   deadline?: string;
 }
 
+// Sort-order labels shown in the sort dropdown and in the "sorted by ..."
+// summary sentence. A factory (not a plain module-level constant) so it can
+// be recomputed via useMemo(() => getSortLabels(t), [t]) whenever the active
+// language changes — a plain constant built once at import time would freeze
+// stale text.
+function getSortLabels(t: TFunction): Record<"recent" | "salary" | "applicants" | "nearest", string> {
+  return {
+    recent: t("findJobs.sort.options.recent"),
+    salary: t("findJobs.sort.options.salary"),
+    applicants: t("findJobs.sort.options.applicants"),
+    nearest: t("findJobs.sort.options.nearest"),
+  };
+}
+
 interface ApiJob {
   _id: string;
   title: string;
@@ -60,17 +77,35 @@ interface ApiJob {
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 }
 
-const normalizeCadenceLabel = (raw: string) => {
+// Detects the pay cadence embedded in a raw backend salary string (e.g.
+// "15000/mo"). The matched substrings are backend data patterns, not
+// user-facing text, so they stay literal English regardless of UI language.
+function getCadenceKey(raw: string): string {
   const source = raw.toLowerCase();
-  if (source.includes("/mo") || source.includes("/month") || source.includes("per month")) return "/month";
-  if (source.includes("/yr") || source.includes("/year") || source.includes("per year")) return "/year";
-  if (source.includes("/week") || source.includes("per week")) return "/week";
-  if (source.includes("/day") || source.includes("per day")) return "/day";
-  if (source.includes("/hr") || source.includes("/hour") || source.includes("per hour")) return "/hour";
+  if (source.includes("/mo") || source.includes("/month") || source.includes("per month")) return "month";
+  if (source.includes("/yr") || source.includes("/year") || source.includes("per year")) return "year";
+  if (source.includes("/week") || source.includes("per week")) return "week";
+  if (source.includes("/day") || source.includes("per day")) return "day";
+  if (source.includes("/hr") || source.includes("/hour") || source.includes("per hour")) return "hour";
   return "";
-};
+}
+
+// Cadence suffix labels (e.g. "/month"), keyed by the cadence detected via
+// getCadenceKey. A factory (not a plain module-level constant) so it can be
+// recomputed whenever the active language changes — a plain constant built
+// once at import time would freeze stale text.
+function getCadenceLabels(t: TFunction): Record<string, string> {
+  return {
+    month: t("findJobs.cadence.month"),
+    year: t("findJobs.cadence.year"),
+    week: t("findJobs.cadence.week"),
+    day: t("findJobs.cadence.day"),
+    hour: t("findJobs.cadence.hour"),
+  };
+}
 
 export function FindJobs() {
+  const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
@@ -119,12 +154,7 @@ export function FindJobs() {
     return () => { active = false; };
   }, []);
 
-  const sortLabels = {
-    recent: "Most recent",
-    salary: "Highest minimum pay",
-    applicants: "Most applicants",
-    nearest: "Nearest to you",
-  } as const;
+  const sortLabels = useMemo(() => getSortLabels(t), [t]);
 
   const normalizeToken = useCallback((value?: string) =>
     String(value || "")
@@ -151,9 +181,9 @@ export function FindJobs() {
   const handleSaveJob = async (jobId: string) => {
     try {
       const nextSaved = await toggleSavedJob(jobId);
-      toast.success(nextSaved ? "Job saved!" : "Job removed from saved");
+      toast.success(nextSaved ? t("findJobs.toast.jobSaved") : t("findJobs.toast.jobRemoved"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update saved jobs.");
+      toast.error(error?.message || t("findJobs.toast.saveJobFailed"));
     }
   };
 
@@ -194,15 +224,17 @@ export function FindJobs() {
   const mapApiJob = useCallback((job: ApiJob): Job => {
     const companyName = getCompanyName(job.jobPoster);
     const categoryName =
-      typeof job.category === "string" ? job.category : job.category?.name || "General";
+      typeof job.category === "string" ? job.category : job.category?.name || t("findJobs.card.categoryFallback");
+    const cadenceLabels = getCadenceLabels(t);
     const salaryLabel = (() => {
-      if (typeof job.salary === "number") return `₱${job.salary.toLocaleString()}`;
+      if (typeof job.salary === "number") return formatCurrency(job.salary, { maximumFractionDigits: 0 });
       const raw = `${job.salary || ""}`.trim();
       if (!raw) return "—";
       const numeric = Number.parseFloat(raw.replace(/,/g, "").replace(/[^0-9.]/g, ""));
-      const cadence = normalizeCadenceLabel(raw);
+      const cadenceKey = getCadenceKey(raw);
+      const cadence = cadenceKey ? cadenceLabels[cadenceKey] : "";
       if (Number.isFinite(numeric) && numeric > 0) {
-        return `₱${numeric.toLocaleString()}${cadence ? ` ${cadence}` : ""}`;
+        return `${formatCurrency(numeric, { maximumFractionDigits: 0 })}${cadence ? ` ${cadence}` : ""}`;
       }
       return raw
         .replace(/\$/g, "₱")
@@ -217,7 +249,7 @@ export function FindJobs() {
       company: companyName,
       applicants: job.applicants?.length || 0,
       type: getJobTypeLabel(job.jobType),
-      location: job.location || "Location not specified",
+      location: job.location || t("findJobs.card.locationFallback"),
       salary: salaryLabel,
       postedDaysAgo: getPostedDays(job.createdAt),
       saved: false,
@@ -227,7 +259,7 @@ export function FindJobs() {
       urgent: Boolean(job.urgent),
       deadline: job.deadline,
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -293,7 +325,7 @@ export function FindJobs() {
         setJobs(mapped);
       } catch (error: any) {
         if (!isMounted) return;
-        setLoadError(error?.message || "Failed to load jobs.");
+        setLoadError(error?.message || t("findJobs.toast.loadJobsFailed"));
         setJobs([]);
       } finally {
         if (isMounted) setIsLoading(false);
@@ -303,7 +335,7 @@ export function FindJobs() {
     return () => {
       isMounted = false;
     };
-  }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob]);
+  }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob, t]);
 
   const parseSalaryValue = (value: string | number) => {
     if (typeof value === "number") {
@@ -314,12 +346,12 @@ export function FindJobs() {
     return Number.isFinite(amount) ? amount : 0;
   };
 
-  const getSalarySuffix = (salary: string) => {
+  const getSalaryDisplay = (salary: string) => {
     const normalized = salary.toLowerCase();
-    if (normalized === "—") return "";
-    if (normalized.includes("/")) return "";
-    if (normalized.includes("per month") || normalized.includes("per year")) return "";
-    return " minimum";
+    if (normalized === "—") return salary;
+    if (normalized.includes("/")) return salary;
+    if (normalized.includes("per month") || normalized.includes("per year")) return salary;
+    return t("findJobs.card.salaryMinimum", { salary });
   };
 
   const jobsWithSavedState = jobs.map((job) => ({
@@ -362,7 +394,7 @@ export function FindJobs() {
   });
 
   const workerCity = workerLocation.city.trim();
-  const workerLocationLabel = workerCity || "Set your city";
+  const workerLocationLabel = workerCity || t("findJobs.hero.setCityLabel");
 
   const savePreferences = async () => {
     setSavingPreferences(true);
@@ -371,10 +403,10 @@ export function FindJobs() {
         preferredCategories: preferredCategoryIds,
         jobPreferences: jobPreferenceText.split(",").map((item) => item.trim()).filter(Boolean),
       });
-      toast.success("Job matching preferences saved.");
+      toast.success(t("findJobs.toast.preferencesSaved"));
       setReloadKey((value) => value + 1);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to save job preferences.");
+      toast.error(error?.message || t("findJobs.toast.preferencesSaveFailed"));
     } finally {
       setSavingPreferences(false);
     }
@@ -385,9 +417,9 @@ export function FindJobs() {
       <section className="relative overflow-hidden rounded-3xl bg-[#1C4D8D] px-5 py-7 text-white shadow-[0_14px_36px_rgba(28,77,141,0.18)] sm:px-8 lg:px-10" aria-labelledby="job-search-heading">
         <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-blue-400/10" aria-hidden="true" />
         <div className="relative max-w-4xl">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/85">Job search</p>
-          <h1 id="job-search-heading" className="mt-2 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">Find your next opportunity</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">Search local jobs, compare guaranteed pay, and save the opportunities you like.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/85">{t("findJobs.hero.eyebrow")}</p>
+          <h1 id="job-search-heading" className="mt-2 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">{t("findJobs.hero.title")}</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">{t("findJobs.hero.subtitle")}</p>
         </div>
 
         <form
@@ -396,7 +428,7 @@ export function FindJobs() {
           onSubmit={(event) => event.preventDefault()}
         >
           <label className="relative min-w-0">
-            <span className="sr-only">Search jobs</span>
+            <span className="sr-only">{t("findJobs.hero.searchAria")}</span>
             <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
               type="search"
@@ -407,12 +439,12 @@ export function FindJobs() {
                 else next.delete("q");
                 setSearchParams(next);
               }}
-              placeholder="Job title, company, or category"
+              placeholder={t("findJobs.hero.searchPlaceholder")}
               className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500"
             />
           </label>
           <label className="min-w-0">
-            <span className="sr-only">Filter by category</span>
+            <span className="sr-only">{t("findJobs.hero.categoryFilterAria")}</span>
             <select
               value={selectedCategory}
               onChange={(event) => {
@@ -423,11 +455,11 @@ export function FindJobs() {
               }}
               className="h-14 w-full rounded-xl border-0 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">All categories</option>
+              <option value="">{t("findJobs.hero.allCategories")}</option>
               {categories.map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}
             </select>
           </label>
-          <button type="button" onClick={() => navigate(ROUTES.settings)} className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl bg-white px-4 text-left text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D]" aria-label={`${workerCity ? "Jobs in" : "Set job search city"}: ${workerLocationLabel}`}>
+          <button type="button" onClick={() => navigate(ROUTES.settings)} className="flex min-h-14 min-w-0 items-center gap-3 rounded-xl bg-white px-4 text-left text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#1C4D8D]" aria-label={workerCity ? t("findJobs.hero.cityButtonAriaSet", { location: workerLocationLabel }) : t("findJobs.hero.cityButtonAriaUnset", { location: workerLocationLabel })}>
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
             <span className="truncate text-sm font-semibold">{workerLocationLabel}</span>
           </button>
@@ -436,7 +468,7 @@ export function FindJobs() {
             minDate={new Date()}
             value={deadlineRange}
             onChange={setDeadlineRange}
-            placeholder="Any deadline"
+            placeholder={t("findJobs.hero.deadlinePlaceholder")}
             className="min-w-0"
             buttonClassName="flex h-14 w-full items-center gap-2 rounded-xl border-0 bg-white px-4 text-left text-sm font-semibold text-slate-700 outline-none transition focus:ring-2 focus:ring-blue-500"
           />
@@ -446,21 +478,21 @@ export function FindJobs() {
       {isLocationLoaded && !workerCity && (
         <aside role="status" className="flex flex-col gap-3 rounded-2xl border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-bold text-slate-950">Add your city to find local jobs</p>
-            <p className="mt-1 text-sm text-slate-600">MicroJobs currently shows opportunities from your city or municipality only.</p>
+            <p className="font-bold text-slate-950">{t("findJobs.locationBanner.title")}</p>
+            <p className="mt-1 text-sm text-slate-600">{t("findJobs.locationBanner.subtitle")}</p>
           </div>
-          <button type="button" onClick={() => navigate(ROUTES.settings)} className="brand-primary-interactive min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold">Update location</button>
+          <button type="button" onClick={() => navigate(ROUTES.settings)} className="brand-primary-interactive min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold">{t("findJobs.locationBanner.updateLocation")}</button>
         </aside>
       )}
 
       <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3">
           <div>
-            <p className="text-sm font-bold text-slate-900">Matching preferences</p>
-            <p className="mt-0.5 text-xs text-slate-500">Optional categories and keywords for recommendations.</p>
+            <p className="text-sm font-bold text-slate-900">{t("findJobs.preferences.title")}</p>
+            <p className="mt-0.5 text-xs text-slate-500">{t("findJobs.preferences.subtitle")}</p>
           </div>
-          <span className="shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:hidden">Manage</span>
-          <span className="hidden shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:inline">Close</span>
+          <span className="shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:hidden">{t("findJobs.preferences.manage")}</span>
+          <span className="hidden shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:inline">{t("findJobs.preferences.close")}</span>
         </summary>
         <div className="border-t border-slate-100 px-5 pb-5 pt-4">
           <div className="flex flex-wrap gap-2">
@@ -486,12 +518,12 @@ export function FindJobs() {
             })}
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <label htmlFor="job-preferences" className="sr-only">Job preference keywords</label>
+            <label htmlFor="job-preferences" className="sr-only">{t("findJobs.preferences.keywordsLabel")}</label>
             <input
               id="job-preferences"
               value={jobPreferenceText}
               onChange={(event) => setJobPreferenceText(event.target.value)}
-              placeholder="Keywords such as repair, delivery, installation"
+              placeholder={t("findJobs.preferences.keywordsPlaceholder")}
               className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
             />
             <button
@@ -500,7 +532,7 @@ export function FindJobs() {
               disabled={savingPreferences}
               className="min-h-11 rounded-xl bg-[#1C4D8D] px-5 text-sm font-bold text-white transition hover:bg-[#163F75] disabled:opacity-50"
             >
-              {savingPreferences ? "Saving..." : "Save preferences"}
+              {savingPreferences ? t("findJobs.preferences.saving") : t("findJobs.preferences.save")}
             </button>
           </div>
         </div>
@@ -509,29 +541,29 @@ export function FindJobs() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xl font-bold leading-tight text-slate-950 sm:text-2xl" aria-live="polite">
-            {sortedJobs.length} {sortedJobs.length === 1 ? "job" : "jobs"} found
+            {t("findJobs.results.countLabel", { count: sortedJobs.length })}
           </p>
-          <p className="mt-1 text-sm text-slate-500">Opportunities are sorted by {sortLabels[sortBy].toLowerCase()}.</p>
+          <p className="mt-1 text-sm text-slate-500">{t("findJobs.results.sortedBy", { sort: sortLabels[sortBy].toLowerCase() })}</p>
         </div>
         <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-600 shadow-sm focus-within:ring-2 focus-within:ring-blue-600">
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-          <span className="sr-only">Sort jobs</span>
-          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="min-h-10 bg-transparent text-sm font-semibold outline-none" aria-label="Sort jobs">
+          <span className="sr-only">{t("findJobs.sort.ariaLabel")}</span>
+          <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="min-h-10 bg-transparent text-sm font-semibold outline-none" aria-label={t("findJobs.sort.ariaLabel")}>
             {Object.entries(sortLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
       </div>
 
       {isLoading && (
-        <StatusState tone="loading" title="Loading jobs" description="Finding current opportunities for you." />
+        <StatusState tone="loading" title={t("findJobs.status.loading.title")} description={t("findJobs.status.loading.description")} />
       )}
 
       {loadError && !isLoading && (
-        <StatusState tone="error" title="Jobs could not be loaded" description={loadError} action={<Button onClick={() => setReloadKey((value) => value + 1)}>Try again</Button>} />
+        <StatusState tone="error" title={t("findJobs.status.error.title")} description={loadError} action={<Button onClick={() => setReloadKey((value) => value + 1)}>{t("findJobs.status.error.retry")}</Button>} />
       )}
 
       {!isLoading && !loadError && sortedJobs.length === 0 && (
-        <StatusState title={searchQuery ? "No jobs match your search" : "No jobs are available"} description={searchQuery ? "Try a different title, company, or category." : "Please check again later for new opportunities."} />
+        <StatusState title={searchQuery ? t("findJobs.status.empty.searchTitle") : t("findJobs.status.empty.defaultTitle")} description={searchQuery ? t("findJobs.status.empty.searchDescription") : t("findJobs.status.empty.defaultDescription")} />
       )}
 
       {!isLoading && !loadError && sortedJobs.length > 0 && (
@@ -545,7 +577,7 @@ export function FindJobs() {
                 company: job.company,
                 location: job.location,
                 type: job.type,
-                salary: `${job.salary}${getSalarySuffix(job.salary)}`,
+                salary: getSalaryDisplay(job.salary),
                 categoryId: job.categoryId,
                 categoryName: job.category,
                 skills: job.skills,

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -12,6 +13,7 @@ import { PasswordChecklist } from '../../components/auth/AuthControls';
 import { isStrongPassword } from '../../lib/passwordPolicy';
 
 export default function ChangePassword({ onBack }: { onBack?: () => void }) {
+  const { t } = useTranslation('worker');
   const [currentPassword, setCurrentPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -27,14 +29,14 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   const getAuthHeader = async () => {
     const token = await AsyncStorage.getItem('auth_token');
     if (!token) {
-      throw new Error('Please sign in again to continue.');
+      throw new Error(t('changePassword.errors.notSignedIn'));
     }
     return { Authorization: `Bearer ${token}` };
   };
 
   const handleRequestOtp = async () => {
     if (!currentPassword) {
-      toast.error('Enter your current password first.');
+      toast.error(t('changePassword.toast.enterCurrentPassword'));
       return;
     }
 
@@ -51,17 +53,17 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
           },
           body: JSON.stringify({ currentPassword }),
         },
-        'Failed to request OTP.'
+        t('changePassword.apiFallback.requestOtpFailed')
       );
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to request OTP.');
+        throw new Error(result.message || t('changePassword.apiFallback.requestOtpFailed'));
       }
 
       setOtpRequested(true);
-      toast.success('Check your email for the password change OTP code.');
+      toast.success(t('changePassword.toast.otpSent'));
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to request OTP.');
+      toast.error(error?.message || t('changePassword.apiFallback.requestOtpFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -70,19 +72,19 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
   const handleSave = () => {
     setFieldError('');
     if (!currentPassword || !otpCode || !newPassword || !confirmPassword) {
-      toast.error('Complete all fields to continue.');
+      toast.error(t('changePassword.toast.completeFields'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setFieldError('New password and confirmation do not match.');
+      setFieldError(t('changePassword.errors.passwordMismatch'));
       return;
     }
     if (newPassword === currentPassword) {
-      toast.error('New password must be different from your current password.');
+      toast.error(t('changePassword.toast.samePassword'));
       return;
     }
     if (!isStrongPassword(newPassword)) {
-      setFieldError('Your new password does not meet all requirements.');
+      setFieldError(t('changePassword.errors.weakPassword'));
       return;
     }
 
@@ -104,17 +106,17 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
               newPassword,
             }),
           },
-          'Failed to change password.'
+          t('changePassword.apiFallback.changePasswordFailed')
         );
 
         if (!result.ok) {
-          throw new Error(result.message || 'Failed to change password.');
+          throw new Error(result.message || t('changePassword.apiFallback.changePasswordFailed'));
         }
 
-        toast.success('Your password has been updated.');
+        toast.success(t('changePassword.toast.passwordUpdated'));
         onBack?.();
       } catch (error: any) {
-        toast.error(error?.message || 'Failed to change password.');
+        toast.error(error?.message || t('changePassword.apiFallback.changePasswordFailed'));
       } finally {
         setIsSubmitting(false);
       }
@@ -125,18 +127,18 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Change Password" subtitle="Update your account credentials" onBack={onBack} />
+      <AppHeader title={t('changePassword.headerTitle')} subtitle={t('changePassword.headerSubtitle')} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.label}>Current Password</Text>
+          <Text style={styles.label}>{t('changePassword.labels.currentPassword')}</Text>
           <View style={styles.inputRow}>
             <TextInput
               style={[styles.input, styles.inputFlex]}
               secureTextEntry={!showCurrentPassword}
               value={currentPassword}
               onChangeText={setCurrentPassword}
-              placeholder="Enter current password"
+              placeholder={t('changePassword.placeholders.currentPassword')}
               autoCapitalize="none"
             />
             <TouchableOpacity style={styles.eyeButton} onPress={() => setShowCurrentPassword((prev) => !prev)}>
@@ -146,32 +148,32 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
 
           {!otpRequested ? (
             <TouchableOpacity style={[styles.primaryButton, isSubmitting && styles.buttonDisabled]} onPress={handleRequestOtp} disabled={isSubmitting}>
-              {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>Send OTP</Text>}
+              {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>{t('changePassword.button.sendOtp')}</Text>}
             </TouchableOpacity>
           ) : null}
 
           {otpRequested ? (
             <>
-              <Text style={styles.otpHint}>Enter the OTP sent to your email to continue.</Text>
+              <Text style={styles.otpHint}>{t('changePassword.otpHint')}</Text>
 
-              <Text style={styles.label}>OTP Code</Text>
+              <Text style={styles.label}>{t('changePassword.labels.otpCode')}</Text>
               <TextInput
                 style={styles.input}
                 value={otpCode}
                 onChangeText={(value) => setOtpCode(value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter 6-digit OTP"
+                placeholder={t('changePassword.placeholders.otpCode')}
                 keyboardType="number-pad"
                 maxLength={6}
               />
 
-              <Text style={styles.label}>New Password</Text>
+              <Text style={styles.label}>{t('changePassword.labels.newPassword')}</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={[styles.input, styles.inputFlex]}
                   secureTextEntry={!showNewPassword}
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="Enter new password"
+                  placeholder={t('changePassword.placeholders.newPassword')}
                   autoCapitalize="none"
                 />
                 <TouchableOpacity style={styles.eyeButton} onPress={() => setShowNewPassword((prev) => !prev)}>
@@ -179,14 +181,14 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>Confirm Password</Text>
+              <Text style={styles.label}>{t('changePassword.labels.confirmPassword')}</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={[styles.input, styles.inputFlex]}
                   secureTextEntry={!showConfirmPassword}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Re-enter new password"
+                  placeholder={t('changePassword.placeholders.confirmPassword')}
                   autoCapitalize="none"
                 />
                 <TouchableOpacity style={styles.eyeButton} onPress={() => setShowConfirmPassword((prev) => !prev)}>
@@ -198,7 +200,7 @@ export default function ChangePassword({ onBack }: { onBack?: () => void }) {
               {fieldError ? <Text style={styles.fieldError}>{fieldError}</Text> : null}
 
               <TouchableOpacity style={[styles.primaryButton, isSubmitting && styles.buttonDisabled]} onPress={handleSave} disabled={isSubmitting}>
-                {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>Update Password</Text>}
+                {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>{t('changePassword.button.updatePassword')}</Text>}
               </TouchableOpacity>
             </>
           ) : null}

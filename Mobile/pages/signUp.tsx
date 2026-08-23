@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
@@ -23,13 +24,13 @@ type Role = 'hire' | 'work' | 'both';
 type Props = { onBack: () => void; onNavigateToSignIn: () => void; onNavigateToVerify: (email: string) => void };
 type Errors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirm', string>>;
 
-const roles: Array<{ value: Role; title: string; subtitle: string; icon: keyof typeof Feather.glyphMap }> = [
-  { value: 'work', title: 'Find work', subtitle: 'Browse and complete local jobs', icon: 'user' },
-  { value: 'hire', title: 'Hire people', subtitle: 'Post jobs and manage applicants', icon: 'briefcase' },
-  { value: 'both', title: 'Both', subtitle: 'Work and hire from one account', icon: 'users' },
-];
-
 export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify }: Props) {
+  const { t } = useTranslation('auth');
+  const roles = useMemo<Array<{ value: Role; title: string; subtitle: string; icon: keyof typeof Feather.glyphMap }>>(() => [
+    { value: 'work', title: t('signUp.roles.work.title'), subtitle: t('signUp.roles.work.subtitle'), icon: 'user' },
+    { value: 'hire', title: t('signUp.roles.hire.title'), subtitle: t('signUp.roles.hire.subtitle'), icon: 'briefcase' },
+    { value: 'both', title: t('signUp.roles.both.title'), subtitle: t('signUp.roles.both.subtitle'), icon: 'users' },
+  ], [t]);
   const [step, setStep] = useState(1);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -57,9 +58,9 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 
   const validateIdentity = () => {
     const next: Errors = {};
-    if (!parseFullName(fullName)) next.fullName = 'Enter your valid first and last name.';
-    if (!isValidEmail(email)) next.email = 'Enter a valid email address.';
-    if (!isValidPhone(normalizePhone(phone))) next.phone = 'Use a valid Philippine mobile number (09XXXXXXXXX).';
+    if (!parseFullName(fullName)) next.fullName = t('signUp.errors.fullNameInvalid');
+    if (!isValidEmail(email)) next.email = t('signUp.errors.emailInvalid');
+    if (!isValidPhone(normalizePhone(phone))) next.phone = t('signUp.errors.phoneInvalid');
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -67,8 +68,8 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
 
   const submit = async () => {
     const next: Errors = {};
-    if (!isStrongPassword(password)) next.password = 'Your password does not meet all requirements.';
-    if (!confirm || password !== confirm) next.confirm = 'Passwords must match.';
+    if (!isStrongPassword(password)) next.password = t('signUp.errors.passwordWeak');
+    if (!confirm || password !== confirm) next.confirm = t('signUp.errors.confirmMismatch');
     setErrors(next);
     if (Object.keys(next).length) return;
     const name = parseFullName(fullName);
@@ -80,28 +81,28 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
       const result = await apiRequest(`${API_URL}/auth/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: name.normalized, firstName: name.firstName, lastName: name.lastName, email: normalizedEmail, phoneNumber: normalizedPhone, password, role }),
-      }, 'Registration failed.');
-      if (!result.ok) { toast.error(`${result.message || 'Registration failed.'} (HTTP ${result.status})`); return; }
+      }, t('signUp.toast.registrationFailedFallback'));
+      if (!result.ok) { toast.error(t('signUp.toast.httpError', { message: result.message || t('signUp.toast.registrationFailedFallback'), status: result.status })); return; }
       await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
-      toast.success('Account created. Verify your email to continue.');
+      toast.success(t('signUp.toast.accountCreated'));
       onNavigateToVerify(normalizedEmail);
-    } catch (error: any) { toast.error(error?.message || 'Unable to create your account.'); }
+    } catch (error: any) { toast.error(error?.message || t('signUp.toast.accountCreationFailed')); }
     finally { setLoading(false); }
   };
 
   return <AuthScreenLayout
-    title="Create account"
-    subtitle={step === 1 ? 'Start with your contact details.' : step === 2 ? 'Tell us how you will use MicroJobs.' : 'Secure your new account.'}
+    title={t('signUp.title')}
+    subtitle={step === 1 ? t('signUp.subtitleStep1') : step === 2 ? t('signUp.subtitleStep2') : t('signUp.subtitleStep3')}
     onBack={goBack}
   >
-    <View style={styles.progressHeader}><Text style={styles.stepText}>Step {step} of 3</Text><Text style={styles.percent}>{progress}%</Text></View>
+    <View style={styles.progressHeader}><Text style={styles.stepText}>{t('signUp.progressStep', { step })}</Text><Text style={styles.percent}>{progress}%</Text></View>
     <View style={styles.progressTrack}><View style={[styles.progressFill, { width: progressWidth }]} /></View>
-    <AuthStepCard step={step} title={step === 1 ? 'Your details' : step === 2 ? 'Choose your role' : 'Create a password'} style={styles.card}>
+    <AuthStepCard step={step} title={step === 1 ? t('signUp.stepTitleDetails') : step === 2 ? t('signUp.stepTitleRole') : t('signUp.stepTitlePassword')} style={styles.card}>
       {step === 1 ? <>
-        <AuthField label="Full name" icon="user" placeholder="Juan Dela Cruz" value={fullName} onChangeText={(v) => { setFullName(v); setErrors((e) => ({ ...e, fullName: undefined })); }} error={errors.fullName} autoComplete="name" textContentType="name" returnKeyType="next" />
-        <AuthField label="Email address" icon="mail" placeholder="you@example.com" value={email} onChangeText={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }} error={errors.email} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" returnKeyType="next" />
-        <AuthField label="Mobile number" icon="phone" placeholder="09XXXXXXXXX" value={phone} onChangeText={(v) => { setPhone(v.replace(/\D/g, '').slice(0, 12)); setErrors((e) => ({ ...e, phone: undefined })); }} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
-        <AuthButton label="Continue" onPress={continueFromIdentity} />
+        <AuthField label={t('signUp.fullNameLabel')} icon="user" placeholder={t('signUp.fullNamePlaceholder')} value={fullName} onChangeText={(v) => { setFullName(v); setErrors((e) => ({ ...e, fullName: undefined })); }} error={errors.fullName} autoComplete="name" textContentType="name" returnKeyType="next" />
+        <AuthField label={t('signUp.emailLabel')} icon="mail" placeholder={t('signUp.emailPlaceholder')} value={email} onChangeText={(v) => { setEmail(v); setErrors((e) => ({ ...e, email: undefined })); }} error={errors.email} keyboardType="email-address" autoCapitalize="none" autoComplete="email" textContentType="emailAddress" returnKeyType="next" />
+        <AuthField label={t('signUp.phoneLabel')} icon="phone" placeholder={t('signUp.phonePlaceholder')} value={phone} onChangeText={(v) => { setPhone(v.replace(/\D/g, '').slice(0, 12)); setErrors((e) => ({ ...e, phone: undefined })); }} error={errors.phone} keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber" />
+        <AuthButton label={t('signUp.continue')} onPress={continueFromIdentity} />
       </> : null}
       {step === 2 ? <>
         {roles.map((item) => <TouchableOpacity key={item.value} style={[styles.role, role === item.value && styles.roleSelected]} onPress={() => setRole(item.value)} accessibilityRole="radio" accessibilityState={{ checked: role === item.value }}>
@@ -109,23 +110,23 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
           <View style={styles.roleCopy}><Text style={styles.roleTitle}>{item.title}</Text><Text style={styles.roleSubtitle}>{item.subtitle}</Text></View>
           <Feather name={role === item.value ? 'check-circle' : 'circle'} size={22} color={role === item.value ? AUTH_COLORS.primary : AUTH_COLORS.textTertiary} />
         </TouchableOpacity>)}
-        <AuthButton label="Continue" onPress={() => setStep(3)} />
+        <AuthButton label={t('signUp.continue')} onPress={() => setStep(3)} />
       </> : null}
       {step === 3 ? <>
-        <AuthField label="Password" icon="lock" placeholder="Create a strong password" value={password} onChangeText={(v) => { setPassword(v); setErrors((e) => ({ ...e, password: undefined })); }} error={errors.password} secure revealed={showPassword} onToggleReveal={() => setShowPassword(!showPassword)} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
-        <AuthField label="Confirm password" icon="lock" placeholder="Enter it again" value={confirm} onChangeText={(v) => { setConfirm(v); setErrors((e) => ({ ...e, confirm: undefined })); }} error={errors.confirm} secure revealed={showConfirm} onToggleReveal={() => setShowConfirm(!showConfirm)} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
+        <AuthField label={t('signUp.passwordLabel')} icon="lock" placeholder={t('signUp.passwordPlaceholder')} value={password} onChangeText={(v) => { setPassword(v); setErrors((e) => ({ ...e, password: undefined })); }} error={errors.password} secure revealed={showPassword} onToggleReveal={() => setShowPassword(!showPassword)} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
+        <AuthField label={t('signUp.confirmPasswordLabel')} icon="lock" placeholder={t('signUp.confirmPasswordPlaceholder')} value={confirm} onChangeText={(v) => { setConfirm(v); setErrors((e) => ({ ...e, confirm: undefined })); }} error={errors.confirm} secure revealed={showConfirm} onToggleReveal={() => setShowConfirm(!showConfirm)} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
         <PasswordChecklist password={password} confirm={confirm} />
-        <AuthButton label="Create account" onPress={submit} loading={loading} />
+        <AuthButton label={t('signUp.createAccount')} onPress={submit} loading={loading} />
       </> : null}
     </AuthStepCard>
     <View style={styles.signInRow}>
-      <Text style={styles.muted}>Already have an account?</Text>
+      <Text style={styles.muted}>{t('signUp.alreadyHaveAccount')}</Text>
       <TouchableOpacity
         style={styles.signInLinkTap}
         onPress={onNavigateToSignIn}
         accessibilityRole="button"
-        accessibilityLabel="Sign in to an existing account"
-      ><Text style={styles.link}>Sign in</Text></TouchableOpacity>
+        accessibilityLabel={t('signUp.signInLinkA11y')}
+      ><Text style={styles.link}>{t('signUp.signInLink')}</Text></TouchableOpacity>
     </View>
   </AuthScreenLayout>;
 }

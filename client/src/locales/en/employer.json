@@ -1,0 +1,496 @@
+{
+  "postJob": {
+    "jobType": {
+      "shortTerm": { "label": "Short-term", "description": "One-time or temporary work with a clear finish." },
+      "sideHustle": { "label": "Side hustle", "description": "Flexible work someone can take on for extra income." },
+      "recruiting": { "label": "Recruiting", "description": "Hire for an ongoing or longer-term role." }
+    },
+    "requiredFields": {
+      "title": "Job title",
+      "description": "Job description",
+      "location": "Location",
+      "salary": "Minimum guaranteed pay",
+      "jobType": "Job type",
+      "deadline": "Deadline",
+      "category": "Category"
+    },
+    "status": {
+      "available": "Available",
+      "inProgress": "In Progress",
+      "closed": "Closed",
+      "cancelled": "Cancelled",
+      "completed": "Completed"
+    },
+    "errors": {
+      "loadFailed": "Failed to load job postings.",
+      "missingFields": "Please complete: {{fields}}.",
+      "invalidPositions": "Please provide a whole number of workers needed (minimum 1).",
+      "invalidDeadline": "Please provide a valid deadline date.",
+      "invalidSalary": "Minimum guaranteed pay must be greater than zero.",
+      "updateFailed": "Failed to update job.",
+      "postFailed": "Failed to post job.",
+      "deleteFailed": "Failed to delete job.",
+      "statusUpdateFailed": "Failed to update job status."
+    },
+    "actions": {
+      "postJob": "Post a Job",
+      "cancel": "Cancel",
+      "updating": "Updating...",
+      "posting": "Posting...",
+      "saveChanges": "Save changes",
+      "postJobWithPrice": "Post job · {{amount}}"
+    },
+    "stats": {
+      "totalPostings": "Total Postings",
+      "active": "Active"
+    },
+    "filters": {
+      "allStatuses": "All Statuses",
+      "allJobs": "All Jobs",
+      "legacyOption": "{{type}} (legacy)",
+      "searchPlaceholder": "Search jobs by title, location, skill, or category..."
+    },
+    "loading": "Loading your job postings...",
+    "emptyState": { "title": "No job postings yet", "subtitle": "Post your first job to start receiving applications" },
+    "card": {
+      "locationNotSet": "Location not set",
+      "jobTypeNotSet": "Job type not set",
+      "payNotSet": "Not set",
+      "edit": "Edit",
+      "reopen": "Reopen",
+      "close": "Close",
+      "delete": "Delete"
+    },
+    "noMatch": {
+      "title": "No jobs match your filters",
+      "subtitle": "Try a different keyword or clear one of the filters.",
+      "clearFilters": "Clear Filters"
+    },
+    "modal": {
+      "employerWorkspace": "Employer workspace",
+      "editTitle": "Edit job details",
+      "createTitle": "Create a job post",
+      "subtitle": "Only the essential details workers need to decide and apply.",
+      "closeAria": "Close modal",
+      "legacyTypeWarning": "This existing post uses the legacy type “{{type}}”. Choose a current type to modernize it.",
+      "roleOverview": { "title": "Role overview", "subtitle": "Name the work and choose the opportunity that fits it best." },
+      "fields": {
+        "jobTitle": { "label": "Job Title", "placeholder": "e.g. Weekend event assistant" },
+        "category": { "label": "Category", "placeholder": "Select category" },
+        "opportunityType": "Opportunity Type"
+      },
+      "location": {
+        "title": "Work location",
+        "subtitle": "Choose the area first, then add an optional landmark or street.",
+        "province": { "label": "Province", "loading": "Loading provinces...", "placeholder": "Select province" },
+        "city": { "label": "City / Municipality", "selectProvinceFirst": "Select province first", "loading": "Loading cities...", "placeholder": "Select city/municipality" },
+        "barangay": { "label": "Barangay", "selectCityFirst": "Select city first", "loading": "Loading barangays...", "placeholder": "Select barangay" },
+        "address": { "label": "Street or landmark", "optional": "(optional)", "placeholder": "e.g. Rizal Street, near City Hall" },
+        "preview": { "label": "Location preview:", "placeholder": "Select province, city, and barangay" }
+      },
+      "pay": {
+        "title": "Pay and schedule",
+        "subtitle": "Set the guaranteed pay, worker count, and completion deadline.",
+        "label": "Minimum Guaranteed Pay per Worker (PHP)",
+        "ariaLabel": "Minimum guaranteed pay per worker",
+        "placeholder": "e.g. 1500",
+        "helper": "Enter the minimum amount guaranteed to each hired worker. This amount is secured in escrow."
+      },
+      "deadline": { "label": "Deadline *" },
+      "positions": { "label": "Positions Needed" },
+      "walletSummary": {
+        "estimatedValue": "Estimated job value",
+        "fundsNeeded": "Wallet funds needed",
+        "formula_one": "{{rate}} × {{count}} worker",
+        "formula_other": "{{rate}} × {{count}} workers"
+      }
+    },
+    "description": {
+      "title": "What the worker will do",
+      "subtitle": "Keep it practical: describe the work, then add only the requirements that matter.",
+      "label": "Job description",
+      "placeholder": "Explain the task, main responsibilities, expected result, and anything the worker should know.",
+      "counter": "{{count}}/3000"
+    },
+    "requirements": {
+      "label": "Requirements",
+      "optional": "(optional)",
+      "placeholder": "One requirement per line\nExample: Available on weekends"
+    },
+    "skills": {
+      "label": "Helpful skills",
+      "optional": "(optional)",
+      "placeholder": "Communication, driving, customer service",
+      "helper": "Separate skills with commas."
+    },
+    "insufficientBalance": {
+      "title": "Insufficient balance",
+      "notNow": "Not now",
+      "topUp": "Top up wallet"
+    },
+    "deleteDialog": {
+      "title": "Delete job",
+      "description": "Delete “{{title}}”? This action cannot be undone.",
+      "defaultTitle": "this job",
+      "confirm": "Delete job"
+    }
+  },
+  "applicationsManagement": {
+    "title": "Applications",
+    "subtitle": "Review applicants by stage, schedule interviews, and run bulk workflow actions safely.",
+    "viewToggle": { "board": "Board", "table": "Table" },
+    "filters": {
+      "searchPlaceholder": "Search by applicant, email, or job title",
+      "searchAriaLabel": "Search applications",
+      "stageAriaLabel": "Filter applications by stage",
+      "allStages": "All stages",
+      "jobAriaLabel": "Filter applications by job",
+      "allJobs": "All jobs"
+    },
+    "status": {
+      "applied": "Applied",
+      "shortlisted": "Shortlisted",
+      "interviewScheduled": "Interview Scheduled",
+      "interviewed": "Interviewed",
+      "offerSent": "Offer Sent",
+      "hired": "Hired",
+      "rejected": "Rejected",
+      "withdrawn": "Withdrawn"
+    },
+    "bulk": {
+      "selectedCount_one": "{{count}} application selected",
+      "selectedCount_other": "{{count}} applications selected",
+      "stageAriaLabel": "Bulk application stage",
+      "moveTo": "Move to {{status}}",
+      "applyBulkStatus": "Apply Bulk Status",
+      "updating": "Updating...",
+      "hideSelected": "Hide Selected"
+    },
+    "errors": { "loadFailed": "Failed to load applications." },
+    "states": {
+      "loading": "Loading applications...",
+      "empty": "No applications matched the current filters."
+    },
+    "board": {
+      "applicantCount_one": "{{count}} applicant",
+      "applicantCount_other": "{{count}} applicants",
+      "emptyColumn": "No applicants here."
+    },
+    "card": {
+      "selectAria": "Select application",
+      "deselectAria": "Deselect application",
+      "noEmail": "No email provided",
+      "matchPercent": "{{percent}}% Match",
+      "untitledRole": "Untitled role",
+      "appliedOn": "Applied {{date}}",
+      "nextInterview": "Next interview: {{date}}",
+      "stats": { "applied": "Applied", "completed": "Completed", "success": "Success" },
+      "hiredViaOffer": "Hired (via offer)",
+      "reschedule": "Reschedule",
+      "schedule": "Schedule",
+      "hide": "Hide",
+      "profile": "Profile",
+      "message": "Message",
+      "viewResume": "View Resume",
+      "rateWorker": "Rate Worker",
+      "reviewSubmitted": "Review submitted",
+      "applicantFallback": "Applicant",
+      "thisRoleFallback": "this role",
+      "completedJobFallback": "Completed job"
+    },
+    "table": {
+      "headers": {
+        "applicant": "Applicant",
+        "role": "Role",
+        "stage": "Stage",
+        "interview": "Interview",
+        "applied": "Applied",
+        "resume": "Resume",
+        "actions": "Actions"
+      },
+      "notScheduled": "Not scheduled",
+      "noResume": "No resume",
+      "actions": { "interview": "Interview", "rate": "Rate" }
+    },
+    "messageDraft": "Hi {{name}}, I would like to discuss your application for {{job}}.",
+    "toast": {
+      "statusMoved": "Application moved to {{status}}.",
+      "statusUpdateFailed": "Failed to update application status.",
+      "hiddenCount_one": "{{count}} application hidden.",
+      "hiddenCount_other": "{{count}} applications hidden.",
+      "hideFailedCount_one": "{{count}} application could not be hidden. Try again.",
+      "hideFailedCount_other": "{{count}} applications could not be hidden. Try again.",
+      "bulkUpdatedCount_one": "Updated {{count}} application.",
+      "bulkUpdatedCount_other": "Updated {{count}} applications.",
+      "bulkFailedCount_one": "{{count}} application could not be updated and remains selected.",
+      "bulkFailedCount_other": "{{count}} applications could not be updated and remain selected.",
+      "bulkUpdateFailed": "Failed to update selected applications.",
+      "interviewDateRequired": "Interview date and time are required.",
+      "interviewRescheduled": "Interview rescheduled.",
+      "interviewScheduledSuccess": "Interview scheduled.",
+      "interviewSaveFailed": "Failed to save interview schedule."
+    },
+    "scheduleModal": {
+      "updateTitle": "Update Interview",
+      "scheduleTitle": "Schedule Interview",
+      "roleFallback": "Role",
+      "subtitle": "{{name}} · {{job}}",
+      "dateLabel": "Date",
+      "timeLabel": "Time",
+      "modeLabel": "Mode",
+      "mode": { "virtual": "Virtual", "onsite": "On-site", "phone": "Phone", "other": "Other" },
+      "locationLabel": "Location or meeting link",
+      "locationPlaceholder": "Google Meet link, office address, or call instructions",
+      "notesLabel": "Notes",
+      "notesPlaceholder": "Interview preparation, interviewer names, or custom instructions",
+      "cancel": "Cancel",
+      "saving": "Saving..."
+    }
+  },
+  "employerDashboard": {
+    "header": {
+      "workspace": "Employer workspace",
+      "title": "Hiring overview",
+      "subtitle": "See what needs attention and move candidates forward.",
+      "manageJobs": "Manage jobs",
+      "postJob": "Post a job"
+    },
+    "stats": {
+      "activeJobs": "Active jobs",
+      "loadingJobPosts": "Loading job posts...",
+      "totalJobPosts_one": "{{count}} Total job post",
+      "totalJobPosts_other": "{{count}} Total job posts",
+      "applications": "Applications",
+      "loadingCandidates": "Loading candidates...",
+      "awaitingReview": "{{count}} Awaiting initial review",
+      "shortlisted": "Shortlisted",
+      "shortlistedHelper": "Candidates ready for the next step",
+      "hired": "Hired",
+      "hiredHelper": "Workers selected across your jobs"
+    },
+    "pipeline": {
+      "title": "Candidate pipeline",
+      "subtitle": "Current application status across your jobs.",
+      "totalBadge": "{{count}} total",
+      "newApplications": "New applications",
+      "shortlisted": "Shortlisted",
+      "interviewing": "Interviewing",
+      "hired": "Hired",
+      "manageApplications": "Manage applications"
+    },
+    "recentActivity": {
+      "title": "Recent activity",
+      "subtitle": "Latest movement from your candidates.",
+      "viewAll": "View all",
+      "loadingAria": "Loading recent activity",
+      "emptyTitle": "No candidate activity yet",
+      "emptySubtitle": "New applications and hiring updates will appear here.",
+      "applicantFallback": "Applicant",
+      "positionFallback": "a position",
+      "events": {
+        "hired": "<name>{{name}}</name> was hired for <title>{{title}}</title>",
+        "rejected": "<name>{{name}}</name> was rejected for <title>{{title}}</title>",
+        "shortlisted": "<name>{{name}}</name> shortlisted for <title>{{title}}</title>",
+        "interviewed": "<name>{{name}}</name> scheduled for interview — <title>{{title}}</title>",
+        "applied": "New application from <name>{{name}}</name> for <title>{{title}}</title>"
+      },
+      "time": {
+        "justNow": "just now",
+        "minutesAgo_one": "{{count}}m ago",
+        "minutesAgo_other": "{{count}}m ago",
+        "hoursAgo_one": "{{count}}h ago",
+        "hoursAgo_other": "{{count}}h ago",
+        "oneDayAgo": "1 day ago",
+        "daysAgo_one": "{{count}} day ago",
+        "daysAgo_other": "{{count}} days ago"
+      }
+    },
+    "errors": { "loadFailed": "Failed to load the employer dashboard." }
+  },
+  "jobsManagement": {
+    "header": {
+      "title": "Jobs Management",
+      "subtitle": "Track job postings, candidate matches, and hiring progress.",
+      "viewApplications": "View Applications"
+    },
+    "states": {
+      "loading": "Loading job postings...",
+      "empty": "No job postings found."
+    },
+    "status": {
+      "open": "Open",
+      "hold": "Hold",
+      "closed": "Closed"
+    },
+    "matchQuality": {
+      "strong": "Strong Match",
+      "good": "Good Match",
+      "fair": "Fair Match"
+    },
+    "workLocation": {
+      "remote": "Remote",
+      "onSite": "On Site"
+    },
+    "workType": {
+      "shortTerm": "Short-term",
+      "sideHustle": "Side hustle",
+      "recruiting": "Recruiting",
+      "fullTime": "Full Time",
+      "partTime": "Part-time",
+      "freelance": "Freelance",
+      "contract": "Contract",
+      "remote": "Remote"
+    },
+    "actions": { "cancel": "Cancel" },
+    "card": {
+      "departmentFallback": "General",
+      "untitledJob": "Untitled Job",
+      "locationFallback": "Remote",
+      "matchQualityLabel": "Match quality",
+      "minimumPay": "{{amount}} minimum",
+      "minimumPayLabel": "Minimum Pay",
+      "candidatesAppliedLabel": "Candidates Applied",
+      "completedInterviewLabel": "Completed Interview",
+      "positionsCount_one": "{{count}} Position",
+      "positionsCount_other": "{{count}} Positions",
+      "createdByPrefix": "Created by",
+      "createdByYou": "You",
+      "editTooltip": "Edit this job's details",
+      "editDetails": "Edit details",
+      "reopenTooltip": "Reopen this job so workers can apply again",
+      "reopening": "Reopening...",
+      "reopen": "Reopen",
+      "markDoneTooltipBlocked": "Move at least one worker application to Hired first",
+      "markDoneTooltip": "Mark done and auto-pay workers from escrow",
+      "marking": "Marking...",
+      "markAsDone": "Mark as Done",
+      "deleteTooltip": "Delete this job",
+      "deleting": "Deleting...",
+      "delete": "Delete",
+      "viewDetails": "View details",
+      "escrowNote": "Completing the job automatically releases escrow to hired workers' e-wallets."
+    },
+    "toast": {
+      "alreadyCompleted": "This job is already marked as completed.",
+      "markedDoneSuccess": "Job marked as done. Worker payouts were triggered automatically from escrow.",
+      "markDoneFailed": "Failed to mark job as done.",
+      "alreadyOpen": "This job is already open.",
+      "cannotReopenInProgress": "Cannot reopen a job that is currently in progress.",
+      "reopenSuccess": "Job reopened successfully. Workers can now apply again.",
+      "reopenFailed": "Failed to reopen job.",
+      "deleteSuccess": "Job deleted successfully.",
+      "deleteFailed": "Failed to delete job."
+    },
+    "errors": { "loadFailed": "Failed to load job postings." },
+    "modal": {
+      "closeAria": "Close job details",
+      "minimumPayLabel": "Minimum pay",
+      "opportunityLabel": "Opportunity",
+      "positionsLabel": "Positions",
+      "deadlineLabel": "Deadline",
+      "applicationsLabel": "Applications",
+      "postedLabel": "Posted",
+      "descriptionTitle": "Job description",
+      "noDescription": "No description was provided.",
+      "responsibilitiesTitle": "Responsibilities",
+      "requirementsTitle": "Requirements",
+      "noRequirements": "No additional requirements.",
+      "skillsTitle": "Helpful skills",
+      "noSkills": "No specific skills listed.",
+      "close": "Close"
+    },
+    "confirmDone": {
+      "title": "Mark Job as Done",
+      "body": "You are about to complete <b>{{title}}</b>.",
+      "info": "Once completed, escrow funds are automatically released to hired workers' e-wallets.",
+      "confirm": "Confirm Done"
+    },
+    "confirmReopen": {
+      "title": "Reopen Job",
+      "body": "You are about to reopen <b>{{title}}</b>.",
+      "infoRecollect": "Reopening will re-collect the escrow from your employer balance. Workers will be able to apply again.",
+      "infoSimple": "The job will be set back to open and workers will be able to apply again.",
+      "confirm": "Reopen Job"
+    },
+    "confirmDelete": {
+      "title": "Delete Job",
+      "body": "Are you sure you want to delete <b>{{title}}</b>? This action cannot be undone.",
+      "info": "All applications for this job will also be removed. Any unspent escrow will be refunded to your employer balance.",
+      "confirm": "Delete Job"
+    }
+  },
+  "paymentMethods": {
+    "title": "Payment Methods",
+    "subtitle": "Manage cards saved to your employer account.",
+    "addNewCard": "+ Add New Card",
+    "loading": "Loading payment methods...",
+    "emptyState": {
+      "title": "No payment methods yet",
+      "subtitle": "A card appears here only after you add it.",
+      "addFirstCard": "Add your first card"
+    },
+    "card": {
+      "endingIn": "{{brand}} ending in {{last4}}",
+      "holderExpiry": "{{name}} - Expires {{expiry}}",
+      "default": "DEFAULT",
+      "expired": "EXPIRED",
+      "setDefault": "Set as Default",
+      "saving": "Saving...",
+      "removeAria": "Remove {{brand}} ending in {{last4}}"
+    },
+    "form": {
+      "title": "Add New Card",
+      "subtitle": "Only the brand, last four digits, cardholder name, and expiry are saved.",
+      "cancel": "Cancel",
+      "nameLabel": "Name on card",
+      "namePlaceholder": "Juan Dela Cruz",
+      "expiryLabel": "Expiry date",
+      "expiryPlaceholder": "Expiry (MM/YY)",
+      "numberLabel": "Card number",
+      "numberPlaceholder": "Card Number",
+      "cvvLabel": "Security code",
+      "cvvPlaceholder": "CVV",
+      "saveCard": "Save card",
+      "saving": "Saving...",
+      "errors": {
+        "name": "Name on card is required.",
+        "number": "Enter a valid card number.",
+        "expiry": "Enter a future expiry in MM/YY format.",
+        "cvv": "Enter a valid 3 or 4 digit security code."
+      }
+    },
+    "removeDialog": {
+      "title": "Remove payment method",
+      "description": "Remove {{brand}} ending in {{last4}}? Existing transaction records will remain available.",
+      "confirm": "Remove card",
+      "defaultBrand": "card",
+      "defaultLast4": "••••"
+    },
+    "toast": {
+      "loadFailed": "Failed to load payment methods.",
+      "addSuccess": "Payment method added.",
+      "addFailed": "Failed to add payment method.",
+      "defaultUpdateSuccess": "Default payment method updated.",
+      "defaultUpdateFailed": "Failed to update the default payment method.",
+      "removeSuccess": "Payment method removed.",
+      "removeFailed": "Failed to remove payment method."
+    }
+  },
+  "employerPrivacy": {
+    "title": "Employer Privacy",
+    "subtitle": "Control which hiring statistics are visible from your employer profile.",
+    "hideHiredCandidates": {
+      "label": "Hide number of hired candidates",
+      "description": "Keep your hiring count private."
+    },
+    "status": {
+      "saving": "Saving...",
+      "enabled": "Enabled",
+      "disabled": "Disabled"
+    },
+    "toast": {
+      "saveSuccess": "Employer privacy setting saved.",
+      "saveFailed": "Failed to save employer privacy setting."
+    }
+  }
+}

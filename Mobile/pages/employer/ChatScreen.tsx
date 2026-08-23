@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView, Image } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
@@ -35,6 +36,7 @@ interface ChatScreenProps {
 }
 
 export default function ChatScreen({ userId, displayName: initialDisplayName, onBack, liveMessages = [], onOpenNotifications, notificationBadgeCount = 0, isEmployer = false, jobId }: ChatScreenProps) {
+  const { t } = useTranslation('employer');
   const [displayName, setDisplayName] = useState<string | undefined>(initialDisplayName);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -146,7 +148,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       }, 'Unable to send message');
       if (!result.ok) {
         console.warn('Send message failed', result.status, result.raw);
-        toast.error(result.message || 'Unable to send message.');
+        toast.error(result.message || t('chatScreen.toast.sendFailed'));
         return;
       }
       setInput('');
@@ -154,7 +156,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       fetchMessages();
     } catch (err) {
       console.warn('Send message error', err);
-      toast.error('Network error.');
+      toast.error(t('chatScreen.toast.networkError'));
     }
   };
 
@@ -166,9 +168,9 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
       const url = action === 'accept' || action === 'reject' ? `${API_URL}/job-offers/${offerId}/respond` : `${API_URL}/job-offers/${offerId}/${action}`;
       const result = await apiRequest(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(action === 'accept' || action === 'reject' ? { body: JSON.stringify({ action }) } : {}) }, 'Unable to update this offer.');
       if (!result.ok) throw new Error(result.message);
-      toast.success(action === 'confirm-hire' ? 'Worker hired successfully.' : `Offer ${action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'cancelled'}.`);
+      toast.success(action === 'confirm-hire' ? t('chatScreen.toast.workerHired') : action === 'accept' ? t('chatScreen.toast.offerAccepted') : action === 'reject' ? t('chatScreen.toast.offerRejected') : t('chatScreen.toast.offerCancelled'));
       await fetchMessages();
-    } catch (error: any) { toast.error(error?.message || 'Unable to update this offer.'); }
+    } catch (error: any) { toast.error(error?.message || t('chatScreen.toast.offerUpdateFailed')); }
     finally { setProcessingOfferId(null); }
   };
 
@@ -188,13 +190,13 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
     <SafeAreaView style={{ flex: 1, backgroundColor: tokens.colors.background }}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={onBack} style={styles.backTouch} accessibilityRole="button" accessibilityLabel="Back to conversations">
+          <TouchableOpacity onPress={onBack} style={styles.backTouch} accessibilityRole="button" accessibilityLabel={t('chatScreen.header.backLabel')}>
             <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
           </TouchableOpacity>
           <AnimatedMicroJobsLogoBadge />
-          <View style={styles.headerCopy}><Text style={styles.headerText} numberOfLines={1}>{displayName || 'Chat'}</Text>{isEmployer ? <Text style={styles.employerContext}>EMPLOYER CONVERSATION</Text> : null}</View>
+          <View style={styles.headerCopy}><Text style={styles.headerText} numberOfLines={1}>{displayName || t('chatScreen.header.fallbackTitle')}</Text>{isEmployer ? <Text style={styles.employerContext}>{t('chatScreen.header.employerConversationLabel')}</Text> : null}</View>
           {onOpenNotifications ? (
-            <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} accessibilityRole="button" accessibilityLabel={`Open notifications${notificationBadgeCount ? `, ${notificationBadgeCount} unread` : ''}`}>
+            <TouchableOpacity style={styles.notificationIcon} onPress={onOpenNotifications} accessibilityRole="button" accessibilityLabel={notificationBadgeCount ? t('chatScreen.header.notificationsLabelWithCount', { count: notificationBadgeCount }) : t('chatScreen.header.notificationsLabel')}>
               <Ionicons name="notifications-outline" size={20} color={tokens.colors.brand} />
               {notificationBadgeCount > 0 ? (
                 <View style={styles.badge}>
@@ -222,21 +224,21 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
             if (item.attachment?.type === 'job_offer' && offerId) {
               const offerStatus = String(typeof offerValue === 'object' ? offerValue.status || 'pending' : 'pending').toLowerCase();
               const busy = processingOfferId === offerId;
-              return <View style={[styles.invoiceCard, isMine ? styles.invoiceMine : styles.invoiceTheirs]} accessibilityLabel={`Formal job offer, ${php(item.attachment.offerAmount)}, ${offerStatus}`}>
-                <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="document-text-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>FORMAL JOB OFFER</Text><Text style={styles.invoiceTitle}>{item.attachment.jobTitle || 'Local job'}</Text></View><View style={[styles.invoiceStatus, offerStatus !== 'pending' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{offerStatus}</Text></View></View>
-                <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment.offerAmount)}</Text><Text style={styles.invoiceHint}>Escrow-backed guaranteed pay</Text></View>
-                {!isEmployer && !isMine && offerStatus === 'pending' ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'reject')}><Text style={styles.offerSecondaryText}>Decline</Text></TouchableOpacity><TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => void updateOffer(offerId, 'accept')}><Text style={styles.offerPrimaryText}>Accept Offer</Text></TouchableOpacity></View> : null}
-                {isEmployer && isMine && ['pending', 'accepted'].includes(offerStatus) ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'cancel')}><Text style={styles.offerSecondaryText}>Cancel</Text></TouchableOpacity>{offerStatus === 'accepted' ? <TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => void updateOffer(offerId, 'confirm-hire')}><Text style={styles.offerPrimaryText}>Confirm Hire</Text></TouchableOpacity> : null}</View> : null}
+              return <View style={[styles.invoiceCard, isMine ? styles.invoiceMine : styles.invoiceTheirs]} accessibilityLabel={t('chatScreen.offer.accessibilityLabel', { amount: php(item.attachment.offerAmount), status: offerStatus })}>
+                <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="document-text-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>{t('chatScreen.offer.eyebrow')}</Text><Text style={styles.invoiceTitle}>{item.attachment.jobTitle || t('chatScreen.offer.fallbackTitle')}</Text></View><View style={[styles.invoiceStatus, offerStatus !== 'pending' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{offerStatus}</Text></View></View>
+                <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment.offerAmount)}</Text><Text style={styles.invoiceHint}>{t('chatScreen.offer.escrowHint')}</Text></View>
+                {!isEmployer && !isMine && offerStatus === 'pending' ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'reject')}><Text style={styles.offerSecondaryText}>{t('chatScreen.offer.decline')}</Text></TouchableOpacity><TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => void updateOffer(offerId, 'accept')}><Text style={styles.offerPrimaryText}>{t('chatScreen.offer.accept')}</Text></TouchableOpacity></View> : null}
+                {isEmployer && isMine && ['pending', 'accepted'].includes(offerStatus) ? <View style={styles.offerActions}><TouchableOpacity style={styles.offerSecondary} disabled={busy} onPress={() => void updateOffer(offerId, 'cancel')}><Text style={styles.offerSecondaryText}>{t('chatScreen.offer.cancel')}</Text></TouchableOpacity>{offerStatus === 'accepted' ? <TouchableOpacity style={styles.offerPrimary} disabled={busy} onPress={() => void updateOffer(offerId, 'confirm-hire')}><Text style={styles.offerPrimaryText}>{t('chatScreen.offer.confirmHire')}</Text></TouchableOpacity> : null}</View> : null}
               </View>;
             }
             const requestValue = item.attachment?.settlementRequest;
             const requestId = getEntityId(requestValue);
             const serverStatus = String(typeof requestValue === 'object' ? requestValue?.status || 'active' : 'active').toLowerCase();
             const requestStatus = serverStatus === 'active' && new Date(item.attachment?.expiresAt || 0).getTime() <= clock ? 'expired' : serverStatus;
-            if (item.attachment?.type === 'settlement_request' && requestId) return <TouchableOpacity style={[styles.invoiceCard, isMine ? styles.invoiceMine : styles.invoiceTheirs]} disabled={!isEmployer || requestStatus !== 'active'} onPress={() => setInvoiceRequestId(requestId)} accessibilityRole={isEmployer && requestStatus === 'active' ? 'button' : undefined} accessibilityLabel={`Payment invoice for ${item.attachment?.jobTitle || 'job'}, ${php(item.attachment?.totalAmount)}, ${requestStatus}`}>
-              <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="qr-code-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>MICROJOBS PAYMENT INVOICE</Text><Text style={styles.invoiceTitle} numberOfLines={2}>{item.attachment?.jobTitle || 'Job settlement'}</Text></View><View style={[styles.invoiceStatus, requestStatus !== 'active' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{requestStatus}</Text></View></View>
-              {item.attachment.qrImageName && authToken ? <Image source={{ uri: `${API_URL}/payment/qr-requests/${requestId}/image`, headers: { Authorization: `Bearer ${authToken}` } }} style={styles.invoiceQr} resizeMode="contain" accessibilityLabel="Secure payment QR image" /> : null}
-              <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment?.totalAmount)}</Text>{invoiceCodes[requestId] ? <Text selectable style={styles.invoiceCode}>Manual code: {invoiceCodes[requestId]}</Text> : null}<Text style={styles.invoiceHint}>{isEmployer && requestStatus === 'active' ? 'Tap to review and confirm' : requestStatus === 'active' ? 'Sent to employer for review' : `Invoice ${requestStatus}`}</Text></View>
+            if (item.attachment?.type === 'settlement_request' && requestId) return <TouchableOpacity style={[styles.invoiceCard, isMine ? styles.invoiceMine : styles.invoiceTheirs]} disabled={!isEmployer || requestStatus !== 'active'} onPress={() => setInvoiceRequestId(requestId)} accessibilityRole={isEmployer && requestStatus === 'active' ? 'button' : undefined} accessibilityLabel={t('chatScreen.invoice.accessibilityLabel', { title: item.attachment?.jobTitle || t('chatScreen.invoice.fallbackTitle'), amount: php(item.attachment?.totalAmount), status: requestStatus })}>
+              <View style={styles.invoiceHeader}><View style={styles.invoiceIcon}><Ionicons name="qr-code-outline" size={21} color={tokens.colors.brand} /></View><View style={styles.invoiceCopy}><Text style={styles.invoiceEyebrow}>{t('chatScreen.invoice.eyebrow')}</Text><Text style={styles.invoiceTitle} numberOfLines={2}>{item.attachment?.jobTitle || t('chatScreen.invoice.fallbackTitle')}</Text></View><View style={[styles.invoiceStatus, requestStatus !== 'active' && styles.invoiceStatusMuted]}><Text style={styles.invoiceStatusText}>{requestStatus}</Text></View></View>
+              {item.attachment.qrImageName && authToken ? <Image source={{ uri: `${API_URL}/payment/qr-requests/${requestId}/image`, headers: { Authorization: `Bearer ${authToken}` } }} style={styles.invoiceQr} resizeMode="contain" accessibilityLabel={t('chatScreen.invoice.qrLabel')} /> : null}
+              <View style={styles.invoiceFooter}><Text style={styles.invoiceAmount}>{php(item.attachment?.totalAmount)}</Text>{invoiceCodes[requestId] ? <Text selectable style={styles.invoiceCode}>{t('chatScreen.invoice.manualCode', { code: invoiceCodes[requestId] })}</Text> : null}<Text style={styles.invoiceHint}>{isEmployer && requestStatus === 'active' ? t('chatScreen.invoice.tapToReview') : requestStatus === 'active' ? t('chatScreen.invoice.sentForReview') : t('chatScreen.invoice.statusLabel', { status: requestStatus })}</Text></View>
             </TouchableOpacity>;
             return (
             <View style={[styles.msgBubble, isMine ? styles.myMsg : styles.theirMsg]}>
@@ -252,15 +254,15 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder="Type a message..."
+          placeholder={t('chatScreen.input.placeholder')}
           placeholderTextColor={tokens.colors.textSubtle}
-          accessibilityLabel="Message"
+          accessibilityLabel={t('chatScreen.input.accessibilityLabel')}
           returnKeyType="send"
           onSubmitEditing={sendMessage}
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} accessibilityRole="button" accessibilityLabel="Send message" accessibilityState={{ disabled: !input.trim() }} disabled={!input.trim()}>
+        <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} accessibilityRole="button" accessibilityLabel={t('chatScreen.input.sendLabel')} accessibilityState={{ disabled: !input.trim() }} disabled={!input.trim()}>
           <Ionicons name="send" size={15} color={tokens.colors.onBrand} />
-          <Text style={styles.sendBtnText}>Send</Text>
+          <Text style={styles.sendBtnText}>{t('chatScreen.input.send')}</Text>
         </TouchableOpacity>
       </View>
       </KeyboardAvoidingView>

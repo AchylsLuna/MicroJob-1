@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import CalendarSheet from '../../components/ui/CalendarSheet';
 import { API_URL } from '../../config';
@@ -55,23 +56,26 @@ type ProvinceOption = { code: string; name: string };
 type CityOption = { code: string; name: string; provinceCode?: string };
 type BarangayOption = { code: string; name: string };
 
-const JOB_TYPE_OPTIONS = [
-  {
-    value: 'Short-term',
-    label: 'Short-term',
-    description: 'One-time or temporary work with a clear finish.',
-  },
-  {
-    value: 'Side hustle',
-    label: 'Side hustle',
-    description: 'Flexible work someone can take on for extra income.',
-  },
-  {
-    value: 'Recruiting',
-    label: 'Recruiting',
-    description: 'Hire for an ongoing or longer-term role.',
-  },
-] as const;
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+const getJobTypeOptions = (t: TFn) =>
+  [
+    {
+      value: 'Short-term',
+      label: t('employerPostJob.jobType.shortTerm.label'),
+      description: t('employerPostJob.jobType.shortTerm.description'),
+    },
+    {
+      value: 'Side hustle',
+      label: t('employerPostJob.jobType.sideHustle.label'),
+      description: t('employerPostJob.jobType.sideHustle.description'),
+    },
+    {
+      value: 'Recruiting',
+      label: t('employerPostJob.jobType.recruiting.label'),
+      description: t('employerPostJob.jobType.recruiting.description'),
+    },
+  ] as const;
 
 const PSGC_BASE_URL = 'https://psgc.gitlab.io/api';
 
@@ -115,6 +119,8 @@ export default function EmployerPostJob({
   onOpenNotifications,
   notificationBadgeCount = 0,
 }: PostJobProps) {
+  const { t } = useTranslation('employer');
+  const jobTypeOptions = useMemo(() => getJobTypeOptions(t), [t]);
   const [expandedSection, setExpandedSection] = useState<'basics' | 'location' | 'hiring' | null>('basics');
   const insets = useSafeAreaInsets();
   const [formData, setFormData] = useState<FormData>({
@@ -806,7 +812,7 @@ export default function EmployerPostJob({
 
           <Text style={styles.label}>Opportunity Type</Text>
           <View style={styles.opportunityList} accessibilityRole="radiogroup">
-            {JOB_TYPE_OPTIONS.map((option) => {
+            {jobTypeOptions.map((option) => {
               const selected = formData.jobType === option.value;
               return (
               <TouchableOpacity
@@ -824,7 +830,7 @@ export default function EmployerPostJob({
               );
             })}
           </View>
-          {formData.jobType && !JOB_TYPE_OPTIONS.some((option) => option.value === formData.jobType) ? (
+          {formData.jobType && !jobTypeOptions.some((option) => option.value === formData.jobType) ? (
             <Text style={styles.legacyTypeText}>
               This existing post uses the legacy type “{formData.jobType}”. Choose a current type to modernize it.
             </Text>

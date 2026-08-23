@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
@@ -6,12 +7,13 @@ import { AuthButton, AuthProgress } from '../components/auth/AuthControls';
 import { AUTH_COLORS } from '../theme/authTheme';
 
 export default function PassChanged({ onBackToLogin }: { onBackToLogin?: () => void }) {
-  return <AuthScreenLayout title="Password updated" subtitle="Your account is secure and ready to use.">
+  const { t } = useTranslation('auth');
+  return <AuthScreenLayout title={t('passChanged.title')} subtitle={t('passChanged.subtitle')}>
     <AuthProgress step={3} />
-    <AuthStepCard step="✓" title="Reset complete" subtitle="Sign in again using your new password." style={styles.card}>
+    <AuthStepCard step="✓" title={t('passChanged.cardTitle')} subtitle={t('passChanged.cardSubtitle')} style={styles.card}>
       <View style={styles.successIcon}><Feather name="check" size={32} color="#fff" /></View>
-      <Text style={styles.message}>Other active sessions were signed out to protect your account.</Text>
-      <AuthButton label="Back to sign in" onPress={onBackToLogin} />
+      <Text style={styles.message}>{t('passChanged.message')}</Text>
+      <AuthButton label={t('passChanged.backToSignIn')} onPress={onBackToLogin} />
     </AuthStepCard>
   </AuthScreenLayout>;
 }

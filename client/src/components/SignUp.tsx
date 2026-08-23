@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Mail, Lock, User, Eye, EyeOff, Phone, Briefcase, Users, Award, TrendingUp, UserPlus, Handshake, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { OTPVerification } from "./OTPVerification";
 import { toast } from "../lib/toast";
 import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import {
-  EMAIL_VALIDATION_MESSAGE,
-  FULL_NAME_VALIDATION_MESSAGE,
   PHONE_DIGITS,
-  PHONE_VALIDATION_MESSAGE,
+  getEmailValidationMessage,
+  getFullNameValidationMessage,
+  getPhoneValidationMessage,
   isValidEmail,
   isValidFullName,
   isValidPhone,
@@ -35,6 +36,7 @@ type SignUpDraft = {
 };
 
 export function SignUp() {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const { register, isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
@@ -138,37 +140,37 @@ export function SignUp() {
     }
     
     if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
-      toast.error("Invalid input: Please fill in all required fields.");
+      toast.error(t("validation.invalidInputPrefix", { detail: t("signUp.toast.missingRequiredFieldsDetail") }));
       return;
     }
 
     if (!isValidFullName(normalizedFullName)) {
-      toast.error(`Invalid input: ${FULL_NAME_VALIDATION_MESSAGE}`);
+      toast.error(t("validation.invalidInputPrefix", { detail: getFullNameValidationMessage(t) }));
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      toast.error(`Invalid input: ${EMAIL_VALIDATION_MESSAGE}`);
+      toast.error(t("validation.invalidInputPrefix", { detail: getEmailValidationMessage(t) }));
       return;
     }
 
     if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-      toast.error(`Invalid input: ${PHONE_VALIDATION_MESSAGE}`);
+      toast.error(t("validation.invalidInputPrefix", { detail: getPhoneValidationMessage(t) }));
       return;
     }
 
     if (!passwordStrength.isStrong) {
-      toast.error(`Invalid input: ${STRONG_PASSWORD_ERROR}`);
+      toast.error(t("validation.invalidInputPrefix", { detail: STRONG_PASSWORD_ERROR }));
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      toast.error("Invalid input: Passwords do not match.");
+      toast.error(t("validation.invalidInputPrefix", { detail: t("signUp.toast.passwordsMismatchDetail") }));
       return;
     }
 
     if (!agreeToTerms) {
-      toast.error("Please agree to the terms and conditions");
+      toast.error(t("signUp.toast.agreeToTermsRequired"));
       return;
     }
 
@@ -177,18 +179,18 @@ export function SignUp() {
       setIsSubmitting(true);
       await register(normalizedEmail, formData.password, normalizedFullName, userType, normalizedPhone);
       sessionStorage.removeItem(SIGN_UP_DRAFT_KEY);
-      const nextMessage = "Verification code sent. Please verify your email to continue.";
+      const nextMessage = t("signUp.toast.registrationSuccess");
       setSuccessMessage(nextMessage);
       toast.success(nextMessage);
       setShowOTP(true);
     } catch (error: any) {
-      const message = error?.message || "Registration failed";
+      const message = error?.message || t("signUp.toast.registrationFailed");
       const invalidInputMessage = /(invalid|required|must|format|phone|email|password|name|taken|exists)/i.test(
         String(message),
       );
       const normalizedMessage = /^invalid input:/i.test(String(message))
         ? String(message)
-        : `Invalid input: ${message}`;
+        : t("validation.invalidInputPrefix", { detail: message });
       toast.error(invalidInputMessage ? normalizedMessage : message);
     } finally {
       submitInFlightRef.current = false;
@@ -209,11 +211,11 @@ export function SignUp() {
             <div className="grid grid-cols-[48px_1fr] gap-4 pl-4">
               <div aria-hidden="true" />
               <div>
-                <h2 className="text-[28px] font-bold leading-tight">
-                  Connect with Top Talent<br />& Rewarding Opportunities
+                <h2 className="text-[28px] font-bold leading-tight whitespace-pre-line">
+                  {t("signUp.hero.title")}
                 </h2>
                 <p className="text-[16px] opacity-90 leading-relaxed">
-                  Join thousands of professionals finding their dream jobs and companies discovering exceptional talent.
+                  {t("signUp.hero.subtitle")}
                 </p>
               </div>
             </div>
@@ -225,8 +227,8 @@ export function SignUp() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-[16px] font-semibold mb-1">Verified Professionals</h3>
-                <p className="text-[14px] opacity-80">Connect with verified companies and job seekers</p>
+                <h3 className="text-[16px] font-semibold mb-1">{t("signUp.hero.features.verified.title")}</h3>
+                <p className="text-[14px] opacity-80">{t("signUp.hero.features.verified.description")}</p>
               </div>
             </div>
 
@@ -235,8 +237,8 @@ export function SignUp() {
                 <Award className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-[16px] font-semibold mb-1">Quality Matches</h3>
-                <p className="text-[14px] opacity-80">Find the perfect match for your skills and needs</p>
+                <h3 className="text-[16px] font-semibold mb-1">{t("signUp.hero.features.quality.title")}</h3>
+                <p className="text-[14px] opacity-80">{t("signUp.hero.features.quality.description")}</p>
               </div>
             </div>
 
@@ -245,8 +247,8 @@ export function SignUp() {
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-[16px] font-semibold mb-1">Career Growth</h3>
-                <p className="text-[14px] opacity-80">Access opportunities that advance your career</p>
+                <h3 className="text-[16px] font-semibold mb-1">{t("signUp.hero.features.growth.title")}</h3>
+                <p className="text-[14px] opacity-80">{t("signUp.hero.features.growth.description")}</p>
               </div>
             </div>
           </div>
@@ -261,7 +263,7 @@ export function SignUp() {
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0" />
                     <div>
-                      <p className="font-semibold">Registration successful</p>
+                      <p className="font-semibold">{t("signUp.successBanner.title")}</p>
                       <p className="text-[14px]">{successMessage}</p>
                     </div>
                   </div>
@@ -274,19 +276,19 @@ export function SignUp() {
                 className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#1C4D8D] font-medium mb-6 transition-colors group"
               >
                 <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-                Back to Home
+                {t("signUp.backToHome")}
               </button>
 
               <div className="mb-6">
-                <h1 className="text-[28px] font-bold text-[#111827] mb-2">Get Started!</h1>
-                <p className="text-[14px] text-[#6B7280]">Create your account to start your journey</p>
+                <h1 className="text-[28px] font-bold text-[#111827] mb-2">{t("signUp.title")}</h1>
+                <p className="text-[14px] text-[#6B7280]">{t("signUp.subtitle")}</p>
               </div>
 
               <form onSubmit={handleSignUp} className="space-y-4">
                 {/* Full Name */}
                 <div>
                   <label htmlFor="signup-full-name" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                    Full Name <span className="text-[#EF4444]">*</span>
+                    {t("signUp.form.fullNameLabel")} <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
@@ -295,7 +297,7 @@ export function SignUp() {
                       type="text"
                       value={formData.fullName}
                       onChange={(e) => handleChange("fullName", e.target.value)}
-                      placeholder="Enter your full name"
+                      placeholder={t("signUp.form.fullNamePlaceholder")}
                       aria-invalid={fullNameHasError}
                       className={`w-full bg-[#F9FAFB] border rounded-[12px] pl-12 pr-4 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:border-transparent transition-all ${
                         fullNameHasError
@@ -305,14 +307,14 @@ export function SignUp() {
                     />
                   </div>
                   {fullNameHasError && (
-                    <p className="mt-2 text-[12px] text-[#EF4444]">{FULL_NAME_VALIDATION_MESSAGE}</p>
+                    <p className="mt-2 text-[12px] text-[#EF4444]">{getFullNameValidationMessage(t)}</p>
                   )}
                 </div>
 
                 {/* Email */}
                 <div>
                   <label htmlFor="signup-email" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                    Email Address <span className="text-[#EF4444]">*</span>
+                    {t("signUp.form.emailLabel")} <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
@@ -321,7 +323,7 @@ export function SignUp() {
                       type="email"
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}
-                      placeholder="Enter your email"
+                      placeholder={t("signUp.form.emailPlaceholder")}
                       aria-invalid={emailHasError}
                       className={`w-full bg-[#F9FAFB] border rounded-[12px] pl-12 pr-4 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:border-transparent transition-all ${
                         emailHasError
@@ -331,14 +333,14 @@ export function SignUp() {
                     />
                   </div>
                   {emailHasError && (
-                    <p className="mt-2 text-[12px] text-[#EF4444]">{EMAIL_VALIDATION_MESSAGE}</p>
+                    <p className="mt-2 text-[12px] text-[#EF4444]">{getEmailValidationMessage(t)}</p>
                   )}
                 </div>
 
                 {/* Phone */}
                 <div>
                   <label htmlFor="signup-phone" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                    Phone Number
+                    {t("signUp.form.phoneLabel")}
                   </label>
                   <div className="relative">
                     <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
@@ -349,7 +351,7 @@ export function SignUp() {
                       onChange={(e) => handleChange("phone", e.target.value)}
                       inputMode="numeric"
                       maxLength={PHONE_DIGITS}
-                      placeholder="Enter PH mobile number (09XXXXXXXXX)"
+                      placeholder={t("signUp.form.phonePlaceholder")}
                       aria-invalid={phoneHasError}
                       className={`w-full bg-[#F9FAFB] border rounded-[12px] pl-12 pr-4 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:border-transparent transition-all ${
                         phoneHasError
@@ -359,14 +361,14 @@ export function SignUp() {
                     />
                   </div>
                   {phoneHasError && (
-                    <p className="mt-2 text-[12px] text-[#EF4444]">{PHONE_VALIDATION_MESSAGE}</p>
+                    <p className="mt-2 text-[12px] text-[#EF4444]">{getPhoneValidationMessage(t)}</p>
                   )}
                 </div>
 
                 {/* Password */}
                 <div>
                   <label htmlFor="signup-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                    Password <span className="text-[#EF4444]">*</span>
+                    {t("signUp.form.passwordLabel")} <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
@@ -375,12 +377,12 @@ export function SignUp() {
                       type={showPassword ? "text" : "password"}
                       value={formData.password}
                       onChange={(e) => handleChange("password", e.target.value)}
-                      placeholder="Create a password"
+                      placeholder={t("signUp.form.passwordPlaceholder")}
                       className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-12 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                     />
                     <button
                       type="button"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      aria-label={showPassword ? t("signUp.form.hidePassword") : t("signUp.form.showPassword")}
                       onClick={() => setShowPassword(!showPassword)}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
                     >
@@ -392,7 +394,7 @@ export function SignUp() {
                 {/* Confirm Password */}
                 <div>
                   <label htmlFor="signup-confirm-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                    Confirm Password <span className="text-[#EF4444]">*</span>
+                    {t("signUp.form.confirmPasswordLabel")} <span className="text-[#EF4444]">*</span>
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
@@ -401,7 +403,7 @@ export function SignUp() {
                       type={showConfirmPassword ? "text" : "password"}
                       value={formData.confirmPassword}
                       onChange={(e) => handleChange("confirmPassword", e.target.value)}
-                      placeholder="Confirm your password"
+                      placeholder={t("signUp.form.confirmPasswordPlaceholder")}
                       aria-invalid={confirmPasswordHasError}
                       className={`w-full bg-[#F9FAFB] border rounded-[12px] pl-12 pr-12 py-3 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:border-transparent transition-all ${
                         confirmPasswordHasError
@@ -411,7 +413,7 @@ export function SignUp() {
                     />
                     <button
                       type="button"
-                      aria-label={showConfirmPassword ? "Hide confirmation password" : "Show confirmation password"}
+                      aria-label={showConfirmPassword ? t("signUp.form.hideConfirmPassword") : t("signUp.form.showConfirmPassword")}
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
                     >
@@ -424,7 +426,7 @@ export function SignUp() {
                 {showPasswordStrength && (
                   <div className="bg-[#F9FAFB] rounded-[12px] p-4 border border-[#E5E7EB] space-y-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-[12px] font-semibold text-[#111827]">Password Strength</p>
+                      <p className="text-[12px] font-semibold text-[#111827]">{t("signUp.passwordStrength.label")}</p>
                       <span className={`text-[12px] font-semibold ${strengthTextColor}`}>{passwordStrength.label}</span>
                     </div>
                     <div className="h-1.5 rounded-full bg-[#E5E7EB] overflow-hidden">
@@ -460,7 +462,7 @@ export function SignUp() {
                         ) : (
                           <XCircle className="w-3.5 h-3.5" />
                         )}
-                        Passwords match
+                        {t("signUp.passwordStrength.passwordsMatch")}
                       </li>
                     </ul>
                   </div>
@@ -469,7 +471,7 @@ export function SignUp() {
                 {/* I want to selection */}
                 <div className="pt-2">
                   <p className="text-[14px] font-medium text-[#111827] mb-3 block">
-                    I want to:
+                    {t("signUp.userType.label")}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <button
@@ -483,7 +485,7 @@ export function SignUp() {
                     >
                       <Briefcase className={`w-6 h-6 ${userType === "employer" ? "text-[#1C4D8D]" : "text-[#9CA3AF]"}`} />
                       <span className={`text-[13px] font-semibold ${userType === "employer" ? "text-[#1C4D8D]" : "text-[#6B7280]"}`}>
-                        Hire
+                        {t("signUp.userType.employer")}
                       </span>
                     </button>
 
@@ -498,7 +500,7 @@ export function SignUp() {
                     >
                       <UserPlus className={`w-6 h-6 ${userType === "worker" ? "text-[#1C4D8D]" : "text-[#9CA3AF]"}`} />
                       <span className={`text-[13px] font-semibold ${userType === "worker" ? "text-[#1C4D8D]" : "text-[#6B7280]"}`}>
-                        Work
+                        {t("signUp.userType.worker")}
                       </span>
                     </button>
 
@@ -513,7 +515,7 @@ export function SignUp() {
                     >
                       <Handshake className={`w-6 h-6 ${userType === "both" ? "text-[#1C4D8D]" : "text-[#9CA3AF]"}`} />
                       <span className={`text-[13px] font-semibold ${userType === "both" ? "text-[#1C4D8D]" : "text-[#6B7280]"}`}>
-                        Both
+                        {t("signUp.userType.both")}
                       </span>
                     </button>
                   </div>
@@ -529,14 +531,14 @@ export function SignUp() {
                     className="w-4 h-4 rounded border-[#E5E7EB] text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D] cursor-pointer mt-0.5"
                   />
                   <label htmlFor="signup-terms" className="text-[13px] text-[#6B7280]">
-                    I agree to the{" "}
-                    <Link to={ROUTES.terms} className="text-[#1C4D8D] hover:opacity-80 font-medium">
-                      Terms and Conditions
-                    </Link>{" "}
-                    and{" "}
-                    <Link to={ROUTES.privacy} className="text-[#1C4D8D] hover:opacity-80 font-medium">
-                      Privacy Policy
-                    </Link>
+                    <Trans
+                      t={t}
+                      i18nKey="signUp.terms.agreement"
+                      components={{
+                        terms: <Link to={ROUTES.terms} className="text-[#1C4D8D] hover:opacity-80 font-medium" />,
+                        privacy: <Link to={ROUTES.privacy} className="text-[#1C4D8D] hover:opacity-80 font-medium" />,
+                      }}
+                    />
                   </label>
                 </div>
 
@@ -546,19 +548,19 @@ export function SignUp() {
                   disabled={isSubmitting}
                   className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
                 >
-                  {isSubmitting ? "Creating Account..." : "Create Account"}
+                  {isSubmitting ? t("signUp.form.submitLoading") : t("signUp.form.submit")}
                 </button>
               </form>
             </div>
 
             <div className="mt-4 text-center">
               <p className="text-[14px] text-[#6B7280]">
-                Already have an account?{" "}
+                {t("signUp.signInPrompt.text")}{" "}
                 <button
                   onClick={() => navigate(ROUTES.signIn)}
                   className="text-[#1C4D8D] hover:opacity-80 font-semibold"
                 >
-                  Sign In
+                  {t("signUp.signInPrompt.action")}
                 </button>
               </p>
             </div>

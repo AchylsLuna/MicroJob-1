@@ -10,22 +10,26 @@ import {
   Wallet,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData, type AdminJob } from "../../hooks/useAdminData";
 import { ROUTES } from "../../utils/routes";
+import { formatDate } from "../../lib/formatters";
 
 const panelClass = "rounded-2xl border border-slate-200 bg-white shadow-sm";
 
-const getPosterName = (job: AdminJob) => {
-  if (!job.jobPoster || typeof job.jobPoster === "string") return "Unassigned employer";
+const getPosterName = (job: AdminJob, t: TFunction<"admin">) => {
+  if (!job.jobPoster || typeof job.jobPoster === "string") return t("dashboard.recentJobs.unassignedEmployer");
   return (
     `${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim() ||
     job.jobPoster.email ||
-    "Unassigned employer"
+    t("dashboard.recentJobs.unassignedEmployer")
   );
 };
 
 function AdminDashboardContent() {
+  const { t } = useTranslation("admin");
   const {
     isLoading,
     loadError,
@@ -50,40 +54,40 @@ function AdminDashboardContent() {
 
   const metrics = [
     {
-      label: "Total jobs",
+      label: t("dashboard.metrics.totalJobs.label"),
       value: stats.totalJobs,
-      detail: `${stats.availableJobs} currently available`,
+      detail: t("dashboard.metrics.totalJobs.detail", { count: stats.availableJobs }),
       icon: BriefcaseBusiness,
       iconClass: "bg-blue-50 text-blue-700",
     },
     {
-      label: "Applications",
+      label: t("dashboard.metrics.applications.label"),
       value: totalApplications,
-      detail: "Across all job postings",
+      detail: t("dashboard.metrics.applications.detail"),
       icon: ClipboardList,
       iconClass: "bg-violet-50 text-violet-700",
     },
     {
-      label: "Platform users",
+      label: t("dashboard.metrics.totalUsers.label"),
       value: stats.totalUsers,
-      detail: `${stats.activeUsers} active accounts`,
+      detail: t("dashboard.metrics.totalUsers.detail", { count: stats.activeUsers }),
       icon: Users,
       iconClass: "bg-emerald-50 text-emerald-700",
     },
     {
-      label: "Completed value",
+      label: t("dashboard.metrics.completedValue.label"),
       value: formatCurrency(walletStats.completedTotal),
-      detail: `${walletStats.completedCount} completed payouts`,
+      detail: t("dashboard.metrics.completedValue.detail", { count: walletStats.completedCount }),
       icon: Wallet,
       iconClass: "bg-amber-50 text-amber-700",
     },
   ];
 
   const quickActions = [
-    { label: "Manage users", description: "Review access, roles, and account status", to: ROUTES.admin.userManagement, icon: Users },
-    { label: "Monitor jobs", description: "Review active and reported job posts", to: ROUTES.admin.jobs, icon: BriefcaseBusiness },
-    { label: "Open reports", description: "Inspect platform and operational reports", to: ROUTES.admin.reports, icon: FileText },
-    { label: "Review payouts", description: "Approve, reject, and complete payout requests", to: ROUTES.admin.payouts, icon: Wallet },
+    { label: t("dashboard.quickActions.manageUsers.label"), description: t("dashboard.quickActions.manageUsers.description"), to: ROUTES.admin.userManagement, icon: Users },
+    { label: t("dashboard.quickActions.monitorJobs.label"), description: t("dashboard.quickActions.monitorJobs.description"), to: ROUTES.admin.jobs, icon: BriefcaseBusiness },
+    { label: t("dashboard.quickActions.openReports.label"), description: t("dashboard.quickActions.openReports.description"), to: ROUTES.admin.reports, icon: FileText },
+    { label: t("dashboard.quickActions.reviewPayouts.label"), description: t("dashboard.quickActions.reviewPayouts.description"), to: ROUTES.admin.payouts, icon: Wallet },
   ];
 
   return (
@@ -92,18 +96,18 @@ function AdminDashboardContent() {
         <div>
           <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
             <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-            Platform operations
+            {t("dashboard.badge")}
           </div>
-          <h2 className="text-xl font-bold sm:text-2xl">Everything requiring attention, in one place</h2>
+          <h2 className="text-xl font-bold sm:text-2xl">{t("dashboard.header.title")}</h2>
           <p className="mt-2 max-w-2xl text-sm text-white/85">
-            Review account approvals, platform activity, jobs, and completed payouts without duplicating the detailed admin tools.
+            {t("dashboard.header.description")}
           </p>
         </div>
         <Link
           to={ROUTES.admin.reports}
           className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-blue-800 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
         >
-          View platform reports
+          {t("dashboard.header.reportsLink")}
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </Link>
       </section>
@@ -113,7 +117,7 @@ function AdminDashboardContent() {
           <div className="flex min-w-0 gap-3">
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-700" aria-hidden="true" />
             <div>
-              <h2 className="font-semibold text-red-950">Dashboard data could not be loaded</h2>
+              <h2 className="font-semibold text-red-950">{t("dashboard.error.title")}</h2>
               <p className="mt-1 text-sm text-red-700">{loadError}</p>
             </div>
           </div>
@@ -124,7 +128,7 @@ function AdminDashboardContent() {
             className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-red-700 px-4 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" />
-            Try again
+            {t("dashboard.error.retry")}
           </button>
         </section>
       )}
@@ -134,24 +138,28 @@ function AdminDashboardContent() {
           <div className="flex gap-3">
             <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
             <div>
-              <h2 className="font-semibold text-amber-950">Items need your review</h2>
+              <h2 className="font-semibold text-amber-950">{t("dashboard.pendingBanner.title")}</h2>
               <p className="mt-1 text-sm text-amber-800">
-                {stats.pendingUsers} pending users, {stats.pendingPayouts} payout requests, and {stats.openSupportTickets} open support tickets.
+                {t("dashboard.pendingSummary", {
+                  pendingUsers: stats.pendingUsers,
+                  pendingPayouts: stats.pendingPayouts,
+                  openSupportTickets: stats.openSupportTickets,
+                })}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-amber-900">
-            {stats.pendingUsers > 0 && <Link to={ROUTES.admin.userManagement} className="underline-offset-4 hover:underline">Review accounts</Link>}
-            {stats.pendingPayouts > 0 && <Link to={ROUTES.admin.payouts} className="underline-offset-4 hover:underline">Review payouts</Link>}
-            {stats.openSupportTickets > 0 && <Link to={ROUTES.admin.support} className="underline-offset-4 hover:underline">Review support</Link>}
+            {stats.pendingUsers > 0 && <Link to={ROUTES.admin.userManagement} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewAccounts")}</Link>}
+            {stats.pendingPayouts > 0 && <Link to={ROUTES.admin.payouts} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewPayouts")}</Link>}
+            {stats.openSupportTickets > 0 && <Link to={ROUTES.admin.support} className="underline-offset-4 hover:underline">{t("dashboard.pendingBanner.reviewSupport")}</Link>}
           </div>
         </section>
       )}
 
       <section aria-labelledby="platform-summary-title" className="space-y-3">
         <div>
-          <h2 id="platform-summary-title" className="text-lg font-bold text-slate-950">Platform summary</h2>
-          <p className="mt-1 text-sm text-slate-600">Current totals from the administration services.</p>
+          <h2 id="platform-summary-title" className="text-lg font-bold text-slate-950">{t("dashboard.summary.title")}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t("dashboard.summary.subtitle")}</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {metrics.map((metric) => {
@@ -165,7 +173,7 @@ function AdminDashboardContent() {
                 <p className="mt-1 break-words text-2xl font-bold tracking-tight text-slate-950" aria-live="polite">
                   {isLoading ? "—" : metric.value}
                 </p>
-                <p className="mt-2 text-xs text-slate-500">{isLoading ? "Loading current data…" : metric.detail}</p>
+                <p className="mt-2 text-xs text-slate-500">{isLoading ? t("dashboard.metrics.loading") : metric.detail}</p>
               </article>
             );
           })}
@@ -174,8 +182,8 @@ function AdminDashboardContent() {
 
       <section aria-labelledby="quick-actions-title" className="space-y-3">
         <div>
-          <h2 id="quick-actions-title" className="text-lg font-bold text-slate-950">Quick actions</h2>
-          <p className="mt-1 text-sm text-slate-600">Open the dedicated tools for detailed administration.</p>
+          <h2 id="quick-actions-title" className="text-lg font-bold text-slate-950">{t("dashboard.quickActions.title")}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t("dashboard.quickActions.subtitle")}</p>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action) => {
@@ -203,22 +211,22 @@ function AdminDashboardContent() {
         <section aria-labelledby="recent-jobs-title" className={`${panelClass} overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
-              <h2 id="recent-jobs-title" className="font-bold text-slate-950">Recent jobs</h2>
-              <p className="mt-1 text-sm text-slate-500">Latest job posts across the platform.</p>
+              <h2 id="recent-jobs-title" className="font-bold text-slate-950">{t("dashboard.recentJobs.title")}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentJobs.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-blue-700 hover:text-blue-900">View all</Link>
+            <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-blue-700 hover:text-blue-900">{t("dashboard.recentJobs.viewAll")}</Link>
           </div>
           <div className="divide-y divide-slate-100">
-            {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">Loading recent jobs…</p>}
-            {!isLoading && recentJobs.length === 0 && <p className="p-6 text-center text-sm text-slate-500">No job posts are available yet.</p>}
+            {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentJobs.loading")}</p>}
+            {!isLoading && recentJobs.length === 0 && <p className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentJobs.empty")}</p>}
             {!isLoading && recentJobs.map((job) => (
               <article key={job._id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <h3 className="truncate font-semibold text-slate-950">{job.title}</h3>
-                  <p className="mt-1 truncate text-sm text-slate-500">{getPosterName(job)} · {job.location || "Location not provided"}</p>
+                  <p className="mt-1 truncate text-sm text-slate-500">{getPosterName(job, t)} · {job.location || t("dashboard.recentJobs.locationNotProvided")}</p>
                 </div>
                 <span className={`w-fit shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${getJobStatusColor(job.status)}`}>
-                  {job.status || "Unknown"}
+                  {job.status || t("dashboard.recentJobs.statusUnknown")}
                 </span>
               </article>
             ))}
@@ -228,24 +236,24 @@ function AdminDashboardContent() {
         <section aria-labelledby="recent-payouts-title" className={`${panelClass} overflow-hidden`}>
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
             <div>
-              <h2 id="recent-payouts-title" className="font-bold text-slate-950">Recent completed payouts</h2>
-              <p className="mt-1 text-sm text-slate-500">Latest completed wallet activity.</p>
+              <h2 id="recent-payouts-title" className="font-bold text-slate-950">{t("dashboard.recentPayouts.title")}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentPayouts.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-blue-700 hover:text-blue-900">View wallet</Link>
+            <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-blue-700 hover:text-blue-900">{t("dashboard.recentPayouts.viewWallet")}</Link>
           </div>
           <div className="divide-y divide-slate-100">
-            {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">Loading payout activity…</p>}
-            {!isLoading && recentPayouts.length === 0 && <p className="p-6 text-center text-sm text-slate-500">No completed payouts are available yet.</p>}
+            {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentPayouts.loading")}</p>}
+            {!isLoading && recentPayouts.length === 0 && <p className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentPayouts.empty")}</p>}
             {!isLoading && recentPayouts.slice(0, 5).map((payout) => {
               const account = payout.user;
               const userName = typeof account === "string"
-                ? "Platform user"
-                : `${account?.firstName || ""} ${account?.lastName || ""}`.trim() || account?.email || "Platform user";
+                ? t("dashboard.recentPayouts.platformUser")
+                : `${account?.firstName || ""} ${account?.lastName || ""}`.trim() || account?.email || t("dashboard.recentPayouts.platformUser");
               return (
                 <article key={payout._id} className="flex items-center justify-between gap-4 px-5 py-4">
                   <div className="min-w-0">
                     <h3 className="truncate font-semibold text-slate-950">{userName}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{payout.paidAt ? new Date(payout.paidAt).toLocaleDateString() : formatDateFromObjectId(payout._id)}</p>
+                    <p className="mt-1 text-sm text-slate-500">{payout.paidAt ? formatDate(payout.paidAt) : formatDateFromObjectId(payout._id)}</p>
                   </div>
                   <p className="shrink-0 font-bold text-emerald-700">{formatCurrency(Number(payout.amount || 0))}</p>
                 </article>

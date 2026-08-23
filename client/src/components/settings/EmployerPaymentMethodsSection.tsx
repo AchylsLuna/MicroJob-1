@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { CreditCard, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "../../lib/toast";
 import {
   addPaymentMethod,
@@ -48,6 +49,7 @@ const getBrand = (number: string): SavedPaymentMethod["brand"] => {
 };
 
 export function EmployerPaymentMethodsSection() {
+  const { t } = useTranslation("employer");
   const [paymentMethods, setPaymentMethods] = useState<SavedPaymentMethod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -65,7 +67,7 @@ export function EmployerPaymentMethodsSection() {
         if (mounted) setPaymentMethods(response.paymentMethods || []);
       })
       .catch((error) => {
-        if (mounted) toast.error(error?.message || "Failed to load payment methods.");
+        if (mounted) toast.error(error?.message || t("paymentMethods.toast.loadFailed"));
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
@@ -73,7 +75,7 @@ export function EmployerPaymentMethodsSection() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [t]);
 
   const openForm = () => {
     setIsFormOpen(true);
@@ -82,12 +84,12 @@ export function EmployerPaymentMethodsSection() {
 
   const handleAdd = async () => {
     const errors: Record<string, string> = {};
-    if (!newCard.name.trim()) errors.name = "Name on card is required.";
+    if (!newCard.name.trim()) errors.name = t("paymentMethods.form.errors.name");
     const digits = normalizeCardNumber(newCard.number);
-    if (!isValidCardNumber(digits)) errors.number = "Enter a valid card number.";
+    if (!isValidCardNumber(digits)) errors.number = t("paymentMethods.form.errors.number");
     const parsedExpiry = parseCardExpiry(newCard.expiry);
-    if (!parsedExpiry) errors.expiry = "Enter a future expiry in MM/YY format.";
-    if (!/^\d{3,4}$/.test(newCard.cvv.trim())) errors.cvv = "Enter a valid 3 or 4 digit security code.";
+    if (!parsedExpiry) errors.expiry = t("paymentMethods.form.errors.expiry");
+    if (!/^\d{3,4}$/.test(newCard.cvv.trim())) errors.cvv = t("paymentMethods.form.errors.cvv");
     setCardErrors(errors);
     if (Object.keys(errors).length || !parsedExpiry) return;
 
@@ -103,9 +105,9 @@ export function EmployerPaymentMethodsSection() {
       setNewCard({ name: "", number: "", expiry: "", cvv: "" });
       setCardErrors({});
       setIsFormOpen(false);
-      toast.success(response.message || "Payment method added.");
+      toast.success(response.message || t("paymentMethods.toast.addSuccess"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to add payment method.");
+      toast.error(error?.message || t("paymentMethods.toast.addFailed"));
     } finally {
       setIsSaving(false);
     }
@@ -116,9 +118,9 @@ export function EmployerPaymentMethodsSection() {
     try {
       const response = await setDefaultPaymentMethod(id);
       setPaymentMethods(response.paymentMethods || []);
-      toast.success(response.message || "Default payment method updated.");
+      toast.success(response.message || t("paymentMethods.toast.defaultUpdateSuccess"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update the default payment method.");
+      toast.error(error?.message || t("paymentMethods.toast.defaultUpdateFailed"));
     } finally {
       setActionId(null);
     }
@@ -129,9 +131,9 @@ export function EmployerPaymentMethodsSection() {
     try {
       const response = await removePaymentMethod(id);
       setPaymentMethods(response.paymentMethods || []);
-      toast.success(response.message || "Payment method removed.");
+      toast.success(response.message || t("paymentMethods.toast.removeSuccess"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to remove payment method.");
+      toast.error(error?.message || t("paymentMethods.toast.removeFailed"));
     } finally {
       setActionId(null);
     }
@@ -142,36 +144,36 @@ export function EmployerPaymentMethodsSection() {
       <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-6">
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-[20px] font-semibold text-[#111827]">Payment Methods</h2>
-            <p className="text-[13px] text-[#6B7280]">Manage cards saved to your employer account.</p>
+            <h2 className="text-[20px] font-semibold text-[#111827]">{t("paymentMethods.title")}</h2>
+            <p className="text-[13px] text-[#6B7280]">{t("paymentMethods.subtitle")}</p>
           </div>
           <button
             type="button"
             onClick={openForm}
             className="self-start rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-2 text-[14px] font-semibold text-[#1C4D8D] hover:opacity-90/10 sm:self-auto"
           >
-            + Add New Card
+            {t("paymentMethods.addNewCard")}
           </button>
         </div>
 
         <div className="space-y-4">
           {isLoading ? (
             <div className="rounded-[14px] border border-[#E5E7EB] p-5 text-[14px] text-[#6B7280]">
-              Loading payment methods...
+              {t("paymentMethods.loading")}
             </div>
           ) : paymentMethods.length === 0 ? (
             <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] px-6 py-10 text-center">
               <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#E2E8F0] text-[#475569]">
                 <CreditCard className="h-6 w-6" />
               </div>
-              <p className="text-[15px] font-semibold text-[#111827]">No payment methods yet</p>
-              <p className="mt-1 text-[13px] text-[#64748B]">A card appears here only after you add it.</p>
+              <p className="text-[15px] font-semibold text-[#111827]">{t("paymentMethods.emptyState.title")}</p>
+              <p className="mt-1 text-[13px] text-[#64748B]">{t("paymentMethods.emptyState.subtitle")}</p>
               <button
                 type="button"
                 onClick={openForm}
                 className="mt-4 rounded-[10px] bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white hover:opacity-90"
               >
-                Add your first card
+                {t("paymentMethods.emptyState.addFirstCard")}
               </button>
             </div>
           ) : (
@@ -186,22 +188,22 @@ export function EmployerPaymentMethodsSection() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-[14px] font-semibold text-[#111827]">
-                      {method.brand} ending in {method.last4}
+                      {t("paymentMethods.card.endingIn", { brand: method.brand, last4: method.last4 })}
                     </p>
                     <p className="truncate text-[12px] text-[#6B7280]">
-                      {method.cardholderName} - Expires {method.expiry}
+                      {t("paymentMethods.card.holderExpiry", { name: method.cardholderName, expiry: method.expiry })}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-3 sm:justify-end">
                   {method.status === "default" && (
                     <span className="rounded-full bg-[#0F172A] px-3 py-1 text-[11px] font-semibold text-white">
-                      DEFAULT
+                      {t("paymentMethods.card.default")}
                     </span>
                   )}
                   {method.status === "expired" && (
                     <span className="rounded-full bg-[#FEE2E2] px-3 py-1 text-[11px] font-semibold text-[#B91C1C]">
-                      EXPIRED
+                      {t("paymentMethods.card.expired")}
                     </span>
                   )}
                   {method.status === "active" && (
@@ -211,14 +213,14 @@ export function EmployerPaymentMethodsSection() {
                       disabled={actionId === method.id}
                       className="text-[13px] text-[#1C4D8D] disabled:opacity-50"
                     >
-                      {actionId === method.id ? "Saving..." : "Set as Default"}
+                      {actionId === method.id ? t("paymentMethods.card.saving") : t("paymentMethods.card.setDefault")}
                     </button>
                   )}
                   <button
                     type="button"
                     onClick={() => setRemoveTarget(method)}
                     disabled={actionId === method.id}
-                    aria-label={`Remove ${method.brand} ending in ${method.last4}`}
+                    aria-label={t("paymentMethods.card.removeAria", { brand: method.brand, last4: method.last4 })}
                     className="rounded-[8px] p-2 text-[#EF4444] hover:bg-[#FEE2E2] disabled:opacity-50"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -234,9 +236,9 @@ export function EmployerPaymentMethodsSection() {
         <div ref={formRef} className="scroll-mt-6 rounded-[16px] border border-[#E5E7EB] bg-white p-6">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
-              <h3 className="text-[16px] font-semibold text-[#111827]">Add New Card</h3>
+              <h3 className="text-[16px] font-semibold text-[#111827]">{t("paymentMethods.form.title")}</h3>
               <p className="mt-1 text-[12px] text-[#64748B]">
-                Only the brand, last four digits, cardholder name, and expiry are saved.
+                {t("paymentMethods.form.subtitle")}
               </p>
             </div>
             <button
@@ -244,27 +246,27 @@ export function EmployerPaymentMethodsSection() {
               onClick={() => setIsFormOpen(false)}
               className="text-[13px] font-medium text-[#64748B]"
             >
-              Cancel
+              {t("paymentMethods.form.cancel")}
             </button>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
-              label="Name on card"
+              label={t("paymentMethods.form.nameLabel")}
               type="text"
               value={newCard.name}
               onChange={(event) => setNewCard({ ...newCard, name: event.target.value })}
-              placeholder="Juan Dela Cruz"
+              placeholder={t("paymentMethods.form.namePlaceholder")}
               error={cardErrors.name}
               autoComplete="cc-name"
               maxLength={80}
               className="w-full rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px]"
             />
             <Input
-              label="Expiry date"
+              label={t("paymentMethods.form.expiryLabel")}
               type="text"
               value={newCard.expiry}
               onChange={(event) => setNewCard({ ...newCard, expiry: event.target.value })}
-              placeholder="Expiry (MM/YY)"
+              placeholder={t("paymentMethods.form.expiryPlaceholder")}
               error={cardErrors.expiry}
               autoComplete="cc-exp"
               inputMode="numeric"
@@ -272,14 +274,14 @@ export function EmployerPaymentMethodsSection() {
               className="w-full rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px]"
             />
             <Input
-              label="Card number"
+              label={t("paymentMethods.form.numberLabel")}
               type="text"
               value={newCard.number}
               onChange={(event) => {
                 const digits = normalizeCardNumber(event.target.value).slice(0, 19);
                 setNewCard({ ...newCard, number: digits.match(/.{1,4}/g)?.join(" ") || "" });
               }}
-              placeholder="Card Number"
+              placeholder={t("paymentMethods.form.numberPlaceholder")}
               error={cardErrors.number}
               autoComplete="cc-number"
               inputMode="numeric"
@@ -287,13 +289,13 @@ export function EmployerPaymentMethodsSection() {
               className="w-full rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px]"
             />
             <Input
-              label="Security code"
+              label={t("paymentMethods.form.cvvLabel")}
               type="password"
               value={newCard.cvv}
               onChange={(event) =>
                 setNewCard({ ...newCard, cvv: event.target.value.replace(/\D/g, "").slice(0, 4) })
               }
-              placeholder="CVV"
+              placeholder={t("paymentMethods.form.cvvPlaceholder")}
               error={cardErrors.cvv}
               autoComplete="cc-csc"
               inputMode="numeric"
@@ -307,11 +309,22 @@ export function EmployerPaymentMethodsSection() {
             disabled={isSaving}
             className="mt-4 rounded-[12px] bg-[#1C4D8D] px-6 py-3 font-semibold text-white disabled:opacity-60"
           >
-            {isSaving ? "Saving..." : "Save card"}
+            {isSaving ? t("paymentMethods.form.saving") : t("paymentMethods.form.saveCard")}
           </button>
         </div>
       )}
-      <ConfirmDialog open={Boolean(removeTarget)} title="Remove payment method" description={`Remove ${removeTarget?.brand || "card"} ending in ${removeTarget?.last4 || "••••"}? Existing transaction records will remain available.`} confirmLabel="Remove card" destructive onClose={() => setRemoveTarget(null)} onConfirm={async () => { if (!removeTarget) return; await handleRemove(removeTarget.id); setRemoveTarget(null); }} />
+      <ConfirmDialog
+        open={Boolean(removeTarget)}
+        title={t("paymentMethods.removeDialog.title")}
+        description={t("paymentMethods.removeDialog.description", {
+          brand: removeTarget?.brand || t("paymentMethods.removeDialog.defaultBrand"),
+          last4: removeTarget?.last4 || t("paymentMethods.removeDialog.defaultLast4"),
+        })}
+        confirmLabel={t("paymentMethods.removeDialog.confirm")}
+        destructive
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={async () => { if (!removeTarget) return; await handleRemove(removeTarget.id); setRemoveTarget(null); }}
+      />
     </div>
   );
 }

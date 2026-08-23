@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useRef, useState, useEffect, ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import {
   loginUser,
@@ -14,9 +15,9 @@ import {
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import {
-  EMAIL_VALIDATION_MESSAGE,
-  FULL_NAME_VALIDATION_MESSAGE,
-  PHONE_VALIDATION_MESSAGE,
+  getEmailValidationMessage,
+  getFullNameValidationMessage,
+  getPhoneValidationMessage,
   isValidEmail,
   isValidFullName,
   isValidPhone,
@@ -266,6 +267,7 @@ const getUserId = (apiUser: any): string => {
 };
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation("auth");
   const [user, setUser] = useState<User | null>(null);
   const userRef = useRef<User | null>(user);
   userRef.current = user;
@@ -394,17 +396,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
-      throw new Error(EMAIL_VALIDATION_MESSAGE);
+      throw new Error(getEmailValidationMessage(t));
     }
 
     const normalizedName = normalizeFullName(name);
     if (!isValidFullName(normalizedName)) {
-      throw new Error(FULL_NAME_VALIDATION_MESSAGE);
+      throw new Error(getFullNameValidationMessage(t));
     }
 
     const normalizedPhone = phoneNumber ? normalizePhone(phoneNumber) : undefined;
     if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-      throw new Error(PHONE_VALIDATION_MESSAGE);
+      throw new Error(getPhoneValidationMessage(t));
     }
 
     setIsLoading(true);
@@ -713,7 +715,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const normalizedEmail = normalizeEmail(email);
       if (!isValidEmail(normalizedEmail)) {
-        throw new Error(EMAIL_VALIDATION_MESSAGE);
+        throw new Error(getEmailValidationMessage(t));
       }
 
       await requestPasswordResetOtp({ email: normalizedEmail });

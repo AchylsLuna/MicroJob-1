@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { useToast } from '../../contexts/ToastContext';
@@ -24,6 +25,7 @@ type SelectedFile = {
 };
 
 export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
+  const { t } = useTranslation('worker');
   const insets = useSafeAreaInsets();
   const [selectedFile, setSelectedFile] = useState<SelectedFile | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -78,7 +80,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
       }
     } catch (error) {
       console.error('Error picking file:', error);
-      const message = 'Failed to pick file. Please try again.';
+      const message = t('addCv.toast.pickFailed');
       setError(message);
       toast.error(message);
     }
@@ -91,7 +93,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        toast.error('Authentication token not found. Please log in again.');
+        toast.error(t('addCv.toast.authMissing'));
         return;
       }
 
@@ -111,7 +113,7 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
       const result = await apiRequest<{ resumeFileName?: string; resumeUrl?: string }>(
         `${API_URL}/auth/profile/resume`,
         { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData },
-        'Failed to upload résumé.',
+        t('addCv.apiFallback.uploadFailed'),
       );
 
       if (!result.ok) throw new Error(result.message);
@@ -119,14 +121,14 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
         resumeFileName: result.data?.resumeFileName || selectedFile.name,
         resumeUrl: result.data?.resumeUrl,
       });
-      toast.success('Résumé uploaded successfully.');
+      toast.success(t('addCv.toast.uploadSuccess'));
       setSelectedFile(null);
       onClose?.();
     } catch (uploadError) {
       console.error('Error uploading resume:', uploadError);
       const message = uploadError instanceof Error && uploadError.message
         ? uploadError.message
-        : 'Failed to upload resume. Please check your connection and try again.';
+        : t('addCv.toast.uploadFailed');
       setError(message);
       toast.error(message);
     } finally {
@@ -154,37 +156,37 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 12 : 0}
       >
         <View style={styles.overlay} accessible={false} />
-        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]} accessibilityViewIsModal accessibilityLabel="Upload CV">
-          <Text style={styles.modalTitle} accessibilityRole="header">Upload CV</Text>
+        <View style={[styles.modal, { paddingBottom: 30 + Math.max(insets.bottom, 8) }]} accessibilityViewIsModal accessibilityLabel={t('addCv.modalTitle')}>
+          <Text style={styles.modalTitle} accessibilityRole="header">{t('addCv.modalTitle')}</Text>
 
           <View style={styles.content}>
             {/* File Picker */}
-            <Text style={styles.label}>Select your CV file</Text>
-            <TouchableOpacity 
-              style={styles.filePicker} 
+            <Text style={styles.label}>{t('addCv.selectLabel')}</Text>
+            <TouchableOpacity
+              style={styles.filePicker}
               onPress={handlePickFile}
               disabled={isUploading}
               accessibilityRole="button"
-              accessibilityLabel={selectedFile ? 'Change résumé file' : 'Choose résumé file'}
-              accessibilityHint="Supported formats are PDF, DOC, and DOCX up to 5 MB"
+              accessibilityLabel={selectedFile ? t('addCv.filePicker.changeAccessibility') : t('addCv.filePicker.chooseAccessibility')}
+              accessibilityHint={t('addCv.filePicker.hint')}
               accessibilityState={{ disabled: isUploading }}
             >
               <Ionicons name="folder-open-outline" size={32} color="#64748B" accessibilityElementsHidden />
               <Text style={styles.filePickerText}>
-                {selectedFile ? 'Change file' : 'Choose file'}
+                {selectedFile ? t('addCv.filePicker.changeLabel') : t('addCv.filePicker.chooseLabel')}
               </Text>
             </TouchableOpacity>
 
             {/* File Type Info */}
             <Text style={styles.info}>
-              Supported formats: PDF, DOC, DOCX (Max 5MB)
+              {t('addCv.info')}
             </Text>
 
             {error ? <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="assertive">{error}</Text> : null}
 
             {/* Current File Display */}
             {selectedFile && (
-              <View style={styles.selectedFile} accessible accessibilityLabel={`${selectedFile.name}, ${getFileExtension(selectedFile.name)}, ${formatFileSize(selectedFile.size)}`}>
+              <View style={styles.selectedFile} accessible accessibilityLabel={t('addCv.selectedFile.accessibilityLabel', { name: selectedFile.name, extension: getFileExtension(selectedFile.name), size: formatFileSize(selectedFile.size) })}>
                 <View style={styles.fileIcon}>
                   <Ionicons name="document-text-outline" size={22} color="#475569" accessibilityElementsHidden />
                 </View>
@@ -194,11 +196,11 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
                     {getFileExtension(selectedFile.name)} • {formatFileSize(selectedFile.size)}
                   </Text>
                 </View>
-                <TouchableOpacity 
+                <TouchableOpacity
                   onPress={() => setSelectedFile(null)}
                   disabled={isUploading}
                   accessibilityRole="button"
-                  accessibilityLabel={`Remove ${selectedFile.name}`}
+                  accessibilityLabel={t('addCv.selectedFile.removeAccessibility', { name: selectedFile.name })}
                   accessibilityState={{ disabled: isUploading }}
                 >
                   <Ionicons name="close" size={24} color="#64748B" />
@@ -215,26 +217,26 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
               onPress={handleAddCV}
               disabled={!selectedFile || isUploading}
               accessibilityRole="button"
-              accessibilityLabel="Upload résumé"
+              accessibilityLabel={t('addCv.upload.accessibilityLabel')}
               accessibilityState={{ disabled: !selectedFile || isUploading, busy: isUploading }}
             >
               {isUploading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.uploadButtonText}>Upload CV</Text>
+                <Text style={styles.uploadButtonText}>{t('addCv.upload.button')}</Text>
               )}
             </TouchableOpacity>
 
             {/* Cancel Button */}
-            <TouchableOpacity 
-              style={styles.cancelButton} 
+            <TouchableOpacity
+              style={styles.cancelButton}
               onPress={handleClose}
               disabled={isUploading}
               accessibilityRole="button"
-              accessibilityLabel="Cancel résumé upload"
+              accessibilityLabel={t('addCv.cancel.accessibilityLabel')}
               accessibilityState={{ disabled: isUploading }}
             >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
+              <Text style={styles.cancelButtonText}>{t('addCv.cancel.button')}</Text>
             </TouchableOpacity>
           </View>
         </View>

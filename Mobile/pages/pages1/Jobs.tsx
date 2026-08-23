@@ -12,6 +12,7 @@ import JobCard from '../../components/job/JobCard';
 import { toJobCardData } from '../../components/job/jobCardModel';
 import CalendarSheet from '../../components/ui/CalendarSheet';
 import { isDateDisabled, type DateRange } from '../../lib/calendarModel';
+import { useTranslation } from 'react-i18next';
 
 type Category = { _id: string; name: string };
 export type Job = {
@@ -61,6 +62,7 @@ export default function Jobs(props: JobsProps) {
     messageBadgeCount = 0,
     initialCategory,
   } = props;
+  const { t } = useTranslation('worker');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -80,7 +82,12 @@ export default function Jobs(props: JobsProps) {
   const [showMatchingPreferences, setShowMatchingPreferences] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
 
-  const jobTypes = ['All', 'Short-term', 'Side hustle', 'Recruiting'];
+  const jobTypeOptions = useMemo(() => ([
+    { value: 'All', label: t('jobs.jobTypes.all') },
+    { value: 'Short-term', label: t('jobs.jobTypes.shortTerm') },
+    { value: 'Side hustle', label: t('jobs.jobTypes.sideHustle') },
+    { value: 'Recruiting', label: t('jobs.jobTypes.recruiting') },
+  ]), [t]);
 
   useEffect(() => {
     setSelectedCategory(initialCategory || 'All');
@@ -151,24 +158,24 @@ export default function Jobs(props: JobsProps) {
     [filteredJobs, locationScore],
   );
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const result = await apiRequest<Category[]>(`${API_URL}/categories`, undefined, 'Failed to load categories.');
+      const result = await apiRequest<Category[]>(`${API_URL}/categories`, undefined, t('jobs.apiFallback.loadCategoriesFailed'));
       if (result.ok) {
         setCategories(asList<Category>(result.raw, ['categories']));
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
     }
-  };
+  }, [t]);
 
-  const fetchAppliedJobs = async () => {
+  const fetchAppliedJobs = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return;
       const result = await apiRequest(`${API_URL}/applications`, {
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }, 'Failed to load applications.');
+      }, t('jobs.apiFallback.loadApplicationsFailed'));
       if (result.ok) {
         const applications = asList<any>(result.raw, ['applications']);
         const jobIds = applications.map((app: any) => app.job?._id).filter(Boolean);
@@ -177,13 +184,13 @@ export default function Jobs(props: JobsProps) {
     } catch (error) {
       console.error('Failed to load applied jobs:', error);
     }
-  };
+  }, [t]);
 
   const fetchJobs = useCallback(async () => {
     if (!locationLoaded) return;
     if (!workerLocation.city.trim()) {
       setJobs([]);
-      setErrorMessage('Set your city or municipality in Settings before searching for local jobs.');
+      setErrorMessage(t('jobs.errors.locationRequired'));
       return;
     }
     setIsLoading(true);
@@ -208,16 +215,16 @@ export default function Jobs(props: JobsProps) {
         {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         },
-        'Failed to load jobs.'
+        t('jobs.apiFallback.loadJobsFailed')
       );
-      if (!result.ok) throw new Error(result.message || 'Failed to load jobs.');
+      if (!result.ok) throw new Error(result.message || t('jobs.apiFallback.loadJobsFailed'));
       setJobs(asList<Job>(result.raw, ['jobs']));
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load jobs.');
+      setErrorMessage(error?.message || t('jobs.apiFallback.loadJobsFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, [locationLoaded, searchQuery, selectedCategory, selectedJobType, workerLocation.city]);
+  }, [locationLoaded, searchQuery, selectedCategory, selectedJobType, workerLocation.city, t]);
 
   useEffect(() => {
     fetchCategories();
@@ -235,7 +242,7 @@ export default function Jobs(props: JobsProps) {
       }
     };
     loadCurrentUserId();
-  }, []);
+  }, [fetchCategories, fetchAppliedJobs]);
 
   useEffect(() => {
     const loadWorkerLocation = async () => {
@@ -246,7 +253,7 @@ export default function Jobs(props: JobsProps) {
           {
             headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           },
-          'Failed to load profile location.',
+          t('jobs.apiFallback.loadProfileLocationFailed'),
         );
 
         const raw = (profileResult.raw || {}) as any;
@@ -271,7 +278,7 @@ export default function Jobs(props: JobsProps) {
     };
 
     loadWorkerLocation();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -306,7 +313,7 @@ export default function Jobs(props: JobsProps) {
           },
           body: JSON.stringify({ sendInitialMessage: false }),
         },
-        'Failed to open a conversation with this employer.'
+        t('jobs.apiFallback.openConversationFailed')
       );
 
       if (!result.ok) return;
@@ -317,7 +324,7 @@ export default function Jobs(props: JobsProps) {
 
       onMessageEmployer?.({
         userId: String(conversation.otherUserId),
-        userName: conversation.otherUserName || 'Employer',
+        userName: conversation.otherUserName || t('jobs.common.employerFallback'),
         jobId: String(conversation.jobId || job._id),
       });
     } catch (error) {
@@ -340,11 +347,11 @@ export default function Jobs(props: JobsProps) {
           preferredCategories: preferredCategoryIds,
           jobPreferences: jobPreferenceText.split(',').map((item) => item.trim()).filter(Boolean),
         }),
-      }, 'Failed to save job preferences.');
-      if (!result.ok) throw new Error(result.message || 'Failed to save job preferences.');
+      }, t('jobs.apiFallback.saveJobPreferencesFailed'));
+      if (!result.ok) throw new Error(result.message || t('jobs.apiFallback.saveJobPreferencesFailed'));
       setShowMatchingPreferences(false);
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to save job preferences.');
+      setErrorMessage(error?.message || t('jobs.apiFallback.saveJobPreferencesFailed'));
     } finally {
       setSavingPreferences(false);
     }
@@ -353,7 +360,7 @@ export default function Jobs(props: JobsProps) {
   return (
     <View style={styles.container}>
       <TabTopNav
-        title="Jobs"
+        title={t('jobs.headerTitle')}
         showNotifications
         onOpenNotifications={onOpenNotifications}
         notificationBadgeCount={notificationBadgeCount}
@@ -364,48 +371,48 @@ export default function Jobs(props: JobsProps) {
           <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search jobs"
+            placeholder={t('jobs.search.placeholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            accessibilityLabel="Search jobs"
-            accessibilityHint="Search by job title, company, or location"
+            accessibilityLabel={t('jobs.search.accessibility')}
+            accessibilityHint={t('jobs.search.hint')}
             returnKeyType="search"
           />
           {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel="Clear job search">
+            <TouchableOpacity onPress={() => setSearchQuery('')} accessibilityRole="button" accessibilityLabel={t('jobs.search.clearAccessibility')}>
               <Ionicons name="close-circle" size={18} color={tokens.colors.textSubtle} />
             </TouchableOpacity>
           ) : null}
         </View>
 
         <View style={styles.toolbarRow}>
-          <TouchableOpacity style={styles.toolbarButton} onPress={() => fetchJobs()} accessibilityRole="button" accessibilityLabel="Refresh jobs">
+          <TouchableOpacity style={styles.toolbarButton} onPress={() => fetchJobs()} accessibilityRole="button" accessibilityLabel={t('jobs.toolbar.refreshAccessibility')}>
             <Ionicons name="refresh-outline" size={15} color={tokens.colors.textMuted} />
-            <Text style={styles.toolbarButtonText}>Refresh</Text>
+            <Text style={styles.toolbarButtonText}>{t('jobs.toolbar.refreshLabel')}</Text>
           </TouchableOpacity>
 
           <View style={styles.toolbarButtonMuted}>
-            <Text style={styles.toolbarButtonText}>Sorted by relevance</Text>
+            <Text style={styles.toolbarButtonText}>{t('jobs.toolbar.sortedByRelevance')}</Text>
           </View>
         </View>
 
         <View style={styles.quickActionsRow}>
-          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenSavedJobs} accessibilityRole="button" accessibilityLabel="Open saved jobs">
+          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenSavedJobs} accessibilityRole="button" accessibilityLabel={t('jobs.quickActions.savedAccessibility')}>
             <Ionicons name="bookmark-outline" size={15} color={tokens.colors.brand} />
-            <Text style={styles.quickActionText}>Saved Jobs</Text>
+            <Text style={styles.quickActionText}>{t('jobs.quickActions.savedLabel')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenAppliedJobs} accessibilityRole="button" accessibilityLabel="Open applied jobs">
+          <TouchableOpacity style={styles.quickActionBtn} onPress={onOpenAppliedJobs} accessibilityRole="button" accessibilityLabel={t('jobs.quickActions.appliedAccessibility')}>
             <Ionicons name="checkmark-done-outline" size={15} color={tokens.colors.brand} />
-            <Text style={styles.quickActionText}>Applied Jobs</Text>
+            <Text style={styles.quickActionText}>{t('jobs.quickActions.appliedLabel')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.preferencesCard}>
           <TouchableOpacity style={styles.preferencesHeader} onPress={() => setShowMatchingPreferences((value) => !value)}>
             <View style={styles.preferencesHeadingCopy}>
-              <Text style={styles.preferencesTitle}>Improve your job matches</Text>
-              <Text style={styles.preferencesSubtitle}>Choose preferred categories and work interests.</Text>
+              <Text style={styles.preferencesTitle}>{t('jobs.preferences.title')}</Text>
+              <Text style={styles.preferencesSubtitle}>{t('jobs.preferences.subtitle')}</Text>
             </View>
             <Ionicons name={showMatchingPreferences ? 'chevron-up' : 'chevron-down'} size={18} color={tokens.colors.brand} />
           </TouchableOpacity>
@@ -429,25 +436,25 @@ export default function Jobs(props: JobsProps) {
                 style={styles.preferenceInput}
                 value={jobPreferenceText}
                 onChangeText={setJobPreferenceText}
-                placeholder="repair, installation, maintenance"
+                placeholder={t('jobs.preferences.inputPlaceholder')}
                 placeholderTextColor={tokens.colors.textSubtle}
               />
               <TouchableOpacity style={[styles.preferenceSave, savingPreferences && styles.preferenceSaveDisabled]} onPress={saveMatchingPreferences} disabled={savingPreferences}>
-                {savingPreferences ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.preferenceSaveText}>Save matching preferences</Text>}
+                {savingPreferences ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.preferenceSaveText}>{t('jobs.preferences.saveButton')}</Text>}
               </TouchableOpacity>
             </View>
           ) : null}
         </View>
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>Deadline</Text>
+          <Text style={styles.sectionLabel}>{t('jobs.sections.deadline')}</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           {(
             [
-              { key: 'all', label: 'Any dates' },
-              { key: '7', label: 'Next 7 days' },
-              { key: '30', label: 'Next 30 days' },
+              { key: 'all', label: t('jobs.datePresets.any') },
+              { key: '7', label: t('jobs.datePresets.next7') },
+              { key: '30', label: t('jobs.datePresets.next30') },
               {
                 key: 'custom',
                 label:
@@ -457,7 +464,7 @@ export default function Jobs(props: JobsProps) {
                           ? ` – ${customDateRange.end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
                           : ''
                       }`
-                    : 'Custom',
+                    : t('jobs.datePresets.custom'),
               },
             ] as const
           ).map((preset) => (
@@ -486,15 +493,15 @@ export default function Jobs(props: JobsProps) {
           mode="range"
           range={customDateRange}
           minDate={new Date()}
-          title="Application deadline"
+          title={t('jobs.dateSheet.title')}
           onChange={setCustomDateRange}
           footer={{
-            clearLabel: 'Clear all',
+            clearLabel: t('jobs.dateSheet.clearAll'),
             onClear: () => {
               setCustomDateRange({ start: null, end: null });
               setDateFilter('all');
             },
-            primaryLabel: 'Apply',
+            primaryLabel: t('jobs.dateSheet.apply'),
             onPrimary: () => {
               setDateFilter('custom');
               setShowDateFilterSheet(false);
@@ -504,7 +511,7 @@ export default function Jobs(props: JobsProps) {
         />
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>Categories</Text>
+          <Text style={styles.sectionLabel}>{t('jobs.sections.categories')}</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
           <TouchableOpacity
@@ -512,9 +519,9 @@ export default function Jobs(props: JobsProps) {
             onPress={() => setSelectedCategory('All')}
             accessibilityRole="button"
             accessibilityState={{ selected: selectedCategory === 'All' }}
-            accessibilityLabel="All categories"
+            accessibilityLabel={t('jobs.categoriesFilter.allAccessibility')}
           >
-            <Text style={[styles.filterChipText, selectedCategory === 'All' && styles.filterChipTextActive]}>All</Text>
+            <Text style={[styles.filterChipText, selectedCategory === 'All' && styles.filterChipTextActive]}>{t('jobs.categoriesFilter.allLabel')}</Text>
           </TouchableOpacity>
           {categories.map((category) => (
             <TouchableOpacity
@@ -523,7 +530,7 @@ export default function Jobs(props: JobsProps) {
               onPress={() => setSelectedCategory(category._id)}
               accessibilityRole="button"
               accessibilityState={{ selected: selectedCategory === category._id }}
-              accessibilityLabel={`${category.name} category`}
+              accessibilityLabel={t('jobs.categoriesFilter.categoryAccessibility', { name: category.name })}
             >
               <Text style={[styles.filterChipText, selectedCategory === category._id && styles.filterChipTextActive]}>
                 {category.name}
@@ -533,30 +540,30 @@ export default function Jobs(props: JobsProps) {
         </ScrollView>
 
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionLabel}>Job Type</Text>
+          <Text style={styles.sectionLabel}>{t('jobs.sections.jobType')}</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsRow}>
-          {jobTypes.map((type) => (
+          {jobTypeOptions.map((option) => (
             <TouchableOpacity
-              key={type}
-              style={[styles.filterChip, selectedJobType === type && styles.filterChipActive]}
-              onPress={() => setSelectedJobType(type)}
+              key={option.value}
+              style={[styles.filterChip, selectedJobType === option.value && styles.filterChipActive]}
+              onPress={() => setSelectedJobType(option.value)}
               accessibilityRole="button"
-              accessibilityState={{ selected: selectedJobType === type }}
-              accessibilityLabel={`${type} job type`}
+              accessibilityState={{ selected: selectedJobType === option.value }}
+              accessibilityLabel={t('jobs.jobTypeFilter.accessibility', { type: option.label })}
             >
-              <Text style={[styles.filterChipText, selectedJobType === type && styles.filterChipTextActive]}>
-                {type}
+              <Text style={[styles.filterChipText, selectedJobType === option.value && styles.filterChipTextActive]}>
+                {option.label}
               </Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
-        <Text style={styles.jobsCount}>{filteredJobs.length} Jobs Available</Text>
+        <Text style={styles.jobsCount}>{t('jobs.jobsAvailable', { count: filteredJobs.length })}</Text>
 
         {nearestJobs.length > 0 ? (
           <View style={styles.nearestCard}>
-            <Text style={styles.nearestTitle}>Suggested Near You</Text>
+            <Text style={styles.nearestTitle}>{t('jobs.nearest.title')}</Text>
             <View style={styles.nearestList}>
               {nearestJobs.map((job) => (
                 <TouchableOpacity
@@ -564,7 +571,7 @@ export default function Jobs(props: JobsProps) {
                   style={styles.nearestItem}
                   onPress={() => onViewDetails?.(job)}
                   accessibilityRole="button"
-                  accessibilityLabel={`View ${job.title} near ${job.location}`}
+                  accessibilityLabel={t('jobs.nearest.viewAccessibility', { title: job.title, location: job.location })}
                 >
                   <Ionicons name="navigate-outline" size={14} color={tokens.colors.brand} />
                   <Text numberOfLines={1} style={styles.nearestText}>
@@ -612,7 +619,7 @@ export default function Jobs(props: JobsProps) {
                       }}
                     >
                       <Ionicons name="chatbubble-ellipses-outline" size={14} color={tokens.colors.onBrand} />
-                      <Text style={styles.messageEmployerButtonText}>Message Employer</Text>
+                      <Text style={styles.messageEmployerButtonText}>{t('jobs.jobCard.messageEmployerButton')}</Text>
                     </TouchableOpacity>
                   ) : null
                 }

@@ -1,0 +1,856 @@
+{
+  "about": {
+    "headerTitle": "Tungkol",
+    "headerSubtitle": "Impormasyon ng platform",
+    "cardTitle": "Micro Jobs",
+    "version": "Bersyon 1.0.0",
+    "body": "Ikinokonekta ng Micro Jobs ang mga worker at employer para sa mabilis na lokal na pag-hire at pagmemensahe."
+  },
+  "addCv": {
+    "modalTitle": "Mag-upload ng CV",
+    "selectLabel": "Piliin ang iyong CV file",
+    "filePicker": {
+      "changeAccessibility": "Palitan ang résumé file",
+      "chooseAccessibility": "Pumili ng résumé file",
+      "hint": "Ang mga suportadong format ay PDF, DOC, at DOCX na hanggang 5 MB",
+      "changeLabel": "Palitan ang file",
+      "chooseLabel": "Pumili ng file"
+    },
+    "info": "Mga suportadong format: PDF, DOC, DOCX (Max 5MB)",
+    "selectedFile": {
+      "accessibilityLabel": "{{name}}, {{extension}}, {{size}}",
+      "removeAccessibility": "Alisin ang {{name}}"
+    },
+    "upload": {
+      "accessibilityLabel": "I-upload ang résumé",
+      "button": "I-upload ang CV"
+    },
+    "cancel": {
+      "accessibilityLabel": "Kanselahin ang pag-upload ng résumé",
+      "button": "Kanselahin"
+    },
+    "toast": {
+      "pickFailed": "Hindi napili ang file. Subukan ulit.",
+      "authMissing": "Hindi nahanap ang authentication token. Mag-log in ulit.",
+      "uploadSuccess": "Matagumpay na na-upload ang résumé.",
+      "uploadFailed": "Hindi na-upload ang resume. Tingnan ang iyong koneksyon at subukan ulit."
+    },
+    "apiFallback": {
+      "uploadFailed": "Hindi na-upload ang résumé."
+    }
+  },
+  "addExperience": {
+    "modalTitle": {
+      "edit": "I-edit ang karanasan sa trabaho",
+      "add": "Magdagdag ng karanasan sa trabaho"
+    },
+    "modalSubtitle": {
+      "edit": "Panatilihing tama at updated ang tungkuling ito.",
+      "add": "Magdagdag ng trabaho, client project, o self-employment na tungkulin."
+    },
+    "close": "Isara",
+    "fields": {
+      "title": "Trabaho/Titulo *",
+      "titlePlaceholder": "hal., Math tutor",
+      "company": "Kompanya o kliyente *",
+      "companyPlaceholder": "hal., Self-employed",
+      "location": "Lokasyon",
+      "locationPlaceholder": "Lungsod o Remote",
+      "startDate": "Petsa ng simula *",
+      "endDate": "Petsa ng pagtatapos *",
+      "datePlaceholder": "YYYY-MM"
+    },
+    "current": {
+      "label": "Kasalukuyan akong nagtatrabaho dito"
+    },
+    "description": {
+      "label": "Paglalarawan",
+      "placeholder": "Ilarawan ang iyong mga responsibilidad at resulta",
+      "accessibilityLabel": "Paglalarawan ng karanasan"
+    },
+    "characterCount": "{{count}}/{{max}}",
+    "save": {
+      "update": "I-update ang karanasan",
+      "save": "I-save ang karanasan"
+    },
+    "errors": {
+      "titleCompanyRequired": "Kinakailangan ang titulo ng trabaho at kompanya o kliyente.",
+      "invalidStartDate": "Ilagay ang petsa ng simula bilang YYYY-MM.",
+      "invalidEndDate": "Ilagay ang petsa ng pagtatapos bilang YYYY-MM o markahan ito bilang iyong kasalukuyang tungkulin.",
+      "endBeforeStart": "Hindi maaaring mauna ang petsa ng pagtatapos sa petsa ng simula.",
+      "futureDates": "Hindi maaaring nasa hinaharap ang mga petsa ng karanasan sa trabaho.",
+      "fieldTooLong": "May isa o higit pang field na lumampas sa pinapayagang haba.",
+      "saveFailed": "Hindi na-save ang karanasan sa trabaho."
+    }
+  },
+  "appliedJobs": {
+    "headerTitle": "Mga inaplayan na trabaho",
+    "headerSubtitle_one": "{{count}} kabuuang aplikasyon",
+    "headerSubtitle_other": "{{count}} kabuuang mga aplikasyon",
+    "backAccessibility": "Bumalik sa mga trabaho",
+    "toggle": {
+      "appliedLabel": "Detalye ng inaplayan na trabaho",
+      "savedLabel": "I-save ang trabaho",
+      "savedAccessibility": "Buksan ang mga na-save na trabaho"
+    },
+    "filter": {
+      "accessibilityLabel": "I-filter ang mga aplikasyon ayon sa {{filter}}"
+    },
+    "empty": {
+      "title": "Walang aplikasyon",
+      "text": "Wala ka pang {{filter}} na mga aplikasyon"
+    },
+    "logoPlaceholder": "logo",
+    "viewDetails": "Tingnan ang detalye ›",
+    "appliedDate": "Inaplayan noong {{date}}",
+    "interview": {
+      "title": "May naka-iskedyul na interview",
+      "modeFallback": "iba pa"
+    },
+    "messageButton": {
+      "submitWork": "Isumite ang Trabaho",
+      "message": "Mensahe"
+    },
+    "withdrawButton": {
+      "label": "Bawiin"
+    },
+    "rateButton": {
+      "label": "I-rate ang Employer",
+      "accessibilityLabel": "I-rate ang employer para sa {{title}}"
+    },
+    "reviewedText": "★ Naisumite na ang review",
+    "modal": {
+      "title": "Bawiin ang aplikasyon?",
+      "text": "Ang iyong aplikasyon para sa {{title}} ay babawiin at aalisin sa listahan ng aktibong aplikante ng employer.",
+      "keepButton": "Panatilihin ang aplikasyon",
+      "withdrawButton": "Bawiin"
+    },
+    "toast": {
+      "withdrawSuccess": "Nabawi ang aplikasyon. Naabisuhan na ang employer.",
+      "submitWorkSuccess": "Naisumite ang trabaho. Maaari ka nang humiling ng QR invoice mula sa E-Wallet."
+    },
+    "apiFallback": {
+      "loadApplicationsFailed": "Hindi na-load ang mga aplikasyon.",
+      "loadEligibilityFailed": "Hindi na-load ang eligibility ng review.",
+      "withdrawFailed": "Hindi nabawi ang aplikasyon.",
+      "submitWorkFailed": "Hindi maisumite ang natapos na trabaho.",
+      "markReadFailed": "Hindi namarkahan bilang nabasa ang aplikasyon."
+    },
+    "job": {
+      "untitled": "Walang pamagat na trabaho",
+      "posterFallback": "Nagpost ng Trabaho",
+      "employerFallback": "Employer",
+      "thisJobFallback": "trabahong ito"
+    }
+  },
+  "contactSupport": {
+    "header": {
+      "title": "Support Center",
+      "subtitle": "Buksan ang mga ticket at subaybayan ang mga sagot"
+    },
+    "hero": {
+      "title": "Kailangan ng tulong sa payout, aplikasyon, o isyu sa account?",
+      "body": "Magsumite ng ticket, subaybayan ang mga pagbabago sa status, at ipagpatuloy ang thread nang hindi umaalis sa app."
+    },
+    "metrics": {
+      "open": "Bukas",
+      "waiting": "Naghihintay",
+      "resolved": "Nalutas"
+    },
+    "faqs": {
+      "payoutReviews": {
+        "title": "Review ng payout",
+        "body": "Manwal na sinusuri ang mga payout request. Subaybayan ang bawat desisyon sa review mula sa kasaysayan ng iyong wallet."
+      },
+      "applicationStages": {
+        "title": "Mga yugto ng aplikasyon",
+        "body": "Ang mga aplikasyon ay dumadaan na ngayon sa Applied, Shortlisted, Interview Scheduled, Offer Sent, at Hired."
+      },
+      "accountSafety": {
+        "title": "Kaligtasan ng account",
+        "body": "Gumamit ng malakas na password, panatilihing naka-enable ang MFA, at regular na suriin ang iyong mga session."
+      }
+    },
+    "categories": {
+      "general": "Pangkalahatan",
+      "payments": "Mga Pagbabayad",
+      "jobs": "Mga Trabaho",
+      "account": "Account",
+      "technical": "Teknikal"
+    },
+    "priorities": {
+      "low": "Mababa",
+      "medium": "Katamtaman",
+      "high": "Mataas",
+      "urgent": "Agaran"
+    },
+    "createForm": {
+      "title": "Gumawa ng Support Ticket",
+      "subtitle": "Ilarawan nang malinaw ang isyu para maayos itong ma-route ng support.",
+      "subjectLabel": "Paksa",
+      "subjectPlaceholder": "Pagkaantala sa review ng payout",
+      "categoryLabel": "Kategorya",
+      "priorityLabel": "Priyoridad",
+      "messageLabel": "Mensahe",
+      "messagePlaceholder": "Ipaliwanag kung ano ang nangyari, kung ano ang inaasahan mo, at anumang kaugnay na petsa o reference.",
+      "submitButton": "Isumite ang Ticket"
+    },
+    "history": {
+      "title": "Kasaysayan ng Ticket",
+      "refreshing": "Nire-refresh...",
+      "refreshButton": "I-refresh",
+      "loading": "Nilo-load ang mga support ticket...",
+      "empty": {
+        "title": "Wala pang support ticket",
+        "body": "Lalabas dito ang mga naisumite mong ticket at sagot ng support."
+      },
+      "messagesCount_one": "{{count}} mensahe",
+      "messagesCount_other": "{{count}} na mensahe",
+      "updatedLabel": "Na-update noong {{date}}"
+    },
+    "thread": {
+      "subtitle": "Subaybayan ang pinakabagong mga sagot at ipagpatuloy ang thread sa ibaba.",
+      "noBody": "Walang laman ang mensahe.",
+      "replyLabel": "Sagot",
+      "replyPlaceholder": "Magdagdag ng higit pang detalye o sumagot sa support.",
+      "sendButton": "Ipadala ang Sagot",
+      "closedBanner": "Sarado na ang ticket na ito at hindi na maaaring tumanggap ng bagong sagot."
+    },
+    "common": {
+      "noDate": "Walang petsa",
+      "supportAuthor": "Support",
+      "youFallback": "Ikaw"
+    },
+    "errors": {
+      "subjectMessageRequired": "Kinakailangan ang paksa at mensahe."
+    },
+    "apiFallback": {
+      "loadTicketsFailed": "Hindi na-load ang mga support ticket.",
+      "loadTicketFailed": "Hindi na-load ang support ticket.",
+      "submitTicketFailed": "Hindi naisumite ang support ticket.",
+      "sendReplyFailed": "Hindi naipadala ang sagot."
+    }
+  },
+  "changePassword": {
+    "headerTitle": "Baguhin ang Password",
+    "headerSubtitle": "I-update ang kredensyal ng iyong account",
+    "errors": {
+      "notSignedIn": "Mag-sign in ulit para magpatuloy.",
+      "passwordMismatch": "Hindi magkatugma ang bagong password at kumpirmasyon.",
+      "weakPassword": "Hindi natutugunan ng iyong bagong password ang lahat ng kinakailangan."
+    },
+    "toast": {
+      "enterCurrentPassword": "Ilagay muna ang iyong kasalukuyang password.",
+      "otpSent": "Tingnan ang iyong email para sa OTP code ng pagbabago ng password.",
+      "completeFields": "Kumpletuhin ang lahat ng field para magpatuloy.",
+      "samePassword": "Dapat naiiba ang bagong password sa iyong kasalukuyang password.",
+      "passwordUpdated": "Na-update na ang iyong password."
+    },
+    "apiFallback": {
+      "requestOtpFailed": "Hindi nahiling ang OTP.",
+      "changePasswordFailed": "Hindi nabago ang password."
+    },
+    "labels": {
+      "currentPassword": "Kasalukuyang Password",
+      "otpCode": "OTP Code",
+      "newPassword": "Bagong Password",
+      "confirmPassword": "Kumpirmahin ang Password"
+    },
+    "placeholders": {
+      "currentPassword": "Ilagay ang kasalukuyang password",
+      "otpCode": "Ilagay ang 6-digit na OTP",
+      "newPassword": "Ilagay ang bagong password",
+      "confirmPassword": "Ilagay muli ang bagong password"
+    },
+    "otpHint": "Ilagay ang OTP na ipinadala sa iyong email para magpatuloy.",
+    "button": {
+      "sendOtp": "Magpadala ng OTP",
+      "updatePassword": "I-update ang Password"
+    }
+  },
+  "dashboard": {
+    "headerTitle": "Home",
+    "apiFallback": {
+      "loadCategoriesFailed": "Hindi na-load ang mga kategorya.",
+      "loadJobsFailed": "Hindi na-load ang mga trabaho.",
+      "loadRecommendedFailed": "Hindi na-load ang mga inirekomendang trabaho.",
+      "loadProfileFailed": "Hindi na-load ang profile."
+    },
+    "search": {
+      "accessibilityLabel": "Maghanap ng lokal na trabaho, kasanayan, o employer",
+      "title": "Maghanap ng lokal na trabaho",
+      "subtitle": "Kasanayan, employer, o pamagat ng trabaho"
+    },
+    "resumeCard": {
+      "title": "I-upload ang iyong resume",
+      "subtitle": "Ma-match sa mga lokal na employer sa iyong komunidad.",
+      "uploadAccessibility": "I-upload ang CV o resume",
+      "uploadButton": "I-upload ang resume"
+    },
+    "sections": {
+      "categories": "Mga Kategorya ng Trabaho",
+      "browseAll": "Tingnan lahat",
+      "matchingSkills": "Mga Trabahong Bagay sa Iyong Kasanayan",
+      "recentInArea": "Kamakailan sa Iyong Lugar"
+    },
+    "category": {
+      "accessibilityLabel_one": "I-browse ang {{name}}, {{count}} lokal na bakante",
+      "accessibilityLabel_other": "I-browse ang {{name}}, {{count}} lokal na bakante"
+    },
+    "state": {
+      "locationTitle": "Itakda ang iyong lokasyon ng trabaho",
+      "locationMessage": "Idagdag ang iyong lungsod o munisipyo para makita ang mga malapit na oportunidad.",
+      "locationAction": "Buksan ang settings",
+      "unavailableTitle": "Hindi available ang mga trabaho",
+      "unavailableAction": "Subukan muli",
+      "emptyTitle": "Wala pang kamakailang trabaho",
+      "emptyMessage": "Lalabas dito ang mga bagong oportunidad sa iyong lugar.",
+      "emptyAction": "Tuklasin ang mga trabaho"
+    }
+  },
+  "deleteAccount": {
+    "headerTitle": "Burahin ang Account",
+    "headerSubtitle": "Soft delete na may mga blocker check",
+    "errors": {
+      "passwordRequired": "Ilagay ang iyong kasalukuyang password para magpatuloy.",
+      "confirmMismatch": "I-type nang eksakto ang DELETE para kumpirmahin ang aksyong ito."
+    },
+    "apiFallback": {
+      "deleteFailed": "Hindi na-delete ang account."
+    },
+    "toast": {
+      "deleted": "Na-delete ang account. Nagsa-sign out..."
+    },
+    "warning": {
+      "title": "Bago ka magpatuloy",
+      "body": "Pinapayagan lang ang pag-delete kapag zero na ang balances, nalutas na ang mga payout request, at sarado na ang mga aktibong trabaho o aplikasyon.",
+      "sessionsRevoked": "Babawiin ang mga kasalukuyang session pagkatapos i-delete.",
+      "identifiersAnonymized": "Gagawing anonymous ang mga personal na identifier para sa audit retention.",
+      "savedRemoved": "Awtomatikong aalisin ang mga na-save na trabaho at push device."
+    },
+    "confirmCard": {
+      "title": "Kumpirmahin ang pag-delete ng account",
+      "subtitle": "Ilagay ang iyong password at i-type ang DELETE para kumpirmahin.",
+      "passwordLabel": "Kasalukuyang Password",
+      "passwordPlaceholder": "Kasalukuyang password",
+      "confirmationLabel": "Kumpirmasyon",
+      "confirmationPlaceholder": "I-type ang DELETE",
+      "deleteButton": "I-delete ang Aking Account"
+    },
+    "blockers": {
+      "title": "Lutasin muna ang mga blocker na ito",
+      "subtitle": "Tinanggihan ng backend ang pag-delete hangga't hindi nalulutas ang mga sumusunod na kondisyon."
+    }
+  },
+  "eWallet": {
+    "headerTitle": "E-Wallet",
+    "balanceCard": {
+      "label": "Available na i-withdraw",
+      "employerSecondary": "Pondo ng employer: {{amount}} (hindi maaaring i-withdraw dito)",
+      "note": "Dito dumarating ang mga kinita mo sa natapos na lokal na trabaho. I-withdraw lamang ang iyong worker balance gamit ang beripikadong Philippine bank o mobile wallet.",
+      "withdrawAction": "I-withdraw ang Pondo",
+      "requestInvoiceAction": "Humiling ng Invoice"
+    },
+    "metrics": {
+      "totalCredited": "Kabuuang na-kredito",
+      "pending": "Nakabinbin",
+      "transactions": "Mga Transaksyon"
+    },
+    "invoices": {
+      "sectionTitle": "Mga Invoice sa Pagbabayad",
+      "sectionSubtitle": "Mga secure na hiling ng bayad sa trabaho na inihahatid sa chat at notifications.",
+      "jobFallback": "Bayad sa trabaho",
+      "empty": {
+        "title": "Wala pang invoice",
+        "body": "Humiling ng invoice pagkatapos mong tapusin ang na-hire na trabahong nasa In Progress pa."
+      },
+      "actions": {
+        "viewQr": "Tingnan ang QR",
+        "openChat": "Buksan ang Chat",
+        "generateReplacement": "Gumawa ng Kapalit",
+        "cancel": "Kanselahin"
+      }
+    },
+    "payoutForm": {
+      "title": "I-withdraw ang Pondo",
+      "availableSubtitle": "Available na i-withdraw: {{amount}}",
+      "amountLabel": "Halaga (PHP)",
+      "amountAccessibility": "Halaga ng withdrawal sa Philippine pesos",
+      "methodLabel": "Paraan",
+      "methodOptions": {
+        "bank": "Bangko",
+        "gcash": "GCash",
+        "maya": "Maya"
+      },
+      "methodAccessibility": "{{method}} na paraan ng withdrawal",
+      "institutionLabel": "Institusyon",
+      "institutionPlaceholder": "BDO, GCash, Maya",
+      "institutionAccessibility": "Institusyong pinansyal",
+      "accountNameLabel": "Pangalan sa Account",
+      "accountNamePlaceholder": "Juan Dela Cruz",
+      "accountNameAccessibility": "Pangalan ng may-ari ng account",
+      "accountNumberLabel": "Numero ng Account",
+      "accountNumberPlaceholder": "09171234567 o numero ng bank account",
+      "accountNumberAccessibility": "Numero ng bank o mobile wallet account",
+      "submitAccessibility": "Isumite ang kahilingan sa withdrawal",
+      "submitButton": "I-withdraw ang Pondo"
+    },
+    "notice": {
+      "workerOnly": "Ang screen na ito ay para sa worker withdrawals lamang. Lumipat sa employer mode para pondohan ang mga trabaho mula sa employer wallet."
+    },
+    "transactions": {
+      "sectionTitle": "Mga Kamakailang Transaksyon",
+      "sectionSubtitle": "Ang iyong pinakabagong worker-wallet na aktibidad.",
+      "empty": {
+        "title": "Wala pang transaksyon",
+        "body": "Lalabas dito ang mga natapos na trabaho, withdrawal, at refund."
+      },
+      "type": {
+        "topUp": "Top-up",
+        "escrow": "Escrow",
+        "payout": "Payout",
+        "refund": "Refund",
+        "generic": "Transaksyon"
+      }
+    },
+    "withdrawals": {
+      "sectionTitle": "Kasaysayan ng Withdrawal",
+      "sectionSubtitle": "Subaybayan ang status ng review at bayad.",
+      "empty": {
+        "title": "Wala pang withdrawal",
+        "body": "Lalabas dito ang mga naisumiteng withdrawal request."
+      },
+      "destinationFallback": "Hindi pa naitakda ang destinasyon",
+      "accountNameFallback": "Hindi kilalang account",
+      "accountNumberFallback": "Walang numero ng account",
+      "requestedLabel": "Hiniling noong {{date}}",
+      "reviewedLabel": "Na-review noong {{date}}",
+      "cancelButton": "Kanselahin ang Withdrawal"
+    },
+    "common": {
+      "noDate": "Walang petsa",
+      "statusUnknown": "hindi alam"
+    },
+    "toast": {
+      "workerOnlyPayout": "Available lang ang mga payout request mula sa worker balance.",
+      "invalidAmount": "Ilagay ang wastong halaga ng payout.",
+      "amountExceedsBalance": "Hindi maaaring lumampas ang halaga ng payout sa iyong worker balance.",
+      "incompleteDestination": "Kumpletuhin ang detalye ng destinasyon bago isumite ang iyong withdrawal.",
+      "payoutSubmitted": "Naisumite na ang iyong withdrawal para sa admin review.",
+      "payoutCancelled": "Naibalik ang halaga sa iyong worker balance."
+    },
+    "apiFallback": {
+      "loadProfileFailed": "Hindi na-load ang wallet profile.",
+      "loadTransactionsFailed": "Hindi na-load ang mga transaksyon.",
+      "loadPayoutsFailed": "Hindi na-load ang mga payout request.",
+      "loadInvoicesFailed": "Hindi na-load ang mga invoice.",
+      "refreshFailed": "May ilang detalye ng wallet na hindi na-refresh.",
+      "connectionFailed": "Tingnan ang iyong koneksyon at subukan ulit.",
+      "createPayoutFailed": "Hindi nagawa ang withdrawal.",
+      "submitPayoutFailed": "Hindi maisumite ang withdrawal.",
+      "cancelWithdrawalFailed": "Hindi nakansela ang withdrawal.",
+      "cancelPayoutFailed": "Hindi makansela ang withdrawal.",
+      "replaceInvoiceFailed": "Hindi napalitan ang invoice.",
+      "cancelInvoiceFailed": "Hindi nakansela ang invoice."
+    }
+  },
+  "settings": {
+    "profile": {
+      "defaultName": "Account User",
+      "defaultEmail": "Walang nakalagay na email",
+      "badge": {
+        "employer": "Settings ng Employer",
+        "worker": "Settings ng Worker"
+      },
+      "openButton": "Buksan"
+    },
+    "apiFallback": {
+      "refreshFailed": "Hindi na-refresh ang settings.",
+      "savePrivacyFailed": "Hindi na-save ang employer privacy setting."
+    },
+    "errors": {
+      "notAuthenticated": "Hindi naka-authenticate. Mag-sign in muli."
+    },
+    "toast": {
+      "privacySaved": "Na-save ang employer privacy setting."
+    },
+    "menu": {
+      "businessInformation": "Impormasyon ng Negosyo",
+      "paymentMethods": "Mga Paraan ng Pagbabayad",
+      "personalInformation": "Personal na Impormasyon",
+      "resumeDocuments": "Resume at Mga Dokumento",
+      "changePassword": "Baguhin ang Password",
+      "twoFactorAuth": "Two-Factor Authentication",
+      "notificationInbox": "Notification Inbox",
+      "locationServices": "Mga Serbisyo ng Lokasyon",
+      "contactSupport": "Makipag-ugnayan sa Support",
+      "about": "Tungkol Dito",
+      "logOut": "Mag-log Out",
+      "deleteAccount": "Burahin ang Account"
+    },
+    "sections": {
+      "account": "Account",
+      "security": "Seguridad",
+      "preferences": "Mga Kagustuhan",
+      "supportInfo": "Suporta at impormasyon"
+    },
+    "header": {
+      "backAccessibility": "Bumalik",
+      "title": "Settings",
+      "subtitle": "Pamahalaan ang profile, seguridad, suporta, at mga kontrol ng account."
+    },
+    "modeCard": {
+      "sectionLabel": "MODE NG ACCOUNT",
+      "employerModeTitle": "Employer Mode",
+      "workerModeTitle": "Worker Mode",
+      "description": "Ang Both account na ito ay maaaring magtrabaho at mangupahan mula sa iisang profile.",
+      "switchAccessibility": {
+        "toWorker": "Lumipat sa Worker Mode",
+        "toEmployer": "Lumipat sa Employer Mode"
+      },
+      "switchLabel": {
+        "toWorker": "Lumipat sa Worker",
+        "toEmployer": "Lumipat sa Employer"
+      }
+    },
+    "confirmMode": {
+      "titleToEmployer": "Lumipat sa Employer Mode?",
+      "titleToWorker": "Lumipat sa Worker Mode?",
+      "descriptionToEmployer": "Babalik ka sa Employer Home screen. Nananatiling nakakonekta ang iyong account data sa Both profile na ito.",
+      "descriptionToWorker": "Babalik ka sa Worker Home screen. Nananatiling nakakonekta ang iyong account data sa Both profile na ito."
+    },
+    "employerPrivacy": {
+      "sectionLabel": "PRIVACY NG EMPLOYER",
+      "title": "Itago ang bilang ng na-hire na kandidato",
+      "description": "Panatilihing pribado ang bilang ng iyong pag-hire sa web at mobile.",
+      "accessibilityLabel": "Itago ang bilang ng na-hire na kandidato"
+    }
+  },
+  "jobDetails": {
+    "titleFallback": "Detalye ng Trabaho",
+    "urgentBadge": "Agaran",
+    "stats": {
+      "locationLabel": "LOKASYON",
+      "typeLabel": "URI",
+      "payLabel": "MINIMUM NA SUWELDO"
+    },
+    "postedBy": {
+      "text": "Ang job post na ito ay pinamamahalaan ni {{name}}",
+      "employerFallback": "ang employer"
+    },
+    "employerPreview": {
+      "nameFallback": "Employer",
+      "rating": "Rating {{stars}}/5 • {{percentage}}% na tagumpay"
+    },
+    "actions": {
+      "viewProfile": "Tingnan ang Profile",
+      "viewProfileAccessibility": "Tingnan ang profile ng employer",
+      "saveLabel": "I-save ang trabaho",
+      "savedLabel": "Na-save ✓",
+      "saveAccessibility": "I-save ang trabaho",
+      "removeSavedAccessibility": "Alisin ang trabaho sa mga na-save",
+      "applyLabel": "Mag-apply ngayon",
+      "applyingLabel": "Nag-aaplay...",
+      "appliedLabel": "Naisumite na",
+      "applyAccessibility": "Mag-apply para sa trabahong ito",
+      "appliedAccessibility": "Naisumite na ang aplikasyon",
+      "messageLabel": "Mensahihan ang Employer",
+      "messageAccessibility": "Mensahihan ang employer"
+    },
+    "sections": {
+      "skills": "Kinakailangang kasanayan",
+      "description": "Paglalarawan",
+      "requirements": "Mga Kinakailangan"
+    },
+    "success": {
+      "title": "Matagumpay!",
+      "message": "Binabati kita, naipadala na ang iyong aplikasyon. Good luck!",
+      "findJobsButton": "Maghanap pa ng trabaho",
+      "findJobsAccessibility": "Maghanap pa ng trabaho",
+      "backHomeButton": "Bumalik sa home",
+      "backHomeAccessibility": "Bumalik sa home"
+    },
+    "common": {
+      "notAvailable": "N/A",
+      "noDescription": "Walang ibinigay na paglalarawan.",
+      "employerFallback": "Employer"
+    },
+    "toast": {
+      "employerInfoUnavailable": "Hindi available ang impormasyon ng employer.",
+      "jobDetailsUnavailable": "Hindi pa available ang detalye ng trabaho.",
+      "signInRequired": "Mag-sign in ulit para makipag-usap sa employer na ito.",
+      "employerDetailsUnavailable": "Hindi pa available ang detalye ng employer para sa trabahong ito."
+    },
+    "apiFallback": {
+      "loadEmployerProfileFailed": "Hindi na-load ang profile ng employer.",
+      "openConversationFailed": "Hindi mabuksan ang usapan sa employer na ito.",
+      "applyFailed": "Hindi naisumite ang aplikasyon.",
+      "loadJobFailed": "Hindi na-load ang trabaho."
+    }
+  },
+  "jobs": {
+    "headerTitle": "Mga Trabaho",
+    "search": {
+      "placeholder": "Maghanap ng trabaho",
+      "accessibility": "Maghanap ng trabaho",
+      "hint": "Maghanap ayon sa pamagat ng trabaho, kompanya, o lokasyon",
+      "clearAccessibility": "I-clear ang paghahanap ng trabaho"
+    },
+    "toolbar": {
+      "refreshAccessibility": "I-refresh ang mga trabaho",
+      "refreshLabel": "I-refresh",
+      "sortedByRelevance": "Inayos ayon sa relevance"
+    },
+    "quickActions": {
+      "savedAccessibility": "Buksan ang mga na-save na trabaho",
+      "savedLabel": "Mga Na-save na Trabaho",
+      "appliedAccessibility": "Buksan ang mga inaplayan na trabaho",
+      "appliedLabel": "Mga Inaplayan na Trabaho"
+    },
+    "preferences": {
+      "title": "Pagbutihin ang pagtutugma ng trabaho",
+      "subtitle": "Pumili ng mga paboritong kategorya at interes sa trabaho.",
+      "inputPlaceholder": "pagkumpuni, pag-install, maintenance",
+      "saveButton": "I-save ang mga kagustuhan sa pagtutugma"
+    },
+    "sections": {
+      "deadline": "Deadline",
+      "categories": "Mga Kategorya",
+      "jobType": "Uri ng Trabaho"
+    },
+    "datePresets": {
+      "any": "Anumang petsa",
+      "next7": "Susunod na 7 araw",
+      "next30": "Susunod na 30 araw",
+      "custom": "Custom"
+    },
+    "dateSheet": {
+      "title": "Deadline ng aplikasyon",
+      "clearAll": "I-clear lahat",
+      "apply": "I-apply"
+    },
+    "categoriesFilter": {
+      "allAccessibility": "Lahat ng kategorya",
+      "allLabel": "Lahat",
+      "categoryAccessibility": "Kategoryang {{name}}"
+    },
+    "jobTypes": {
+      "all": "Lahat",
+      "shortTerm": "Short-term",
+      "sideHustle": "Side hustle",
+      "recruiting": "Recruiting"
+    },
+    "jobTypeFilter": {
+      "accessibility": "Uri ng trabahong {{type}}"
+    },
+    "jobsAvailable_one": "{{count}} Trabahong Available",
+    "jobsAvailable_other": "{{count}} Trabahong Available",
+    "nearest": {
+      "title": "Iminumungkahi Malapit Sa Iyo",
+      "viewAccessibility": "Tingnan ang {{title}} malapit sa {{location}}"
+    },
+    "jobCard": {
+      "messageEmployerButton": "Mensahihan ang Employer"
+    },
+    "common": {
+      "employerFallback": "Employer"
+    },
+    "errors": {
+      "locationRequired": "Itakda ang iyong lungsod o munisipyo sa Settings bago maghanap ng lokal na trabaho."
+    },
+    "apiFallback": {
+      "loadCategoriesFailed": "Hindi na-load ang mga kategorya.",
+      "loadApplicationsFailed": "Hindi na-load ang mga aplikasyon.",
+      "loadJobsFailed": "Hindi na-load ang mga trabaho.",
+      "loadProfileLocationFailed": "Hindi na-load ang lokasyon ng profile.",
+      "openConversationFailed": "Hindi mabuksan ang usapan sa employer na ito.",
+      "saveJobPreferencesFailed": "Hindi na-save ang mga kagustuhan sa trabaho."
+    }
+  },
+  "personalInformation": {
+    "header": {
+      "backAccessibility": "Bumalik",
+      "titleEmployer": "Impormasyon ng Negosyo",
+      "titleWorker": "Personal na Impormasyon",
+      "saveAccessibility": "I-save ang profile",
+      "saveButton": "I-save"
+    },
+    "loadingAccessibility": "Nilo-load ang profile",
+    "avatar": {
+      "currentPhotoAccessibility": "Kasalukuyang larawan ng profile",
+      "changeAccessibility": "Palitan ang larawan ng profile",
+      "changeHint": "Binubuksan ang iyong photo library",
+      "changeButton": "Palitan"
+    },
+    "fields": {
+      "fullName": {
+        "label": "Buong Pangalan",
+        "placeholder": "hal. Alex Morgan",
+        "accessibility": "Buong pangalan",
+        "hint": "Ilagay ang iyong unang at apelyido"
+      },
+      "email": {
+        "label": "Email Address",
+        "placeholder": "name@example.com",
+        "accessibility": "Email address",
+        "helper": "Nangangailangan ang pagbabago ng email ng beripikadong proseso at kasalukuyang naka-lock."
+      },
+      "phone": {
+        "label": "Numero ng Telepono",
+        "placeholder": "09XXXXXXXXX",
+        "accessibility": "Numero ng telepono"
+      },
+      "province": {
+        "label": "Probinsya",
+        "placeholderLoading": "Nilo-load ang mga probinsya...",
+        "placeholder": "I-type o pumili ng probinsya",
+        "accessibility": "Probinsya",
+        "hint": "I-type para i-filter ang mga mungkahing probinsya",
+        "selectAccessibility": "Piliin ang probinsyang {{name}}"
+      },
+      "retry": {
+        "accessibility": "Subukan ulit ang pag-load ng Philippine locations",
+        "button": "Subukan Ulit"
+      },
+      "city": {
+        "label": "Lungsod / Munisipyo",
+        "placeholderNoProvince": "Piliin muna ang probinsya",
+        "placeholder": "I-type o pumili ng lungsod",
+        "accessibility": "Lungsod o munisipyo",
+        "hint": "I-type para i-filter ang mga mungkahing lungsod",
+        "selectAccessibility": "Piliin ang {{name}}"
+      },
+      "barangay": {
+        "label": "Barangay",
+        "placeholderNoCity": "Piliin muna ang lungsod",
+        "placeholderLoading": "Nilo-load ang mga barangay...",
+        "placeholder": "I-type o pumili ng barangay",
+        "accessibility": "Barangay",
+        "hint": "I-type para i-filter ang mga mungkahing barangay",
+        "selectAccessibility": "Piliin ang barangay na {{name}}"
+      },
+      "address": {
+        "labelEmployer": "Address ng Negosyo",
+        "labelWorker": "Address sa Kalye",
+        "placeholderEmployer": "Ilagay ang address ng iyong negosyo",
+        "placeholderWorker": "Ilagay ang iyong address sa kalye",
+        "accessibilityEmployer": "Address ng negosyo",
+        "accessibilityWorker": "Address sa kalye"
+      },
+      "companyName": {
+        "label": "Pangalan ng Kompanya",
+        "placeholder": "Ilagay ang pangalan ng iyong kompanya o negosyo",
+        "accessibility": "Pangalan ng kompanya"
+      },
+      "jobPosition": {
+        "label": "Propesyonal na Headline",
+        "placeholder": "hal. House cleaner, Tutor, Delivery specialist",
+        "accessibility": "Propesyonal na headline"
+      },
+      "about": {
+        "labelEmployer": "Paglalarawan ng Kompanya",
+        "labelWorker": "Bio",
+        "placeholderEmployer": "Ipakilala sa mga worker ang iyong kompanya o negosyo.",
+        "placeholderWorker": "Magbigay ng maikling introduksyon tungkol sa iyo.",
+        "accessibilityEmployer": "Paglalarawan ng kompanya",
+        "accessibilityWorker": "Bio",
+        "charCount": "{{count}}/{{max}}"
+      },
+      "linkedin": {
+        "label": "LinkedIn URL",
+        "placeholder": "https://linkedin.com/in/your-name",
+        "accessibility": "LinkedIn URL"
+      },
+      "website": {
+        "labelEmployer": "Website ng Kompanya",
+        "labelWorker": "Portfolio o Website",
+        "placeholder": "https://your-portfolio.example",
+        "accessibility": "Portfolio o website"
+      }
+    },
+    "saveChanges": {
+      "accessibility": "I-save ang mga pagbabago sa profile",
+      "button": "I-save ang mga Pagbabago"
+    },
+    "fieldNames": {
+      "province": "Probinsya",
+      "city": "Lungsod",
+      "barangay": "Barangay",
+      "companyName": "Pangalan ng kompanya",
+      "professionalHeadline": "Propesyonal na headline",
+      "companyDescription": "Paglalarawan ng kompanya",
+      "bio": "Bio",
+      "address": "Address"
+    },
+    "toast": {
+      "loginRequired": "Mag-log in ulit para magpatuloy.",
+      "sessionExpired": "Nag-expire na ang iyong session. Mag-log in ulit.",
+      "photoPermission": "Payagan ang access sa larawan para i-update ang iyong profile picture.",
+      "loginRequiredShort": "Mag-log in ulit.",
+      "authTokenMissing": "Hindi nahanap ang authentication token.",
+      "noChanges": "Walang pagbabago sa profile na i-save.",
+      "profileUpdated": "Matagumpay na na-update ang profile."
+    },
+    "errors": {
+      "nameInvalid": "Ilagay ang parehong unang pangalan at apelyido gamit ang mga letra, espasyo, kudlit, tuldok, o gitling.",
+      "phoneInvalid": "Ang numero ng telepono ay dapat Philippine mobile number sa 09XXXXXXXXX na format.",
+      "lengthExceeded": "Dapat {{max}} character o mas kaunti ang {{field}}.",
+      "urlInvalid": "Ang LinkedIn at website links ay dapat valid na HTTPS URLs.",
+      "profileStillLoading": "Nilo-load pa ang iyong profile. Maghintay at subukan ulit.",
+      "locationLoading": "Maghintay hanggang matapos mag-load ang mga opsyon sa Philippine location.",
+      "locationUnavailable": "Hindi available ang mga opsyon sa lokasyon. Subukan ulit bago i-save ang mga pagbabago sa lokasyon.",
+      "locationSelectValid": "Pumili ng wastong Probinsya, Lungsod/Munisipyo, at Barangay mula sa mga mungkahi.",
+      "phoneInUse": "Ginagamit na ang numero ng teleponong ito. Gumamit ng ibang numero.",
+      "locationOptionsUnavailable": "Hindi available ang mga opsyon sa Philippine location."
+    },
+    "apiFallback": {
+      "loadProfileFailed": "Hindi na-load ang profile.",
+      "uploadAvatarFailed": "Hindi na-upload ang profile picture.",
+      "saveProfileFailed": "Hindi naisave ang personal na impormasyon."
+    }
+  },
+  "locationServices": {
+    "headerTitle": "Mga Serbisyo ng Lokasyon",
+    "headerSubtitle": "Kontrolin ang mga pahintulot sa lokasyon",
+    "toast": {
+      "permissionDenied": "Tinanggihan ang pahintulot sa lokasyon.",
+      "enabled": "Na-enable ang lokasyon.",
+      "getLocationFailed": "Hindi nakuha ang lokasyon.",
+      "disabled": "Na-disable ang lokasyon."
+    },
+    "city": {
+      "notAvailable": "Hindi available",
+      "permissionDenied": "Tinanggihan ang pahintulot",
+      "unknown": "Hindi kilalang lokasyon"
+    },
+    "useLocation": {
+      "title": "Gamitin ang Iyong Lokasyon",
+      "subtitle": "Payagan ang access sa lokasyon para makita ang mga malapit na trabaho at ma-enable ang mga alerto batay sa lokasyon.",
+      "enabledLabel": "Naka-enable",
+      "enableLabel": "I-enable ang Lokasyon"
+    },
+    "currentLocation": {
+      "title": "Kasalukuyang Lokasyon",
+      "subtitle": "Batay sa mga setting ng iyong device.",
+      "cityLabel": "Lungsod",
+      "coordinatesLabel": "Coordinates"
+    },
+    "mapPreview": {
+      "title": "Preview ng Mapa",
+      "subtitle": "Preview ng lokasyon (UI lang).",
+      "placeholder": "Preview ng Mapa"
+    }
+  },
+  "savedJobs": {
+    "backAccessibility": "Bumalik sa mga trabaho",
+    "headerTitle": "Mga na-save na trabaho",
+    "headerSubtitle_one": "{{count}} trabahong na-save para sa mamaya",
+    "headerSubtitle_other": "{{count}} na trabahong na-save para sa mamaya",
+    "empty": {
+      "title": "Wala pang na-save na trabaho",
+      "text": "Lalabas dito ang mga trabahong i-save mo"
+    },
+    "removeAccessibility": "Alisin ang {{title}} sa mga na-save na trabaho",
+    "removeButton": "Alisin"
+  }
+}

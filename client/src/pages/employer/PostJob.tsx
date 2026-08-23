@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   BriefcaseBusiness,
@@ -17,6 +18,8 @@ import { categoriesAPI, jobsAPI } from "../../services/jobs";
 import { ConfirmDialog } from "../../components/ui";
 import { DateField } from "../../components/ui/DateField";
 import { ROUTES } from "../../utils/routes";
+import { formatMinimumPay } from "../../lib/jobCompensation";
+import { formatCurrency } from "../../lib/formatters";
 
 // Converts between the "YYYY-MM-DD" strings this form stores (matching native
 // <input type="date"> value format) and the Date objects DateField works with.
@@ -51,23 +54,26 @@ type JobEdit = {
   applicants?: unknown[];
 };
 
-const JOB_TYPE_OPTIONS = [
-  {
-    value: "Short-term",
-    label: "Short-term",
-    description: "One-time or temporary work with a clear finish.",
-  },
-  {
-    value: "Side hustle",
-    label: "Side hustle",
-    description: "Flexible work someone can take on for extra income.",
-  },
-  {
-    value: "Recruiting",
-    label: "Recruiting",
-    description: "Hire for an ongoing or longer-term role.",
-  },
-] as const;
+type TFn = (key: string, options?: Record<string, unknown>) => string;
+
+const getJobTypeOptions = (t: TFn) =>
+  [
+    {
+      value: "Short-term",
+      label: t("postJob.jobType.shortTerm.label"),
+      description: t("postJob.jobType.shortTerm.description"),
+    },
+    {
+      value: "Side hustle",
+      label: t("postJob.jobType.sideHustle.label"),
+      description: t("postJob.jobType.sideHustle.description"),
+    },
+    {
+      value: "Recruiting",
+      label: t("postJob.jobType.recruiting.label"),
+      description: t("postJob.jobType.recruiting.description"),
+    },
+  ] as const;
 
 const LEGACY_JOB_TYPES = ["Fulltime", "Part-time", "Freelance", "Contract", "Remote"] as const;
 
@@ -96,15 +102,15 @@ type RequiredFieldKey =
   | "deadline"
   | "category";
 
-const REQUIRED_FIELD_LABELS: Record<RequiredFieldKey, string> = {
-  title: "Job title",
-  description: "Job description",
-  location: "Location",
-  salary: "Minimum guaranteed pay",
-  jobType: "Job type",
-  deadline: "Deadline",
-  category: "Category",
-};
+const getRequiredFieldLabels = (t: TFn): Record<RequiredFieldKey, string> => ({
+  title: t("postJob.requiredFields.title"),
+  description: t("postJob.requiredFields.description"),
+  location: t("postJob.requiredFields.location"),
+  salary: t("postJob.requiredFields.salary"),
+  jobType: t("postJob.requiredFields.jobType"),
+  deadline: t("postJob.requiredFields.deadline"),
+  category: t("postJob.requiredFields.category"),
+});
 
 const createEmptyForm = (): FormState => ({
   title: "",
@@ -188,15 +194,6 @@ const extractSalaryValue = (value: unknown): string => {
   return raw ? String(Number(raw)) : "";
 };
 
-const formatCurrency = (value: unknown): string => {
-  const salary = extractSalaryValue(value);
-  if (!salary) return "Not set";
-  return `₱${new Intl.NumberFormat("en-PH").format(Number(salary))} minimum`;
-};
-
-const formatPesoAmount = (value: number): string =>
-  `₱${new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(value)}`;
-
 const buildFormFromJob = (job: JobEdit): FormState => {
   const categoryId = typeof job.category === "object" ? job.category?._id : job.category;
   const salary = extractSalaryValue(job.salary);
@@ -219,11 +216,24 @@ const buildFormFromJob = (job: JobEdit): FormState => {
 };
 
 const PostJob: React.FC = () => {
+  const { t } = useTranslation("employer");
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as { job?: JobEdit; returnTo?: string } | null;
   const incomingJobToEdit = locationState?.job;
   const prefersReducedMotion = useReducedMotion();
+  const jobTypeOptions = useMemo(() => getJobTypeOptions(t), [t]);
+  const requiredFieldLabels = useMemo(() => getRequiredFieldLabels(t), [t]);
+  const statusLabels: Record<string, string> = useMemo(
+    () => ({
+      Available: t("postJob.status.available"),
+      "In Progress": t("postJob.status.inProgress"),
+      Closed: t("postJob.status.closed"),
+      Cancelled: t("postJob.status.cancelled"),
+      Completed: t("postJob.status.completed"),
+    }),
+    [t]
+  );
 
   const [jobs, setJobs] = useState<JobEdit[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
@@ -333,11 +343,11 @@ const PostJob: React.FC = () => {
       const response = await jobsAPI.getMyJobs();
       setJobs(Array.isArray(response.data) ? response.data : []);
     } catch (err: any) {
-      setJobsError(err?.response?.data?.message || "Failed to load job postings.");
+      setJobsError(err?.response?.data?.message || t("postJob.errors.loadFailed"));
     } finally {
       setLoadingJobs(false);
     }
-  }, []);
+  }, [t]);
 
   const openCreateModal = useCallback(() => {
     setEditingJob(null);
@@ -497,7 +507,9 @@ const PostJob: React.FC = () => {
 
       if (missingFields.length > 0) {
         setFormError(
-          `Please complete: ${missingFields.map((field) => REQUIRED_FIELD_LABELS[field]).join(", ")}.`
+          t("postJob.errors.missingFields", {
+            fields: missingFields.map((field) => requiredFieldLabels[field]).join(", "),
+          })
         );
         const firstField = missingFields[0];
         requestAnimationFrame(() => {
@@ -516,14 +528,14 @@ const PostJob: React.FC = () => {
 
       const positionsNeededNum = Number(formData.positionsNeeded || 1);
       if (!Number.isInteger(positionsNeededNum) || positionsNeededNum < 1) {
-        setFormError("Please provide a whole number of workers needed (minimum 1).");
+        setFormError(t("postJob.errors.invalidPositions"));
         setSubmitting(false);
         return;
       }
 
       const parsedDeadline = new Date(deadlineValue);
       if (!deadlineValue || Number.isNaN(parsedDeadline.getTime())) {
-        setFormError("Please provide a valid deadline date.");
+        setFormError(t("postJob.errors.invalidDeadline"));
         requestAnimationFrame(() => {
           const deadlineInput = document.querySelector<HTMLInputElement>('[data-field="deadline"]');
           if (!deadlineInput) return;
@@ -535,7 +547,7 @@ const PostJob: React.FC = () => {
       }
 
       if (!Number.isFinite(salaryAmount) || salaryAmount <= 0) {
-        setFormError("Minimum guaranteed pay must be greater than zero.");
+        setFormError(t("postJob.errors.invalidSalary"));
         setSubmitting(false);
         return;
       }
@@ -572,7 +584,7 @@ const PostJob: React.FC = () => {
       setFormError(
         err?.response?.data?.message ||
           err?.message ||
-          (editingJob ? "Failed to update job." : "Failed to post job.")
+          (editingJob ? t("postJob.errors.updateFailed") : t("postJob.errors.postFailed"))
       );
     } finally {
       setSubmitting(false);
@@ -586,7 +598,7 @@ const PostJob: React.FC = () => {
       await loadJobs();
       setDeleteTarget(null);
     } catch (err: any) {
-      setJobsError(err?.response?.data?.message || "Failed to delete job.");
+      setJobsError(err?.response?.data?.message || t("postJob.errors.deleteFailed"));
     }
   };
 
@@ -598,7 +610,7 @@ const PostJob: React.FC = () => {
       await jobsAPI.changeJobStatus(job._id, nextStatus);
       await loadJobs();
     } catch (err: any) {
-      setJobsError(err?.response?.data?.message || "Failed to update job status.");
+      setJobsError(err?.response?.data?.message || t("postJob.errors.statusUpdateFailed"));
     }
   };
 
@@ -611,22 +623,22 @@ const PostJob: React.FC = () => {
           className="ml-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
         >
           <Plus size={20} />
-          Post a Job
+          {t("postJob.actions.postJob")}
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="ui-card p-8 text-center">
           <p className="text-4xl font-bold text-slate-900">{totalPostings}</p>
-          <p className="mt-2 text-base text-slate-500">Total Postings</p>
+          <p className="mt-2 text-base text-slate-500">{t("postJob.stats.totalPostings")}</p>
         </div>
         <div className="ui-card p-8 text-center">
           <p className="text-4xl font-bold text-emerald-600">{activePostings}</p>
-          <p className="mt-2 text-base text-slate-500">Active</p>
+          <p className="mt-2 text-base text-slate-500">{t("postJob.stats.active")}</p>
         </div>
         <div className="ui-card p-8 text-center">
           <p className="text-4xl font-bold text-slate-400">{closedPostings}</p>
-          <p className="mt-2 text-base text-slate-500">Closed</p>
+          <p className="mt-2 text-base text-slate-500">{t("postJob.status.closed")}</p>
         </div>
       </div>
 
@@ -640,12 +652,12 @@ const PostJob: React.FC = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
               >
-                <option value="all">All Statuses</option>
-                <option value="Available">Available</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Closed">Closed</option>
-                <option value="Cancelled">Cancelled</option>
-                <option value="Completed">Completed</option>
+                <option value="all">{t("postJob.filters.allStatuses")}</option>
+                <option value="Available">{t("postJob.status.available")}</option>
+                <option value="In Progress">{t("postJob.status.inProgress")}</option>
+                <option value="Closed">{t("postJob.status.closed")}</option>
+                <option value="Cancelled">{t("postJob.status.cancelled")}</option>
+                <option value="Completed">{t("postJob.status.completed")}</option>
               </select>
             </div>
 
@@ -655,12 +667,12 @@ const PostJob: React.FC = () => {
                 onChange={(e) => setJobTypeFilter(e.target.value)}
                 className="h-12 w-full rounded-xl border border-indigo-500 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
               >
-                <option value="all">All Jobs</option>
-                {JOB_TYPE_OPTIONS.map((option) => (
+                <option value="all">{t("postJob.filters.allJobs")}</option>
+                {jobTypeOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
                 {LEGACY_JOB_TYPES.map((type) => (
-                  <option key={type} value={type}>{type} (legacy)</option>
+                  <option key={type} value={type}>{t("postJob.filters.legacyOption", { type })}</option>
                 ))}
               </select>
             </div>
@@ -671,7 +683,7 @@ const PostJob: React.FC = () => {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search jobs by title, location, skill, or category..."
+                placeholder={t("postJob.filters.searchPlaceholder")}
                 className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
               />
             </div>
@@ -681,7 +693,7 @@ const PostJob: React.FC = () => {
 
       {loadingJobs && (
         <div className="ui-card p-6 text-sm text-slate-500">
-          Loading your job postings...
+          {t("postJob.loading")}
         </div>
       )}
 
@@ -694,15 +706,15 @@ const PostJob: React.FC = () => {
           <div className="mx-auto w-fit rounded-full bg-slate-100 p-5">
             <BriefcaseBusiness size={48} className="text-slate-300" />
           </div>
-          <h3 className="mt-6 text-3xl font-semibold text-slate-500">No job postings yet</h3>
-          <p className="mt-2 text-base text-slate-400">Post your first job to start receiving applications</p>
+          <h3 className="mt-6 text-3xl font-semibold text-slate-500">{t("postJob.emptyState.title")}</h3>
+          <p className="mt-2 text-base text-slate-400">{t("postJob.emptyState.subtitle")}</p>
           <button
             type="button"
             onClick={openCreateModal}
             className="mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700"
           >
             <Plus size={20} />
-            Post a Job
+            {t("postJob.actions.postJob")}
           </button>
         </div>
       )}
@@ -722,7 +734,7 @@ const PostJob: React.FC = () => {
                 <div>
                   <h3 className="text-xl font-semibold text-slate-900">{job.title}</h3>
                   <div className="mt-1 text-slate-500">
-                    {job.location || "Location not set"} • {job.jobType || "Job type not set"}
+                    {job.location || t("postJob.card.locationNotSet")} • {job.jobType || t("postJob.card.jobTypeNotSet")}
                   </div>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {categoryName && (
@@ -735,10 +747,10 @@ const PostJob: React.FC = () => {
                         isClosed ? "bg-slate-100 text-slate-500" : "bg-emerald-100 text-emerald-700"
                       }`}
                     >
-                      {job.status || "Available"}
+                      {statusLabels[job.status || "Available"] || job.status || t("postJob.status.available")}
                     </span>
                     <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
-                      {formatCurrency(job.salary)}
+                      {formatMinimumPay(job.salary, t("postJob.card.payNotSet"))}
                     </span>
                   </div>
                 </div>
@@ -749,21 +761,21 @@ const PostJob: React.FC = () => {
                     onClick={() => openEditModal(job)}
                     className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
-                    Edit
+                    {t("postJob.card.edit")}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(job)}
                     className="h-10 rounded-lg border border-indigo-200 bg-indigo-50 px-4 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
                   >
-                    {isClosed ? "Reopen" : "Close"}
+                    {isClosed ? t("postJob.card.reopen") : t("postJob.card.close")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteTarget(job)}
                     className="h-10 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 hover:bg-red-100"
                   >
-                    Delete
+                    {t("postJob.card.delete")}
                   </button>
                 </div>
               </div>
@@ -774,9 +786,9 @@ const PostJob: React.FC = () => {
 
       {!loadingJobs && jobs.length > 0 && filteredJobs.length === 0 && (
         <div className="ui-card p-8 text-center">
-          <h3 className="text-xl font-semibold text-slate-700">No jobs match your filters</h3>
+          <h3 className="text-xl font-semibold text-slate-700">{t("postJob.noMatch.title")}</h3>
           <p className="mt-2 text-sm text-slate-500">
-            Try a different keyword or clear one of the filters.
+            {t("postJob.noMatch.subtitle")}
           </p>
           <button
             type="button"
@@ -787,7 +799,7 @@ const PostJob: React.FC = () => {
             }}
             className="mt-4 inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
-            Clear Filters
+            {t("postJob.noMatch.clearFilters")}
           </button>
         </div>
       )}
@@ -804,13 +816,13 @@ const PostJob: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
-                        Employer workspace
+                        {t("postJob.modal.employerWorkspace")}
                       </p>
                       <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-                        {editingJob ? "Edit job details" : "Create a job post"}
+                        {editingJob ? t("postJob.modal.editTitle") : t("postJob.modal.createTitle")}
                       </h2>
                       <p className="mt-1 text-sm text-slate-500">
-                        Only the essential details workers need to decide and apply.
+                        {t("postJob.modal.subtitle")}
                       </p>
                     </div>
                   </div>
@@ -818,7 +830,7 @@ const PostJob: React.FC = () => {
                     type="button"
                     onClick={closeModal}
                     className="ml-3 rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700"
-                    aria-label="Close modal"
+                    aria-label={t("postJob.modal.closeAria")}
                   >
                     <X size={24} />
                   </button>
@@ -842,15 +854,15 @@ const PostJob: React.FC = () => {
                         <ClipboardList size={20} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900">Role overview</h3>
-                        <p className="mt-0.5 text-sm text-slate-500">Name the work and choose the opportunity that fits it best.</p>
+                        <h3 className="font-bold text-slate-900">{t("postJob.modal.roleOverview.title")}</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">{t("postJob.modal.roleOverview.subtitle")}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label htmlFor="job-title" className="mb-2 block text-sm font-semibold text-slate-700">
-                        Job Title <span className="text-red-500">*</span>
+                        {t("postJob.modal.fields.jobTitle.label")} <span className="text-red-500">*</span>
                       </label>
                       <input
                         id="job-title"
@@ -859,7 +871,7 @@ const PostJob: React.FC = () => {
                         value={formData.title}
                         onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
                         className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                        placeholder="e.g. Weekend event assistant"
+                        placeholder={t("postJob.modal.fields.jobTitle.placeholder")}
                         maxLength={100}
                         required
                       />
@@ -867,7 +879,7 @@ const PostJob: React.FC = () => {
 
                     <div>
                       <label htmlFor="job-category" className="mb-2 block text-sm font-semibold text-slate-700">
-                        Category <span className="text-red-500">*</span>
+                        {t("postJob.modal.fields.category.label")} <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="job-category"
@@ -877,7 +889,7 @@ const PostJob: React.FC = () => {
                         className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
                         required
                       >
-                        <option value="">Select category</option>
+                        <option value="">{t("postJob.modal.fields.category.placeholder")}</option>
                         {categories.map((category) => (
                           <option key={category._id} value={category._id}>
                             {category.name}
@@ -889,10 +901,10 @@ const PostJob: React.FC = () => {
 
                   <fieldset data-field="jobType">
                     <legend className="mb-2 block text-sm font-semibold text-slate-700">
-                      Opportunity Type <span className="text-red-500">*</span>
+                      {t("postJob.modal.fields.opportunityType")} <span className="text-red-500">*</span>
                     </legend>
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                      {JOB_TYPE_OPTIONS.map((option) => {
+                      {jobTypeOptions.map((option) => {
                         const selected = formData.jobType === option.value;
                         return (
                           <button
@@ -915,9 +927,9 @@ const PostJob: React.FC = () => {
                         );
                       })}
                     </div>
-                    {formData.jobType && !JOB_TYPE_OPTIONS.some((option) => option.value === formData.jobType) && (
+                    {formData.jobType && !jobTypeOptions.some((option) => option.value === formData.jobType) && (
                       <p className="mt-2 text-xs text-amber-700">
-                        This existing post uses the legacy type “{formData.jobType}”. Choose a current type to modernize it.
+                        {t("postJob.modal.legacyTypeWarning", { type: formData.jobType })}
                       </p>
                     )}
                   </fieldset>
@@ -929,15 +941,15 @@ const PostJob: React.FC = () => {
                         <MapPin size={20} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900">Work location</h3>
-                        <p className="mt-0.5 text-sm text-slate-500">Choose the area first, then add an optional landmark or street.</p>
+                        <h3 className="font-bold text-slate-900">{t("postJob.modal.location.title")}</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">{t("postJob.modal.location.subtitle")}</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <div>
                       <label htmlFor="job-province" className="mb-2 block text-sm font-semibold text-slate-700">
-                        Province <span className="text-red-500">*</span>
+                        {t("postJob.modal.location.province.label")} <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="job-province"
@@ -956,7 +968,7 @@ const PostJob: React.FC = () => {
                         required
                       >
                         <option value="">
-                          {isLoadingLocationData ? "Loading provinces..." : "Select province"}
+                          {isLoadingLocationData ? t("postJob.modal.location.province.loading") : t("postJob.modal.location.province.placeholder")}
                         </option>
                         {provinceOptions.map((province) => (
                           <option key={province.code} value={province.name}>
@@ -968,7 +980,7 @@ const PostJob: React.FC = () => {
 
                     <div>
                       <label htmlFor="job-city" className="mb-2 block text-sm font-semibold text-slate-700">
-                        City / Municipality <span className="text-red-500">*</span>
+                        {t("postJob.modal.location.city.label")} <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="job-city"
@@ -986,10 +998,10 @@ const PostJob: React.FC = () => {
                       >
                         <option value="">
                           {!formData.province
-                            ? "Select province first"
+                            ? t("postJob.modal.location.city.selectProvinceFirst")
                             : isLoadingLocationData
-                            ? "Loading cities..."
-                            : "Select city/municipality"}
+                            ? t("postJob.modal.location.city.loading")
+                            : t("postJob.modal.location.city.placeholder")}
                         </option>
                         {filteredCityOptions.map((city) => (
                           <option key={city.code} value={city.name}>
@@ -1001,7 +1013,7 @@ const PostJob: React.FC = () => {
 
                     <div>
                       <label htmlFor="job-barangay" className="mb-2 block text-sm font-semibold text-slate-700">
-                        Barangay <span className="text-red-500">*</span>
+                        {t("postJob.modal.location.barangay.label")} <span className="text-red-500">*</span>
                       </label>
                       <select
                         id="job-barangay"
@@ -1018,10 +1030,10 @@ const PostJob: React.FC = () => {
                       >
                         <option value="">
                           {!formData.city
-                            ? "Select city first"
+                            ? t("postJob.modal.location.barangay.selectCityFirst")
                             : isLoadingBarangays
-                            ? "Loading barangays..."
-                            : "Select barangay"}
+                            ? t("postJob.modal.location.barangay.loading")
+                            : t("postJob.modal.location.barangay.placeholder")}
                         </option>
                         {barangayOptions.map((barangay) => (
                           <option key={barangay.code} value={barangay.name}>
@@ -1033,22 +1045,22 @@ const PostJob: React.FC = () => {
                   </div>
 
                     <div>
-                    <label htmlFor="job-address" className="mb-2 block text-sm font-semibold text-slate-700">Street or landmark <span className="font-normal text-slate-400">(optional)</span></label>
+                    <label htmlFor="job-address" className="mb-2 block text-sm font-semibold text-slate-700">{t("postJob.modal.location.address.label")} <span className="font-normal text-slate-400">{t("postJob.modal.location.address.optional")}</span></label>
                     <input
                       id="job-address"
                       type="text"
                       value={formData.address}
                       onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
                       className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                      placeholder="e.g. Rizal Street, near City Hall"
+                      placeholder={t("postJob.modal.location.address.placeholder")}
                     />
                     </div>
 
                     <div className="flex items-start gap-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                       <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                       <span>
-                        <span className="font-semibold text-slate-700">Location preview:</span>{" "}
-                        {composeLocation(formData) || "Select province, city, and barangay"}
+                        <span className="font-semibold text-slate-700">{t("postJob.modal.location.preview.label")}</span>{" "}
+                        {composeLocation(formData) || t("postJob.modal.location.preview.placeholder")}
                       </span>
                     </div>
                   </section>
@@ -1059,20 +1071,20 @@ const PostJob: React.FC = () => {
                         <WalletCards size={20} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900">Pay and schedule</h3>
-                        <p className="mt-0.5 text-sm text-slate-500">Set the guaranteed pay, worker count, and completion deadline.</p>
+                        <h3 className="font-bold text-slate-900">{t("postJob.modal.pay.title")}</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">{t("postJob.modal.pay.subtitle")}</p>
                       </div>
                     </div>
 
                     <div>
                     <label htmlFor="job-minimum-pay" className="mb-2 block text-sm font-semibold text-slate-700">
-                      Minimum Guaranteed Pay per Worker (PHP) <span className="text-red-500">*</span>
+                      {t("postJob.modal.pay.label")} <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">₱</span>
                       <input
                         id="job-minimum-pay"
-                        aria-label="Minimum guaranteed pay per worker"
+                        aria-label={t("postJob.modal.pay.ariaLabel")}
                         type="text"
                         data-field="salary"
                         inputMode="numeric"
@@ -1084,12 +1096,12 @@ const PostJob: React.FC = () => {
                           }))
                         }
                         className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                        placeholder="e.g. 1500"
+                        placeholder={t("postJob.modal.pay.placeholder")}
                         required
                       />
                     </div>
                     <p className="mt-2 text-xs leading-5 text-slate-500">
-                      Enter the minimum amount guaranteed to each hired worker. This amount is secured in escrow.
+                      {t("postJob.modal.pay.helper")}
                     </p>
                   </div>
 
@@ -1097,7 +1109,7 @@ const PostJob: React.FC = () => {
                     <div>
                       <DateField
                         id="job-deadline"
-                        label="Deadline *"
+                        label={t("postJob.modal.deadline.label")}
                         dataField="deadline"
                         required
                         minDate={new Date()}
@@ -1107,7 +1119,7 @@ const PostJob: React.FC = () => {
                     </div>
 
                     <div>
-                      <label htmlFor="job-positions" className="mb-2 block text-sm font-semibold text-slate-700">Positions Needed</label>
+                      <label htmlFor="job-positions" className="mb-2 block text-sm font-semibold text-slate-700">{t("postJob.modal.positions.label")}</label>
                       <input
                         id="job-positions"
                         type="number"
@@ -1124,14 +1136,17 @@ const PostJob: React.FC = () => {
                     <div className="flex flex-col gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
                         <p className="text-sm font-bold text-indigo-950">
-                          {editingJob ? "Estimated job value" : "Wallet funds needed"}
+                          {editingJob ? t("postJob.modal.walletSummary.estimatedValue") : t("postJob.modal.walletSummary.fundsNeeded")}
                         </p>
                         <p className="mt-0.5 text-xs text-indigo-700">
-                          {formatPesoAmount(Number(formData.minimumSalary || 0))} × {Number(formData.positionsNeeded || 0)} worker{Number(formData.positionsNeeded || 0) === 1 ? "" : "s"}
+                          {t("postJob.modal.walletSummary.formula", {
+                            rate: formatCurrency(Number(formData.minimumSalary || 0), { maximumFractionDigits: 0 }),
+                            count: Number(formData.positionsNeeded || 0),
+                          })}
                         </p>
                       </div>
                       <p className="text-2xl font-bold tracking-tight text-indigo-700">
-                        {formatPesoAmount(estimatedEscrow)}
+                        {formatCurrency(estimatedEscrow, { maximumFractionDigits: 0 })}
                       </p>
                     </div>
                   </section>
@@ -1142,14 +1157,14 @@ const PostJob: React.FC = () => {
                         <FileText size={20} />
                       </div>
                       <div>
-                        <h3 className="font-bold text-slate-900">What the worker will do</h3>
-                        <p className="mt-0.5 text-sm text-slate-500">Keep it practical: describe the work, then add only the requirements that matter.</p>
+                        <h3 className="font-bold text-slate-900">{t("postJob.description.title")}</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">{t("postJob.description.subtitle")}</p>
                       </div>
                     </div>
 
                     <div>
                       <label htmlFor="job-description" className="mb-2 block text-sm font-semibold text-slate-700">
-                        Job description <span className="text-red-500">*</span>
+                        {t("postJob.description.label")} <span className="text-red-500">*</span>
                       </label>
                       <textarea
                         id="job-description"
@@ -1157,17 +1172,17 @@ const PostJob: React.FC = () => {
                         value={formData.description}
                         onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                         className="min-h-[140px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
-                        placeholder="Explain the task, main responsibilities, expected result, and anything the worker should know."
+                        placeholder={t("postJob.description.placeholder")}
                         maxLength={3000}
                         required
                       />
-                      <p className="mt-2 text-right text-xs text-slate-400">{formData.description.length}/3000</p>
+                      <p className="mt-2 text-right text-xs text-slate-400">{t("postJob.description.counter", { count: formData.description.length })}</p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
                         <label htmlFor="job-requirements" className="mb-2 block text-sm font-semibold text-slate-700">
-                          Requirements <span className="font-normal text-slate-400">(optional)</span>
+                          {t("postJob.requirements.label")} <span className="font-normal text-slate-400">{t("postJob.requirements.optional")}</span>
                         </label>
                         <textarea
                           id="job-requirements"
@@ -1176,22 +1191,22 @@ const PostJob: React.FC = () => {
                             setFormData((prev) => ({ ...prev, requirements: e.target.value }))
                           }
                           className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
-                          placeholder={"One requirement per line\nExample: Available on weekends"}
+                          placeholder={t("postJob.requirements.placeholder")}
                         />
                       </div>
 
                       <div>
                         <label htmlFor="job-skills" className="mb-2 block text-sm font-semibold text-slate-700">
-                          Helpful skills <span className="font-normal text-slate-400">(optional)</span>
+                          {t("postJob.skills.label")} <span className="font-normal text-slate-400">{t("postJob.skills.optional")}</span>
                         </label>
                         <textarea
                           id="job-skills"
                           value={formData.skills}
                           onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
                           className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
-                          placeholder="Communication, driving, customer service"
+                          placeholder={t("postJob.skills.placeholder")}
                         />
-                        <p className="mt-2 text-xs text-slate-400">Separate skills with commas.</p>
+                        <p className="mt-2 text-xs text-slate-400">{t("postJob.skills.helper")}</p>
                       </div>
                     </div>
                   </section>
@@ -1203,7 +1218,7 @@ const PostJob: React.FC = () => {
                       className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50"
                       disabled={submitting}
                     >
-                      Cancel
+                      {t("postJob.actions.cancel")}
                     </button>
                     <button
                       type="submit"
@@ -1212,11 +1227,13 @@ const PostJob: React.FC = () => {
                     >
                       {submitting
                         ? editingJob
-                          ? "Updating..."
-                          : "Posting..."
+                          ? t("postJob.actions.updating")
+                          : t("postJob.actions.posting")
                         : editingJob
-                        ? "Save changes"
-                        : `Post job · ${formatPesoAmount(estimatedEscrow)}`}
+                        ? t("postJob.actions.saveChanges")
+                        : t("postJob.actions.postJobWithPrice", {
+                            amount: formatCurrency(estimatedEscrow, { maximumFractionDigits: 0 }),
+                          })}
                     </button>
                   </div>
                 </form>
@@ -1250,7 +1267,7 @@ const PostJob: React.FC = () => {
                   !
                 </div>
                 <h3 id="insufficient-balance-title" className="mt-4 text-xl font-bold text-slate-900">
-                  Insufficient balance
+                  {t("postJob.insufficientBalance.title")}
                 </h3>
                 <p id="insufficient-balance-description" className="mt-2 text-sm leading-6 text-slate-600">
                   {formError}
@@ -1261,14 +1278,14 @@ const PostJob: React.FC = () => {
                     onClick={() => setFormError(null)}
                     className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
                   >
-                    Not now
+                    {t("postJob.insufficientBalance.notNow")}
                   </button>
                   <button
                     type="button"
                     onClick={() => navigate(ROUTES.employer.eWallet)}
                     className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
                   >
-                    Top up wallet
+                    {t("postJob.insufficientBalance.topUp")}
                   </button>
                 </div>
               </motion.div>
@@ -1279,9 +1296,11 @@ const PostJob: React.FC = () => {
       )}
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete job"
-        description={`Delete “${deleteTarget?.title || "this job"}”? This action cannot be undone.`}
-        confirmLabel="Delete job"
+        title={t("postJob.deleteDialog.title")}
+        description={t("postJob.deleteDialog.description", {
+          title: deleteTarget?.title || t("postJob.deleteDialog.defaultTitle"),
+        })}
+        confirmLabel={t("postJob.deleteDialog.confirm")}
         destructive
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && handleDeleteJob(deleteTarget)}

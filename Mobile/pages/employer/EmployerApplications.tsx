@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   BackHandler,
@@ -16,6 +17,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import AsyncStorage from "../../lib/storage";
 import { API_URL } from "../../config";
 import { apiRequest, asList } from "../../lib/api";
+import { formatCurrency, formatDate, formatDateTime } from "../../lib/formatters";
 import EmployerNavigation from "../../components/employerNavigation";
 import ScrollView from "../../components/ui/SmoothScrollView";
 import CalendarSheet from "../../components/ui/CalendarSheet";
@@ -109,14 +111,46 @@ const stageFor = (status: ApplicationStatus): Stage =>
 const initials = (item: ApplicationItem) =>
   `${item.applicant.firstName?.[0] || ""}${item.applicant.lastName?.[0] || ""}`.toUpperCase() ||
   "U";
-const nameOf = (item: ApplicationItem) =>
+const nameOf = (t: (key: string) => string, item: ApplicationItem) =>
   `${item.applicant.firstName || ""} ${item.applicant.lastName || ""}`.trim() ||
-  "Worker";
-const php = (value?: number) =>
-  new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP" }).format(
-    Number(value || 0),
-  );
-
+  t('employerApplications.workerFallback');
+const STAGE_LABEL_KEYS: Record<Stage, string> = {
+  New: "new",
+  Shortlisted: "shortlisted",
+  Interview: "interview",
+  Offer: "offer",
+  Hired: "hired",
+  Closed: "closed",
+};
+const stageLabel = (t: (key: string) => string, stage: Stage) =>
+  t(`employerApplications.stages.${STAGE_LABEL_KEYS[stage]}`);
+const JOB_STATUS_VALUES = [
+  "All",
+  "Available",
+  "In Progress",
+  "Closed",
+  "Completed",
+  "Cancelled",
+];
+const JOB_STATUS_LABEL_KEYS: Record<string, string> = {
+  All: "all",
+  Available: "available",
+  "In Progress": "inProgress",
+  Closed: "closed",
+  Completed: "completed",
+  Cancelled: "cancelled",
+};
+const jobStatusLabel = (t: (key: string) => string, value: string) =>
+  t(`employerApplications.jobStatusOptions.${JOB_STATUS_LABEL_KEYS[value] || "all"}`);
+const INTERVIEW_MODE_VALUES = ["virtual", "phone", "in-person", "other"];
+const INTERVIEW_MODE_LABEL_KEYS: Record<string, string> = {
+  virtual: "virtual",
+  phone: "phone",
+  "in-person": "inPerson",
+  other: "other",
+};
+const interviewModeLabel = (t: (key: string) => string, value: string) =>
+  t(`employerApplications.interviewModal.modeOptions.${INTERVIEW_MODE_LABEL_KEYS[value] || "other"}`);
 export default function EmployerApplications({
   activeTab = "Applications",
   onTabPress,
@@ -135,6 +169,7 @@ export default function EmployerApplications({
   notificationBadgeCount?: number;
 }) {
   const toast = useToast();
+  const { t } = useTranslation('employer');
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [applications, setApplications] = useState<ApplicationItem[]>([]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -182,19 +217,19 @@ export default function EmployerApplications({
         apiRequest(
           `${API_URL}/jobs/mine`,
           { headers },
-          "Failed to load job openings.",
+          t('employerApplications.errors.loadJobsFailed'),
         ),
         apiRequest(
           `${API_URL}/applications/employer?includeHidden=true`,
           { headers },
-          "Failed to load candidates.",
+          t('employerApplications.errors.loadCandidatesFailed'),
         ),
       ]);
       if (!jobsResult.ok || !applicationsResult.ok)
         throw new Error(
           jobsResult.message ||
             applicationsResult.message ||
-            "Unable to load applications.",
+            t('employerApplications.errors.loadFailed'),
         );
       setJobs(
         asList<JobItem>(jobsResult.raw, ["jobs"]).sort(
@@ -210,12 +245,12 @@ export default function EmployerApplications({
         })),
       );
     } catch (caught: any) {
-      setError(caught?.message || "Check your connection and try again.");
+      setError(caught?.message || t('employerApplications.errors.checkConnection'));
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [t]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -293,7 +328,7 @@ export default function EmployerApplications({
         (item) =>
           stageFor(item.status) === stage &&
           (!query ||
-            `${nameOf(item)} ${item.applicant.email || ""}`
+            `${nameOf(t, item)} ${item.applicant.email || ""}`
               .toLowerCase()
               .includes(query)) &&
           Number(item.match?.percentage || 0) >= minMatch,
@@ -304,7 +339,7 @@ export default function EmployerApplications({
             new Date(a.createdAt || 0).getTime()) *
           (dateOrder === "newest" ? 1 : -1),
       );
-  }, [applicationsForJob, dateOrder, minMatch, search, selectedJobId, stage]);
+  }, [applicationsForJob, dateOrder, minMatch, search, selectedJobId, stage, t]);
 
   const request = async (
     applicationId: string,
@@ -325,13 +360,13 @@ export default function EmployerApplications({
           },
           ...(body ? { body: JSON.stringify(body) } : {}),
         },
-        "Unable to complete this action.",
+        t('employerApplications.errors.actionFailed'),
       );
       if (!result.ok) throw new Error(result.message);
       await load(true);
       return true;
     } catch (caught: any) {
-      toast.error(caught?.message || "Unable to complete this action.");
+      toast.error(caught?.message || t('employerApplications.errors.actionFailed'));
       return false;
     } finally {
       setBusyId(null);
@@ -351,13 +386,13 @@ export default function EmployerApplications({
           },
           body: JSON.stringify({ status }),
         },
-        "Unable to update candidate.",
+        t('employerApplications.errors.updateCandidateFailed'),
       );
       if (!result.ok) throw new Error(result.message);
       await load(true);
-      toast.success(`Candidate moved to ${status}.`);
+      toast.success(t('employerApplications.toast.candidateMoved', { status }));
     } catch (caught: any) {
-      toast.error(caught?.message || "Unable to update candidate.");
+      toast.error(caught?.message || t('employerApplications.errors.updateCandidateFailed'));
     } finally {
       setBusyId(null);
     }
@@ -395,14 +430,14 @@ export default function EmployerApplications({
             notes: interviewNotes.trim(),
           }),
         },
-        "Unable to schedule interview.",
+        t('employerApplications.errors.scheduleInterviewFailed'),
       );
       if (!result.ok) throw new Error(result.message);
       setScheduleTarget(null);
       await load(true);
-      toast.success("Interview schedule saved.");
+      toast.success(t('employerApplications.toast.interviewSaved'));
     } catch (caught: any) {
-      toast.error(caught?.message || "Unable to schedule interview.");
+      toast.error(caught?.message || t('employerApplications.errors.scheduleInterviewFailed'));
     } finally {
       setBusyId(null);
     }
@@ -425,7 +460,7 @@ export default function EmployerApplications({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title={selectedJob ? "Candidates" : "Applications"} employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
+      <TabTopNav title={selectedJob ? t('employerApplications.header.candidates') : t('employerApplications.header.applications')} employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
       <ScrollView
         refreshControl={
           <RefreshControl
@@ -437,7 +472,7 @@ export default function EmployerApplications({
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        <EmployerModeBanner title={selectedJob ? "Candidate workspace" : "Application pipeline"} detail={selectedJob ? "Review this opening's candidates and take the next valid hiring action." : "Choose a job opening to review candidates by hiring stage."} />
+        <EmployerModeBanner title={selectedJob ? t('employerApplications.banner.candidateTitle') : t('employerApplications.banner.jobTitle')} detail={selectedJob ? t('employerApplications.banner.candidateDetail') : t('employerApplications.banner.jobDetail')} />
         {selectedJob ? (
           <>
             <TouchableOpacity
@@ -454,10 +489,10 @@ export default function EmployerApplications({
                 size={18}
                 color={tokens.colors.brand}
               />
-              <Text style={styles.backText}>All job openings</Text>
+              <Text style={styles.backText}>{t('employerApplications.backToJobs')}</Text>
             </TouchableOpacity>
             <View style={styles.selectedJobCard}>
-              <Text style={styles.eyebrow}>SELECTED JOB</Text>
+              <Text style={styles.eyebrow}>{t('employerApplications.selectedJobEyebrow')}</Text>
               <Text style={styles.selectedTitle}>{selectedJob.title}</Text>
               <View style={styles.metaLine}>
                 <Ionicons
@@ -466,17 +501,17 @@ export default function EmployerApplications({
                   color={tokens.colors.textMuted}
                 />
                 <Text style={styles.metaText}>
-                  {selectedJob.location || "Location not set"}
+                  {selectedJob.location || t('employerApplications.locationNotSet')}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Summary
                   value={applicationsForJob(selectedJob._id).length}
-                  label="Candidates"
+                  label={t('employerApplications.summary.candidates')}
                 />
                 <Summary
                   value={selectedJob.hiredCount || 0}
-                  label={`Hired of ${selectedJob.positionsNeeded || 1}`}
+                  label={t('employerApplications.summary.hiredOfNeeded', { needed: selectedJob.positionsNeeded || 1 })}
                 />
                 <Summary
                   value={
@@ -486,7 +521,7 @@ export default function EmployerApplications({
                       ),
                     ).length
                   }
-                  label="Interviewed"
+                  label={t('employerApplications.summary.interviewed')}
                 />
               </View>
             </View>
@@ -515,7 +550,7 @@ export default function EmployerApplications({
                       stage === value && styles.stageTextActive,
                     ]}
                   >
-                    {value}
+                    {stageLabel(t, value)}
                   </Text>
                   <View
                     style={[
@@ -539,7 +574,7 @@ export default function EmployerApplications({
               value={search}
               onChange={setSearch}
               onFilter={() => setFilterVisible(true)}
-              placeholder="Search candidates"
+              placeholder={t('employerApplications.search.candidatesPlaceholder')}
               activeFilter={minMatch > 0 || dateOrder !== "newest"}
             />
             {error ? (
@@ -550,8 +585,8 @@ export default function EmployerApplications({
             ) : visibleCandidates.length === 0 ? (
               <Empty
                 icon="people-outline"
-                title={`No ${stage.toLowerCase()} candidates`}
-                body="Candidates in this stage will appear here."
+                title={t('employerApplications.empty.candidatesTitle', { stage: stageLabel(t, stage).toLowerCase() })}
+                body={t('employerApplications.empty.candidatesBody')}
               />
             ) : (
               visibleCandidates.map((item) => (
@@ -583,7 +618,7 @@ export default function EmployerApplications({
                   onMessage={() =>
                     onMessageWorker?.({
                       workerId: item.applicant._id,
-                      workerName: nameOf(item),
+                      workerName: nameOf(t, item),
                       jobId: item.job._id,
                     })
                   }
@@ -591,22 +626,20 @@ export default function EmployerApplications({
                   onShortlist={() => void changeStatus(item, "Shortlisted")}
                   onReject={() =>
                     setConfirmAction({
-                      title: "Reject candidate?",
-                      question: `Reject ${nameOf(item)}?`,
-                      detail:
-                        "The worker will be notified. This action can be reviewed in the closed stage.",
-                      label: "Reject Candidate",
+                      title: t('employerApplications.confirm.reject.title'),
+                      question: t('employerApplications.confirm.reject.question', { name: nameOf(t, item) }),
+                      detail: t('employerApplications.confirm.reject.detail'),
+                      label: t('employerApplications.confirm.reject.label'),
                       destructive: true,
                       run: () => changeStatus(item, "Rejected"),
                     })
                   }
                   onRemove={() =>
                     setConfirmAction({
-                      title: "Remove application?",
-                      question: `Remove ${nameOf(item)} from this list?`,
-                      detail:
-                        "This removes the application from your employer view.",
-                      label: "Remove",
+                      title: t('employerApplications.confirm.remove.title'),
+                      question: t('employerApplications.confirm.remove.question', { name: nameOf(t, item) }),
+                      detail: t('employerApplications.confirm.remove.detail'),
+                      label: t('employerApplications.confirm.remove.label'),
                       destructive: true,
                       run: async () => {
                         setBusyId(item._id);
@@ -619,7 +652,7 @@ export default function EmployerApplications({
                               ? { Authorization: `Bearer ${token}` }
                               : undefined,
                           },
-                          "Unable to remove application.",
+                          t('employerApplications.errors.removeFailed'),
                         );
                         setBusyId(null);
                         if (!result.ok) toast.error(result.message);
@@ -630,10 +663,13 @@ export default function EmployerApplications({
                   onOffer={() => {
                     const amount = Number(offerAmounts[item._id]);
                     setConfirmAction({
-                      title: "Send formal offer?",
-                      question: `Offer ${nameOf(item)} ${php(amount)}?`,
-                      detail: `Advertised minimum: ${php(item.job.salary)}. Additional escrow: ${php(Math.max(0, amount - Number(item.job.salary || 0)))}.`,
-                      label: "Send Offer",
+                      title: t('employerApplications.confirm.offer.title'),
+                      question: t('employerApplications.confirm.offer.question', { name: nameOf(t, item), amount: formatCurrency(amount) }),
+                      detail: t('employerApplications.confirm.offer.detail', {
+                        minimum: formatCurrency(item.job.salary),
+                        escrow: formatCurrency(Math.max(0, amount - Number(item.job.salary || 0))),
+                      }),
+                      label: t('employerApplications.confirm.offer.label'),
                       run: async () => {
                         if (
                           await request(
@@ -642,17 +678,16 @@ export default function EmployerApplications({
                             { amount },
                           )
                         )
-                          toast.success("Formal offer sent in chat.");
+                          toast.success(t('employerApplications.toast.offerSent'));
                       },
                     });
                   }}
                   onCancelOffer={() =>
                     setConfirmAction({
-                      title: "Cancel offer?",
-                      question: `Cancel the ${php(item.offer?.amount)} offer?`,
-                      detail:
-                        "Any additional negotiated escrow will be returned safely.",
-                      label: "Cancel Offer",
+                      title: t('employerApplications.confirm.cancelOffer.title'),
+                      question: t('employerApplications.confirm.cancelOffer.question', { amount: formatCurrency(item.offer?.amount) }),
+                      detail: t('employerApplications.confirm.cancelOffer.detail'),
+                      label: t('employerApplications.confirm.cancelOffer.label'),
                       destructive: true,
                       run: async () => {
                         if (item.offer)
@@ -665,11 +700,10 @@ export default function EmployerApplications({
                   }
                   onConfirmHire={() =>
                     setConfirmAction({
-                      title: "Confirm hiring?",
-                      question: `Hire ${nameOf(item)} for ${php(item.offer?.amount)}?`,
-                      detail:
-                        "This starts the worker assignment using the accepted escrow-backed terms.",
-                      label: "Confirm Hire",
+                      title: t('employerApplications.confirm.confirmHire.title'),
+                      question: t('employerApplications.confirm.confirmHire.question', { name: nameOf(t, item), amount: formatCurrency(item.offer?.amount) }),
+                      detail: t('employerApplications.confirm.confirmHire.detail'),
+                      label: t('employerApplications.confirm.confirmHire.label'),
                       run: async () => {
                         if (
                           item.offer &&
@@ -678,7 +712,7 @@ export default function EmployerApplications({
                             `job-offers/${item.offer.id}/confirm-hire`,
                           ))
                         )
-                          toast.success("Worker hired successfully.");
+                          toast.success(t('employerApplications.toast.workerHired'));
                       },
                     })
                   }
@@ -690,11 +724,10 @@ export default function EmployerApplications({
                   }
                   onPay={() =>
                     setConfirmAction({
-                      title: "Approve and pay?",
-                      question: `Release ${php(item.agreedAmount || item.job.salary)} to ${nameOf(item)}?`,
-                      detail:
-                        "This approves submitted work and releases only this worker’s secured payment. It cannot be paid twice.",
-                      label: "Approve and Pay",
+                      title: t('employerApplications.confirm.pay.title'),
+                      question: t('employerApplications.confirm.pay.question', { amount: formatCurrency(item.agreedAmount || item.job.salary), name: nameOf(t, item) }),
+                      detail: t('employerApplications.confirm.pay.detail'),
+                      label: t('employerApplications.confirm.pay.label'),
                       run: async () => {
                         if (
                           await request(
@@ -702,7 +735,7 @@ export default function EmployerApplications({
                             `applications/${item._id}/payment/settle`,
                           )
                         )
-                          toast.success("Worker paid successfully.");
+                          toast.success(t('employerApplications.toast.workerPaid'));
                       },
                     })
                   }
@@ -723,14 +756,14 @@ export default function EmployerApplications({
               value={jobSearch}
               onChange={setJobSearch}
               onFilter={() => setFilterVisible(true)}
-              placeholder="Search job openings"
+              placeholder={t('employerApplications.search.jobsPlaceholder')}
               activeFilter={jobStatus !== "All" || category !== "All"}
             />
             <View style={styles.listHeading}>
               <View>
-                <Text style={styles.heading}>Job Openings</Text>
+                <Text style={styles.heading}>{t('employerApplications.jobsHeading.title')}</Text>
                 <Text style={styles.headingSub}>
-                  {jobRows.length} of {jobs.length} jobs
+                  {t('employerApplications.jobsHeading.subtitle', { shown: jobRows.length, total: jobs.length })}
                 </Text>
               </View>
             </View>
@@ -742,8 +775,8 @@ export default function EmployerApplications({
             ) : jobRows.length === 0 ? (
               <Empty
                 icon="briefcase-outline"
-                title="No job openings found"
-                body="Change the filters or create a new employer job post."
+                title={t('employerApplications.empty.jobsTitle')}
+                body={t('employerApplications.empty.jobsBody')}
               />
             ) : (
               jobRows.map((job) => {
@@ -762,7 +795,7 @@ export default function EmployerApplications({
                     }}
                     activeOpacity={0.82}
                     accessibilityRole="button"
-                    accessibilityLabel={`Open candidates for ${job.title}`}
+                    accessibilityLabel={t('employerApplications.jobCard.openLabel', { title: job.title })}
                   >
                     <View style={styles.jobAccent} />
                     <View style={styles.jobTop}>
@@ -778,7 +811,7 @@ export default function EmployerApplications({
                           {job.title}
                         </Text>
                         <Text style={styles.jobStatus}>
-                          {job.status || "Available"}
+                          {job.status || t('employerApplications.jobCard.availableStatus')}
                         </Text>
                       </View>
                       <Ionicons
@@ -790,15 +823,15 @@ export default function EmployerApplications({
                     <View style={styles.jobMeta}>
                       <Meta
                         icon="location-outline"
-                        text={job.location || "Location not set"}
+                        text={job.location || t('employerApplications.locationNotSet')}
                       />
                       <Meta
                         icon="time-outline"
-                        text={job.jobType || "Local work"}
+                        text={job.jobType || t('employerApplications.jobCard.localWork')}
                       />
                       <Meta
                         icon="people-outline"
-                        text={`${job.hiredCount || 0}/${job.positionsNeeded || 1} hired`}
+                        text={t('employerApplications.jobCard.hiredCount', { hired: job.hiredCount || 0, needed: job.positionsNeeded || 1 })}
                       />
                     </View>
                     <View style={styles.jobStats}>
@@ -806,12 +839,12 @@ export default function EmployerApplications({
                         <Text style={styles.jobStatValue}>
                           {candidates.length}
                         </Text>{" "}
-                        candidates
+                        {t('employerApplications.jobCard.candidatesCount')}
                       </Text>
                       <View style={styles.dot} />
                       <Text style={styles.jobStat}>
                         <Text style={styles.jobStatValue}>{interviewed}</Text>{" "}
-                        interviewed
+                        {t('employerApplications.jobCard.interviewedCount')}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -828,7 +861,7 @@ export default function EmployerApplications({
         description={[confirmAction?.question, confirmAction?.detail]
           .filter(Boolean)
           .join("\n\n")}
-        confirmLabel={confirmAction?.label || "Confirm"}
+        confirmLabel={confirmAction?.label || t('employerApplications.confirmDefaultLabel')}
         destructive={confirmAction?.destructive}
         pending={Boolean(busyId)}
         onCancel={() => {
@@ -876,7 +909,7 @@ export default function EmployerApplications({
         mode="single"
         value={interviewAt}
         minDate={new Date()}
-        title="Interview date"
+        title={t('employerApplications.interviewModal.calendarTitle')}
         onChange={(value) => {
           if (value)
             setInterviewAt(
@@ -890,7 +923,7 @@ export default function EmployerApplications({
                 ),
             );
         }}
-        footer={{ primaryLabel: 'Set date', onPrimary: () => setDatePicker(false) }}
+        footer={{ primaryLabel: t('employerApplications.interviewModal.calendarSetDate'), onPrimary: () => setDatePicker(false) }}
       />
       {timePicker ? (
         <DateTimePicker
@@ -917,6 +950,7 @@ export default function EmployerApplications({
 }
 
 function CandidateCard(props: any) {
+  const { t } = useTranslation('employer');
   const { item, expanded, busy } = props;
   const offer = item.offer as Offer;
   const offerActive = offer && ["pending", "accepted"].includes(offer.status);
@@ -942,26 +976,27 @@ function CandidateCard(props: any) {
           )}
         </View>
         <View style={styles.candidateCopy}>
-          <Text style={styles.candidateName}>{nameOf(item)}</Text>
+          <Text style={styles.candidateName}>{nameOf(t, item)}</Text>
           <Text style={styles.appliedDate}>
-            Applied{" "}
-            {item.createdAt
-              ? new Date(item.createdAt).toLocaleDateString("en-PH")
-              : "recently"}
+            {t('employerApplications.candidateCard.appliedOn', {
+              date: item.createdAt
+                ? formatDate(item.createdAt)
+                : t('employerApplications.candidateCard.appliedRecently'),
+            })}
           </Text>
           <View style={styles.candidatePills}>
             <Pill
-              text={`${Number(item.match?.percentage || 0)}% match`}
+              text={t('employerApplications.candidateCard.matchPercent', { percent: Number(item.match?.percentage || 0) })}
               tone="blue"
             />
             <Pill
-              text={`${Number(item.applicant.rating?.averageRating || 0).toFixed(1)} ★`}
+              text={t('employerApplications.candidateCard.ratingValue', { rating: Number(item.applicant.rating?.averageRating || 0).toFixed(1) })}
               tone="gold"
             />
             <Pill text={item.status} tone="neutral" />
             {item.nextInterview ? (
               <Pill
-                text={`Next ${new Date(item.nextInterview.scheduledAt).toLocaleDateString("en-PH", { month: "short", day: "numeric" })}`}
+                text={t('employerApplications.candidateCard.nextInterview', { date: formatDate(item.nextInterview.scheduledAt, { month: "short", day: "numeric" }) })}
                 tone="blue"
               />
             ) : null}
@@ -978,25 +1013,25 @@ function CandidateCard(props: any) {
           <View style={styles.actionGrid}>
             <Action
               icon="person-outline"
-              label="View Profile"
+              label={t('employerApplications.actions.viewProfile')}
               onPress={props.onProfile}
             />
             <Action
               icon="chatbubble-outline"
-              label="Message"
+              label={t('employerApplications.actions.message')}
               onPress={props.onMessage}
             />
             {!["Hired", "Rejected", "Withdrawn"].includes(item.status) ? (
               <Action
                 icon="calendar-outline"
-                label={item.nextInterview ? "Reschedule" : "Interview"}
+                label={item.nextInterview ? t('employerApplications.actions.reschedule') : t('employerApplications.actions.interview')}
                 onPress={props.onInterview}
               />
             ) : null}
             {item.status === "Applied" ? (
               <Action
                 icon="bookmark-outline"
-                label="Shortlist"
+                label={t('employerApplications.actions.shortlist')}
                 onPress={props.onShortlist}
               />
             ) : null}
@@ -1009,12 +1044,12 @@ function CandidateCard(props: any) {
                 color={tokens.colors.brand}
               />
               <View style={styles.flex}>
-                <Text style={styles.infoTitle}>Interview scheduled</Text>
+                <Text style={styles.infoTitle}>{t('employerApplications.interviewScheduled.title')}</Text>
                 <Text style={styles.infoText}>
-                  {new Date(item.nextInterview.scheduledAt).toLocaleString(
-                    "en-PH",
-                  )}{" "}
-                  · {item.nextInterview.mode || "other"}
+                  {t('employerApplications.interviewScheduled.detail', {
+                    datetime: formatDateTime(item.nextInterview.scheduledAt),
+                    mode: item.nextInterview.mode || t('employerApplications.interviewScheduled.otherMode'),
+                  })}
                 </Text>
               </View>
             </View>
@@ -1022,9 +1057,9 @@ function CandidateCard(props: any) {
           {!["Hired", "Rejected", "Withdrawn"].includes(item.status) &&
           !offerActive ? (
             <View style={styles.offerPanel}>
-              <Text style={styles.panelTitle}>Formal escrow-backed offer</Text>
+              <Text style={styles.panelTitle}>{t('employerApplications.offerPanel.title')}</Text>
               <Text style={styles.panelHelp}>
-                Guaranteed minimum {php(item.job.salary)}
+                {t('employerApplications.offerPanel.guaranteedMinimum', { amount: formatCurrency(item.job.salary) })}
               </Text>
               <View style={styles.inputAction}>
                 <TextInput
@@ -1032,7 +1067,7 @@ function CandidateCard(props: any) {
                   value={props.offerValue}
                   onChangeText={props.onOfferChange}
                   keyboardType="decimal-pad"
-                  placeholder="PHP amount"
+                  placeholder={t('employerApplications.offerPanel.amountPlaceholder')}
                   placeholderTextColor={tokens.colors.textSubtle}
                 />
                 <TouchableOpacity
@@ -1043,13 +1078,12 @@ function CandidateCard(props: any) {
                   disabled={!offerValid || busy}
                   onPress={props.onOffer}
                 >
-                  <Text style={styles.primarySmallText}>Review Offer</Text>
+                  <Text style={styles.primarySmallText}>{t('employerApplications.offerPanel.reviewOffer')}</Text>
                 </TouchableOpacity>
               </View>
               {offerAmount > Number(item.job.salary || 0) ? (
                 <Text style={styles.escrowText}>
-                  Additional escrow:{" "}
-                  {php(offerAmount - Number(item.job.salary || 0))}
+                  {t('employerApplications.offerPanel.additionalEscrow', { amount: formatCurrency(offerAmount - Number(item.job.salary || 0)) })}
                 </Text>
               ) : null}
             </View>
@@ -1058,11 +1092,11 @@ function CandidateCard(props: any) {
             <View style={styles.offerPanel}>
               <Text style={styles.panelTitle}>
                 {offer?.status === "accepted"
-                  ? "Offer accepted"
-                  : "Awaiting worker"}
+                  ? t('employerApplications.offerActive.accepted')
+                  : t('employerApplications.offerActive.awaiting')}
               </Text>
               <Text style={styles.panelHelp}>
-                {php(offer?.amount)} escrow-backed offer
+                {t('employerApplications.offerActive.escrowBacked', { amount: formatCurrency(offer?.amount) })}
               </Text>
               <View style={styles.twoActions}>
                 {offer?.status === "accepted" ? (
@@ -1071,7 +1105,7 @@ function CandidateCard(props: any) {
                     disabled={busy}
                     onPress={props.onConfirmHire}
                   >
-                    <Text style={styles.primaryButtonText}>Confirm Hire</Text>
+                    <Text style={styles.primaryButtonText}>{t('employerApplications.offerActive.confirmHire')}</Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity
@@ -1079,18 +1113,20 @@ function CandidateCard(props: any) {
                   disabled={busy}
                   onPress={props.onCancelOffer}
                 >
-                  <Text style={styles.dangerText}>Cancel Offer</Text>
+                  <Text style={styles.dangerText}>{t('employerApplications.offerActive.cancelOffer')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ) : null}
           {item.status === "Hired" ? (
             <View style={styles.offerPanel}>
-              <Text style={styles.panelTitle}>Assignment and payment</Text>
+              <Text style={styles.panelTitle}>{t('employerApplications.hiredPanel.title')}</Text>
               <Text style={styles.panelHelp}>
-                {php(item.agreedAmount || item.job.salary)} · Work:{" "}
-                {item.workStatus || "In Progress"} · Payment:{" "}
-                {item.paymentStatus || "Secured"}
+                {t('employerApplications.hiredPanel.summary', {
+                  amount: formatCurrency(item.agreedAmount || item.job.salary),
+                  workStatus: item.workStatus || t('employerApplications.hiredPanel.workStatusDefault'),
+                  paymentStatus: item.paymentStatus || t('employerApplications.hiredPanel.paymentStatusDefault'),
+                })}
               </Text>
               {!["Authorized", "Paid"].includes(
                 item.paymentStatus || "Secured",
@@ -1101,7 +1137,7 @@ function CandidateCard(props: any) {
                   onPress={props.onAuthorize}
                 >
                   <Text style={styles.secondaryButtonText}>
-                    Authorize Payment · Held Until Approval
+                    {t('employerApplications.hiredPanel.authorizePayment')}
                   </Text>
                 </TouchableOpacity>
               ) : null}
@@ -1112,7 +1148,7 @@ function CandidateCard(props: any) {
                   disabled={busy}
                   onPress={props.onPay}
                 >
-                  <Text style={styles.primaryButtonText}>Approve and Pay</Text>
+                  <Text style={styles.primaryButtonText}>{t('employerApplications.hiredPanel.approveAndPay')}</Text>
                 </TouchableOpacity>
               ) : null}
               {item.workStatus === "Submitted" &&
@@ -1122,7 +1158,7 @@ function CandidateCard(props: any) {
                     style={styles.compactInput}
                     value={props.changeReason}
                     onChangeText={props.onReasonChange}
-                    placeholder="Required change reason"
+                    placeholder={t('employerApplications.hiredPanel.changeReasonPlaceholder')}
                     placeholderTextColor={tokens.colors.textSubtle}
                   />
                   <TouchableOpacity
@@ -1134,7 +1170,7 @@ function CandidateCard(props: any) {
                     onPress={props.onRequestChanges}
                   >
                     <Text style={styles.secondarySmallText}>
-                      Request Changes
+                      {t('employerApplications.hiredPanel.requestChanges')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1152,7 +1188,7 @@ function CandidateCard(props: any) {
                 size={17}
                 color={tokens.colors.danger}
               />
-              <Text style={styles.rejectText}>Reject Candidate</Text>
+              <Text style={styles.rejectText}>{t('employerApplications.rejectCandidate')}</Text>
             </TouchableOpacity>
           ) : null}
           <TouchableOpacity
@@ -1160,7 +1196,7 @@ function CandidateCard(props: any) {
             disabled={busy}
             onPress={props.onRemove}
           >
-            <Text style={styles.removeText}>Remove from employer list</Text>
+            <Text style={styles.removeText}>{t('employerApplications.removeFromList')}</Text>
           </TouchableOpacity>
           {busy ? (
             <ActivityIndicator
@@ -1219,48 +1255,54 @@ const SearchBar = ({
   onFilter,
   placeholder,
   activeFilter,
-}: any) => (
-  <View style={styles.searchRow}>
-    <View style={styles.searchBox}>
-      <Ionicons
-        name="search-outline"
-        size={19}
-        color={tokens.colors.textMuted}
-      />
-      <TextInput
-        style={styles.searchInput}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder}
-        placeholderTextColor={tokens.colors.textSubtle}
-      />
+}: any) => {
+  const { t } = useTranslation('employer');
+  return (
+    <View style={styles.searchRow}>
+      <View style={styles.searchBox}>
+        <Ionicons
+          name="search-outline"
+          size={19}
+          color={tokens.colors.textMuted}
+        />
+        <TextInput
+          style={styles.searchInput}
+          value={value}
+          onChangeText={onChange}
+          placeholder={placeholder}
+          placeholderTextColor={tokens.colors.textSubtle}
+        />
+      </View>
+      <TouchableOpacity
+        style={[styles.filterButton, activeFilter && styles.filterButtonActive]}
+        onPress={onFilter}
+        accessibilityLabel={t('employerApplications.search.openFiltersLabel')}
+      >
+        <Ionicons
+          name="options-outline"
+          size={20}
+          color={activeFilter ? tokens.colors.white : tokens.colors.brand}
+        />
+      </TouchableOpacity>
     </View>
-    <TouchableOpacity
-      style={[styles.filterButton, activeFilter && styles.filterButtonActive]}
-      onPress={onFilter}
-      accessibilityLabel="Open filters"
-    >
+  );
+};
+const ErrorCard = ({ message, onRetry }: any) => {
+  const { t } = useTranslation('employer');
+  return (
+    <View style={styles.errorCard}>
       <Ionicons
-        name="options-outline"
+        name="cloud-offline-outline"
         size={20}
-        color={activeFilter ? tokens.colors.white : tokens.colors.brand}
+        color={tokens.colors.danger}
       />
-    </TouchableOpacity>
-  </View>
-);
-const ErrorCard = ({ message, onRetry }: any) => (
-  <View style={styles.errorCard}>
-    <Ionicons
-      name="cloud-offline-outline"
-      size={20}
-      color={tokens.colors.danger}
-    />
-    <Text style={styles.errorText}>{message}</Text>
-    <TouchableOpacity onPress={onRetry} style={styles.retry}>
-      <Text style={styles.retryText}>Retry</Text>
-    </TouchableOpacity>
-  </View>
-);
+      <Text style={styles.errorText}>{message}</Text>
+      <TouchableOpacity onPress={onRetry} style={styles.retry}>
+        <Text style={styles.retryText}>{t('employerApplications.retry')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 const Empty = ({ icon, title, body }: any) => (
   <View style={styles.empty}>
     <Ionicons name={icon} size={34} color={tokens.colors.textSubtle} />
@@ -1292,6 +1334,7 @@ function Filters({
   onDateOrder,
   onStage,
 }: any) {
+  const { t } = useTranslation('employer');
   return (
     <Modal
       visible={visible}
@@ -1303,7 +1346,7 @@ function Filters({
         <View style={styles.filterSheet}>
           <View style={styles.sheetHeader}>
             <Text style={styles.sheetTitle}>
-              {candidateMode ? "Candidate filters" : "Job filters"}
+              {candidateMode ? t('employerApplications.filters.candidateTitle') : t('employerApplications.filters.jobTitle')}
             </Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Ionicons
@@ -1315,36 +1358,36 @@ function Filters({
           </View>
           {candidateMode ? (
             <>
-              <Text style={styles.fieldLabel}>Minimum match</Text>
+              <Text style={styles.fieldLabel}>{t('employerApplications.filters.minimumMatch')}</Text>
               <View style={styles.choiceRow}>
                 {[0, 50, 75].map((value) => (
                   <Choice
                     key={value}
-                    label={value ? `${value}%+` : "Any"}
+                    label={value ? t('employerApplications.filters.matchPercent', { percent: value }) : t('employerApplications.filters.any')}
                     active={minMatch === value}
                     onPress={() => onMatch(value)}
                   />
                 ))}
               </View>
-              <Text style={styles.fieldLabel}>Application date</Text>
+              <Text style={styles.fieldLabel}>{t('employerApplications.filters.applicationDate')}</Text>
               <View style={styles.choiceRow}>
                 <Choice
-                  label="Newest"
+                  label={t('employerApplications.filters.newest')}
                   active={dateOrder === "newest"}
                   onPress={() => onDateOrder("newest")}
                 />
                 <Choice
-                  label="Oldest"
+                  label={t('employerApplications.filters.oldest')}
                   active={dateOrder === "oldest"}
                   onPress={() => onDateOrder("oldest")}
                 />
               </View>
-              <Text style={styles.fieldLabel}>Stage</Text>
+              <Text style={styles.fieldLabel}>{t('employerApplications.filters.stage')}</Text>
               <View style={styles.choiceRow}>
                 {STAGES.map((value) => (
                   <Choice
                     key={value}
-                    label={value}
+                    label={stageLabel(t, value)}
                     active={stage === value}
                     onPress={() => onStage(value)}
                   />
@@ -1353,19 +1396,12 @@ function Filters({
             </>
           ) : (
             <>
-              <Text style={styles.fieldLabel}>Job status</Text>
+              <Text style={styles.fieldLabel}>{t('employerApplications.filters.jobStatus')}</Text>
               <View style={styles.choiceRow}>
-                {[
-                  "All",
-                  "Available",
-                  "In Progress",
-                  "Closed",
-                  "Completed",
-                  "Cancelled",
-                ].map((value) => (
+                {JOB_STATUS_VALUES.map((value) => (
                   <Choice
                     key={value}
-                    label={value}
+                    label={jobStatusLabel(t, value)}
                     active={jobStatus === value}
                     onPress={() => onJobStatus(value)}
                   />
@@ -1373,12 +1409,12 @@ function Filters({
               </View>
               {categories.length ? (
                 <>
-                  <Text style={styles.fieldLabel}>Category</Text>
+                  <Text style={styles.fieldLabel}>{t('employerApplications.filters.category')}</Text>
                   <View style={styles.choiceRow}>
                     {["All", ...categories].map((value: string) => (
                       <Choice
                         key={value}
-                        label={value}
+                        label={value === "All" ? t('employerApplications.jobStatusOptions.all') : value}
                         active={category === value}
                         onPress={() => onCategory(value)}
                       />
@@ -1389,7 +1425,7 @@ function Filters({
             </>
           )}
           <TouchableOpacity style={styles.primaryButton} onPress={onClose}>
-            <Text style={styles.primaryButtonText}>Show Results</Text>
+            <Text style={styles.primaryButtonText}>{t('employerApplications.filters.showResults')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1421,6 +1457,7 @@ function InterviewModal({
   onNotes,
   onSave,
 }: any) {
+  const { t } = useTranslation('employer');
   return (
     <Modal
       visible={Boolean(item)}
@@ -1432,13 +1469,13 @@ function InterviewModal({
         <View style={styles.interviewSheet}>
           <View style={styles.sheetHeader}>
             <View style={styles.flex}>
-              <Text style={styles.eyebrow}>INTERVIEW</Text>
+              <Text style={styles.eyebrow}>{t('employerApplications.interviewModal.eyebrow')}</Text>
               <Text style={styles.sheetTitle}>
                 {item?.nextInterview
-                  ? "Reschedule interview"
-                  : "Schedule interview"}
+                  ? t('employerApplications.interviewModal.rescheduleTitle')
+                  : t('employerApplications.interviewModal.scheduleTitle')}
               </Text>
-              <Text style={styles.panelHelp}>{item ? nameOf(item) : ""}</Text>
+              <Text style={styles.panelHelp}>{item ? nameOf(t, item) : ""}</Text>
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
               <Ionicons
@@ -1456,7 +1493,7 @@ function InterviewModal({
                 color={tokens.colors.brand}
               />
               <Text style={styles.dateText}>
-                {value.toLocaleDateString("en-PH")}
+                {formatDate(value)}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.dateButton} onPress={onTime}>
@@ -1466,39 +1503,39 @@ function InterviewModal({
                 color={tokens.colors.brand}
               />
               <Text style={styles.dateText}>
-                {value.toLocaleTimeString("en-PH", {
+                {formatDate(value, {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.fieldLabel}>Mode</Text>
+          <Text style={styles.fieldLabel}>{t('employerApplications.interviewModal.modeLabel')}</Text>
           <View style={styles.choiceRow}>
-            {["virtual", "phone", "in-person", "other"].map((value) => (
+            {INTERVIEW_MODE_VALUES.map((value) => (
               <Choice
                 key={value}
-                label={value}
+                label={interviewModeLabel(t, value)}
                 active={mode === value}
                 onPress={() => onMode(value)}
               />
             ))}
           </View>
-          <Text style={styles.fieldLabel}>Location or meeting link</Text>
+          <Text style={styles.fieldLabel}>{t('employerApplications.interviewModal.locationLabel')}</Text>
           <TextInput
             style={styles.sheetInput}
             value={location}
             onChangeText={onLocation}
-            placeholder="Meeting link, office, or call details"
+            placeholder={t('employerApplications.interviewModal.locationPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
           />
-          <Text style={styles.fieldLabel}>Notes</Text>
+          <Text style={styles.fieldLabel}>{t('employerApplications.interviewModal.notesLabel')}</Text>
           <TextInput
             style={[styles.sheetInput, styles.notes]}
             value={notes}
             onChangeText={onNotes}
             multiline
-            placeholder="Preparation details"
+            placeholder={t('employerApplications.interviewModal.notesPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
           />
           <TouchableOpacity
@@ -1509,7 +1546,7 @@ function InterviewModal({
             {busy ? (
               <ActivityIndicator color={tokens.colors.white} />
             ) : (
-              <Text style={styles.primaryButtonText}>Save Interview</Text>
+              <Text style={styles.primaryButtonText}>{t('employerApplications.interviewModal.saveButton')}</Text>
             )}
           </TouchableOpacity>
         </View>

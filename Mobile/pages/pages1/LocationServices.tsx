@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
+import { useTranslation } from 'react-i18next';
 import AppHeader from '../../components/AppHeader';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 
 export default function LocationServices({ onBack }: { onBack?: () => void }) {
+  const { t } = useTranslation('worker');
   const [enabled, setEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [city, setCity] = useState('Not available');
+  const [city, setCity] = useState(t('locationServices.city.notAvailable'));
   const [coordinates, setCoordinates] = useState('—');
   const toast = useToast();
 
@@ -19,9 +21,9 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== 'granted') {
         setEnabled(false);
-        setCity('Permission denied');
+        setCity(t('locationServices.city.permissionDenied'));
         setCoordinates('—');
-        toast.error('Location permission was denied.');
+        toast.error(t('locationServices.toast.permissionDenied'));
         return;
       }
 
@@ -34,20 +36,20 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
       try {
         const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
         const first = geocode[0];
-        const resolvedCity = first?.city || first?.district || first?.region || 'Unknown location';
+        const resolvedCity = first?.city || first?.district || first?.region || t('locationServices.city.unknown');
         const resolvedCountry = first?.country ? `, ${first.country}` : '';
         setCity(`${resolvedCity}${resolvedCountry}`);
       } catch (error) {
-        setCity('Unknown location');
+        setCity(t('locationServices.city.unknown'));
       }
 
       setEnabled(true);
-      toast.success('Location enabled.');
+      toast.success(t('locationServices.toast.enabled'));
     } catch (error: any) {
       setEnabled(false);
-      setCity('Not available');
+      setCity(t('locationServices.city.notAvailable'));
       setCoordinates('—');
-      toast.error(error?.message || 'Failed to get location.');
+      toast.error(error?.message || t('locationServices.toast.getLocationFailed'));
     } finally {
       setIsLoading(false);
     }
@@ -56,9 +58,9 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
   const handleToggle = async () => {
     if (enabled) {
       setEnabled(false);
-      setCity('Not available');
+      setCity(t('locationServices.city.notAvailable'));
       setCoordinates('—');
-      toast.info('Location disabled.');
+      toast.info(t('locationServices.toast.disabled'));
       return;
     }
 
@@ -67,43 +69,43 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Location Services" subtitle="Control location permissions" onBack={onBack} />
+      <AppHeader title={t('locationServices.headerTitle')} subtitle={t('locationServices.headerSubtitle')} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Use Your Location</Text>
+          <Text style={styles.sectionTitle}>{t('locationServices.useLocation.title')}</Text>
           <Text style={styles.sectionSubtitle}>
-            Allow location access to show nearby jobs and enable location-based alerts.
+            {t('locationServices.useLocation.subtitle')}
           </Text>
           <TouchableOpacity style={[styles.toggle, enabled && styles.toggleActive]} onPress={handleToggle}>
             {isLoading ? (
               <ActivityIndicator color={enabled ? tokens.colors.white : tokens.colors.brand} />
             ) : (
               <Text style={[styles.toggleText, enabled && styles.toggleTextActive]}>
-                {enabled ? 'Enabled' : 'Enable Location'}
+                {enabled ? t('locationServices.useLocation.enabledLabel') : t('locationServices.useLocation.enableLabel')}
               </Text>
             )}
           </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Current Location</Text>
-          <Text style={styles.sectionSubtitle}>Based on your device settings.</Text>
+          <Text style={styles.sectionTitle}>{t('locationServices.currentLocation.title')}</Text>
+          <Text style={styles.sectionSubtitle}>{t('locationServices.currentLocation.subtitle')}</Text>
           <View style={styles.locationRow}>
-              <Text style={styles.locationLabel}>City</Text>
+              <Text style={styles.locationLabel}>{t('locationServices.currentLocation.cityLabel')}</Text>
               <Text style={styles.locationValue}>{city}</Text>
             </View>
             <View style={styles.locationRow}>
-              <Text style={styles.locationLabel}>Coordinates</Text>
+              <Text style={styles.locationLabel}>{t('locationServices.currentLocation.coordinatesLabel')}</Text>
               <Text style={styles.locationValue}>{coordinates}</Text>
             </View>
           </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Map Preview</Text>
-          <Text style={styles.sectionSubtitle}>Location preview (UI only).</Text>
+          <Text style={styles.sectionTitle}>{t('locationServices.mapPreview.title')}</Text>
+          <Text style={styles.sectionSubtitle}>{t('locationServices.mapPreview.subtitle')}</Text>
           <View style={styles.mapPlaceholder}>
-            <Text style={styles.mapText}>Map Preview</Text>
+            <Text style={styles.mapText}>{t('locationServices.mapPreview.placeholder')}</Text>
           </View>
         </View>
       </ScrollView>

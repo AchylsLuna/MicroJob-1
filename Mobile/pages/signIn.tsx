@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { API_URL } from '../config';
 import ScrollView from '../components/ui/SmoothScrollView';
 import CanvasBackButton from '../components/ui/CanvasBackButton';
@@ -65,6 +66,7 @@ export default function SignIn({
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
   const toast = useToast();
+  const { t } = useTranslation('auth');
 
   const continueAfterPrimaryAuth = async (token: string, user: any, refreshToken?: string) => {
     if (!token || !user) {
@@ -84,24 +86,24 @@ export default function SignIn({
     setRequiresMfa(false);
     setMfaToken('');
     setMfaCode('');
-    toast.success('Login successful.');
+    toast.success(t('signIn.toast.loginSuccess'));
     onLogin?.();
   };
 
   const handleSignIn = async () => {
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
-      setErrors({ email: 'Enter your email address.' });
+      setErrors({ email: t('signIn.errors.emailRequired') });
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
-      setErrors({ email: 'Enter a valid email address.' });
+      setErrors({ email: t('signIn.errors.emailInvalid') });
       return;
     }
 
     if (!password) {
-      setErrors({ password: 'Enter your password.' });
+      setErrors({ password: t('signIn.errors.passwordRequired') });
       return;
     }
 
@@ -119,7 +121,7 @@ export default function SignIn({
           password,
           requireOtp: true,
         }),
-      }, 'Unable to sign in.');
+      }, t('signIn.toast.signInFailed'));
 
       const responseData = asObject<any>(result.data) || {};
       const responseRaw = asObject<any>(result.raw) || {};
@@ -135,28 +137,28 @@ export default function SignIn({
         setRequiresMfa(true);
         setMfaToken(nextMfaToken);
         setMfaCode('');
-        toast.info('Enter your authenticator or backup code to continue.');
+        toast.info(t('signIn.toast.mfaChallenge'));
       } else if (result.ok && nextOtpRequired && nextOtpToken) {
         onNavigateToVerify?.({ mode: 'loginOtp', email: normalizedEmail, otpToken: nextOtpToken });
       } else if (result.ok && token) {
         await continueAfterPrimaryAuth(token, user, refreshToken);
       } else {
-        const serverMessage = result.message || 'Unable to sign in.';
+        const serverMessage = result.message || t('signIn.toast.signInFailed');
         if (result.status === 401 && /verify your email/i.test(serverMessage)) {
           await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
           toast.info(serverMessage);
           onNavigateToVerify?.();
         } else if (result.status === 401 && /invalid credentials/i.test(serverMessage)) {
-          toast.error('Invalid credentials. Check your email and password.');
+          toast.error(t('signIn.toast.invalidCredentials'));
         } else if (result.status === 0) {
           toast.error(serverMessage);
         } else {
-          toast.error(`${serverMessage} (HTTP ${result.status})`);
+          toast.error(t('signIn.toast.httpError', { message: serverMessage, status: result.status }));
         }
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error?.message || 'Network error. Please check your connection and server status.');
+      toast.error(error?.message || t('signIn.toast.networkError'));
     } finally {
       setIsLoading(false);
     }
@@ -164,11 +166,11 @@ export default function SignIn({
 
   const handleVerifyMfa = async () => {
     if (!requiresMfa || !mfaToken) {
-      toast.error('Start sign in first.');
+      toast.error(t('signIn.toast.startSignInFirst'));
       return;
     }
     if (!mfaCode.trim()) {
-      setErrors({ mfa: 'Enter your authenticator or backup code.' });
+      setErrors({ mfa: t('signIn.errors.mfaCodeRequired') });
       return;
     }
 
@@ -183,7 +185,7 @@ export default function SignIn({
           mfaToken,
           code: mfaCode.trim(),
         }),
-      }, 'Unable to verify MFA.');
+      }, t('signIn.toast.mfaVerifyFailed'));
 
       const responseData = asObject<any>(result.data) || {};
       const responseRaw = asObject<any>(result.raw) || {};
@@ -196,9 +198,9 @@ export default function SignIn({
         return;
       }
 
-      toast.error(`${result.message || 'Invalid MFA code.'} (HTTP ${result.status})`);
+      toast.error(t('signIn.toast.httpError', { message: result.message || t('signIn.toast.invalidMfaCode'), status: result.status }));
     } catch (error) {
-      toast.error('Network error while verifying MFA.');
+      toast.error(t('signIn.toast.mfaNetworkError'));
     } finally {
       setIsLoading(false);
     }
@@ -249,20 +251,20 @@ export default function SignIn({
 
             style={[styles.title, { fontSize: titleFontSize, lineHeight: Math.round(titleFontSize * 1.16) }]}
           >
-            Welcome Back
+            {t('signIn.title')}
           </Text>
           <Text
 
             style={[styles.subtitle, { fontSize: subtitleFontSize, lineHeight: Math.round(subtitleFontSize * 1.45) }]}
           >
-            Sign in to your account
+            {t('signIn.subtitle')}
           </Text>
 
           <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
             <Feather name="at-sign" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
             <TextInput
               style={[styles.input, { fontSize: inputFontSize }]}
-              placeholder="Email address"
+              placeholder={t('signIn.emailPlaceholder')}
               placeholderTextColor={AUTH_COLORS.placeholderLight}
               value={email}
               onChangeText={(value) => { setEmail(value); setErrors((current) => ({ ...current, email: undefined })); }}
@@ -280,7 +282,7 @@ export default function SignIn({
             <Feather name="lock" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
             <TextInput
               style={[styles.input, { fontSize: inputFontSize }]}
-              placeholder="Password"
+              placeholder={t('signIn.passwordPlaceholder')}
               placeholderTextColor={AUTH_COLORS.placeholderLight}
               value={password}
               onChangeText={(value) => { setPassword(value); setErrors((current) => ({ ...current, password: undefined })); }}
@@ -302,7 +304,7 @@ export default function SignIn({
                 <Feather name="shield" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
                 <TextInput
                   style={[styles.input, { fontSize: inputFontSize }]}
-                  placeholder="Authenticator / Backup Code"
+                  placeholder={t('signIn.mfaPlaceholder')}
                   placeholderTextColor={AUTH_COLORS.placeholderLight}
                   value={mfaCode}
                   onChangeText={(value) => { setMfaCode(value); setErrors((current) => ({ ...current, mfa: undefined })); }}
@@ -311,13 +313,13 @@ export default function SignIn({
               </View>
               {errors.mfa ? <Text style={styles.inlineError}>{errors.mfa}</Text> : null}
               <Text style={[styles.mfaHelpText, { fontSize: clamp(inputFontSize * 0.72, 12, 13) }]}>
-                MFA is enabled for this account. Enter a valid code to continue.
+                {t('signIn.mfaHelpText')}
               </Text>
             </>
           ) : (
             <TouchableOpacity style={styles.forgotButton} onPress={onNavigateToForgot}>
               <Text style={[styles.forgotText, { fontSize: helperFontSize }]}>
-                Forgot password?
+                {t('signIn.forgotPassword')}
               </Text>
             </TouchableOpacity>
           )}
@@ -335,18 +337,18 @@ export default function SignIn({
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={[styles.primaryButtonText, { fontSize: buttonFontSize }]}>
-                {requiresMfa ? 'Verify MFA' : 'Sign in'}
+                {requiresMfa ? t('signIn.submitVerifyMfa') : t('signIn.submitSignIn')}
               </Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.bottomRow}>
             <Text style={[styles.bottomText, { fontSize: helperFontSize }]}>
-              {"Don't have an account? "}
+              {t('signIn.noAccount')}
             </Text>
             <TouchableOpacity onPress={onNavigateToSignUp}>
               <Text style={[styles.bottomLink, { fontSize: helperFontSize }]}>
-                Sign Up
+                {t('signIn.signUpLink')}
               </Text>
             </TouchableOpacity>
           </View>

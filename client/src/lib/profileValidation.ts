@@ -1,6 +1,7 @@
+import type { TFunction } from "i18next";
 import {
-  FULL_NAME_VALIDATION_MESSAGE,
-  PHONE_VALIDATION_MESSAGE,
+  getFullNameValidationMessage,
+  getPhoneValidationMessage,
   isValidFullName,
   isValidPhone,
 } from "./authValidation";
@@ -89,15 +90,16 @@ export type ProfileValidationIssue = { field: ProfileValidationField; message: s
 export function validateProfileDetails(
   values: Record<ProfileValidationField, string>,
   options: { employer: boolean },
+  t: TFunction,
 ): ProfileValidationIssue | null {
   if (!values.firstName || !isValidFullName(values.firstName)) {
-    return { field: "firstName", message: FULL_NAME_VALIDATION_MESSAGE };
+    return { field: "firstName", message: getFullNameValidationMessage(t) };
   }
   if (!values.lastName || !isValidFullName(values.lastName)) {
-    return { field: "lastName", message: FULL_NAME_VALIDATION_MESSAGE };
+    return { field: "lastName", message: getFullNameValidationMessage(t) };
   }
   if (values.phone && !isValidPhone(values.phone)) {
-    return { field: "phone", message: PHONE_VALIDATION_MESSAGE };
+    return { field: "phone", message: getPhoneValidationMessage(t) };
   }
   if (options.employer && !values.companyName) {
     return { field: "companyName", message: "Company name is required for an employer profile." };

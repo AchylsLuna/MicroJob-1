@@ -10,6 +10,8 @@ import {
   type DateRange,
   type MonthModel,
 } from "../../lib/calendarModel";
+import { getActiveDateLocale } from "../../lib/formatters";
+import { useLanguage } from "../../hooks/useLanguage";
 
 type FooterConfig = {
   clearLabel?: string;
@@ -45,8 +47,8 @@ type Props = (SingleProps | RangeProps) & {
 
 const WEEKDAYS = getWeekdayLabels();
 
-function formatFullDate(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(date);
+function formatFullDate(date: Date, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" }).format(date);
 }
 
 export function CalendarPanel(props: Props) {
@@ -54,8 +56,10 @@ export function CalendarPanel(props: Props) {
   const prefersReducedMotion = useReducedMotion();
   const closeRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
+  useLanguage(); // subscribes this component to language changes so dateLocale below stays current
+  const dateLocale = getActiveDateLocale();
 
-  const months = useMemo(() => buildMonths(minDate || new Date(), monthsToRender), [minDate, monthsToRender]);
+  const months = useMemo(() => buildMonths(minDate || new Date(), monthsToRender, dateLocale), [minDate, monthsToRender, dateLocale]);
 
   // Focus trap + restore, same pattern as components/ui/index.tsx's Dialog.
   useEffect(() => {
@@ -128,7 +132,7 @@ export function CalendarPanel(props: Props) {
                     type="button"
                     disabled={disabled}
                     onClick={() => handleDayPress(date)}
-                    aria-label={formatFullDate(date)}
+                    aria-label={formatFullDate(date, dateLocale)}
                     aria-pressed={selected}
                     aria-disabled={disabled}
                     className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition ${

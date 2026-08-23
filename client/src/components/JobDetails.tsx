@@ -13,11 +13,14 @@ import {
   MessageCircle,
   Users,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../lib/toast";
 import { applyForJob, getJobDetails, startJobInquiry } from "../services/api";
 import { ROUTES } from "../utils/routes";
 import { useSavedJobs } from "../hooks/useSavedJobs";
 import { useAuth } from "../hooks/useAuth";
+import { formatCurrency, formatDate } from "../lib/formatters";
 
 type ApiJob = {
   _id: string;
@@ -40,64 +43,71 @@ type JobDetailsLocationState = {
   status?: string;
 };
 
-const getJobTypeLabel = (jobType?: string) => {
+type JobTypeKey = "shortTerm" | "sideHustle" | "recruiting" | "partTime" | "contract" | "projectWork" | "fullTime";
+type WorkModeKey = "remote" | "hybrid" | "onSite";
+type ExperienceKey = "senior" | "midLevel" | "entryLevel";
+
+// These keys drive both the badge color lookup (getBadgeClass) and the
+// translated label — comparisons must stay on the stable key, never on the
+// translated display string, or badge coloring breaks whenever the active
+// language isn't English.
+const getJobTypeKey = (jobType?: string): JobTypeKey => {
   const normalized = (jobType || "").toLowerCase();
-  if (normalized.includes("short")) return "Short-term";
-  if (normalized.includes("side hustle")) return "Side hustle";
-  if (normalized.includes("recruit")) return "Recruiting";
-  if (normalized.includes("part")) return "Part-Time";
-  if (normalized.includes("contract")) return "Contract";
-  if (normalized.includes("freelance") || normalized.includes("project")) return "Project Work";
-  return "Full-Time";
+  if (normalized.includes("short")) return "shortTerm";
+  if (normalized.includes("side hustle")) return "sideHustle";
+  if (normalized.includes("recruit")) return "recruiting";
+  if (normalized.includes("part")) return "partTime";
+  if (normalized.includes("contract")) return "contract";
+  if (normalized.includes("freelance") || normalized.includes("project")) return "projectWork";
+  return "fullTime";
 };
 
-const getWorkModeLabel = (job?: ApiJob) => {
+const getWorkModeKey = (job?: ApiJob): WorkModeKey => {
   const source = `${job?.jobType || ""} ${job?.location || ""} ${job?.description || ""}`.toLowerCase();
-  if (source.includes("remote")) return "Remote";
-  if (source.includes("hybrid")) return "Hybrid";
-  return "On-site";
+  if (source.includes("remote")) return "remote";
+  if (source.includes("hybrid")) return "hybrid";
+  return "onSite";
 };
 
-const getExperienceLevel = (job?: ApiJob) => {
+const getExperienceKey = (job?: ApiJob): ExperienceKey => {
   const details = `${job?.title || ""} ${(job?.requirements || []).join(" ")}`.toLowerCase();
   if (/(senior|lead|principal|architect|manager|[5-9]\+?\s*years?)/.test(details)) {
-    return "Senior";
+    return "senior";
   }
   if (/(mid|intermediate|[3-4]\+?\s*years?)/.test(details)) {
-    return "Mid-Level";
+    return "midLevel";
   }
-  return "Entry Level";
+  return "entryLevel";
 };
 
-const getPostedLabel = (createdAt?: string) => {
-  if (!createdAt) return "Posted recently";
+const getPostedLabel = (t: TFunction, createdAt?: string) => {
+  if (!createdAt) return t("jobDetails.postedLabel.recently");
   const created = new Date(createdAt).getTime();
-  if (Number.isNaN(created)) return "Posted recently";
+  if (Number.isNaN(created)) return t("jobDetails.postedLabel.recently");
   const postedDaysAgo = Math.max(0, Math.floor((Date.now() - created) / (1000 * 60 * 60 * 24)));
-  if (postedDaysAgo === 0) return "Posted today";
-  if (postedDaysAgo === 1) return "Posted 1d ago";
-  return `Posted ${postedDaysAgo}d ago`;
+  if (postedDaysAgo === 0) return t("jobDetails.postedLabel.today");
+  return t("jobDetails.postedLabel.daysAgo", { count: postedDaysAgo });
 };
 
-const getSalaryDisplay = (salary?: string) => {
+const getSalaryDisplay = (t: TFunction, salary?: string) => {
   const raw = `${salary || ""}`.trim();
   if (!raw) return { amount: "—", cadence: "" };
 
   const normalizedCadence = (() => {
     const source = raw.toLowerCase();
-    if (source.includes("/mo") || source.includes("/month") || source.includes("per month")) return "per month";
-    if (source.includes("/yr") || source.includes("/year") || source.includes("per year")) return "per year";
-    if (source.includes("/week") || source.includes("per week")) return "per week";
-    if (source.includes("/day") || source.includes("per day")) return "per day";
-    if (source.includes("/hr") || source.includes("/hour") || source.includes("per hour")) return "per hour";
+    if (source.includes("/mo") || source.includes("/month") || source.includes("per month")) return t("jobDetails.salaryCadence.perMonth");
+    if (source.includes("/yr") || source.includes("/year") || source.includes("per year")) return t("jobDetails.salaryCadence.perYear");
+    if (source.includes("/week") || source.includes("per week")) return t("jobDetails.salaryCadence.perWeek");
+    if (source.includes("/day") || source.includes("per day")) return t("jobDetails.salaryCadence.perDay");
+    if (source.includes("/hr") || source.includes("/hour") || source.includes("per hour")) return t("jobDetails.salaryCadence.perHour");
     return "";
   })();
 
   const numeric = Number.parseFloat(raw.replace(/,/g, "").replace(/[^0-9.]/g, ""));
   if (Number.isFinite(numeric) && numeric > 0) {
     return {
-      amount: `₱${numeric.toLocaleString()}`,
-      cadence: normalizedCadence || "minimum guaranteed",
+      amount: formatCurrency(numeric, { maximumFractionDigits: 0 }),
+      cadence: normalizedCadence || t("jobDetails.salaryCadence.minimumGuaranteed"),
     };
   }
 
@@ -110,34 +120,35 @@ const getSalaryDisplay = (salary?: string) => {
   return { amount: normalizedText, cadence: "" };
 };
 
-const formatDeadline = (deadline?: string) => {
-  if (!deadline) return "Not specified";
+const formatDeadline = (t: TFunction, deadline?: string) => {
+  if (!deadline) return t("jobDetails.deadlineNotSpecified");
   const date = new Date(deadline);
-  if (Number.isNaN(date.getTime())) return "Not specified";
-  return date.toLocaleDateString("en-US");
+  if (Number.isNaN(date.getTime())) return t("jobDetails.deadlineNotSpecified");
+  return formatDate(date);
 };
 
-const getBadgeClass = (kind: "experience" | "jobType" | "workMode", value: string) => {
+const getBadgeClass = (kind: "experience" | "jobType" | "workMode", key: string) => {
   if (kind === "experience") {
-    if (value === "Senior") return "bg-[#F3E8FF] text-[#7E22CE]";
-    if (value === "Mid-Level") return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
+    if (key === "senior") return "bg-[#F3E8FF] text-[#7E22CE]";
+    if (key === "midLevel") return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
     return "bg-[#DCFCE7] text-[#15803D]";
   }
   if (kind === "jobType") {
-    if (value === "Short-term") return "bg-[#E0F2FE] text-[#0369A1]";
-    if (value === "Side hustle") return "bg-[#FEF3C7] text-[#B45309]";
-    if (value === "Recruiting") return "bg-[#DCFCE7] text-[#15803D]";
-    if (value === "Part-Time") return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
-    if (value === "Contract") return "bg-[#FFEDD5] text-[#C2410C]";
-    if (value === "Project Work") return "bg-[#FEF3C7] text-[#B45309]";
+    if (key === "shortTerm") return "bg-[#E0F2FE] text-[#0369A1]";
+    if (key === "sideHustle") return "bg-[#FEF3C7] text-[#B45309]";
+    if (key === "recruiting") return "bg-[#DCFCE7] text-[#15803D]";
+    if (key === "partTime") return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
+    if (key === "contract") return "bg-[#FFEDD5] text-[#C2410C]";
+    if (key === "projectWork") return "bg-[#FEF3C7] text-[#B45309]";
     return "bg-[#DFE8FF] text-[#1C4D8D]";
   }
-  if (value === "Remote") return "bg-[#D1FAE5] text-[#047857]";
-  if (value === "Hybrid") return "bg-[#CCFBF1] text-[#0F766E]";
+  if (key === "remote") return "bg-[#D1FAE5] text-[#047857]";
+  if (key === "hybrid") return "bg-[#CCFBF1] text-[#0F766E]";
   return "bg-[#FFEDD5] text-[#C2410C]";
 };
 
 export function JobDetails() {
+  const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const location = useLocation();
   const { jobId } = useParams();
@@ -168,7 +179,7 @@ export function JobDetails() {
         }
       } catch (error: any) {
         if (!isMounted) return;
-        setLoadError(error?.message || "Failed to load job details.");
+        setLoadError(error?.message || t("jobDetails.loadError"));
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -177,7 +188,7 @@ export function JobDetails() {
     return () => {
       isMounted = false;
     };
-  }, [jobId, user?.id]);
+  }, [jobId, user?.id, t]);
 
   useEffect(() => {
     const state = (location.state as JobDetailsLocationState | null) || null;
@@ -195,9 +206,9 @@ export function JobDetails() {
     try {
       await applyForJob(job._id);
       setHasApplied(true);
-      toast.success("Application submitted successfully!");
+      toast.success(t("jobDetails.toast.applySuccess"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to apply.");
+      toast.error(error?.message || t("jobDetails.toast.applyFailed"));
     }
   };
 
@@ -206,15 +217,15 @@ export function JobDetails() {
     try {
       const nextSaved = await toggleSavedJob(job._id);
       setIsSaved(nextSaved);
-      toast.success(nextSaved ? "Job saved successfully!" : "Job removed from saved");
+      toast.success(nextSaved ? t("jobDetails.toast.saveSuccess") : t("jobDetails.toast.removeSuccess"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update saved jobs.");
+      toast.error(error?.message || t("jobDetails.toast.saveFailed"));
     }
   };
 
   const handleMessageEmployer = async () => {
     if (!job?._id) {
-      toast.error("Job information not available.");
+      toast.error(t("jobDetails.toast.jobInfoMissing"));
       return;
     }
     if (startingInquiry) return;
@@ -227,22 +238,22 @@ export function JobDetails() {
       const conversation = (response as any)?.data?.conversation ?? (response as any)?.conversation;
       const employerId = conversation?.otherUserId;
       if (!employerId) {
-        toast.error("Employer information not available for this job.");
+        toast.error(t("jobDetails.toast.employerInfoMissing"));
         return;
       }
 
-      const employerName = conversation.otherUserName || "Employer";
+      const employerName = conversation.otherUserName || t("jobDetails.employerFallback");
       const params = new URLSearchParams({
         contact: conversation.conversationId || `${employerId}::${job._id}`,
         startUser: employerId,
         jobId: conversation.jobId || job._id,
         startName: employerName,
         source: "job-details",
-        draft: `Hi ${employerName}, I'm interested in the ${job.title} position. I would like to discuss this opportunity further.`,
+        draft: t("jobDetails.messageDraft", { employerName, jobTitle: job.title }),
       });
       navigate(`/worker/messages?${params.toString()}`);
     } catch (error: any) {
-      toast.error(error?.message || "Unable to start a conversation with this employer.");
+      toast.error(error?.message || t("jobDetails.toast.startConversationFailed"));
     } finally {
       setStartingInquiry(false);
     }
@@ -252,7 +263,7 @@ export function JobDetails() {
   const handleCompanyProfile = () => {
     const employerId = typeof job?.jobPoster === "object" ? job.jobPoster?._id : null;
     if (!employerId) {
-      toast.error("Employer profile is not available for this job.");
+      toast.error(t("jobDetails.toast.employerProfileMissing"));
       return;
     }
     navigate(`${ROUTES.publicProfile(employerId)}?viewAs=employer`);
@@ -263,11 +274,19 @@ export function JobDetails() {
     : "MicroJobs";
   const isAdminViewer = ["admin", "superadmin"].includes(String(user?.role || "").toLowerCase());
   const companyLogo = companyName.charAt(0) || "M";
-  const jobTypeLabel = getJobTypeLabel(job?.jobType);
-  const workModeLabel = getWorkModeLabel(job || undefined);
-  const experienceLevel = getExperienceLevel(job || undefined);
-  const salaryDisplay = getSalaryDisplay(job?.salary);
-  const fallbackSkills = ["Web Development", "Mobile Apps", "Cloud Infrastructure", "DevOps"];
+  const jobTypeKey = getJobTypeKey(job?.jobType);
+  const workModeKey = getWorkModeKey(job || undefined);
+  const experienceKey = getExperienceKey(job || undefined);
+  const jobTypeLabel = t(`jobDetails.jobTypeLabels.${jobTypeKey}`);
+  const workModeLabel = t(`jobDetails.workModeLabels.${workModeKey}`);
+  const experienceLevel = t(`jobDetails.experienceLevels.${experienceKey}`);
+  const salaryDisplay = getSalaryDisplay(t, job?.salary);
+  const fallbackSkills = [
+    t("jobDetails.fallbackSkills.webDevelopment"),
+    t("jobDetails.fallbackSkills.mobileApps"),
+    t("jobDetails.fallbackSkills.cloudInfrastructure"),
+    t("jobDetails.fallbackSkills.devOps"),
+  ];
   const skills = job?.skills?.length ? job.skills : fallbackSkills;
 
   return (
@@ -277,12 +296,12 @@ export function JobDetails() {
         className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#111827] transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to jobs
+        {t("jobDetails.backToJobs")}
       </button>
 
       {isLoading && (
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
-          Loading job details...
+          {t("jobDetails.loading")}
         </div>
       )}
 
@@ -294,7 +313,7 @@ export function JobDetails() {
 
       {!isLoading && !loadError && !job && (
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
-          Job details are not available.
+          {t("jobDetails.notAvailable")}
         </div>
       )}
 
@@ -318,7 +337,7 @@ export function JobDetails() {
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[15px] text-[#6B7280]">
                     <span className="inline-flex items-center gap-1.5">
                       <MapPin className="w-4 h-4" />
-                      {job.location || "Remote"}
+                      {job.location || t("jobDetails.locationFallback")}
                     </span>
                     <span>·</span>
                     <span className="inline-flex items-center gap-1.5">
@@ -328,20 +347,20 @@ export function JobDetails() {
                     <span>·</span>
                     <span className="inline-flex items-center gap-1.5">
                       <Clock className="w-4 h-4" />
-                      {getPostedLabel(job.createdAt)}
+                      {getPostedLabel(t, job.createdAt)}
                     </span>
                   </div>
                 </div>
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("experience", experienceLevel)}`}>
+                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("experience", experienceKey)}`}>
                   {experienceLevel}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("jobType", jobTypeLabel)}`}>
+                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("jobType", jobTypeKey)}`}>
                   {jobTypeLabel}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("workMode", workModeLabel)}`}>
+                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("workMode", workModeKey)}`}>
                   {workModeLabel}
                 </span>
               </div>
@@ -358,7 +377,7 @@ export function JobDetails() {
               <div className="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
                 {isAdminViewer ? (
                   <div className="w-full rounded-[14px] border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-[13px] text-[#64748B]">
-                    Read-only admin view. Use Admin Job Monitoring to delete this job.
+                    {t("jobDetails.adminReadOnly")}
                   </div>
                 ) : (
                   <>
@@ -368,14 +387,14 @@ export function JobDetails() {
                         className="col-span-2 flex min-h-14 w-full flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#D1FAE5] px-6 py-4 font-semibold text-[#065F46] sm:min-w-[240px]"
                       >
                         <CheckCircle2 className="w-5 h-5" />
-                        Application Submitted
+                        {t("jobDetails.applicationSubmitted")}
                       </button>
                     ) : (
                       <button
                         onClick={handleApply}
                         className="col-span-2 min-h-14 w-full flex-1 rounded-[14px] bg-[#1C4D8D] px-6 py-4 font-semibold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:min-w-[240px]"
                       >
-                        Apply Now
+                        {t("jobDetails.applyNow")}
                       </button>
                     )}
 
@@ -383,8 +402,8 @@ export function JobDetails() {
                       onClick={handleMessageEmployer}
                       disabled={startingInquiry}
                       className="min-h-12 rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
-                      title="Message employer"
-                      aria-label="Message employer"
+                      title={t("jobDetails.messageEmployerLabel")}
+                      aria-label={t("jobDetails.messageEmployerLabel")}
                     >
                       <MessageCircle className="w-6 h-6" />
                     </button>
@@ -395,8 +414,8 @@ export function JobDetails() {
                           ? "bg-[#1C4D8D] text-white border-[#1C4D8D]"
                           : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
                       }`}
-                      title={isSaved ? "Remove from saved" : "Save job"}
-                      aria-label={isSaved ? "Remove job from saved jobs" : "Save job"}
+                      title={isSaved ? t("jobDetails.save.removeTitle") : t("jobDetails.save.saveTitle")}
+                      aria-label={isSaved ? t("jobDetails.save.removeAria") : t("jobDetails.save.saveAria")}
                       aria-pressed={isSaved}
                     >
                       <Bookmark className={`w-6 h-6 ${isSaved ? "fill-current" : ""}`} />
@@ -407,16 +426,16 @@ export function JobDetails() {
             </section>
 
             <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
-              <h2 className="text-[20px] font-bold text-[#111827] mb-4">Job Description</h2>
+              <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.description")}</h2>
               <p className="text-[16px] text-[#6B7280] leading-relaxed">
-                {job.description || "No description provided."}
+                {job.description || t("jobDetails.sections.noDescription")}
               </p>
             </section>
 
             <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
-              <h2 className="text-[20px] font-bold text-[#111827] mb-4">Responsibilities</h2>
+              <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.responsibilities")}</h2>
               <ul className="space-y-3">
-                {(job.responsibilities?.length ? job.responsibilities : ["No responsibilities provided."]).map((item) => (
+                {(job.responsibilities?.length ? job.responsibilities : [t("jobDetails.sections.noResponsibilities")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
                     <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
                     <span>{item}</span>
@@ -426,9 +445,9 @@ export function JobDetails() {
             </section>
 
             <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
-              <h2 className="text-[20px] font-bold text-[#111827] mb-4">Requirements</h2>
+              <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.requirements")}</h2>
               <ul className="space-y-3">
-                {(job.requirements?.length ? job.requirements : ["No requirements provided."]).map((item) => (
+                {(job.requirements?.length ? job.requirements : [t("jobDetails.sections.noRequirements")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
                     <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
                     <span>{item}</span>
@@ -440,15 +459,15 @@ export function JobDetails() {
 
           <aside className="space-y-6">
             <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-              <h3 className="text-[18px] font-bold text-[#111827] mb-5">Job Overview</h3>
+              <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.overview.title")}</h3>
               <div className="space-y-5">
                 <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-[14px] bg-[#FFF7ED] flex items-center justify-center shrink-0">
                     <Calendar className="w-5 h-5 text-[#EA580C]" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">Application Deadline</p>
-                    <p className="text-[16px] font-semibold text-[#111827]">{formatDeadline(job.deadline)}</p>
+                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.deadline")}</p>
+                    <p className="text-[16px] font-semibold text-[#111827]">{formatDeadline(t, job.deadline)}</p>
                   </div>
                 </div>
 
@@ -457,8 +476,8 @@ export function JobDetails() {
                     <Users className="w-5 h-5 text-[#7E22CE]" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">Total Applicants</p>
-                    <p className="text-[16px] font-semibold text-[#111827]">{job.applicants?.length || 0} applicants</p>
+                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.totalApplicants")}</p>
+                    <p className="text-[16px] font-semibold text-[#111827]">{t("jobDetails.overview.applicantsCount", { count: job.applicants?.length || 0 })}</p>
                   </div>
                 </div>
 
@@ -467,7 +486,7 @@ export function JobDetails() {
                     <BadgeCheck className="w-5 h-5 text-[#15803D]" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">Experience Level</p>
+                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.experienceLevel")}</p>
                     <p className="text-[16px] font-semibold text-[#111827]">{experienceLevel}</p>
                   </div>
                 </div>
@@ -477,7 +496,7 @@ export function JobDetails() {
                     <Briefcase className="w-5 h-5 text-[#1C4D8D]" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">Job Type</p>
+                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.jobType")}</p>
                     <p className="text-[16px] font-semibold text-[#111827]">{jobTypeLabel}</p>
                   </div>
                 </div>
@@ -485,7 +504,7 @@ export function JobDetails() {
             </section>
 
             <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-              <h3 className="text-[18px] font-bold text-[#111827] mb-5">Required Skills</h3>
+              <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.sections.requiredSkills")}</h3>
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
                   <span

@@ -2,14 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Eye, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { toast } from "../../lib/toast";
 import { useAdminData } from "../../hooks/useAdminData";
 import { deleteJob } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { ConfirmDialog } from "../../components/ui";
+import { formatDate } from "../../lib/formatters";
 
 function AdminJobMonitoringContent() {
+  const { t } = useTranslation("admin");
   const {
     isLoading,
     loadError,
@@ -75,10 +78,10 @@ function AdminJobMonitoringContent() {
     try {
       await deleteJob(jobId);
       setDeletedJobIds((prev) => ({ ...prev, [jobId]: true }));
-      toast.success("Job deleted successfully.");
+      toast.success(t("jobMonitoring.toast.deleteSuccess"));
       setDeleteTarget(null);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to delete job.");
+      toast.error(error?.message || t("jobMonitoring.toast.deleteFailed"));
     } finally {
       setDeletingJobId(null);
     }
@@ -94,9 +97,9 @@ function AdminJobMonitoringContent() {
 
       <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
         <div>
-          <h3 className="text-[18px] font-semibold text-[#111827]">Latest Job Posts</h3>
+          <h3 className="text-[18px] font-semibold text-[#111827]">{t("jobMonitoring.title")}</h3>
           <p className="text-[13px] text-[#6B7280] mt-1">
-            Review new listings and track their current status.
+            {t("jobMonitoring.subtitle")}
           </p>
         </div>
 
@@ -104,21 +107,21 @@ function AdminJobMonitoringContent() {
           <table className="w-full text-left text-[13px]">
             <thead>
               <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                <th className="py-3 pr-4 font-medium">Job</th>
-                <th className="py-3 pr-4 font-medium">Category</th>
-                <th className="py-3 pr-4 font-medium">Status</th>
-                <th className="py-3 pr-4 font-medium">Applicants</th>
-                <th className="py-3 pr-4 font-medium">Posted By</th>
-                <th className="py-3 pr-4 font-medium">Posted</th>
-                <th className="py-3 font-medium">Salary</th>
-                <th className="py-3 font-medium">Actions</th>
+                <th className="py-3 pr-4 font-medium">{t("jobMonitoring.table.job")}</th>
+                <th className="py-3 pr-4 font-medium">{t("jobMonitoring.table.category")}</th>
+                <th className="py-3 pr-4 font-medium">{t("jobMonitoring.table.status")}</th>
+                <th className="py-3 pr-4 font-medium">{t("jobMonitoring.table.applicants")}</th>
+                <th className="py-3 pr-4 font-medium">{t("jobMonitoring.table.postedBy")}</th>
+                <th className="py-3 pr-4 font-medium">{t("jobMonitoring.table.posted")}</th>
+                <th className="py-3 font-medium">{t("jobMonitoring.table.salary")}</th>
+                <th className="py-3 font-medium">{t("jobMonitoring.table.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {isLoading && (
                 <tr>
                   <td colSpan={8} className="py-6 text-center text-[#9CA3AF]">
-                    Loading job postings...
+                    {t("jobMonitoring.loading")}
                   </td>
                 </tr>
               )}
@@ -126,7 +129,7 @@ function AdminJobMonitoringContent() {
               {!isLoading && sortedJobs.length === 0 && (
                 <tr>
                   <td colSpan={8} className="py-6 text-center text-[#9CA3AF]">
-                    No job postings available.
+                    {t("jobMonitoring.empty")}
                   </td>
                 </tr>
               )}
@@ -134,7 +137,7 @@ function AdminJobMonitoringContent() {
               {!isLoading &&
                 paginatedJobs.map((job, index) => {
                   const postedDate = job.createdAt
-                    ? new Date(job.createdAt).toLocaleDateString()
+                    ? formatDate(job.createdAt)
                     : formatDateFromObjectId(job._id);
                   return (
                     <motion.tr
@@ -168,7 +171,7 @@ function AdminJobMonitoringContent() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#1C4D8D]/[0.06] text-[#1C4D8D] hover:opacity-80"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            View
+                            {t("jobMonitoring.viewAction")}
                           </Link>
                           <button
                             type="button"
@@ -177,7 +180,7 @@ function AdminJobMonitoringContent() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-60"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
-                            {deletingJobId === job._id ? "Deleting..." : "Delete"}
+                            {deletingJobId === job._id ? t("jobMonitoring.deletingAction") : t("jobMonitoring.deleteAction")}
                           </button>
                         </div>
                       </td>
@@ -191,7 +194,7 @@ function AdminJobMonitoringContent() {
         {!isLoading && sortedJobs.length > 0 && (
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E5E7EB] text-[13px] text-[#6B7280] mt-4">
             <span>
-              Showing {pageStart + 1}-{pageEnd} of {sortedJobs.length}
+              {t("jobMonitoring.pagination.showing", { start: pageStart + 1, end: pageEnd, total: sortedJobs.length })}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -200,7 +203,7 @@ function AdminJobMonitoringContent() {
                 disabled={safePage === 1}
                 className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
               >
-                Previous
+                {t("jobMonitoring.pagination.previous")}
               </button>
               <div className="flex items-center gap-1">
                 {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
@@ -224,13 +227,21 @@ function AdminJobMonitoringContent() {
                 disabled={safePage === totalPages}
                 className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
               >
-                Next
+                {t("jobMonitoring.pagination.next")}
               </button>
             </div>
           </div>
         )}
       </section>
-      <ConfirmDialog open={Boolean(deleteTarget)} title="Delete job" description={`Delete “${deleteTarget?.title || "this job"}”? This action cannot be undone.`} confirmLabel="Delete job" destructive onClose={() => setDeleteTarget(null)} onConfirm={() => deleteTarget && handleDeleteJob(deleteTarget.id)} />
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title={t("jobMonitoring.deleteDialog.title")}
+        description={t("jobMonitoring.deleteDialog.description", { title: deleteTarget?.title || t("jobMonitoring.deleteDialog.fallbackTitle") })}
+        confirmLabel={t("jobMonitoring.deleteDialog.title")}
+        destructive
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDeleteJob(deleteTarget.id)}
+      />
     </div>
   );
 }

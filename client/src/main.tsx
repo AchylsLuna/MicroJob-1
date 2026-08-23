@@ -5,6 +5,8 @@ import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { LanguageProvider } from "./hooks/useLanguage";
+import "./i18n";
 
 const root = ReactDOM.createRoot(
   document.getElementById("root") as HTMLElement,
@@ -12,11 +14,13 @@ const root = ReactDOM.createRoot(
 
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-      <NotificationProvider>
-        <App />
-      </NotificationProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <App />
+        </NotificationProvider>
+      </AuthProvider>
+    </LanguageProvider>
     <Analytics />
   </React.StrictMode>,
 );

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import Sidebar from "./Sidebar";
 import { NavBar } from "./NavBar";
 import { webUi } from "../styles/webUi";
@@ -7,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { ResponsiveBottomNavigation } from "./ResponsiveBottomNavigation";
 
 export function DashboardLayout() {
+  const { t } = useTranslation("common");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const mobileNavigationRef = useRef<HTMLDivElement>(null);
   const navigationTriggerRef = useRef<HTMLElement | null>(null);
@@ -33,7 +35,7 @@ export function DashboardLayout() {
     const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const focusableElements = () => Array.from(panel?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter((element) => element.getClientRects().length > 0);
     const focusFrame = window.requestAnimationFrame(() => {
-      const closeButton = panel?.querySelector<HTMLElement>('[aria-label="Close navigation menu"]');
+      const closeButton = panel?.querySelector<HTMLElement>('[data-mobile-nav-close="true"]');
       (closeButton || focusableElements()[0])?.focus();
     });
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -72,11 +74,12 @@ export function DashboardLayout() {
         </div>
       )}
       {isMobileSidebarOpen && (
-        <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation menu">
+        <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label={t("dashboardLayout.navigationMenuAria")}>
           <button
             type="button"
             className="absolute inset-0 bg-slate-950/50"
-            aria-label="Close navigation menu"
+            aria-label={t("dashboardLayout.closeNavigationMenu")}
+            data-mobile-nav-close="true"
             onClick={() => setIsMobileSidebarOpen(false)}
           />
           <div ref={mobileNavigationRef} className="relative h-full w-[min(20rem,88vw)]">

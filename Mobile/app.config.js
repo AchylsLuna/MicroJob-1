@@ -13,6 +13,7 @@ const expo = {
     'expo-font',
     'expo-secure-store',
     'expo-notifications',
+    'expo-localization',
     ['expo-camera', {
       cameraPermission: 'Allow MicroJobs to scan secure job-payment QR codes.',
       barcodeScannerEnabled: true,

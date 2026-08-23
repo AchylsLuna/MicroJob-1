@@ -1,0 +1,582 @@
+{
+  "gate": {
+    "toast": {
+      "accessDenied": "You don't have access to this admin section."
+    }
+  },
+  "dashboard": {
+    "badge": "Platform operations",
+    "header": {
+      "title": "Everything requiring attention, in one place",
+      "description": "Review account approvals, platform activity, jobs, and completed payouts without duplicating the detailed admin tools.",
+      "reportsLink": "View platform reports"
+    },
+    "error": {
+      "title": "Dashboard data could not be loaded",
+      "retry": "Try again"
+    },
+    "pendingBanner": {
+      "title": "Items need your review",
+      "reviewAccounts": "Review accounts",
+      "reviewPayouts": "Review payouts",
+      "reviewSupport": "Review support"
+    },
+    "pendingSummary": "{{pendingUsers}} pending users, {{pendingPayouts}} payout requests, and {{openSupportTickets}} open support tickets.",
+    "summary": {
+      "title": "Platform summary",
+      "subtitle": "Current totals from the administration services."
+    },
+    "metrics": {
+      "totalJobs": {
+        "label": "Total jobs",
+        "detail": "{{count}} currently available"
+      },
+      "applications": {
+        "label": "Applications",
+        "detail": "Across all job postings"
+      },
+      "totalUsers": {
+        "label": "Platform users",
+        "detail_one": "{{count}} active account",
+        "detail_other": "{{count}} active accounts"
+      },
+      "completedValue": {
+        "label": "Completed value",
+        "detail_one": "{{count}} completed payout",
+        "detail_other": "{{count}} completed payouts"
+      },
+      "loading": "Loading current data…"
+    },
+    "quickActions": {
+      "title": "Quick actions",
+      "subtitle": "Open the dedicated tools for detailed administration.",
+      "manageUsers": {
+        "label": "Manage users",
+        "description": "Review access, roles, and account status"
+      },
+      "monitorJobs": {
+        "label": "Monitor jobs",
+        "description": "Review active and reported job posts"
+      },
+      "openReports": {
+        "label": "Open reports",
+        "description": "Inspect platform and operational reports"
+      },
+      "reviewPayouts": {
+        "label": "Review payouts",
+        "description": "Approve, reject, and complete payout requests"
+      }
+    },
+    "recentJobs": {
+      "title": "Recent jobs",
+      "subtitle": "Latest job posts across the platform.",
+      "viewAll": "View all",
+      "loading": "Loading recent jobs…",
+      "empty": "No job posts are available yet.",
+      "unassignedEmployer": "Unassigned employer",
+      "locationNotProvided": "Location not provided",
+      "statusUnknown": "Unknown"
+    },
+    "recentPayouts": {
+      "title": "Recent completed payouts",
+      "subtitle": "Latest completed wallet activity.",
+      "viewWallet": "View wallet",
+      "loading": "Loading payout activity…",
+      "empty": "No completed payouts are available yet.",
+      "platformUser": "Platform user"
+    }
+  },
+  "userManagement": {
+    "stats": {
+      "totalAccounts": {
+        "label": "Total accounts",
+        "detail": "{{count}} joined this week"
+      },
+      "administrators": {
+        "label": "Administrators",
+        "detail": "Admins and superadmins"
+      },
+      "activeAccounts": {
+        "label": "Active accounts",
+        "detail": "Currently enabled"
+      },
+      "pendingReview": {
+        "label": "Pending review",
+        "detail": "Awaiting approval"
+      }
+    },
+    "manage": {
+      "title": "Manage accounts",
+      "subtitle": "Review users, administrators, roles, and account access.",
+      "addAccount": "Add account",
+      "searchAriaLabel": "Search users",
+      "searchPlaceholder": "Search users...",
+      "roleFilterLabel": "Filter accounts by role",
+      "roleFilterOptions": {
+        "all": "All roles",
+        "privileged": "Administrators",
+        "work": "Workers",
+        "hire": "Employers",
+        "both": "Worker & employer"
+      }
+    },
+    "roles": {
+      "superadmin": "Superadmin",
+      "admin": "Admin",
+      "employer": "Employer",
+      "both": "Both",
+      "worker": "Worker"
+    },
+    "statuses": {
+      "active": "Active",
+      "pending": "Pending",
+      "disabled": "Disabled"
+    },
+    "mobileList": {
+      "loading": "Loading users…",
+      "empty": "No users found.",
+      "roleLabel": "Role",
+      "joinedLabel": "Joined",
+      "view": "View",
+      "edit": "Edit",
+      "restricted": "Restricted",
+      "delete": "Delete user"
+    },
+    "table": {
+      "headers": {
+        "user": "User",
+        "role": "Role",
+        "status": "Status",
+        "joined": "Joined",
+        "actions": "Actions"
+      },
+      "loading": "Loading users...",
+      "empty": "No users found for the selected filters.",
+      "openActionsAriaLabel": "Open user actions",
+      "menu": {
+        "viewProfile": "View Profile",
+        "editUser": "Edit User",
+        "messageUser": "Message User",
+        "approveUser": "Approve User",
+        "activateUser": "Activate User",
+        "suspendUser": "Suspend User",
+        "deleteUser": "Delete User"
+      },
+      "pagination": {
+        "showing": "Showing {{start}}-{{end}} of {{total}}",
+        "previous": "Previous",
+        "next": "Next"
+      }
+    },
+    "details": {
+      "title": "User Details",
+      "subtitle": "Review account information and access.",
+      "closeAriaLabel": "Close",
+      "statusLabel": "Status",
+      "roleLabel": "Role",
+      "phoneLabel": "Phone",
+      "joinedLabel": "Joined",
+      "close": "Close",
+      "activate": "Activate",
+      "suspend": "Suspend",
+      "verification": {
+        "title": "Verification documents",
+        "identityLabel": "Government ID",
+        "addressLabel": "Proof of address",
+        "statusPending": "Pending",
+        "statusInReview": "In review",
+        "statusComplete": "Complete",
+        "statusRejected": "Rejected",
+        "viewDocument": "View document",
+        "reasonPrefix": "Reason: {{reason}}",
+        "approve": "Approve",
+        "reject": "Reject"
+      }
+    },
+    "deleteDialog": {
+      "title": "Delete user",
+      "description": "Delete {{name}}? Their account will be anonymized and they will lose access. Accounts with active balances, payouts, jobs, or applications cannot be deleted.",
+      "fallbackName": "this user",
+      "confirmLabel": "Delete user"
+    },
+    "rejectDialog": {
+      "title": "Reject verification document",
+      "description": "Tell the user what must be corrected before they upload a replacement.",
+      "reasonLabel": "Rejection reason",
+      "reasonPlaceholder": "For example: The document is blurry and the name is not readable.",
+      "cancel": "Cancel",
+      "reject": "Reject document",
+      "rejecting": "Rejecting…"
+    },
+    "form": {
+      "titleCreate": "Add account",
+      "titleEdit": "Edit user",
+      "descriptionCreate": "Create an active account with a temporary password.",
+      "descriptionEdit": "Email addresses cannot be changed by administrators.",
+      "firstNameLabel": "First name",
+      "lastNameLabel": "Last name",
+      "emailLabel": "Email",
+      "passwordLabel": "Temporary password",
+      "passwordHint": "At least 8 characters with uppercase, lowercase, number, and special character. The user must replace it at first sign-in.",
+      "roleLabel": "Role",
+      "roleOptions": {
+        "worker": "Worker",
+        "employer": "Employer",
+        "both": "Worker and employer",
+        "admin": "Admin",
+        "superadmin": "Superadmin"
+      },
+      "statusLabel": "Status",
+      "statusOptions": {
+        "active": "Active",
+        "pending": "Pending",
+        "disabled": "Disabled"
+      },
+      "cancel": "Cancel",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "create": "Create account"
+    },
+    "toast": {
+      "verificationApproved": "Verification document approved.",
+      "verificationRejected": "Verification document rejected.",
+      "verificationReviewFailed": "Failed to review verification document.",
+      "userUpdated": "User updated successfully.",
+      "accountCreated": "Account created. The temporary password must be changed at first sign-in.",
+      "saveFailed": "Unable to save the user.",
+      "userDeleted": "{{name}} deleted successfully.",
+      "deleteFailed": "Unable to delete this user."
+    },
+    "formErrors": {
+      "firstNameRequired": "First name is required.",
+      "lastNameRequired": "Last name is required.",
+      "emailInvalid": "Enter a valid email address.",
+      "roleRestricted": "Only a superadmin can create an administrator."
+    }
+  },
+  "supportTickets": {
+    "header": {
+      "title": "Support Tickets",
+      "subtitle": "Review ticket queues, update status, and respond directly from the admin console."
+    },
+    "filters": {
+      "searchPlaceholder": "Search subject, user, or email",
+      "statusAll": "All statuses"
+    },
+    "statuses": {
+      "open": "Open",
+      "inProgress": "In progress",
+      "waitingUser": "Waiting user",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "priorities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "list": {
+      "loading": "Loading tickets...",
+      "empty": "No support tickets found.",
+      "updatedAt": "Updated {{date}}"
+    },
+    "detail": {
+      "emptyState": "Select a ticket to review the thread.",
+      "openedBy": "Opened {{date}} by {{name}}",
+      "statusLabel": "Status",
+      "priorityLabel": "Priority",
+      "saveButton": "Save Ticket",
+      "savingButton": "Saving...",
+      "internalNoteLabel": "Internal Note",
+      "internalNotePlaceholder": "Visible only to administrators",
+      "internalNotesTitle": "Internal notes",
+      "roleAdmin": "Admin",
+      "roleUser": "User",
+      "replyPlaceholder": "Reply to the user...",
+      "sendReply": "Send Reply",
+      "sendingReply": "Sending..."
+    },
+    "toast": {
+      "loadTicketsFailed": "Failed to load support tickets.",
+      "loadDetailsFailed": "Failed to load ticket details.",
+      "ticketUpdated": "Support ticket updated.",
+      "updateFailed": "Failed to update support ticket.",
+      "replySent": "Reply sent.",
+      "replyFailed": "Failed to send reply."
+    }
+  },
+  "signIn": {
+    "eyebrow": "MicroJobs control center",
+    "title": "Admin Sign In",
+    "subtitle": "Restricted access for platform administrators",
+    "emailLabel": "Email",
+    "emailPlaceholder": "Enter your email",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "hidePassword": "Hide password",
+    "showPassword": "Show password",
+    "submit": "Sign In as Admin",
+    "submitLoading": "Signing in...",
+    "toast": {
+      "secureConnectionRequired": "Secure connection required. Please use HTTPS.",
+      "fillAllFields": "Please fill in all fields",
+      "mfaCodePrompt": "Enter your authenticator code to continue.",
+      "adminAccessRequired": "Admin access required. Please use an admin account.",
+      "welcomeBack": "Welcome back{{name}}!",
+      "signInFailed": "Sign in failed",
+      "mfaVerificationFailed": "MFA verification failed"
+    }
+  },
+  "eWallet": {
+    "cards": {
+      "completedPayouts": "Completed Payouts",
+      "completedTotal": "Completed Total"
+    },
+    "viewAction": "View",
+    "viaEscrow": "via escrow",
+    "escrowSystem": "Escrow (System)",
+    "autoPayEscrow": "Auto-Pay (Escrow)",
+    "receipt": {
+      "title": "Transaction Receipt",
+      "amount": "Amount",
+      "fields": {
+        "transactionId": "Transaction ID",
+        "referenceNo": "Reference No.",
+        "provider": "Provider",
+        "providerReference": "Provider Reference",
+        "label": "Label",
+        "receiver": "Receiver",
+        "methodChannel": "Method / Channel",
+        "institution": "Institution",
+        "accountName": "Account Name",
+        "accountNo": "Account No.",
+        "title": "Title",
+        "status": "Status",
+        "type": "Type",
+        "amount": "Amount",
+        "reference": "Reference"
+      },
+      "paidBySender": "Paid By (Sender)",
+      "employerViaEscrow": "Employer · via escrow",
+      "escrowOrSystem": "Escrow / System",
+      "systemOrExternal": "System / External",
+      "paymentDestination": "Payment Destination",
+      "jobReference": "Job Reference",
+      "linkedTransaction": "Linked Transaction"
+    },
+    "payouts": {
+      "subtitle": "All payout transactions — includes auto-pay from job completion and manual withdrawal requests.",
+      "loading": "Loading payouts…",
+      "empty": "No payout transactions yet.",
+      "count_one": "{{count}} payout transaction",
+      "count_other": "{{count}} payout transactions"
+    },
+    "logs": {
+      "title": "Transaction Logs",
+      "subtitle": "All platform transactions — top-ups, escrow, payouts, refunds. Click <strong>View</strong> for the full receipt.",
+      "loading": "Loading transactions…",
+      "empty": "No transactions match your filters.",
+      "searchPlaceholder": "Search name, email, ref…",
+      "showingCount": "Showing {{shown}} of {{total}} transactions",
+      "typeOptions": {
+        "all": "All Types",
+        "topUp": "Top-Up",
+        "escrow": "Escrow",
+        "payout": "Payout",
+        "refund": "Refund"
+      },
+      "statusOptions": {
+        "all": "All Statuses",
+        "completed": "Completed",
+        "pending": "Pending",
+        "failed": "Failed",
+        "cancelled": "Cancelled"
+      }
+    },
+    "table": {
+      "type": "Type",
+      "fromSender": "From (Sender)",
+      "toReceiver": "To (Receiver)",
+      "destinationChannel": "Destination / Channel",
+      "amount": "Amount",
+      "status": "Status",
+      "date": "Date",
+      "receipt": "Receipt"
+    }
+  },
+  "reports": {
+    "cards": {
+      "users": {
+        "title": "User Report",
+        "description": "Complete list of all registered users with their profiles and activity"
+      },
+      "jobs": {
+        "title": "Jobs Report",
+        "description": "All job postings with status, applications count, and performance metrics"
+      },
+      "transactions": {
+        "title": "Transaction Report",
+        "description": "E-wallet transactions, payments, and financial summary"
+      },
+      "applications": {
+        "title": "Applications Report",
+        "description": "Application counts summarized by job posting and job status"
+      }
+    },
+    "fallbackTitle": "Report",
+    "generate": {
+      "title": "Generate Report",
+      "subtitle": "Select report type and date range to generate a downloadable report",
+      "fromDate": "From Date",
+      "toDate": "To Date",
+      "exportFormat": "Export Format",
+      "submit": "Generate & Download"
+    },
+    "recent": {
+      "title": "Recent Reports",
+      "subtitle": "Previously generated reports available for download",
+      "empty": "No reports generated yet.",
+      "generatedOn": "Generated on {{date}}",
+      "statusCompleted": "completed"
+    },
+    "toast": {
+      "invalidRange": "From Date cannot be after To Date.",
+      "noData": "No data available for the selected filters.",
+      "generateSuccess": "Report generated successfully."
+    }
+  },
+  "payoutRequests": {
+    "platformUser": "Platform user",
+    "cards": {
+      "awaitingReview": "Awaiting review",
+      "approvedForPayment": "Approved for payment",
+      "paidInView": "Paid in this view"
+    },
+    "title": "Payout requests",
+    "subtitle": "Approve requests, record completed transfers, or reject and return funds.",
+    "filters": {
+      "statusLabel": "Status",
+      "statusOptions": {
+        "all": "All statuses",
+        "requested": "Requested",
+        "approved": "Approved",
+        "paid": "Paid",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      },
+      "searchLabel": "Search",
+      "searchPlaceholder": "Name, email, institution",
+      "refresh": "Refresh"
+    },
+    "states": {
+      "loading": "Loading payout requests…",
+      "errorTitle": "Payout requests could not be loaded",
+      "retry": "Try again",
+      "emptyTitle": "No payout requests found",
+      "emptyDescription": "Try changing the status or search filters."
+    },
+    "table": {
+      "caption": "Payout requests and available review actions",
+      "requester": "Requester",
+      "destination": "Destination",
+      "amount": "Amount",
+      "submitted": "Submitted",
+      "status": "Status",
+      "actions": "Actions",
+      "maskedAccount": "Masked account"
+    },
+    "actions": {
+      "approve": "Approve",
+      "markPaid": "Mark paid",
+      "reject": "Reject"
+    },
+    "reviewDialog": {
+      "titlePaid": "Confirm completed payout",
+      "titleApproved": "Approve payout",
+      "titleRejected": "Reject payout",
+      "descriptionPaid": "Only mark this request paid after confirming the external transfer was completed.",
+      "descriptionRejected": "The reserved amount will be returned to the worker balance.",
+      "descriptionApproved": "Approval moves this request into the payment-ready queue.",
+      "notesLabelRejected": "Rejection reason",
+      "notesLabelOptional": "Review note (optional)",
+      "notesHintRejected": "This reason is shown to the worker.",
+      "notesHintOptional": "This optional note is shown to the worker.",
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "confirmPaid": "Confirm paid",
+      "rejectAndRefund": "Reject and refund"
+    },
+    "toast": {
+      "loadFailed": "Failed to load payout requests.",
+      "rejectReasonRequired": "Explain why this payout is being rejected.",
+      "markedPaid": "Payout marked as paid.",
+      "approved": "Payout approved.",
+      "rejectedRefunded": "Payout rejected and refunded.",
+      "updateFailed": "Failed to update payout request."
+    }
+  },
+  "jobMonitoring": {
+    "title": "Latest Job Posts",
+    "subtitle": "Review new listings and track their current status.",
+    "table": {
+      "job": "Job",
+      "category": "Category",
+      "status": "Status",
+      "applicants": "Applicants",
+      "postedBy": "Posted By",
+      "posted": "Posted",
+      "salary": "Salary",
+      "actions": "Actions"
+    },
+    "loading": "Loading job postings...",
+    "empty": "No job postings available.",
+    "viewAction": "View",
+    "deleteAction": "Delete",
+    "deletingAction": "Deleting...",
+    "pagination": {
+      "showing": "Showing {{start}}-{{end}} of {{total}}",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "deleteDialog": {
+      "title": "Delete job",
+      "description": "Delete “{{title}}”? This action cannot be undone.",
+      "fallbackTitle": "this job"
+    },
+    "toast": {
+      "deleteSuccess": "Job deleted successfully.",
+      "deleteFailed": "Failed to delete job."
+    }
+  },
+  "security": {
+    "cards": {
+      "activeUsers": "Active Users",
+      "disabledAccounts": "Disabled Accounts",
+      "pendingApprovals": "Pending Approvals",
+      "adminAccounts": "Admin Accounts"
+    },
+    "recentActivity": {
+      "title": "Recent User Activity",
+      "subtitle": "New user registrations in the last few days.",
+      "loading": "Loading activity...",
+      "empty": "No recent user activity."
+    }
+  },
+  "analytics": {
+    "overview": {
+      "cards": {
+        "payoutVolume": "Completed Payout Volume",
+        "activeJobs": "Active Jobs",
+        "totalUsers": "Total Users",
+        "conversionRate": "Conversion Rate"
+      },
+      "changeFromLastMonth": "{{sign}}{{value}}% from last month",
+      "monthlyActivity": "Monthly Activity",
+      "payoutTrend": "Completed Payout Trend",
+      "jobsByCategory": "Jobs by Category",
+      "userGrowth": "User Growth",
+      "othersCategory": "Others"
+    }
+  }
+}

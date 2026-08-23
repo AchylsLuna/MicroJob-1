@@ -1,20 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AppHeader from '../../components/AppHeader';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import { tokens } from '../../theme/tokens';
 
 export default function About({ onBack }: { onBack?: () => void }) {
+  const { t } = useTranslation('worker');
   return (
     <View style={styles.container}>
-      <AppHeader title="About" subtitle="Platform information" onBack={onBack} />
+      <AppHeader title={t('about.headerTitle')} subtitle={t('about.headerSubtitle')} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
-          <Text style={styles.title}>Micro Jobs</Text>
-          <Text style={styles.subtitle}>Version 1.0.0</Text>
+          <Text style={styles.title}>{t('about.cardTitle')}</Text>
+          <Text style={styles.subtitle}>{t('about.version')}</Text>
           <Text style={styles.body}>
-            Micro Jobs connects workers and employers for fast local hiring and messaging.
+            {t('about.body')}
           </Text>
         </View>
       </ScrollView>

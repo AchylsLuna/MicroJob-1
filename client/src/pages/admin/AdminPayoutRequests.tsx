@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Clock3, RefreshCw, Search, WalletCards, XCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { Button, Dialog, StatusState, Textarea } from "../../components/ui";
 import { toast } from "../../lib/toast";
+import { formatCurrency, formatDateTime } from "../../lib/formatters";
 import {
   getAdminPayoutRequests,
   updateAdminPayoutRequest,
@@ -10,12 +13,6 @@ import {
 } from "../../services/api";
 
 type ReviewStatus = "approved" | "rejected" | "paid";
-
-const currency = new Intl.NumberFormat("en-PH", {
-  style: "currency",
-  currency: "PHP",
-  minimumFractionDigits: 2,
-});
 
 const statusStyle: Record<PayoutRequest["status"], string> = {
   requested: "bg-amber-100 text-amber-900",
@@ -25,12 +22,13 @@ const statusStyle: Record<PayoutRequest["status"], string> = {
   cancelled: "bg-slate-200 text-slate-700",
 };
 
-const accountName = (request: PayoutRequest) => {
+const accountName = (request: PayoutRequest, t: TFunction<"admin">) => {
   const user = request.user && typeof request.user === "object" ? request.user : null;
-  return `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "Platform user";
+  return `${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || t("payoutRequests.platformUser");
 };
 
 function AdminPayoutRequestsContent() {
+  const { t } = useTranslation("admin");
   const [requests, setRequests] = useState<PayoutRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -57,11 +55,11 @@ function AdminPayoutRequestsContent() {
       });
       setRequests(Array.isArray(response?.payoutRequests) ? response.payoutRequests : []);
     } catch (error: any) {
-      setLoadError(error?.message || "Failed to load payout requests.");
+      setLoadError(error?.message || t("payoutRequests.toast.loadFailed"));
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, statusFilter]);
+  }, [debouncedSearch, statusFilter, t]);
 
   useEffect(() => {
     void loadRequests();
@@ -90,7 +88,7 @@ function AdminPayoutRequestsContent() {
     if (!reviewTarget) return;
     const notes = reviewNotes.trim();
     if (reviewTarget.status === "rejected" && !notes) {
-      setReviewError("Explain why this payout is being rejected.");
+      setReviewError(t("payoutRequests.toast.rejectReasonRequired"));
       return;
     }
     setIsReviewing(true);
@@ -108,15 +106,15 @@ function AdminPayoutRequestsContent() {
       }
       toast.success(
         reviewTarget.status === "paid"
-          ? "Payout marked as paid."
+          ? t("payoutRequests.toast.markedPaid")
           : reviewTarget.status === "approved"
-            ? "Payout approved."
-            : "Payout rejected and refunded.",
+            ? t("payoutRequests.toast.approved")
+            : t("payoutRequests.toast.rejectedRefunded"),
       );
       setReviewTarget(null);
       setReviewNotes("");
     } catch (error: any) {
-      setReviewError(error?.message || "Failed to update payout request.");
+      setReviewError(error?.message || t("payoutRequests.toast.updateFailed"));
     } finally {
       setIsReviewing(false);
     }
@@ -126,9 +124,9 @@ function AdminPayoutRequestsContent() {
     <div className="mx-auto max-w-[1341px] space-y-6">
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
-          { label: "Awaiting review", value: counts.requested, icon: Clock3, tone: "bg-amber-50 text-amber-800" },
-          { label: "Approved for payment", value: counts.approved, icon: CheckCircle2, tone: "bg-blue-50 text-blue-800" },
-          { label: "Paid in this view", value: counts.paid, icon: WalletCards, tone: "bg-emerald-50 text-emerald-800" },
+          { label: t("payoutRequests.cards.awaitingReview"), value: counts.requested, icon: Clock3, tone: "bg-amber-50 text-amber-800" },
+          { label: t("payoutRequests.cards.approvedForPayment"), value: counts.approved, icon: CheckCircle2, tone: "bg-blue-50 text-blue-800" },
+          { label: t("payoutRequests.cards.paidInView"), value: counts.paid, icon: WalletCards, tone: "bg-emerald-50 text-emerald-800" },
         ].map(({ label, value, icon: Icon, tone }) => (
           <article key={label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></div>
@@ -141,57 +139,57 @@ function AdminPayoutRequestsContent() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-950">Payout requests</h1>
-            <p className="mt-1 text-sm text-slate-600">Approve requests, record completed transfers, or reject and return funds.</p>
+            <h1 className="text-xl font-bold text-slate-950">{t("payoutRequests.title")}</h1>
+            <p className="mt-1 text-sm text-slate-600">{t("payoutRequests.subtitle")}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="block text-sm font-semibold text-slate-700">
-              Status
+              {t("payoutRequests.filters.statusLabel")}
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className="mt-1 block min-h-11 rounded-xl border border-slate-300 bg-white px-3 font-normal outline-none focus:ring-2 focus:ring-blue-600">
-                <option value="all">All statuses</option>
-                <option value="requested">Requested</option>
-                <option value="approved">Approved</option>
-                <option value="paid">Paid</option>
-                <option value="rejected">Rejected</option>
-                <option value="cancelled">Cancelled</option>
+                <option value="all">{t("payoutRequests.filters.statusOptions.all")}</option>
+                <option value="requested">{t("payoutRequests.filters.statusOptions.requested")}</option>
+                <option value="approved">{t("payoutRequests.filters.statusOptions.approved")}</option>
+                <option value="paid">{t("payoutRequests.filters.statusOptions.paid")}</option>
+                <option value="rejected">{t("payoutRequests.filters.statusOptions.rejected")}</option>
+                <option value="cancelled">{t("payoutRequests.filters.statusOptions.cancelled")}</option>
               </select>
             </label>
             <label className="block text-sm font-semibold text-slate-700">
-              Search
+              {t("payoutRequests.filters.searchLabel")}
               <span className="relative mt-1 block">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, email, institution" className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-blue-600 sm:w-64" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("payoutRequests.filters.searchPlaceholder")} className="min-h-11 w-full rounded-xl border border-slate-300 pl-9 pr-3 font-normal outline-none focus:ring-2 focus:ring-blue-600 sm:w-64" />
               </span>
             </label>
             <Button onClick={() => void loadRequests()} disabled={isLoading} className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50">
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" /> Refresh
+              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} aria-hidden="true" /> {t("payoutRequests.filters.refresh")}
             </Button>
           </div>
         </div>
 
         <div className="mt-6">
-          {isLoading ? <StatusState tone="loading" title="Loading payout requests…" /> : null}
-          {!isLoading && loadError ? <StatusState tone="error" title="Payout requests could not be loaded" description={loadError} action={<Button onClick={() => void loadRequests()}>Try again</Button>} /> : null}
-          {!isLoading && !loadError && requests.length === 0 ? <StatusState title="No payout requests found" description="Try changing the status or search filters." /> : null}
+          {isLoading ? <StatusState tone="loading" title={t("payoutRequests.states.loading")} /> : null}
+          {!isLoading && loadError ? <StatusState tone="error" title={t("payoutRequests.states.errorTitle")} description={loadError} action={<Button onClick={() => void loadRequests()}>{t("payoutRequests.states.retry")}</Button>} /> : null}
+          {!isLoading && !loadError && requests.length === 0 ? <StatusState title={t("payoutRequests.states.emptyTitle")} description={t("payoutRequests.states.emptyDescription")} /> : null}
           {!isLoading && !loadError && requests.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[940px] text-left text-sm">
-                <caption className="sr-only">Payout requests and available review actions</caption>
-                <thead><tr className="border-b border-slate-200 text-slate-500"><th scope="col" className="px-3 py-3">Requester</th><th scope="col" className="px-3 py-3">Destination</th><th scope="col" className="px-3 py-3">Amount</th><th scope="col" className="px-3 py-3">Submitted</th><th scope="col" className="px-3 py-3">Status</th><th scope="col" className="px-3 py-3 text-right">Actions</th></tr></thead>
+                <caption className="sr-only">{t("payoutRequests.table.caption")}</caption>
+                <thead><tr className="border-b border-slate-200 text-slate-500"><th scope="col" className="px-3 py-3">{t("payoutRequests.table.requester")}</th><th scope="col" className="px-3 py-3">{t("payoutRequests.table.destination")}</th><th scope="col" className="px-3 py-3">{t("payoutRequests.table.amount")}</th><th scope="col" className="px-3 py-3">{t("payoutRequests.table.submitted")}</th><th scope="col" className="px-3 py-3">{t("payoutRequests.table.status")}</th><th scope="col" className="px-3 py-3 text-right">{t("payoutRequests.table.actions")}</th></tr></thead>
                 <tbody>
                   {requests.map((request) => {
                     const destination = request.destinationSnapshot;
                     return (
                       <tr key={request._id} className="border-b border-slate-100 align-top">
-                        <td className="px-3 py-4"><p className="font-semibold text-slate-950">{accountName(request)}</p><p className="mt-1 text-xs text-slate-500">{typeof request.user === "object" ? request.user?.email : ""}</p></td>
-                        <td className="px-3 py-4"><p className="font-medium text-slate-800">{destination.institutionName}</p><p className="mt-1 text-xs text-slate-500">{destination.methodType.replace(/_/g, " ")} · {destination.accountNumberMasked || "Masked account"}</p></td>
-                        <td className="px-3 py-4 font-bold text-slate-950">{currency.format(Number(request.amount || 0))}</td>
-                        <td className="px-3 py-4 text-slate-600">{request.createdAt ? new Date(request.createdAt).toLocaleString() : "—"}</td>
+                        <td className="px-3 py-4"><p className="font-semibold text-slate-950">{accountName(request, t)}</p><p className="mt-1 text-xs text-slate-500">{typeof request.user === "object" ? request.user?.email : ""}</p></td>
+                        <td className="px-3 py-4"><p className="font-medium text-slate-800">{destination.institutionName}</p><p className="mt-1 text-xs text-slate-500">{destination.methodType.replace(/_/g, " ")} · {destination.accountNumberMasked || t("payoutRequests.table.maskedAccount")}</p></td>
+                        <td className="px-3 py-4 font-bold text-slate-950">{formatCurrency(request.amount)}</td>
+                        <td className="px-3 py-4 text-slate-600">{request.createdAt ? formatDateTime(request.createdAt) : "—"}</td>
                         <td className="px-3 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusStyle[request.status]}`}>{request.status}</span>{request.reviewNotes ? <p className="mt-2 max-w-52 text-xs text-slate-500">{request.reviewNotes}</p> : null}</td>
                         <td className="px-3 py-4"><div className="flex justify-end gap-2">
-                          {request.status === "requested" ? <Button onClick={() => openReview(request, "approved")}>Approve</Button> : null}
-                          {request.status === "approved" ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">Mark paid</Button> : null}
-                          {request.status === "requested" || request.status === "approved" ? <Button onClick={() => openReview(request, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50"><XCircle className="h-4 w-4" aria-hidden="true" />Reject</Button> : null}
+                          {request.status === "requested" ? <Button onClick={() => openReview(request, "approved")}>{t("payoutRequests.actions.approve")}</Button> : null}
+                          {request.status === "approved" ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">{t("payoutRequests.actions.markPaid")}</Button> : null}
+                          {request.status === "requested" || request.status === "approved" ? <Button onClick={() => openReview(request, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50"><XCircle className="h-4 w-4" aria-hidden="true" />{t("payoutRequests.actions.reject")}</Button> : null}
                         </div></td>
                       </tr>
                     );
@@ -205,23 +203,23 @@ function AdminPayoutRequestsContent() {
 
       <Dialog
         open={Boolean(reviewTarget)}
-        title={reviewTarget?.status === "paid" ? "Confirm completed payout" : reviewTarget?.status === "approved" ? "Approve payout" : "Reject payout"}
-        description={reviewTarget?.status === "paid" ? "Only mark this request paid after confirming the external transfer was completed." : reviewTarget?.status === "rejected" ? "The reserved amount will be returned to the worker balance." : "Approval moves this request into the payment-ready queue."}
+        title={reviewTarget?.status === "paid" ? t("payoutRequests.reviewDialog.titlePaid") : reviewTarget?.status === "approved" ? t("payoutRequests.reviewDialog.titleApproved") : t("payoutRequests.reviewDialog.titleRejected")}
+        description={reviewTarget?.status === "paid" ? t("payoutRequests.reviewDialog.descriptionPaid") : reviewTarget?.status === "rejected" ? t("payoutRequests.reviewDialog.descriptionRejected") : t("payoutRequests.reviewDialog.descriptionApproved")}
         onClose={closeReview}
         closeDisabled={isReviewing}
       >
         <Textarea
-          label={reviewTarget?.status === "rejected" ? "Rejection reason" : "Review note (optional)"}
+          label={reviewTarget?.status === "rejected" ? t("payoutRequests.reviewDialog.notesLabelRejected") : t("payoutRequests.reviewDialog.notesLabelOptional")}
           value={reviewNotes}
           maxLength={2000}
           error={reviewError || undefined}
-          hint={reviewTarget?.status === "rejected" ? "This reason is shown to the worker." : "This optional note is shown to the worker."}
+          hint={reviewTarget?.status === "rejected" ? t("payoutRequests.reviewDialog.notesHintRejected") : t("payoutRequests.reviewDialog.notesHintOptional")}
           onChange={(event) => { setReviewNotes(event.target.value); setReviewError(null); }}
         />
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button onClick={closeReview} disabled={isReviewing} className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50">Cancel</Button>
+          <Button onClick={closeReview} disabled={isReviewing} className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50">{t("payoutRequests.reviewDialog.cancel")}</Button>
           <Button onClick={() => void submitReview()} disabled={isReviewing} className={reviewTarget?.status === "rejected" ? "!bg-red-700 hover:!bg-red-800" : reviewTarget?.status === "paid" ? "!bg-emerald-700 hover:!bg-emerald-800" : undefined}>
-            {isReviewing ? "Saving…" : reviewTarget?.status === "paid" ? "Confirm paid" : reviewTarget?.status === "approved" ? "Approve payout" : "Reject and refund"}
+            {isReviewing ? t("payoutRequests.reviewDialog.saving") : reviewTarget?.status === "paid" ? t("payoutRequests.reviewDialog.confirmPaid") : reviewTarget?.status === "approved" ? t("payoutRequests.reviewDialog.titleApproved") : t("payoutRequests.reviewDialog.rejectAndRefund")}
           </Button>
         </div>
       </Dialog>

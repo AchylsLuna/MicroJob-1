@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
@@ -14,24 +15,25 @@ export default function ForgotPass({ onBack, onSendReset }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const { t } = useTranslation('auth');
 
   const submit = async () => {
     const normalized = normalizeEmail(email);
-    if (!normalized) { setError('Enter your email address.'); return; }
-    if (!isValidEmail(normalized)) { setError('Enter a valid email address.'); return; }
+    if (!normalized) { setError(t('forgotPass.errors.emailRequired')); return; }
+    if (!isValidEmail(normalized)) { setError(t('forgotPass.errors.emailInvalid')); return; }
     setError(''); setLoading(true);
     try { await onSendReset?.(normalized); }
-    catch (requestError: any) { toast.error(requestError?.message || 'Unable to send the verification code.'); }
+    catch (requestError: any) { toast.error(requestError?.message || t('forgotPass.toast.sendFailed')); }
     finally { setLoading(false); }
   };
 
-  return <AuthScreenLayout title="Reset password" subtitle="Recover your account in three quick steps." onBack={onBack}>
+  return <AuthScreenLayout title={t('forgotPass.title')} subtitle={t('forgotPass.subtitle')} onBack={onBack}>
     <AuthProgress step={1} />
-    <AuthStepCard step={1} title="Recovery email" subtitle="Use the email connected to your MicroJobs account." style={styles.card}>
+    <AuthStepCard step={1} title={t('forgotPass.cardTitle')} subtitle={t('forgotPass.cardSubtitle')} style={styles.card}>
       <View style={styles.iconWrap}><View style={styles.icon}><Feather name="mail" size={24} color={AUTH_COLORS.primary} /></View></View>
-      <AuthField label="Email address" icon="mail" placeholder="you@example.com" value={email} onChangeText={(value) => { setEmail(value); setError(''); }} error={error} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" returnKeyType="send" onSubmitEditing={submit} />
-      <AuthButton label="Send verification code" onPress={submit} loading={loading} />
-      <Text style={styles.help}>We will send a 6-digit code. For your security, the message does not reveal whether an account exists.</Text>
+      <AuthField label={t('forgotPass.emailLabel')} icon="mail" placeholder={t('forgotPass.emailPlaceholder')} value={email} onChangeText={(value) => { setEmail(value); setError(''); }} error={error} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" returnKeyType="send" onSubmitEditing={submit} />
+      <AuthButton label={t('forgotPass.submit')} onPress={submit} loading={loading} />
+      <Text style={styles.help}>{t('forgotPass.help')}</Text>
     </AuthStepCard>
   </AuthScreenLayout>;
 }

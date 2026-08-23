@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   TextInput,
   Image,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
@@ -48,7 +49,7 @@ const buildAvatarUrl = (name: string, avatarUrl?: string) => {
   return `https://ui-avatars.com/api/?name=${safe}&background=E5E7EB&color=111827&size=128`;
 };
 
-const formatConversationTime = (input?: string) => {
+const formatConversationTime = (input: string | undefined, t: (key: string, options?: Record<string, unknown>) => string) => {
   if (!input) return '';
   const date = new Date(input);
   if (Number.isNaN(date.getTime())) return '';
@@ -62,10 +63,10 @@ const formatConversationTime = (input?: string) => {
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).toUpperCase();
   }
   if (dayDiff === 1) {
-    return 'YESTERDAY';
+    return t('messageList.time.yesterday');
   }
   if (dayDiff < 7) {
-    return `${dayDiff} DAYS AGO`;
+    return t('messageList.time.daysAgo', { count: dayDiff });
   }
   return date.toLocaleDateString([], { month: 'short', day: 'numeric' }).toUpperCase();
 };
@@ -83,6 +84,7 @@ export default function MessageList({
   const [searchQuery, setSearchQuery] = useState('');
   const toast = useToast();
   const session = useAppSession();
+  const { t } = useTranslation('employer');
 
   const filteredConversations = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -92,7 +94,7 @@ export default function MessageList({
     });
   }, [conversations, searchQuery]);
 
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     setLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
@@ -121,7 +123,7 @@ export default function MessageList({
                 userId: String(otherId),
                 jobId: c.jobId ? String(c.jobId) : null,
                 name: displayName,
-                lastMessage: c.lastMessage || 'Start a conversation',
+                lastMessage: c.lastMessage || t('messageList.row.startConversation'),
                 lastMessageAt: c.lastMessageAt || c.updatedAt || c.createdAt || '',
                 unreadCount: Number(c.unreadCount || c.unread || 0),
                 isOnline: Boolean(c.otherUserOnline || otherUser?.isOnline || c.isOnline),
@@ -144,7 +146,7 @@ export default function MessageList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
   const handleDelete = async (userId: string) => {
     setProcessingId(userId);
@@ -159,7 +161,7 @@ export default function MessageList({
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to delete conversation', err);
-      toast.error('Unable to delete conversation.');
+      toast.error(t('messageList.toast.deleteFailed'));
     } finally {
       setProcessingId(null);
     }
@@ -178,7 +180,7 @@ export default function MessageList({
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to archive conversation', err);
-      toast.error('Unable to archive conversation.');
+      toast.error(t('messageList.toast.archiveFailed'));
     } finally {
       setProcessingId(null);
     }
@@ -194,11 +196,11 @@ export default function MessageList({
         body: JSON.stringify({ otherUserId: userId }),
       }, 'Unable to block user');
       if (!result.ok) throw new Error(result.message || 'Unable to block user');
-      toast.success('User has been blocked.');
+      toast.success(t('messageList.toast.userBlocked'));
       await fetchConversations();
     } catch (err) {
       console.warn('Failed to block user', err);
-      toast.error('Unable to block user.');
+      toast.error(t('messageList.toast.blockFailed'));
     } finally {
       setProcessingId(null);
     }
@@ -225,7 +227,7 @@ export default function MessageList({
 
   const handleOpenConversation = async (conversation: ConversationSummary) => {
     if (!conversation.userId) {
-      toast.info('Cannot open this conversation.');
+      toast.info(t('messageList.toast.cannotOpen'));
       return;
     }
     onOpenChat(conversation.userId, conversation.name, conversation.jobId || undefined);
@@ -250,36 +252,36 @@ export default function MessageList({
   const showOptions = (conversation: ConversationSummary) => {
     const { userId, jobId } = conversation;
     const options = [
-      { text: 'Archive', onPress: () => handleArchive(userId) },
-      { text: 'Delete', style: 'destructive', onPress: () => handleDelete(userId) },
-      { text: 'Block', onPress: () => handleBlock(userId) },
-      { text: 'Mark as Unread', onPress: () => handleMarkReadUnread(userId, false, jobId) },
-      { text: 'Mark as Read', onPress: () => handleMarkReadUnread(userId, true, jobId) },
-      { text: 'Cancel', style: 'cancel' },
+      { text: t('messageList.options.archive'), onPress: () => handleArchive(userId) },
+      { text: t('messageList.options.delete'), style: 'destructive', onPress: () => handleDelete(userId) },
+      { text: t('messageList.options.block'), onPress: () => handleBlock(userId) },
+      { text: t('messageList.options.markUnread'), onPress: () => handleMarkReadUnread(userId, false, jobId) },
+      { text: t('messageList.options.markRead'), onPress: () => handleMarkReadUnread(userId, true, jobId) },
+      { text: t('messageList.options.cancel'), style: 'cancel' },
     ];
 
     if (Platform.OS === 'ios') {
-      Alert.alert('Conversation options', undefined, options as any);
+      Alert.alert(t('messageList.options.title'), undefined, options as any);
     } else {
-      Alert.alert('Conversation options', undefined, options as any);
+      Alert.alert(t('messageList.options.title'), undefined, options as any);
     }
   };
 
   useEffect(() => {
     fetchConversations();
-  }, []);
+  }, [fetchConversations]);
 
   useEffect(() => {
     if (!liveMessages || liveMessages.length === 0) return;
     fetchConversations();
-  }, [liveMessages]);
+  }, [liveMessages, fetchConversations]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       fetchConversations();
     }, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchConversations]);
 
   const appState = useRef<AppStateStatus>(AppState.currentState as AppStateStatus);
   useEffect(() => {
@@ -291,13 +293,13 @@ export default function MessageList({
     };
     const sub = AppState.addEventListener('change', handle);
     return () => sub.remove();
-  }, []);
+  }, [fetchConversations]);
 
   return (
     <View style={styles.container}>
       <TabTopNav
-        title="Messages"
-        subtitle={isEmployer ? 'Employer hiring conversations' : undefined}
+        title={t('messageList.title')}
+        subtitle={isEmployer ? t('messageList.subtitle') : undefined}
         showNotifications={Boolean(onOpenNotifications)}
         onOpenNotifications={onOpenNotifications}
         notificationBadgeCount={notificationBadgeCount}
@@ -310,9 +312,9 @@ export default function MessageList({
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholder="Search conversations..."
+          placeholder={t('messageList.searchPlaceholder')}
           placeholderTextColor={tokens.colors.textSubtle}
-          accessibilityLabel="Search conversations"
+          accessibilityLabel={t('messageList.searchAccessibilityLabel')}
         />
       </View>
 
@@ -327,7 +329,7 @@ export default function MessageList({
         windowSize={7}
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => {
-          const timeLabel = formatConversationTime(item.lastMessageAt);
+          const timeLabel = formatConversationTime(item.lastMessageAt, t);
           const unread = item.unreadCount > 0 ? item.unreadCount : 0;
 
           return (
@@ -337,8 +339,8 @@ export default function MessageList({
               onLongPress={() => (item.userId ? showOptions(item) : null)}
               delayLongPress={400}
               accessibilityRole="button"
-              accessibilityLabel={`Open conversation with ${item.name}${unread ? `, ${unread} unread messages` : ''}`}
-              accessibilityHint="Long press for conversation options"
+              accessibilityLabel={unread ? t('messageList.row.openLabelWithUnread', { name: item.name, count: unread }) : t('messageList.row.openLabel', { name: item.name })}
+              accessibilityHint={t('messageList.row.longPressHint')}
             >
               <View style={styles.avatarWrap}>
                 <Image source={{ uri: item.avatarUrl }} style={styles.avatar} />
@@ -374,14 +376,14 @@ export default function MessageList({
           loading ? (
             <View style={styles.emptyCard}>
               <ActivityIndicator color={tokens.colors.brand} />
-              <Text style={styles.emptyTitle}>Loading conversations</Text>
-              <Text style={styles.emptyText}>Pulling your latest message threads.</Text>
+              <Text style={styles.emptyTitle}>{t('messageList.loading.title')}</Text>
+              <Text style={styles.emptyText}>{t('messageList.loading.body')}</Text>
             </View>
           ) : (
             <View style={styles.emptyCard}>
               <Ionicons name="chatbubble-ellipses-outline" size={28} color={tokens.colors.textSubtle} />
-              <Text style={styles.emptyTitle}>No conversations yet</Text>
-              <Text style={styles.emptyText}>Messages with workers and employers will appear here.</Text>
+              <Text style={styles.emptyTitle}>{t('messageList.empty.title')}</Text>
+              <Text style={styles.emptyText}>{t('messageList.empty.body')}</Text>
             </View>
           )
         }

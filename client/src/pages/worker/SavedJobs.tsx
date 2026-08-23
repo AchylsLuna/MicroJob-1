@@ -11,11 +11,14 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import type { SavedJobRecord } from "../../services/api";
+import { formatCurrency, formatDate } from "../../lib/formatters";
 
 type SavedJobView = {
   id: string;
@@ -31,6 +34,24 @@ type SavedJobView = {
   deadline: string;
   requirements: string[];
 };
+
+// Maps the internal work-mode enum to a translation key. A factory (not a
+// plain module-level constant) so it can be recomputed via
+// useMemo(() => getWorkModeLabels(t), [t]) whenever the active language
+// changes — a constant built once at import time would freeze stale text.
+const WORK_MODE_KEYS: Record<SavedJobView["workMode"], string> = {
+  Remote: "remote",
+  Hybrid: "hybrid",
+  "On-site": "onSite",
+};
+
+function getWorkModeLabels(t: TFunction): Record<SavedJobView["workMode"], string> {
+  const labels = {} as Record<SavedJobView["workMode"], string>;
+  for (const [mode, key] of Object.entries(WORK_MODE_KEYS) as Array<[SavedJobView["workMode"], string]>) {
+    labels[mode] = t(`savedJobs.workMode.${key}`);
+  }
+  return labels;
+}
 
 const getCompanyName = (job: any) => {
   const poster = job?.jobPoster;
@@ -48,35 +69,30 @@ const getWorkMode = (job: any): SavedJobView["workMode"] => {
   return "On-site";
 };
 
-const formatSalary = (value?: string | number) => {
-  if (typeof value === "number") return `PHP ${value.toLocaleString()}`;
+const formatSalary = (t: TFunction, value?: string | number) => {
+  if (typeof value === "number") return formatCurrency(value, { maximumFractionDigits: 0 });
   const raw = String(value || "").trim();
-  if (!raw) return "Salary not specified";
+  if (!raw) return t("savedJobs.card.salaryFallback");
   return raw.replace(/\$/g, "PHP ").replace(/\bUSD\b/gi, "PHP");
 };
 
-const formatDeadline = (value?: string) => {
-  if (!value) return "Not specified";
+const formatDeadline = (t: TFunction, value?: string) => {
+  if (!value) return t("savedJobs.card.deadlineFallback");
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Not specified";
-  return parsed.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  if (Number.isNaN(parsed.getTime())) return t("savedJobs.card.deadlineFallback");
+  return formatDate(parsed);
 };
 
-const formatPostedLabel = (value?: string) => {
-  if (!value) return "Saved recently";
+const formatPostedLabel = (t: TFunction, value?: string) => {
+  if (!value) return t("savedJobs.card.savedRecently");
   const parsed = new Date(value).getTime();
-  if (Number.isNaN(parsed)) return "Saved recently";
+  if (Number.isNaN(parsed)) return t("savedJobs.card.savedRecently");
   const diffDays = Math.max(0, Math.floor((Date.now() - parsed) / (1000 * 60 * 60 * 24)));
-  if (diffDays === 0) return "Today";
-  if (diffDays === 1) return "1d ago";
-  return `${diffDays}d ago`;
+  if (diffDays === 0) return t("savedJobs.card.today");
+  return t("savedJobs.card.daysAgo", { count: diffDays });
 };
 
-const mapSavedJob = (record: SavedJobRecord): SavedJobView | null => {
+const mapSavedJob = (t: TFunction, record: SavedJobRecord): SavedJobView | null => {
   const job = record.job as any;
   if (!job?._id) return null;
 
@@ -89,30 +105,33 @@ const mapSavedJob = (record: SavedJobRecord): SavedJobView | null => {
 
   return {
     id: String(job._id),
-    title: String(job.title || "Untitled job"),
+    title: String(job.title || t("savedJobs.card.untitledJob")),
     company,
-    salary: formatSalary(job.salary),
-    description: String(job.description || "No description provided."),
-    location: String(job.location || "Remote"),
+    salary: formatSalary(t, job.salary),
+    description: String(job.description || t("savedJobs.card.noDescription")),
+    location: String(job.location || t("savedJobs.card.remoteLocation")),
     workMode: getWorkMode(job),
-    postedLabel: formatPostedLabel(job.createdAt || record.savedAt || record.createdAt),
+    postedLabel: formatPostedLabel(t, job.createdAt || record.savedAt || record.createdAt),
     applicants: Array.isArray(job.applicants) ? job.applicants.length : 0,
     logo: company.charAt(0).toUpperCase() || "M",
-    deadline: formatDeadline(job.deadline),
+    deadline: formatDeadline(t, job.deadline),
     requirements,
   };
 };
 
 export function SavedJobs() {
+  const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
   const { savedJobs, isLoading, error, removeSavedJob } = useSavedJobs();
   const [filter, setFilter] = useState<"all" | "Remote" | "Hybrid" | "On-site">("all");
 
+  const workModeLabels = useMemo(() => getWorkModeLabels(t), [t]);
+
   const jobs = useMemo(
-    () => savedJobs.map(mapSavedJob).filter((job): job is SavedJobView => Boolean(job)),
-    [savedJobs],
+    () => savedJobs.map((record) => mapSavedJob(t, record)).filter((job): job is SavedJobView => Boolean(job)),
+    [savedJobs, t],
   );
 
   const filteredJobs = useMemo(
@@ -129,9 +148,9 @@ export function SavedJobs() {
   const handleUnsave = async (jobId: string) => {
     try {
       await removeSavedJob(jobId);
-      toast.success("Job removed from saved list");
+      toast.success(t("savedJobs.toast.removeSuccess"));
     } catch (removeError: any) {
-      toast.error(removeError?.message || "Failed to remove saved job.");
+      toast.error(removeError?.message || t("savedJobs.toast.removeFailed"));
     }
   };
 
@@ -144,9 +163,9 @@ export function SavedJobs() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <p className="text-[14px] text-[#6B7280]">
-            You have {jobs.length} saved job{jobs.length !== 1 ? "s" : ""}
+            {t("savedJobs.summary", { count: jobs.length })}
           </p>
-          <h1 className="text-[28px] font-semibold text-[#111827] mt-1">Saved Jobs</h1>
+          <h1 className="text-[28px] font-semibold text-[#111827] mt-1">{t("savedJobs.title")}</h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -162,7 +181,7 @@ export function SavedJobs() {
                   : "bg-white text-[#6B7280] border border-[#E5E7EB] hover:bg-[#F9FAFB]"
               }`}
             >
-              {item === "all" ? "All Jobs" : item}
+              {item === "all" ? t("savedJobs.filters.all") : workModeLabels[item]}
             </button>
           ))}
         </div>
@@ -170,7 +189,7 @@ export function SavedJobs() {
 
       {isLoading && jobs.length === 0 ? (
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
-          Loading saved jobs...
+          {t("savedJobs.loading")}
         </div>
       ) : null}
 
@@ -183,18 +202,18 @@ export function SavedJobs() {
       {!isLoading && filteredJobs.length === 0 ? (
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-12 text-center">
           <Bookmark className="w-16 h-16 text-[#D1D5DB] mx-auto mb-4" />
-          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">No saved jobs found</h3>
+          <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("savedJobs.emptyState.title")}</h3>
           <p className="text-[14px] text-[#6B7280] mb-6">
             {jobs.length === 0
-              ? "Jobs you save from the marketplace will appear here."
-              : "Your current filter did not match any saved jobs."}
+              ? t("savedJobs.emptyState.descriptionNoJobs")
+              : t("savedJobs.emptyState.descriptionNoMatch")}
           </p>
           <button
             onClick={() => navigate(ROUTES.worker.findJobs)}
             className="inline-flex items-center gap-2 bg-[#1C4D8D] text-white px-5 py-3 rounded-[12px] font-semibold hover:opacity-90 transition-colors"
           >
             <Briefcase className="w-4 h-4" />
-            Browse Jobs
+            {t("savedJobs.emptyState.browseJobs")}
           </button>
         </div>
       ) : null}
@@ -229,7 +248,7 @@ export function SavedJobs() {
                               : "bg-[#D1FAE5] text-[#065F46]"
                         }`}
                       >
-                        {job.workMode}
+                        {workModeLabels[job.workMode]}
                       </span>
                       <div className="flex items-center gap-1 text-[12px] text-[#6B7280]">
                         <MapPin className="w-3.5 h-3.5" />
@@ -242,8 +261,8 @@ export function SavedJobs() {
                   type="button"
                   onClick={() => handleUnsave(job.id)}
                   className="p-2 hover:bg-[#FEE2E2] rounded-lg transition-colors"
-                  title="Remove from saved"
-                  aria-label={`Remove ${job.title} from saved jobs`}
+                  title={t("savedJobs.card.removeTitle")}
+                  aria-label={t("savedJobs.card.removeAria", { title: job.title })}
                 >
                   <Trash2 className="w-5 h-5 text-[#6B7280] hover:text-[#EF4444]" />
                 </button>
@@ -257,7 +276,7 @@ export function SavedJobs() {
               <p className="text-[13px] text-[#6B7280] leading-relaxed mb-4 line-clamp-2">{job.description}</p>
 
               <div className="mb-4 flex flex-wrap gap-2">
-                {(job.requirements.length ? job.requirements : ["General"])
+                {(job.requirements.length ? job.requirements : [t("savedJobs.card.generalRequirement")])
                   .slice(0, 4)
                   .map((requirement) => (
                     <span
@@ -276,11 +295,11 @@ export function SavedJobs() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Users className="w-3.5 h-3.5" />
-                  {job.applicants} applicants
+                  {t("savedJobs.card.applicants", { count: job.applicants })}
                 </div>
                 <div className="flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5" />
-                  Deadline: {job.deadline}
+                  {t("savedJobs.card.deadlineLabel", { deadline: job.deadline })}
                 </div>
               </div>
 
@@ -290,12 +309,12 @@ export function SavedJobs() {
                   className="brand-primary-interactive flex flex-1 items-center justify-center gap-2 rounded-[10px] px-4 py-3 font-semibold hover:shadow-lg"
                 >
                   <Briefcase className="w-4 h-4" />
-                  View Job
+                  {t("savedJobs.card.viewJob")}
                 </button>
                 <button
                   onClick={() => handleOpenDetails(job.id)}
                   className="px-4 py-3 border border-[#E5E7EB] text-[#6B7280] font-semibold rounded-[10px] hover:bg-[#F9FAFB] transition-colors"
-                  title="View Details"
+                  title={t("savedJobs.card.viewDetailsTitle")}
                 >
                   <ExternalLink className="w-4 h-4" />
                 </button>

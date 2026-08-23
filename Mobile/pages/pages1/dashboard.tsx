@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -59,6 +60,7 @@ export default function Dashboard({
   messageBadgeCount?: number;
   headerSubtitle?: string;
 }) {
+  const { t } = useTranslation('worker');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
@@ -79,18 +81,18 @@ export default function Dashboard({
     return counts;
   }, [jobs]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const result = await apiRequest<Category[]>(`${API_URL}/categories`, undefined, 'Failed to load categories.');
+      const result = await apiRequest<Category[]>(`${API_URL}/categories`, undefined, t('dashboard.apiFallback.loadCategoriesFailed'));
       if (result.ok) {
         setCategories(asList<Category>(result.raw, ['categories']).slice(0, 10));
       }
     } catch (error) {
       console.error('Failed to load categories:', error);
     }
-  };
+  }, [t]);
 
-  const fetchJobs = async () => {
+  const fetchJobs = useCallback(async () => {
     if (jobsRequestInFlight.current) return;
     jobsRequestInFlight.current = true;
     setIsLoading(true);
@@ -99,19 +101,19 @@ export default function Dashboard({
       const token = await AsyncStorage.getItem('auth_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
       const [result, recommendedResult] = await Promise.all([
-        apiRequest<Job[]>(`${API_URL}/jobs?excludeOwn=true`, { headers }, 'Failed to load jobs.'),
-        apiRequest<Job[]>(`${API_URL}/jobs/recommended?limit=5`, { headers }, 'Failed to load recommended jobs.'),
+        apiRequest<Job[]>(`${API_URL}/jobs?excludeOwn=true`, { headers }, t('dashboard.apiFallback.loadJobsFailed')),
+        apiRequest<Job[]>(`${API_URL}/jobs/recommended?limit=5`, { headers }, t('dashboard.apiFallback.loadRecommendedFailed')),
       ]);
-      if (!result.ok) throw new Error(result.message || 'Failed to load jobs.');
+      if (!result.ok) throw new Error(result.message || t('dashboard.apiFallback.loadJobsFailed'));
       setJobs(asList<Job>(result.raw, ['jobs']));
       setRecommendedJobs(recommendedResult.ok ? asList<Job>(recommendedResult.raw, ['jobs']) : []);
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to load jobs.');
+      setErrorMessage(error?.message || t('dashboard.apiFallback.loadJobsFailed'));
     } finally {
       jobsRequestInFlight.current = false;
       setIsLoading(false);
     }
-  };
+  }, [t]);
 
   const profileHasResume = (profile: any) => {
     if (!profile || typeof profile !== 'object') return false;
@@ -134,7 +136,7 @@ export default function Dashboard({
 
       const result = await apiRequest(`${API_URL}/auth/me`, {
         headers: { Authorization: `Bearer ${token}` },
-      }, 'Failed to load profile.');
+      }, t('dashboard.apiFallback.loadProfileFailed'));
 
       if (!result.ok) return;
 
@@ -153,13 +155,13 @@ export default function Dashboard({
     } catch (error) {
       // Keep UI functional even when profile sync fails.
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchCategories();
     fetchJobs();
     syncResumeStatus();
-  }, [syncResumeStatus]);
+  }, [fetchCategories, fetchJobs, syncResumeStatus]);
 
   const handleTabPress = (tab: string) => {
     externalOnTabPress?.(tab);
@@ -168,7 +170,7 @@ export default function Dashboard({
   return (
     <View style={styles.container}>
       <TabTopNav
-        title="Home"
+        title={t('dashboard.headerTitle')}
         subtitle={headerSubtitle}
         onSubtitlePress={onOpenSettings}
         homeContext
@@ -178,14 +180,14 @@ export default function Dashboard({
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <AnimatedPressable containerStyle={styles.searchContainer} onPress={onNavigateToJobs} accessibilityRole="button" accessibilityLabel="Search local jobs, skills, or employers">
+        <AnimatedPressable containerStyle={styles.searchContainer} onPress={onNavigateToJobs} accessibilityRole="button" accessibilityLabel={t('dashboard.search.accessibilityLabel')}>
           <View style={styles.searchRow}>
             <View style={styles.searchIconWrap}>
               <Ionicons name="search-outline" size={17} color={tokens.colors.brand} />
             </View>
             <View style={styles.searchCopy}>
-              <Text style={styles.searchTitle}>Search local jobs</Text>
-              <Text style={styles.searchSubtitle}>Skills, employers, or job titles</Text>
+              <Text style={styles.searchTitle}>{t('dashboard.search.title')}</Text>
+              <Text style={styles.searchSubtitle}>{t('dashboard.search.subtitle')}</Text>
             </View>
             <View style={styles.searchFilterDot}>
               <Ionicons name="options-outline" size={16} color={tokens.colors.brand} />
@@ -199,16 +201,16 @@ export default function Dashboard({
               <View style={styles.uploadIconWrap}>
                 <Ionicons name="document-text-outline" size={20} color={tokens.colors.onCardStrong} />
               </View>
-              <Text style={styles.uploadTitle}>Upload your resume</Text>
+              <Text style={styles.uploadTitle}>{t('dashboard.resumeCard.title')}</Text>
             </View>
-            <Text style={styles.uploadSubtitle}>Get matched with local employers across your community.</Text>
-            <AnimatedPressable containerStyle={styles.checkButton} onPress={onUploadResume} accessibilityRole="button" accessibilityLabel="Upload CV or resume">
-              <Text style={styles.checkButtonText}>Upload resume</Text>
+            <Text style={styles.uploadSubtitle}>{t('dashboard.resumeCard.subtitle')}</Text>
+            <AnimatedPressable containerStyle={styles.checkButton} onPress={onUploadResume} accessibilityRole="button" accessibilityLabel={t('dashboard.resumeCard.uploadAccessibility')}>
+              <Text style={styles.checkButtonText}>{t('dashboard.resumeCard.uploadButton')}</Text>
             </AnimatedPressable>
           </View>
         ) : null}
 
-        <SectionHeader title="Job Categories" onSeeAll={onNavigateToJobs} seeAllLabel="Browse all" />
+        <SectionHeader title={t('dashboard.sections.categories')} onSeeAll={onNavigateToJobs} seeAllLabel={t('dashboard.sections.browseAll')} />
 
         <ScrollView horizontal contentContainerStyle={styles.categoryRow}>
           {categories.map((category) => {
@@ -218,7 +220,7 @@ export default function Dashboard({
                 key={category._id}
                 onPress={() => onSelectCategory?.(category._id)}
                 accessibilityRole="button"
-                accessibilityLabel={`Browse ${category.name}, ${openingCount} local openings`}
+                accessibilityLabel={t('dashboard.category.accessibilityLabel', { name: category.name, count: openingCount })}
               >
                 <CategoryTile category={category} size="lg" showLabel count={openingCount} />
               </AnimatedPressable>
@@ -226,13 +228,13 @@ export default function Dashboard({
           })}
         </ScrollView>
 
-        <SectionHeader title="Jobs Matching Your Skills" onSeeAll={onNavigateToJobs} />
+        <SectionHeader title={t('dashboard.sections.matchingSkills')} onSeeAll={onNavigateToJobs} />
 
         {errorMessage ? <InlineStateCard
           icon={needsLocation ? 'location-outline' : 'cloud-offline-outline'}
-          title={needsLocation ? 'Set your work location' : 'Jobs are unavailable'}
-          message={needsLocation ? 'Add your city or municipality to see nearby opportunities.' : errorMessage}
-          actionLabel={needsLocation ? 'Open settings' : 'Try again'}
+          title={needsLocation ? t('dashboard.state.locationTitle') : t('dashboard.state.unavailableTitle')}
+          message={needsLocation ? t('dashboard.state.locationMessage') : errorMessage}
+          actionLabel={needsLocation ? t('dashboard.state.locationAction') : t('dashboard.state.unavailableAction')}
           onAction={needsLocation ? onOpenSettings : fetchJobs}
           busy={isLoading}
         /> : null}
@@ -257,11 +259,11 @@ export default function Dashboard({
             ))}
           </ScrollView>
         ) : null}
-        {!isLoading && !errorMessage && recommendedJobs.length === 0 ? <InlineStateCard icon="briefcase-outline" title="No recent jobs yet" message="New opportunities in your area will appear here." actionLabel="Explore jobs" onAction={onNavigateToJobs} /> : null}
+        {!isLoading && !errorMessage && recommendedJobs.length === 0 ? <InlineStateCard icon="briefcase-outline" title={t('dashboard.state.emptyTitle')} message={t('dashboard.state.emptyMessage')} actionLabel={t('dashboard.state.emptyAction')} onAction={onNavigateToJobs} /> : null}
 
         {recentJobs.length > 0 ? (
           <>
-            <SectionHeader title="Recent in Your Area" onSeeAll={onNavigateToJobs} />
+            <SectionHeader title={t('dashboard.sections.recentInArea')} onSeeAll={onNavigateToJobs} />
             <View style={styles.jobsList}>
               {recentJobs.map((job) => (
                 <JobCard

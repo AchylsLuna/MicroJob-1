@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import EmployerNavigation from '../../components/employerNavigation';
@@ -74,6 +75,7 @@ export default function EmployerJobPosts({
   notificationBadgeCount = 0,
 }: EmployerJobPostsProps) {
   const toast = useToast();
+  const { t } = useTranslation('employer');
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionJobId, setActionJobId] = useState<string | null>(null);
@@ -101,16 +103,16 @@ export default function EmployerJobPosts({
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      }, 'Failed to load job posts.');
-      if (!result.ok) throw new Error(result.message || 'Failed to load job posts.');
+      }, t('jobPosts.errors.loadFailed'));
+      if (!result.ok) throw new Error(result.message || t('jobPosts.errors.loadFailed'));
       if (mountedRef.current) setJobs(asList<JobItem>(result.raw, ['jobs']));
     } catch (error: any) {
-      if (mountedRef.current) setErrorMessage(error?.message || 'Failed to load job posts.');
+      if (mountedRef.current) setErrorMessage(error?.message || t('jobPosts.errors.loadFailed'));
     } finally {
       fetchInFlightRef.current = false;
       if (mountedRef.current) setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -123,10 +125,18 @@ export default function EmployerJobPosts({
 
   const requestAction = (job: JobItem, action: JobAction) => setConfirmAction({ job, action });
 
+  const actionFailureKeys: Record<JobAction, string> = {
+    complete: 'jobPosts.errors.completeFailed',
+    close: 'jobPosts.errors.closeFailed',
+    reopen: 'jobPosts.errors.reopenFailed',
+    delete: 'jobPosts.errors.deleteFailed',
+  };
+
   const handleConfirmAction = async () => {
     if (!confirmAction || actionInFlightRef.current) return;
 
     const { action, job } = confirmAction;
+    const actionFailureMessage = t(actionFailureKeys[action]);
     actionInFlightRef.current = true;
     setActionJobId(job._id);
     setErrorMessage('');
@@ -146,9 +156,9 @@ export default function EmployerJobPosts({
         ...(isStatusChange
           ? { body: JSON.stringify({ status: action === 'complete' ? 'Completed' : 'Closed' }) }
           : {}),
-      }, `Failed to ${action} job.`);
+      }, actionFailureMessage);
 
-      if (!result.ok) throw new Error(result.message || `Failed to ${action} job.`);
+      if (!result.ok) throw new Error(result.message || actionFailureMessage);
 
       if (mountedRef.current) {
         setConfirmAction(null);
@@ -157,17 +167,17 @@ export default function EmployerJobPosts({
       await fetchJobs();
       if (mountedRef.current) {
         const successMessage = action === 'complete'
-          ? 'Job completed. Worker payouts were triggered automatically from escrow.'
+          ? t('jobPosts.toast.completed')
           : action === 'close'
-          ? 'Job closed. New applications are paused.'
+          ? t('jobPosts.toast.closed')
           : action === 'reopen'
-          ? 'Job reopened. Workers can apply again.'
-          : 'Job deleted. Any eligible escrow refund was returned to your wallet.';
+          ? t('jobPosts.toast.reopened')
+          : t('jobPosts.toast.deleted');
         toast.success(successMessage);
       }
     } catch (error: any) {
       if (mountedRef.current) {
-        const message = error?.message || `Failed to ${action} job.`;
+        const message = error?.message || actionFailureMessage;
         setConfirmAction(null);
         if (/(?:insufficient|not have enough) balance/i.test(message)) {
           setBalanceErrorMessage(message);
@@ -183,36 +193,36 @@ export default function EmployerJobPosts({
 
   const actionCopy = confirmAction ? {
     complete: {
-      title: 'Mark Job as Done',
-      question: `Complete "${confirmAction.job.title}"?`,
-      detail: 'Escrow funds will automatically be paid to hired workers. This action should only be used after the work is finished.',
-      button: 'Confirm Done',
+      title: t('jobPosts.confirm.complete.title'),
+      question: t('jobPosts.confirm.complete.question', { title: confirmAction.job.title }),
+      detail: t('jobPosts.confirm.complete.detail'),
+      button: t('jobPosts.confirm.complete.button'),
     },
     close: {
-      title: 'Close Job',
-      question: `Pause new applications for "${confirmAction.job.title}"?`,
-      detail: 'The secured funds stay in escrow, and you can reopen this job later.',
-      button: 'Close Job',
+      title: t('jobPosts.confirm.close.title'),
+      question: t('jobPosts.confirm.close.question', { title: confirmAction.job.title }),
+      detail: t('jobPosts.confirm.close.detail'),
+      button: t('jobPosts.confirm.close.button'),
     },
     reopen: {
-      title: 'Reopen Job',
-      question: `Reopen "${confirmAction.job.title}"?`,
+      title: t('jobPosts.confirm.reopen.title'),
+      question: t('jobPosts.confirm.reopen.question', { title: confirmAction.job.title }),
       detail: ['Completed', 'Cancelled'].includes(String(confirmAction.job.status || ''))
-        ? 'The required amount will be secured in escrow again before workers can apply.'
-        : 'Workers will be able to submit applications again.',
-      button: 'Reopen Job',
+        ? t('jobPosts.confirm.reopen.detailEscrow')
+        : t('jobPosts.confirm.reopen.detailDefault'),
+      button: t('jobPosts.confirm.reopen.button'),
     },
     delete: {
-      title: 'Delete Job',
-      question: `Permanently delete "${confirmAction.job.title}"?`,
-      detail: 'Associated applications will be removed. Any eligible unused escrow is refunded automatically.',
-      button: 'Delete Job',
+      title: t('jobPosts.confirm.delete.title'),
+      question: t('jobPosts.confirm.delete.question', { title: confirmAction.job.title }),
+      detail: t('jobPosts.confirm.delete.detail'),
+      button: t('jobPosts.confirm.delete.button'),
     },
   }[confirmAction.action] : null;
 
   return (
     <View style={styles.container}>
-      <TabTopNav title="Home" subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
+      <TabTopNav title={t('jobPosts.header.title')} subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
 
       <FlatList
         data={jobs}
@@ -225,33 +235,33 @@ export default function EmployerJobPosts({
         windowSize={7}
         refreshControl={<RefreshControl refreshing={loading && jobs.length > 0} onRefresh={() => void fetchJobs()} tintColor={tokens.colors.brand} />}
         ListHeaderComponent={<>
-        <EmployerModeBanner title="Hiring operations" detail="Manage local job posts, candidates, conversations, and secured employer funds." />
+        <EmployerModeBanner title={t('jobPosts.banner.title')} detail={t('jobPosts.banner.detail')} />
         <View style={styles.metricRow}>
-          <EmployerMetric icon="briefcase-outline" value={activeJobs} label="Active jobs" />
-          <EmployerMetric icon="people-outline" value={totalApplicants} label="Applicants" tone="amber" />
-          <EmployerMetric icon="checkmark-circle-outline" value={filledPositions} label="Workers hired" tone="green" />
+          <EmployerMetric icon="briefcase-outline" value={activeJobs} label={t('jobPosts.metrics.activeJobs')} />
+          <EmployerMetric icon="people-outline" value={totalApplicants} label={t('jobPosts.metrics.applicants')} tone="amber" />
+          <EmployerMetric icon="checkmark-circle-outline" value={filledPositions} label={t('jobPosts.metrics.workersHired')} tone="green" />
         </View>
-        <Text style={styles.operationsTitle}>Quick operations</Text>
+        <Text style={styles.operationsTitle}>{t('jobPosts.quickOperations.title')}</Text>
         <View style={styles.operationsGrid}>
-          <EmployerAction icon="add-circle-outline" label="Post a job" onPress={onPostJob} disabled={!onPostJob} tone="primary" />
-          <EmployerAction icon="people-outline" label="Review applicants" onPress={onOpenApplications} disabled={!onOpenApplications} />
-          <EmployerAction icon="chatbubbles-outline" label="Messages" onPress={onOpenMessages} disabled={!onOpenMessages} />
-          <EmployerAction icon="wallet-outline" label="Employer wallet" onPress={onOpenWallet} disabled={!onOpenWallet} />
+          <EmployerAction icon="add-circle-outline" label={t('jobPosts.actions.postJob')} onPress={onPostJob} disabled={!onPostJob} tone="primary" />
+          <EmployerAction icon="people-outline" label={t('jobPosts.actions.reviewApplicants')} onPress={onOpenApplications} disabled={!onOpenApplications} />
+          <EmployerAction icon="chatbubbles-outline" label={t('jobPosts.actions.messages')} onPress={onOpenMessages} disabled={!onOpenMessages} />
+          <EmployerAction icon="wallet-outline" label={t('jobPosts.actions.employerWallet')} onPress={onOpenWallet} disabled={!onOpenWallet} />
         </View>
-        <View style={styles.sectionHeadingRow}><Text style={styles.operationsTitle}>Your job openings</Text><Text style={styles.sectionCount}>{jobs.length}</Text></View>
+        <View style={styles.sectionHeadingRow}><Text style={styles.operationsTitle}>{t('jobPosts.openings.title')}</Text><Text style={styles.sectionCount}>{jobs.length}</Text></View>
 
         {loading ? (
-          jobs.length === 0 ? <EmployerInlineState loading title="Loading hiring workspace" body="Getting your employer jobs and applicant totals." /> : null
+          jobs.length === 0 ? <EmployerInlineState loading title={t('jobPosts.loading.title')} body={t('jobPosts.loading.body')} /> : null
         ) : null}
 
         {errorMessage ? (
-          <EmployerInlineState icon="cloud-offline-outline" title="Hiring data unavailable" body={errorMessage} onRetry={() => void fetchJobs()} />
+          <EmployerInlineState icon="cloud-offline-outline" title={t('jobPosts.error.title')} body={errorMessage} onRetry={() => void fetchJobs()} />
         ) : null}
         </>}
         ListEmptyComponent={!loading ? (
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No Job Posts Yet</Text>
-            <Text style={styles.emptyText}>Create your first job post to start receiving applications.</Text>
+            <Text style={styles.emptyTitle}>{t('jobPosts.empty.title')}</Text>
+            <Text style={styles.emptyText}>{t('jobPosts.empty.body')}</Text>
           </View>
         ) : null}
         renderItem={({ item: job }) => {
@@ -271,11 +281,11 @@ export default function EmployerJobPosts({
               <View style={styles.statusColumn}>
                 {job.urgent ? (
                   <View style={styles.urgentTag}>
-                    <Text style={styles.urgentText}>Urgent</Text>
+                    <Text style={styles.urgentText}>{t('jobPosts.badges.urgent')}</Text>
                   </View>
                 ) : null}
                 <View style={styles.statusTag}>
-                  <Text style={styles.statusText}>{job.status || 'Available'}</Text>
+                  <Text style={styles.statusText}>{job.status || t('jobPosts.status.available')}</Text>
                 </View>
               </View>
             </View>
@@ -287,7 +297,7 @@ export default function EmployerJobPosts({
 
             <View style={styles.footerRow}>
               <Text style={styles.footerText}>
-                Positions: {job.hiredCount || 0}/{job.positionsNeeded || 1}
+                {t('jobPosts.card.positions', { hired: job.hiredCount || 0, needed: job.positionsNeeded || 1 })}
               </Text>
               <Text style={styles.footerText}>
                 {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}
@@ -297,15 +307,15 @@ export default function EmployerJobPosts({
             <View style={styles.primaryJobActions}>
                 <TouchableOpacity style={styles.viewButton} onPress={() => setViewingJob(job)}>
                   <Ionicons name="eye-outline" size={15} color={tokens.colors.brand} />
-                  <Text style={styles.viewButtonText}>View</Text>
+                  <Text style={styles.viewButtonText}>{t('jobPosts.card.view')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.editButton} onPress={() => onEditJob?.(job)}>
                   <Ionicons name="create-outline" size={15} color={tokens.colors.surface} />
-                  <Text style={styles.editButtonText}>Edit</Text>
+                  <Text style={styles.editButtonText}>{t('jobPosts.card.edit')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.moreButton} onPress={() => setExpandedJobId((id) => id === job._id ? null : job._id)} accessibilityRole="button" accessibilityState={{ expanded: expandedJobId === job._id }} accessibilityLabel={`${expandedJobId === job._id ? 'Hide' : 'Show'} actions for ${job.title}`}>
+                <TouchableOpacity style={styles.moreButton} onPress={() => setExpandedJobId((id) => id === job._id ? null : job._id)} accessibilityRole="button" accessibilityState={{ expanded: expandedJobId === job._id }} accessibilityLabel={expandedJobId === job._id ? t('jobPosts.card.hideActionsLabel', { title: job.title }) : t('jobPosts.card.showActionsLabel', { title: job.title })}>
                   <Ionicons name={expandedJobId === job._id ? 'chevron-up' : 'ellipsis-horizontal'} size={17} color={tokens.colors.brand} />
-                  <Text style={styles.moreButtonText}>More</Text>
+                  <Text style={styles.moreButtonText}>{t('jobPosts.card.more')}</Text>
                 </TouchableOpacity>
             </View>
             {expandedJobId === job._id ? <View style={styles.footerActions}>
@@ -315,7 +325,7 @@ export default function EmployerJobPosts({
                     disabled={actionJobId === job._id}
                     onPress={() => requestAction(job, 'close')}
                   >
-                    <Text style={styles.closeButtonText}>Close</Text>
+                    <Text style={styles.closeButtonText}>{t('jobPosts.card.close')}</Text>
                   </TouchableOpacity>
                 ) : null}
                 {['Closed', 'Completed', 'Cancelled'].includes(status) ? (
@@ -325,7 +335,7 @@ export default function EmployerJobPosts({
                     onPress={() => requestAction(job, 'reopen')}
                   >
                     <Ionicons name="refresh-outline" size={15} color="#15803d" />
-                    <Text style={styles.reopenButtonText}>Reopen</Text>
+                    <Text style={styles.reopenButtonText}>{t('jobPosts.card.reopen')}</Text>
                   </TouchableOpacity>
                 ) : null}
                 <TouchableOpacity
@@ -336,7 +346,7 @@ export default function EmployerJobPosts({
                   {actionJobId === job._id ? (
                     <ActivityIndicator color="#ffffff" size="small" />
                   ) : (
-                    <Text style={styles.doneButtonText}>Mark Done</Text>
+                    <Text style={styles.doneButtonText}>{t('jobPosts.card.markDone')}</Text>
                   )}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -345,13 +355,13 @@ export default function EmployerJobPosts({
                   onPress={() => requestAction(job, 'delete')}
                 >
                   <Ionicons name="trash-outline" size={15} color="#b91c1c" />
-                  <Text style={styles.deleteButtonText}>Delete</Text>
+                  <Text style={styles.deleteButtonText}>{t('jobPosts.card.delete')}</Text>
                 </TouchableOpacity>
             </View> : null}
             {expandedJobId === job._id ? <Text style={styles.autoPayHint}>
               {canComplete
-                ? 'Marking this job done automatically releases escrow to hired workers.'
-                : 'Hire at least one worker before marking this job as done.'}
+                ? t('jobPosts.card.autoPayHintReady')
+                : t('jobPosts.card.autoPayHintBlocked')}
             </Text> : null}
           </View>
           );
@@ -378,7 +388,7 @@ export default function EmployerJobPosts({
                 onPress={() => setConfirmAction(null)}
                 disabled={Boolean(actionJobId)}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
+                <Text style={styles.modalCancelText}>{t('jobPosts.confirm.cancelLabel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.modalConfirmBtn, confirmAction?.action === 'delete' && styles.modalDeleteBtn]}
@@ -401,36 +411,36 @@ export default function EmployerJobPosts({
           <View style={styles.detailsCard}>
             <View style={styles.detailsHeader}>
               <View style={styles.detailsHeaderCopy}>
-                <Text style={styles.detailsEyebrow}>JOB DETAILS</Text>
+                <Text style={styles.detailsEyebrow}>{t('jobPosts.details.eyebrow')}</Text>
                 <Text style={styles.detailsTitle}>{viewingJob?.title}</Text>
               </View>
-              <TouchableOpacity style={styles.iconButton} onPress={() => setViewingJob(null)} accessibilityLabel="Close job details">
+              <TouchableOpacity style={styles.iconButton} onPress={() => setViewingJob(null)} accessibilityLabel={t('jobPosts.details.closeLabel')}>
                 <Ionicons name="close" size={22} color={tokens.colors.text} />
               </TouchableOpacity>
             </View>
             <ScrollView contentContainerStyle={styles.detailsScroll} showsVerticalScrollIndicator={false}>
               <View style={styles.detailTagRow}>
-                <Text style={styles.detailTag}>{viewingJob?.status || 'Available'}</Text>
-                <Text style={styles.detailTag}>{viewingJob?.jobType || 'Opportunity'}</Text>
-                {viewingJob?.urgent ? <Text style={[styles.detailTag, styles.urgentDetailTag]}>Urgent</Text> : null}
+                <Text style={styles.detailTag}>{viewingJob?.status || t('jobPosts.status.available')}</Text>
+                <Text style={styles.detailTag}>{viewingJob?.jobType || t('jobPosts.details.jobTypeFallback')}</Text>
+                {viewingJob?.urgent ? <Text style={[styles.detailTag, styles.urgentDetailTag]}>{t('jobPosts.badges.urgent')}</Text> : null}
               </View>
-              <DetailRow icon="location-outline" label="Location" value={viewingJob?.location} />
-              <DetailRow icon="cash-outline" label="Minimum pay" value={formatMinimumPay(viewingJob?.salary || '')} />
-              <DetailRow icon="people-outline" label="Workers" value={`${viewingJob?.hiredCount || 0} hired of ${viewingJob?.positionsNeeded || 1}`} />
-              <DetailRow icon="folder-outline" label="Category" value={viewingJob?.category?.name || 'Not specified'} />
+              <DetailRow icon="location-outline" label={t('jobPosts.details.labels.location')} value={viewingJob?.location} />
+              <DetailRow icon="cash-outline" label={t('jobPosts.details.labels.minimumPay')} value={formatMinimumPay(viewingJob?.salary || '')} />
+              <DetailRow icon="people-outline" label={t('jobPosts.details.labels.workers')} value={t('jobPosts.details.hiredOfNeeded', { hired: viewingJob?.hiredCount || 0, needed: viewingJob?.positionsNeeded || 1 })} />
+              <DetailRow icon="folder-outline" label={t('jobPosts.details.labels.category')} value={viewingJob?.category?.name || t('jobPosts.details.notSpecified')} />
               <DetailRow
                 icon="calendar-outline"
-                label="Deadline"
-                value={viewingJob?.deadline ? new Date(viewingJob.deadline).toLocaleString() : 'Not specified'}
+                label={t('jobPosts.details.labels.deadline')}
+                value={viewingJob?.deadline ? new Date(viewingJob.deadline).toLocaleString() : t('jobPosts.details.notSpecified')}
               />
-              <DetailSection title="Description" value={viewingJob?.description} />
-              <DetailSection title="Requirements" values={viewingJob?.requirements} />
-              <DetailSection title="Responsibilities" values={viewingJob?.responsibilities} />
-              <DetailSection title="Skills" values={viewingJob?.skills} />
+              <DetailSection title={t('jobPosts.details.sections.description')} value={viewingJob?.description} />
+              <DetailSection title={t('jobPosts.details.sections.requirements')} values={viewingJob?.requirements} />
+              <DetailSection title={t('jobPosts.details.sections.responsibilities')} values={viewingJob?.responsibilities} />
+              <DetailSection title={t('jobPosts.details.sections.skills')} values={viewingJob?.skills} />
             </ScrollView>
             <View style={styles.detailsActions}>
               <TouchableOpacity style={styles.detailsSecondaryButton} onPress={() => setViewingJob(null)}>
-                <Text style={styles.detailsSecondaryText}>Close</Text>
+                <Text style={styles.detailsSecondaryText}>{t('jobPosts.card.close')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.detailsPrimaryButton}
@@ -442,7 +452,7 @@ export default function EmployerJobPosts({
                 }}
               >
                 <Ionicons name="create-outline" size={16} color={tokens.colors.surface} />
-                <Text style={styles.detailsPrimaryText}>Edit details</Text>
+                <Text style={styles.detailsPrimaryText}>{t('jobPosts.details.editButton')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -453,14 +463,14 @@ export default function EmployerJobPosts({
         <View style={styles.balanceBackdrop}>
           <View style={styles.balanceCard}>
             <View style={styles.balanceIcon}><Text style={styles.balanceIconText}>!</Text></View>
-            <Text style={styles.balanceTitle}>Insufficient balance</Text>
+            <Text style={styles.balanceTitle}>{t('jobPosts.balanceModal.title')}</Text>
             <Text style={styles.balanceText}>{balanceErrorMessage}</Text>
             <View style={styles.balanceActions}>
               <TouchableOpacity style={styles.balanceSecondary} onPress={() => setBalanceErrorMessage('')}>
-                <Text style={styles.balanceSecondaryText}>Not now</Text>
+                <Text style={styles.balanceSecondaryText}>{t('jobPosts.balanceModal.notNow')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.balancePrimary} onPress={() => { setBalanceErrorMessage(''); onOpenWallet?.(); }}>
-                <Text style={styles.balancePrimaryText}>Top up wallet</Text>
+                <Text style={styles.balancePrimaryText}>{t('jobPosts.balanceModal.topUpWallet')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -476,12 +486,13 @@ export default function EmployerJobPosts({
 }
 
 function DetailRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string }) {
+  const { t } = useTranslation('employer');
   return (
     <View style={styles.detailRow}>
       <View style={styles.detailIcon}><Ionicons name={icon} size={17} color={tokens.colors.brand} /></View>
       <View style={styles.detailCopy}>
         <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue}>{value || 'Not specified'}</Text>
+        <Text style={styles.detailValue}>{value || t('jobPosts.details.notSpecified')}</Text>
       </View>
     </View>
   );

@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
+import { useTranslation } from "react-i18next";
 import { toast } from '../../lib/toast';
 import { useAuth } from '../../hooks/useAuth';
 import { mapNotificationRecord, type FeedNotification, type NotificationFeedType } from '../../utils/notificationFeed';
 import { useNotifications } from '../../contexts/NotificationContext';
 
 export default function NotificationsPage() {
+  const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const { user } = useAuth();
   const prefersReducedMotion = useReducedMotion();
@@ -37,26 +39,26 @@ export default function NotificationsPage() {
       await notificationState.setRead(notificationId, true);
     } catch (err) {
       console.warn('Failed to mark read', err);
-      toast.error('Failed to mark as read');
+      toast.error(t("notifications.toast.markReadFailed"));
     }
   };
 
   const markAll = async () => {
     try {
       await notificationState.markAllRead();
-      toast.success('All notifications marked as read');
+      toast.success(t("notifications.toast.markAllReadSuccess"));
     } catch (err: any) {
-      toast.error(err?.message || 'Failed to mark all as read');
+      toast.error(err?.message || t("notifications.toast.markAllReadFailed"));
     }
   };
 
   const removeNotification = async (id: string) => {
     try {
       await notificationState.remove(id);
-      toast.success('Notification removed');
+      toast.success(t("notifications.toast.removeSuccess"));
     } catch (err) {
       console.warn('Failed to remove notification', err);
-      toast.error('Failed to remove notification');
+      toast.error(t("notifications.toast.removeFailed"));
     }
   };
 
@@ -72,7 +74,7 @@ export default function NotificationsPage() {
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
-            All
+            {t("notifications.tabs.all")}
           </button>
           <button
             onClick={() => setFilterType('application')}
@@ -83,7 +85,7 @@ export default function NotificationsPage() {
             }`}
           >
             <CheckCircle className="w-4 h-4" />
-            Applications
+            {t("notifications.tabs.applications")}
           </button>
           <button
             onClick={() => setFilterType('message')}
@@ -94,7 +96,7 @@ export default function NotificationsPage() {
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            Messages
+            {t("notifications.tabs.messages")}
           </button>
           <button
             onClick={() => setFilterType('payment')}
@@ -105,7 +107,7 @@ export default function NotificationsPage() {
             }`}
           >
             <span className="text-[16px] leading-none font-semibold">₱</span>
-            Payments
+            {t("notifications.tabs.payments")}
           </button>
           <button
             onClick={() => setFilterType('update')}
@@ -116,7 +118,7 @@ export default function NotificationsPage() {
             }`}
           >
             <Bell className="w-4 h-4" />
-            Updates
+            {t("notifications.tabs.updates")}
           </button>
         </div>
 
@@ -125,23 +127,23 @@ export default function NotificationsPage() {
             onClick={markAll}
             className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-blue-600 transition-colors hover:text-blue-700"
           >
-            Mark all as read
+            {t("notifications.actions.markAllRead")}
           </button>
           <button
             onClick={() => void notificationState.refresh()}
             className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-700"
           >
-            Refresh
+            {t("notifications.actions.refresh")}
           </button>
         </div>
       </div>
 
-      {loading && <div className="bg-white rounded-xl p-6 shadow-sm text-gray-600">Loading...</div>}
+      {loading && <div className="bg-white rounded-xl p-6 shadow-sm text-gray-600">{t("notifications.loading")}</div>}
       {error && <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-red-700">{error}</div>}
 
       <div className="space-y-4">
         {notifications.length === 0 && !loading && (
-          <div className="bg-white rounded-xl p-6 shadow-sm text-center text-gray-600">No notifications.</div>
+          <div className="bg-white rounded-xl p-6 shadow-sm text-center text-gray-600">{t("notifications.emptyState")}</div>
         )}
 
         {notifications
@@ -188,7 +190,7 @@ export default function NotificationsPage() {
                 <button
                   onClick={() => removeNotification(n.id)}
                   className="text-gray-400 hover:text-red-600 transition-colors"
-                  title="Remove notification"
+                  title={t("notifications.actions.removeNotification")}
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -199,20 +201,20 @@ export default function NotificationsPage() {
                   >
                     {n.type === 'application'
                       ? isEmployerView
-                        ? 'View Pipeline'
-                        : 'View Applications'
+                        ? t("notifications.viewAction.pipeline")
+                        : t("notifications.viewAction.applications")
                       : n.type === 'message'
-                      ? 'View Messages'
+                      ? t("notifications.viewAction.messages")
                       : n.type === 'payment'
-                      ? 'View Wallet'
-                      : 'Open'}
+                      ? t("notifications.viewAction.wallet")
+                      : t("notifications.viewAction.open")}
                   </button>
                   {!n.read && (
                     <button
                       onClick={() => markRead(n.id)}
                       className="text-sm text-gray-600 hover:text-gray-700"
                     >
-                      Mark read
+                      {t("notifications.actions.markRead")}
                     </button>
                   )}
                 </div>

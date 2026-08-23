@@ -1,0 +1,582 @@
+{
+  "gate": {
+    "toast": {
+      "accessDenied": "Wala kang access sa admin section na ito."
+    }
+  },
+  "dashboard": {
+    "badge": "Operasyon ng Platform",
+    "header": {
+      "title": "Lahat ng kailangan ng pansin, sa iisang lugar",
+      "description": "Suriin ang mga pag-apruba ng account, aktibidad sa platform, trabaho, at mga nakumpletong payout nang hindi kinakailangang gamitin pa ang detalyadong mga tool ng admin.",
+      "reportsLink": "Tingnan ang mga ulat ng platform"
+    },
+    "error": {
+      "title": "Hindi na-load ang datos ng dashboard",
+      "retry": "Subukan Muli"
+    },
+    "pendingBanner": {
+      "title": "May mga item na kailangan ng iyong pagsusuri",
+      "reviewAccounts": "Suriin ang mga account",
+      "reviewPayouts": "Suriin ang mga payout",
+      "reviewSupport": "Suriin ang suporta"
+    },
+    "pendingSummary": "{{pendingUsers}} pending na user, {{pendingPayouts}} kahilingan sa payout, at {{openSupportTickets}} bukas na support ticket.",
+    "summary": {
+      "title": "Buod ng Platform",
+      "subtitle": "Kasalukuyang kabuuan mula sa mga serbisyo ng administrasyon."
+    },
+    "metrics": {
+      "totalJobs": {
+        "label": "Kabuuang Trabaho",
+        "detail": "{{count}} available ngayon"
+      },
+      "applications": {
+        "label": "Mga Aplikasyon",
+        "detail": "Sa lahat ng job posting"
+      },
+      "totalUsers": {
+        "label": "Mga User ng Platform",
+        "detail_one": "{{count}} aktibong account",
+        "detail_other": "{{count}} aktibong account"
+      },
+      "completedValue": {
+        "label": "Nakumpletong Halaga",
+        "detail_one": "{{count}} nakumpletong payout",
+        "detail_other": "{{count}} nakumpletong payout"
+      },
+      "loading": "Naglo-load ng kasalukuyang datos…"
+    },
+    "quickActions": {
+      "title": "Mabilisang Aksyon",
+      "subtitle": "Buksan ang mga nakalaang tool para sa detalyadong administrasyon.",
+      "manageUsers": {
+        "label": "Pamahalaan ang mga user",
+        "description": "Suriin ang access, tungkulin, at status ng account"
+      },
+      "monitorJobs": {
+        "label": "I-monitor ang mga trabaho",
+        "description": "Suriin ang aktibo at na-report na job post"
+      },
+      "openReports": {
+        "label": "Buksan ang mga ulat",
+        "description": "Suriin ang mga ulat ng platform at operasyon"
+      },
+      "reviewPayouts": {
+        "label": "Suriin ang mga payout",
+        "description": "Aprubahan, tanggihan, at kumpletuhin ang mga kahilingan sa payout"
+      }
+    },
+    "recentJobs": {
+      "title": "Mga Kamakailang Trabaho",
+      "subtitle": "Pinakabagong mga job post sa buong platform.",
+      "viewAll": "Tingnan Lahat",
+      "loading": "Naglo-load ng mga kamakailang trabaho…",
+      "empty": "Wala pang available na job post.",
+      "unassignedEmployer": "Walang naka-assign na employer",
+      "locationNotProvided": "Walang ibinigay na lokasyon",
+      "statusUnknown": "Hindi Alam"
+    },
+    "recentPayouts": {
+      "title": "Mga Kamakailang Nakumpletong Payout",
+      "subtitle": "Pinakabagong nakumpletong aktibidad sa wallet.",
+      "viewWallet": "Tingnan ang Wallet",
+      "loading": "Naglo-load ng aktibidad ng payout…",
+      "empty": "Wala pang available na nakumpletong payout.",
+      "platformUser": "User ng Platform"
+    }
+  },
+  "userManagement": {
+    "stats": {
+      "totalAccounts": {
+        "label": "Kabuuang Account",
+        "detail": "{{count}} sumali ngayong linggo"
+      },
+      "administrators": {
+        "label": "Mga Administrator",
+        "detail": "Mga admin at superadmin"
+      },
+      "activeAccounts": {
+        "label": "Mga Aktibong Account",
+        "detail": "Kasalukuyang naka-enable"
+      },
+      "pendingReview": {
+        "label": "Naghihintay ng Review",
+        "detail": "Naghihintay ng approval"
+      }
+    },
+    "manage": {
+      "title": "Pamahalaan ang mga account",
+      "subtitle": "Suriin ang mga user, administrator, tungkulin, at access ng account.",
+      "addAccount": "Magdagdag ng account",
+      "searchAriaLabel": "Maghanap ng user",
+      "searchPlaceholder": "Maghanap ng user...",
+      "roleFilterLabel": "I-filter ang mga account ayon sa tungkulin",
+      "roleFilterOptions": {
+        "all": "Lahat ng tungkulin",
+        "privileged": "Mga Administrator",
+        "work": "Mga Manggagawa",
+        "hire": "Mga Employer",
+        "both": "Manggagawa at employer"
+      }
+    },
+    "roles": {
+      "superadmin": "Superadmin",
+      "admin": "Admin",
+      "employer": "Employer",
+      "both": "Pareho",
+      "worker": "Manggagawa"
+    },
+    "statuses": {
+      "active": "Aktibo",
+      "pending": "Nakabinbin",
+      "disabled": "Naka-disable"
+    },
+    "mobileList": {
+      "loading": "Naglo-load ng mga user…",
+      "empty": "Walang nahanap na user.",
+      "roleLabel": "Tungkulin",
+      "joinedLabel": "Sumali",
+      "view": "Tingnan",
+      "edit": "I-edit",
+      "restricted": "Restricted",
+      "delete": "Tanggalin ang user"
+    },
+    "table": {
+      "headers": {
+        "user": "User",
+        "role": "Tungkulin",
+        "status": "Status",
+        "joined": "Sumali",
+        "actions": "Mga Aksyon"
+      },
+      "loading": "Naglo-load ng mga user...",
+      "empty": "Walang nahanap na user para sa napiling filter.",
+      "openActionsAriaLabel": "Buksan ang mga aksyon ng user",
+      "menu": {
+        "viewProfile": "Tingnan ang Profile",
+        "editUser": "I-edit ang User",
+        "messageUser": "Mensahean ang User",
+        "approveUser": "Aprubahan ang User",
+        "activateUser": "I-activate ang User",
+        "suspendUser": "I-suspend ang User",
+        "deleteUser": "Tanggalin ang User"
+      },
+      "pagination": {
+        "showing": "Ipinapakita ang {{start}}-{{end}} ng {{total}}",
+        "previous": "Nakaraan",
+        "next": "Susunod"
+      }
+    },
+    "details": {
+      "title": "Detalye ng User",
+      "subtitle": "Suriin ang impormasyon at access ng account.",
+      "closeAriaLabel": "Isara",
+      "statusLabel": "Status",
+      "roleLabel": "Tungkulin",
+      "phoneLabel": "Telepono",
+      "joinedLabel": "Sumali",
+      "close": "Isara",
+      "activate": "I-activate",
+      "suspend": "I-suspend",
+      "verification": {
+        "title": "Mga verification document",
+        "identityLabel": "Government ID",
+        "addressLabel": "Patunay ng Address",
+        "statusPending": "Nakabinbin",
+        "statusInReview": "Nire-review",
+        "statusComplete": "Kumpleto",
+        "statusRejected": "Tinanggihan",
+        "viewDocument": "Tingnan ang dokumento",
+        "reasonPrefix": "Dahilan: {{reason}}",
+        "approve": "Aprubahan",
+        "reject": "Tanggihan"
+      }
+    },
+    "deleteDialog": {
+      "title": "Tanggalin ang user",
+      "description": "Tanggalin si {{name}}? Ia-anonymize ang kanilang account at mawawalan sila ng access. Hindi matatanggal ang mga account na may aktibong balanse, payout, trabaho, o aplikasyon.",
+      "fallbackName": "user na ito",
+      "confirmLabel": "Tanggalin ang user"
+    },
+    "rejectDialog": {
+      "title": "Tanggihan ang verification document",
+      "description": "Sabihin sa user kung ano ang kailangang itama bago sila mag-upload ng kapalit.",
+      "reasonLabel": "Dahilan ng pagtanggi",
+      "reasonPlaceholder": "Halimbawa: Malabo ang dokumento at hindi mabasa ang pangalan.",
+      "cancel": "Kanselahin",
+      "reject": "Tanggihan ang dokumento",
+      "rejecting": "Tinatanggihan…"
+    },
+    "form": {
+      "titleCreate": "Magdagdag ng account",
+      "titleEdit": "I-edit ang user",
+      "descriptionCreate": "Gumawa ng aktibong account na may pansamantalang password.",
+      "descriptionEdit": "Hindi mababago ng mga administrator ang email address.",
+      "firstNameLabel": "Pangalan",
+      "lastNameLabel": "Apelyido",
+      "emailLabel": "Email",
+      "passwordLabel": "Pansamantalang password",
+      "passwordHint": "Hindi bababa sa 8 karakter na may malaking titik, maliit na titik, numero, at espesyal na karakter. Kailangang palitan ito ng user sa unang pag-sign in.",
+      "roleLabel": "Tungkulin",
+      "roleOptions": {
+        "worker": "Manggagawa",
+        "employer": "Employer",
+        "both": "Manggagawa at employer",
+        "admin": "Admin",
+        "superadmin": "Superadmin"
+      },
+      "statusLabel": "Status",
+      "statusOptions": {
+        "active": "Aktibo",
+        "pending": "Nakabinbin",
+        "disabled": "Naka-disable"
+      },
+      "cancel": "Kanselahin",
+      "save": "I-save ang mga pagbabago",
+      "saving": "Sine-save…",
+      "create": "Gumawa ng account"
+    },
+    "toast": {
+      "verificationApproved": "Naaprubahan ang verification document.",
+      "verificationRejected": "Tinanggihan ang verification document.",
+      "verificationReviewFailed": "Nabigong suriin ang verification document.",
+      "userUpdated": "Matagumpay na na-update ang user.",
+      "accountCreated": "Nagawa ang account. Kailangang palitan ng user ang pansamantalang password sa unang pag-sign in.",
+      "saveFailed": "Hindi ma-save ang user.",
+      "userDeleted": "Matagumpay na natanggal si {{name}}.",
+      "deleteFailed": "Hindi matanggal ang user na ito."
+    },
+    "formErrors": {
+      "firstNameRequired": "Kailangan ang pangalan.",
+      "lastNameRequired": "Kailangan ang apelyido.",
+      "emailInvalid": "Maglagay ng wastong email address.",
+      "roleRestricted": "Isang superadmin lamang ang maaaring gumawa ng administrator."
+    }
+  },
+  "supportTickets": {
+    "header": {
+      "title": "Mga Support Ticket",
+      "subtitle": "Suriin ang mga ticket queue, i-update ang status, at sumagot nang direkta mula sa admin console."
+    },
+    "filters": {
+      "searchPlaceholder": "Maghanap ng paksa, user, o email",
+      "statusAll": "Lahat ng status"
+    },
+    "statuses": {
+      "open": "Bukas",
+      "inProgress": "Isinasagawa",
+      "waitingUser": "Naghihintay sa user",
+      "resolved": "Naresolba",
+      "closed": "Sarado"
+    },
+    "priorities": {
+      "low": "Mababa",
+      "medium": "Katamtaman",
+      "high": "Mataas",
+      "urgent": "Agarang Pansin"
+    },
+    "list": {
+      "loading": "Naglo-load ng mga ticket...",
+      "empty": "Walang nahanap na support ticket.",
+      "updatedAt": "Na-update {{date}}"
+    },
+    "detail": {
+      "emptyState": "Pumili ng ticket para suriin ang thread.",
+      "openedBy": "Binuksan {{date}} ni {{name}}",
+      "statusLabel": "Status",
+      "priorityLabel": "Priyoridad",
+      "saveButton": "I-save ang Ticket",
+      "savingButton": "Sine-save...",
+      "internalNoteLabel": "Internal na Note",
+      "internalNotePlaceholder": "Nakikita lamang ng mga administrator",
+      "internalNotesTitle": "Mga internal na note",
+      "roleAdmin": "Admin",
+      "roleUser": "User",
+      "replyPlaceholder": "Sumagot sa user...",
+      "sendReply": "Ipadala ang Sagot",
+      "sendingReply": "Ipinapadala..."
+    },
+    "toast": {
+      "loadTicketsFailed": "Nabigong i-load ang mga support ticket.",
+      "loadDetailsFailed": "Nabigong i-load ang detalye ng ticket.",
+      "ticketUpdated": "Na-update ang support ticket.",
+      "updateFailed": "Nabigong i-update ang support ticket.",
+      "replySent": "Naipadala ang sagot.",
+      "replyFailed": "Nabigong ipadala ang sagot."
+    }
+  },
+  "signIn": {
+    "eyebrow": "MicroJobs control center",
+    "title": "Admin Sign In",
+    "subtitle": "Restricted na access para sa mga platform administrator",
+    "emailLabel": "Email",
+    "emailPlaceholder": "Ilagay ang iyong email",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Ilagay ang iyong password",
+    "hidePassword": "Itago ang password",
+    "showPassword": "Ipakita ang password",
+    "submit": "Mag-sign In bilang Admin",
+    "submitLoading": "Nagsi-sign in...",
+    "toast": {
+      "secureConnectionRequired": "Kailangan ng secure na koneksyon. Gamitin ang HTTPS.",
+      "fillAllFields": "Pakisagutan ang lahat ng field",
+      "mfaCodePrompt": "Ilagay ang code mula sa iyong authenticator app para magpatuloy.",
+      "adminAccessRequired": "Kailangan ng admin access. Gumamit ng admin account.",
+      "welcomeBack": "Maligayang pagbabalik{{name}}!",
+      "signInFailed": "Hindi matagumpay ang pag-sign in",
+      "mfaVerificationFailed": "Hindi matagumpay ang MFA verification"
+    }
+  },
+  "eWallet": {
+    "cards": {
+      "completedPayouts": "Mga Nakumpletong Payout",
+      "completedTotal": "Nakumpletong Kabuuan"
+    },
+    "viewAction": "Tingnan",
+    "viaEscrow": "sa pamamagitan ng escrow",
+    "escrowSystem": "Escrow (System)",
+    "autoPayEscrow": "Auto-Pay (Escrow)",
+    "receipt": {
+      "title": "Resibo ng Transaksyon",
+      "amount": "Halaga",
+      "fields": {
+        "transactionId": "Transaction ID",
+        "referenceNo": "Reference No.",
+        "provider": "Provider",
+        "providerReference": "Provider Reference",
+        "label": "Label",
+        "receiver": "Tatanggap",
+        "methodChannel": "Method / Channel",
+        "institution": "Institusyon",
+        "accountName": "Pangalan ng Account",
+        "accountNo": "Numero ng Account",
+        "title": "Pamagat",
+        "status": "Status",
+        "type": "Uri",
+        "amount": "Halaga",
+        "reference": "Reference"
+      },
+      "paidBySender": "Binayaran Ni (Nagpadala)",
+      "employerViaEscrow": "Employer · sa pamamagitan ng escrow",
+      "escrowOrSystem": "Escrow / System",
+      "systemOrExternal": "System / External",
+      "paymentDestination": "Destinasyon ng Bayad",
+      "jobReference": "Sanggunian ng Trabaho",
+      "linkedTransaction": "Naka-link na Transaksyon"
+    },
+    "payouts": {
+      "subtitle": "Lahat ng payout transaction — kasama ang auto-pay mula sa nakumpletong trabaho at manual na kahilingan sa withdrawal.",
+      "loading": "Naglo-load ng mga payout…",
+      "empty": "Wala pang payout transaction.",
+      "count_one": "{{count}} payout transaction",
+      "count_other": "{{count}} payout transaction"
+    },
+    "logs": {
+      "title": "Mga Transaction Log",
+      "subtitle": "Lahat ng platform transaction — top-up, escrow, payout, refund. I-click ang <strong>Tingnan</strong> para sa kumpletong resibo.",
+      "loading": "Naglo-load ng mga transaksyon…",
+      "empty": "Walang transaksyong tumugma sa iyong filter.",
+      "searchPlaceholder": "Maghanap ng pangalan, email, ref…",
+      "showingCount": "Ipinapakita ang {{shown}} sa {{total}} na transaksyon",
+      "typeOptions": {
+        "all": "Lahat ng Uri",
+        "topUp": "Top-Up",
+        "escrow": "Escrow",
+        "payout": "Payout",
+        "refund": "Refund"
+      },
+      "statusOptions": {
+        "all": "Lahat ng Status",
+        "completed": "Nakumpleto",
+        "pending": "Nakabinbin",
+        "failed": "Nabigo",
+        "cancelled": "Kinansela"
+      }
+    },
+    "table": {
+      "type": "Uri",
+      "fromSender": "Mula Kay (Nagpadala)",
+      "toReceiver": "Kay (Tatanggap)",
+      "destinationChannel": "Destinasyon / Channel",
+      "amount": "Halaga",
+      "status": "Status",
+      "date": "Petsa",
+      "receipt": "Resibo"
+    }
+  },
+  "reports": {
+    "cards": {
+      "users": {
+        "title": "Ulat ng User",
+        "description": "Kumpletong listahan ng lahat ng rehistradong user kasama ang kanilang mga profile at aktibidad"
+      },
+      "jobs": {
+        "title": "Ulat ng Trabaho",
+        "description": "Lahat ng job posting kasama ang status, bilang ng aplikasyon, at performance metrics"
+      },
+      "transactions": {
+        "title": "Ulat ng Transaksyon",
+        "description": "Mga transaksyon sa e-wallet, bayad, at buod ng pananalapi"
+      },
+      "applications": {
+        "title": "Ulat ng mga Aplikasyon",
+        "description": "Bilang ng aplikasyon na buod ayon sa job posting at status ng trabaho"
+      }
+    },
+    "fallbackTitle": "Ulat",
+    "generate": {
+      "title": "Bumuo ng Ulat",
+      "subtitle": "Piliin ang uri ng ulat at hanay ng petsa para bumuo ng maidadownload na ulat",
+      "fromDate": "Mula sa Petsa",
+      "toDate": "Hanggang sa Petsa",
+      "exportFormat": "Export Format",
+      "submit": "Bumuo at I-download"
+    },
+    "recent": {
+      "title": "Mga Kamakailang Ulat",
+      "subtitle": "Mga naunang nabuong ulat na available i-download",
+      "empty": "Wala pang nabuong ulat.",
+      "generatedOn": "Nabuo noong {{date}}",
+      "statusCompleted": "nakumpleto"
+    },
+    "toast": {
+      "invalidRange": "Hindi maaaring mauna ang Hanggang sa Petsa kaysa sa Mula sa Petsa.",
+      "noData": "Walang available na datos para sa napiling filter.",
+      "generateSuccess": "Matagumpay na nabuo ang ulat."
+    }
+  },
+  "payoutRequests": {
+    "platformUser": "User ng Platform",
+    "cards": {
+      "awaitingReview": "Naghihintay ng review",
+      "approvedForPayment": "Aprubado para sa bayad",
+      "paidInView": "Nabayaran sa view na ito"
+    },
+    "title": "Mga Kahilingan sa Payout",
+    "subtitle": "Aprubahan ang mga kahilingan, itala ang nakumpletong transfer, o tanggihan at ibalik ang pondo.",
+    "filters": {
+      "statusLabel": "Status",
+      "statusOptions": {
+        "all": "Lahat ng status",
+        "requested": "Hiniling",
+        "approved": "Aprubado",
+        "paid": "Nabayaran",
+        "rejected": "Tinanggihan",
+        "cancelled": "Kinansela"
+      },
+      "searchLabel": "Maghanap",
+      "searchPlaceholder": "Pangalan, email, institusyon",
+      "refresh": "I-refresh"
+    },
+    "states": {
+      "loading": "Naglo-load ng mga kahilingan sa payout…",
+      "errorTitle": "Hindi na-load ang mga kahilingan sa payout",
+      "retry": "Subukan Muli",
+      "emptyTitle": "Walang nahanap na kahilingan sa payout",
+      "emptyDescription": "Subukang baguhin ang status o search filter."
+    },
+    "table": {
+      "caption": "Mga kahilingan sa payout at magagamit na review action",
+      "requester": "Humihiling",
+      "destination": "Destinasyon",
+      "amount": "Halaga",
+      "submitted": "Isinumite",
+      "status": "Status",
+      "actions": "Mga Aksyon",
+      "maskedAccount": "Naka-mask na account"
+    },
+    "actions": {
+      "approve": "Aprubahan",
+      "markPaid": "Markahan bilang bayad",
+      "reject": "Tanggihan"
+    },
+    "reviewDialog": {
+      "titlePaid": "Kumpirmahin ang nakumpletong payout",
+      "titleApproved": "Aprubahan ang payout",
+      "titleRejected": "Tanggihan ang payout",
+      "descriptionPaid": "Markahan lamang na bayad ang kahilingang ito pagkatapos kumpirmahin na nakumpleto na ang external transfer.",
+      "descriptionRejected": "Ibabalik ang naka-reserve na halaga sa balanse ng manggagawa.",
+      "descriptionApproved": "Ang pag-apruba ay maglilipat sa kahilingang ito sa queue na handa nang bayaran.",
+      "notesLabelRejected": "Dahilan ng pagtanggi",
+      "notesLabelOptional": "Review note (opsyonal)",
+      "notesHintRejected": "Ipapakita ang dahilang ito sa manggagawa.",
+      "notesHintOptional": "Ipapakita ang opsyonal na note na ito sa manggagawa.",
+      "cancel": "Kanselahin",
+      "saving": "Sine-save…",
+      "confirmPaid": "Kumpirmahin bilang bayad",
+      "rejectAndRefund": "Tanggihan at i-refund"
+    },
+    "toast": {
+      "loadFailed": "Nabigong i-load ang mga kahilingan sa payout.",
+      "rejectReasonRequired": "Ipaliwanag kung bakit tinatanggihan ang payout na ito.",
+      "markedPaid": "Namarkahan ang payout bilang bayad.",
+      "approved": "Naaprubahan ang payout.",
+      "rejectedRefunded": "Tinanggihan at na-refund ang payout.",
+      "updateFailed": "Nabigong i-update ang kahilingan sa payout."
+    }
+  },
+  "jobMonitoring": {
+    "title": "Mga Pinakabagong Job Post",
+    "subtitle": "Suriin ang mga bagong listahan at subaybayan ang kanilang kasalukuyang status.",
+    "table": {
+      "job": "Trabaho",
+      "category": "Kategorya",
+      "status": "Status",
+      "applicants": "Mga Aplikante",
+      "postedBy": "Pinost Ni",
+      "posted": "Pinost",
+      "salary": "Sahod",
+      "actions": "Mga Aksyon"
+    },
+    "loading": "Naglo-load ng mga job posting...",
+    "empty": "Walang available na job posting.",
+    "viewAction": "Tingnan",
+    "deleteAction": "Tanggalin",
+    "deletingAction": "Tinatanggal...",
+    "pagination": {
+      "showing": "Ipinapakita ang {{start}}-{{end}} ng {{total}}",
+      "previous": "Nakaraan",
+      "next": "Susunod"
+    },
+    "deleteDialog": {
+      "title": "Tanggalin ang trabaho",
+      "description": "Tanggalin ang “{{title}}”? Hindi na maibabalik ang aksyong ito.",
+      "fallbackTitle": "trabahong ito"
+    },
+    "toast": {
+      "deleteSuccess": "Matagumpay na natanggal ang trabaho.",
+      "deleteFailed": "Nabigong tanggalin ang trabaho."
+    }
+  },
+  "security": {
+    "cards": {
+      "activeUsers": "Mga Aktibong User",
+      "disabledAccounts": "Mga Naka-disable na Account",
+      "pendingApprovals": "Mga Naghihintay na Approval",
+      "adminAccounts": "Mga Admin Account"
+    },
+    "recentActivity": {
+      "title": "Kamakailang Aktibidad ng User",
+      "subtitle": "Mga bagong rehistrong user sa nakaraang ilang araw.",
+      "loading": "Naglo-load ng aktibidad...",
+      "empty": "Walang kamakailang aktibidad ng user."
+    }
+  },
+  "analytics": {
+    "overview": {
+      "cards": {
+        "payoutVolume": "Nakumpletong Halaga ng Payout",
+        "activeJobs": "Mga Aktibong Trabaho",
+        "totalUsers": "Kabuuang Users",
+        "conversionRate": "Conversion Rate"
+      },
+      "changeFromLastMonth": "{{sign}}{{value}}% mula noong nakaraang buwan",
+      "monthlyActivity": "Buwanang Aktibidad",
+      "payoutTrend": "Uso ng Nakumpletong Payout",
+      "jobsByCategory": "Mga Trabaho ayon sa Kategorya",
+      "userGrowth": "Paglago ng User",
+      "othersCategory": "Iba pa"
+    }
+  }
+}

@@ -1,9 +1,12 @@
 import { Shield, ShieldCheck, UserCog, UserMinus } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
+import { formatDate } from "../../lib/formatters";
 
 function AdminSecurityContent() {
+  const { t } = useTranslation("admin");
   const { isLoading, loadError, stats, users, recentActivity } = useAdminData();
   const prefersReducedMotion = useReducedMotion();
 
@@ -11,10 +14,10 @@ function AdminSecurityContent() {
   const recentUsers = recentActivity.filter((activity) => activity.type === "user");
 
   const securityCards = [
-    { icon: ShieldCheck, iconBg: "bg-[#E8F2FF]", iconColor: "text-[#1C4D8D]", label: "Active Users", value: isLoading ? "—" : stats.activeUsers },
-    { icon: UserMinus, iconBg: "bg-[#FEE2E2]", iconColor: "text-[#DC2626]", label: "Disabled Accounts", value: isLoading ? "—" : stats.disabledUsers },
-    { icon: Shield, iconBg: "bg-[#FEF3C7]", iconColor: "text-[#D97706]", label: "Pending Approvals", value: isLoading ? "—" : stats.pendingUsers },
-    { icon: UserCog, iconBg: "bg-[#EDE9FE]", iconColor: "text-[#7C3AED]", label: "Admin Accounts", value: isLoading ? "—" : adminCount },
+    { icon: ShieldCheck, iconBg: "bg-[#E8F2FF]", iconColor: "text-[#1C4D8D]", label: t("security.cards.activeUsers"), value: isLoading ? "—" : stats.activeUsers },
+    { icon: UserMinus, iconBg: "bg-[#FEE2E2]", iconColor: "text-[#DC2626]", label: t("security.cards.disabledAccounts"), value: isLoading ? "—" : stats.disabledUsers },
+    { icon: Shield, iconBg: "bg-[#FEF3C7]", iconColor: "text-[#D97706]", label: t("security.cards.pendingApprovals"), value: isLoading ? "—" : stats.pendingUsers },
+    { icon: UserCog, iconBg: "bg-[#EDE9FE]", iconColor: "text-[#7C3AED]", label: t("security.cards.adminAccounts"), value: isLoading ? "—" : adminCount },
   ];
 
   return (
@@ -46,17 +49,17 @@ function AdminSecurityContent() {
       <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-[18px] font-semibold text-[#111827]">Recent User Activity</h3>
-            <p className="text-[13px] text-[#6B7280] mt-1">New user registrations in the last few days.</p>
+            <h3 className="text-[18px] font-semibold text-[#111827]">{t("security.recentActivity.title")}</h3>
+            <p className="text-[13px] text-[#6B7280] mt-1">{t("security.recentActivity.subtitle")}</p>
           </div>
         </div>
 
         <div className="mt-6 space-y-3">
           {isLoading && (
-            <div className="text-[13px] text-[#9CA3AF]">Loading activity...</div>
+            <div className="text-[13px] text-[#9CA3AF]">{t("security.recentActivity.loading")}</div>
           )}
           {!isLoading && recentUsers.length === 0 && (
-            <div className="text-[13px] text-[#9CA3AF]">No recent user activity.</div>
+            <div className="text-[13px] text-[#9CA3AF]">{t("security.recentActivity.empty")}</div>
           )}
           {!isLoading &&
             recentUsers.map((activity, index) => (
@@ -71,7 +74,7 @@ function AdminSecurityContent() {
                   <p className="text-[14px] font-medium text-[#111827]">{activity.subtitle}</p>
                   <p className="text-[12px] text-[#6B7280]">{activity.title}</p>
                 </div>
-                <span className="text-[12px] text-[#9CA3AF]">{activity.date.toLocaleDateString()}</span>
+                <span className="text-[12px] text-[#9CA3AF]">{formatDate(activity.date)}</span>
               </motion.div>
             ))}
         </div>

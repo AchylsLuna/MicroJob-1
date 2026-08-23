@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Animated,
   BackHandler,
@@ -42,45 +43,6 @@ type Props = {
   onComplete: () => void;
 };
 
-const slides: OnboardingSlide[] = [
-  {
-    id: '1',
-    eyebrow: 'WORK MODE',
-    title: 'Find Work\nYou Love',
-    subtitle: 'Connect with thousands of employers looking for your skills and expertise.',
-    highlight: 'Verified jobs updated daily',
-    artwork: findWorkArtwork,
-    artworkLabel: 'Professional carrying a briefcase while stepping toward a new work opportunity',
-  },
-  {
-    id: '2',
-    eyebrow: 'HIRE MODE',
-    title: 'Hire Top\nTalent Fast',
-    subtitle: 'Post a job and get matched with verified professionals in minutes.',
-    highlight: 'Shortlist faster with stage tracking',
-    artwork: hireTalentArtwork,
-    artworkLabel: 'Hiring manager reviewing candidate profiles on a tablet',
-  },
-  {
-    id: '3',
-    eyebrow: 'TRUSTED PAYMENTS',
-    title: 'Safe & Verified\nTransactions',
-    subtitle: 'Every profile is verified so you can work and hire with full confidence.',
-    highlight: 'Wallet history stays fully auditable',
-    artwork: securePaymentArtwork,
-    artworkLabel: 'Professional completing a secure verified payment on a phone',
-  },
-  {
-    id: '4',
-    eyebrow: 'PROFILE GROWTH',
-    title: 'Grow Your\nCareer',
-    subtitle: 'Track applications, build your profile, and unlock your next opportunity.',
-    highlight: 'Interview timelines stay in one place',
-    artwork: careerGrowthArtwork,
-    artworkLabel: 'Professional climbing steps beside an upward career growth arrow',
-  },
-];
-
 export default function OnboardingCarouselScreen({
   activeIndex,
   onIndexChange,
@@ -88,10 +50,49 @@ export default function OnboardingCarouselScreen({
   onLogin,
   onComplete,
 }: Props) {
+  const { t } = useTranslation('auth');
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const metrics = getAuthMetrics(width, height, fontScale);
   const reducedMotion = useReducedMotion() === true;
+  const slides = useMemo<OnboardingSlide[]>(() => [
+    {
+      id: '1',
+      eyebrow: t('onboarding.slides.work.eyebrow'),
+      title: t('onboarding.slides.work.title'),
+      subtitle: t('onboarding.slides.work.subtitle'),
+      highlight: t('onboarding.slides.work.highlight'),
+      artwork: findWorkArtwork,
+      artworkLabel: t('onboarding.slides.work.artworkLabel'),
+    },
+    {
+      id: '2',
+      eyebrow: t('onboarding.slides.hire.eyebrow'),
+      title: t('onboarding.slides.hire.title'),
+      subtitle: t('onboarding.slides.hire.subtitle'),
+      highlight: t('onboarding.slides.hire.highlight'),
+      artwork: hireTalentArtwork,
+      artworkLabel: t('onboarding.slides.hire.artworkLabel'),
+    },
+    {
+      id: '3',
+      eyebrow: t('onboarding.slides.payments.eyebrow'),
+      title: t('onboarding.slides.payments.title'),
+      subtitle: t('onboarding.slides.payments.subtitle'),
+      highlight: t('onboarding.slides.payments.highlight'),
+      artwork: securePaymentArtwork,
+      artworkLabel: t('onboarding.slides.payments.artworkLabel'),
+    },
+    {
+      id: '4',
+      eyebrow: t('onboarding.slides.growth.eyebrow'),
+      title: t('onboarding.slides.growth.title'),
+      subtitle: t('onboarding.slides.growth.subtitle'),
+      highlight: t('onboarding.slides.growth.highlight'),
+      artwork: careerGrowthArtwork,
+      artworkLabel: t('onboarding.slides.growth.artworkLabel'),
+    },
+  ], [t]);
   const usableHeight = Math.max(480, height - insets.top - insets.bottom);
   const isCompactHeight = usableHeight < 700 || metrics.largeText;
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
@@ -143,7 +144,7 @@ export default function OnboardingCarouselScreen({
     const index = Math.max(0, Math.min(slides.length - 1, nextIndex));
     selectedIndexRef.current = index;
     flatListRef.current?.scrollToIndex({ index, animated: !reducedMotion });
-  }, [reducedMotion]);
+  }, [reducedMotion, slides]);
 
   const handlePrevious = useCallback(() => {
     if (selectedIndexRef.current <= 0) return false;
@@ -170,9 +171,9 @@ export default function OnboardingCarouselScreen({
             style={({ pressed }) => [styles.skipBtn, pressed && styles.blueControlPressed]}
             onPress={onSkip}
             accessibilityRole="button"
-            accessibilityLabel="Skip onboarding"
+            accessibilityLabel={t('onboarding.skipA11y')}
           >
-            <Text style={styles.skipText}>Skip</Text>
+            <Text style={styles.skipText}>{t('onboarding.skip')}</Text>
           </Pressable>
         </View>
       </View>
@@ -261,7 +262,7 @@ export default function OnboardingCarouselScreen({
       </View>
 
       <View style={[styles.footer, isCompactHeight && styles.footerCompact, { width: panelWidth }]}>
-        <View style={styles.dots} accessibilityLabel={`Onboarding slide ${activeIndex + 1} of ${slides.length}`} accessibilityLiveRegion="polite">
+        <View style={styles.dots} accessibilityLabel={t('onboarding.slideProgressA11y', { current: activeIndex + 1, total: slides.length })} accessibilityLiveRegion="polite">
           {slides.map((_, dotIndex) => {
             const dotInputRange = [(dotIndex - 1) * width, dotIndex * width, (dotIndex + 1) * width];
             const dotScaleX = reducedMotion ? (dotIndex === activeIndex ? 4 : 1) : scrollX.interpolate({ inputRange: dotInputRange, outputRange: [1, 4, 1], extrapolate: 'clamp' });
@@ -274,9 +275,9 @@ export default function OnboardingCarouselScreen({
           style={({ pressed }) => [styles.nextButton, isCompactHeight && styles.nextButtonCompact, pressed && styles.nextButtonPressed]}
           onPress={() => activeIndex < slides.length - 1 ? goToIndex(selectedIndexRef.current + 1) : onComplete()}
           accessibilityRole="button"
-          accessibilityLabel={activeIndex === slides.length - 1 ? 'Get started' : 'Continue to next onboarding step'}
+          accessibilityLabel={activeIndex === slides.length - 1 ? t('onboarding.getStartedA11y') : t('onboarding.continueA11y')}
         >
-          <Text style={styles.nextButtonText}>{activeIndex === slides.length - 1 ? 'Get Started' : 'Continue'}</Text>
+          <Text style={styles.nextButtonText}>{activeIndex === slides.length - 1 ? t('onboarding.getStarted') : t('onboarding.continueButton')}</Text>
           {activeIndex < slides.length - 1 ? <Feather name="arrow-right" size={18} color="#FFFFFF" style={styles.nextButtonIcon} /> : null}
         </Pressable>
 
@@ -284,10 +285,10 @@ export default function OnboardingCarouselScreen({
           style={({ pressed }) => [styles.loginRow, isCompactHeight && styles.loginRowCompact, pressed && styles.blueControlPressed]}
           onPress={onLogin}
           accessibilityRole="button"
-          accessibilityLabel="Log in to an existing account"
+          accessibilityLabel={t('onboarding.loginA11y')}
         >
-          <Text style={styles.loginText}>Already have an account?</Text>
-          <Text style={styles.loginLink}>Log In</Text>
+          <Text style={styles.loginText}>{t('onboarding.loginPrompt')}</Text>
+          <Text style={styles.loginLink}>{t('onboarding.loginLink')}</Text>
         </Pressable>
       </View>
 

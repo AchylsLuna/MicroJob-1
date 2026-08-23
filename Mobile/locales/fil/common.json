@@ -1,0 +1,26 @@
+{
+  "language": {
+    "label": "Wika",
+    "english": "English",
+    "filipino": "Filipino"
+  },
+  "confirmModal": {
+    "confirmLabel": "Kumpirmahin",
+    "cancelLabel": "Kanselahin"
+  },
+  "loading": "Naglo-load...",
+  "employerNav": {
+    "home": "Home",
+    "applicants": "Mga Aplikante",
+    "postJob": "Mag-post",
+    "messages": "Mga Mensahe",
+    "profile": "Profile"
+  },
+  "workerNav": {
+    "home": "Home",
+    "jobs": "Mga Trabaho",
+    "eWallet": "E-Wallet",
+    "messages": "Mga Mensahe",
+    "profile": "Profile"
+  }
+}

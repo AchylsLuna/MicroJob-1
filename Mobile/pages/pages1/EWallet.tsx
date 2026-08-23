@@ -20,6 +20,8 @@ import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSection, WalletSkeleton, WalletTransactionRow } from '../../components/wallet/WalletUI';
 import { WorkerQrRequestModal } from '../../components/wallet/WalletQrFlow';
+import { formatCurrency, formatDateTime } from '../../lib/formatters';
+import { useTranslation, type TFunction } from 'react-i18next';
 
 type EWalletProps = {
   activeTab?: string;
@@ -61,25 +63,11 @@ type PayoutRequest = {
   };
 };
 
-const currency = new Intl.NumberFormat('en-PH', {
-  style: 'currency',
-  currency: 'PHP',
-  maximumFractionDigits: 2,
-});
-
-const formatCurrency = (value: unknown) => currency.format(Number.isFinite(Number(value)) ? Number(value) : 0);
-
-const formatDate = (value?: string) => {
-  if (!value) return 'No date';
+const formatDate = (value: string | undefined, t: TFunction) => {
+  if (!value) return t('eWallet.common.noDate');
   const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return 'No date';
-  return parsed.toLocaleString('en-PH', {
-    month: 'short',
-    day: '2-digit',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  if (Number.isNaN(parsed.getTime())) return t('eWallet.common.noDate');
+  return formatDateTime(parsed, { month: 'short', day: '2-digit', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 };
 
 const normalizeAccountOptions = (value: unknown): Array<'worker' | 'employer'> => {
@@ -108,19 +96,19 @@ const getPayoutStatusStyle = (status: PayoutRequest['status']) => {
   }
 };
 
-const getTransactionLabel = (transaction: WalletTransaction) => {
+const getTransactionLabel = (transaction: WalletTransaction, t: TFunction) => {
   if (transaction.label) return transaction.label;
   switch (transaction.type) {
     case 'TOP_UP':
-      return 'Top-up';
+      return t('eWallet.transactions.type.topUp');
     case 'ESCROW':
-      return 'Escrow';
+      return t('eWallet.transactions.type.escrow');
     case 'PAYOUT':
-      return 'Payout';
+      return t('eWallet.transactions.type.payout');
     case 'REFUND':
-      return 'Refund';
+      return t('eWallet.transactions.type.refund');
     default:
-      return 'Transaction';
+      return t('eWallet.transactions.type.generic');
   }
 };
 
@@ -161,6 +149,7 @@ export default function EWallet({
     accountNumber: '',
   });
   const toast = useToast();
+  const { t } = useTranslation('worker');
 
   const hasWorkerWallet = accountOptions.includes('worker') || profileRole === 'worker' || profileRole === 'both';
   const isBothRole = profileRole === 'both' || (accountOptions.includes('worker') && accountOptions.includes('employer'));
@@ -181,18 +170,18 @@ export default function EWallet({
       const [profileResult, walletResult, payoutsResult, invoicesResult] = await Promise.all([
         apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to load wallet profile.'),
+        }, t('eWallet.apiFallback.loadProfileFailed')),
         apiRequest(`${API_URL}/payment/wallet?mode=worker`, {
           headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to load transactions.'),
+        }, t('eWallet.apiFallback.loadTransactionsFailed')),
         apiRequest(`${API_URL}/payment/payout-requests`, {
           headers: { Authorization: `Bearer ${token}` },
-        }, 'Failed to load payout requests.'),
-        apiRequest(`${API_URL}/payment/qr-requests?mode=worker`, { headers: { Authorization: `Bearer ${token}` } }, 'Failed to load invoices.'),
+        }, t('eWallet.apiFallback.loadPayoutsFailed')),
+        apiRequest(`${API_URL}/payment/qr-requests?mode=worker`, { headers: { Authorization: `Bearer ${token}` } }, t('eWallet.apiFallback.loadInvoicesFailed')),
       ]);
 
       const failedResult = [profileResult, walletResult, payoutsResult].find((result) => !result.ok);
-      if (failedResult) setWalletError(failedResult.message || 'Some wallet details could not be refreshed.');
+      if (failedResult) setWalletError(failedResult.message || t('eWallet.apiFallback.refreshFailed'));
 
       if (profileResult.ok) {
         const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
@@ -224,12 +213,12 @@ export default function EWallet({
       }
       if (invoicesResult.ok) setInvoices(asList<any>((asObject<any>(invoicesResult.data) || asObject<any>(invoicesResult.raw))?.requests || invoicesResult.raw, ['requests']));
     } catch (error: any) {
-      setWalletError(error?.message || 'Check your connection and try again.');
+      setWalletError(error?.message || t('eWallet.apiFallback.connectionFailed'));
     } finally {
       setIsRefreshingWallet(false);
       setHasLoadedWallet(true);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refreshWalletData();
@@ -242,21 +231,21 @@ export default function EWallet({
 
   const handleCreatePayout = async () => {
     if (!hasWorkerWallet) {
-      toast.error('Payout requests are only available from worker balances.');
+      toast.error(t('eWallet.toast.workerOnlyPayout'));
       return;
     }
 
     const amount = Number(payoutForm.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error('Enter a valid payout amount.');
+      toast.error(t('eWallet.toast.invalidAmount'));
       return;
     }
     if (amount > workerBalance) {
-      toast.error('Payout amount cannot exceed your worker balance.');
+      toast.error(t('eWallet.toast.amountExceedsBalance'));
       return;
     }
     if (!payoutForm.institutionName.trim() || !payoutForm.accountName.trim() || !payoutForm.accountNumber.trim()) {
-      toast.error('Complete the destination details before submitting your withdrawal.');
+      toast.error(t('eWallet.toast.incompleteDestination'));
       return;
     }
 
@@ -280,10 +269,10 @@ export default function EWallet({
             accountNumber: payoutForm.accountNumber.trim(),
           },
         }),
-      }, 'Failed to create withdrawal.');
+      }, t('eWallet.apiFallback.createPayoutFailed'));
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to create withdrawal.');
+        throw new Error(result.message || t('eWallet.apiFallback.createPayoutFailed'));
       }
 
       setPayoutForm({
@@ -295,10 +284,10 @@ export default function EWallet({
       });
       payoutIdempotencyKeyRef.current = null;
       setIsPayoutFormExpanded(false);
-      toast.success('Your withdrawal has been submitted for admin review.');
+      toast.success(t('eWallet.toast.payoutSubmitted'));
       await refreshWalletData();
     } catch (error: any) {
-      toast.error(error?.message || 'Unable to submit withdrawal.');
+      toast.error(error?.message || t('eWallet.apiFallback.submitPayoutFailed'));
     } finally {
       setIsSubmittingPayout(false);
     }
@@ -311,16 +300,16 @@ export default function EWallet({
       const result = await apiRequest(`${API_URL}/payment/payout-requests/${payoutRequestId}/cancel`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }, 'Failed to cancel withdrawal.');
+      }, t('eWallet.apiFallback.cancelWithdrawalFailed'));
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to cancel withdrawal.');
+        throw new Error(result.message || t('eWallet.apiFallback.cancelWithdrawalFailed'));
       }
 
-      toast.success('The amount was restored to your worker balance.');
+      toast.success(t('eWallet.toast.payoutCancelled'));
       await refreshWalletData();
     } catch (error: any) {
-      toast.error(error?.message || 'Unable to cancel withdrawal.');
+      toast.error(error?.message || t('eWallet.apiFallback.cancelPayoutFailed'));
     } finally {
       setCancellingPayoutId(null);
     }
@@ -333,19 +322,19 @@ export default function EWallet({
   const replaceInvoice = async (item: any) => {
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/payment/qr-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jobId: item?.preview?.job?.id, replace: true }) }, 'Failed to replace invoice.');
+      const result = await apiRequest(`${API_URL}/payment/qr-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jobId: item?.preview?.job?.id, replace: true }) }, t('eWallet.apiFallback.replaceInvoiceFailed'));
       if (!result.ok) throw new Error(result.message);
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       setSelectedInvoiceId(payload.requestId || null); setIsQrVisible(true);
       await refreshWalletData();
-    } catch (caught: any) { toast.error(caught?.message || 'Failed to replace invoice.'); }
+    } catch (caught: any) { toast.error(caught?.message || t('eWallet.apiFallback.replaceInvoiceFailed')); }
   };
   const toggleSection = (section: keyof typeof collapsedSections) => setCollapsedSections((current) => ({ ...current, [section]: !current[section] }));
 
   return (
     <View style={styles.container}>
       <TabTopNav
-        title="E-Wallet"
+        title={t('eWallet.headerTitle')}
         showNotifications
         onOpenNotifications={onOpenNotifications}
         notificationBadgeCount={notificationBadgeCount}
@@ -355,30 +344,30 @@ export default function EWallet({
         {!hasLoadedWallet && isRefreshingWallet ? <WalletSkeleton /> : <>
         <WalletError message={walletError} onRetry={() => void refreshWalletData()} />
         <WalletBalanceCard
-          label="Available to withdraw"
+          label={t('eWallet.balanceCard.label')}
           value={formatCurrency(workerBalance)}
-          secondary={isBothRole ? `Employer funds: ${formatCurrency(employerBalance)} (not withdrawable here)` : undefined}
-          note="Completed local-job earnings arrive here. Withdraw only your worker balance through a verified Philippine bank or mobile wallet."
+          secondary={isBothRole ? t('eWallet.balanceCard.employerSecondary', { amount: formatCurrency(employerBalance) }) : undefined}
+          note={t('eWallet.balanceCard.note')}
           refreshing={isRefreshingWallet}
           onRefresh={() => void refreshWalletData()}
-          actionLabel="Withdraw Funds"
+          actionLabel={t('eWallet.balanceCard.withdrawAction')}
           actionIcon="arrow-down-outline"
           expanded={isPayoutFormExpanded}
           onAction={handleWithdrawPress}
           hidden={isBalanceHidden}
           onToggleHidden={() => setIsBalanceHidden((hidden) => !hidden)}
-          quickActionLabel="Request Invoice"
+          quickActionLabel={t('eWallet.balanceCard.requestInvoiceAction')}
           quickActionIcon="qr-code-outline"
           onQuickAction={() => { setSelectedInvoiceId(null); setIsQrVisible(true); }}
         />
         <WalletMetrics items={[
-          { label: 'Total credited', value: isBalanceHidden ? '•••' : formatCurrency(walletSummary.credited), icon: 'arrow-down-outline' },
-          { label: 'Pending', value: isBalanceHidden ? '•••' : formatCurrency(walletSummary.pending || pendingPayoutTotal), icon: 'time-outline' },
-          { label: 'Transactions', value: String(walletSummary.transactionCount), icon: 'receipt-outline' },
+          { label: t('eWallet.metrics.totalCredited'), value: isBalanceHidden ? '•••' : formatCurrency(walletSummary.credited), icon: 'arrow-down-outline' },
+          { label: t('eWallet.metrics.pending'), value: isBalanceHidden ? '•••' : formatCurrency(walletSummary.pending || pendingPayoutTotal), icon: 'time-outline' },
+          { label: t('eWallet.metrics.transactions'), value: String(walletSummary.transactionCount), icon: 'receipt-outline' },
         ]} />
 
-        <WalletSection title="Payment Invoices" subtitle="Secure job-payment requests delivered through chat and notifications." collapsible collapsed={collapsedSections.invoices} onToggle={() => toggleSection('invoices')}>
-          {invoices.length === 0 ? <WalletEmpty icon="qr-code-outline" title="No invoices yet" body="Request an invoice after you finish hired work that is still In Progress." /> : <View style={styles.listWrap}>{invoices.slice(0, 6).map((item) => { const preview = item.preview || {}; const active = String(preview.status) === 'active'; return <View key={preview.requestId} style={styles.listCard}><View style={styles.listHeader}><View style={styles.transactionTypeWrap}><Text style={styles.listTitle}>{preview.job?.title || 'Job payment'}</Text><Text style={styles.listSubtitle}>{formatCurrency(preview.totalAmount)} · {preview.status || 'unknown'}</Text></View></View><View style={styles.invoiceActions}><TouchableOpacity style={styles.invoiceAction} onPress={() => { setSelectedInvoiceId(preview.requestId); setIsQrVisible(true); }}><Text style={styles.invoiceActionText}>View QR</Text></TouchableOpacity>{onOpenInvoiceChat ? <TouchableOpacity style={styles.invoiceAction} onPress={() => onOpenInvoiceChat({ id: preview.employer?.id, name: preview.employer?.name })}><Text style={styles.invoiceActionText}>Open Chat</Text></TouchableOpacity> : null}<TouchableOpacity style={styles.invoiceAction} onPress={() => void replaceInvoice(item)}><Text style={styles.invoiceActionText}>Generate Replacement</Text></TouchableOpacity>{active ? <TouchableOpacity style={styles.invoiceAction} onPress={async () => { const token = await AsyncStorage.getItem('auth_token'); const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/cancel`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, 'Failed to cancel invoice.'); if (!result.ok) toast.error(result.message); await refreshWalletData(); }}><Text style={[styles.invoiceActionText, { color: tokens.colors.danger }]}>Cancel</Text></TouchableOpacity> : null}</View></View>; })}</View>}
+        <WalletSection title={t('eWallet.invoices.sectionTitle')} subtitle={t('eWallet.invoices.sectionSubtitle')} collapsible collapsed={collapsedSections.invoices} onToggle={() => toggleSection('invoices')}>
+          {invoices.length === 0 ? <WalletEmpty icon="qr-code-outline" title={t('eWallet.invoices.empty.title')} body={t('eWallet.invoices.empty.body')} /> : <View style={styles.listWrap}>{invoices.slice(0, 6).map((item) => { const preview = item.preview || {}; const active = String(preview.status) === 'active'; return <View key={preview.requestId} style={styles.listCard}><View style={styles.listHeader}><View style={styles.transactionTypeWrap}><Text style={styles.listTitle}>{preview.job?.title || t('eWallet.invoices.jobFallback')}</Text><Text style={styles.listSubtitle}>{formatCurrency(preview.totalAmount)} · {preview.status || t('eWallet.common.statusUnknown')}</Text></View></View><View style={styles.invoiceActions}><TouchableOpacity style={styles.invoiceAction} onPress={() => { setSelectedInvoiceId(preview.requestId); setIsQrVisible(true); }}><Text style={styles.invoiceActionText}>{t('eWallet.invoices.actions.viewQr')}</Text></TouchableOpacity>{onOpenInvoiceChat ? <TouchableOpacity style={styles.invoiceAction} onPress={() => onOpenInvoiceChat({ id: preview.employer?.id, name: preview.employer?.name })}><Text style={styles.invoiceActionText}>{t('eWallet.invoices.actions.openChat')}</Text></TouchableOpacity> : null}<TouchableOpacity style={styles.invoiceAction} onPress={() => void replaceInvoice(item)}><Text style={styles.invoiceActionText}>{t('eWallet.invoices.actions.generateReplacement')}</Text></TouchableOpacity>{active ? <TouchableOpacity style={styles.invoiceAction} onPress={async () => { const token = await AsyncStorage.getItem('auth_token'); const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/cancel`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, t('eWallet.apiFallback.cancelInvoiceFailed')); if (!result.ok) toast.error(result.message); await refreshWalletData(); }}><Text style={[styles.invoiceActionText, { color: tokens.colors.danger }]}>{t('eWallet.invoices.actions.cancel')}</Text></TouchableOpacity> : null}</View></View>; })}</View>}
         </WalletSection>
 
         {hasWorkerWallet && isPayoutFormExpanded ? (
@@ -386,10 +375,10 @@ export default function EWallet({
             style={styles.card}
             onLayout={(event) => setPayoutFormOffsetY(event.nativeEvent.layout.y)}
           >
-            <Text style={styles.cardTitle}>Withdraw Funds</Text>
-            <Text style={styles.cardSubtitle}>Available to withdraw: {formatCurrency(workerBalance)}</Text>
+            <Text style={styles.cardTitle}>{t('eWallet.payoutForm.title')}</Text>
+            <Text style={styles.cardSubtitle}>{t('eWallet.payoutForm.availableSubtitle', { amount: formatCurrency(workerBalance) })}</Text>
 
-            <Text style={styles.inputLabel}>Amount (PHP)</Text>
+            <Text style={styles.inputLabel}>{t('eWallet.payoutForm.amountLabel')}</Text>
             <TextInput
               style={styles.input}
               value={payoutForm.amount}
@@ -397,15 +386,15 @@ export default function EWallet({
               placeholder="1000"
               placeholderTextColor={tokens.colors.textSubtle}
               keyboardType="numeric"
-              accessibilityLabel="Withdrawal amount in Philippine pesos"
+              accessibilityLabel={t('eWallet.payoutForm.amountAccessibility')}
             />
 
-            <Text style={styles.inputLabel}>Method</Text>
+            <Text style={styles.inputLabel}>{t('eWallet.payoutForm.methodLabel')}</Text>
             <View style={styles.segmentRow}>
               {[
-                { value: 'bank_transfer', label: 'Bank' },
-                { value: 'gcash', label: 'GCash' },
-                { value: 'maya', label: 'Maya' },
+                { value: 'bank_transfer', label: t('eWallet.payoutForm.methodOptions.bank') },
+                { value: 'gcash', label: t('eWallet.payoutForm.methodOptions.gcash') },
+                { value: 'maya', label: t('eWallet.payoutForm.methodOptions.maya') },
               ].map((method) => {
                 const isActive = payoutForm.methodType === method.value;
                 return (
@@ -414,7 +403,7 @@ export default function EWallet({
                     style={[styles.segmentChip, isActive && styles.segmentChipActive]}
                     onPress={() => setPayoutForm((current) => ({ ...current, methodType: method.value }))}
                     accessibilityRole="radio"
-                    accessibilityLabel={`${method.label} withdrawal method`}
+                    accessibilityLabel={t('eWallet.payoutForm.methodAccessibility', { method: method.label })}
                     accessibilityState={{ selected: isActive }}
                   >
                     <Text style={[styles.segmentChipText, isActive && styles.segmentChipTextActive]}>{method.label}</Text>
@@ -423,34 +412,34 @@ export default function EWallet({
               })}
             </View>
 
-            <Text style={styles.inputLabel}>Institution</Text>
+            <Text style={styles.inputLabel}>{t('eWallet.payoutForm.institutionLabel')}</Text>
             <TextInput
               style={styles.input}
               value={payoutForm.institutionName}
               onChangeText={(institutionName) => setPayoutForm((current) => ({ ...current, institutionName }))}
-              placeholder="BDO, GCash, Maya"
+              placeholder={t('eWallet.payoutForm.institutionPlaceholder')}
               placeholderTextColor={tokens.colors.textSubtle}
-              accessibilityLabel="Financial institution"
+              accessibilityLabel={t('eWallet.payoutForm.institutionAccessibility')}
             />
 
-            <Text style={styles.inputLabel}>Account Name</Text>
+            <Text style={styles.inputLabel}>{t('eWallet.payoutForm.accountNameLabel')}</Text>
             <TextInput
               style={styles.input}
               value={payoutForm.accountName}
               onChangeText={(accountName) => setPayoutForm((current) => ({ ...current, accountName }))}
-              placeholder="Juan Dela Cruz"
+              placeholder={t('eWallet.payoutForm.accountNamePlaceholder')}
               placeholderTextColor={tokens.colors.textSubtle}
-              accessibilityLabel="Account holder name"
+              accessibilityLabel={t('eWallet.payoutForm.accountNameAccessibility')}
             />
 
-            <Text style={styles.inputLabel}>Account Number</Text>
+            <Text style={styles.inputLabel}>{t('eWallet.payoutForm.accountNumberLabel')}</Text>
             <TextInput
               style={styles.input}
               value={payoutForm.accountNumber}
               onChangeText={(accountNumber) => setPayoutForm((current) => ({ ...current, accountNumber }))}
-              placeholder="09171234567 or bank account number"
+              placeholder={t('eWallet.payoutForm.accountNumberPlaceholder')}
               placeholderTextColor={tokens.colors.textSubtle}
-              accessibilityLabel="Bank or mobile wallet account number"
+              accessibilityLabel={t('eWallet.payoutForm.accountNumberAccessibility')}
             />
 
             <TouchableOpacity
@@ -458,36 +447,36 @@ export default function EWallet({
               onPress={handleCreatePayout}
               disabled={isSubmittingPayout}
               accessibilityRole="button"
-              accessibilityLabel="Submit withdrawal request"
+              accessibilityLabel={t('eWallet.payoutForm.submitAccessibility')}
               accessibilityState={{ disabled: isSubmittingPayout, busy: isSubmittingPayout }}
             >
-              {isSubmittingPayout ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>Withdraw Funds</Text>}
+              {isSubmittingPayout ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.primaryButtonText}>{t('eWallet.payoutForm.submitButton')}</Text>}
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.noticeCard}>
             <Ionicons name="information-circle-outline" size={20} color={tokens.colors.brandAccent} />
-            <Text style={styles.noticeText}>This screen is for worker withdrawals only. Switch to employer mode to fund jobs from the employer wallet.</Text>
+            <Text style={styles.noticeText}>{t('eWallet.notice.workerOnly')}</Text>
           </View>
         )}
 
-        <WalletSection title="Recent Transactions" subtitle="Your latest worker-wallet activity." collapsible collapsed={collapsedSections.transactions} onToggle={() => toggleSection('transactions')}>
+        <WalletSection title={t('eWallet.transactions.sectionTitle')} subtitle={t('eWallet.transactions.sectionSubtitle')} collapsible collapsed={collapsedSections.transactions} onToggle={() => toggleSection('transactions')}>
           {transactions.length === 0 ? (
-            <WalletEmpty title="No transactions yet" body="Completed work, withdrawals, and refunds will appear here." />
+            <WalletEmpty title={t('eWallet.transactions.empty.title')} body={t('eWallet.transactions.empty.body')} />
           ) : (
-            transactions.slice(0, 15).map((transaction) => <WalletTransactionRow key={transaction._id} title={getTransactionLabel(transaction)} subtitle={transaction.reference || transaction.providerReference || transaction.type} amount={`${transaction.walletDirection === 'credit' ? '+' : transaction.walletDirection === 'debit' ? '-' : ''}${formatCurrency(transaction.amount)}`} date={formatDate(transaction.createdAt)} status={transaction.status || 'unknown'} direction={transaction.walletDirection || 'neutral'} />)
+            transactions.slice(0, 15).map((transaction) => <WalletTransactionRow key={transaction._id} title={getTransactionLabel(transaction, t)} subtitle={transaction.reference || transaction.providerReference || transaction.type} amount={`${transaction.walletDirection === 'credit' ? '+' : transaction.walletDirection === 'debit' ? '-' : ''}${formatCurrency(transaction.amount)}`} date={formatDate(transaction.createdAt, t)} status={transaction.status || t('eWallet.common.statusUnknown')} direction={transaction.walletDirection || 'neutral'} />)
           )}
         </WalletSection>
 
-        <WalletSection title="Withdrawal History" subtitle="Track review and payment status." collapsible collapsed={collapsedSections.withdrawals} onToggle={() => toggleSection('withdrawals')}>
-          {payoutRequests.length === 0 ? <WalletEmpty icon="cash-outline" title="No withdrawals yet" body="Submitted withdrawal requests will appear here." /> : <View style={styles.listWrap}>{payoutRequests.map((request) => {
+        <WalletSection title={t('eWallet.withdrawals.sectionTitle')} subtitle={t('eWallet.withdrawals.sectionSubtitle')} collapsible collapsed={collapsedSections.withdrawals} onToggle={() => toggleSection('withdrawals')}>
+          {payoutRequests.length === 0 ? <WalletEmpty icon="cash-outline" title={t('eWallet.withdrawals.empty.title')} body={t('eWallet.withdrawals.empty.body')} /> : <View style={styles.listWrap}>{payoutRequests.map((request) => {
             const statusStyle = getPayoutStatusStyle(request.status);
             return <View key={request._id} style={styles.listCard}>
-              <View style={styles.listHeader}><View style={styles.transactionTypeWrap}><Text style={styles.listTitle}>{formatCurrency(request.amount)}</Text><Text style={styles.listSubtitle} numberOfLines={1}>{request.destinationSnapshot.institutionName || 'Destination not set'} · {request.destinationSnapshot.accountName || 'Unknown account'}</Text></View><View style={[styles.badge, { backgroundColor: statusStyle.backgroundColor }]}><Text style={[styles.badgeText, { color: statusStyle.color }]}>{request.status}</Text></View></View>
-              <Text style={styles.metaText}>{request.destinationSnapshot.accountNumberMasked || request.destinationSnapshot.accountNumber || 'No account number'}</Text>
-              <Text style={styles.metaDate}>Requested {formatDate(request.createdAt)}{request.reviewedAt ? ` · Reviewed ${formatDate(request.reviewedAt)}` : ''}</Text>
+              <View style={styles.listHeader}><View style={styles.transactionTypeWrap}><Text style={styles.listTitle}>{formatCurrency(request.amount)}</Text><Text style={styles.listSubtitle} numberOfLines={1}>{request.destinationSnapshot.institutionName || t('eWallet.withdrawals.destinationFallback')} · {request.destinationSnapshot.accountName || t('eWallet.withdrawals.accountNameFallback')}</Text></View><View style={[styles.badge, { backgroundColor: statusStyle.backgroundColor }]}><Text style={[styles.badgeText, { color: statusStyle.color }]}>{request.status}</Text></View></View>
+              <Text style={styles.metaText}>{request.destinationSnapshot.accountNumberMasked || request.destinationSnapshot.accountNumber || t('eWallet.withdrawals.accountNumberFallback')}</Text>
+              <Text style={styles.metaDate}>{t('eWallet.withdrawals.requestedLabel', { date: formatDate(request.createdAt, t) })}{request.reviewedAt ? ` · ${t('eWallet.withdrawals.reviewedLabel', { date: formatDate(request.reviewedAt, t) })}` : ''}</Text>
               {request.reviewNotes ? <Text style={styles.reviewNotes}>{request.reviewNotes}</Text> : null}
-              {request.status === 'requested' ? <TouchableOpacity style={styles.secondaryButton} onPress={() => void handleCancelPayout(request._id)} disabled={cancellingPayoutId === request._id} accessibilityRole="button" accessibilityState={{ busy: cancellingPayoutId === request._id, disabled: cancellingPayoutId === request._id }}>{cancellingPayoutId === request._id ? <ActivityIndicator color={tokens.colors.danger} size="small" /> : <Text style={styles.secondaryButtonText}>Cancel Withdrawal</Text>}</TouchableOpacity> : null}
+              {request.status === 'requested' ? <TouchableOpacity style={styles.secondaryButton} onPress={() => void handleCancelPayout(request._id)} disabled={cancellingPayoutId === request._id} accessibilityRole="button" accessibilityState={{ busy: cancellingPayoutId === request._id, disabled: cancellingPayoutId === request._id }}>{cancellingPayoutId === request._id ? <ActivityIndicator color={tokens.colors.danger} size="small" /> : <Text style={styles.secondaryButtonText}>{t('eWallet.withdrawals.cancelButton')}</Text>}</TouchableOpacity> : null}
             </View>;
           })}</View>}
         </WalletSection>

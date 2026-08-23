@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { ArrowRight, Bell, ChevronDown, Ellipsis, MapPin, Menu, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useLanguage, type Language } from "../hooks/useLanguage";
 import { jobsAPI } from "../services/jobs";
 import { mapNotificationRecord, type FeedNotification } from "../utils/notificationFeed";
 import { useNotifications } from "../contexts/NotificationContext";
@@ -17,6 +19,8 @@ interface NavBarProps {
 }
 
 export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarProps) {
+  const { t } = useTranslation("common");
+  const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -111,8 +115,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const pageMeta: PageMeta = (() => {
     if (isExactPath(ROUTES.worker.dashboard, ROUTES.legacyDashboard.root)) {
       return {
-        title: "Home",
-        subtitle: localArea || "Set your local area",
+        title: t("navbar.pages.workerHome.title"),
+        subtitle: localArea || t("navbar.setLocalArea"),
         subtitleAction: `${ROUTES.worker.settings}?tab=personal`,
         homeContext: true,
       };
@@ -125,13 +129,13 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
         ROUTES.legacyShortcuts.findJobs,
       )
     ) {
-      return { title: "Find Jobs", search: { placeholder: "Search jobs...", mode: "query" as const } };
+      return { title: t("navbar.pages.findJobs.title"), search: { placeholder: t("navbar.pages.findJobs.searchPlaceholder"), mode: "query" as const } };
     }
 
     if (isPath(ROUTES.worker.appliedJobs, ROUTES.legacyDashboard.appliedJobs, ROUTES.legacyShortcuts.appliedJobs)) {
       return {
-        title: "Applied Jobs",
-        subtitle: `You have ${appliedJobsCount} job application${appliedJobsCount === 1 ? "" : "s"}.`,
+        title: t("navbar.pages.appliedJobs.title"),
+        subtitle: t("navbar.appliedJobsCount", { count: appliedJobsCount }),
       };
     }
 
@@ -148,7 +152,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
         ROUTES.legacyDashboard.doctor.messages,
       )
     ) {
-      return { title: "Messages" };
+      return { title: t("navbar.pages.messages.title") };
     }
 
     if (
@@ -162,13 +166,13 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
         ROUTES.legacyDashboard.doctor.support,
       )
     ) {
-      return { title: "Support", search: { placeholder: "Search help...", mode: "query" as const } };
+      return { title: t("navbar.pages.support.title"), search: { placeholder: t("navbar.pages.support.searchPlaceholder"), mode: "query" as const } };
     }
 
     if (isPath(ROUTES.worker.savedJobs, ROUTES.legacyDashboard.savedJobs, ROUTES.legacyShortcuts.savedJobs)) {
       return {
-        title: "Saved Jobs",
-        search: { placeholder: "Search saved jobs...", mode: "query" as const },
+        title: t("navbar.pages.savedJobs.title"),
+        search: { placeholder: t("navbar.pages.savedJobs.searchPlaceholder"), mode: "query" as const },
       };
     }
 
@@ -188,12 +192,12 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       )
     ) {
       if (isPath(ROUTES.admin.payouts, ROUTES.legacyDashboard.admin.payouts)) {
-        return { title: "Payout Requests" };
+        return { title: t("navbar.pages.payoutRequests.title") };
       }
       if (isPath(ROUTES.admin.support, ROUTES.legacyDashboard.admin.support)) {
-        return { title: "Support Tickets" };
+        return { title: t("navbar.pages.supportTickets.title") };
       }
-      return { title: "E-Wallet" };
+      return { title: t("navbar.pages.eWallet.title") };
     }
 
     if (
@@ -208,8 +212,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       )
     ) {
       return {
-        title: "Notifications",
-        subtitle: "Application updates, messages, and payments",
+        title: t("navbar.pages.notifications.title"),
+        subtitle: t("navbar.pages.notifications.subtitle"),
       };
     }
 
@@ -224,11 +228,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
         ROUTES.legacyDashboard.doctor.settings,
       )
     ) {
-      return { title: "Settings" };
+      return { title: t("navbar.pages.settings.title") };
     }
 
     if (isPath(ROUTES.worker.profile, ROUTES.legacyDashboard.profile, ROUTES.legacyShortcuts.profile)) {
-      return { title: "Profile" };
+      return { title: t("navbar.pages.profile.title") };
     }
 
     if (
@@ -242,11 +246,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       )
     ) {
       return {
-        title: "Home",
-        subtitle: localArea || "Set your local area",
+        title: t("navbar.pages.employerHome.title"),
+        subtitle: localArea || t("navbar.setLocalArea"),
         subtitleAction: `${ROUTES.employer.settings}?tab=personal`,
         homeContext: true,
-        action: { label: "Post a job", to: ROUTES.employer.postJob },
+        action: { label: t("navbar.pages.employerHome.action"), to: ROUTES.employer.postJob },
       };
     }
 
@@ -259,9 +263,9 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       )
     ) {
       return {
-        title: "Applications",
-        subtitle: "Review applicants and update hiring status.",
-        action: { label: "Manage jobs", to: ROUTES.employer.jobs },
+        title: t("navbar.pages.applications.title"),
+        subtitle: t("navbar.pages.applications.subtitle"),
+        action: { label: t("navbar.pages.applications.action"), to: ROUTES.employer.jobs },
       };
     }
 
@@ -274,9 +278,9 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       )
     ) {
       return {
-        title: "My Job Postings",
-        subtitle: "Create and manage your open positions",
-        action: { label: "Manage jobs", to: ROUTES.employer.jobs },
+        title: t("navbar.pages.postJob.title"),
+        subtitle: t("navbar.pages.postJob.subtitle"),
+        action: { label: t("navbar.pages.postJob.action"), to: ROUTES.employer.jobs },
       };
     }
 
@@ -289,57 +293,57 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       )
     ) {
       return {
-        title: "Jobs Management",
-        search: { placeholder: "Search jobs...", mode: "query" as const },
+        title: t("navbar.pages.jobsManagement.title"),
+        search: { placeholder: t("navbar.pages.jobsManagement.searchPlaceholder"), mode: "query" as const },
       };
     }
 
     if (isPath(ROUTES.admin.analytics, ROUTES.legacyDashboard.admin.analytics)) {
       return {
-        title: "Admin Analytics",
-        subtitle: "Understand category performance and recent platform activity",
+        title: t("navbar.pages.adminAnalytics.title"),
+        subtitle: t("navbar.pages.adminAnalytics.subtitle"),
       };
     }
 
     if (isPath(ROUTES.admin.eWallet, ROUTES.legacyDashboard.admin.eWallet)) {
       return {
-        title: "E-Wallet Monitoring",
-        subtitle: "Track payout volume, pending balances, and recent completions",
+        title: t("navbar.pages.adminEWallet.title"),
+        subtitle: t("navbar.pages.adminEWallet.subtitle"),
       };
     }
 
     if (isPath(ROUTES.admin.jobs, ROUTES.legacyDashboard.admin.jobs)) {
       return {
-        title: "Job Posting Monitoring",
-        subtitle: "Monitor job listings, statuses, and applicant activity",
+        title: t("navbar.pages.adminJobs.title"),
+        subtitle: t("navbar.pages.adminJobs.subtitle"),
       };
     }
 
     if (isPath(ROUTES.admin.userManagement, ROUTES.legacyDashboard.admin.userManagement)) {
       return {
-        title: "Users",
-        subtitle: "Manage platform users and their profiles",
+        title: t("navbar.pages.adminUsers.title"),
+        subtitle: t("navbar.pages.adminUsers.subtitle"),
       };
     }
 
     if (isPath(ROUTES.admin.reports, ROUTES.legacyDashboard.admin.reports)) {
       return {
-        title: "Reports",
-        subtitle: "Generate and download platform reports",
+        title: t("navbar.pages.adminReports.title"),
+        subtitle: t("navbar.pages.adminReports.subtitle"),
       };
     }
 
     if (isPath(ROUTES.admin.security, ROUTES.legacyDashboard.admin.security)) {
       return {
-        title: "Security & Access",
-        subtitle: "Manage user access, roles, and security status",
+        title: t("navbar.pages.adminSecurity.title"),
+        subtitle: t("navbar.pages.adminSecurity.subtitle"),
       };
     }
 
     if (isPath(ROUTES.admin.dashboard, ROUTES.legacyDashboard.admin.root)) {
       return {
-        title: "Admin Dashboard",
-        subtitle: "Overview of your job posting platform",
+        title: t("navbar.pages.adminDashboard.title"),
+        subtitle: t("navbar.pages.adminDashboard.subtitle"),
       };
     }
 
@@ -347,7 +351,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       startsWithPath(path, ROUTES.worker.jobDetailsPattern.replace("/:jobId", "")) ||
       startsWithPath(path, ROUTES.legacyDashboard.jobDetailsPattern.replace("/:jobId", ""))
     ) {
-      return { title: "Job Details" };
+      return { title: t("navbar.pages.jobDetails.title") };
     }
 
     if (
@@ -356,11 +360,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       startsWithPath(path, ROUTES.employer.root) ||
       startsWithPath(path, ROUTES.legacyDashboard.employer.root)
     ) {
-      return { title: "Employer" };
+      return { title: t("navbar.pages.employerFallback.title") };
     }
 
     if (startsWithPath(path, ROUTES.admin.root) || startsWithPath(path, ROUTES.legacyDashboard.admin.root)) {
-      return { title: "Admin" };
+      return { title: t("navbar.pages.adminFallback.title") };
     }
 
     return { title: "" };
@@ -424,16 +428,16 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     try {
       await notificationState.setRead(notification.id, true);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to mark notification.");
+      toast.error(error?.message || t("navbar.toast.markNotificationFailed"));
     }
   };
 
   const markAllAsRead = async () => {
     try {
       await notificationState.markAllRead();
-      toast.success("All notifications marked as read");
+      toast.success(t("navbar.toast.markAllReadSuccess"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to mark all as read.");
+      toast.error(error?.message || t("navbar.toast.markAllReadFailed"));
     }
   };
 
@@ -457,17 +461,17 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     navigate(targetRoute);
   };
 
-  const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || "User" : "User";
-  const accountLabel = user?.role === "admin" ? "Admin" : user?.accountType === "employer" ? "Employer" : "Worker";
+  const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || t("navbar.defaultUserName") : t("navbar.defaultUserName");
+  const accountLabel = user?.role === "admin" ? t("navbar.roleAdmin") : user?.accountType === "employer" ? t("navbar.roleEmployer") : t("navbar.roleWorker");
   const headerMoreNavigation = isWorkerView
     ? workerMoreNavigation
     : notificationAudience === "employer"
     ? [
-        { label: "Jobs management", path: ROUTES.employer.jobs },
-        { label: "Applications", path: ROUTES.employer.applications },
-        { label: "E-Wallet", path: ROUTES.employer.eWallet },
-        { label: "Support", path: ROUTES.employer.support },
-        { label: "Settings", path: ROUTES.employer.settings },
+        { label: t("navbar.moreNav.jobsManagement"), path: ROUTES.employer.jobs },
+        { label: t("navbar.moreNav.applications"), path: ROUTES.employer.applications },
+        { label: t("navbar.moreNav.eWallet"), path: ROUTES.employer.eWallet },
+        { label: t("navbar.moreNav.support"), path: ROUTES.employer.support },
+        { label: t("navbar.moreNav.settings"), path: ROUTES.employer.settings },
       ]
     : [];
 
@@ -494,7 +498,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
             type="button"
             onClick={onOpenNavigation}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 lg:hidden"
-            aria-label="Open navigation menu"
+            aria-label={t("navbar.openNavigationMenu")}
             aria-controls="mobile-dashboard-navigation"
             aria-expanded={isNavigationOpen}
           >
@@ -503,12 +507,12 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
           {isWorkerView && (
             <MicroJobsLogo
               onClick={() => navigate(ROUTES.worker.dashboard)}
-              ariaLabel="MicroJobs worker dashboard"
+              ariaLabel={t("navbar.workerDashboardAria")}
               className="hidden min-h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 lg:flex"
             />
           )}
           {isWorkerView && (
-            <nav className="hidden min-w-0 items-stretch gap-1 lg:flex" aria-label="Worker primary navigation">
+            <nav className="hidden min-w-0 items-stretch gap-1 lg:flex" aria-label={t("navbar.workerPrimaryNavigationAria")}>
               {workerPrimaryNavigation.map((item) => {
                 const active = isWorkerNavigationActive(item.path);
                 return (
@@ -541,7 +545,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                     type="button"
                     onClick={() => navigate(pageMeta.subtitleAction!)}
                     className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full bg-[#EAF1FB] px-3 text-left text-xs font-bold text-[#0F2954] transition hover:bg-[#DCE6F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
-                    aria-label={`${pageMeta.subtitle}. Open Philippine location settings`}
+                    aria-label={t("navbar.locationSettingsAria", { subtitle: pageMeta.subtitle })}
                   >
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-[#1C4D8D]" aria-hidden />
                     <span className="truncate">{pageMeta.subtitle}</span>
@@ -565,19 +569,19 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   setShowUserMenu(false);
                 }}
                 className={`inline-flex h-10 items-center gap-1.5 rounded-xl border px-2.5 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] xl:px-3 ${isHeaderMoreActive ? "border-[#B8CBE5] bg-[#EAF2FC] text-[#1C4D8D]" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
-                aria-label="Open more navigation"
+                aria-label={t("navbar.openMoreNavigation")}
                 aria-expanded={showMoreMenu}
                 aria-haspopup="menu"
               >
                 <Ellipsis className="h-5 w-5" aria-hidden="true" />
-                <span className="hidden xl:inline">More</span>
+                <span className="hidden xl:inline">{t("navbar.more")}</span>
                 <ChevronDown className={`hidden h-4 w-4 transition-transform xl:block ${showMoreMenu ? "rotate-180" : ""}`} aria-hidden="true" />
               </button>
               {showMoreMenu && (
-                <div role="menu" aria-label="More navigation" className={`absolute right-0 mt-2 w-64 overflow-hidden ${webUi.navbar.popover}`}>
+                <div role="menu" aria-label={t("navbar.moreNavigationMenuAria")} className={`absolute right-0 mt-2 w-64 overflow-hidden ${webUi.navbar.popover}`}>
                   <div className="border-b border-slate-100 px-4 py-3">
-                    <p className="text-sm font-bold text-slate-900">Quick links</p>
-                    <p className="mt-0.5 text-xs text-slate-500">Open another part of your workspace.</p>
+                    <p className="text-sm font-bold text-slate-900">{t("navbar.quickLinks")}</p>
+                    <p className="mt-0.5 text-xs text-slate-500">{t("navbar.quickLinksHint")}</p>
                   </div>
                   <div className="p-2">
                     {headerMoreNavigation.map((item) => {
@@ -634,8 +638,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                 setShowMoreMenu(false);
               }}
               className={`${webUi.navbar.iconButton} border-slate-200 bg-white shadow-sm`}
-              title="Notifications"
-              aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+              title={t("navbar.notifications")}
+              aria-label={unreadCount > 0 ? t("navbar.notificationsAriaLabelUnread", { count: unreadCount }) : t("navbar.notificationsAriaLabel")}
               aria-expanded={showNotifications}
               aria-haspopup="menu"
             >
@@ -648,17 +652,17 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
             </button>
 
             {showNotifications && (
-              <div role="menu" aria-label="Notifications" className={`fixed left-4 right-4 top-[4.5rem] z-50 max-h-[calc(100dvh-5rem)] overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[380px] ${webUi.navbar.popover}`}>
+              <div role="menu" aria-label={t("navbar.notifications")} className={`fixed left-4 right-4 top-[4.5rem] z-50 max-h-[calc(100dvh-5rem)] overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[380px] ${webUi.navbar.popover}`}>
                 <div className="flex items-center justify-between border-b border-slate-200 p-4">
                   <h3 className="font-semibold text-[16px] text-[#111827]">
-                    Notifications {unreadCount > 0 && `(${unreadCount})`}
+                    {t("navbar.notifications")} {unreadCount > 0 && `(${unreadCount})`}
                   </h3>
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
                       className="min-h-9 rounded-lg px-2 text-xs font-bold text-[#1C4D8D] hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
                     >
-                      Mark all as read
+                      {t("navbar.markAllAsRead")}
                     </button>
                   )}
                 </div>
@@ -666,7 +670,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                 <div className="max-h-[400px] overflow-y-auto">
                   {notificationsLoading ? (
                     <div className="p-6 text-center text-[14px] text-[#6B7280]">
-                      Loading notifications...
+                      {t("navbar.loadingNotifications")}
                     </div>
                   ) : notifications.length > 0 ? (
                     notifications.map((notification) => (
@@ -701,7 +705,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   ) : (
                     <div className="p-8 text-center">
                       <Bell className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
-                      <p className="text-[14px] text-[#6B7280]">No notifications</p>
+                      <p className="text-[14px] text-[#6B7280]">{t("navbar.noNotifications")}</p>
                     </div>
                   )}
                 </div>
@@ -719,7 +723,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                 setShowMoreMenu(false);
               }}
               className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent px-1.5 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] sm:pr-2"
-              aria-label="Open account menu"
+              aria-label={t("navbar.openAccountMenu")}
               aria-expanded={showUserMenu}
               aria-haspopup="menu"
             >
@@ -737,10 +741,10 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
             </button>
 
             {showUserMenu && (
-              <div role="menu" aria-label="Account" className={`fixed left-4 right-4 top-[4.5rem] z-50 overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[300px] ${webUi.navbar.popover}`}>
+              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-[4.5rem] z-50 overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[300px] ${webUi.navbar.popover}`}>
                 <div className="border-b border-slate-200 p-4">
                   <p className="text-lg font-bold text-slate-950">{displayName}</p>
-                  <p className="text-sm text-slate-500">{accountLabel} account</p>
+                  <p className="text-sm text-slate-500">{t("navbar.accountSuffix", { role: accountLabel })}</p>
                 </div>
 
                 {canSwitchAccount && (
@@ -749,7 +753,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                       onClick={() => handleSwitchTo(user?.accountType === "worker" ? "employer" : "worker")}
                       className="min-h-11 w-full rounded-xl bg-[#1C4D8D] px-4 py-3 text-sm font-bold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
                     >
-                      Switch to {user?.accountType === "worker" ? "Employer" : "Worker"}
+                      {t("navbar.switchTo", { role: user?.accountType === "worker" ? t("navbar.roleEmployer") : t("navbar.roleWorker") })}
                     </button>
                   </div>
                 )}
@@ -765,7 +769,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                       }}
                       className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D]"
                     >
-                      View profile
+                      {t("navbar.viewProfile")}
                     </button>
                   </div>
                 )}
@@ -781,15 +785,37 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                       }}
                       className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D]"
                     >
-                      Ratings &amp; reviews
+                      {t("navbar.ratingsAndReviews")}
                     </button>
                   </div>
                 ) : null}
 
                 <div className="p-4">
                   <button onClick={handleSignOut} className="min-h-11 w-full rounded-xl px-3 text-left font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700">
-                    Sign out
+                    {t("navbar.signOut")}
                   </button>
+                </div>
+
+                <div className="border-t border-slate-200 p-4">
+                  <label className="block text-xs font-semibold text-slate-500">{t("language.label")}</label>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("en" as Language)}
+                      aria-pressed={language === "en"}
+                      className={`min-h-9 flex-1 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${language === "en" ? "border-[#1C4D8D] bg-[#EAF1FB] text-[#1C4D8D]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                    >
+                      {t("language.english")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLanguage("tl" as Language)}
+                      aria-pressed={language === "tl"}
+                      className={`min-h-9 flex-1 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${language === "tl" ? "border-[#1C4D8D] bg-[#EAF1FB] text-[#1C4D8D]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                    >
+                      {t("language.filipino")}
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

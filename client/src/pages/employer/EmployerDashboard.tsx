@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -14,6 +16,7 @@ import { getEmployerApplications, getMyJobs } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 import { useAuth } from "../../contexts/AuthContext";
+import { formatDate } from "../../lib/formatters";
 
 interface StatCardProps {
   icon: ReactNode;
@@ -77,23 +80,28 @@ type Application = {
   job?: { title?: string };
 };
 
-const formatRelativeTime = (value?: string) => {
+const formatRelativeTime = (t: TFunction, value?: string) => {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
   const diffMs = Date.now() - date.getTime();
   const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 1) return "just now";
-  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 1) return t("employerDashboard.recentActivity.time.justNow");
+  if (diffMins < 60) return t("employerDashboard.recentActivity.time.minutesAgo", { count: diffMins });
   const diffHrs = Math.floor(diffMins / 60);
-  if (diffHrs < 24) return `${diffHrs}h ago`;
+  if (diffHrs < 24) return t("employerDashboard.recentActivity.time.hoursAgo", { count: diffHrs });
   const diffDays = Math.floor(diffHrs / 24);
-  if (diffDays === 1) return "1 day ago";
-  if (diffDays < 30) return `${diffDays} days ago`;
-  return date.toLocaleDateString();
+  if (diffDays === 1) return t("employerDashboard.recentActivity.time.oneDayAgo");
+  if (diffDays < 30) return t("employerDashboard.recentActivity.time.daysAgo", { count: diffDays });
+  return formatDate(date);
 };
 
-const getActivityConfig = (status: string) => {
+const activityNameTitleComponents = {
+  name: <span className="font-semibold" />,
+  title: <span className="font-semibold" />,
+};
+
+const getActivityConfig = (t: TFunction, status: string) => {
   switch (status) {
     case "Hired":
     case "Accepted":
@@ -102,8 +110,12 @@ const getActivityConfig = (status: string) => {
         bg: "bg-[#D1FAE5]",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
-            <span className="font-semibold">{name}</span> was hired for{" "}
-            <span className="font-semibold">{title}</span>
+            <Trans
+              t={t}
+              i18nKey="employerDashboard.recentActivity.events.hired"
+              values={{ name, title }}
+              components={activityNameTitleComponents}
+            />
           </p>
         ),
       };
@@ -113,8 +125,12 @@ const getActivityConfig = (status: string) => {
         bg: "bg-[#FEE2E2]",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
-            <span className="font-semibold">{name}</span> was rejected for{" "}
-            <span className="font-semibold">{title}</span>
+            <Trans
+              t={t}
+              i18nKey="employerDashboard.recentActivity.events.rejected"
+              values={{ name, title }}
+              components={activityNameTitleComponents}
+            />
           </p>
         ),
       };
@@ -124,8 +140,12 @@ const getActivityConfig = (status: string) => {
         bg: "bg-[#FEF3C7]",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
-            <span className="font-semibold">{name}</span> shortlisted for{" "}
-            <span className="font-semibold">{title}</span>
+            <Trans
+              t={t}
+              i18nKey="employerDashboard.recentActivity.events.shortlisted"
+              values={{ name, title }}
+              components={activityNameTitleComponents}
+            />
           </p>
         ),
       };
@@ -135,8 +155,12 @@ const getActivityConfig = (status: string) => {
         bg: "bg-[#1C4D8D]/10",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
-            <span className="font-semibold">{name}</span> scheduled for interview —{" "}
-            <span className="font-semibold">{title}</span>
+            <Trans
+              t={t}
+              i18nKey="employerDashboard.recentActivity.events.interviewed"
+              values={{ name, title }}
+              components={activityNameTitleComponents}
+            />
           </p>
         ),
       };
@@ -146,8 +170,12 @@ const getActivityConfig = (status: string) => {
         bg: "bg-[#1C4D8D]/[0.06]",
         label: (name: string, title: string) => (
           <p className="text-sm text-[#111827]">
-            New application from <span className="font-semibold">{name}</span> for{" "}
-            <span className="font-semibold">{title}</span>
+            <Trans
+              t={t}
+              i18nKey="employerDashboard.recentActivity.events.applied"
+              values={{ name, title }}
+              components={activityNameTitleComponents}
+            />
           </p>
         ),
       };
@@ -155,6 +183,7 @@ const getActivityConfig = (status: string) => {
 };
 
 export function EmployerDashboard() {
+  const { t } = useTranslation("employer");
   const navigate = useNavigate();
   const { user } = useAuth();
   const [stats, setStats] = useState({
@@ -205,7 +234,7 @@ export function EmployerDashboard() {
         setJobSummary({ active: activeJobs, total: jobList.length });
       } catch (error: any) {
         if (!isMounted) return;
-        toast.error(error?.message || "Failed to load the employer dashboard.");
+        toast.error(error?.message || t("employerDashboard.errors.loadFailed"));
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -215,15 +244,15 @@ export function EmployerDashboard() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   return (
     <div className="ui-page px-4 md:px-0 pb-16">
       <div className="ui-page-header">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">Employer workspace</p>
-          <h1 className="ui-page-title mt-1">Hiring overview</h1>
-          <p className="ui-page-subtitle">See what needs attention and move candidates forward.</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">{t("employerDashboard.header.workspace")}</p>
+          <h1 className="ui-page-title mt-1">{t("employerDashboard.header.title")}</h1>
+          <p className="ui-page-subtitle">{t("employerDashboard.header.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <button
@@ -232,7 +261,7 @@ export function EmployerDashboard() {
             className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <BriefcaseBusiness className="h-4 w-4" />
-            Manage jobs
+            {t("employerDashboard.header.manageJobs")}
           </button>
           <button
             type="button"
@@ -240,7 +269,7 @@ export function EmployerDashboard() {
             className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163F75]"
           >
             <Plus className="h-4 w-4" />
-            Post a job
+            {t("employerDashboard.header.postJob")}
           </button>
         </div>
       </div>
@@ -248,30 +277,38 @@ export function EmployerDashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<BriefcaseBusiness className="h-5 w-5" />}
-          title="Active jobs"
+          title={t("employerDashboard.stats.activeJobs")}
           value={isLoading ? "—" : jobSummary.active}
-          helper={isLoading ? "Loading job posts..." : `${jobSummary.total} Total job post${jobSummary.total === 1 ? "" : "s"}`}
+          helper={
+            isLoading
+              ? t("employerDashboard.stats.loadingJobPosts")
+              : t("employerDashboard.stats.totalJobPosts", { count: jobSummary.total })
+          }
           iconClass="bg-[#EAF2FC] text-[#1C4D8D]"
         />
         <StatCard
           icon={<Users className="h-5 w-5" />}
-          title="Applications"
+          title={t("employerDashboard.stats.applications")}
           value={isLoading ? "—" : stats.total}
-          helper={isLoading ? "Loading candidates..." : `${stats.newApplications} Awaiting initial review`}
+          helper={
+            isLoading
+              ? t("employerDashboard.stats.loadingCandidates")
+              : t("employerDashboard.stats.awaitingReview", { count: stats.newApplications })
+          }
           iconClass="bg-blue-50 text-blue-600"
         />
         <StatCard
           icon={<Clock className="h-5 w-5" />}
-          title="Shortlisted"
+          title={t("employerDashboard.stats.shortlisted")}
           value={isLoading ? "—" : stats.shortlisted}
-          helper="Candidates ready for the next step"
+          helper={t("employerDashboard.stats.shortlistedHelper")}
           iconClass="bg-amber-50 text-amber-600"
         />
         <StatCard
           icon={<CheckCircle className="h-5 w-5" />}
-          title="Hired"
+          title={t("employerDashboard.stats.hired")}
           value={isLoading ? "—" : stats.hired}
-          helper="Workers selected across your jobs"
+          helper={t("employerDashboard.stats.hiredHelper")}
           iconClass="bg-emerald-50 text-emerald-600"
         />
       </div>
@@ -280,18 +317,38 @@ export function EmployerDashboard() {
         <section className="ui-card rounded-2xl border-slate-200 p-6 shadow-sm">
           <div className="mb-6 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Candidate pipeline</h2>
-              <p className="mt-1 text-sm text-slate-500">Current application status across your jobs.</p>
+              <h2 className="text-lg font-bold text-slate-900">{t("employerDashboard.pipeline.title")}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t("employerDashboard.pipeline.subtitle")}</p>
             </div>
             <span className="rounded-full bg-[#EAF2FC] px-3 py-1 text-xs font-semibold text-[#1C4D8D]">
-              {isLoading ? "—" : stats.total} total
+              {t("employerDashboard.pipeline.totalBadge", { count: isLoading ? 0 : stats.total })}
             </span>
           </div>
           <div className="space-y-5">
-            <PipelineRow label="New applications" count={isLoading ? 0 : stats.newApplications} total={stats.total} colorClass="bg-blue-500" />
-            <PipelineRow label="Shortlisted" count={isLoading ? 0 : stats.shortlisted} total={stats.total} colorClass="bg-amber-500" />
-            <PipelineRow label="Interviewing" count={isLoading ? 0 : stats.interviewed} total={stats.total} colorClass="bg-[#1C4D8D]" />
-            <PipelineRow label="Hired" count={isLoading ? 0 : stats.hired} total={stats.total} colorClass="bg-emerald-500" />
+            <PipelineRow
+              label={t("employerDashboard.pipeline.newApplications")}
+              count={isLoading ? 0 : stats.newApplications}
+              total={stats.total}
+              colorClass="bg-blue-500"
+            />
+            <PipelineRow
+              label={t("employerDashboard.pipeline.shortlisted")}
+              count={isLoading ? 0 : stats.shortlisted}
+              total={stats.total}
+              colorClass="bg-amber-500"
+            />
+            <PipelineRow
+              label={t("employerDashboard.pipeline.interviewing")}
+              count={isLoading ? 0 : stats.interviewed}
+              total={stats.total}
+              colorClass="bg-[#1C4D8D]"
+            />
+            <PipelineRow
+              label={t("employerDashboard.pipeline.hired")}
+              count={isLoading ? 0 : stats.hired}
+              total={stats.total}
+              colorClass="bg-emerald-500"
+            />
           </div>
 
           <button
@@ -299,7 +356,7 @@ export function EmployerDashboard() {
             onClick={() => navigate(ROUTES.employer.applications)}
             className="mt-7 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:bg-[#163F75]"
           >
-            Manage applications
+            {t("employerDashboard.pipeline.manageApplications")}
             <ArrowRight className="h-4 w-4" />
           </button>
         </section>
@@ -307,20 +364,20 @@ export function EmployerDashboard() {
         <section className="ui-card rounded-2xl border-slate-200 p-6 shadow-sm">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Recent activity</h2>
-              <p className="mt-1 text-sm text-slate-500">Latest movement from your candidates.</p>
+              <h2 className="text-lg font-bold text-slate-900">{t("employerDashboard.recentActivity.title")}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t("employerDashboard.recentActivity.subtitle")}</p>
             </div>
             <button
               type="button"
               onClick={() => navigate(ROUTES.employer.applications)}
               className="shrink-0 text-sm font-semibold text-[#1C4D8D] transition hover:text-[#163F75]"
             >
-              View all
+              {t("employerDashboard.recentActivity.viewAll")}
             </button>
           </div>
 
           {isLoading ? (
-            <div className="space-y-4" aria-label="Loading recent activity">
+            <div className="space-y-4" aria-label={t("employerDashboard.recentActivity.loadingAria")}>
               {[0, 1, 2].map((item) => (
                 <div key={item} className="flex animate-pulse items-center gap-3">
                   <div className="h-9 w-9 rounded-full bg-slate-100" />
@@ -334,17 +391,17 @@ export function EmployerDashboard() {
           ) : recentActivity.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center">
               <Users className="mx-auto h-8 w-8 text-slate-300" />
-              <p className="mt-3 text-sm font-semibold text-slate-700">No candidate activity yet</p>
-              <p className="mt-1 text-xs text-slate-500">New applications and hiring updates will appear here.</p>
+              <p className="mt-3 text-sm font-semibold text-slate-700">{t("employerDashboard.recentActivity.emptyTitle")}</p>
+              <p className="mt-1 text-xs text-slate-500">{t("employerDashboard.recentActivity.emptySubtitle")}</p>
             </div>
           ) : (
             <div className="space-y-4">
               {recentActivity.map((app, index) => {
                 const name = [app.applicant?.firstName, app.applicant?.lastName]
                   .filter(Boolean)
-                  .join(" ") || "Applicant";
-                const jobTitle = app.job?.title || "a position";
-                const config = getActivityConfig(app.status);
+                  .join(" ") || t("employerDashboard.recentActivity.applicantFallback");
+                const jobTitle = app.job?.title || t("employerDashboard.recentActivity.positionFallback");
+                const config = getActivityConfig(t, app.status);
                 const isLast = index === recentActivity.length - 1;
 
                 return (
@@ -356,7 +413,7 @@ export function EmployerDashboard() {
                     <div className="min-w-0 flex-1">
                       {config.label(name, jobTitle)}
                       <p className="mt-1 text-xs text-slate-400">
-                        {formatRelativeTime(app.updatedAt || app.createdAt)}
+                        {formatRelativeTime(t, app.updatedAt || app.createdAt)}
                       </p>
                     </div>
                   </div>

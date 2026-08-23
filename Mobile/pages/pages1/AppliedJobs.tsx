@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FlatList, Modal, Platform, View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import AsyncStorage from '../../lib/storage';
@@ -13,6 +14,7 @@ import { tokens } from '../../theme/tokens';
 import RatingModal, { MobileRatingTarget } from '../../components/reviews/RatingModal';
 import { useToast } from '../../contexts/ToastContext';
 import { formatMinimumPay } from '../../lib/jobCompensation';
+import { formatDate, formatDateTime } from '../../lib/formatters';
 
 type AppliedJob = {
   id: string;
@@ -62,6 +64,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     onTabPress: externalOnTabPress,
     messageBadgeCount = 0,
   } = props;
+  const { t } = useTranslation('worker');
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const [selectedFilter, setSelectedFilter] = useState<'All' | ApplicationStatus>('All');
@@ -92,24 +95,24 @@ export default function AppliedJobs(props: AppliedJobsProps) {
       const [result, eligibilityResult] = await Promise.all([
         apiRequest(`${API_URL}/applications`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }, 'Failed to load applications.'),
+        }, t('appliedJobs.apiFallback.loadApplicationsFailed')),
         apiRequest(`${API_URL}/reviews/eligible`, {
           headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        }, 'Failed to load review eligibility.'),
+        }, t('appliedJobs.apiFallback.loadEligibilityFailed')),
       ]);
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to load applications.');
+        throw new Error(result.message || t('appliedJobs.apiFallback.loadApplicationsFailed'));
       }
       const mapped = asList<any>(result.raw, ['applications']).map((app: any) => ({
         id: app._id,
         jobId: app.job?._id,
-        title: app.job?.title || 'Untitled job',
+        title: app.job?.title || t('appliedJobs.job.untitled'),
         company: app.job?.jobPoster?.companyName || (app.job?.jobPoster
           ? `${app.job.jobPoster.firstName || ''} ${app.job.jobPoster.lastName || ''}`.trim()
-          : 'Job Poster'),
+          : t('appliedJobs.job.posterFallback')),
         status: normalizeApplicationStatus(app.status),
         hasDetails: true,
-        employerName: app.job?.jobPoster?.companyName || `${app.job?.jobPoster?.firstName || ''} ${app.job?.jobPoster?.lastName || ''}`.trim() || 'Employer',
+        employerName: app.job?.jobPoster?.companyName || `${app.job?.jobPoster?.firstName || ''} ${app.job?.jobPoster?.lastName || ''}`.trim() || t('appliedJobs.job.employerFallback'),
         employerId: String(app.job?.jobPoster?._id || app.job?.jobPoster?.id || ''),
         location: app.job?.location || '',
         salary: app.job?.salary,
@@ -126,12 +129,12 @@ export default function AppliedJobs(props: AppliedJobsProps) {
       const workerItems: ReviewEligibility[] = Array.isArray(eligibilityPayload?.asWorker) ? eligibilityPayload.asWorker : [];
       setReviewEligibility(Object.fromEntries(workerItems.map((item) => [item.applicationId, item])));
     } catch (error: any) {
-      if (mountedRef.current) setErrorMessage(error?.message || 'Failed to load applications.');
+      if (mountedRef.current) setErrorMessage(error?.message || t('appliedJobs.apiFallback.loadApplicationsFailed'));
     } finally {
       requestRef.current = false;
       if (mountedRef.current) setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -149,7 +152,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         method: 'PATCH',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       },
-      'Failed to mark application as read.',
+      t('appliedJobs.apiFallback.markReadFailed'),
     ));
     if (job.jobId) onViewDetails?.({ _id: job.jobId });
   };
@@ -163,16 +166,16 @@ export default function AppliedJobs(props: AppliedJobsProps) {
       const result = await apiRequest(`${API_URL}/applications/${withdrawTarget.id}`, {
         method: 'DELETE',
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      }, 'Failed to withdraw application.');
-      if (!result.ok) throw new Error(result.message || 'Failed to withdraw application.');
+      }, t('appliedJobs.apiFallback.withdrawFailed'));
+      if (!result.ok) throw new Error(result.message || t('appliedJobs.apiFallback.withdrawFailed'));
       setApplications((current) => current.map((application) => (
         application.id === withdrawTarget.id ? { ...application, status: 'Withdrawn' } : application
       )));
       setWithdrawTarget(null);
       await fetchApplications();
-      toast.success('Application withdrawn. The employer was notified.');
+      toast.success(t('appliedJobs.toast.withdrawSuccess'));
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to withdraw application.');
+      setErrorMessage(error?.message || t('appliedJobs.apiFallback.withdrawFailed'));
     } finally {
       setWithdrawing(false);
     }
@@ -186,38 +189,38 @@ export default function AppliedJobs(props: AppliedJobsProps) {
     setIsLoading(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/applications/${applicationId}/work/submit`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, 'Unable to submit finished work.');
+      const result = await apiRequest(`${API_URL}/applications/${applicationId}/work/submit`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, t('appliedJobs.apiFallback.submitWorkFailed'));
       if (!result.ok) throw new Error(result.message);
-      toast.success('Work submitted. You can now request a QR invoice from E-Wallet.');
+      toast.success(t('appliedJobs.toast.submitWorkSuccess'));
       await fetchApplications();
-    } catch (error: any) { toast.error(error?.message || 'Unable to submit finished work.'); }
+    } catch (error: any) { toast.error(error?.message || t('appliedJobs.apiFallback.submitWorkFailed')); }
     finally { setIsLoading(false); }
   };
 
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')} accessibilityRole="button" accessibilityLabel="Back to jobs">
+        <TouchableOpacity style={styles.backBtn} onPress={() => handleTabPress('Jobs')} accessibilityRole="button" accessibilityLabel={t('appliedJobs.backAccessibility')}>
           <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Applied jobs</Text>
-          <Text style={styles.headerSubtitle}>{applications.length} total applications</Text>
+          <Text style={styles.headerTitle}>{t('appliedJobs.headerTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('appliedJobs.headerSubtitle', { count: applications.length })}</Text>
         </View>
         <View style={styles.headerRightSpacer} />
       </View>
 
       <View style={styles.toggleContainer}>
         <View style={[styles.toggleBtn, styles.toggleBtnActive]}>
-          <Text style={styles.toggleBtnTextActive}>Applied Job details</Text>
+          <Text style={styles.toggleBtnTextActive}>{t('appliedJobs.toggle.appliedLabel')}</Text>
         </View>
         <TouchableOpacity
           style={[styles.toggleBtn, styles.toggleBtnInactive]}
           onPress={onViewSavedJobs}
           accessibilityRole="button"
-          accessibilityLabel="Open saved jobs"
+          accessibilityLabel={t('appliedJobs.toggle.savedAccessibility')}
         >
-          <Text style={styles.toggleBtnTextInactive}>Save job</Text>
+          <Text style={styles.toggleBtnTextInactive}>{t('appliedJobs.toggle.savedLabel')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -237,7 +240,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
               onPress={() => setSelectedFilter(filter)}
               accessibilityRole="button"
               accessibilityState={{ selected: isActive }}
-              accessibilityLabel={`Filter applications by ${filter}`}
+              accessibilityLabel={t('appliedJobs.filter.accessibilityLabel', { filter })}
             >
               <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive, { color }]}>{filter}</Text>
             </TouchableOpacity>
@@ -265,9 +268,9 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         ) : (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconWrap}><Ionicons name="document-text-outline" size={36} color={tokens.colors.brand} /></View>
-            <Text style={styles.emptyTitle}>No applications</Text>
+            <Text style={styles.emptyTitle}>{t('appliedJobs.empty.title')}</Text>
             <Text style={styles.emptyText}>
-              You don't have any {selectedFilter.toLowerCase()} applications yet
+              {t('appliedJobs.empty.text', { filter: selectedFilter.toLowerCase() })}
             </Text>
           </View>
         )}
@@ -275,7 +278,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
               <View style={styles.jobCard}>
                 <View style={styles.jobCardHeader}>
                   <View style={styles.logoWrap}>
-                    <Text style={styles.logoText}>logo</Text>
+                    <Text style={styles.logoText}>{t('appliedJobs.logoPlaceholder')}</Text>
                   </View>
                   <View style={styles.jobInfo}>
                     <Text style={styles.jobTitle}>{job.title}</Text>
@@ -289,7 +292,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   onPress={() => handleViewDetails(job)}
                 >
                   <Text style={[styles.statusInline, { color: getApplicationStatusColor(job.status) }]}>{job.status}</Text>
-                  <Text style={styles.viewDetailsText}>View details ›</Text>
+                  <Text style={styles.viewDetailsText}>{t('appliedJobs.viewDetails')}</Text>
                 </TouchableOpacity>
 
                 <View style={styles.jobMetaRow}>
@@ -302,16 +305,16 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                     <Text style={styles.locationText} numberOfLines={2}>{job.location}</Text>
                   </View>
                 ) : null}
-                {job.appliedAt ? <Text style={styles.appliedDate}>Applied {new Date(job.appliedAt).toLocaleDateString()}</Text> : null}
+                {job.appliedAt ? <Text style={styles.appliedDate}>{t('appliedJobs.appliedDate', { date: formatDate(job.appliedAt) })}</Text> : null}
 
                 {job.nextInterview ? (
                   <View style={styles.interviewCard}>
                     <Ionicons name="calendar-outline" size={18} color={tokens.colors.brand} />
                     <View style={styles.interviewCopy}>
-                      <Text style={styles.interviewTitle}>Interview scheduled</Text>
-                      <Text style={styles.interviewDate}>{new Date(job.nextInterview.scheduledAt).toLocaleString()}</Text>
+                      <Text style={styles.interviewTitle}>{t('appliedJobs.interview.title')}</Text>
+                      <Text style={styles.interviewDate}>{formatDateTime(job.nextInterview.scheduledAt)}</Text>
                       <Text style={styles.interviewMeta}>
-                        {job.nextInterview.mode || 'other'}{job.nextInterview.location ? ` · ${job.nextInterview.location}` : ''}
+                        {job.nextInterview.mode || t('appliedJobs.interview.modeFallback')}{job.nextInterview.location ? ` · ${job.nextInterview.location}` : ''}
                       </Text>
                       {job.nextInterview.notes ? <Text style={styles.interviewNotes}>{job.nextInterview.notes}</Text> : null}
                     </View>
@@ -322,7 +325,7 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                   {job.status === 'Hired' && ['In Progress', 'Changes Requested'].includes(job.workStatus || 'In Progress') ? (
                     <TouchableOpacity style={styles.messageButton} onPress={() => void submitFinishedWork(job.id)} accessibilityRole="button">
                       <Ionicons name="checkmark-done-outline" size={16} color={tokens.colors.brand} />
-                      <Text style={styles.messageButtonText}>Submit Work</Text>
+                      <Text style={styles.messageButtonText}>{t('appliedJobs.messageButton.submitWork')}</Text>
                     </TouchableOpacity>
                   ) : null}
                   {onMessageEmployer && job.employerId ? (
@@ -331,13 +334,13 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                       onPress={() => onMessageEmployer({ userId: job.employerId, userName: job.employerName || job.company, jobId: job.jobId })}
                     >
                       <Ionicons name="chatbubble-ellipses-outline" size={16} color={tokens.colors.brand} />
-                      <Text style={styles.messageButtonText}>Message</Text>
+                      <Text style={styles.messageButtonText}>{t('appliedJobs.messageButton.message')}</Text>
                     </TouchableOpacity>
                   ) : null}
                   {['Applied', 'Shortlisted', 'Interview Scheduled', 'Interviewed', 'Offer Sent'].includes(job.status) ? (
                     <TouchableOpacity style={styles.withdrawButton} onPress={() => setWithdrawTarget(job)}>
                       <Ionicons name="close-circle-outline" size={16} color="#b91c1c" />
-                      <Text style={styles.withdrawButtonText}>Withdraw</Text>
+                      <Text style={styles.withdrawButtonText}>{t('appliedJobs.withdrawButton.label')}</Text>
                     </TouchableOpacity>
                   ) : null}
                 </View>
@@ -346,13 +349,13 @@ export default function AppliedJobs(props: AppliedJobsProps) {
                     style={styles.rateButton}
                     onPress={() => setRatingTarget({ applicationId: job.id, name: job.employerName || job.company, jobTitle: job.title, roleLabel: 'employer' })}
                     accessibilityRole="button"
-                    accessibilityLabel={`Rate employer for ${job.title}`}
+                    accessibilityLabel={t('appliedJobs.rateButton.accessibilityLabel', { title: job.title })}
                   >
                     <Ionicons name="star" size={16} color="#92400E" />
-                    <Text style={styles.rateButtonText}>Rate Employer</Text>
+                    <Text style={styles.rateButtonText}>{t('appliedJobs.rateButton.label')}</Text>
                   </TouchableOpacity>
                 ) : reviewEligibility[job.id]?.existingReview ? (
-                  <Text style={styles.reviewedText}>★ Review submitted</Text>
+                  <Text style={styles.reviewedText}>{t('appliedJobs.reviewedText')}</Text>
                 ) : null}
               </View>
         )}
@@ -365,16 +368,16 @@ export default function AppliedJobs(props: AppliedJobsProps) {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <View style={styles.modalIcon}><Ionicons name="alert" size={24} color="#b91c1c" /></View>
-            <Text style={styles.modalTitle}>Withdraw application?</Text>
+            <Text style={styles.modalTitle}>{t('appliedJobs.modal.title')}</Text>
             <Text style={styles.modalText}>
-              Your application for {withdrawTarget?.title || 'this job'} will be withdrawn and removed from the employer's active list.
+              {t('appliedJobs.modal.text', { title: withdrawTarget?.title || t('appliedJobs.job.thisJobFallback') })}
             </Text>
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.modalCancelButton} onPress={() => setWithdrawTarget(null)} disabled={withdrawing}>
-                <Text style={styles.modalCancelText}>Keep application</Text>
+                <Text style={styles.modalCancelText}>{t('appliedJobs.modal.keepButton')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalWithdrawButton, withdrawing && styles.disabledButton]} onPress={handleWithdraw} disabled={withdrawing}>
-                {withdrawing ? <ActivityIndicator color={tokens.colors.surface} /> : <Text style={styles.modalWithdrawText}>Withdraw</Text>}
+                {withdrawing ? <ActivityIndicator color={tokens.colors.surface} /> : <Text style={styles.modalWithdrawText}>{t('appliedJobs.modal.withdrawButton')}</Text>}
               </TouchableOpacity>
             </View>
           </View>

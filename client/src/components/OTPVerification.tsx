@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { X, Mail, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
@@ -11,6 +12,7 @@ interface OTPVerificationProps {
 }
 
 export function OTPVerification({ onClose, email }: OTPVerificationProps) {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const { verifyOTP, resendOTP, pendingVerification } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
@@ -152,7 +154,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
           sessionStorage.removeItem("post_verify_redirect");
           navigate(ROUTES.signIn, {
             replace: true,
-            state: { message: "Email verified successfully. You can sign in now." },
+            state: { message: t("otpVerification.toast.emailVerifiedSuccess") },
           });
           return;
         }
@@ -217,10 +219,10 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
 
         {/* Header */}
         <h2 className="text-[28px] font-bold text-[#111827] text-center mb-3">
-          Verify your email
+          {t("otpVerification.title")}
         </h2>
         <p className="text-[14px] text-[#6B7280] text-center mb-8">
-          We've sent a 6-digit verification code to<br />
+          {t("otpVerification.description")}<br />
           <span className="font-semibold text-[#111827]">{email}</span>
         </p>
 
@@ -253,7 +255,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
           disabled={otp.some(d => !d) || isVerifying}
           className="brand-primary-interactive mb-6 w-full rounded-[12px] py-4 font-semibold hover:shadow-lg"
         >
-          {isVerifying ? "Verifying..." : "Verify Code"}
+          {isVerifying ? t("otpVerification.submitLoading") : t("otpVerification.submit")}
         </button>
 
         {/* Resend */}
@@ -265,13 +267,13 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
               className="mx-auto flex items-center justify-center gap-2 text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80"
             >
               <RefreshCw className="w-4 h-4" />
-              Resend code
+              {t("otpVerification.resend")}
             </button>
           ) : (
             <p className="text-[14px] text-[#6B7280]">
-              Didn't receive the code?{" "}
+              {t("otpVerification.resendPrompt")}{" "}
               <span className="font-semibold text-[#111827]">
-                Resend in {countdown}s
+                {t("otpVerification.resendCountdown", { count: countdown })}
               </span>
             </p>
           )}
@@ -279,7 +281,7 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
 
         <div className="mt-6 p-4 bg-[#F9FAFB] rounded-[12px] border border-[#E5E7EB]">
           <p className="text-[12px] text-[#6B7280] text-center">
-            Enter the 6-digit code sent to your email.
+            {t("otpVerification.footerHint")}
           </p>
         </div>
       </div>

@@ -1,0 +1,26 @@
+{
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "filipino": "Filipino"
+  },
+  "confirmModal": {
+    "confirmLabel": "Confirm",
+    "cancelLabel": "Cancel"
+  },
+  "loading": "Loading...",
+  "employerNav": {
+    "home": "Home",
+    "applicants": "Applicants",
+    "postJob": "Post Job",
+    "messages": "Messages",
+    "profile": "Profile"
+  },
+  "workerNav": {
+    "home": "Home",
+    "jobs": "Jobs",
+    "eWallet": "E-Wallet",
+    "messages": "Messages",
+    "profile": "Profile"
+  }
+}

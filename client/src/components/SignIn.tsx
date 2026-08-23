@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Award, Users, TrendingUp, ArrowLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -11,6 +12,7 @@ import { OTPVerification } from "./OTPVerification";
 import { MfaLoginForm } from "./auth/MfaLoginForm";
 
 export function SignIn() {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const location = useLocation();
   const { login, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
@@ -45,12 +47,12 @@ export function SignIn() {
       window.isSecureContext || window.location.protocol === "https:" || isLocalhost;
 
     if (!isSecureContext) {
-      toast.error("Secure connection required. Please use HTTPS.");
+      toast.error(t("signIn.toast.secureConnectionRequired"));
       return;
     }
 
     if (!email || !password) {
-      toast.error("Please fill in all fields");
+      toast.error(t("signIn.toast.fillAllFields"));
       return;
     }
 
@@ -58,7 +60,7 @@ export function SignIn() {
     try {
       const result = await login(email, password, { suppressToast: true, requireOtp: true });
       if (result.status === "mfa_required") {
-        toast.info("Enter your authenticator code to continue.");
+        toast.info(t("signIn.toast.mfaCodePrompt"));
       } else if (result.status === "otp_required") {
         // Stage the bookmarked destination now, before OTP entry -- AuthContext's
         // verifyOTP only fills in the default dashboard when nothing is staged.
@@ -70,10 +72,10 @@ export function SignIn() {
           sessionStorage.removeItem("post_verify_redirect");
         }
         setShowOTP(true);
-        toast.success("OTP sent to your email. Please verify to continue.");
+        toast.success(t("signIn.toast.otpSent"));
       }
     } catch (error: any) {
-      toast.error(error.message || "Sign in failed");
+      toast.error(error.message || t("signIn.toast.signInFailed"));
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";
@@ -87,7 +89,7 @@ export function SignIn() {
     try {
       await verifyMfaLogin(code);
     } catch (error: any) {
-      toast.error(error?.message || "MFA verification failed");
+      toast.error(error?.message || t("signIn.toast.mfaVerificationFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -107,11 +109,11 @@ export function SignIn() {
               <MicroJobsLogo variant="light" className="[&>span]:text-[32px] [&>span]:font-bold" />
             </div>
             
-            <h2 className="text-[28px] font-bold leading-tight">
-              Connect with Top Talent<br />& Rewarding Opportunities
+            <h2 className="text-[28px] font-bold leading-tight whitespace-pre-line">
+              {t("signIn.hero.title")}
             </h2>
             <p className="text-[16px] opacity-90 leading-relaxed">
-              Join thousands of professionals finding their dream jobs and companies discovering exceptional talent.
+              {t("signIn.hero.subtitle")}
             </p>
           </div>
 
@@ -121,8 +123,8 @@ export function SignIn() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-[16px] font-semibold mb-1">Verified Professionals</h3>
-                <p className="text-[14px] opacity-80">Connect with verified companies and job seekers</p>
+                <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.verified.title")}</h3>
+                <p className="text-[14px] opacity-80">{t("signIn.hero.features.verified.description")}</p>
               </div>
             </div>
 
@@ -131,8 +133,8 @@ export function SignIn() {
                 <Award className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-[16px] font-semibold mb-1">Quality Matches</h3>
-                <p className="text-[14px] opacity-80">Find the perfect match for your skills and needs</p>
+                <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.quality.title")}</h3>
+                <p className="text-[14px] opacity-80">{t("signIn.hero.features.quality.description")}</p>
               </div>
             </div>
 
@@ -141,8 +143,8 @@ export function SignIn() {
                 <TrendingUp className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-[16px] font-semibold mb-1">Career Growth</h3>
-                <p className="text-[14px] opacity-80">Access opportunities that advance your career</p>
+                <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.growth.title")}</h3>
+                <p className="text-[14px] opacity-80">{t("signIn.hero.features.growth.description")}</p>
               </div>
             </div>
           </div>
@@ -152,7 +154,7 @@ export function SignIn() {
         <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10 self-start">
           {successMessage ? (
             <div className="mb-6 rounded-[16px] border border-[#86efac] bg-[#f0fdf4] p-4 text-[#166534]">
-              <p className="font-semibold">Success</p>
+              <p className="font-semibold">{t("signIn.successBanner.title")}</p>
               <p className="text-[14px]">{successMessage}</p>
             </div>
           ) : null}
@@ -163,19 +165,19 @@ export function SignIn() {
             className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#1C4D8D] font-medium mb-6 transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            Back to Home
+            {t("signIn.backToHome")}
           </button>
 
           <div className="mb-8">
-            <h1 className="text-[28px] font-bold text-[#111827] mb-2">Welcome Back!</h1>
-            <p className="text-[14px] text-[#6B7280]">Enter your credentials to access your account</p>
+            <h1 className="text-[28px] font-bold text-[#111827] mb-2">{t("signIn.title")}</h1>
+            <p className="text-[14px] text-[#6B7280]">{t("signIn.subtitle")}</p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-5">
             {/* Email */}
             <div>
               <label htmlFor="signin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                Email Address
+                {t("signIn.form.emailLabel")}
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
@@ -184,7 +186,7 @@ export function SignIn() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  placeholder={t("signIn.form.emailPlaceholder")}
                   autoComplete="username"
                   autoCapitalize="none"
                   spellCheck={false}
@@ -196,7 +198,7 @@ export function SignIn() {
             {/* Password */}
             <div>
               <label htmlFor="signin-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                Password
+                {t("signIn.form.passwordLabel")}
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
@@ -204,7 +206,7 @@ export function SignIn() {
                   id="signin-password"
                   ref={passwordInputRef}
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder={t("signIn.form.passwordPlaceholder")}
                   autoComplete="current-password"
                   autoCorrect="off"
                   autoCapitalize="none"
@@ -213,7 +215,7 @@ export function SignIn() {
                 />
                 <button
                   type="button"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? t("signIn.form.hidePassword") : t("signIn.form.showPassword")}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
                 >
@@ -231,14 +233,14 @@ export function SignIn() {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-4 h-4 rounded border-[#E5E7EB] text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D] cursor-pointer"
                 />
-                <span className="text-[14px] text-[#6B7280]">Remember me</span>
+                <span className="text-[14px] text-[#6B7280]">{t("signIn.form.rememberMe")}</span>
               </label>
               <button
                 type="button"
                 onClick={handleForgotPassword}
                 className="text-[14px] text-[#1C4D8D] hover:opacity-80 font-medium"
               >
-                Forgot Password?
+                {t("signIn.form.forgotPassword")}
               </button>
             </div>
 
@@ -247,7 +249,7 @@ export function SignIn() {
               type="submit"
               className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
             >
-              {isLoading ? "Signing In..." : "Sign In"}
+              {isLoading ? t("signIn.form.submitLoading") : t("signIn.form.submit")}
             </button>
 
           </form>
@@ -255,12 +257,12 @@ export function SignIn() {
           {/* Sign Up Link */}
           <div className="mt-6 text-center">
             <p className="text-[14px] text-[#6B7280]">
-              Don't have an account?{" "}
+              {t("signIn.signUpPrompt.text")}{" "}
               <button
                 onClick={() => navigate(ROUTES.signUp)}
                 className="text-[#1C4D8D] hover:opacity-80 font-semibold"
               >
-                Sign Up
+                {t("signIn.signUpPrompt.action")}
               </button>
             </p>
           </div>
@@ -275,7 +277,7 @@ export function SignIn() {
       )}
 
       {mfaChallenge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label="Two-factor authentication">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label={t("signIn.mfaModal.ariaLabel")}>
           <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
             <MfaLoginForm
               email={mfaChallenge.email}

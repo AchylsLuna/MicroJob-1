@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MessageSquare, Search, Send, ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import {
   getAdminSupportTicket,
@@ -9,12 +11,13 @@ import {
   type SupportTicket,
 } from "../../services/api";
 import { AdminGate } from "./admin/AdminGate";
+import { formatDateTime } from "../../lib/formatters";
 
-const formatDate = (value?: string) => {
+const formatTicketDate = (value?: string) => {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString();
+  return formatDateTime(parsed);
 };
 
 const statusClasses: Record<SupportTicket["status"], string> = {
@@ -23,6 +26,14 @@ const statusClasses: Record<SupportTicket["status"], string> = {
   waiting_user: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
   resolved: "bg-[#DCFCE7] text-[#15803D]",
   closed: "bg-[#F3F4F6] text-[#6B7280]",
+};
+
+const getTicketStatusLabel = (status: SupportTicket["status"], t: TFunction<"admin">) => {
+  if (status === "in_progress") return t("supportTickets.statuses.inProgress");
+  if (status === "waiting_user") return t("supportTickets.statuses.waitingUser");
+  if (status === "resolved") return t("supportTickets.statuses.resolved");
+  if (status === "closed") return t("supportTickets.statuses.closed");
+  return t("supportTickets.statuses.open");
 };
 
 const extractTickets = (response: any): SupportTicket[] => {
@@ -41,6 +52,7 @@ const extractTicket = (response: any): SupportTicket | undefined => {
 };
 
 function AdminSupportTicketsContent() {
+  const { t } = useTranslation("admin");
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -80,16 +92,16 @@ function AdminSupportTicketsContent() {
       }
     } catch (error: any) {
       if (!silent) {
-        setLoadError(error?.message || "Failed to load support tickets.");
+        setLoadError(error?.message || t("supportTickets.toast.loadTicketsFailed"));
       }
     } finally {
       if (!silent) {
         setIsLoading(false);
       }
     }
-  }, [search, statusFilter]);
+  }, [search, statusFilter, t]);
 
-  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean; resetForm?: boolean }) => {
+  const loadTicketDetails = useCallback(async (ticketId: string, options?: { silent?: boolean; resetForm?: boolean }) => {
     const silent = Boolean(options?.silent);
     try {
       const response = await getAdminSupportTicket(ticketId);
@@ -106,10 +118,10 @@ function AdminSupportTicketsContent() {
       }
     } catch (error: any) {
       if (!silent) {
-        toast.error(error?.message || "Failed to load ticket details.");
+        toast.error(error?.message || t("supportTickets.toast.loadDetailsFailed"));
       }
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     loadTickets();
@@ -119,7 +131,7 @@ function AdminSupportTicketsContent() {
     if (selectedTicketId) {
       loadTicketDetails(selectedTicketId, { resetForm: true });
     }
-  }, [selectedTicketId]);
+  }, [selectedTicketId, loadTicketDetails]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -134,7 +146,7 @@ function AdminSupportTicketsContent() {
       loadTicketDetails(selectedTicketId, { silent: true });
     }, 5000);
     return () => window.clearInterval(id);
-  }, [selectedTicketId]);
+  }, [selectedTicketId, loadTicketDetails]);
 
   const handleUpdateTicket = async () => {
     if (!selectedTicketId) return;
@@ -153,9 +165,9 @@ function AdminSupportTicketsContent() {
       }
       setReviewNotes("");
       detailsDirtyRef.current = false;
-      toast.success("Support ticket updated.");
+      toast.success(t("supportTickets.toast.ticketUpdated"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update support ticket.");
+      toast.error(error?.message || t("supportTickets.toast.updateFailed"));
     } finally {
       setIsUpdating(false);
     }
@@ -173,9 +185,9 @@ function AdminSupportTicketsContent() {
         await loadTicketDetails(selectedTicketId);
       }
       setReplyDraft("");
-      toast.success("Reply sent.");
+      toast.success(t("supportTickets.toast.replySent"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to send reply.");
+      toast.error(error?.message || t("supportTickets.toast.replyFailed"));
     } finally {
       setIsReplying(false);
     }
@@ -186,8 +198,8 @@ function AdminSupportTicketsContent() {
       <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
         <div className="bg-white rounded-[16px] border border-slate-200 p-6 space-y-4">
           <div>
-            <h1 className="text-[22px] font-semibold text-[#111827]">Support Tickets</h1>
-            <p className="text-[13px] text-[#6B7280] mt-1">Review ticket queues, update status, and respond directly from the admin console.</p>
+            <h1 className="text-[22px] font-semibold text-[#111827]">{t("supportTickets.header.title")}</h1>
+            <p className="text-[13px] text-[#6B7280] mt-1">{t("supportTickets.header.subtitle")}</p>
           </div>
 
           <div className="relative">
@@ -196,7 +208,7 @@ function AdminSupportTicketsContent() {
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search subject, user, or email"
+              placeholder={t("supportTickets.filters.searchPlaceholder")}
               className="w-full h-10 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
             />
           </div>
@@ -206,12 +218,12 @@ function AdminSupportTicketsContent() {
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
             className="h-10 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
           >
-            <option value="all">All statuses</option>
-            <option value="open">Open</option>
-            <option value="in_progress">In progress</option>
-            <option value="waiting_user">Waiting user</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
+            <option value="all">{t("supportTickets.filters.statusAll")}</option>
+            <option value="open">{t("supportTickets.statuses.open")}</option>
+            <option value="in_progress">{t("supportTickets.statuses.inProgress")}</option>
+            <option value="waiting_user">{t("supportTickets.statuses.waitingUser")}</option>
+            <option value="resolved">{t("supportTickets.statuses.resolved")}</option>
+            <option value="closed">{t("supportTickets.statuses.closed")}</option>
           </select>
 
           {loadError ? (
@@ -221,8 +233,8 @@ function AdminSupportTicketsContent() {
           ) : null}
 
           <div className="space-y-3 max-h-[760px] overflow-y-auto pr-1">
-            {isLoading ? <div className="py-6 text-center text-[#9CA3AF]">Loading tickets...</div> : null}
-            {!isLoading && tickets.length === 0 ? <div className="py-6 text-center text-[#9CA3AF]">No support tickets found.</div> : null}
+            {isLoading ? <div className="py-6 text-center text-[#9CA3AF]">{t("supportTickets.list.loading")}</div> : null}
+            {!isLoading && tickets.length === 0 ? <div className="py-6 text-center text-[#9CA3AF]">{t("supportTickets.list.empty")}</div> : null}
             {!isLoading
               ? tickets.map((ticket) => {
                   const requester = ticket.requester && typeof ticket.requester === "object" ? ticket.requester : null;
@@ -242,10 +254,10 @@ function AdminSupportTicketsContent() {
                           </p>
                         </div>
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[ticket.status]}`}>
-                          {ticket.status.replace(/_/g, " ")}
+                          {getTicketStatusLabel(ticket.status, t)}
                         </span>
                       </div>
-                      <p className="text-[12px] text-[#9CA3AF]">Updated {formatDate(ticket.updatedAt)}</p>
+                      <p className="text-[12px] text-[#9CA3AF]">{t("supportTickets.list.updatedAt", { date: formatTicketDate(ticket.updatedAt) })}</p>
                     </button>
                   );
                 })
@@ -255,7 +267,7 @@ function AdminSupportTicketsContent() {
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
           {!selectedTicket ? (
-            <div className="py-20 text-center text-[#9CA3AF]">Select a ticket to review the thread.</div>
+            <div className="py-20 text-center text-[#9CA3AF]">{t("supportTickets.detail.emptyState")}</div>
           ) : (
             <div className="space-y-6">
               <div className="rounded-[14px] bg-[#F8FAFC] border border-[#E5E7EB] p-5">
@@ -263,43 +275,46 @@ function AdminSupportTicketsContent() {
                   <div>
                     <h2 className="text-[22px] font-semibold text-[#111827]">{selectedTicket.subject}</h2>
                     <p className="text-[13px] text-[#6B7280] mt-2">
-                      Opened {formatDate(selectedTicket.createdAt)} by {`${selectedTicket.requester?.firstName || ""} ${selectedTicket.requester?.lastName || ""}`.trim() || selectedTicket.requester?.email || "—"}
+                      {t("supportTickets.detail.openedBy", {
+                        date: formatTicketDate(selectedTicket.createdAt),
+                        name: `${selectedTicket.requester?.firstName || ""} ${selectedTicket.requester?.lastName || ""}`.trim() || selectedTicket.requester?.email || "—",
+                      })}
                     </p>
                   </div>
                   <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-[11px] font-semibold ${statusClasses[selectedTicket.status]}`}>
-                    {selectedTicket.status.replace(/_/g, " ")}
+                    {getTicketStatusLabel(selectedTicket.status, t)}
                   </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="ticket-status" className="block text-[13px] text-[#374151] mb-2">Status</label>
+                  <label htmlFor="ticket-status" className="block text-[13px] text-[#374151] mb-2">{t("supportTickets.detail.statusLabel")}</label>
                   <select
                     id="ticket-status"
                     value={status}
                     onChange={(event) => { detailsDirtyRef.current = true; setStatus(event.target.value as SupportTicket["status"]); }}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                   >
-                    <option value="open">Open</option>
-                    <option value="in_progress">In progress</option>
-                    <option value="waiting_user">Waiting user</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
+                    <option value="open">{t("supportTickets.statuses.open")}</option>
+                    <option value="in_progress">{t("supportTickets.statuses.inProgress")}</option>
+                    <option value="waiting_user">{t("supportTickets.statuses.waitingUser")}</option>
+                    <option value="resolved">{t("supportTickets.statuses.resolved")}</option>
+                    <option value="closed">{t("supportTickets.statuses.closed")}</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="ticket-priority" className="block text-[13px] text-[#374151] mb-2">Priority</label>
+                  <label htmlFor="ticket-priority" className="block text-[13px] text-[#374151] mb-2">{t("supportTickets.detail.priorityLabel")}</label>
                   <select
                     id="ticket-priority"
                     value={priority}
                     onChange={(event) => { detailsDirtyRef.current = true; setPriority(event.target.value as SupportTicket["priority"]); }}
                     className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
+                    <option value="low">{t("supportTickets.priorities.low")}</option>
+                    <option value="medium">{t("supportTickets.priorities.medium")}</option>
+                    <option value="high">{t("supportTickets.priorities.high")}</option>
+                    <option value="urgent">{t("supportTickets.priorities.urgent")}</option>
                   </select>
                 </div>
                 <div className="flex items-end">
@@ -309,31 +324,31 @@ function AdminSupportTicketsContent() {
                     disabled={isUpdating}
                     className="w-full h-11 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
                   >
-                    {isUpdating ? "Saving..." : "Save Ticket"}
+                    {isUpdating ? t("supportTickets.detail.savingButton") : t("supportTickets.detail.saveButton")}
                   </button>
                 </div>
               </div>
 
               <div>
-                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">Internal Note</label>
+                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">{t("supportTickets.detail.internalNoteLabel")}</label>
                 <textarea
                   id="ticket-review-note"
                   rows={3}
                   value={reviewNotes}
                   onChange={(event) => { detailsDirtyRef.current = true; setReviewNotes(event.target.value); }}
-                  placeholder="Visible only to administrators"
+                  placeholder={t("supportTickets.detail.internalNotePlaceholder")}
                   className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                 />
               </div>
 
               {(selectedTicket.internalNotes || []).length > 0 ? (
                 <section className="rounded-[14px] border border-amber-200 bg-amber-50 p-4" aria-labelledby="internal-notes-title">
-                  <h3 id="internal-notes-title" className="text-sm font-semibold text-amber-950">Internal notes</h3>
+                  <h3 id="internal-notes-title" className="text-sm font-semibold text-amber-950">{t("supportTickets.detail.internalNotesTitle")}</h3>
                   <div className="mt-3 space-y-3">
                     {(selectedTicket.internalNotes || []).map((note) => (
                       <article key={note._id} className="rounded-xl border border-amber-200 bg-white p-3">
                         <p className="text-sm text-slate-800">{note.body}</p>
-                        <p className="mt-2 text-xs text-slate-500">{formatDate(note.createdAt)}</p>
+                        <p className="mt-2 text-xs text-slate-500">{formatTicketDate(note.createdAt)}</p>
                       </article>
                     ))}
                   </div>
@@ -357,9 +372,9 @@ function AdminSupportTicketsContent() {
                           ) : (
                             <MessageSquare className="w-4 h-4 text-[#6B7280]" />
                           )}
-                          <p className="text-[13px] font-semibold text-[#111827]">{isAdmin ? "Admin" : "User"}</p>
+                          <p className="text-[13px] font-semibold text-[#111827]">{isAdmin ? t("supportTickets.detail.roleAdmin") : t("supportTickets.detail.roleUser")}</p>
                         </div>
-                        <p className="text-[12px] text-[#6B7280]">{formatDate(message.createdAt)}</p>
+                        <p className="text-[12px] text-[#6B7280]">{formatTicketDate(message.createdAt)}</p>
                       </div>
                       <p className="text-[14px] leading-relaxed text-[#374151]">{message.body}</p>
                     </div>
@@ -372,7 +387,7 @@ function AdminSupportTicketsContent() {
                   rows={4}
                   value={replyDraft}
                   onChange={(event) => setReplyDraft(event.target.value)}
-                  placeholder="Reply to the user..."
+                  placeholder={t("supportTickets.detail.replyPlaceholder")}
                   className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                 />
                 <button
@@ -382,7 +397,7 @@ function AdminSupportTicketsContent() {
                   className="inline-flex items-center gap-2 px-4 py-3 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
                 >
                   <Send className="w-4 h-4" />
-                  {isReplying ? "Sending..." : "Send Reply"}
+                  {isReplying ? t("supportTickets.detail.sendingReply") : t("supportTickets.detail.sendReply")}
                 </button>
               </div>
             </div>

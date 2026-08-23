@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { Mail, Lock, Eye, EyeOff, Shield } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "../../lib/toast";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -9,6 +10,7 @@ import { ROUTES } from "../../utils/routes";
 import { MfaLoginForm } from "../../components/auth/MfaLoginForm";
 
 export function AdminSignIn() {
+  const { t } = useTranslation("admin");
   const { login, isAuthenticated, user, logout, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
   const location = useLocation();
   const redirectPath = getPostSignInPath((location.state as { from?: unknown } | null)?.from, ROUTES.admin.dashboard);
@@ -33,12 +35,12 @@ export function AdminSignIn() {
       window.isSecureContext || window.location.protocol === "https:" || isLocalhost;
 
     if (!isSecureContext) {
-      toast.error("Secure connection required. Please use HTTPS.");
+      toast.error(t("signIn.toast.secureConnectionRequired"));
       return;
     }
 
     if (!email || !password) {
-      toast.error("Please fill in all fields");
+      toast.error(t("signIn.toast.fillAllFields"));
       return;
     }
 
@@ -46,18 +48,18 @@ export function AdminSignIn() {
     try {
       const result = await login(email, password, { suppressToast: true });
       if (result.status === "mfa_required") {
-        toast.info("Enter your authenticator code to continue.");
+        toast.info(t("signIn.toast.mfaCodePrompt"));
         return;
       }
       if (result.status !== "authenticated" || !isAdmin(result.user)) {
-        toast.error("Admin access required. Please use an admin account.");
+        toast.error(t("signIn.toast.adminAccessRequired"));
         logout({ silent: true });
         return;
       }
 
-      toast.success(`Welcome back${result.user.firstName ? `, ${result.user.firstName}` : ""}!`);
+      toast.success(t("signIn.toast.welcomeBack", { name: result.user.firstName ? `, ${result.user.firstName}` : "" }));
     } catch (error: any) {
-      toast.error(error.message || "Sign in failed");
+      toast.error(error.message || t("signIn.toast.signInFailed"));
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";
@@ -71,13 +73,13 @@ export function AdminSignIn() {
     try {
       const loggedInUser = await verifyMfaLogin(code, { suppressToast: true });
       if (!isAdmin(loggedInUser)) {
-        toast.error("Admin access required. Please use an admin account.");
+        toast.error(t("signIn.toast.adminAccessRequired"));
         logout({ silent: true });
         return;
       }
-      toast.success(`Welcome back${loggedInUser.firstName ? `, ${loggedInUser.firstName}` : ""}!`);
+      toast.success(t("signIn.toast.welcomeBack", { name: loggedInUser.firstName ? `, ${loggedInUser.firstName}` : "" }));
     } catch (error: any) {
-      toast.error(error?.message || "MFA verification failed");
+      toast.error(error?.message || t("signIn.toast.mfaVerificationFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -90,9 +92,9 @@ export function AdminSignIn() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#1C4D8D] shadow-lg shadow-[#1C4D8D]/20">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">MicroJobs control center</p>
-          <h1 className="mb-2 text-[28px] font-bold text-[#111827]">Admin Sign In</h1>
-          <p className="text-[14px] text-[#4B5563]">Restricted access for platform administrators</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">{t("signIn.eyebrow")}</p>
+          <h1 className="mb-2 text-[28px] font-bold text-[#111827]">{t("signIn.title")}</h1>
+          <p className="text-[14px] text-[#4B5563]">{t("signIn.subtitle")}</p>
         </div>
 
         {mfaChallenge ? (
@@ -108,7 +110,7 @@ export function AdminSignIn() {
           />
         ) : <form onSubmit={handleSignIn} className="space-y-5">
           <div>
-            <label htmlFor="admin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">Email</label>
+            <label htmlFor="admin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">{t("signIn.emailLabel")}</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
@@ -116,7 +118,7 @@ export function AdminSignIn() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
+                placeholder={t("signIn.emailPlaceholder")}
                 autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
@@ -127,14 +129,14 @@ export function AdminSignIn() {
           </div>
 
           <div>
-            <label htmlFor="admin-password" className="text-[14px] font-medium text-[#111827] mb-2 block">Password</label>
+            <label htmlFor="admin-password" className="text-[14px] font-medium text-[#111827] mb-2 block">{t("signIn.passwordLabel")}</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
                 id="admin-password"
                 ref={passwordInputRef}
                 type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
+                placeholder={t("signIn.passwordPlaceholder")}
                 autoComplete="current-password"
                 autoCorrect="off"
                 autoCapitalize="none"
@@ -144,7 +146,7 @@ export function AdminSignIn() {
               />
               <button
                 type="button"
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? t("signIn.hidePassword") : t("signIn.showPassword")}
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
               >
@@ -158,7 +160,7 @@ export function AdminSignIn() {
             disabled={isLoading}
             className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
           >
-            {isLoading ? "Signing in..." : "Sign In as Admin"}
+            {isLoading ? t("signIn.submitLoading") : t("signIn.submit")}
           </button>
         </form>}
 

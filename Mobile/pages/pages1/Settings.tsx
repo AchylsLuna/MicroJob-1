@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Switch } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -58,10 +59,11 @@ export default function Settings({
   onSwitchAccountMode,
   isSwitchingAccountMode = false,
 }: SettingsProps) {
+  const { t } = useTranslation('worker');
   const insets = useSafeAreaInsets();
   const toast = useToast();
-  const [profileName, setProfileName] = useState('Account User');
-  const [profileEmail, setProfileEmail] = useState('No email set');
+  const [profileName, setProfileName] = useState(t('settings.profile.defaultName'));
+  const [profileEmail, setProfileEmail] = useState(t('settings.profile.defaultEmail'));
   const [profileAvatar, setProfileAvatar] = useState('');
   const [hideHiredCandidates, setHideHiredCandidates] = useState(true);
   const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
@@ -87,7 +89,7 @@ export default function Settings({
           const result = await apiRequest(
             `${API_URL}/auth/me`,
             { headers: { Authorization: `Bearer ${token}` } },
-            'Failed to refresh settings.'
+            t('settings.apiFallback.refreshFailed')
           );
           if (result.ok) {
             const refreshed =
@@ -103,8 +105,8 @@ export default function Settings({
           [parsed?.firstName, parsed?.lastName].filter(Boolean).join(' ').trim() ||
           parsed?.name ||
           parsed?.username ||
-          'Account User';
-        const email = String(parsed?.email || '').trim() || 'No email set';
+          t('settings.profile.defaultName');
+        const email = String(parsed?.email || '').trim() || t('settings.profile.defaultEmail');
         const avatar = String(
           parsed?.avatarUrl || parsed?.avatar || parsed?.profileImage || parsed?.photo || '',
         ).trim();
@@ -123,7 +125,7 @@ export default function Settings({
 
     void loadProfile();
     return () => { active = false; };
-  }, []));
+  }, [t]));
 
   const profileInitials = useMemo(() => {
     return profileName
@@ -156,7 +158,7 @@ export default function Settings({
     setIsSavingPrivacy(true);
     try {
       const token = await AsyncStorage.getItem('auth_token');
-      if (!token) throw new Error('Not authenticated. Please sign in again.');
+      if (!token) throw new Error(t('settings.errors.notAuthenticated'));
       const result = await apiRequest(
         `${API_URL}/auth/me`,
         {
@@ -167,13 +169,13 @@ export default function Settings({
           },
           body: JSON.stringify({ hideHiredCandidates: nextValue }),
         },
-        'Failed to save employer privacy setting.'
+        t('settings.apiFallback.savePrivacyFailed')
       );
       if (!result.ok) throw new Error(result.message);
-      toast.success('Employer privacy setting saved.');
+      toast.success(t('settings.toast.privacySaved'));
     } catch (error: any) {
       setHideHiredCandidates(!nextValue);
-      toast.error(error?.message || 'Failed to save employer privacy setting.');
+      toast.error(error?.message || t('settings.apiFallback.savePrivacyFailed'));
     } finally {
       setIsSavingPrivacy(false);
     }
@@ -182,14 +184,14 @@ export default function Settings({
   const accountMenus: SettingsItem[] = isEmployer
     ? [
         {
-          title: 'Business Information',
+          title: t('settings.menu.businessInformation'),
           onPress: handleOpenPersonalInfo,
           icon: 'business-outline',
           iconColor: tokens.colors.brand,
           iconBackground: '#EAF2FF',
         },
         {
-          title: 'Payment Methods',
+          title: t('settings.menu.paymentMethods'),
           onPress: onNavigatePaymentMethods,
           icon: 'card-outline',
           iconColor: tokens.colors.brand,
@@ -198,14 +200,14 @@ export default function Settings({
       ]
     : [
         {
-          title: 'Personal Information',
+          title: t('settings.menu.personalInformation'),
           onPress: handleOpenPersonalInfo,
           icon: 'person-outline',
           iconColor: tokens.colors.brand,
           iconBackground: '#EAF2FF',
         },
         {
-          title: 'Resume & Documents',
+          title: t('settings.menu.resumeDocuments'),
           onPress: handleOpenResumeDocuments,
           icon: 'document-text-outline',
           iconColor: tokens.colors.brand,
@@ -214,8 +216,8 @@ export default function Settings({
       ];
 
   const securityMenus: SettingsItem[] = [
-    { title: 'Change Password', onPress: onNavigateChangePassword, icon: 'lock-closed-outline' as const },
-    { title: 'Two-Factor Authentication', onPress: onNavigateMfa, icon: 'shield-checkmark-outline' as const },
+    { title: t('settings.menu.changePassword'), onPress: onNavigateChangePassword, icon: 'lock-closed-outline' as const },
+    { title: t('settings.menu.twoFactorAuth'), onPress: onNavigateMfa, icon: 'shield-checkmark-outline' as const },
   ].map((item) => ({
     ...item,
     iconColor: '#0F9D71',
@@ -223,8 +225,8 @@ export default function Settings({
   }));
 
   const preferencesMenus: SettingsItem[] = [
-    { title: 'Notification Inbox', onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
-    { title: 'Location Services', onPress: onNavigateLocation, icon: 'location-outline' as const },
+    { title: t('settings.menu.notificationInbox'), onPress: onNavigateNotifications, icon: 'notifications-outline' as const },
+    { title: t('settings.menu.locationServices'), onPress: onNavigateLocation, icon: 'location-outline' as const },
   ].map((item) => ({
     ...item,
     iconColor: '#9333EA',
@@ -232,8 +234,8 @@ export default function Settings({
   }));
 
   const supportMenus: SettingsItem[] = [
-    { title: 'Contact Support', onPress: onNavigateSupport, icon: 'help-circle-outline' as const },
-    { title: 'About', onPress: onNavigateAbout, icon: 'information-circle-outline' as const },
+    { title: t('settings.menu.contactSupport'), onPress: onNavigateSupport, icon: 'help-circle-outline' as const },
+    { title: t('settings.menu.about'), onPress: onNavigateAbout, icon: 'information-circle-outline' as const },
   ].map((item) => ({
     ...item,
     iconColor: '#475569',
@@ -242,14 +244,14 @@ export default function Settings({
 
   const accountActions: SettingsItem[] = [
     {
-      title: 'Log Out',
+      title: t('settings.menu.logOut'),
       onPress: handleLogout,
       icon: 'log-out-outline',
       iconColor: '#475569',
       iconBackground: tokens.colors.background,
     },
     {
-      title: 'Delete Account',
+      title: t('settings.menu.deleteAccount'),
       onPress: onNavigateDeleteAccount,
       icon: 'trash-outline',
       iconColor: '#EF4444',
@@ -287,12 +289,12 @@ export default function Settings({
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) + 10 }]}>
-        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel="Go back" hitSlop={8}>
+        <TouchableOpacity style={styles.backButton} onPress={onBack} activeOpacity={0.88} accessibilityRole="button" accessibilityLabel={t('settings.header.backAccessibility')} hitSlop={8}>
           <Ionicons name="chevron-back" size={22} color={tokens.colors.brand} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Settings</Text>
-          <Text style={styles.headerSubtitle}>Manage profile, security, support, and account controls.</Text>
+          <Text style={styles.headerTitle}>{t('settings.header.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('settings.header.subtitle')}</Text>
         </View>
       </View>
 
@@ -309,7 +311,7 @@ export default function Settings({
             )}
             <View style={styles.profileMeta}>
               <View style={styles.profileBadge}>
-                <Text style={styles.profileBadgeText}>{currentRole === 'employer' ? 'Employer settings' : 'Worker settings'}</Text>
+                <Text style={styles.profileBadgeText}>{currentRole === 'employer' ? t('settings.profile.badge.employer') : t('settings.profile.badge.worker')}</Text>
               </View>
               <Text style={styles.profileName} numberOfLines={1}>
                 {profileName}
@@ -320,45 +322,45 @@ export default function Settings({
             </View>
           </View>
           <View style={styles.editButton}>
-            <Text style={styles.editButtonText}>Open</Text>
+            <Text style={styles.editButtonText}>{t('settings.profile.openButton')}</Text>
           </View>
         </TouchableOpacity>
 
         {canSwitchAccountMode ? (
           <>
-            <Text style={styles.sectionLabel}>ACCOUNT MODE</Text>
+            <Text style={styles.sectionLabel}>{t('settings.modeCard.sectionLabel')}</Text>
             <View style={styles.modeCard}>
               <View style={styles.modeIcon}><Ionicons name={isEmployer ? 'business-outline' : 'person-outline'} size={22} color={tokens.colors.brand} /></View>
               <View style={styles.modeCopy}>
-                <Text style={styles.modeTitle}>{isEmployer ? 'Employer Mode' : 'Worker Mode'}</Text>
-                <Text style={styles.modeDescription}>This Both account can work and hire from one profile.</Text>
+                <Text style={styles.modeTitle}>{isEmployer ? t('settings.modeCard.employerModeTitle') : t('settings.modeCard.workerModeTitle')}</Text>
+                <Text style={styles.modeDescription}>{t('settings.modeCard.description')}</Text>
               </View>
               <TouchableOpacity
                 style={[styles.modeSwitchButton, isSwitchingAccountMode && styles.modeSwitchButtonDisabled]}
                 onPress={() => setRequestedMode(isEmployer ? 'worker' : 'employer')}
                 disabled={isSwitchingAccountMode}
                 accessibilityRole="button"
-                accessibilityLabel={`Switch to ${isEmployer ? 'Worker' : 'Employer'} Mode`}
+                accessibilityLabel={isEmployer ? t('settings.modeCard.switchAccessibility.toWorker') : t('settings.modeCard.switchAccessibility.toEmployer')}
                 accessibilityState={{ disabled: isSwitchingAccountMode, busy: isSwitchingAccountMode }}
               >
-                <Text style={styles.modeSwitchText}>Switch to {isEmployer ? 'Worker' : 'Employer'}</Text>
+                <Text style={styles.modeSwitchText}>{isEmployer ? t('settings.modeCard.switchLabel.toWorker') : t('settings.modeCard.switchLabel.toEmployer')}</Text>
               </TouchableOpacity>
             </View>
           </>
         ) : null}
 
-        {renderSettingsSection('account', 'Account', 'business-outline', accountMenus)}
+        {renderSettingsSection('account', t('settings.sections.account'), 'business-outline', accountMenus)}
 
-        {renderSettingsSection('security', 'Security', 'shield-checkmark-outline', securityMenus)}
+        {renderSettingsSection('security', t('settings.sections.security'), 'shield-checkmark-outline', securityMenus)}
 
         {isEmployer ? (
           <>
-            <Text style={styles.sectionLabel}>EMPLOYER PRIVACY</Text>
+            <Text style={styles.sectionLabel}>{t('settings.employerPrivacy.sectionLabel')}</Text>
             <View style={styles.preferenceCard}>
               <View style={styles.preferenceCopy}>
-                <Text style={styles.preferenceTitle}>Hide number of hired candidates</Text>
+                <Text style={styles.preferenceTitle}>{t('settings.employerPrivacy.title')}</Text>
                 <Text style={styles.preferenceDescription}>
-                  Keep your hiring count private across web and mobile.
+                  {t('settings.employerPrivacy.description')}
                 </Text>
               </View>
               <Switch
@@ -367,23 +369,23 @@ export default function Settings({
                 disabled={isSavingPrivacy}
                 trackColor={{ false: '#CBD5E1', true: '#86EFAC' }}
                 thumbColor={hideHiredCandidates ? '#16A34A' : tokens.colors.background}
-                accessibilityLabel="Hide number of hired candidates"
+                accessibilityLabel={t('settings.employerPrivacy.accessibilityLabel')}
               />
             </View>
           </>
         ) : null}
 
-        {renderSettingsSection('preferences', 'Preferences', 'options-outline', preferencesMenus)}
+        {renderSettingsSection('preferences', t('settings.sections.preferences'), 'options-outline', preferencesMenus)}
 
-        {renderSettingsSection('support', 'Support & info', 'help-buoy-outline', supportMenus)}
+        {renderSettingsSection('support', t('settings.sections.supportInfo'), 'help-buoy-outline', supportMenus)}
 
         <View style={styles.footerActionsWrap}>{renderMenuCard(accountActions)}</View>
       </ScrollView>
       <ConfirmModal
         visible={Boolean(requestedMode)}
-        title={`Switch to ${requestedMode === 'employer' ? 'Employer' : 'Worker'} Mode?`}
-        description={`You will return to the ${requestedMode === 'employer' ? 'Employer' : 'Worker'} Home screen. Your account data stays connected to this Both profile.`}
-        confirmLabel={`Switch to ${requestedMode === 'employer' ? 'Employer' : 'Worker'}`}
+        title={requestedMode === 'employer' ? t('settings.confirmMode.titleToEmployer') : t('settings.confirmMode.titleToWorker')}
+        description={requestedMode === 'employer' ? t('settings.confirmMode.descriptionToEmployer') : t('settings.confirmMode.descriptionToWorker')}
+        confirmLabel={requestedMode === 'employer' ? t('settings.modeCard.switchLabel.toEmployer') : t('settings.modeCard.switchLabel.toWorker')}
         pending={isSwitchingAccountMode}
         onCancel={() => setRequestedMode(null)}
         onConfirm={() => { if (!requestedMode || !onSwitchAccountMode) return; void onSwitchAccountMode(requestedMode).then((switched) => { if (switched) setRequestedMode(null); }); }}

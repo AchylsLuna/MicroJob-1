@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Image } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -56,8 +57,9 @@ export default function EmployerProfile({
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [expandedSection, setExpandedSection] = useState<'readiness' | 'identity' | 'contact' | 'reviews' | null>('readiness');
   const toast = useToast();
+  const { t } = useTranslation('employer');
 
-  const employerName = firstName || lastName ? `${firstName} ${lastName}`.trim() : 'Employer';
+  const employerName = firstName || lastName ? `${firstName} ${lastName}`.trim() : t('employerProfile.defaultName');
   const initials = employerName
     .split(' ')
     .filter(Boolean)
@@ -90,7 +92,7 @@ export default function EmployerProfile({
           {
             headers: { Authorization: `Bearer ${token}` },
           },
-          'Failed to load profile.',
+          t('employerProfile.errors.loadFailed'),
         );
         if (!result.ok) return;
         const payload = asObject<any>(result.raw) || {};
@@ -114,13 +116,13 @@ export default function EmployerProfile({
 
     void loadProfile();
     return () => { active = false; };
-  }, []));
+  }, [t]));
 
   const handleUploadAvatar = async () => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
-        toast.error('Please allow photo access to upload a profile picture.');
+        toast.error(t('employerProfile.toast.photoPermission'));
         return;
       }
 
@@ -143,7 +145,7 @@ export default function EmployerProfile({
       }
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
-        toast.error('Please sign in again.');
+        toast.error(t('employerProfile.toast.signInAgain'));
         return;
       }
 
@@ -166,11 +168,11 @@ export default function EmployerProfile({
           },
           body: form,
         },
-        'Failed to upload profile picture.',
+        t('employerProfile.toast.avatarUploadFailed'),
       );
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to upload profile picture.');
+        throw new Error(result.message || t('employerProfile.toast.avatarUploadFailed'));
       }
 
       const payload = asObject<any>(result.raw) || {};
@@ -179,9 +181,9 @@ export default function EmployerProfile({
       if (nextAvatarUrl) {
         setAvatarUrl(nextAvatarUrl);
       }
-      toast.success('Profile picture updated.');
+      toast.success(t('employerProfile.toast.avatarUpdated'));
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to upload profile picture.');
+      toast.error(error?.message || t('employerProfile.toast.avatarUploadFailed'));
     } finally {
       setIsUploadingAvatar(false);
     }
@@ -194,14 +196,14 @@ export default function EmployerProfile({
 
   const completionItems = useMemo(
     () => [
-      { label: 'Photo', complete: Boolean(avatarUrl) },
-      { label: 'Name', complete: Boolean(firstName.trim() && lastName.trim()) },
-      { label: 'Email', complete: Boolean(email.trim()) },
-      { label: 'Phone', complete: Boolean(phone.trim()) },
-      { label: 'City', complete: Boolean(city.trim()) },
-      { label: 'Address', complete: Boolean(address.trim()) },
+      { label: t('employerProfile.completion.photo'), complete: Boolean(avatarUrl) },
+      { label: t('employerProfile.completion.name'), complete: Boolean(firstName.trim() && lastName.trim()) },
+      { label: t('employerProfile.completion.email'), complete: Boolean(email.trim()) },
+      { label: t('employerProfile.completion.phone'), complete: Boolean(phone.trim()) },
+      { label: t('employerProfile.completion.city'), complete: Boolean(city.trim()) },
+      { label: t('employerProfile.completion.address'), complete: Boolean(address.trim()) },
     ],
-    [address, avatarUrl, city, email, firstName, lastName, phone],
+    [address, avatarUrl, city, email, firstName, lastName, phone, t],
   );
 
   const completedCount = completionItems.filter((item) => item.complete).length;
@@ -210,21 +212,21 @@ export default function EmployerProfile({
   return (
     <View style={styles.container}>
       <TabTopNav
-        title="My Profile"
+        title={t('employerProfile.header.title')}
         onOpenSettings={onOpenSettings}
         showSettings
         employerMode
       />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <EmployerModeBanner title="Business profile" detail="Build trust with workers and keep your hiring identity ready." />
+        <EmployerModeBanner title={t('employerProfile.banner.title')} detail={t('employerProfile.banner.detail')} />
         <View style={styles.heroCard}>
           <View style={styles.heroGlow} />
 
           <View style={styles.heroTopRow}>
             <View style={styles.avatarFrame}>
-              <TouchableOpacity style={styles.avatar} onPress={handleUploadAvatar} disabled={isUploadingAvatar} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Change employer profile photo" accessibilityHint="Opens your photo library" accessibilityState={{ disabled: isUploadingAvatar, busy: isUploadingAvatar }}>
-                {avatarSource ? <Image source={avatarSource} style={styles.avatarImage} accessibilityLabel="Current employer profile photo" /> : <Text style={styles.avatarText}>{initials}</Text>}
+              <TouchableOpacity style={styles.avatar} onPress={handleUploadAvatar} disabled={isUploadingAvatar} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel={t('employerProfile.avatar.changeLabel')} accessibilityHint={t('employerProfile.avatar.changeHint')} accessibilityState={{ disabled: isUploadingAvatar, busy: isUploadingAvatar }}>
+                {avatarSource ? <Image source={avatarSource} style={styles.avatarImage} accessibilityLabel={t('employerProfile.avatar.currentLabel')} /> : <Text style={styles.avatarText}>{initials}</Text>}
                 {isUploadingAvatar ? (
                   <View style={styles.avatarLoadingOverlay}>
                     <ActivityIndicator size="small" color={tokens.colors.white} />
@@ -239,21 +241,21 @@ export default function EmployerProfile({
             <View style={styles.heroMeta}>
               <View style={styles.heroBadge}>
                 <Ionicons name="business-outline" size={15} color={tokens.colors.brand} />
-                <Text style={styles.heroBadgeText}>Employer account</Text>
+                <Text style={styles.heroBadgeText}>{t('employerProfile.hero.badge')}</Text>
               </View>
               <Text style={styles.name}>{employerName}</Text>
-              <Text style={styles.subtitle}>Manage the profile workers see before they apply, message, or accept an offer.</Text>
+              <Text style={styles.subtitle}>{t('employerProfile.hero.subtitle')}</Text>
             </View>
           </View>
 
           <View style={styles.heroStatsRow}>
             <View style={styles.heroStatCard}>
               <Text style={styles.heroStatValue}>{completionRate}%</Text>
-              <Text style={styles.heroStatLabel}>Profile complete</Text>
+              <Text style={styles.heroStatLabel}>{t('employerProfile.hero.profileCompleteLabel')}</Text>
             </View>
             <View style={styles.heroStatCard}>
               <Text style={styles.heroStatValue}>{completedCount}/{completionItems.length}</Text>
-              <Text style={styles.heroStatLabel}>Ready items</Text>
+              <Text style={styles.heroStatLabel}>{t('employerProfile.hero.readyItemsLabel')}</Text>
             </View>
           </View>
 
@@ -264,11 +266,11 @@ export default function EmployerProfile({
               disabled={!onOpenSettings}
               activeOpacity={0.9}
               accessibilityRole="button"
-              accessibilityLabel="Open settings"
+              accessibilityLabel={t('employerProfile.hero.settingsAccessibilityLabel')}
               accessibilityState={{ disabled: !onOpenSettings }}
             >
               <Ionicons name="settings-outline" size={18} color={tokens.colors.onCanvasMuted} />
-              <Text style={styles.secondaryActionText}>Settings</Text>
+              <Text style={styles.secondaryActionText}>{t('employerProfile.hero.settingsLabel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.primaryAction, !onOpenWallet && styles.disabledAction]}
@@ -276,23 +278,23 @@ export default function EmployerProfile({
               disabled={!onOpenWallet}
               activeOpacity={0.9}
               accessibilityRole="button"
-              accessibilityLabel="Open wallet"
+              accessibilityLabel={t('employerProfile.hero.walletAccessibilityLabel')}
               accessibilityState={{ disabled: !onOpenWallet }}
             >
               <Ionicons name="wallet-outline" size={18} color={tokens.colors.white} />
-              <Text style={styles.primaryActionText}>Wallet</Text>
+              <Text style={styles.primaryActionText}>{t('employerProfile.hero.walletLabel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        <EmployerAccordion title="Employer readiness" subtitle="Complete the details workers use to evaluate your jobs." icon="shield-checkmark-outline" badge={`${completionRate}%`} expanded={expandedSection === 'readiness'} onToggle={() => setExpandedSection((section) => section === 'readiness' ? null : 'readiness')}>
+        <EmployerAccordion title={t('employerProfile.readiness.accordionTitle')} subtitle={t('employerProfile.readiness.accordionSubtitle')} icon="shield-checkmark-outline" badge={`${completionRate}%`} expanded={expandedSection === 'readiness'} onToggle={() => setExpandedSection((section) => section === 'readiness' ? null : 'readiness')}>
         <View style={styles.progressContent}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Employer readiness</Text>
+            <Text style={styles.sectionTitle}>{t('employerProfile.readiness.sectionTitle')}</Text>
             <Text style={styles.sectionHint}>{completionRate}%</Text>
           </View>
-          <Text style={styles.progressSubtitle}>Complete your public details so workers can trust the profile behind every job post.</Text>
-          <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityLabel="Employer profile completion" accessibilityValue={{ min: 0, max: 100, now: completionRate, text: `${completionRate}% complete` }}>
+          <Text style={styles.progressSubtitle}>{t('employerProfile.readiness.subtitle')}</Text>
+          <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityLabel={t('employerProfile.readiness.progressAccessibilityLabel')} accessibilityValue={{ min: 0, max: 100, now: completionRate, text: t('employerProfile.readiness.progressValueText', { percent: completionRate }) }}>
             <View style={[styles.progressFill, { width: `${completionRate}%` }]} />
           </View>
           <View style={styles.checklistRow}>
@@ -310,106 +312,106 @@ export default function EmployerProfile({
         </View>
         </EmployerAccordion>
 
-        <EmployerAccordion title="Company and identity" subtitle="Verified account details shown with your job posts." icon="business-outline" expanded={expandedSection === 'identity'} onToggle={() => setExpandedSection((section) => section === 'identity' ? null : 'identity')}>
+        <EmployerAccordion title={t('employerProfile.identity.accordionTitle')} subtitle={t('employerProfile.identity.accordionSubtitle')} icon="business-outline" expanded={expandedSection === 'identity'} onToggle={() => setExpandedSection((section) => section === 'identity' ? null : 'identity')}>
         <View pointerEvents="none">
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Identity</Text>
-            <Text style={styles.sectionHint}>Visible on employer profile</Text>
+            <Text style={styles.sectionTitle}>{t('employerProfile.identity.sectionTitle')}</Text>
+            <Text style={styles.sectionHint}>{t('employerProfile.identity.sectionHint')}</Text>
           </View>
 
-          <Text style={styles.fieldLabel}>Name</Text>
+          <Text style={styles.fieldLabel}>{t('employerProfile.identity.nameLabel')}</Text>
           <View style={styles.nameRow}>
             <TextInput
               style={[styles.input, styles.nameInput]}
-              placeholder="First Name"
+              placeholder={t('employerProfile.identity.firstNamePlaceholder')}
               placeholderTextColor={tokens.colors.textSubtle}
               value={firstName}
               editable={false}
               maxLength={PROFILE_LIMITS.name}
               onChangeText={setFirstName}
-              accessibilityLabel="First name"
+              accessibilityLabel={t('employerProfile.identity.firstNameAccessibilityLabel')}
             />
             <TextInput
               style={[styles.input, styles.nameInput]}
-              placeholder="Last Name"
+              placeholder={t('employerProfile.identity.lastNamePlaceholder')}
               placeholderTextColor={tokens.colors.textSubtle}
               value={lastName}
               editable={false}
               maxLength={PROFILE_LIMITS.name}
               onChangeText={setLastName}
-              accessibilityLabel="Last name"
+              accessibilityLabel={t('employerProfile.identity.lastNameAccessibilityLabel')}
             />
           </View>
 
-          <Text style={styles.fieldLabel}>Email</Text>
+          <Text style={styles.fieldLabel}>{t('employerProfile.identity.emailLabel')}</Text>
           <TextInput
             style={[styles.input, styles.inputReadOnly]}
-            placeholder="Email"
+            placeholder={t('employerProfile.identity.emailPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             value={email}
             autoCapitalize="none"
             keyboardType="email-address"
             editable={false}
-            accessibilityLabel="Email address"
+            accessibilityLabel={t('employerProfile.identity.emailAccessibilityLabel')}
             accessibilityState={{ disabled: true }}
           />
-          <Text style={styles.helperText}>Email changes require a verified change flow and are currently locked.</Text>
+          <Text style={styles.helperText}>{t('employerProfile.identity.emailHelper')}</Text>
         </View>
         </EmployerAccordion>
 
-        <EmployerAccordion title="Contact and Philippine location" subtitle={city || 'Add your local hiring area'} icon="location-outline" expanded={expandedSection === 'contact'} onToggle={() => setExpandedSection((section) => section === 'contact' ? null : 'contact')}>
+        <EmployerAccordion title={t('employerProfile.contact.accordionTitle')} subtitle={city || t('employerProfile.contact.accordionSubtitleFallback')} icon="location-outline" expanded={expandedSection === 'contact'} onToggle={() => setExpandedSection((section) => section === 'contact' ? null : 'contact')}>
         <View pointerEvents="none">
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Contact & location</Text>
-            <Text style={styles.sectionHint}>Used for support and job context</Text>
+            <Text style={styles.sectionTitle}>{t('employerProfile.contact.sectionTitle')}</Text>
+            <Text style={styles.sectionHint}>{t('employerProfile.contact.sectionHint')}</Text>
           </View>
 
-          <Text style={styles.fieldLabel}>Phone Number</Text>
+          <Text style={styles.fieldLabel}>{t('employerProfile.contact.phoneLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Add phone number"
+            placeholder={t('employerProfile.contact.phonePlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             value={phone}
             editable={false}
             maxLength={20}
             onChangeText={setPhone}
             keyboardType="phone-pad"
-            accessibilityLabel="Phone number"
+            accessibilityLabel={t('employerProfile.contact.phoneAccessibilityLabel')}
           />
 
-          <Text style={styles.fieldLabel}>City</Text>
+          <Text style={styles.fieldLabel}>{t('employerProfile.contact.cityLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="City / Location"
+            placeholder={t('employerProfile.contact.cityPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             value={city}
             editable={false}
             maxLength={PROFILE_LIMITS.city}
             onChangeText={setCity}
-            accessibilityLabel="City"
+            accessibilityLabel={t('employerProfile.contact.cityAccessibilityLabel')}
           />
 
-          <Text style={styles.fieldLabel}>Address</Text>
+          <Text style={styles.fieldLabel}>{t('employerProfile.contact.addressLabel')}</Text>
           <TextInput
             style={[styles.input, styles.addressInput]}
-            placeholder="Full address"
+            placeholder={t('employerProfile.contact.addressPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             value={address}
             editable={false}
             maxLength={PROFILE_LIMITS.address}
             onChangeText={setAddress}
             multiline
-            accessibilityLabel="Address"
+            accessibilityLabel={t('employerProfile.contact.addressAccessibilityLabel')}
           />
         </View>
         </EmployerAccordion>
 
-        <TouchableOpacity style={[styles.saveButton, !onEditProfile && styles.saveButtonDisabled]} onPress={onEditProfile} disabled={!onEditProfile} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel="Edit business information" accessibilityState={{ disabled: !onEditProfile }}>
+        <TouchableOpacity style={[styles.saveButton, !onEditProfile && styles.saveButtonDisabled]} onPress={onEditProfile} disabled={!onEditProfile} activeOpacity={0.92} accessibilityRole="button" accessibilityLabel={t('employerProfile.editAccessibilityLabel')} accessibilityState={{ disabled: !onEditProfile }}>
           <Ionicons name="create-outline" size={18} color={tokens.colors.white} />
-          <Text style={styles.saveButtonText}>Edit Business Information</Text>
+          <Text style={styles.saveButtonText}>{t('employerProfile.editButton')}</Text>
         </TouchableOpacity>
 
-        <EmployerAccordion title="Worker reviews" subtitle="Feedback from completed local jobs." icon="star-outline" expanded={expandedSection === 'reviews'} onToggle={() => setExpandedSection((section) => section === 'reviews' ? null : 'reviews')}>
+        <EmployerAccordion title={t('employerProfile.reviews.accordionTitle')} subtitle={t('employerProfile.reviews.accordionSubtitle')} icon="star-outline" expanded={expandedSection === 'reviews'} onToggle={() => setExpandedSection((section) => section === 'reviews' ? null : 'reviews')}>
         <ProfileReviewsLoader
           profileOwnerId={profileId}
           profileOwnerName={employerName}

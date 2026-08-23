@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
@@ -20,7 +22,29 @@ const toAdminAssetUrl = (value?: string) => {
   return value.startsWith("/") ? `${origin}${value}` : `${origin}/${value}`;
 };
 
+const getRoleLabel = (role: string | undefined, t: TFunction<"admin">) => {
+  if (role === "superadmin") return t("userManagement.roles.superadmin");
+  if (role === "admin") return t("userManagement.roles.admin");
+  if (role === "hire") return t("userManagement.roles.employer");
+  if (role === "both") return t("userManagement.roles.both");
+  return t("userManagement.roles.worker");
+};
+
+const getStatusLabel = (status: string | undefined, t: TFunction<"admin">) => {
+  if (status === "pending") return t("userManagement.statuses.pending");
+  if (status === "disabled" || status === "deleted") return t("userManagement.statuses.disabled");
+  return t("userManagement.statuses.active");
+};
+
+const getVerificationStatusLabel = (status: string | undefined, t: TFunction<"admin">) => {
+  if (status === "in-review") return t("userManagement.details.verification.statusInReview");
+  if (status === "complete") return t("userManagement.details.verification.statusComplete");
+  if (status === "rejected") return t("userManagement.details.verification.statusRejected");
+  return t("userManagement.details.verification.statusPending");
+};
+
 function AdminUserManagementContent() {
+  const { t } = useTranslation("admin");
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
   const {
@@ -153,12 +177,12 @@ function AdminUserManagementContent() {
         status,
         rejectionReason: status === "rejected" ? normalizedReason : undefined,
       });
-      toast.success(`Verification document ${status === "complete" ? "approved" : "rejected"}.`);
+      toast.success(status === "complete" ? t("userManagement.toast.verificationApproved") : t("userManagement.toast.verificationRejected"));
       setRejectionTarget(null);
       setRejectionReason("");
       reload();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to review verification document.");
+      toast.error(error?.message || t("userManagement.toast.verificationReviewFailed"));
     } finally {
       setReviewingDocument(null);
     }
@@ -180,12 +204,12 @@ function AdminUserManagementContent() {
 
   const submitUserForm = async () => {
     const errors: Record<string, string> = {};
-    if (!form.firstName.trim()) errors.firstName = "First name is required.";
-    if (!form.lastName.trim()) errors.lastName = "Last name is required.";
+    if (!form.firstName.trim()) errors.firstName = t("userManagement.formErrors.firstNameRequired");
+    if (!form.lastName.trim()) errors.lastName = t("userManagement.formErrors.lastNameRequired");
     if (formMode === "create") {
-      if (!isValidEmail(form.email)) errors.email = "Enter a valid email address.";
+      if (!isValidEmail(form.email)) errors.email = t("userManagement.formErrors.emailInvalid");
       if (!getPasswordStrength(form.password).isStrong) errors.password = STRONG_PASSWORD_ERROR;
-      if (form.role === "admin" && !canManagePrivilegedRoles) errors.role = "Only a superadmin can create an administrator.";
+      if (form.role === "admin" && !canManagePrivilegedRoles) errors.role = t("userManagement.formErrors.roleRestricted");
     }
     setFormErrors(errors);
     if (Object.keys(errors).length) return;
@@ -193,14 +217,14 @@ function AdminUserManagementContent() {
     try {
       if (formUserId) {
         await handleEditUser(formUserId, { firstName: form.firstName.trim(), lastName: form.lastName.trim(), role: form.role, status: form.status as 'active' | 'pending' | 'disabled' });
-        toast.success("User updated successfully.");
+        toast.success(t("userManagement.toast.userUpdated"));
       } else if (formMode === "create") {
         await handleCreateUser({ firstName: form.firstName.trim(), lastName: form.lastName.trim(), email: form.email.trim(), password: form.password, role: form.role as 'work' | 'hire' | 'admin' });
-        toast.success("Account created. The temporary password must be changed at first sign-in.");
+        toast.success(t("userManagement.toast.accountCreated"));
       }
       setFormMode(null);
     } catch (error: any) {
-      setFormErrors({ form: error?.message || "Unable to save the user." });
+      setFormErrors({ form: error?.message || t("userManagement.toast.saveFailed") });
     } finally {
       setIsSaving(false);
     }
@@ -212,10 +236,10 @@ function AdminUserManagementContent() {
     setDeleteError(null);
     try {
       await handleDeleteUser(deleteTarget._id);
-      toast.success(`${getUserName(deleteTarget)} deleted successfully.`);
+      toast.success(t("userManagement.toast.userDeleted", { name: getUserName(deleteTarget) }));
       setDeleteTargetId(null);
     } catch (error: any) {
-      setDeleteError(error?.message || "Unable to delete this user.");
+      setDeleteError(error?.message || t("userManagement.toast.deleteFailed"));
     } finally {
       setIsDeleting(false);
     }
@@ -238,10 +262,10 @@ function AdminUserManagementContent() {
       <section className="space-y-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "Total accounts", value: totalUsers, detail: `${newThisWeek} joined this week`, icon: Users, tone: "bg-blue-50 text-blue-700" },
-            { label: "Administrators", value: adminCount, detail: "Admins and superadmins", icon: ShieldCheck, tone: "bg-violet-50 text-violet-700" },
-            { label: "Active accounts", value: activeToday, detail: "Currently enabled", icon: UserCheck, tone: "bg-emerald-50 text-emerald-700" },
-            { label: "Pending review", value: pendingCount, detail: "Awaiting approval", icon: UserPlus, tone: "bg-amber-50 text-amber-700" },
+            { label: t("userManagement.stats.totalAccounts.label"), value: totalUsers, detail: t("userManagement.stats.totalAccounts.detail", { count: newThisWeek }), icon: Users, tone: "bg-blue-50 text-blue-700" },
+            { label: t("userManagement.stats.administrators.label"), value: adminCount, detail: t("userManagement.stats.administrators.detail"), icon: ShieldCheck, tone: "bg-violet-50 text-violet-700" },
+            { label: t("userManagement.stats.activeAccounts.label"), value: activeToday, detail: t("userManagement.stats.activeAccounts.detail"), icon: UserCheck, tone: "bg-emerald-50 text-emerald-700" },
+            { label: t("userManagement.stats.pendingReview.label"), value: pendingCount, detail: t("userManagement.stats.pendingReview.detail"), icon: UserPlus, tone: "bg-amber-50 text-amber-700" },
           ].map((card, index) => {
             const Icon = card.icon;
             return (
@@ -264,13 +288,13 @@ function AdminUserManagementContent() {
         <div className="space-y-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-950">Manage accounts</h2>
-              <p className="mt-1 text-sm text-slate-500">Review users, administrators, roles, and account access.</p>
+              <h2 className="text-lg font-bold text-slate-950">{t("userManagement.manage.title")}</h2>
+              <p className="mt-1 text-sm text-slate-500">{t("userManagement.manage.subtitle")}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <Button ref={addAccountButtonRef} onClick={openCreate} className="shrink-0">
                 <UserPlus className="h-4 w-4" aria-hidden="true" />
-                Add account
+                {t("userManagement.manage.addAccount")}
               </Button>
               <div className="relative min-w-[240px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
@@ -278,29 +302,29 @@ function AdminUserManagementContent() {
                   type="text"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
-                  aria-label="Search users"
-                  placeholder="Search users..."
+                  aria-label={t("userManagement.manage.searchAriaLabel")}
+                  placeholder={t("userManagement.manage.searchPlaceholder")}
                   className="w-full h-10 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                 />
               </div>
-              <label className="sr-only" htmlFor="admin-role-filter">Filter accounts by role</label>
+              <label className="sr-only" htmlFor="admin-role-filter">{t("userManagement.manage.roleFilterLabel")}</label>
               <select
                 id="admin-role-filter"
                 value={roleFilter}
                 onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
                 className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:ring-2 focus:ring-blue-600"
               >
-                <option value="all">All roles</option>
-                <option value="privileged">Administrators</option>
-                <option value="work">Workers</option>
-                <option value="hire">Employers</option>
-                <option value="both">Worker & employer</option>
+                <option value="all">{t("userManagement.manage.roleFilterOptions.all")}</option>
+                <option value="privileged">{t("userManagement.manage.roleFilterOptions.privileged")}</option>
+                <option value="work">{t("userManagement.manage.roleFilterOptions.work")}</option>
+                <option value="hire">{t("userManagement.manage.roleFilterOptions.hire")}</option>
+                <option value="both">{t("userManagement.manage.roleFilterOptions.both")}</option>
               </select>
             </div>
           </div>
 
           <div className="space-y-3 md:hidden" aria-label="Users">
-            {isLoading && <p className="py-6 text-center text-sm text-slate-500">Loading users…</p>}
+            {isLoading && <p className="py-6 text-center text-sm text-slate-500">{t("userManagement.mobileList.loading")}</p>}
             {!isLoading && paginatedUsers.map((user, index) => (
               <motion.article
                 key={user._id}
@@ -311,34 +335,34 @@ function AdminUserManagementContent() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="font-semibold text-slate-900">{getUserName(user)}</p><p className="truncate text-xs text-slate-600">{user.email}</p></div>
-                  <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(user.status)}`}>{user.status || "active"}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(user.status)}`}>{getStatusLabel(user.status, t)}</span>
                 </div>
-                <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">Role</dt><dd className="mt-1 capitalize text-slate-900">{user.role || "work"}</dd></div><div><dt className="text-slate-500">Joined</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
+                <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">{t("userManagement.mobileList.roleLabel")}</dt><dd className="mt-1 capitalize text-slate-900">{getRoleLabel(user.role, t)}</dd></div><div><dt className="text-slate-500">{t("userManagement.mobileList.joinedLabel")}</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>View</Button>
-                  <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? "Edit" : "Restricted"}</Button>
-                  {canManageUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>Delete user</Button>}
+                  <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>{t("userManagement.mobileList.view")}</Button>
+                  <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? t("userManagement.mobileList.edit") : t("userManagement.mobileList.restricted")}</Button>
+                  {canManageUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>{t("userManagement.mobileList.delete")}</Button>}
                 </div>
               </motion.article>
             ))}
-            {!isLoading && paginatedUsers.length === 0 && <p className="py-6 text-center text-sm text-slate-500">No users found.</p>}
+            {!isLoading && paginatedUsers.length === 0 && <p className="py-6 text-center text-sm text-slate-500">{t("userManagement.mobileList.empty")}</p>}
           </div>
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-left text-[13px]">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
-                  <th className="py-3 pr-4 font-medium">User</th>
-                  <th className="py-3 pr-4 font-medium">Role</th>
-                  <th className="py-3 pr-4 font-medium">Status</th>
-                  <th className="py-3 pr-4 font-medium">Joined</th>
-                  <th className="py-3 font-medium text-right">Actions</th>
+                  <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.user")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.role")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.status")}</th>
+                  <th className="py-3 pr-4 font-medium">{t("userManagement.table.headers.joined")}</th>
+                  <th className="py-3 font-medium text-right">{t("userManagement.table.headers.actions")}</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
                     <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
-                      Loading users...
+                      {t("userManagement.table.loading")}
                     </td>
                   </tr>
                 )}
@@ -346,7 +370,7 @@ function AdminUserManagementContent() {
                 {!isLoading && filteredUsers.length === 0 && (
                   <tr>
                     <td colSpan={5} className="py-6 text-center text-[#9CA3AF]">
-                      No users found for the selected filters.
+                      {t("userManagement.table.empty")}
                     </td>
                   </tr>
                 )}
@@ -375,7 +399,7 @@ function AdminUserManagementContent() {
                       </td>
                       <td className="py-3 pr-4">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${user.role === "superadmin" ? "bg-violet-100 text-violet-800" : user.role === "admin" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-700"}`}>
-                          {user.role === "superadmin" ? "Superadmin" : user.role === "admin" ? "Admin" : user.role === "hire" ? "Employer" : user.role === "both" ? "Both" : "Worker"}
+                          {getRoleLabel(user.role, t)}
                         </span>
                       </td>
                       <td className="py-3 pr-4">
@@ -384,7 +408,7 @@ function AdminUserManagementContent() {
                             getStatusColor(user.status)
                           }`}
                         >
-                          {user.status || "active"}
+                          {getStatusLabel(user.status, t)}
                         </span>
                       </td>
                       <td className="py-3 pr-4 text-[#6B7280]">{formatJoinedDate(user._id)}</td>
@@ -397,7 +421,7 @@ function AdminUserManagementContent() {
                               setOpenMenuId((prev) => (prev === user._id ? null : user._id));
                             }}
                             className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-[#F3F4F6]"
-                            aria-label="Open user actions"
+                            aria-label={t("userManagement.table.openActionsAriaLabel")}
                           >
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
@@ -413,7 +437,7 @@ function AdminUserManagementContent() {
                                 }}
                                 className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                               >
-                                View Profile
+                                {t("userManagement.table.menu.viewProfile")}
                               </button>}
                               <button
                                 type="button"
@@ -426,7 +450,7 @@ function AdminUserManagementContent() {
                                 }}
                                 className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                               >
-                                Edit User
+                                {t("userManagement.table.menu.editUser")}
                               </button>
                               <button
                                 type="button"
@@ -438,7 +462,7 @@ function AdminUserManagementContent() {
                                 }}
                                 className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                               >
-                                Message User
+                                {t("userManagement.table.menu.messageUser")}
                               </button>
                               {user.status === "pending" && canManageUser(user) && (
                                 <button
@@ -449,7 +473,7 @@ function AdminUserManagementContent() {
                                   }}
                                   className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                                 >
-                                  Approve User
+                                  {t("userManagement.table.menu.approveUser")}
                                 </button>
                               )}
                               {canManageUser(user) && <button
@@ -462,7 +486,7 @@ function AdminUserManagementContent() {
                                   user.status === "disabled" ? "text-[#111827]" : "text-[#DC2626]"
                                 } hover:bg-[#FEF2F2]`}
                               >
-                                {user.status === "disabled" ? "Activate User" : "Suspend User"}
+                                {user.status === "disabled" ? t("userManagement.table.menu.activateUser") : t("userManagement.table.menu.suspendUser")}
                               </button>}
                               {canManageUser(user) && <button
                                 type="button"
@@ -473,7 +497,7 @@ function AdminUserManagementContent() {
                                 }}
                                 className="w-full px-3 py-2 text-[13px] font-semibold text-red-700 hover:bg-red-50"
                               >
-                                Delete User
+                                {t("userManagement.table.menu.deleteUser")}
                               </button>}
                             </div>
                           )}
@@ -488,7 +512,7 @@ function AdminUserManagementContent() {
           {!isLoading && filteredUsers.length > 0 && (
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E5E7EB] text-[13px] text-[#6B7280]">
               <span>
-                Showing {pageStart + 1}-{pageEnd} of {filteredUsers.length}
+                {t("userManagement.table.pagination.showing", { start: pageStart + 1, end: pageEnd, total: filteredUsers.length })}
               </span>
               <div className="flex items-center gap-2">
                 <button
@@ -497,7 +521,7 @@ function AdminUserManagementContent() {
                   disabled={safePage === 1}
                   className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
                 >
-                  Previous
+                  {t("userManagement.table.pagination.previous")}
                 </button>
                 <div className="flex items-center gap-1">
                   {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
@@ -521,7 +545,7 @@ function AdminUserManagementContent() {
                   disabled={safePage === totalPages}
                   className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
                 >
-                  Next
+                  {t("userManagement.table.pagination.next")}
                 </button>
               </div>
             </div>
@@ -543,14 +567,14 @@ function AdminUserManagementContent() {
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h4 id="admin-user-details-title" className="text-[18px] font-semibold text-[#111827]">User Details</h4>
-                <p className="text-[13px] text-[#6B7280] mt-1">Review account information and access.</p>
+                <h4 id="admin-user-details-title" className="text-[18px] font-semibold text-[#111827]">{t("userManagement.details.title")}</h4>
+                <p className="text-[13px] text-[#6B7280] mt-1">{t("userManagement.details.subtitle")}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSelectedUserId(null)}
                 className="text-[#6B7280] hover:text-[#111827] text-[20px]"
-                aria-label="Close"
+                aria-label={t("userManagement.details.closeAriaLabel")}
               >
                 ×
               </button>
@@ -568,35 +592,35 @@ function AdminUserManagementContent() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-[13px] text-[#6B7280]">
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Status</p>
-                <p className="mt-1 text-[#111827] capitalize">{selectedUser.status || "active"}</p>
+                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.statusLabel")}</p>
+                <p className="mt-1 text-[#111827] capitalize">{getStatusLabel(selectedUser.status, t)}</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Role</p>
-                <p className="mt-1 text-[#111827] capitalize">{selectedUser.role || "user"}</p>
+                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.roleLabel")}</p>
+                <p className="mt-1 text-[#111827] capitalize">{getRoleLabel(selectedUser.role, t)}</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Phone</p>
+                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.phoneLabel")}</p>
                 <p className="mt-1 text-[#111827]">{selectedUser.phoneNumber || "—"}</p>
               </div>
               <div>
-                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">Joined</p>
+                <p className="text-[12px] uppercase tracking-wide text-[#9CA3AF]">{t("userManagement.details.joinedLabel")}</p>
                 <p className="mt-1 text-[#111827]">{formatJoinedDate(selectedUser._id)}</p>
               </div>
             </div>
 
             <div className="mt-6 border-t border-slate-200 pt-5">
-              <h5 className="text-sm font-semibold text-slate-900">Verification documents</h5>
+              <h5 className="text-sm font-semibold text-slate-900">{t("userManagement.details.verification.title")}</h5>
               <div className="mt-3 space-y-3">
                 {(["identity", "address"] as const).map((documentType) => {
                   const document = selectedUser.verification?.[`${documentType}Document`];
-                  const label = documentType === "identity" ? "Government ID" : "Proof of address";
+                  const label = documentType === "identity" ? t("userManagement.details.verification.identityLabel") : t("userManagement.details.verification.addressLabel");
                   return (
                     <div key={documentType} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div>
                           <p className="font-medium text-slate-900">{label}</p>
-                          <p className="mt-0.5 text-xs capitalize text-slate-600">{document?.status || "pending"}</p>
+                          <p className="mt-0.5 text-xs capitalize text-slate-600">{getVerificationStatusLabel(document?.status, t)}</p>
                         </div>
                         {document?.documentUrl ? (
                           <a
@@ -605,12 +629,12 @@ function AdminUserManagementContent() {
                             rel="noopener noreferrer"
                             className="text-xs font-semibold text-blue-700 hover:underline"
                           >
-                            View document
+                            {t("userManagement.details.verification.viewDocument")}
                           </a>
                         ) : null}
                       </div>
                       {document?.rejectionReason ? (
-                        <p className="mt-2 text-xs text-red-700">Reason: {document.rejectionReason}</p>
+                        <p className="mt-2 text-xs text-red-700">{t("userManagement.details.verification.reasonPrefix", { reason: document.rejectionReason })}</p>
                       ) : null}
                       {document?.status === "in-review" ? (
                         <div className="mt-3 flex gap-2">
@@ -618,14 +642,14 @@ function AdminUserManagementContent() {
                             disabled={reviewingDocument !== null}
                             onClick={() => void handleVerificationReview(documentType, "complete")}
                           >
-                            Approve
+                            {t("userManagement.details.verification.approve")}
                           </Button>
                           <Button
                             className="!bg-red-700 hover:!bg-red-800"
                             disabled={reviewingDocument !== null}
                             onClick={() => void handleVerificationReview(documentType, "rejected")}
                           >
-                            Reject
+                            {t("userManagement.details.verification.reject")}
                           </Button>
                         </div>
                       ) : null}
@@ -641,7 +665,7 @@ function AdminUserManagementContent() {
                 onClick={() => setSelectedUserId(null)}
                 className="px-4 py-2 rounded-[12px] border border-[#E5E7EB] text-[13px] text-[#111827] hover:bg-[#F9FAFB]"
               >
-                Close
+                {t("userManagement.details.close")}
               </button>
               {canManageUser(selectedUser) && (
                 <button
@@ -656,7 +680,7 @@ function AdminUserManagementContent() {
                       : "bg-red-700 text-white"
                   }`}
                 >
-                  {selectedUser.status === "disabled" ? "Activate" : "Suspend"}
+                  {selectedUser.status === "disabled" ? t("userManagement.details.activate") : t("userManagement.details.suspend")}
                 </button>
               )}
             </div>
@@ -666,9 +690,9 @@ function AdminUserManagementContent() {
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}
-        title="Delete user"
-        description={`Delete ${deleteTarget ? getUserName(deleteTarget) : "this user"}? Their account will be anonymized and they will lose access. Accounts with active balances, payouts, jobs, or applications cannot be deleted.`}
-        confirmLabel="Delete user"
+        title={t("userManagement.deleteDialog.title")}
+        description={t("userManagement.deleteDialog.description", { name: deleteTarget ? getUserName(deleteTarget) : t("userManagement.deleteDialog.fallbackName") })}
+        confirmLabel={t("userManagement.deleteDialog.confirmLabel")}
         destructive
         pending={isDeleting}
         error={deleteError}
@@ -682,8 +706,8 @@ function AdminUserManagementContent() {
 
       <Dialog
         open={rejectionTarget !== null}
-        title="Reject verification document"
-        description="Tell the user what must be corrected before they upload a replacement."
+        title={t("userManagement.rejectDialog.title")}
+        description={t("userManagement.rejectDialog.description")}
         onClose={() => {
           if (reviewingDocument) return;
           setRejectionTarget(null);
@@ -691,7 +715,7 @@ function AdminUserManagementContent() {
         }}
       >
         <label htmlFor="verification-rejection-reason" className="text-sm font-medium text-slate-700">
-          Rejection reason
+          {t("userManagement.rejectDialog.reasonLabel")}
         </label>
         <textarea
           id="verification-rejection-reason"
@@ -700,7 +724,7 @@ function AdminUserManagementContent() {
           maxLength={500}
           rows={4}
           className="mt-2 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-700"
-          placeholder="For example: The document is blurry and the name is not readable."
+          placeholder={t("userManagement.rejectDialog.reasonPlaceholder")}
         />
         <div className="mt-5 flex justify-end gap-3">
           <Button
@@ -711,51 +735,51 @@ function AdminUserManagementContent() {
               setRejectionReason("");
             }}
           >
-            Cancel
+            {t("userManagement.rejectDialog.cancel")}
           </Button>
           <Button
             className="!bg-red-700 hover:!bg-red-800"
             disabled={!rejectionReason.trim() || reviewingDocument !== null}
             onClick={() => rejectionTarget && void handleVerificationReview(rejectionTarget, "rejected", rejectionReason)}
           >
-            {reviewingDocument ? "Rejecting…" : "Reject document"}
+            {reviewingDocument ? t("userManagement.rejectDialog.rejecting") : t("userManagement.rejectDialog.reject")}
           </Button>
         </div>
       </Dialog>
 
       <Dialog
         open={formMode !== null}
-        title={formMode === "create" ? "Add account" : "Edit user"}
-        description={formMode === "create" ? "Create an active account with a temporary password." : "Email addresses cannot be changed by administrators."}
+        title={formMode === "create" ? t("userManagement.form.titleCreate") : t("userManagement.form.titleEdit")}
+        description={formMode === "create" ? t("userManagement.form.descriptionCreate") : t("userManagement.form.descriptionEdit")}
         restoreFocusRef={formMode === "create" ? addAccountButtonRef : editMenuTriggerRef}
         onClose={() => !isSaving && setFormMode(null)}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Input label="First name" autoComplete="given-name" value={form.firstName} error={formErrors.firstName} onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))} />
-          <Input label="Last name" autoComplete="family-name" value={form.lastName} error={formErrors.lastName} onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))} />
+          <Input label={t("userManagement.form.firstNameLabel")} autoComplete="given-name" value={form.firstName} error={formErrors.firstName} onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))} />
+          <Input label={t("userManagement.form.lastNameLabel")} autoComplete="family-name" value={form.lastName} error={formErrors.lastName} onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))} />
         </div>
         <div className="mt-4">
-          <Input label="Email" type="email" autoComplete="email" value={form.email} error={formErrors.email} disabled={formMode === "edit"} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
+          <Input label={t("userManagement.form.emailLabel")} type="email" autoComplete="email" value={form.email} error={formErrors.email} disabled={formMode === "edit"} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} />
         </div>
         {formMode === "create" && (
           <div className="mt-4">
-            <Input label="Temporary password" type="password" autoComplete="new-password" value={form.password} error={formErrors.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
-            <p className="mt-2 text-xs text-slate-500">At least 8 characters with uppercase, lowercase, number, and special character. The user must replace it at first sign-in.</p>
+            <Input label={t("userManagement.form.passwordLabel")} type="password" autoComplete="new-password" value={form.password} error={formErrors.password} onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))} />
+            <p className="mt-2 text-xs text-slate-500">{t("userManagement.form.passwordHint")}</p>
           </div>
         )}
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Select label="Role" value={form.role} error={formErrors.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
-            <option value="work">Worker</option><option value="hire">Employer</option>
-            {formMode === "edit" && <option value="both">Worker and employer</option>}
-            {canManagePrivilegedRoles && <option value="admin">Admin</option>}
-            {formMode === "edit" && canManagePrivilegedRoles && <option value="superadmin">Superadmin</option>}
+          <Select label={t("userManagement.form.roleLabel")} value={form.role} error={formErrors.role} onChange={(event) => setForm((current) => ({ ...current, role: event.target.value }))}>
+            <option value="work">{t("userManagement.form.roleOptions.worker")}</option><option value="hire">{t("userManagement.form.roleOptions.employer")}</option>
+            {formMode === "edit" && <option value="both">{t("userManagement.form.roleOptions.both")}</option>}
+            {canManagePrivilegedRoles && <option value="admin">{t("userManagement.form.roleOptions.admin")}</option>}
+            {formMode === "edit" && canManagePrivilegedRoles && <option value="superadmin">{t("userManagement.form.roleOptions.superadmin")}</option>}
           </Select>
-          {formMode === "edit" && <Select label="Status" value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">Active</option><option value="pending">Pending</option><option value="disabled">Disabled</option></Select>}
+          {formMode === "edit" && <Select label={t("userManagement.form.statusLabel")} value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value }))}><option value="active">{t("userManagement.form.statusOptions.active")}</option><option value="pending">{t("userManagement.form.statusOptions.pending")}</option><option value="disabled">{t("userManagement.form.statusOptions.disabled")}</option></Select>}
         </div>
         {formErrors.form && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{formErrors.form}</p>}
         <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" disabled={isSaving} onClick={() => setFormMode(null)}>Cancel</Button>
-          <Button disabled={isSaving} onClick={submitUserForm}>{isSaving ? "Saving…" : formMode === "create" ? "Create account" : "Save changes"}</Button>
+          <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" disabled={isSaving} onClick={() => setFormMode(null)}>{t("userManagement.form.cancel")}</Button>
+          <Button disabled={isSaving} onClick={submitUserForm}>{isSaving ? t("userManagement.form.saving") : formMode === "create" ? t("userManagement.form.create") : t("userManagement.form.save")}</Button>
         </div>
       </Dialog>
     </div>

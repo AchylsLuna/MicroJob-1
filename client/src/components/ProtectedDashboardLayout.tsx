@@ -1,9 +1,11 @@
 import { Navigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getSignInRouteForPath } from "../utils/authRedirects";
 import { DashboardLayout } from "./DashboardLayout";
 
 export function ProtectedDashboardLayout() {
+  const { t } = useTranslation("common");
   const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
@@ -27,7 +29,7 @@ export function ProtectedDashboardLayout() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-[#1C4D8D] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">{t("loading")}</p>
         </div>
       </div>
     );

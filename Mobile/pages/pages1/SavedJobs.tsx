@@ -1,6 +1,7 @@
 import React from 'react';
 import { FlatList, Platform, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import Navigation from '../../components/navigation';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '../../theme/tokens';
@@ -35,6 +36,7 @@ export default function SavedJobs({
   onViewAppliedJobs?: () => void;
   messageBadgeCount?: number;
 }) {
+  const { t } = useTranslation('worker');
   const insets = useSafeAreaInsets();
   const handleTabPress = (tab: string) => {
     externalOnTabPress?.(tab);
@@ -53,13 +55,13 @@ export default function SavedJobs({
             handleTabPress('Jobs');
           }}
           accessibilityRole="button"
-          accessibilityLabel="Back to jobs"
+          accessibilityLabel={t('savedJobs.backAccessibility')}
         >
           <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Saved jobs</Text>
-          <Text style={styles.headerSubtitle}>{savedJobs.length} jobs saved for later</Text>
+          <Text style={styles.headerTitle}>{t('savedJobs.headerTitle')}</Text>
+          <Text style={styles.headerSubtitle}>{t('savedJobs.headerSubtitle', { count: savedJobs.length })}</Text>
         </View>
         <View style={styles.headerRightSpacer} />
       </View>
@@ -79,8 +81,8 @@ export default function SavedJobs({
         ListEmptyComponent={(
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>🔖</Text>
-            <Text style={styles.emptyTitle}>No saved jobs yet</Text>
-            <Text style={styles.emptyText}>Jobs you save will appear here</Text>
+            <Text style={styles.emptyTitle}>{t('savedJobs.empty.title')}</Text>
+            <Text style={styles.emptyText}>{t('savedJobs.empty.text')}</Text>
           </View>
         )}
         renderItem={({ item: job }) => {
@@ -104,9 +106,9 @@ export default function SavedJobs({
                   style={styles.deleteBtn}
                   onPress={() => onRemoveJob?.(job._id)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Remove ${job.title} from saved jobs`}
+                  accessibilityLabel={t('savedJobs.removeAccessibility', { title: job.title })}
                 >
-                  <Text style={styles.deleteText}>Remove</Text>
+                  <Text style={styles.deleteText}>{t('savedJobs.removeButton')}</Text>
                 </TouchableOpacity>
               }
             />

@@ -1,0 +1,941 @@
+{
+  "appliedJobs": {
+    "eyebrow": "Application tracker",
+    "title": "My applications",
+    "subtitle": "Follow each application from submission to hiring.",
+    "findJobsButton": "Find jobs",
+    "statusLabels": {
+      "all": "All",
+      "applied": "Applied",
+      "shortlisted": "Shortlisted",
+      "interviewScheduled": "Interview Scheduled",
+      "interviewed": "Interviewed",
+      "offerSent": "Offer Sent",
+      "hired": "Hired",
+      "rejected": "Rejected",
+      "withdrawn": "Withdrawn"
+    },
+    "summary": {
+      "loading": "Loading applications...",
+      "count_one": "{{count}} application",
+      "count_other": "{{count}} applications",
+      "filterHint": "Filter by the stage you want to review."
+    },
+    "statusFieldLabel": "Status",
+    "toast": {
+      "loadFailed": "Failed to load applications."
+    },
+    "card": {
+      "unavailableJob": "Unavailable job",
+      "employerFallback": "Employer",
+      "locationFallback": "Location not specified",
+      "descriptionFallback": "Open the job to review its complete details.",
+      "jobTypeFallback": "Job",
+      "payFallback": "Pay not specified",
+      "minimumPay": "{{amount}} minimum",
+      "appliedOn": "Applied {{date}}",
+      "deadlineOn": "Deadline {{date}}",
+      "rateEmployer": "Rate Employer",
+      "reviewSubmitted": "Review submitted",
+      "viewDetails": "View details",
+      "completedJobFallback": "Completed job"
+    },
+    "emptyState": {
+      "labelAll": "Application tracker",
+      "labelFiltered": "{{stage}} stage",
+      "titleAll": "No applications yet",
+      "titleFiltered": "No applications in {{stage}}",
+      "descriptionAll": "Once you apply for jobs, they will appear here with status updates, interview progress, and hiring decisions.",
+      "descriptionFiltered": "You do not have any applications in the {{stage}} stage right now. Browse more roles or switch back to all applications.",
+      "browseJobs": "Browse Jobs",
+      "showAll": "Show All Applications"
+    }
+  },
+  "dashboard": {
+    "eyebrow": "Worker workspace",
+    "title": "Work overview",
+    "subtitle": "Track applications and find your next opportunity.",
+    "myApplications": "My applications",
+    "findJobs": "Find jobs",
+    "search": {
+      "title": "Search local jobs",
+      "subtitle": "Skills, employers, or job titles"
+    },
+    "resumePrompt": {
+      "title": "Upload your resume",
+      "subtitle": "Get matched with local employers across your community.",
+      "button": "Upload resume"
+    },
+    "categories": {
+      "title": "Job Categories",
+      "seeAll": "Browse all"
+    },
+    "locationPrompt": {
+      "title": "Set your work location",
+      "subtitle": "Add your city or municipality to see nearby opportunities.",
+      "button": "Open settings"
+    },
+    "stats": {
+      "applications": {
+        "title": "Applications",
+        "helper": "All submitted applications"
+      },
+      "interviews": {
+        "title": "Interviews",
+        "helper": "Scheduled or completed interviews"
+      },
+      "hired": {
+        "title": "Hired",
+        "helper": "Successful applications"
+      }
+    },
+    "profileStrength": {
+      "title": "Profile strength",
+      "readyMessage": "Your profile is ready for employers.",
+      "incompleteMessage": "A complete profile improves job matching.",
+      "percentComplete": "{{percent}}% complete",
+      "viewProfile": "View profile",
+      "completeProfile": "Complete profile"
+    },
+    "recentActivities": {
+      "title": "Recent Activities",
+      "seeAll": "View all",
+      "empty": "No activity yet — apply to a job to see updates here.",
+      "browseJobs": "Browse jobs",
+      "justNow": "Just now"
+    },
+    "recommendedJobs": {
+      "title": "Recommended Jobs",
+      "seeAll": "View all",
+      "empty": "No jobs available at the moment. Check back later!",
+      "browseAll": "Browse all jobs"
+    },
+    "toast": {
+      "statsLoadFailed": "Failed to load dashboard stats.",
+      "jobsLoadFailed": "Failed to load recommended jobs."
+    },
+    "statusMap": {
+      "applied": "Application submitted",
+      "shortlisted": "Application shortlisted",
+      "interviewScheduled": "Interview scheduled",
+      "interviewed": "Interview completed",
+      "offerSent": "Offer received",
+      "hired": "Application accepted",
+      "rejected": "Application rejected",
+      "withdrawn": "Application withdrawn",
+      "pending": "Application submitted",
+      "reviewed": "Application reviewed",
+      "terms": "Offer received",
+      "default": "Application updated"
+    },
+    "activityText": "{{status}} for {{jobTitle}}",
+    "jobFallback": "a job",
+    "company": "Company",
+    "locationFallback": "Location not specified",
+    "fullTime": "Full-time",
+    "categoryFallback": "Category",
+    "matchLevelFallback": "Potential match"
+  },
+  "notifications": {
+    "tabs": {
+      "all": "All",
+      "applications": "Applications",
+      "messages": "Messages",
+      "payments": "Payments",
+      "updates": "Updates"
+    },
+    "actions": {
+      "markAllRead": "Mark all as read",
+      "refresh": "Refresh",
+      "markRead": "Mark read",
+      "removeNotification": "Remove notification"
+    },
+    "loading": "Loading...",
+    "emptyState": "No notifications.",
+    "viewAction": {
+      "pipeline": "View Pipeline",
+      "applications": "View Applications",
+      "messages": "View Messages",
+      "wallet": "View Wallet",
+      "open": "Open"
+    },
+    "toast": {
+      "markReadFailed": "Failed to mark as read",
+      "markAllReadSuccess": "All notifications marked as read",
+      "markAllReadFailed": "Failed to mark all as read",
+      "removeSuccess": "Notification removed",
+      "removeFailed": "Failed to remove notification"
+    }
+  },
+  "savedJobs": {
+    "summary_one": "You have {{count}} saved job",
+    "summary_other": "You have {{count}} saved jobs",
+    "title": "Saved Jobs",
+    "filters": {
+      "all": "All Jobs"
+    },
+    "workMode": {
+      "remote": "Remote",
+      "hybrid": "Hybrid",
+      "onSite": "On-site"
+    },
+    "loading": "Loading saved jobs...",
+    "emptyState": {
+      "title": "No saved jobs found",
+      "descriptionNoJobs": "Jobs you save from the marketplace will appear here.",
+      "descriptionNoMatch": "Your current filter did not match any saved jobs.",
+      "browseJobs": "Browse Jobs"
+    },
+    "card": {
+      "removeTitle": "Remove from saved",
+      "removeAria": "Remove {{title}} from saved jobs",
+      "salaryFallback": "Salary not specified",
+      "untitledJob": "Untitled job",
+      "noDescription": "No description provided.",
+      "remoteLocation": "Remote",
+      "deadlineFallback": "Not specified",
+      "savedRecently": "Saved recently",
+      "today": "Today",
+      "daysAgo_one": "{{count}}d ago",
+      "daysAgo_other": "{{count}}d ago",
+      "generalRequirement": "General",
+      "applicants_one": "{{count}} applicant",
+      "applicants_other": "{{count}} applicants",
+      "deadlineLabel": "Deadline: {{deadline}}",
+      "viewJob": "View Job",
+      "viewDetailsTitle": "View Details"
+    },
+    "toast": {
+      "removeSuccess": "Job removed from saved list",
+      "removeFailed": "Failed to remove saved job."
+    }
+  },
+  "findJobs": {
+    "hero": {
+      "eyebrow": "Job search",
+      "title": "Find your next opportunity",
+      "subtitle": "Search local jobs, compare guaranteed pay, and save the opportunities you like.",
+      "searchAria": "Search jobs",
+      "searchPlaceholder": "Job title, company, or category",
+      "categoryFilterAria": "Filter by category",
+      "allCategories": "All categories",
+      "cityButtonAriaSet": "Jobs in: {{location}}",
+      "cityButtonAriaUnset": "Set job search city: {{location}}",
+      "deadlinePlaceholder": "Any deadline"
+    },
+    "locationBanner": {
+      "title": "Add your city to find local jobs",
+      "subtitle": "MicroJobs currently shows opportunities from your city or municipality only.",
+      "updateLocation": "Update location"
+    },
+    "preferences": {
+      "title": "Matching preferences",
+      "subtitle": "Optional categories and keywords for recommendations.",
+      "manage": "Manage",
+      "close": "Close",
+      "keywordsLabel": "Job preference keywords",
+      "keywordsPlaceholder": "Keywords such as repair, delivery, installation",
+      "saving": "Saving...",
+      "save": "Save preferences"
+    },
+    "results": {
+      "countLabel_one": "{{count}} job found",
+      "countLabel_other": "{{count}} jobs found",
+      "sortedBy": "Opportunities are sorted by {{sort}}."
+    },
+    "sort": {
+      "ariaLabel": "Sort jobs",
+      "options": {
+        "recent": "Most recent",
+        "salary": "Highest minimum pay",
+        "applicants": "Most applicants",
+        "nearest": "Nearest to you"
+      }
+    },
+    "status": {
+      "loading": {
+        "title": "Loading jobs",
+        "description": "Finding current opportunities for you."
+      },
+      "error": {
+        "title": "Jobs could not be loaded",
+        "retry": "Try again"
+      },
+      "empty": {
+        "searchTitle": "No jobs match your search",
+        "defaultTitle": "No jobs are available",
+        "searchDescription": "Try a different title, company, or category.",
+        "defaultDescription": "Please check again later for new opportunities."
+      }
+    },
+    "cadence": {
+      "month": "/month",
+      "year": "/year",
+      "week": "/week",
+      "day": "/day",
+      "hour": "/hour"
+    },
+    "toast": {
+      "jobSaved": "Job saved!",
+      "jobRemoved": "Job removed from saved",
+      "saveJobFailed": "Failed to update saved jobs.",
+      "loadJobsFailed": "Failed to load jobs.",
+      "preferencesSaved": "Job matching preferences saved.",
+      "preferencesSaveFailed": "Failed to save job preferences."
+    },
+    "card": {
+      "categoryFallback": "General",
+      "locationFallback": "Location not specified",
+      "salaryMinimum": "{{salary}} minimum"
+    }
+  },
+  "jobDetails": {
+    "backToJobs": "Back to jobs",
+    "loading": "Loading job details...",
+    "loadError": "Failed to load job details.",
+    "notAvailable": "Job details are not available.",
+    "locationFallback": "Remote",
+    "employerFallback": "Employer",
+    "messageDraft": "Hi {{employerName}}, I'm interested in the {{jobTitle}} position. I would like to discuss this opportunity further.",
+    "adminReadOnly": "Read-only admin view. Use Admin Job Monitoring to delete this job.",
+    "applicationSubmitted": "Application Submitted",
+    "applyNow": "Apply Now",
+    "messageEmployerLabel": "Message employer",
+    "deadlineNotSpecified": "Not specified",
+    "jobTypeLabels": {
+      "shortTerm": "Short-term",
+      "sideHustle": "Side hustle",
+      "recruiting": "Recruiting",
+      "partTime": "Part-Time",
+      "contract": "Contract",
+      "projectWork": "Project Work",
+      "fullTime": "Full-Time"
+    },
+    "workModeLabels": {
+      "remote": "Remote",
+      "hybrid": "Hybrid",
+      "onSite": "On-site"
+    },
+    "experienceLevels": {
+      "senior": "Senior",
+      "midLevel": "Mid-Level",
+      "entryLevel": "Entry Level"
+    },
+    "postedLabel": {
+      "recently": "Posted recently",
+      "today": "Posted today",
+      "daysAgo_one": "Posted {{count}}d ago",
+      "daysAgo_other": "Posted {{count}}d ago"
+    },
+    "salaryCadence": {
+      "perMonth": "per month",
+      "perYear": "per year",
+      "perWeek": "per week",
+      "perDay": "per day",
+      "perHour": "per hour",
+      "minimumGuaranteed": "minimum guaranteed"
+    },
+    "save": {
+      "removeTitle": "Remove from saved",
+      "saveTitle": "Save job",
+      "removeAria": "Remove job from saved jobs",
+      "saveAria": "Save job"
+    },
+    "sections": {
+      "description": "Job Description",
+      "noDescription": "No description provided.",
+      "responsibilities": "Responsibilities",
+      "noResponsibilities": "No responsibilities provided.",
+      "requirements": "Requirements",
+      "noRequirements": "No requirements provided.",
+      "requiredSkills": "Required Skills"
+    },
+    "overview": {
+      "title": "Job Overview",
+      "deadline": "Application Deadline",
+      "totalApplicants": "Total Applicants",
+      "applicantsCount_one": "{{count}} applicant",
+      "applicantsCount_other": "{{count}} applicants",
+      "experienceLevel": "Experience Level",
+      "jobType": "Job Type"
+    },
+    "fallbackSkills": {
+      "webDevelopment": "Web Development",
+      "mobileApps": "Mobile Apps",
+      "cloudInfrastructure": "Cloud Infrastructure",
+      "devOps": "DevOps"
+    },
+    "toast": {
+      "applySuccess": "Application submitted successfully!",
+      "applyFailed": "Failed to apply.",
+      "saveSuccess": "Job saved successfully!",
+      "removeSuccess": "Job removed from saved",
+      "saveFailed": "Failed to update saved jobs.",
+      "jobInfoMissing": "Job information not available.",
+      "employerInfoMissing": "Employer information not available for this job.",
+      "startConversationFailed": "Unable to start a conversation with this employer.",
+      "employerProfileMissing": "Employer profile is not available for this job."
+    }
+  },
+  "eWallet": {
+    "role": {
+      "employer": "employer",
+      "worker": "worker"
+    },
+    "txLabel": {
+      "topUp": "Top-up",
+      "escrow": "Escrow",
+      "payout": "Payout",
+      "refund": "Refund",
+      "transaction": "Transaction"
+    },
+    "payoutStatus": {
+      "requested": "requested",
+      "approved": "approved",
+      "paid": "paid",
+      "rejected": "rejected",
+      "cancelled": "cancelled"
+    },
+    "transactionStatus": {
+      "COMPLETED": "COMPLETED",
+      "PENDING": "PENDING",
+      "FAILED": "FAILED",
+      "CANCELLED": "CANCELLED"
+    },
+    "toast": {
+      "loadFailed": "Failed to load wallet data.",
+      "invalidAmount": "Please enter a valid amount.",
+      "topUpInitFailed": "Failed to initialize top-up.",
+      "invalidPayoutAmount": "Enter a valid payout amount.",
+      "payoutExceedsBalance": "Payout amount cannot exceed your worker balance.",
+      "incompleteDestination": "Complete the destination details before submitting your withdrawal.",
+      "withdrawalSubmitted": "Withdrawal submitted.",
+      "withdrawalSubmitFailed": "Failed to submit withdrawal.",
+      "withdrawalCancelled": "Withdrawal cancelled.",
+      "withdrawalCancelFailed": "Failed to cancel withdrawal."
+    },
+    "balanceCard": {
+      "combinedBalance": "Combined Balance",
+      "currentBalance": "Current Balance ({{role}})",
+      "loading": "Loading...",
+      "descriptionBoth": "Your combined employer and worker balance. Top up your wallet to fund jobs, and withdraw your earned balance.",
+      "descriptionEmployer": "Employers add funds here to pay into escrow and cover worker earnings.",
+      "descriptionWorker": "Workers can only withdraw completed earnings here once payouts are available.",
+      "employerBalance": "Employer Balance",
+      "workerBalance": "Worker Balance",
+      "pendingWithdrawals": "Pending Withdrawals",
+      "totalTransactions": "Total Transactions",
+      "topUp": "Top Up",
+      "withdrawWorkerFunds": "Withdraw Worker Funds",
+      "withdrawFunds": "Withdraw Funds"
+    },
+    "stats": {
+      "moneyIn": "Money In",
+      "moneyInHelper": "Completed top-ups, payouts, and refunds received",
+      "moneyOut": "Money Out",
+      "moneyOutHelper": "Completed job escrow and wallet withdrawals",
+      "withdrawals": "Withdrawals"
+    },
+    "history": {
+      "title": "Withdrawal History",
+      "subtitle": "Track requested, approved, rejected, paid, and cancelled withdrawals.",
+      "workerOnly": "Worker wallet only",
+      "loading": "Loading withdrawals...",
+      "empty": "No withdrawals yet.",
+      "requested": "Requested",
+      "reviewed": "Reviewed",
+      "paid": "Paid",
+      "cancelling": "Cancelling...",
+      "cancel": "Cancel Withdrawal"
+    },
+    "form": {
+      "title": "Withdraw Funds",
+      "availableToWithdraw": "Available to withdraw: {{amount}}. Withdrawals debit your worker balance immediately and remain pending until reviewed.",
+      "amountLabel": "Amount (PHP)",
+      "methodLabel": "Method",
+      "methodOptions": {
+        "bankTransfer": "Bank transfer",
+        "gcash": "GCash",
+        "maya": "Maya"
+      },
+      "institutionLabel": "Institution",
+      "institutionPlaceholder": "BDO, GCash, Maya",
+      "accountNameLabel": "Account Name",
+      "accountNamePlaceholder": "Juan Dela Cruz",
+      "accountNumberLabel": "Account Number",
+      "accountNumberPlaceholder": "09171234567 or bank account number",
+      "submitting": "Submitting withdrawal...",
+      "submit": "Withdraw Funds"
+    },
+    "transactions": {
+      "titlePayment": "Payment History",
+      "titleRecent": "Recent Transactions",
+      "helper": "Linked transaction status and payout references included",
+      "loading": "Loading transactions...",
+      "empty": "No transactions yet.",
+      "columns": {
+        "type": "Type",
+        "status": "Status",
+        "label": "Label",
+        "amount": "Amount",
+        "reference": "Reference",
+        "linkedEntity": "Linked Entity",
+        "date": "Date"
+      }
+    },
+    "topUpModal": {
+      "title": "Top Up",
+      "amountLabel": "Amount (PHP)",
+      "description": "Employer funding is the only top-up flow here. Worker accounts withdraw from earned balance instead.",
+      "cancel": "Cancel",
+      "proceed": "Proceed to Checkout",
+      "redirecting": "Redirecting..."
+    }
+  },
+  "messages": {
+    "title": "Messages",
+    "listOptionsLabel": "List options",
+    "backToInbox": "Back To Inbox",
+    "viewArchived": "View Archived",
+    "searchPlaceholder": "Search",
+    "searchAria": "Search conversations",
+    "emptyArchived": "No archived conversations.",
+    "emptyInbox": "No conversations yet.",
+    "noConversationSelected": "Select a conversation to start messaging.",
+    "back": "Back",
+    "backAria": "Back to conversations",
+    "typing": "typing…",
+    "reJob": "Re: {{jobTitle}}",
+    "moreOptions": "More options",
+    "moreOptionsAria": "Open conversation options",
+    "unarchive": "Unarchive",
+    "archive": "Archive",
+    "viewProfile": "View profile",
+    "blockUser": "Block user",
+    "deleteConversation": "Delete conversation",
+    "noMessagesYet": "No messages yet. Start the conversation!",
+    "failedToSend": "Failed to send · tap to retry",
+    "sending": "Sending…",
+    "edited": "(edited)",
+    "edit": "Edit",
+    "read": "Read",
+    "sent": "Sent",
+    "composerPlaceholder": "Enter message",
+    "composerAria": "Message",
+    "sendAria": "Send message",
+    "noMessagesPreview": "No messages yet",
+    "userFallback": "User",
+    "employerFallback": "Employer",
+    "adminSupportName": "Admin Support",
+    "time": {
+      "now": "now",
+      "minutesAgo_one": "{{count}}m ago",
+      "minutesAgo_other": "{{count}}m ago",
+      "hoursAgo_one": "{{count}}h ago",
+      "hoursAgo_other": "{{count}}h ago",
+      "daysAgo_one": "{{count}}d ago",
+      "daysAgo_other": "{{count}}d ago",
+      "today": "Today"
+    },
+    "confirm": {
+      "blockUser": "Are you sure you want to block {{name}}? They will no longer be able to send you messages.",
+      "removeConversation": "Remove this conversation with {{name}} from your inbox? The other person will keep their copy."
+    },
+    "toast": {
+      "blockedSuccess": "{{name}} has been blocked",
+      "blockFailed": "Failed to block user",
+      "archiveSuccess": "Conversation archived",
+      "archiveFailed": "Failed to archive conversation",
+      "unarchiveSuccess": "Conversation moved to inbox",
+      "unarchiveFailed": "Failed to unarchive conversation",
+      "deleteSuccess": "Conversation removed from your inbox",
+      "deleteFailed": "Failed to delete conversation",
+      "loadConversationsFailed": "Failed to load conversations",
+      "loadMessagesFailed": "Failed to load messages",
+      "editWindowExpired": "You can only edit a message within 30 seconds.",
+      "emptyMessage": "Message cannot be empty.",
+      "messageUpdated": "Message updated",
+      "editFailed": "Unable to edit message",
+      "sendFailed": "Failed to send message"
+    },
+    "editing": {
+      "cancel": "Cancel",
+      "save": "Save"
+    }
+  },
+  "settings": {
+    "eyebrow": "Account preferences",
+    "title": "Settings",
+    "subtitle": "Manage your profile, security, verification, and payment information.",
+    "tabs": {
+      "ariaMain": "Settings sections",
+      "ariaAccount": "Account settings sections",
+      "account": "Account",
+      "privacy": "Security & Privacy",
+      "payments": "Payments"
+    },
+    "accountTabs": {
+      "personal": "Personal Information",
+      "business": "Business Information",
+      "experience": "Experience",
+      "resume": "CV/Resume"
+    },
+    "personal": {
+      "businessHeading": "Business Information",
+      "personalHeading": "Personal Information",
+      "businessSubtitle": "Update your employer profile.",
+      "personalSubtitle": "Update your profile information.",
+      "loading": "Loading profile...",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "companyName": "Company name",
+      "companyNamePlaceholder": "Enter your company name",
+      "retry": "Retry",
+      "province": "Province",
+      "provincePlaceholderLoading": "Loading provinces...",
+      "provincePlaceholder": "Search province",
+      "city": "City / Municipality",
+      "cityPlaceholder": "Search city or municipality",
+      "cityPlaceholderDisabled": "Select province first",
+      "barangay": "Barangay",
+      "barangayPlaceholderDisabled": "Select city first",
+      "barangayPlaceholderLoading": "Loading barangays...",
+      "barangayPlaceholder": "Search barangay",
+      "locationType": "Location type",
+      "locationTypeOptions": {
+        "home": "Home address",
+        "office": "Office / Business address",
+        "place": "Landmark / Place"
+      },
+      "address": "Address / Place",
+      "addressPlaceholderPlace": "e.g., Near City Hall",
+      "addressPlaceholderDefault": "House no., street, subdivision",
+      "addressSuggestions": {
+        "nearCityHall": "Near City Hall",
+        "nearPublicMarket": "Near Public Market",
+        "nearBarangayHall": "Near Barangay Hall",
+        "nearTransportTerminal": "Near Transport Terminal",
+        "nearSchoolZone": "Near School Zone",
+        "nearBusinessDistrict": "Near Business District"
+      },
+      "phone": "Phone number",
+      "phonePlaceholder": "e.g., 0917 123 4567",
+      "email": "Email",
+      "about": "About Me",
+      "aboutPlaceholder": "Tell us about yourself, your experience, and what you're passionate about...",
+      "jobPosition": "Professional headline",
+      "jobPositionPlaceholder": "e.g., House cleaner, Tutor, Delivery specialist",
+      "linkedin": "LinkedIn URL",
+      "linkedinPlaceholder": "https://linkedin.com/in/your-name",
+      "website": "Portfolio or website",
+      "websitePlaceholder": "https://your-portfolio.example",
+      "experienceLabel": "Total Experience",
+      "experienceOptions": {
+        "select": "Select experience",
+        "lessThanOne": "Less than 1 Year",
+        "one": "1 Year",
+        "two": "2 Years",
+        "three": "3 Years",
+        "four": "4 Years",
+        "five": "5 Years",
+        "six": "6 Years",
+        "seven": "7 Years",
+        "eight": "8 Years",
+        "nine": "9 Years",
+        "tenPlus": "10+ Years"
+      },
+      "photo": "Profile photo",
+      "changePhoto": "Change photo",
+      "removePhoto": "Remove photo",
+      "uploadPhoto": "Upload your photo",
+      "photoHint": "(jpg/png format)",
+      "saving": "Saving...",
+      "loadingButton": "Loading...",
+      "save": "Save changes"
+    },
+    "experience": {
+      "heading": "Skills & Experience",
+      "subtitle": "Add and manage your skills and expertise.",
+      "editHeading": "Edit work experience",
+      "addHeading": "Add work experience",
+      "formSubtitle": "Show employers the roles, client work, or self-employment that support your skills.",
+      "jobTitle": "Job title *",
+      "jobTitlePlaceholder": "e.g., Math tutor",
+      "company": "Company or client *",
+      "companyPlaceholder": "e.g., Self-employed",
+      "location": "Location",
+      "locationPlaceholder": "City or Remote",
+      "start": "Start *",
+      "end": "End *",
+      "current": "I currently work here",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe your responsibilities and results",
+      "saving": "Saving...",
+      "save": "Save experience",
+      "add": "Add experience",
+      "cancel": "Cancel",
+      "historyHeading": "Work history",
+      "entry_one": "{{count}} entry",
+      "entry_other": "{{count}} entries",
+      "present": "Present",
+      "edit": "Edit",
+      "deleteAria": "Delete {{title}} experience",
+      "empty": "No work history added yet."
+    },
+    "skills": {
+      "addNew": "Add New Skill",
+      "chooseOption": "Choose Option",
+      "selectFromList": "Select from list",
+      "customSkill": "Custom skill",
+      "skillName": "Skill Name",
+      "selectPlaceholder": "Select a skill",
+      "customPlaceholder": "e.g., Flutter, Blockchain, Video Editing",
+      "descriptionLabel": "Description or experience note",
+      "descriptionPlaceholder": "Optional: describe what you can do or your experience with this skill",
+      "saving": "Saving...",
+      "add": "Add Skill",
+      "yourSkills": "Your Skills",
+      "noDescription": "No description added",
+      "editDescription": "Edit description",
+      "endorsements_one": "{{count}} endorsement",
+      "endorsements_other": "{{count}} endorsements",
+      "deleteAria": "Delete {{name}} skill",
+      "descriptionForAria": "Description for {{name}}",
+      "descriptionEditPlaceholder": "Describe your experience with this skill",
+      "saveNote": "Save note",
+      "cancel": "Cancel",
+      "emptyTitle": "No skills added yet",
+      "emptySubtitle": "Add your skills above to showcase your expertise",
+      "catalog": {
+        "categories": {
+          "householdCleaning": "Household & Cleaning",
+          "gardeningLandscaping": "Gardening & Landscaping",
+          "shoppingDelivery": "Shopping & Delivery",
+          "academicTutoring": "Academic & Tutoring",
+          "languagesTranslation": "Languages & Translation",
+          "fitnessWellness": "Fitness & Wellness",
+          "petCare": "Pet Care",
+          "handymanRepairs": "Handyman & Repairs",
+          "cookingFood": "Cooking & Food",
+          "childcareBabysitting": "Childcare & Babysitting",
+          "administrativeTechnical": "Administrative & Technical",
+          "creativeServices": "Creative Services",
+          "movingHeavyLifting": "Moving & Heavy Lifting",
+          "eventServices": "Event Services"
+        },
+        "items": {
+          "houseCleaning": "House Cleaning",
+          "windowCleaning": "Window Cleaning",
+          "laundryService": "Laundry Service",
+          "ironing": "Ironing",
+          "kitchenCleaning": "Kitchen Cleaning",
+          "bathroomCleaning": "Bathroom Cleaning",
+          "gardening": "Gardening",
+          "lawnMowing": "Lawn Mowing",
+          "landscaping": "Landscaping",
+          "plantCare": "Plant Care",
+          "weeding": "Weeding",
+          "hedgeTrimming": "Hedge Trimming",
+          "shopping": "Shopping",
+          "groceryShopping": "Grocery Shopping",
+          "deliveryService": "Delivery Service",
+          "errandRunning": "Errand Running",
+          "packagePickup": "Package Pickup",
+          "tutoring": "Tutoring",
+          "mathTutoring": "Math Tutoring",
+          "englishTutoring": "English Tutoring",
+          "languageTutoring": "Language Tutoring",
+          "scienceTutoring": "Science Tutoring",
+          "homeworkHelp": "Homework Help",
+          "testPreparation": "Test Preparation",
+          "englishSpeaking": "English Speaking",
+          "translationService": "Translation Service",
+          "languageCoaching": "Language Coaching",
+          "pronunciationTraining": "Pronunciation Training",
+          "personalTraining": "Personal Training",
+          "yogaInstruction": "Yoga Instruction",
+          "fitnessCoaching": "Fitness Coaching",
+          "walkingCompanion": "Walking Companion",
+          "dogWalking": "Dog Walking",
+          "petSitting": "Pet Sitting",
+          "petGrooming": "Pet Grooming",
+          "petTraining": "Pet Training",
+          "handymanServices": "Handyman Services",
+          "painting": "Painting",
+          "carpentry": "Carpentry",
+          "plumbingAssistance": "Plumbing Assistance",
+          "furnitureAssembly": "Furniture Assembly",
+          "electricalAssistance": "Electrical Assistance",
+          "mealPreparation": "Meal Preparation",
+          "cooking": "Cooking",
+          "baking": "Baking",
+          "foodDelivery": "Food Delivery",
+          "kitchenHelp": "Kitchen Help",
+          "babysitting": "Babysitting",
+          "childcare": "Childcare",
+          "afterSchoolCare": "After-School Care",
+          "tutoringKids": "Tutoring Kids",
+          "dataEntry": "Data Entry",
+          "virtualAssistant": "Virtual Assistant",
+          "typingServices": "Typing Services",
+          "transcription": "Transcription",
+          "emailManagement": "Email Management",
+          "socialMediaManagement": "Social Media Management",
+          "photography": "Photography",
+          "graphicDesign": "Graphic Design",
+          "contentWriting": "Content Writing",
+          "videoEditing": "Video Editing",
+          "movingHelp": "Moving Help",
+          "heavyLifting": "Heavy Lifting",
+          "packingService": "Packing Service",
+          "eventSetup": "Event Setup",
+          "eventPlanning": "Event Planning",
+          "partyHostingAssistance": "Party Hosting Assistance",
+          "decoration": "Decoration"
+        }
+      }
+    },
+    "password": {
+      "heading": "Change Password",
+      "subtitle": "Changing your password will revoke your other active sessions and keep this one signed in.",
+      "current": "Current Password",
+      "showCurrent": "Show current password",
+      "hideCurrent": "Hide current password",
+      "otpHint": "Request OTP first. You will need the OTP from your email before setting a new password.",
+      "sendingOtp": "Sending OTP...",
+      "resendOtp": "Resend OTP",
+      "sendOtp": "Send OTP",
+      "otpLabel": "OTP Code",
+      "otpAria": "Password change verification code",
+      "otpPlaceholder": "Enter 6-digit OTP",
+      "new": "New Password",
+      "showNew": "Show new password",
+      "hideNew": "Hide new password",
+      "confirm": "Confirm Password",
+      "showConfirm": "Show confirmed password",
+      "hideConfirm": "Hide confirmed password",
+      "discard": "Discard",
+      "saving": "Saving...",
+      "save": "Save New Password"
+    },
+    "sessions": {
+      "heading": "Active Sessions",
+      "signOutAll": "Sign out all sessions",
+      "subtitle": "See your currently logged in sessions and remove unrecognized ones.",
+      "loading": "Loading sessions...",
+      "empty": "No active sessions found.",
+      "sessionLabel": "Session {{number}}",
+      "revoke": "Revoke",
+      "currentQuestion": "Current Session?",
+      "yes": "Yes",
+      "no": "No",
+      "device": "Device Details",
+      "ip": "IP Address",
+      "location": "Location",
+      "lastActive": "Last activity",
+      "currentBadge": "Current session",
+      "signedInBadge": "Signed in",
+      "unknownDevice": "Unknown device",
+      "unknown": "Unknown"
+    },
+    "verification": {
+      "heading": "Verification",
+      "statusLabel": "Verification status",
+      "verified": "Profile verified",
+      "incomplete": "Verification incomplete",
+      "verifiedSubtitle": "All requirements completed.",
+      "incompleteSubtitle": "Complete the remaining requirements below.",
+      "percentComplete": "{{percent}}% complete",
+      "progressAria": "Profile verification progress",
+      "stepsCompleted": "{{completed}} of {{total}} steps completed",
+      "loading": "Loading verification status...",
+      "sendingCode": "Sending...",
+      "resendCode": "Resend code",
+      "sendCode": "Send verification code",
+      "codePlaceholder": "Enter 6-digit code",
+      "codeAria": "Phone verification code",
+      "verifying": "Verifying...",
+      "confirmCode": "Confirm code",
+      "uploadReplacementId": "Upload replacement ID",
+      "uploadId": "Upload ID",
+      "uploadReplacement": "Upload replacement",
+      "uploadDocument": "Upload Document",
+      "statusLabels": {
+        "complete": "Completed",
+        "inReview": "In Review",
+        "rejected": "Rejected",
+        "pending": "Pending"
+      }
+    },
+    "deleteExperienceDialog": {
+      "title": "Remove work experience",
+      "description": "Remove {{title}} from your profile?",
+      "fallbackTitle": "this role",
+      "confirmLabel": "Remove experience"
+    },
+    "toast": {
+      "photoUploaded": "Profile photo uploaded successfully!",
+      "photoUploadFailed": "Failed to upload profile photo",
+      "photoRemoved": "Profile photo removed successfully!",
+      "photoRemoveFailed": "Failed to remove profile photo",
+      "locationOptionsUnavailable": "Philippine location options are unavailable. Retry before changing your location.",
+      "barangayOptionsUnavailable": "Barangay options are unavailable. Re-select the city or try again shortly.",
+      "loadProfileFailed": "Failed to load profile.",
+      "loadSessionsFailed": "Failed to load active sessions",
+      "loadVerificationFailed": "Failed to load verification status",
+      "profileStillLoading": "Your profile is still loading. Please wait and try again.",
+      "waitForLocationData": "Please wait for the Philippine location options to finish loading.",
+      "locationDataUnavailableForSave": "Location options are unavailable, so location changes cannot be validated yet. Retry loading them first.",
+      "selectValidLocation": "Select a valid Province, City/Municipality, and Barangay from the suggestions.",
+      "noProfileChanges": "No profile changes to save.",
+      "profileSaved": "Personal information saved successfully!",
+      "profileSaveFailed": "Failed to save personal information.",
+      "skillNameRequired": "Please select or enter a skill name",
+      "skillNameTooLong": "Skill name must be {{limit}} characters or fewer.",
+      "skillDescriptionTooLong": "Skill description must be {{limit}} characters or fewer.",
+      "skillLimitReached": "You can add up to 50 skills.",
+      "skillSaved": "{{name}} saved to your skills!",
+      "skillAddFailed": "Failed to add skill",
+      "skillDescriptionUpdated": "Skill description updated successfully!",
+      "skillDescriptionUpdateFailed": "Failed to update skill description",
+      "skillRemoved": "Skill removed successfully!",
+      "skillRemoveFailed": "Failed to remove skill",
+      "experienceRequiredFields": "Job title, company or client, and start date are required.",
+      "experienceEndDateRequired": "Add an end date or mark this as your current role.",
+      "experienceFutureDate": "Work experience dates cannot be in the future.",
+      "experienceEndBeforeStart": "End date cannot be before start date.",
+      "experienceFieldTooLong": "One or more work experience fields exceed the allowed length.",
+      "experienceLimitReached": "You can add up to 25 work experience entries.",
+      "experienceUpdated": "Work experience updated.",
+      "experienceAdded": "Work experience added.",
+      "experienceSaveFailed": "Failed to save work experience.",
+      "experienceRemoved": "Work experience removed.",
+      "experienceRemoveFailed": "Failed to remove work experience.",
+      "currentPasswordRequired": "Please enter your current password",
+      "otpSent": "OTP sent to your email",
+      "otpSendFailed": "Failed to send OTP",
+      "otpRequestFirst": "Request OTP first",
+      "otpCodeRequired": "Please enter the OTP code",
+      "fillAllFields": "Please fill in all fields",
+      "passwordsDoNotMatch": "New passwords do not match",
+      "passwordChanged": "Password changed successfully!",
+      "passwordChangeFailed": "Failed to change password",
+      "changesDiscarded": "Changes discarded",
+      "sessionRevoked": "Session revoked successfully",
+      "sessionRevokeFailed": "Failed to revoke session",
+      "allSessionsRevoked": "All sessions revoked. You will be logged out.",
+      "allSessionsRevokeFailed": "Failed to revoke all sessions",
+      "devCode": "Development code: {{code}}",
+      "codeSentTo": "Code sent to {{phone}}",
+      "verificationCodeSent": "Verification code sent",
+      "verificationCodeSendFailed": "Failed to send verification code",
+      "enterVerificationCode": "Enter the verification code",
+      "phoneVerified": "Phone verified successfully",
+      "phoneVerifyFailed": "Failed to verify phone",
+      "identityUploaded": "Identity document uploaded successfully",
+      "identityUploadFailed": "Failed to upload identity document",
+      "addressUploaded": "Address document uploaded successfully",
+      "addressUploadFailed": "Failed to upload address document"
+    }
+  }
+}

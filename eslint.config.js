@@ -32,7 +32,7 @@ export default tseslint.config(
     rules: {
       "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "error",
-      "react-refresh/only-export-components": ["error", { allowConstantExport: true, allowExportNames: ["useAuth", "useAppSession", "useToast", "toast"] }],
+      "react-refresh/only-export-components": ["error", { allowConstantExport: true, allowExportNames: ["useAuth", "useAppSession", "useToast", "toast", "useLanguage"] }],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",

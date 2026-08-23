@@ -1,0 +1,92 @@
+{
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "filipino": "Filipino"
+  },
+  "confirmDialog": {
+    "confirmLabel": "Confirm",
+    "cancelLabel": "Cancel",
+    "pending": "Working…"
+  },
+  "dialog": {
+    "closeLabel": "Close dialog"
+  },
+  "loading": "Loading...",
+  "dashboardLayout": {
+    "navigationMenuAria": "Navigation menu",
+    "closeNavigationMenu": "Close navigation menu"
+  },
+  "navbar": {
+    "openNavigationMenu": "Open navigation menu",
+    "workerDashboardAria": "MicroJobs worker dashboard",
+    "workerPrimaryNavigationAria": "Worker primary navigation",
+    "quickLinks": "Quick links",
+    "quickLinksHint": "Open another part of your workspace.",
+    "openMoreNavigation": "Open more navigation",
+    "moreNavigationMenuAria": "More navigation",
+    "more": "More",
+    "notifications": "Notifications",
+    "notificationsAriaLabel": "Notifications",
+    "notificationsAriaLabelUnread_one": "Notifications, {{count}} unread",
+    "notificationsAriaLabelUnread_other": "Notifications, {{count}} unread",
+    "markAllAsRead": "Mark all as read",
+    "loadingNotifications": "Loading notifications...",
+    "noNotifications": "No notifications",
+    "openAccountMenu": "Open account menu",
+    "accountMenuAria": "Account",
+    "switchTo": "Switch to {{role}}",
+    "roleEmployer": "Employer",
+    "roleWorker": "Worker",
+    "roleAdmin": "Admin",
+    "accountSuffix": "{{role}} account",
+    "viewProfile": "View profile",
+    "ratingsAndReviews": "Ratings & reviews",
+    "signOut": "Sign out",
+    "defaultUserName": "User",
+    "setLocalArea": "Set your local area",
+    "locationSettingsAria": "{{subtitle}}. Open Philippine location settings",
+    "appliedJobsCount_one": "You have {{count}} job application.",
+    "appliedJobsCount_other": "You have {{count}} job applications.",
+    "toast": {
+      "markNotificationFailed": "Failed to mark notification.",
+      "markAllReadSuccess": "All notifications marked as read",
+      "markAllReadFailed": "Failed to mark all as read."
+    },
+    "moreNav": {
+      "jobsManagement": "Jobs management",
+      "applications": "Applications",
+      "eWallet": "E-Wallet",
+      "support": "Support",
+      "settings": "Settings"
+    },
+    "pages": {
+      "workerHome": { "title": "Home" },
+      "findJobs": { "title": "Find Jobs", "searchPlaceholder": "Search jobs..." },
+      "appliedJobs": { "title": "Applied Jobs" },
+      "messages": { "title": "Messages" },
+      "support": { "title": "Support", "searchPlaceholder": "Search help..." },
+      "savedJobs": { "title": "Saved Jobs", "searchPlaceholder": "Search saved jobs..." },
+      "payoutRequests": { "title": "Payout Requests" },
+      "supportTickets": { "title": "Support Tickets" },
+      "eWallet": { "title": "E-Wallet" },
+      "notifications": { "title": "Notifications", "subtitle": "Application updates, messages, and payments" },
+      "settings": { "title": "Settings" },
+      "profile": { "title": "Profile" },
+      "employerHome": { "title": "Home", "action": "Post a job" },
+      "applications": { "title": "Applications", "subtitle": "Review applicants and update hiring status.", "action": "Manage jobs" },
+      "postJob": { "title": "My Job Postings", "subtitle": "Create and manage your open positions", "action": "Manage jobs" },
+      "jobsManagement": { "title": "Jobs Management", "searchPlaceholder": "Search jobs..." },
+      "adminAnalytics": { "title": "Admin Analytics", "subtitle": "Understand category performance and recent platform activity" },
+      "adminEWallet": { "title": "E-Wallet Monitoring", "subtitle": "Track payout volume, pending balances, and recent completions" },
+      "adminJobs": { "title": "Job Posting Monitoring", "subtitle": "Monitor job listings, statuses, and applicant activity" },
+      "adminUsers": { "title": "Users", "subtitle": "Manage platform users and their profiles" },
+      "adminReports": { "title": "Reports", "subtitle": "Generate and download platform reports" },
+      "adminSecurity": { "title": "Security & Access", "subtitle": "Manage user access, roles, and security status" },
+      "adminDashboard": { "title": "Admin Dashboard", "subtitle": "Overview of your job posting platform" },
+      "jobDetails": { "title": "Job Details" },
+      "employerFallback": { "title": "Employer" },
+      "adminFallback": { "title": "Admin" }
+    }
+  }
+}

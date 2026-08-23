@@ -1,0 +1,92 @@
+{
+  "language": {
+    "label": "Wika",
+    "english": "English",
+    "filipino": "Filipino"
+  },
+  "confirmDialog": {
+    "confirmLabel": "Kumpirmahin",
+    "cancelLabel": "Kanselahin",
+    "pending": "Ginagawa…"
+  },
+  "dialog": {
+    "closeLabel": "Isara ang dialog"
+  },
+  "loading": "Naglo-load...",
+  "dashboardLayout": {
+    "navigationMenuAria": "Menu ng navigation",
+    "closeNavigationMenu": "Isara ang navigation menu"
+  },
+  "navbar": {
+    "openNavigationMenu": "Buksan ang navigation menu",
+    "workerDashboardAria": "Dashboard ng manggagawa sa MicroJobs",
+    "workerPrimaryNavigationAria": "Pangunahing navigation ng manggagawa",
+    "quickLinks": "Mabilisang link",
+    "quickLinksHint": "Buksan ang ibang bahagi ng iyong workspace.",
+    "openMoreNavigation": "Buksan ang higit pang navigation",
+    "moreNavigationMenuAria": "Higit pang navigation",
+    "more": "Higit pa",
+    "notifications": "Mga Abiso",
+    "notificationsAriaLabel": "Mga Abiso",
+    "notificationsAriaLabelUnread_one": "Mga Abiso, {{count}} hindi pa nababasa",
+    "notificationsAriaLabelUnread_other": "Mga Abiso, {{count}} hindi pa nababasa",
+    "markAllAsRead": "Markahan lahat bilang nabasa",
+    "loadingNotifications": "Naglo-load ng mga abiso...",
+    "noNotifications": "Walang abiso",
+    "openAccountMenu": "Buksan ang account menu",
+    "accountMenuAria": "Account",
+    "switchTo": "Lumipat sa {{role}}",
+    "roleEmployer": "Employer",
+    "roleWorker": "Manggagawa",
+    "roleAdmin": "Admin",
+    "accountSuffix": "Account na {{role}}",
+    "viewProfile": "Tingnan ang profile",
+    "ratingsAndReviews": "Mga rating at review",
+    "signOut": "Mag-sign out",
+    "defaultUserName": "User",
+    "setLocalArea": "Itakda ang iyong lokal na lugar",
+    "locationSettingsAria": "{{subtitle}}. Buksan ang mga setting ng lokasyon sa Pilipinas",
+    "appliedJobsCount_one": "May {{count}} ka trabahong inaplayan.",
+    "appliedJobsCount_other": "May {{count}} kang mga trabahong inaplayan.",
+    "toast": {
+      "markNotificationFailed": "Hindi na-mark ang abiso.",
+      "markAllReadSuccess": "Lahat ng abiso ay minarkahan bilang nabasa",
+      "markAllReadFailed": "Hindi namarkahan lahat bilang nabasa."
+    },
+    "moreNav": {
+      "jobsManagement": "Pamamahala ng trabaho",
+      "applications": "Mga Aplikasyon",
+      "eWallet": "E-Wallet",
+      "support": "Suporta",
+      "settings": "Mga Setting"
+    },
+    "pages": {
+      "workerHome": { "title": "Home" },
+      "findJobs": { "title": "Maghanap ng Trabaho", "searchPlaceholder": "Maghanap ng trabaho..." },
+      "appliedJobs": { "title": "Mga Inaplayang Trabaho" },
+      "messages": { "title": "Mga Mensahe" },
+      "support": { "title": "Suporta", "searchPlaceholder": "Maghanap ng tulong..." },
+      "savedJobs": { "title": "Mga Na-save na Trabaho", "searchPlaceholder": "Maghanap sa na-save na trabaho..." },
+      "payoutRequests": { "title": "Mga Kahilingan sa Payout" },
+      "supportTickets": { "title": "Mga Support Ticket" },
+      "eWallet": { "title": "E-Wallet" },
+      "notifications": { "title": "Mga Abiso", "subtitle": "Mga update sa aplikasyon, mensahe, at bayad" },
+      "settings": { "title": "Mga Setting" },
+      "profile": { "title": "Profile" },
+      "employerHome": { "title": "Home", "action": "Mag-post ng trabaho" },
+      "applications": { "title": "Mga Aplikasyon", "subtitle": "Suriin ang mga aplikante at i-update ang status ng pagkuha.", "action": "Pamahalaan ang mga trabaho" },
+      "postJob": { "title": "Aking Mga Job Posting", "subtitle": "Gumawa at pamahalaan ang iyong mga bukas na posisyon", "action": "Pamahalaan ang mga trabaho" },
+      "jobsManagement": { "title": "Pamamahala ng Trabaho", "searchPlaceholder": "Maghanap ng trabaho..." },
+      "adminAnalytics": { "title": "Admin Analytics", "subtitle": "Unawain ang performance ng kategorya at kamakailang aktibidad sa platform" },
+      "adminEWallet": { "title": "Pagmomonitor ng E-Wallet", "subtitle": "Subaybayan ang dami ng payout, pending na balanse, at kamakailang natapos" },
+      "adminJobs": { "title": "Pagmomonitor ng Job Posting", "subtitle": "Subaybayan ang mga listahan ng trabaho, status, at aktibidad ng aplikante" },
+      "adminUsers": { "title": "Mga User", "subtitle": "Pamahalaan ang mga user ng platform at kanilang mga profile" },
+      "adminReports": { "title": "Mga Ulat", "subtitle": "Bumuo at mag-download ng mga ulat ng platform" },
+      "adminSecurity": { "title": "Seguridad at Access", "subtitle": "Pamahalaan ang access ng user, mga tungkulin, at status ng seguridad" },
+      "adminDashboard": { "title": "Admin Dashboard", "subtitle": "Overview ng iyong job posting platform" },
+      "jobDetails": { "title": "Detalye ng Trabaho" },
+      "employerFallback": { "title": "Employer" },
+      "adminFallback": { "title": "Admin" }
+    }
+  }
+}

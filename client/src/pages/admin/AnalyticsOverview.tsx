@@ -1,8 +1,10 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Briefcase, DollarSign, TrendingUp, Users } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { AdminJob, AdminUser } from "../../hooks/useAdminData";
 import type { PaymentTransaction } from "../../services/api";
+import { formatDate } from "../../lib/formatters";
 
 const CHART_MONTHS = 6;
 
@@ -30,6 +32,7 @@ export function AnalyticsOverview({
   topCategories,
   formatCurrency,
 }: AnalyticsOverviewProps) {
+  const { t } = useTranslation("admin");
   const prefersReducedMotion = useReducedMotion();
   const monthBuckets = useMemo(() => {
     const now = new Date();
@@ -38,7 +41,7 @@ export function AnalyticsOverview({
       const key = `${date.getFullYear()}-${date.getMonth()}`;
       return {
         key,
-        label: date.toLocaleDateString("en-US", { month: "short" }),
+        label: formatDate(date, { month: "short" }),
         month: date.getMonth(),
         year: date.getFullYear(),
       };
@@ -110,25 +113,25 @@ export function AnalyticsOverview({
 
   const cardItems = [
     {
-      label: "Completed Payout Volume",
+      label: t("analytics.overview.cards.payoutVolume"),
       value: isLoading ? "—" : formatCurrency(totalPayoutVolume),
       change: payoutVolumeChange,
       icon: <DollarSign className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
-      label: "Active Jobs",
+      label: t("analytics.overview.cards.activeJobs"),
       value: isLoading ? "—" : activeJobs,
       change: jobChange,
       icon: <Briefcase className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
-      label: "Total Users",
+      label: t("analytics.overview.cards.totalUsers"),
       value: isLoading ? "—" : totalUsers,
       change: userChange,
       icon: <Users className="w-6 h-6 text-[#1C4D8D]" />,
     },
     {
-      label: "Conversion Rate",
+      label: t("analytics.overview.cards.conversionRate"),
       value: isLoading ? "—" : `${conversionRate.toFixed(1)}%`,
       change: conversionChange,
       icon: <TrendingUp className="w-6 h-6 text-[#1C4D8D]" />,
@@ -184,10 +187,10 @@ export function AnalyticsOverview({
     }));
     const remaining = categoryTotal - used;
     if (remaining > 0) {
-      segments.push({ label: "Others", value: remaining, color: colors[4] });
+      segments.push({ label: t("analytics.overview.othersCategory"), value: remaining, color: colors[4] });
     }
     return segments;
-  }, [topCategories, categoryTotal]);
+  }, [topCategories, categoryTotal, t]);
 
   const donutRadius = 70;
   const donutCircumference = 2 * Math.PI * donutRadius;
@@ -213,8 +216,10 @@ export function AnalyticsOverview({
                     card.change < 0 ? "text-[#DC2626]" : "text-[#16A34A]"
                   }`}
                 >
-                  {card.change >= 0 ? "+" : ""}
-                  {card.change.toFixed(1)}% from last month
+                  {t("analytics.overview.changeFromLastMonth", {
+                    sign: card.change >= 0 ? "+" : "",
+                    value: card.change.toFixed(1),
+                  })}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-full bg-[#1C4D8D]/[0.06] flex items-center justify-center">
@@ -227,7 +232,7 @@ export function AnalyticsOverview({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">Monthly Activity</h3>
+          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.monthlyActivity")}</h3>
           <div className="mt-6 flex items-end gap-4 h-[220px]">
             {monthBuckets.map((bucket, index) => {
               const jobHeight = (monthlyJobs[index] / maxMonthly) * 100;
@@ -252,7 +257,7 @@ export function AnalyticsOverview({
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">Completed Payout Trend</h3>
+          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.payoutTrend")}</h3>
           <div className="mt-6 flex gap-4">
             <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
               {payoutVolumeTicks.map((tick, index) => (
@@ -279,7 +284,7 @@ export function AnalyticsOverview({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">Jobs by Category</h3>
+          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.jobsByCategory")}</h3>
           <div className="mt-6 flex flex-col items-center gap-6">
             <svg width="200" height="200" viewBox="0 0 200 200">
               <g transform="translate(100 100) rotate(-90)">
@@ -319,7 +324,7 @@ export function AnalyticsOverview({
         </div>
 
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">User Growth</h3>
+          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.userGrowth")}</h3>
           <div className="mt-6 flex gap-4">
             <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
               {userGrowthTicks.map((tick, index) => (

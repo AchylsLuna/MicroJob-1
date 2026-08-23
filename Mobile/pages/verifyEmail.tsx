@@ -9,6 +9,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../lib/storage';
 import { Feather } from '@expo/vector-icons';
 import { API_URL } from '../config';
@@ -43,6 +44,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const [otpToken, setOtpToken] = useState(initialOtpToken);
   const toast = useToast();
+  const { t } = useTranslation('auth');
   const inputs = useRef<Array<TextInput | null>>([]);
   const hasSentRef = useRef(false);
 
@@ -170,7 +172,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
   const sendOtp = useCallback(async () => {
     if (mode === 'loginOtp') {
       if (!otpToken) {
-        setErrorMessage('Your login verification session expired. Please sign in again.');
+        setErrorMessage(t('verifyEmail.toast.sessionExpired'));
         return;
       }
 
@@ -184,11 +186,11 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ otpToken }),
           },
-          'Failed to resend OTP.',
+          t('verifyEmail.toast.resendOtpFailedFallback'),
         );
 
         if (!result.ok) {
-          throw new Error(`${result.message || 'Failed to resend OTP.'} (HTTP ${result.status})`);
+          throw new Error(t('verifyEmail.toast.httpError', { message: result.message || t('verifyEmail.toast.resendOtpFailedFallback'), status: result.status }));
         }
 
         const dataPayload = asObject<any>(result.data) || {};
@@ -204,7 +206,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
         setFocusedIndex(0);
         inputs.current[0]?.focus();
       } catch (error: any) {
-        setErrorMessage(error?.message || 'Failed to resend OTP.');
+        setErrorMessage(error?.message || t('verifyEmail.toast.resendOtpFailedFallback'));
       } finally {
         setIsLoading(false);
       }
@@ -213,7 +215,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
 
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
-      setErrorMessage('Missing or invalid email. Please sign up again.');
+      setErrorMessage(t('verifyEmail.toast.emailMissingSignUp'));
       return;
     }
 
@@ -227,11 +229,11 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: normalizedEmail }),
         },
-        'Failed to send OTP.',
+        t('verifyEmail.toast.sendOtpFailedFallback'),
       );
 
       if (!result.ok) {
-        throw new Error(`${result.message || 'Failed to send OTP.'} (HTTP ${result.status})`);
+        throw new Error(t('verifyEmail.toast.httpError', { message: result.message || t('verifyEmail.toast.sendOtpFailedFallback'), status: result.status }));
       }
 
       setTimer(TIMER_SECONDS);
@@ -240,17 +242,17 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       setFocusedIndex(0);
       inputs.current[0]?.focus();
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to send OTP.');
+      setErrorMessage(error?.message || t('verifyEmail.toast.sendOtpFailedFallback'));
     } finally {
       setIsLoading(false);
     }
-  }, [email, mode, otpToken]);
+  }, [email, mode, otpToken, t]);
   sendOtpRef.current = sendOtp;
 
   const handleVerify = async () => {
     const otpCode = code.join('');
     if (otpCode.length !== 6) {
-      toast.error('Please enter the complete 6-digit code.');
+      toast.error(t('verifyEmail.toast.incompleteCode'));
       return;
     }
     setIsLoading(true);
@@ -259,7 +261,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       let result;
       if (mode === 'loginOtp') {
         if (!otpToken) {
-          throw new Error('Your login verification session expired. Please sign in again.');
+          throw new Error(t('verifyEmail.toast.sessionExpired'));
         }
         result = await apiRequest(
           `${API_URL}/auth/login/otp/verify`,
@@ -268,19 +270,19 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ otpToken, code: otpCode }),
           },
-          'Verification failed.',
+          t('verifyEmail.toast.verificationFailedFallback'),
         );
       } else if (mode === 'passwordReset') {
         const normalizedEmail = normalizeEmail(email);
         result = await apiRequest(
           `${API_URL}/auth/password-reset/verify`,
           { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: normalizedEmail, code: otpCode }) },
-          'Reset-code verification failed.',
+          t('verifyEmail.toast.resetCodeVerificationFailedFallback'),
         );
       } else {
         const normalizedEmail = normalizeEmail(email);
         if (!isValidEmail(normalizedEmail)) {
-          toast.error('Missing or invalid email. Please sign in again.');
+          toast.error(t('verifyEmail.toast.emailMissingSignIn'));
           setIsLoading(false);
           return;
         }
@@ -292,12 +294,12 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: normalizedEmail, code: otpCode }),
           },
-          'Verification failed.',
+          t('verifyEmail.toast.verificationFailedFallback'),
         );
       }
 
       if (!result.ok) {
-        throw new Error(`${result.message || 'Verification failed.'} (HTTP ${result.status})`);
+        throw new Error(t('verifyEmail.toast.httpError', { message: result.message || t('verifyEmail.toast.verificationFailedFallback'), status: result.status }));
       }
 
       const dataPayload = asObject<any>(result.data) || {};
@@ -314,15 +316,15 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
       }
       if (mode === 'emailVerification') {
         await AsyncStorage.removeItem('pending_verification_email');
-        toast.success('Email verified successfully.');
+        toast.success(t('verifyEmail.toast.emailVerifiedSuccess'));
       } else if (mode === 'loginOtp') {
-        toast.success('Login verified successfully.');
+        toast.success(t('verifyEmail.toast.loginVerifiedSuccess'));
       } else {
-        toast.success('Reset code verified.');
+        toast.success(t('verifyEmail.toast.resetCodeVerifiedSuccess'));
       }
       onVerified?.(mode === 'passwordReset' ? otpCode : undefined);
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Verification failed.');
+      setErrorMessage(error?.message || t('verifyEmail.toast.verificationFailedFallback'));
     } finally {
       setIsLoading(false);
     }
@@ -330,22 +332,22 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
 
   return (
     <AuthScreenLayout
-      title={mode === 'loginOtp' ? 'Verify login' : mode === 'passwordReset' ? 'Check your email' : 'Verify email'}
-      subtitle={mode === 'loginOtp' ? 'Enter the 6-digit login code sent to your email.' : mode === 'passwordReset' ? 'Enter the 6-digit reset code we sent you.' : 'Enter the 6-digit code sent to your inbox.'}
+      title={mode === 'loginOtp' ? t('verifyEmail.titleLoginOtp') : mode === 'passwordReset' ? t('verifyEmail.titlePasswordReset') : t('verifyEmail.titleEmailVerification')}
+      subtitle={mode === 'loginOtp' ? t('verifyEmail.subtitleLoginOtp') : mode === 'passwordReset' ? t('verifyEmail.subtitlePasswordReset') : t('verifyEmail.subtitleEmailVerification')}
       onBack={onBack}
       centered
     >
       {mode === 'passwordReset' ? <AuthProgress step={2} /> : null}
       <View style={[styles.emailPill, { borderRadius: pillRadius }]}>
         <Text style={[styles.emailPillText, { fontSize: helperFontSize }]}>
-          {email || 'your email address'}
+          {email || t('verifyEmail.emailFallback')}
         </Text>
       </View>
 
       <AuthStepCard
         step={1}
-        title="Verification Code"
-        subtitle={mode === 'loginOtp' ? 'Use the login OTP from your email.' : 'Use the OTP from your email.'}
+        title={t('verifyEmail.codeCardTitle')}
+        subtitle={mode === 'loginOtp' ? t('verifyEmail.codeCardSubtitleLoginOtp') : t('verifyEmail.codeCardSubtitleDefault')}
         style={styles.primaryCard}
       >
         {errorMessage ? (
@@ -368,7 +370,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
             />
           </View>
           <Text style={[styles.timerMetaText, { fontSize: statusFontSize }]}>
-            {canResend ? 'You can request a new code now.' : `Resend available in ${formattedTimer}`}
+            {canResend ? t('verifyEmail.canResendNow') : t('verifyEmail.resendAvailableIn', { timer: formattedTimer })}
           </Text>
         </View>
 
@@ -401,7 +403,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
               textAlign="center"
               textContentType="oneTimeCode"
               autoComplete="one-time-code"
-              accessibilityLabel={`Verification code digit ${index + 1}`}
+              accessibilityLabel={t('verifyEmail.codeDigitA11y', { number: index + 1 })}
             />
           ))}
         </View>
@@ -415,7 +417,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
             <ActivityIndicator color={AUTH_COLORS.primaryText} />
           ) : (
             <Text style={[styles.buttonText, { fontSize: buttonFontSize }]}>
-              Verify Code
+              {t('verifyEmail.verifyButton')}
             </Text>
           )}
         </TouchableOpacity>
@@ -431,7 +433,7 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
         >
           <Feather name="refresh-cw" size={clamp(helperFontSize + 1, 14, 16)} color={AUTH_COLORS.linkLight} />
           <Text style={[styles.resendButtonText, { fontSize: helperFontSize }]}>
-            {canResend ? 'Resend Code' : `Resend in ${formattedTimer}`}
+            {canResend ? t('verifyEmail.resendButton') : t('verifyEmail.resendIn', { timer: formattedTimer })}
           </Text>
         </TouchableOpacity>
       </AuthStepCard>

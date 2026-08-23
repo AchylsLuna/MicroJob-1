@@ -10,9 +10,11 @@ import {
   Check,
   ChevronDown,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { toast } from "../../lib/toast";
+import { formatDate } from "../../lib/formatters";
 
 const REPORT_STORAGE_KEY = "admin_reports";
 
@@ -30,6 +32,7 @@ type StoredReport = {
 };
 
 function AdminReportsContent() {
+  const { t } = useTranslation("admin");
   const { isLoading, loadError, users, jobs, transactions } = useAdminData();
   const [reportType, setReportType] = useState<ReportType>("users");
   const [fromDate, setFromDate] = useState("");
@@ -63,29 +66,29 @@ function AdminReportsContent() {
   const reportCards = [
     {
       id: "users" as const,
-      title: "User Report",
-      description: "Complete list of all registered users with their profiles and activity",
+      title: t("reports.cards.users.title"),
+      description: t("reports.cards.users.description"),
       icon: <Users className="w-5 h-5 text-[#1C4D8D]" />,
       accent: "bg-[#1C4D8D]/[0.06]",
     },
     {
       id: "jobs" as const,
-      title: "Jobs Report",
-      description: "All job postings with status, applications count, and performance metrics",
+      title: t("reports.cards.jobs.title"),
+      description: t("reports.cards.jobs.description"),
       icon: <Briefcase className="w-5 h-5 text-[#10B981]" />,
       accent: "bg-[#ECFDF3]",
     },
     {
       id: "transactions" as const,
-      title: "Transaction Report",
-      description: "E-wallet transactions, payments, and financial summary",
+      title: t("reports.cards.transactions.title"),
+      description: t("reports.cards.transactions.description"),
       icon: <DollarSign className="w-5 h-5 text-[#F59E0B]" />,
       accent: "bg-[#FEF3C7]",
     },
     {
       id: "applications" as const,
-      title: "Applications Report",
-      description: "Application counts summarized by job posting and job status",
+      title: t("reports.cards.applications.title"),
+      description: t("reports.cards.applications.description"),
       icon: <ClipboardList className="w-5 h-5 text-[#A855F7]" />,
       accent: "bg-[#F3E8FF]",
     },
@@ -194,19 +197,19 @@ function AdminReportsContent() {
     const rangeTo = options?.rangeTo ?? toDate;
     const format = options?.format ?? exportFormat;
     if (rangeFrom && rangeTo && rangeFrom > rangeTo) {
-      toast.error("From Date cannot be after To Date.");
+      toast.error(t("reports.toast.invalidRange"));
       return;
     }
     const data = buildReportData(type, rangeFrom, rangeTo);
 
     if (data.length === 0) {
-      toast.error("No data available for the selected filters.");
+      toast.error(t("reports.toast.noData"));
       return;
     }
 
     const safeFrom = rangeFrom || "all";
     const safeTo = rangeTo || "all";
-    const title = reportCards.find((card) => card.id === type)?.title || "Report";
+    const title = reportCards.find((card) => card.id === type)?.title || t("reports.fallbackTitle");
     const fileName = `${type}-${safeFrom}-${safeTo}.${format.toLowerCase()}`;
 
     let content = "";
@@ -254,13 +257,13 @@ function AdminReportsContent() {
       };
 
       setRecentReports((prev) => [newReport, ...prev].slice(0, 6));
-      toast.success("Report generated successfully.");
+      toast.success(t("reports.toast.generateSuccess"));
     }
   };
 
   const recentLabel = (report: StoredReport) => {
     const created = new Date(report.createdAt);
-    return created.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+    return formatDate(created, { year: "numeric", month: "short", day: "numeric" });
   };
 
   return (
@@ -273,9 +276,9 @@ function AdminReportsContent() {
 
       <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-6 space-y-6">
         <div>
-          <h3 className="text-[20px] font-semibold text-[#111827]">Generate Report</h3>
+          <h3 className="text-[20px] font-semibold text-[#111827]">{t("reports.generate.title")}</h3>
           <p className="text-[13px] text-[#6B7280] mt-1">
-            Select report type and date range to generate a downloadable report
+            {t("reports.generate.subtitle")}
           </p>
         </div>
 
@@ -305,7 +308,7 @@ function AdminReportsContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div>
-            <label htmlFor="report-from-date" className="text-[12px] text-[#6B7280] block mb-2">From Date</label>
+            <label htmlFor="report-from-date" className="text-[12px] text-[#6B7280] block mb-2">{t("reports.generate.fromDate")}</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
@@ -318,7 +321,7 @@ function AdminReportsContent() {
             </div>
           </div>
           <div>
-            <label htmlFor="report-to-date" className="text-[12px] text-[#6B7280] block mb-2">To Date</label>
+            <label htmlFor="report-to-date" className="text-[12px] text-[#6B7280] block mb-2">{t("reports.generate.toDate")}</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
@@ -331,7 +334,7 @@ function AdminReportsContent() {
             </div>
           </div>
           <div>
-            <span id="report-format-label" className="text-[12px] text-[#6B7280] block mb-2">Export Format</span>
+            <span id="report-format-label" className="text-[12px] text-[#6B7280] block mb-2">{t("reports.generate.exportFormat")}</span>
             <div className="relative">
               <button
                 aria-labelledby="report-format-label"
@@ -378,19 +381,19 @@ function AdminReportsContent() {
           className="inline-flex items-center gap-2 rounded-[14px] bg-[#1C4D8D] text-white px-5 py-3 text-[13px] font-semibold shadow-sm hover:opacity-90 disabled:opacity-60"
         >
           <Download className="w-4 h-4" />
-          Generate & Download
+          {t("reports.generate.submit")}
         </button>
       </section>
 
       <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-6 space-y-4">
         <div>
-          <h3 className="text-[20px] font-semibold text-[#111827]">Recent Reports</h3>
-          <p className="text-[13px] text-[#6B7280] mt-1">Previously generated reports available for download</p>
+          <h3 className="text-[20px] font-semibold text-[#111827]">{t("reports.recent.title")}</h3>
+          <p className="text-[13px] text-[#6B7280] mt-1">{t("reports.recent.subtitle")}</p>
         </div>
 
         <div className="space-y-3">
           {recentReports.length === 0 && (
-            <div className="text-[13px] text-[#9CA3AF]">No reports generated yet.</div>
+            <div className="text-[13px] text-[#9CA3AF]">{t("reports.recent.empty")}</div>
           )}
           {recentReports.map((report) => (
             <div
@@ -407,13 +410,13 @@ function AdminReportsContent() {
                       report.fromDate && report.toDate ? " - " : ""
                     }${report.toDate || ""})` : ""}
                   </p>
-                  <p className="text-[12px] text-[#6B7280]">Generated on {recentLabel(report)}</p>
+                  <p className="text-[12px] text-[#6B7280]">{t("reports.recent.generatedOn", { date: recentLabel(report) })}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-[11px] font-semibold bg-[#ECFDF3] text-[#065F46]">
                   <Check className="w-4 h-4" />
-                  {report.status}
+                  {t("reports.recent.statusCompleted")}
                 </span>
                 <button
                   type="button"

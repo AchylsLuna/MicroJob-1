@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { tokens } from '../theme/tokens';
 
 type ConfirmModalProps = {
@@ -19,14 +20,17 @@ export default function ConfirmModal({
   visible,
   title,
   description,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   pending = false,
   error,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { t } = useTranslation('common');
+  const resolvedConfirmLabel = confirmLabel ?? t('confirmModal.confirmLabel');
+  const resolvedCancelLabel = cancelLabel ?? t('confirmModal.cancelLabel');
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => !pending && onCancel()} statusBarTranslucent>
       <View style={styles.backdrop} accessibilityViewIsModal>
@@ -35,11 +39,11 @@ export default function ConfirmModal({
           <Text style={styles.description}>{description}</Text>
           {error ? <Text style={styles.error} accessibilityLiveRegion="assertive">{error}</Text> : null}
           <View style={styles.actions}>
-            <Pressable accessibilityRole="button" accessibilityLabel={cancelLabel} disabled={pending} onPress={onCancel} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.pressed, pending && styles.disabled]}>
-              <Text style={styles.cancelText}>{cancelLabel}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={resolvedCancelLabel} disabled={pending} onPress={onCancel} style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.pressed, pending && styles.disabled]}>
+              <Text style={styles.cancelText}>{resolvedCancelLabel}</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={confirmLabel} accessibilityState={{ disabled: pending, busy: pending }} disabled={pending} onPress={onConfirm} style={({ pressed }) => [styles.button, destructive ? styles.dangerButton : styles.confirmButton, pressed && styles.pressed, pending && styles.disabled]}>
-              {pending ? <ActivityIndicator color={tokens.colors.onBrand} /> : <Text style={styles.confirmText}>{confirmLabel}</Text>}
+            <Pressable accessibilityRole="button" accessibilityLabel={resolvedConfirmLabel} accessibilityState={{ disabled: pending, busy: pending }} disabled={pending} onPress={onConfirm} style={({ pressed }) => [styles.button, destructive ? styles.dangerButton : styles.confirmButton, pressed && styles.pressed, pending && styles.disabled]}>
+              {pending ? <ActivityIndicator color={tokens.colors.onBrand} /> : <Text style={styles.confirmText}>{resolvedConfirmLabel}</Text>}
             </Pressable>
           </View>
         </View>

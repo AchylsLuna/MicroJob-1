@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "../lib/toast";
 import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
@@ -10,6 +11,7 @@ import { isValidEmail, normalizeEmail } from "../lib/authValidation";
 type RecoveryStep = "email" | "code" | "password" | "success";
 
 export function ForgotPassword() {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const { requestPasswordReset, verifyPasswordResetCode, resetPassword } = useAuth();
   const [step, setStep] = useState<RecoveryStep>("email");
@@ -27,7 +29,7 @@ export function ForgotPassword() {
     event?.preventDefault();
     const normalizedEmail = normalizeEmail(email);
     if (!isValidEmail(normalizedEmail)) {
-      toast.error("Enter a valid email address.");
+      toast.error(t("forgotPassword.toast.invalidEmail"));
       return;
     }
     setIsLoading(true);
@@ -36,7 +38,7 @@ export function ForgotPassword() {
       setEmail(normalizedEmail);
       setStep("code");
     } catch (error: any) {
-      toast.error(error?.message || "Unable to send the reset code.");
+      toast.error(error?.message || t("forgotPassword.toast.sendCodeFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -45,16 +47,16 @@ export function ForgotPassword() {
   const verifyCode = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!/^\d{6}$/.test(code)) {
-      toast.error("Enter the complete 6-digit code.");
+      toast.error(t("forgotPassword.toast.incompleteCode"));
       return;
     }
     setIsLoading(true);
     try {
       await verifyPasswordResetCode(code);
       setStep("password");
-      toast.success("Code verified.");
+      toast.success(t("forgotPassword.toast.codeVerified"));
     } catch (error: any) {
-      toast.error(error?.message || "The reset code could not be verified.");
+      toast.error(error?.message || t("forgotPassword.toast.verifyCodeFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -67,7 +69,7 @@ export function ForgotPassword() {
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error(t("forgotPassword.toast.passwordsMismatch"));
       return;
     }
     setIsLoading(true);
@@ -75,7 +77,7 @@ export function ForgotPassword() {
       await resetPassword(code, newPassword);
       setStep("success");
     } catch (error: any) {
-      toast.error(error?.message || "Unable to reset the password.");
+      toast.error(error?.message || t("forgotPassword.toast.resetPasswordFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +91,7 @@ export function ForgotPassword() {
         {step !== "success" && (
           <button type="button" onClick={() => navigate(ROUTES.signIn)} className="mb-6 inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-medium text-slate-600 hover:text-slate-950">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            Back to sign in
+            {t("forgotPassword.backToSignIn")}
           </button>
         )}
 
@@ -98,22 +100,22 @@ export function ForgotPassword() {
             {step === "success" ? <CheckCircle2 className="h-8 w-8" /> : <ShieldCheck className="h-8 w-8" />}
           </div>
           <h1 className={`font-bold tracking-tight text-slate-950 ${step === "success" ? "mt-6 text-[30px]" : "mt-5 text-[28px]"}`}>
-            {step === "email" && "Forgot your password?"}
-            {step === "code" && "Verify your code"}
-            {step === "password" && "Create a new password"}
-            {step === "success" && "Password changed"}
+            {step === "email" && t("forgotPassword.steps.email.title")}
+            {step === "code" && t("forgotPassword.steps.code.title")}
+            {step === "password" && t("forgotPassword.steps.password.title")}
+            {step === "success" && t("forgotPassword.steps.success.title")}
           </h1>
           <p className={`mx-auto text-slate-600 ${step === "success" ? "mt-3 max-w-sm text-[15px] leading-7" : "mt-2 text-sm leading-6"}`}>
-            {step === "email" && "Enter your account email and we’ll send a six-digit recovery code."}
-            {step === "code" && <>Enter the code sent to <span className="font-semibold text-slate-900">{email}</span>.</>}
-            {step === "password" && "Your code is verified. Choose a strong password for your account."}
-            {step === "success" && "Your password was updated successfully. You can now sign in with it."}
+            {step === "email" && t("forgotPassword.steps.email.description")}
+            {step === "code" && <>{t("forgotPassword.steps.code.description")} <span className="font-semibold text-slate-900">{email}</span>.</>}
+            {step === "password" && t("forgotPassword.steps.password.description")}
+            {step === "success" && t("forgotPassword.steps.success.description")}
           </p>
         </div>
 
         {step !== "success" && (
-          <ol className="my-6 grid grid-cols-3 gap-2" aria-label="Password recovery progress">
-            {["Email", "Verify", "Password"].map((label, index) => {
+          <ol className="my-6 grid grid-cols-3 gap-2" aria-label={t("forgotPassword.progress.ariaLabel")}>
+            {[t("forgotPassword.progress.email"), t("forgotPassword.progress.verify"), t("forgotPassword.progress.password")].map((label, index) => {
               const number = index + 1;
               const active = number <= stepNumber;
               return <li key={label} className={`rounded-xl px-2 py-2 text-center text-xs font-semibold ${active ? "bg-blue-50 text-blue-800" : "bg-slate-100 text-slate-600"}`} aria-current={number === stepNumber ? "step" : undefined}>{number}. {label}</li>;
@@ -124,26 +126,26 @@ export function ForgotPassword() {
         {step === "email" && (
           <form onSubmit={sendCode} className="mt-6 space-y-5">
             <div>
-              <label htmlFor="forgot-email" className="mb-2 block text-[14px] font-semibold text-slate-900">Email address</label>
+              <label htmlFor="forgot-email" className="mb-2 block text-[14px] font-semibold text-slate-900">{t("forgotPassword.emailStep.label")}</label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-                <input id="forgot-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={isLoading} placeholder="you@example.com" className="min-h-[52px] w-full rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] py-4 pl-12 pr-4 text-[14px] outline-none focus:border-transparent focus:ring-2 focus:ring-[#1C4D8D]" />
+                <input id="forgot-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} disabled={isLoading} placeholder={t("forgotPassword.emailStep.placeholder")} className="min-h-[52px] w-full rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] py-4 pl-12 pr-4 text-[14px] outline-none focus:border-transparent focus:ring-2 focus:ring-[#1C4D8D]" />
               </div>
             </div>
-            <button type="submit" disabled={isLoading} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? "Sending code…" : "Send recovery code"}</button>
+            <button type="submit" disabled={isLoading} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? t("forgotPassword.emailStep.submitLoading") : t("forgotPassword.emailStep.submit")}</button>
           </form>
         )}
 
         {step === "code" && (
           <form onSubmit={verifyCode} className="mt-6 space-y-5">
             <div>
-              <label htmlFor="password-reset-code" className="mb-2 block text-[14px] font-semibold text-slate-900">Six-digit recovery code</label>
-              <input id="password-reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} disabled={isLoading} placeholder="000000" className="min-h-[56px] w-full rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] px-4 text-center text-xl font-bold tracking-[0.4em] outline-none focus:border-transparent focus:ring-2 focus:ring-[#1C4D8D]" />
+              <label htmlFor="password-reset-code" className="mb-2 block text-[14px] font-semibold text-slate-900">{t("forgotPassword.codeStep.label")}</label>
+              <input id="password-reset-code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))} disabled={isLoading} placeholder={t("forgotPassword.codeStep.placeholder")} className="min-h-[56px] w-full rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] px-4 text-center text-xl font-bold tracking-[0.4em] outline-none focus:border-transparent focus:ring-2 focus:ring-[#1C4D8D]" />
             </div>
-            <button type="submit" disabled={isLoading || code.length !== 6} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? "Verifying…" : "Verify code"}</button>
+            <button type="submit" disabled={isLoading || code.length !== 6} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? t("forgotPassword.codeStep.submitLoading") : t("forgotPassword.codeStep.submit")}</button>
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[14px]">
-              <button type="button" disabled={isLoading} onClick={() => sendCode()} className="font-semibold text-blue-800 hover:underline disabled:opacity-60">Resend code</button>
-              <button type="button" onClick={() => { setStep("email"); setCode(""); }} className="font-semibold text-slate-600 hover:text-slate-950">Change email</button>
+              <button type="button" disabled={isLoading} onClick={() => sendCode()} className="font-semibold text-blue-800 hover:underline disabled:opacity-60">{t("forgotPassword.codeStep.resend")}</button>
+              <button type="button" onClick={() => { setStep("email"); setCode(""); }} className="font-semibold text-slate-600 hover:text-slate-950">{t("forgotPassword.codeStep.changeEmail")}</button>
             </div>
           </form>
         )}
@@ -151,29 +153,29 @@ export function ForgotPassword() {
         {step === "password" && (
           <form onSubmit={changePassword} className="mt-6 space-y-5">
             {[
-              { id: "new-password", label: "New password", value: newPassword, setter: setNewPassword, visible: showPassword, toggle: () => setShowPassword((current) => !current) },
-              { id: "confirm-password", label: "Confirm new password", value: confirmPassword, setter: setConfirmPassword, visible: showConfirmation, toggle: () => setShowConfirmation((current) => !current) },
+              { id: "new-password", label: t("forgotPassword.passwordStep.newPasswordLabel"), value: newPassword, setter: setNewPassword, visible: showPassword, toggle: () => setShowPassword((current) => !current), showLabel: t("forgotPassword.passwordStep.showNewPassword"), hideLabel: t("forgotPassword.passwordStep.hideNewPassword") },
+              { id: "confirm-password", label: t("forgotPassword.passwordStep.confirmPasswordLabel"), value: confirmPassword, setter: setConfirmPassword, visible: showConfirmation, toggle: () => setShowConfirmation((current) => !current), showLabel: t("forgotPassword.passwordStep.showConfirmPassword"), hideLabel: t("forgotPassword.passwordStep.hideConfirmPassword") },
             ].map((field) => (
               <div key={field.id}>
                 <label htmlFor={field.id} className="mb-2 block text-[14px] font-semibold text-slate-900">{field.label}</label>
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                   <input id={field.id} type={field.visible ? "text" : "password"} autoComplete="new-password" value={field.value} onChange={(event) => field.setter(event.target.value)} disabled={isLoading} aria-invalid={field.id === "confirm-password" && passwordsMismatch} className={`min-h-[52px] w-full rounded-[12px] border bg-[#F9FAFB] py-4 pl-12 pr-12 text-[14px] outline-none focus:border-transparent focus:ring-2 ${field.id === "confirm-password" && passwordsMismatch ? "border-red-400 focus:ring-red-600" : "border-[#E5E7EB] focus:ring-[#1C4D8D]"}`} />
-                  <button type="button" onClick={field.toggle} className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label={field.visible ? `Hide ${field.label.toLowerCase()}` : `Show ${field.label.toLowerCase()}`}>{field.visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
+                  <button type="button" onClick={field.toggle} className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100" aria-label={field.visible ? field.hideLabel : field.showLabel}>{field.visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button>
                 </div>
               </div>
             ))}
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-4 text-sm font-bold text-slate-900"><span>Password strength</span><span className={passwordStrength.isStrong ? "text-emerald-700" : "text-[#1C4D8D]"}>{passwordStrength.label}</span></div>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Password strength" aria-valuemin={0} aria-valuemax={100} aria-valuenow={passwordStrength.percent}>
+              <div className="flex items-center justify-between gap-4 text-sm font-bold text-slate-900"><span>{t("forgotPassword.passwordStep.strengthLabel")}</span><span className={passwordStrength.isStrong ? "text-emerald-700" : "text-[#1C4D8D]"}>{passwordStrength.label}</span></div>
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label={t("forgotPassword.passwordStep.strengthLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={passwordStrength.percent}>
                 <div className={`h-full rounded-full transition-[width] ${passwordStrength.isStrong ? "bg-emerald-600" : "bg-[#1C4D8D]"}`} style={{ width: `${passwordStrength.percent}%` }} />
               </div>
               <ul className="mt-4 grid gap-x-6 gap-y-2.5 text-sm text-slate-600 sm:grid-cols-2">
                 {PASSWORD_RULES.map((rule) => <li key={rule.key} className={`flex min-w-0 items-start gap-2 ${passwordStrength.checks[rule.key] ? "font-medium text-emerald-700" : ""}`}><span className="mt-px shrink-0" aria-hidden="true">{passwordStrength.checks[rule.key] ? "✓" : "○"}</span><span>{rule.label}</span></li>)}
               </ul>
-              {passwordsMismatch && <p role="alert" className="mt-3 text-sm font-medium text-red-700">Passwords do not match.</p>}
+              {passwordsMismatch && <p role="alert" className="mt-3 text-sm font-medium text-red-700">{t("forgotPassword.passwordStep.mismatchError")}</p>}
             </div>
-            <button type="submit" disabled={isLoading || !passwordStrength.isStrong || newPassword !== confirmPassword} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? "Changing password…" : "Change password"}</button>
+            <button type="submit" disabled={isLoading || !passwordStrength.isStrong || newPassword !== confirmPassword} className="brand-primary-interactive min-h-[52px] w-full rounded-[12px] px-5 font-semibold">{isLoading ? t("forgotPassword.passwordStep.submitLoading") : t("forgotPassword.passwordStep.submit")}</button>
           </form>
         )}
 
@@ -184,7 +186,7 @@ export function ForgotPassword() {
               onClick={() => navigate(ROUTES.signIn)}
               className="brand-primary-interactive group inline-flex min-h-[52px] w-full items-center justify-center gap-2.5 rounded-[10px] px-6 text-[15px] font-semibold shadow-[0_10px_24px_rgba(28,77,141,0.22)] sm:w-auto sm:min-w-[220px]"
             >
-              Back to sign in
+              {t("forgotPassword.backToSignIn")}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
             </button>
           </div>

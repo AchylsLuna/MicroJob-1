@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import AppHeader from '../../components/AppHeader';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -27,6 +28,7 @@ type DeleteAccountProps = {
 };
 
 export default function DeleteAccount({ onBack, onDeleted }: DeleteAccountProps) {
+  const { t } = useTranslation('worker');
   const [currentPassword, setCurrentPassword] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [blockers, setBlockers] = useState<DeletionBlocker[]>([]);
@@ -36,11 +38,11 @@ export default function DeleteAccount({ onBack, onDeleted }: DeleteAccountProps)
 
   const handleDeleteAccount = async () => {
     if (!currentPassword) {
-      setErrorMessage('Enter your current password to continue.');
+      setErrorMessage(t('deleteAccount.errors.passwordRequired'));
       return;
     }
     if (confirmText.trim().toUpperCase() !== 'DELETE') {
-      setErrorMessage('Type DELETE exactly to confirm this action.');
+      setErrorMessage(t('deleteAccount.errors.confirmMismatch'));
       return;
     }
 
@@ -60,24 +62,24 @@ export default function DeleteAccount({ onBack, onDeleted }: DeleteAccountProps)
           currentPassword,
           confirm: confirmText.trim().toUpperCase(),
         }),
-      }, 'Failed to delete account.');
+      }, t('deleteAccount.apiFallback.deleteFailed'));
 
       if (!result.ok) {
         const nextBlockers = asList<DeletionBlocker>(result.raw, ['blockers']);
         if (nextBlockers.length > 0) {
           setBlockers(nextBlockers);
         }
-        throw new Error(result.message || 'Failed to delete account.');
+        throw new Error(result.message || t('deleteAccount.apiFallback.deleteFailed'));
       }
 
       setCurrentPassword('');
       setConfirmText('');
-      toast.success('Account deleted. Signing out...');
+      toast.success(t('deleteAccount.toast.deleted'));
       setTimeout(() => {
         void onDeleted?.();
       }, 500);
     } catch (error: any) {
-      setErrorMessage(error?.message || 'Failed to delete account.');
+      setErrorMessage(error?.message || t('deleteAccount.apiFallback.deleteFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -85,42 +87,42 @@ export default function DeleteAccount({ onBack, onDeleted }: DeleteAccountProps)
 
   return (
     <View style={styles.container}>
-      <AppHeader title="Delete Account" subtitle="Soft delete with blocker checks" onBack={onBack} />
+      <AppHeader title={t('deleteAccount.headerTitle')} subtitle={t('deleteAccount.headerSubtitle')} onBack={onBack} />
 
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.warningCard}>
-          <Text style={styles.warningTitle}>Before you continue</Text>
+          <Text style={styles.warningTitle}>{t('deleteAccount.warning.title')}</Text>
           <Text style={styles.warningBody}>
-            Deletion is only allowed when balances are zero, payout requests are resolved, and active jobs or applications are closed.
+            {t('deleteAccount.warning.body')}
           </Text>
           <View style={styles.warningList}>
-            <Text style={styles.warningItem}>Current sessions are revoked after deletion.</Text>
-            <Text style={styles.warningItem}>Personal identifiers are anonymized for audit retention.</Text>
-            <Text style={styles.warningItem}>Saved jobs and push devices are removed automatically.</Text>
+            <Text style={styles.warningItem}>{t('deleteAccount.warning.sessionsRevoked')}</Text>
+            <Text style={styles.warningItem}>{t('deleteAccount.warning.identifiersAnonymized')}</Text>
+            <Text style={styles.warningItem}>{t('deleteAccount.warning.savedRemoved')}</Text>
           </View>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Confirm account deletion</Text>
-          <Text style={styles.cardSubtitle}>Enter your password and type DELETE to confirm.</Text>
+          <Text style={styles.cardTitle}>{t('deleteAccount.confirmCard.title')}</Text>
+          <Text style={styles.cardSubtitle}>{t('deleteAccount.confirmCard.subtitle')}</Text>
 
-          <Text style={styles.label}>Current Password</Text>
+          <Text style={styles.label}>{t('deleteAccount.confirmCard.passwordLabel')}</Text>
           <TextInput
             style={styles.input}
             value={currentPassword}
             onChangeText={setCurrentPassword}
-            placeholder="Current password"
+            placeholder={t('deleteAccount.confirmCard.passwordPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             secureTextEntry
             autoCapitalize="none"
           />
 
-          <Text style={styles.label}>Confirmation</Text>
+          <Text style={styles.label}>{t('deleteAccount.confirmCard.confirmationLabel')}</Text>
           <TextInput
             style={styles.input}
             value={confirmText}
             onChangeText={setConfirmText}
-            placeholder="Type DELETE"
+            placeholder={t('deleteAccount.confirmCard.confirmationPlaceholder')}
             placeholderTextColor={tokens.colors.textSubtle}
             autoCapitalize="characters"
           />
@@ -132,14 +134,14 @@ export default function DeleteAccount({ onBack, onDeleted }: DeleteAccountProps)
             onPress={handleDeleteAccount}
             disabled={isSubmitting}
           >
-            {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.dangerButtonText}>Delete My Account</Text>}
+            {isSubmitting ? <ActivityIndicator color={tokens.colors.white} /> : <Text style={styles.dangerButtonText}>{t('deleteAccount.confirmCard.deleteButton')}</Text>}
           </TouchableOpacity>
         </View>
 
         {blockers.length > 0 ? (
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Resolve these blockers first</Text>
-            <Text style={styles.cardSubtitle}>The backend rejected deletion until the following conditions are cleared.</Text>
+            <Text style={styles.cardTitle}>{t('deleteAccount.blockers.title')}</Text>
+            <Text style={styles.cardSubtitle}>{t('deleteAccount.blockers.subtitle')}</Text>
             <View style={styles.blockerList}>
               {blockers.map((blocker) => (
                 <View key={blocker.code} style={styles.blockerRow}>

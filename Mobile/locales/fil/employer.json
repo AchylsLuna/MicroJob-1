@@ -1,0 +1,621 @@
+{
+  "chatScreen": {
+    "toast": {
+      "sendFailed": "Hindi maipadala ang mensahe.",
+      "networkError": "May error sa network.",
+      "workerHired": "Matagumpay na na-hire ang manggagawa.",
+      "offerAccepted": "Tinanggap ang alok.",
+      "offerRejected": "Tinanggihan ang alok.",
+      "offerCancelled": "Kinansela ang alok.",
+      "offerUpdateFailed": "Hindi ma-update ang alok na ito."
+    },
+    "header": {
+      "backLabel": "Bumalik sa mga pag-uusap",
+      "fallbackTitle": "Chat",
+      "employerConversationLabel": "USAPAN NG EMPLOYER",
+      "notificationsLabel": "Buksan ang mga abiso",
+      "notificationsLabelWithCount": "Buksan ang mga abiso, {{count}} hindi pa nababasa"
+    },
+    "offer": {
+      "accessibilityLabel": "Pormal na alok ng trabaho, {{amount}}, {{status}}",
+      "eyebrow": "PORMAL NA ALOK NG TRABAHO",
+      "fallbackTitle": "Lokal na trabaho",
+      "escrowHint": "Garantisadong bayad na naka-escrow",
+      "decline": "Tanggihan",
+      "accept": "Tanggapin ang Alok",
+      "cancel": "Kanselahin",
+      "confirmHire": "Kumpirmahin ang Pag-hire"
+    },
+    "invoice": {
+      "accessibilityLabel": "Payment invoice para sa {{title}}, {{amount}}, {{status}}",
+      "fallbackTitle": "Settlement ng trabaho",
+      "eyebrow": "MICROJOBS PAYMENT INVOICE",
+      "qrLabel": "Secure na QR image ng bayad",
+      "manualCode": "Manual na code: {{code}}",
+      "tapToReview": "I-tap para suriin at kumpirmahin",
+      "sentForReview": "Naipadala sa employer para suriin",
+      "statusLabel": "Invoice {{status}}"
+    },
+    "input": {
+      "placeholder": "Mag-type ng mensahe...",
+      "accessibilityLabel": "Mensahe",
+      "sendLabel": "Ipadala ang mensahe",
+      "send": "Ipadala"
+    }
+  },
+  "jobPosts": {
+    "errors": {
+      "loadFailed": "Hindi na-load ang mga job post.",
+      "completeFailed": "Hindi na-complete ang trabaho.",
+      "closeFailed": "Hindi naisara ang trabaho.",
+      "reopenFailed": "Hindi nabuksan muli ang trabaho.",
+      "deleteFailed": "Hindi na-delete ang trabaho."
+    },
+    "toast": {
+      "completed": "Tapos na ang trabaho. Awtomatikong na-trigger ang payout ng manggagawa mula sa escrow.",
+      "closed": "Sarado na ang trabaho. Naka-pause ang mga bagong aplikasyon.",
+      "reopened": "Nabuksan muli ang trabaho. Puwede nang mag-apply ang mga manggagawa.",
+      "deleted": "Na-delete ang trabaho. Anumang karapat-dapat na escrow refund ay naibalik sa iyong wallet."
+    },
+    "confirm": {
+      "cancelLabel": "Kanselahin",
+      "complete": { "title": "Markahang Tapos na ang Trabaho", "question": "Kumpletuhin ang \"{{title}}\"?", "detail": "Awtomatikong babayaran ang mga na-hire na manggagawa mula sa escrow. Gamitin lang ang aksyong ito kapag tapos na ang trabaho.", "button": "Kumpirmahin ang Pagkatapos" },
+      "close": { "title": "Isara ang Trabaho", "question": "I-pause ang mga bagong aplikasyon para sa \"{{title}}\"?", "detail": "Mananatili sa escrow ang mga naka-secure na pondo, at puwede mo itong buksan muli sa ibang pagkakataon.", "button": "Isara ang Trabaho" },
+      "reopen": { "title": "Buksan Muli ang Trabaho", "question": "Buksan muli ang \"{{title}}\"?", "detailEscrow": "Ise-secure muli sa escrow ang kinakailangang halaga bago makapag-apply ang mga manggagawa.", "detailDefault": "Makakapagsumite muli ng aplikasyon ang mga manggagawa.", "button": "Buksan Muli ang Trabaho" },
+      "delete": { "title": "I-delete ang Trabaho", "question": "Permanenteng i-delete ang \"{{title}}\"?", "detail": "Aalisin ang mga kaugnay na aplikasyon. Anumang karapat-dapat na hindi nagamit na escrow ay awtomatikong ire-refund.", "button": "I-delete ang Trabaho" }
+    },
+    "header": { "title": "Home" },
+    "banner": { "title": "Mga operasyon sa pag-hire", "detail": "Pamahalaan ang mga lokal na job post, kandidato, pag-uusap, at naka-secure na pondo ng employer." },
+    "metrics": { "activeJobs": "Aktibong trabaho", "applicants": "Mga Aplikante", "workersHired": "Na-hire na manggagawa" },
+    "quickOperations": { "title": "Mabilisang operasyon" },
+    "actions": { "postJob": "Mag-post ng trabaho", "reviewApplicants": "Suriin ang mga aplikante", "messages": "Mga Mensahe", "employerWallet": "Wallet ng employer" },
+    "openings": { "title": "Iyong mga bukas na trabaho" },
+    "loading": { "title": "Naglo-load ng hiring workspace", "body": "Kinukuha ang iyong mga trabaho at kabuuang aplikante." },
+    "error": { "title": "Hindi available ang data ng pag-hire" },
+    "empty": { "title": "Wala Pang Job Post", "body": "Gumawa ng iyong unang job post para makatanggap ng mga aplikasyon." },
+    "badges": { "urgent": "Urgent" },
+    "status": { "available": "Available" },
+    "card": {
+      "positions": "Mga Posisyon: {{hired}}/{{needed}}",
+      "view": "Tingnan",
+      "edit": "I-edit",
+      "hideActionsLabel": "Itago ang mga aksyon para sa {{title}}",
+      "showActionsLabel": "Ipakita ang mga aksyon para sa {{title}}",
+      "more": "Higit pa",
+      "close": "Isara",
+      "reopen": "Buksan muli",
+      "markDone": "Markahang Tapos",
+      "delete": "I-delete",
+      "autoPayHintReady": "Ang pagmarka sa trabahong ito bilang tapos ay awtomatikong maglalabas ng escrow sa mga na-hire na manggagawa.",
+      "autoPayHintBlocked": "Mag-hire ng kahit isang manggagawa bago markahan ang trabahong ito bilang tapos."
+    },
+    "details": {
+      "eyebrow": "DETALYE NG TRABAHO",
+      "closeLabel": "Isara ang detalye ng trabaho",
+      "jobTypeFallback": "Oportunidad",
+      "labels": { "location": "Lokasyon", "minimumPay": "Minimum na bayad", "workers": "Mga Manggagawa", "category": "Kategorya", "deadline": "Deadline" },
+      "hiredOfNeeded": "{{hired}} na-hire sa {{needed}}",
+      "notSpecified": "Hindi tinukoy",
+      "sections": { "description": "Paglalarawan", "requirements": "Mga Requirement", "responsibilities": "Mga Responsibilidad", "skills": "Mga Kasanayan" },
+      "editButton": "I-edit ang detalye"
+    },
+    "balanceModal": { "title": "Hindi sapat ang balanse", "notNow": "Sa ibang pagkakataon", "topUpWallet": "Mag-top up ng wallet" }
+  },
+  "messageList": {
+    "time": { "yesterday": "KAHAPON", "daysAgo": "{{count}} ARAW ANG NAKARAAN" },
+    "row": {
+      "startConversation": "Simulan ang pag-uusap",
+      "openLabelWithUnread": "Buksan ang usapan kay {{name}}, {{count}} hindi pa nababasang mensahe",
+      "openLabel": "Buksan ang usapan kay {{name}}",
+      "longPressHint": "I-long press para sa mga opsyon ng pag-uusap"
+    },
+    "toast": {
+      "deleteFailed": "Hindi ma-delete ang pag-uusap.",
+      "archiveFailed": "Hindi ma-archive ang pag-uusap.",
+      "userBlocked": "Na-block na ang user.",
+      "blockFailed": "Hindi ma-block ang user.",
+      "cannotOpen": "Hindi mabuksan ang pag-uusap na ito."
+    },
+    "options": { "archive": "I-archive", "delete": "I-delete", "block": "I-block", "markUnread": "Markahan Bilang Hindi Nabasa", "markRead": "Markahan Bilang Nabasa", "cancel": "Kanselahin", "title": "Mga opsyon ng pag-uusap" },
+    "title": "Mga Mensahe",
+    "subtitle": "Mga usapan sa pag-hire ng employer",
+    "searchPlaceholder": "Maghanap ng pag-uusap...",
+    "searchAccessibilityLabel": "Maghanap ng pag-uusap",
+    "loading": { "title": "Naglo-load ng mga pag-uusap", "body": "Kinukuha ang iyong mga pinakabagong mensahe." },
+    "empty": { "title": "Wala pang pag-uusap", "body": "Lalabas dito ang mga mensahe sa mga manggagawa at employer." }
+  },
+  "employerEWallet": {
+    "header": {
+      "title": "E-Wallet",
+      "subtitle": "Mga pondo ng employer at bayad sa trabaho",
+      "notificationsLabel": "Buksan ang mga notification",
+      "notificationsLabelWithCount": "Buksan ang mga notification, {{count}} hindi pa nababasa"
+    },
+    "banner": { "title": "Wallet ng employer", "detail": "Pondohan ang mga lokal na oportunidad at ilabas ang mga naka-secure na bayad matapos aprubahan ang trabaho." },
+    "balanceCard": {
+      "label": "Balanse ng employer",
+      "secondary": "Kita bilang manggagawa: {{amount}} (hindi magagamit para sa pagpopondo ng trabaho)",
+      "note": "Gamitin ang pondo ng employer para mag-post at magpondo ng trabaho sa iyong komunidad sa Pilipinas.",
+      "actionLabel": "Mag-top Up",
+      "quickActionLabel": "I-scan para Magbayad"
+    },
+    "metrics": { "credited": "Kabuuang na-credit", "spent": "Nagastos / naka-escrow", "pending": "Nakabinbin" },
+    "topup": {
+      "accordionTitle": "Magdagdag ng pondo ng employer",
+      "accordionSubtitle": "Minimum na PHP 100 sa pamamagitan ng secure checkout.",
+      "cardTitle": "Mag-top Up sa Wallet",
+      "cardSubtitle": "Magdagdag ng pondo ng employer sa pamamagitan ng secure na payment page.",
+      "inputLabel": "Halaga ng Top Up (PHP)",
+      "inputAccessibilityLabel": "Halaga ng top up sa piso",
+      "submitButton": "Gumawa ng Top Up"
+    },
+    "invoices": {
+      "sectionTitle": "Mga Kahilingan sa Bayad ng Manggagawa",
+      "sectionSubtitle": "Mga isinumiteng QR invoice na hinihintay suriin o naisara na.",
+      "emptyTitle": "Walang kahilingan sa bayad",
+      "emptyBody": "Lalabas dito ang mga invoice na isinumite ng mga na-hire na manggagawa.",
+      "defaultJobTitle": "Bayad sa trabaho",
+      "defaultWorkerName": "Manggagawa",
+      "reviewAccessibilityLabel": "Suriin ang kahilingan sa bayad para sa {{title}}",
+      "review": "Suriin",
+      "closed": "Sarado"
+    },
+    "transactions": {
+      "sectionTitle": "Mga Kamakailang Transaksyon",
+      "subtitle_one": "{{count}} entry sa employer wallet",
+      "subtitle_other": "{{count}} na entry sa employer wallet",
+      "emptyTitle": "Wala pang transaksyon",
+      "emptyBody": "Lalabas dito ang mga top-up, pagpopondo ng trabaho, at refund.",
+      "defaultTitle": "Transaksyon"
+    },
+    "toast": {
+      "invalidAmount": "Maglagay ng valid na halaga ng top up (minimum PHP 100).",
+      "signInFirst": "Mangyaring mag-sign in muna bago mag-top up.",
+      "noPaymentLink": "Walang naibalik na payment link mula sa server.",
+      "cannotOpenLink": "Hindi mabuksan ang payment link sa device na ito.",
+      "openingPaymentLink": "Binubuksan ang payment link sa iyong browser. Kumpletuhin ang bayad para mag-top up ang wallet.",
+      "topupStartFailed": "Hindi ma-start ang top up ngayon."
+    },
+    "errors": {
+      "profileFailed": "Hindi na-load ang profile ng wallet.",
+      "transactionsFailed": "Hindi na-load ang mga transaksyon.",
+      "requestsFailed": "Hindi na-load ang mga kahilingan sa bayad.",
+      "someUnavailable": "May ilang detalye ng wallet na hindi na-refresh.",
+      "confirmTopupFailed": "Hindi ma-kumpirma ang top-up.",
+      "createTopupFailed": "Hindi magawa ang top-up session.",
+      "checkConnection": "Suriin ang iyong koneksyon at subukan muli."
+    }
+  },
+  "employerPaymentMethods": {
+    "header": { "title": "Mga Paraan ng Pagbabayad", "subtitle": "Mga paraan ng pagsingil ng employer" },
+    "banner": { "title": "Pagsingil ng employer", "detail": "Pamahalaan ang mga paraan ng pagbabayad na ginagamit para ligtas na pondohan ang mga lokal na trabaho." },
+    "intro": {
+      "title": "Mga naka-save na card",
+      "subtitle": "Mananatiling walang laman ang mga bagong account hanggang magdagdag ka ng paraan ng pagbabayad.",
+      "addLabel": "Magdagdag",
+      "cancelLabel": "Kanselahin",
+      "addAccessibilityLabel": "Magdagdag ng paraan ng pagbabayad",
+      "cancelAccessibilityLabel": "Kanselahin ang pagdagdag ng paraan ng pagbabayad"
+    },
+    "form": {
+      "accordionTitle": "Magdagdag ng paraan ng pagbabayad",
+      "accordionSubtitle": "Bini-validate ang mga detalye ng card bago i-save ang ligtas na metadata.",
+      "cardTitle": "Magdagdag ng card",
+      "helper": "Ang brand, huling apat na digit, pangalan ng cardholder, at petsa ng expiry lang ang ipinapadala at sine-save.",
+      "nameLabel": "Pangalan sa card",
+      "namePlaceholder": "Pangalan sa card",
+      "numberLabel": "Numero ng card",
+      "numberPlaceholder": "Numero ng card",
+      "expiryLabel": "Expiry",
+      "cvvLabel": "Security code",
+      "saveButton": "I-save ang card",
+      "savingButton": "Sine-save..."
+    },
+    "empty": { "title": "Wala pang paraan ng pagbabayad", "body": "Lalabas dito ang card matapos mo lang itong idagdag." },
+    "method": {
+      "endingIn": "{{brand}} na nagtatapos sa {{last4}}",
+      "meta": "{{name}} · Mag-e-expire sa {{expiry}}",
+      "default": "DEFAULT",
+      "expired": "EXPIRED",
+      "setDefault": "Itakda bilang default",
+      "removeAccessibilityLabel": "Alisin ang {{brand}} na nagtatapos sa {{last4}}",
+      "defaultBrand": "Card"
+    },
+    "removeModal": {
+      "title": "Alisin ang paraan ng pagbabayad?",
+      "description": "Aalisin ang {{brand}} na nagtatapos sa {{last4}} sa iyong employer account.",
+      "confirmLabel": "Alisin"
+    },
+    "toast": {
+      "loadFailed": "Hindi na-load ang mga paraan ng pagbabayad.",
+      "incompleteForm": "Kumpletuhin ang lahat ng field ng card.",
+      "invalidCardNumber": "Maglagay ng valid na numero ng card.",
+      "invalidExpiry": "Maglagay ng hinaharap na petsa ng expiry sa format na MM/YY.",
+      "invalidCvv": "Maglagay ng valid na CVV.",
+      "addFailed": "Hindi maidagdag ang paraan ng pagbabayad.",
+      "added": "Naidagdag ang paraan ng pagbabayad.",
+      "setDefaultFailed": "Hindi ma-update ang default na paraan ng pagbabayad.",
+      "defaultUpdated": "Na-update ang default na paraan ng pagbabayad.",
+      "removeFailed": "Hindi maalis ang paraan ng pagbabayad.",
+      "removed": "Naalis ang paraan ng pagbabayad."
+    },
+    "errors": {
+      "notAuthenticated": "Hindi naka-authenticate. Mangyaring mag-sign in muli."
+    }
+  },
+  "employerProfile": {
+    "header": { "title": "Aking Profile" },
+    "banner": { "title": "Profile ng negosyo", "detail": "Bumuo ng tiwala sa mga manggagawa at panatilihing handa ang iyong hiring identity." },
+    "defaultName": "Employer",
+    "avatar": {
+      "changeLabel": "Palitan ang profile photo ng employer",
+      "changeHint": "Binubuksan ang iyong photo library",
+      "currentLabel": "Kasalukuyang profile photo ng employer"
+    },
+    "hero": {
+      "badge": "Employer account",
+      "subtitle": "Pamahalaan ang profile na nakikita ng mga manggagawa bago sila mag-apply, magmensahe, o tumanggap ng alok.",
+      "profileCompleteLabel": "Kumpleto ang profile",
+      "readyItemsLabel": "Mga handa nang item",
+      "settingsLabel": "Settings",
+      "settingsAccessibilityLabel": "Buksan ang settings",
+      "walletLabel": "Wallet",
+      "walletAccessibilityLabel": "Buksan ang wallet"
+    },
+    "readiness": {
+      "accordionTitle": "Kahandaan bilang employer",
+      "accordionSubtitle": "Kumpletuhin ang mga detalyeng ginagamit ng manggagawa para suriin ang iyong mga trabaho.",
+      "sectionTitle": "Kahandaan bilang employer",
+      "subtitle": "Kumpletuhin ang iyong pampublikong detalye para magtiwala ang mga manggagawa sa profile sa likod ng bawat job post.",
+      "progressAccessibilityLabel": "Pagkakumpleto ng profile ng employer",
+      "progressValueText": "{{percent}}% kumpleto"
+    },
+    "completion": {
+      "photo": "Larawan",
+      "name": "Pangalan",
+      "email": "Email",
+      "phone": "Numero ng Telepono",
+      "city": "Lungsod",
+      "address": "Address"
+    },
+    "identity": {
+      "accordionTitle": "Kumpanya at pagkakakilanlan",
+      "accordionSubtitle": "Na-verify na detalye ng account na ipinapakita kasama ang iyong mga job post.",
+      "sectionTitle": "Pagkakakilanlan",
+      "sectionHint": "Nakikita sa profile ng employer",
+      "nameLabel": "Pangalan",
+      "firstNamePlaceholder": "Unang Pangalan",
+      "firstNameAccessibilityLabel": "Unang pangalan",
+      "lastNamePlaceholder": "Apelyido",
+      "lastNameAccessibilityLabel": "Apelyido",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Email",
+      "emailAccessibilityLabel": "Email address",
+      "emailHelper": "Kailangan ng verified na change flow ang pagbabago ng email at kasalukuyang naka-lock ito."
+    },
+    "contact": {
+      "accordionTitle": "Contact at lokasyon sa Pilipinas",
+      "accordionSubtitleFallback": "Idagdag ang iyong lokal na hiring area",
+      "sectionTitle": "Contact at lokasyon",
+      "sectionHint": "Ginagamit para sa suporta at konteksto ng trabaho",
+      "phoneLabel": "Numero ng Telepono",
+      "phonePlaceholder": "Magdagdag ng numero ng telepono",
+      "phoneAccessibilityLabel": "Numero ng telepono",
+      "cityLabel": "Lungsod",
+      "cityPlaceholder": "Lungsod / Lokasyon",
+      "cityAccessibilityLabel": "Lungsod",
+      "addressLabel": "Address",
+      "addressPlaceholder": "Kumpletong address",
+      "addressAccessibilityLabel": "Address"
+    },
+    "editButton": "I-edit ang Impormasyon ng Negosyo",
+    "editAccessibilityLabel": "I-edit ang impormasyon ng negosyo",
+    "reviews": { "accordionTitle": "Mga review ng manggagawa", "accordionSubtitle": "Feedback mula sa mga tapos nang lokal na trabaho." },
+    "toast": {
+      "photoPermission": "Payagan ang access sa larawan para mag-upload ng profile picture.",
+      "signInAgain": "Mangyaring mag-sign in muli.",
+      "avatarUploadFailed": "Hindi na-upload ang profile picture.",
+      "avatarUpdated": "Na-update ang profile picture."
+    },
+    "errors": {
+      "loadFailed": "Hindi na-load ang profile."
+    }
+  },
+  "employerPostJob": {
+    "header": { "editTitle": "I-edit ang Trabaho", "createTitle": "Mag-post ng Trabaho" },
+    "intro": {
+      "editTitle": "I-update ang oportunidad na ito",
+      "createTitle": "Gumawa ng malinaw na oportunidad",
+      "text": "Mag-post ng panandaliang trabaho, flexible na side hustle, o mag-recruit para sa isang tuluy-tuloy na tungkulin."
+    },
+    "banner": {
+      "editTitle": "I-update ang oportunidad",
+      "createTitle": "Gumawa ng oportunidad",
+      "detail": "Ang malinaw na detalye ay tumutulong sa mga lokal na manggagawa na maunawaan ang trabaho at ang iyong naka-secure na bayad."
+    },
+    "jobType": {
+      "shortTerm": { "label": "Panandaliang trabaho", "description": "Minsanang o pansamantalang trabaho na may malinaw na katapusan." },
+      "sideHustle": { "label": "Side hustle", "description": "Flexible na trabaho na puwedeng gawin para sa dagdag na kita." },
+      "recruiting": { "label": "Recruiting", "description": "Mag-hire para sa isang tuluy-tuloy o mas matagalang tungkulin." }
+    },
+    "basics": {
+      "accordionTitle": "Mga pangunahing detalye ng oportunidad",
+      "accordionSubtitle": "Pamagat, kategorya, detalye ng trabaho, kasanayan, at garantisadong bayad.",
+      "titleLabel": "Pamagat ng Trabaho",
+      "titlePlaceholder": "hal. Katulong sa weekend event",
+      "categoryLabel": "Kategorya",
+      "categoryPlaceholder": "Maghanap ng kategorya ng trabaho",
+      "noCategoriesFound": "Walang nahanap na kategorya.",
+      "descriptionLabel": "Paglalarawan",
+      "descriptionPlaceholder": "Ilarawan ang tungkulin at responsibilidad sa trabaho",
+      "responsibilitiesLabel": "Mga Responsibilidad (Opsyonal)",
+      "responsibilitiesPlaceholder": "Ilista ang mga responsibilidad",
+      "requirementsLabel": "Mga Requirement (Opsyonal)",
+      "requirementsPlaceholder": "Ilista ang mga requirement",
+      "skillsLabel": "Mga Kasanayan (Opsyonal)",
+      "skillsPlaceholder": "React, TypeScript, GraphQL",
+      "salaryLabel": "Minimum na Garantisadong Bayad kada Manggagawa (PHP)",
+      "salaryPlaceholder": "hal. 1500",
+      "salaryHelper": "Ito ang minimum na halagang garantisado sa bawat na-hire na manggagawa at naka-secure sa escrow."
+    },
+    "location": {
+      "accordionTitle": "Lokasyon ng trabaho sa Pilipinas",
+      "accordionSubtitleFallback": "Probinsya, lungsod o munisipalidad, at barangay",
+      "typeLabel": "Uri ng Lokasyon",
+      "typeHome": "Bahay",
+      "typeOffice": "Opisina",
+      "typePlace": "Lugar",
+      "provinceLabel": "Probinsya",
+      "provinceLoading": "Naglo-load ng mga probinsya...",
+      "provincePlaceholder": "I-type o pumili ng probinsya",
+      "cityLabel": "Lungsod / Munisipalidad",
+      "citySelectProvinceFirst": "Pumili muna ng probinsya",
+      "cityPlaceholder": "I-type o pumili ng lungsod",
+      "barangayLabel": "Barangay",
+      "barangaySelectCityFirst": "Pumili muna ng lungsod",
+      "barangayLoading": "Naglo-load ng mga barangay...",
+      "barangayPlaceholder": "I-type o pumili ng barangay",
+      "addressLabel": "Address / Lugar",
+      "addressPlacePlaceholder": "hal. Malapit sa City Hall",
+      "addressOtherPlaceholder": "Numero ng bahay, kalye, subdivision",
+      "previewLabel": "Preview ng lokasyon: {{location}}",
+      "previewPlaceholder": "Pumili ng probinsya, lungsod, at barangay"
+    },
+    "hiring": {
+      "accordionTitle": "Bayad at pag-hire",
+      "accordionSubtitle": "Bilang ng manggagawang kailangan, uri ng oportunidad, deadline, at pagka-urgent.",
+      "positionsLabel": "Bilang ng Kailangang Manggagawa",
+      "positionsHelper": "Ilang manggagawa ang kailangan mo? Awtomatikong magsasara ang trabaho kapag napuno na ang lahat ng posisyon.",
+      "opportunityTypeLabel": "Uri ng Oportunidad",
+      "legacyTypeText": "Ginagamit ng umiiral na post na ito ang lumang uri na \"{{type}}\". Pumili ng kasalukuyang uri para i-modernize ito.",
+      "deadlineLabel": "Deadline ng Aplikasyon",
+      "selectDate": "Pumili ng petsa",
+      "selectTime": "Pumili ng oras",
+      "calendarTitle": "Deadline ng aplikasyon",
+      "calendarSetDeadline": "Itakda ang deadline",
+      "calendarClear": "I-clear",
+      "urgentLabel": "Markahan bilang urgent"
+    },
+    "submit": { "update": "I-update ang Trabaho", "post": "I-post ang Trabaho" },
+    "toast": { "updated": "Matagumpay na na-update ang trabaho.", "posted": "Matagumpay na na-post ang trabaho." },
+    "errors": {
+      "loadCategoriesFailed": "Hindi na-load ang mga kategorya.",
+      "loadLocationsFailed": "Hindi na-load ang mga opsyon sa lokasyon.",
+      "loadBarangaysFailed": "Hindi na-load ang mga barangay.",
+      "missingFields": "Kulang na mga kinakailangang field: {{fields}}.",
+      "invalidSalary": "Dapat mas mataas sa zero ang minimum na garantisadong bayad.",
+      "invalidPositions": "Ang bilang ng manggagawang kailangan ay dapat positibong buong bilang.",
+      "invalidDeadline": "Maglagay ng valid na petsa ng deadline.",
+      "invalidCategory": "Pumili ng valid na kategorya mula sa listahan.",
+      "updateFailed": "Hindi na-update ang trabaho.",
+      "postFailed": "Hindi na-post ang trabaho."
+    },
+    "fieldNames": {
+      "title": "pamagat",
+      "description": "paglalarawan",
+      "location": "lokasyon",
+      "salary": "bayad",
+      "jobType": "uri ng trabaho",
+      "deadline": "deadline ng aplikasyon"
+    },
+    "balanceModal": {
+      "accessibilityLabel": "Hindi sapat ang balanse",
+      "title": "Hindi sapat ang balanse",
+      "notNow": "Sa ibang pagkakataon",
+      "topUpAccessibilityLabel": "Mag-top up ng wallet ng employer",
+      "topUp": "Mag-top up ng wallet"
+    }
+  },
+  "employerApplications": {
+    "header": { "candidates": "Mga Kandidato", "applications": "Mga Aplikasyon" },
+    "banner": {
+      "candidateTitle": "Workspace ng kandidato",
+      "candidateDetail": "Suriin ang mga kandidato ng bukas na trabahong ito at gawin ang susunod na valid na aksyon sa pag-hire.",
+      "jobTitle": "Pipeline ng aplikasyon",
+      "jobDetail": "Pumili ng bukas na trabaho para suriin ang mga kandidato ayon sa yugto ng pag-hire."
+    },
+    "errors": {
+      "loadJobsFailed": "Hindi na-load ang mga bukas na trabaho.",
+      "loadCandidatesFailed": "Hindi na-load ang mga kandidato.",
+      "loadFailed": "Hindi na-load ang mga aplikasyon.",
+      "checkConnection": "Suriin ang iyong koneksyon at subukan muli.",
+      "actionFailed": "Hindi makumpleto ang aksyong ito.",
+      "updateCandidateFailed": "Hindi ma-update ang kandidato.",
+      "scheduleInterviewFailed": "Hindi ma-schedule ang interview.",
+      "removeFailed": "Hindi maalis ang aplikasyon."
+    },
+    "toast": {
+      "candidateMoved": "Inilipat ang kandidato sa {{status}}.",
+      "interviewSaved": "Na-save ang schedule ng interview.",
+      "offerSent": "Naipadala ang pormal na alok sa chat.",
+      "workerHired": "Matagumpay na na-hire ang manggagawa.",
+      "workerPaid": "Matagumpay na nabayaran ang manggagawa."
+    },
+    "workerFallback": "Manggagawa",
+    "backToJobs": "Lahat ng bukas na trabaho",
+    "selectedJobEyebrow": "NAPILING TRABAHO",
+    "locationNotSet": "Walang naitakdang lokasyon",
+    "confirmDefaultLabel": "Kumpirmahin",
+    "retry": "Subukan Muli",
+    "summary": {
+      "candidates": "Mga Kandidato",
+      "hiredOfNeeded": "Na-hire sa {{needed}}",
+      "interviewed": "Na-interview"
+    },
+    "stages": {
+      "new": "Bago",
+      "shortlisted": "Naka-shortlist",
+      "interview": "Interview",
+      "offer": "Alok",
+      "hired": "Na-hire",
+      "closed": "Sarado"
+    },
+    "search": {
+      "candidatesPlaceholder": "Maghanap ng kandidato",
+      "jobsPlaceholder": "Maghanap ng mga bukas na trabaho",
+      "openFiltersLabel": "Buksan ang mga filter"
+    },
+    "empty": {
+      "candidatesTitle": "Wala pang kandidato sa yugtong {{stage}}",
+      "candidatesBody": "Lalabas dito ang mga kandidato sa yugtong ito.",
+      "jobsTitle": "Walang nahanap na bukas na trabaho",
+      "jobsBody": "Baguhin ang mga filter o gumawa ng bagong employer job post."
+    },
+    "jobsHeading": {
+      "title": "Mga Bukas na Trabaho",
+      "subtitle": "{{shown}} sa {{total}} na trabaho"
+    },
+    "jobCard": {
+      "openLabel": "Buksan ang mga kandidato para sa {{title}}",
+      "localWork": "Lokal na trabaho",
+      "availableStatus": "Available",
+      "hiredCount": "{{hired}}/{{needed}} na-hire",
+      "candidatesCount": "kandidato",
+      "interviewedCount": "na-interview"
+    },
+    "candidateCard": {
+      "appliedOn": "Nag-apply noong {{date}}",
+      "appliedRecently": "kamakailan lang",
+      "matchPercent": "{{percent}}% match",
+      "ratingValue": "{{rating}} ★",
+      "nextInterview": "Susunod {{date}}"
+    },
+    "actions": {
+      "viewProfile": "Tingnan ang Profile",
+      "message": "Mensahe",
+      "reschedule": "I-reschedule",
+      "interview": "Interview",
+      "shortlist": "I-shortlist"
+    },
+    "interviewScheduled": {
+      "title": "Naka-schedule na ang interview",
+      "detail": "{{datetime}} · {{mode}}",
+      "otherMode": "iba pa"
+    },
+    "offerPanel": {
+      "title": "Pormal na alok na naka-escrow",
+      "guaranteedMinimum": "Garantisadong minimum na {{amount}}",
+      "amountPlaceholder": "Halaga sa PHP",
+      "reviewOffer": "Suriin ang Alok",
+      "additionalEscrow": "Karagdagang escrow: {{amount}}"
+    },
+    "offerActive": {
+      "accepted": "Tinanggap ang alok",
+      "awaiting": "Hinihintay ang manggagawa",
+      "escrowBacked": "{{amount}} na alok na naka-escrow",
+      "confirmHire": "Kumpirmahin ang Pag-hire",
+      "cancelOffer": "Kanselahin ang Alok"
+    },
+    "hiredPanel": {
+      "title": "Takdang-gawain at bayad",
+      "summary": "{{amount}} · Trabaho: {{workStatus}} · Bayad: {{paymentStatus}}",
+      "workStatusDefault": "In Progress",
+      "paymentStatusDefault": "Secured",
+      "authorizePayment": "Awtorisahan ang Bayad · Nakalaan Hanggang sa Pag-apruba",
+      "approveAndPay": "Aprubahan at Bayaran",
+      "changeReasonPlaceholder": "Kinakailangang dahilan ng pagbabago",
+      "requestChanges": "Humiling ng Pagbabago"
+    },
+    "rejectCandidate": "Tanggihan ang Kandidato",
+    "removeFromList": "Alisin sa listahan ng employer",
+    "confirm": {
+      "reject": {
+        "title": "Tanggihan ang kandidato?",
+        "question": "Tanggihan si {{name}}?",
+        "detail": "Aabisuhan ang manggagawa. Puwedeng balikan ang aksyong ito sa yugtong sarado.",
+        "label": "Tanggihan ang Kandidato"
+      },
+      "remove": {
+        "title": "Alisin ang aplikasyon?",
+        "question": "Alisin si {{name}} sa listahang ito?",
+        "detail": "Aalisin nito ang aplikasyon sa iyong employer view.",
+        "label": "Alisin"
+      },
+      "offer": {
+        "title": "Magpadala ng pormal na alok?",
+        "question": "Alukin si {{name}} ng {{amount}}?",
+        "detail": "Advertised na minimum: {{minimum}}. Karagdagang escrow: {{escrow}}.",
+        "label": "Ipadala ang Alok"
+      },
+      "cancelOffer": {
+        "title": "Kanselahin ang alok?",
+        "question": "Kanselahin ang {{amount}} na alok?",
+        "detail": "Ligtas na maibabalik ang anumang karagdagang na-negotiate na escrow.",
+        "label": "Kanselahin ang Alok"
+      },
+      "confirmHire": {
+        "title": "Kumpirmahin ang pag-hire?",
+        "question": "I-hire si {{name}} para sa {{amount}}?",
+        "detail": "Sisimulan nito ang assignment ng manggagawa gamit ang tinanggap na tuntuning naka-escrow.",
+        "label": "Kumpirmahin ang Pag-hire"
+      },
+      "pay": {
+        "title": "Aprubahan at bayaran?",
+        "question": "Ilabas ang {{amount}} kay {{name}}?",
+        "detail": "Inaaprubahan nito ang isinumiteng trabaho at inilalabas lang ang naka-secure na bayad ng manggagawang ito. Hindi ito puwedeng bayaran nang dalawang beses.",
+        "label": "Aprubahan at Bayaran"
+      }
+    },
+    "filters": {
+      "candidateTitle": "Mga filter ng kandidato",
+      "jobTitle": "Mga filter ng trabaho",
+      "minimumMatch": "Minimum na match",
+      "any": "Alinman",
+      "matchPercent": "{{percent}}%+",
+      "applicationDate": "Petsa ng aplikasyon",
+      "newest": "Pinakabago",
+      "oldest": "Pinakaluma",
+      "stage": "Yugto",
+      "jobStatus": "Status ng trabaho",
+      "category": "Kategorya",
+      "showResults": "Ipakita ang Resulta"
+    },
+    "jobStatusOptions": {
+      "all": "Lahat",
+      "available": "Available",
+      "inProgress": "In Progress",
+      "closed": "Closed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "interviewModal": {
+      "eyebrow": "INTERVIEW",
+      "rescheduleTitle": "I-reschedule ang interview",
+      "scheduleTitle": "I-schedule ang interview",
+      "modeLabel": "Mode",
+      "modeOptions": {
+        "virtual": "Virtual",
+        "phone": "Telepono",
+        "inPerson": "Personal",
+        "other": "Iba pa"
+      },
+      "locationLabel": "Lokasyon o link ng meeting",
+      "locationPlaceholder": "Link ng meeting, opisina, o detalye ng tawag",
+      "notesLabel": "Mga Tala",
+      "notesPlaceholder": "Mga detalye ng paghahanda",
+      "saveButton": "I-save ang Interview",
+      "calendarTitle": "Petsa ng interview",
+      "calendarSetDate": "Itakda ang petsa"
+    }
+  }
+}

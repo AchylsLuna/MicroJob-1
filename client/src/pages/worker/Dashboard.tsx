@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   BriefcaseBusiness,
   Calendar,
@@ -11,6 +11,8 @@ import {
   SlidersHorizontal,
   Users,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
@@ -20,10 +22,37 @@ import { jobsAPI } from "../../services/jobs";
 import { ROUTES } from "../../utils/routes";
 import { calculateProfileCompletion } from "../../lib/profileCompletion";
 import { formatMinimumPay } from "../../lib/jobCompensation";
+import { formatDate } from "../../lib/formatters";
 import { CategoryTile } from "../../components/ui/CategoryTile";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { JobCard } from "../../components/job/JobCard";
 import { toJobCardData } from "../../components/job/jobCardModel";
+
+// Maps API application status codes to a translation key + activity icon
+// tone. A factory (not a module-level constant) so it can be recomputed via
+// useMemo(() => getStatusMap(t), [t]) whenever the active language changes —
+// a plain constant built once at import time would freeze stale text.
+const STATUS_MAP_CONFIG: Record<string, { key: string; type: "info" | "success" | "view" }> = {
+  Applied: { key: "applied", type: "info" },
+  Shortlisted: { key: "shortlisted", type: "success" },
+  "Interview Scheduled": { key: "interviewScheduled", type: "info" },
+  Interviewed: { key: "interviewed", type: "info" },
+  "Offer Sent": { key: "offerSent", type: "success" },
+  Hired: { key: "hired", type: "success" },
+  Rejected: { key: "rejected", type: "view" },
+  Withdrawn: { key: "withdrawn", type: "view" },
+  Pending: { key: "pending", type: "info" },
+  Reviewed: { key: "reviewed", type: "info" },
+  Terms: { key: "terms", type: "success" },
+};
+
+function getStatusMap(t: TFunction): Record<string, { text: string; type: "info" | "success" | "view" }> {
+  const map: Record<string, { text: string; type: "info" | "success" | "view" }> = {};
+  for (const [status, { key, type }] of Object.entries(STATUS_MAP_CONFIG)) {
+    map[status] = { text: t(`dashboard.statusMap.${key}`), type };
+  }
+  return map;
+}
 
 type DashboardApplication = {
   status?: string;
@@ -74,6 +103,7 @@ export function Dashboard() {
 }
 
 function WorkerDashboardContent() {
+  const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const [applicationCount, setApplicationCount] = useState(0);
   const [interviewCount, setInterviewCount] = useState(0);
@@ -82,7 +112,7 @@ function WorkerDashboardContent() {
   const [jobsLoading, setJobsLoading] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [recommendedJobs, setRecommendedJobs] = useState<any[]>([]);
-  const [recentActivities, setRecentActivities] = useState<any[]>([]);
+  const [recentApplications, setRecentApplications] = useState<DashboardApplication[]>([]);
   const [profileCompletion, setProfileCompletion] = useState(0);
   const [isProfileComplete, setIsProfileComplete] = useState(false);
   const [hasResume, setHasResume] = useState(false);
@@ -159,36 +189,11 @@ function WorkerDashboardContent() {
         setApplicationCount(total);
         setInterviewCount(interviews);
         setHiredCount(hired);
-
-        // Build recent activities from applications
-        const activities = applications.slice(0, 4).map((app) => {
-          const status = app.status || "Applied";
-          const statusMap: Record<string, { text: string; type: string }> = {
-            "Applied": { text: "Application submitted", type: "info" },
-            "Shortlisted": { text: "Application shortlisted", type: "success" },
-            "Interview Scheduled": { text: "Interview scheduled", type: "info" },
-            "Interviewed": { text: "Interview completed", type: "info" },
-            "Offer Sent": { text: "Offer received", type: "success" },
-            "Hired": { text: "Application accepted", type: "success" },
-            "Rejected": { text: "Application rejected", type: "view" },
-            "Withdrawn": { text: "Application withdrawn", type: "view" },
-            "Pending": { text: "Application submitted", type: "info" },
-            "Reviewed": { text: "Application reviewed", type: "info" },
-            "Terms": { text: "Offer received", type: "success" },
-          };
-          const statusInfo = statusMap[status] || { text: "Application updated", type: "info" };
-          return {
-            text: `${statusInfo.text} for ${app.job?.title || "a job"}`,
-            time: app.updatedAt ? new Date(app.updatedAt).toLocaleDateString() : app.createdAt ? new Date(app.createdAt).toLocaleDateString() : "Just now",
-            type: statusInfo.type,
-            activity: app,
-          };
-        });
-        setRecentActivities(activities);
+        setRecentApplications(applications.slice(0, 4));
       } catch (error: any) {
         if (!isMounted) return;
         console.error("Failed to load applications:", error);
-        toast.error(error?.message || "Failed to load dashboard stats.");
+        toast.error(error?.message || t("dashboard.toast.statsLoadFailed"));
       } finally {
         if (isMounted) setIsStatsLoading(false);
       }
@@ -261,11 +266,24 @@ function WorkerDashboardContent() {
 
     loadStats();
     loadJobs();
-    
+
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
+
+  const recentActivities = useMemo(() => {
+    const statusMap = getStatusMap(t);
+    return recentApplications.map((application) => {
+      const meta = statusMap[application.status || ""] ?? { text: application.status || "", type: "info" as const };
+      const dateValue = application.updatedAt || application.createdAt || application.appliedDate;
+      return {
+        text: application.job?.title ? `${meta.text} — ${application.job.title}` : meta.text,
+        time: dateValue ? formatDate(dateValue) : "",
+        type: meta.type,
+      };
+    });
+  }, [recentApplications, t]);
 
   const handleViewAllActivities = () => {
     navigate(ROUTES.worker.notifications);

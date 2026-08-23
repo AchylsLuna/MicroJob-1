@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Users, 
-  MessageSquare, 
+import { Trans, useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import {
+  Users,
+  MessageSquare,
   MapPin,
   CalendarDays,
   TrendingUp,
@@ -17,6 +19,7 @@ import {
 import { changeJobStatus, deleteJob as apiDeleteJob, getMyJobs, reopenJob as apiReopenJob, getEmployerApplications } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
+import { formatCurrency, formatDate } from "../../lib/formatters";
 
 interface JobPosting {
   id: string;
@@ -24,24 +27,72 @@ interface JobPosting {
   title: string;
   department: string;
   location: string;
-  date: string;
+  createdAt?: string;
   status: "Open" | "Hold" | "Closed";
   matchPercentage: number;
   matchQuality: "Strong Match" | "Good Match" | "Fair Match";
-  salary: string;
+  salaryAmount: number;
   candidatesApplied: number;
   completedInterviews: number;
-  tags: {
-    workLocation: string;
-    workType: string;
-    positions: string;
-  };
-  createdBy: string;
+  workLocation: "Remote" | "On Site";
+  workType: string;
+  positionsNeeded: number;
   hasHired?: boolean;
   source: any;
 }
 
+const STATUS_LABEL_KEYS: Record<JobPosting["status"], string> = {
+  Open: "open",
+  Hold: "hold",
+  Closed: "closed",
+};
+const getPipelineStatusLabel = (t: TFunction, status: JobPosting["status"]) =>
+  t(`jobsManagement.status.${STATUS_LABEL_KEYS[status]}`);
+
+const MATCH_QUALITY_LABEL_KEYS: Record<JobPosting["matchQuality"], string> = {
+  "Strong Match": "strong",
+  "Good Match": "good",
+  "Fair Match": "fair",
+};
+const getMatchQualityLabel = (t: TFunction, quality: JobPosting["matchQuality"]) =>
+  t(`jobsManagement.matchQuality.${MATCH_QUALITY_LABEL_KEYS[quality]}`);
+
+const WORK_LOCATION_LABEL_KEYS: Record<JobPosting["workLocation"], string> = {
+  Remote: "remote",
+  "On Site": "onSite",
+};
+const getWorkLocationLabel = (t: TFunction, value: JobPosting["workLocation"]) =>
+  t(`jobsManagement.workLocation.${WORK_LOCATION_LABEL_KEYS[value]}`);
+
+const WORK_TYPE_LABEL_KEYS: Record<string, string> = {
+  "Short-term": "shortTerm",
+  "Side hustle": "sideHustle",
+  Recruiting: "recruiting",
+  "Full Time": "fullTime",
+  "Part-time": "partTime",
+  Freelance: "freelance",
+  Contract: "contract",
+  Remote: "remote",
+};
+const getWorkTypeLabel = (t: TFunction, value: string) => {
+  const key = WORK_TYPE_LABEL_KEYS[value];
+  return key ? t(`jobsManagement.workType.${key}`) : value;
+};
+
+const formatSalaryAmount = (t: TFunction, amount: number) =>
+  amount > 0
+    ? t("jobsManagement.card.minimumPay", { amount: formatCurrency(amount, { maximumFractionDigits: 0 }) })
+    : "—";
+
+const formatJobDate = (value?: string): string => {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return formatDate(date);
+};
+
 export function JobsManagement() {
+  const { t } = useTranslation("employer");
   const navigate = useNavigate();
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,40 +126,28 @@ export function JobsManagement() {
     return "Fair Match";
   };
 
-  const formatDate = (value?: string) => {
-    if (!value) return "—";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleDateString();
-  };
-
   const mapJob = useCallback((job: any): JobPosting => {
     const applicantsCount = Array.isArray(job.applicants) ? job.applicants.length : 0;
     const matchPercentage = Math.min(100, applicantsCount * 7 + 30);
-    const workTypeLabel = String(job.jobType || "Short-term").replace("Fulltime", "Full Time");
-    const workLocationLabel = job.jobType === "Remote" ? "Remote" : "On Site";
+    const workType = String(job.jobType || "Short-term").replace("Fulltime", "Full Time");
+    const workLocation: JobPosting["workLocation"] = job.jobType === "Remote" ? "Remote" : "On Site";
 
     return {
       id: job._id,
       backendStatus: (job.status || "Available") as JobPosting["backendStatus"],
-      title: job.title || "Untitled Job",
-      department: job.category?.name || "General",
-      location: job.location || "Remote",
-      date: formatDate(job.createdAt),
+      title: job.title || "",
+      department: job.category?.name || "",
+      location: job.location || "",
+      createdAt: job.createdAt,
       status: mapStatus(job.status),
       matchPercentage,
       matchQuality: getMatchQuality(matchPercentage),
-      salary: Number(job.salary) > 0
-        ? `₱${Number(job.salary).toLocaleString("en-PH")} minimum`
-        : "—",
+      salaryAmount: Number(job.salary) || 0,
       candidatesApplied: applicantsCount,
       completedInterviews: Math.max(0, Math.floor(applicantsCount / 3)),
-      tags: {
-        workLocation: workLocationLabel,
-        workType: workTypeLabel,
-        positions: `${job.positionsNeeded || 1} Position${(job.positionsNeeded || 1) > 1 ? 's' : ''}`,
-      },
-      createdBy: "You",
+      workLocation,
+      workType,
+      positionsNeeded: Number(job.positionsNeeded) || 1,
       hasHired: false,
       source: job,
     };
@@ -146,14 +185,14 @@ export function JobsManagement() {
 
       setJobs(withFlags);
     } catch (error: any) {
-      const message = error?.message || "Failed to load job postings.";
+      const message = error?.message || t("jobsManagement.errors.loadFailed");
       setLoadError(message);
       toast.error(message);
       setJobs([]);
     } finally {
       setIsLoading(false);
     }
-  }, [mapJob]);
+  }, [mapJob, t]);
 
   useEffect(() => {
     void loadJobs();
@@ -161,7 +200,7 @@ export function JobsManagement() {
 
   const handleMarkJobDone = async (job: JobPosting) => {
     if (job.backendStatus === "Completed") {
-      toast.info("This job is already marked as completed.");
+      toast.info(t("jobsManagement.toast.alreadyCompleted"));
       return;
     }
 
@@ -174,11 +213,11 @@ export function JobsManagement() {
     setMarkingDoneJobId(confirmDoneJob.id);
     try {
       await changeJobStatus(confirmDoneJob.id, "Completed");
-      toast.success("Job marked as done. Worker payouts were triggered automatically from escrow.");
+      toast.success(t("jobsManagement.toast.markedDoneSuccess"));
       setConfirmDoneJob(null);
       await loadJobs();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to mark job as done.");
+      toast.error(error?.message || t("jobsManagement.toast.markDoneFailed"));
     } finally {
       setMarkingDoneJobId(null);
     }
@@ -186,11 +225,11 @@ export function JobsManagement() {
 
   const handleReopenJob = (job: JobPosting) => {
     if (job.backendStatus === "Available") {
-      toast.info("This job is already open.");
+      toast.info(t("jobsManagement.toast.alreadyOpen"));
       return;
     }
     if (job.backendStatus === "In Progress") {
-      toast.info("Cannot reopen a job that is currently in progress.");
+      toast.info(t("jobsManagement.toast.cannotReopenInProgress"));
       return;
     }
     setConfirmReopenJob(job);
@@ -201,11 +240,11 @@ export function JobsManagement() {
     setReopeningJobId(confirmReopenJob.id);
     try {
       await apiReopenJob(confirmReopenJob.id);
-      toast.success("Job reopened successfully. Workers can now apply again.");
+      toast.success(t("jobsManagement.toast.reopenSuccess"));
       setConfirmReopenJob(null);
       await loadJobs();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to reopen job.");
+      toast.error(error?.message || t("jobsManagement.toast.reopenFailed"));
     } finally {
       setReopeningJobId(null);
     }
@@ -220,11 +259,11 @@ export function JobsManagement() {
     setDeletingJobId(confirmDeleteJob.id);
     try {
       await apiDeleteJob(confirmDeleteJob.id);
-      toast.success("Job deleted successfully.");
+      toast.success(t("jobsManagement.toast.deleteSuccess"));
       setConfirmDeleteJob(null);
       await loadJobs();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to delete job.");
+      toast.error(error?.message || t("jobsManagement.toast.deleteFailed"));
     } finally {
       setDeletingJobId(null);
     }
@@ -253,9 +292,9 @@ export function JobsManagement() {
     <div className="ui-page px-4 md:px-0 pb-16">
       <div className="ui-page-header">
         <div>
-          <h1 className="ui-page-title">Jobs Management</h1>
+          <h1 className="ui-page-title">{t("jobsManagement.header.title")}</h1>
           <p className="ui-page-subtitle">
-            Track job postings, candidate matches, and hiring progress.
+            {t("jobsManagement.header.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -264,7 +303,7 @@ export function JobsManagement() {
             className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
           >
             <Users className="w-4 h-4" />
-            View Applications
+            {t("jobsManagement.header.viewApplications")}
           </button>
         </div>
       </div>
@@ -272,7 +311,7 @@ export function JobsManagement() {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {isLoading && (
           <div className="ui-card p-6">
-            <p className="text-sm text-slate-500">Loading job postings...</p>
+            <p className="text-sm text-slate-500">{t("jobsManagement.states.loading")}</p>
           </div>
         )}
         {loadError && !isLoading && (
@@ -290,9 +329,9 @@ export function JobsManagement() {
                   <div className="flex items-center gap-2">
                     <span className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(job.status)}`}>
                       <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                      {job.status}
+                      {getPipelineStatusLabel(t, job.status)}
                     </span>
-                    <span className="text-xs text-slate-500">{job.department}</span>
+                    <span className="text-xs text-slate-500">{job.department || t("jobsManagement.card.departmentFallback")}</span>
                   </div>
                 </div>
 
@@ -303,15 +342,15 @@ export function JobsManagement() {
                       <span className="text-white text-base">⚛</span>
                     </div>
                     <div>
-                      <h3 className="mb-1 text-base font-semibold text-slate-900">{job.title}</h3>
+                      <h3 className="mb-1 text-base font-semibold text-slate-900">{job.title || t("jobsManagement.card.untitledJob")}</h3>
                       <div className="flex items-center gap-3 text-xs text-slate-500">
                         <span className="flex items-center gap-1">
                           <MapPin className="w-3 h-3" />
-                          {job.location}
+                          {job.location || t("jobsManagement.card.locationFallback")}
                         </span>
                         <span className="flex items-center gap-1">
                           <CalendarDays className="w-3 h-3" />
-                          {job.date}
+                          {formatJobDate(job.createdAt)}
                         </span>
                       </div>
                     </div>
@@ -349,8 +388,8 @@ export function JobsManagement() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-semibold text-slate-900">{job.matchQuality}</p>
-                    <p className="text-xs text-slate-500">Match quality</p>
+                    <p className="text-sm font-semibold text-slate-900">{getMatchQualityLabel(t, job.matchQuality)}</p>
+                    <p className="text-xs text-slate-500">{t("jobsManagement.card.matchQualityLabel")}</p>
                   </div>
                 </div>
 
@@ -359,21 +398,21 @@ export function JobsManagement() {
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm text-slate-600">
                       <TrendingUp className="w-4 h-4 text-[#9CA3AF]" />
-                      Minimum Pay
+                      {t("jobsManagement.card.minimumPayLabel")}
                     </span>
-                    <span className="text-sm font-semibold text-slate-900">{job.salary}</span>
+                    <span className="text-sm font-semibold text-slate-900">{formatSalaryAmount(t, job.salaryAmount)}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm text-slate-600">
                       <Users className="w-4 h-4 text-[#9CA3AF]" />
-                      Candidates Applied
+                      {t("jobsManagement.card.candidatesAppliedLabel")}
                     </span>
                     <span className="text-sm font-semibold text-slate-900">{job.candidatesApplied}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="flex items-center gap-2 text-sm text-slate-600">
                       <MessageSquare className="w-4 h-4 text-[#9CA3AF]" />
-                      Completed Interview
+                      {t("jobsManagement.card.completedInterviewLabel")}
                     </span>
                     <span className="text-sm font-semibold text-slate-900">{job.completedInterviews}</span>
                   </div>
@@ -382,20 +421,21 @@ export function JobsManagement() {
                 {/* Tags */}
                 <div className="flex flex-wrap gap-2 mb-4">
                   <span className="rounded px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700">
-                    {job.tags.workLocation}
+                    {getWorkLocationLabel(t, job.workLocation)}
                   </span>
                   <span className="rounded px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700">
-                    {job.tags.workType}
+                    {getWorkTypeLabel(t, job.workType)}
                   </span>
                   <span className="rounded px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700">
-                    {job.tags.positions}
+                    {t("jobsManagement.card.positionsCount", { count: job.positionsNeeded })}
                   </span>
                 </div>
 
                 {/* Footer */}
                 <div className="flex items-center justify-between gap-2 flex-wrap">
                   <span className="text-sm text-slate-500">
-                    Created by <span className="font-semibold text-slate-900">{job.createdBy}</span>
+                    {t("jobsManagement.card.createdByPrefix")}{" "}
+                    <span className="font-semibold text-slate-900">{t("jobsManagement.card.createdByYou")}</span>
                   </span>
                   <div className="flex items-center gap-2">
                     <button
@@ -403,22 +443,22 @@ export function JobsManagement() {
                         state: { job: job.source, returnTo: ROUTES.employer.jobs },
                       })}
                       className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-[#1C4D8D]/30 hover:bg-[#1C4D8D]/[0.04] hover:text-[#1C4D8D]"
-                      title="Edit this job's details"
+                      title={t("jobsManagement.card.editTooltip")}
                     >
                       <Pencil className="h-3.5 w-3.5" />
-                      Edit details
+                      {t("jobsManagement.card.editDetails")}
                     </button>
                     {job.status === "Closed" && (
                       <button
                         onClick={() => void handleReopenJob(job)}
                         disabled={reopeningJobId === job.id}
                         className="inline-flex items-center gap-1 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-xs font-semibold text-[#15803D] disabled:opacity-60"
-                        title="Reopen this job so workers can apply again"
+                        title={t("jobsManagement.card.reopenTooltip")}
                       >
                         {reopeningJobId === job.id ? (
-                          <><Loader2 className="w-3.5 h-3.5 animate-spin" />Reopening...</>
+                          <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t("jobsManagement.card.reopening")}</>
                         ) : (
-                          <><RefreshCw className="w-3.5 h-3.5" />Reopen</>  
+                          <><RefreshCw className="w-3.5 h-3.5" />{t("jobsManagement.card.reopen")}</>
                         )}
                       </button>
                     )}
@@ -426,24 +466,24 @@ export function JobsManagement() {
                       onClick={() => void handleMarkJobDone(job)}
                       disabled={job.backendStatus === "Completed" || markingDoneJobId === job.id || !(job as any).hasHired}
                       className="inline-flex items-center gap-1 rounded-lg border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-1.5 text-xs font-semibold text-[#1C4D8D] disabled:opacity-60"
-                      title={!((job as any).hasHired) ? "Move at least one worker application to Hired first" : "Mark done and auto-pay workers from escrow"}
+                      title={!((job as any).hasHired) ? t("jobsManagement.card.markDoneTooltipBlocked") : t("jobsManagement.card.markDoneTooltip")}
                     >
                       {markingDoneJobId === job.id ? (
-                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />Marking...</>
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t("jobsManagement.card.marking")}</>
                       ) : (
-                        <><CheckCircle2 className="w-3.5 h-3.5" />Mark as Done</>
+                        <><CheckCircle2 className="w-3.5 h-3.5" />{t("jobsManagement.card.markAsDone")}</>
                       )}
                     </button>
                     <button
                       onClick={() => void handleDeleteJob(job)}
                       disabled={deletingJobId === job.id}
                       className="inline-flex items-center gap-1 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-1.5 text-xs font-semibold text-[#B91C1C] disabled:opacity-60"
-                      title="Delete this job"
+                      title={t("jobsManagement.card.deleteTooltip")}
                     >
                       {deletingJobId === job.id ? (
-                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />Deleting...</>
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" />{t("jobsManagement.card.deleting")}</>
                       ) : (
-                        <><Trash2 className="w-3.5 h-3.5" />Delete</>
+                        <><Trash2 className="w-3.5 h-3.5" />{t("jobsManagement.card.delete")}</>
                       )}
                     </button>
                     <button
@@ -452,18 +492,18 @@ export function JobsManagement() {
                       className="inline-flex items-center gap-1 rounded-lg bg-[#1C4D8D] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#163f75]"
                     >
                       <Eye className="h-3.5 w-3.5" />
-                      View details
+                      {t("jobsManagement.card.viewDetails")}
                     </button>
                   </div>
                 </div>
                 <p className="mt-3 text-[11px] text-[#64748B]">
-                  Completing the job automatically releases escrow to hired workers' e-wallets.
+                  {t("jobsManagement.card.escrowNote")}
                 </p>
           </div>
         ))}
         {!isLoading && !loadError && jobs.length === 0 && (
           <div className="ui-card p-6">
-            <p className="text-sm text-slate-500">No job postings found.</p>
+            <p className="text-sm text-slate-500">{t("jobsManagement.states.empty")}</p>
           </div>
         )}
       </div>
@@ -480,25 +520,25 @@ export function JobsManagement() {
               <div>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusStyle(viewingJob.status)}`}>
-                    {viewingJob.status}
+                    {getPipelineStatusLabel(t, viewingJob.status)}
                   </span>
                   <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
-                    {viewingJob.department}
+                    {viewingJob.department || t("jobsManagement.card.departmentFallback")}
                   </span>
                 </div>
                 <h2 id="job-details-title" className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-                  {viewingJob.title}
+                  {viewingJob.title || t("jobsManagement.card.untitledJob")}
                 </h2>
                 <p className="mt-2 flex items-start gap-2 text-sm text-slate-500">
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0" />
-                  {viewingJob.location}
+                  {viewingJob.location || t("jobsManagement.card.locationFallback")}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setViewingJob(null)}
                 className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                aria-label="Close job details"
+                aria-label={t("jobsManagement.modal.closeAria")}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -507,42 +547,42 @@ export function JobsManagement() {
             <div className="flex-1 overflow-y-auto px-5 py-5 md:px-7 md:py-6">
               <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Minimum pay</p>
-                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.salary}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.minimumPayLabel")}</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{formatSalaryAmount(t, viewingJob.salaryAmount)}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Opportunity</p>
-                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.tags.workType}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.opportunityLabel")}</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{getWorkTypeLabel(t, viewingJob.workType)}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Positions</p>
-                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.tags.positions}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.positionsLabel")}</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{t("jobsManagement.card.positionsCount", { count: viewingJob.positionsNeeded })}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Deadline</p>
-                  <p className="mt-2 text-base font-bold text-slate-900">{formatDate(viewingJob.source?.deadline)}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.deadlineLabel")}</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{formatJobDate(viewingJob.source?.deadline)}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Applications</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.applicationsLabel")}</p>
                   <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.candidatesApplied}</p>
                 </div>
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Posted</p>
-                  <p className="mt-2 text-base font-bold text-slate-900">{viewingJob.date}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{t("jobsManagement.modal.postedLabel")}</p>
+                  <p className="mt-2 text-base font-bold text-slate-900">{formatJobDate(viewingJob.createdAt)}</p>
                 </div>
               </div>
 
               <div className="mt-6 space-y-5">
                 <section>
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Job description</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("jobsManagement.modal.descriptionTitle")}</h3>
                   <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                    {viewingJob.source?.description || "No description was provided."}
+                    {viewingJob.source?.description || t("jobsManagement.modal.noDescription")}
                   </p>
                 </section>
 
                 {Array.isArray(viewingJob.source?.responsibilities) && viewingJob.source.responsibilities.length > 0 ? (
                   <section>
-                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Responsibilities</h3>
+                    <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("jobsManagement.modal.responsibilitiesTitle")}</h3>
                     <ul className="mt-2 space-y-2 text-sm text-slate-700">
                       {viewingJob.source.responsibilities.map((item: string, index: number) => (
                         <li key={`${item}-${index}`} className="flex gap-2">
@@ -555,7 +595,7 @@ export function JobsManagement() {
                 ) : null}
 
                 <section>
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Requirements</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("jobsManagement.modal.requirementsTitle")}</h3>
                   {Array.isArray(viewingJob.source?.requirements) && viewingJob.source.requirements.length > 0 ? (
                     <ul className="mt-2 space-y-2 text-sm text-slate-700">
                       {viewingJob.source.requirements.map((item: string, index: number) => (
@@ -566,12 +606,12 @@ export function JobsManagement() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="mt-2 text-sm text-slate-400">No additional requirements.</p>
+                    <p className="mt-2 text-sm text-slate-400">{t("jobsManagement.modal.noRequirements")}</p>
                   )}
                 </section>
 
                 <section>
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Helpful skills</h3>
+                  <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{t("jobsManagement.modal.skillsTitle")}</h3>
                   {Array.isArray(viewingJob.source?.skills) && viewingJob.source.skills.length > 0 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {viewingJob.source.skills.map((skill: string, index: number) => (
@@ -581,7 +621,7 @@ export function JobsManagement() {
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-2 text-sm text-slate-400">No specific skills listed.</p>
+                    <p className="mt-2 text-sm text-slate-400">{t("jobsManagement.modal.noSkills")}</p>
                   )}
                 </section>
               </div>
@@ -593,7 +633,7 @@ export function JobsManagement() {
                 onClick={() => setViewingJob(null)}
                 className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
               >
-                Close
+                {t("jobsManagement.modal.close")}
               </button>
               <button
                 type="button"
@@ -603,7 +643,7 @@ export function JobsManagement() {
                 className="inline-flex h-10 items-center gap-2 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white transition hover:bg-indigo-700"
               >
                 <Pencil className="h-4 w-4" />
-                Edit details
+                {t("jobsManagement.card.editDetails")}
               </button>
             </div>
           </div>
@@ -613,12 +653,17 @@ export function JobsManagement() {
       {confirmDoneJob ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">Mark Job as Done</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{t("jobsManagement.confirmDone.title")}</h3>
             <p className="mt-2 text-sm text-slate-600">
-              You are about to complete <span className="font-semibold text-slate-900">{confirmDoneJob.title}</span>.
+              <Trans
+                t={t}
+                i18nKey="jobsManagement.confirmDone.body"
+                values={{ title: confirmDoneJob.title }}
+                components={{ b: <span className="font-semibold text-slate-900" /> }}
+              />
             </p>
             <p className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-700 border border-blue-100">
-              Once completed, escrow funds are automatically released to hired workers' e-wallets.
+              {t("jobsManagement.confirmDone.info")}
             </p>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
@@ -627,7 +672,7 @@ export function JobsManagement() {
                 disabled={markingDoneJobId === confirmDoneJob.id}
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
               >
-                Cancel
+                {t("jobsManagement.actions.cancel")}
               </button>
               <button
                 type="button"
@@ -636,9 +681,9 @@ export function JobsManagement() {
                 className="inline-flex items-center gap-2 rounded-lg bg-[#1C4D8D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {markingDoneJobId === confirmDoneJob.id ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Marking...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.marking")}</>
                 ) : (
-                  <><CheckCircle2 className="h-4 w-4" />Confirm Done</>
+                  <><CheckCircle2 className="h-4 w-4" />{t("jobsManagement.confirmDone.confirm")}</>
                 )}
               </button>
             </div>
@@ -649,14 +694,19 @@ export function JobsManagement() {
       {confirmReopenJob ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">Reopen Job</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{t("jobsManagement.confirmReopen.title")}</h3>
             <p className="mt-2 text-sm text-slate-600">
-              You are about to reopen <span className="font-semibold text-slate-900">{confirmReopenJob.title}</span>.
+              <Trans
+                t={t}
+                i18nKey="jobsManagement.confirmReopen.body"
+                values={{ title: confirmReopenJob.title }}
+                components={{ b: <span className="font-semibold text-slate-900" /> }}
+              />
             </p>
             <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-700 border border-green-100">
               {confirmReopenJob.backendStatus === "Completed" || confirmReopenJob.backendStatus === "Cancelled"
-                ? "Reopening will re-collect the escrow from your employer balance. Workers will be able to apply again."
-                : "The job will be set back to open and workers will be able to apply again."}
+                ? t("jobsManagement.confirmReopen.infoRecollect")
+                : t("jobsManagement.confirmReopen.infoSimple")}
             </p>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
@@ -665,7 +715,7 @@ export function JobsManagement() {
                 disabled={reopeningJobId === confirmReopenJob.id}
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
               >
-                Cancel
+                {t("jobsManagement.actions.cancel")}
               </button>
               <button
                 type="button"
@@ -674,9 +724,9 @@ export function JobsManagement() {
                 className="inline-flex items-center gap-2 rounded-lg bg-[#15803D] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {reopeningJobId === confirmReopenJob.id ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Reopening...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.reopening")}</>
                 ) : (
-                  <><RefreshCw className="h-4 w-4" />Reopen Job</>
+                  <><RefreshCw className="h-4 w-4" />{t("jobsManagement.confirmReopen.confirm")}</>
                 )}
               </button>
             </div>
@@ -687,12 +737,17 @@ export function JobsManagement() {
       {confirmDeleteJob ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4">
           <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl border border-slate-200">
-            <h3 className="text-lg font-semibold text-slate-900">Delete Job</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{t("jobsManagement.confirmDelete.title")}</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Are you sure you want to delete <span className="font-semibold text-slate-900">{confirmDeleteJob.title}</span>? This action cannot be undone.
+              <Trans
+                t={t}
+                i18nKey="jobsManagement.confirmDelete.body"
+                values={{ title: confirmDeleteJob.title }}
+                components={{ b: <span className="font-semibold text-slate-900" /> }}
+              />
             </p>
             <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 border border-red-100">
-              All applications for this job will also be removed. Any unspent escrow will be refunded to your employer balance.
+              {t("jobsManagement.confirmDelete.info")}
             </p>
             <div className="mt-6 flex items-center justify-end gap-2">
               <button
@@ -701,7 +756,7 @@ export function JobsManagement() {
                 disabled={deletingJobId === confirmDeleteJob.id}
                 className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
               >
-                Cancel
+                {t("jobsManagement.actions.cancel")}
               </button>
               <button
                 type="button"
@@ -710,9 +765,9 @@ export function JobsManagement() {
                 className="inline-flex items-center gap-2 rounded-lg bg-[#B91C1C] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {deletingJobId === confirmDeleteJob.id ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" />Deleting...</>
+                  <><Loader2 className="h-4 w-4 animate-spin" />{t("jobsManagement.card.deleting")}</>
                 ) : (
-                  <><Trash2 className="h-4 w-4" />Delete Job</>
+                  <><Trash2 className="h-4 w-4" />{t("jobsManagement.confirmDelete.confirm")}</>
                 )}
               </button>
             </div>

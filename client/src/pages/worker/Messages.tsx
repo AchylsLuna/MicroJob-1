@@ -13,12 +13,15 @@ import {
   Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import { ROUTES } from "../../utils/routes";
 import { isStaffConversation } from "../../utils/staffConversation";
 import { useAuth } from "../../contexts/AuthContext";
+import { formatDate, getActiveDateLocale } from "../../lib/formatters";
 import {
   getConversations,
   getArchivedConversations,
@@ -77,7 +80,7 @@ const getInitials = (name: string): string => {
   return name.substring(0, 2).toUpperCase();
 };
 
-const formatTime = (dateString: string): string => {
+const formatTime = (t: TFunction, dateString: string): string => {
   const date = new Date(dateString);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -85,19 +88,19 @@ const formatTime = (dateString: string): string => {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
+  if (minutes < 1) return t("messages.time.now");
+  if (minutes < 60) return t("messages.time.minutesAgo", { count: minutes });
+  if (hours < 24) return t("messages.time.hoursAgo", { count: hours });
+  if (days < 7) return t("messages.time.daysAgo", { count: days });
+  return formatDate(date);
 };
 
 const formatMessageTime = (dateString: string): string => {
   const date = new Date(dateString);
-  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  return new Intl.DateTimeFormat(getActiveDateLocale(), { hour: 'numeric', minute: '2-digit', hour12: true }).format(date);
 };
 
-const formatMessageDay = (dateString: string): string => {
+const formatMessageDay = (t: TFunction, dateString: string): string => {
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "";
 
@@ -106,9 +109,9 @@ const formatMessageDay = (dateString: string): string => {
     date.getDate() === today.getDate() &&
     date.getMonth() === today.getMonth() &&
     date.getFullYear() === today.getFullYear();
-  if (sameDay) return "Today";
+  if (sameDay) return t("messages.time.today");
 
-  return date.toLocaleDateString(undefined, {
+  return formatDate(date, {
     month: "short",
     day: "numeric",
     year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
@@ -132,6 +135,7 @@ const getUserName = (user: unknown): string => {
 };
 
 export function Messages() {
+  const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -168,8 +172,8 @@ export function Messages() {
 
   const supportDisplayNameFor = useCallback((otherUserId: string, fallbackName: string) =>
     supportStartUserId && String(otherUserId) === String(supportStartUserId)
-      ? "Admin Support"
-      : fallbackName, [supportStartUserId]);
+      ? t("messages.adminSupportName")
+      : fallbackName, [supportStartUserId, t]);
 
   useEffect(() => {
     loadArchivedConversations();
@@ -235,8 +239,8 @@ export function Messages() {
       setContacts((prev) => {
         const existing = prev.find((item) => item.conversationId === conversationId);
         const resolvedName = isFromSelf
-          ? receiverName || existing?.otherUserName || "User"
-          : senderName || existing?.otherUserName || "User";
+          ? receiverName || existing?.otherUserName || t("messages.userFallback")
+          : senderName || existing?.otherUserName || t("messages.userFallback");
         const otherUserName = supportDisplayNameFor(otherUserId, resolvedName);
         const updated: Contact = {
           conversationId,
@@ -358,7 +362,7 @@ export function Messages() {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, selectedContact, supportDisplayNameFor, supportStartUserId]);
+  }, [currentUserId, selectedContact, supportDisplayNameFor, supportStartUserId, t]);
 
   // A single, slower safety net now that the socket does the real-time work —
   // covers a dropped connection between the "connect" resync and the next one.
@@ -400,7 +404,7 @@ export function Messages() {
     const contactId = searchParams.get("contact");
     const startUserId = searchParams.get("startUser");
     const startJobId = searchParams.get("jobId");
-    const startName = searchParams.get("startName") || "Employer";
+    const startName = searchParams.get("startName") || t("messages.employerFallback");
     const source = searchParams.get("source") || "";
     const draft = searchParams.get("draft") || "";
     const isFromJobDetails =
@@ -447,7 +451,7 @@ export function Messages() {
       nextParams.delete("source");
       setSearchParams(nextParams, { replace: true });
     }
-  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor, selectedContact?.conversationId]);
+  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor, selectedContact?.conversationId, t]);
 
   useEffect(() => {
     // Close menu when clicking outside
@@ -497,7 +501,7 @@ export function Messages() {
       );
       const namedConversations = conversationsArray.map((contact) => ({
         ...contact,
-        otherUserName: supportDisplayNameFor(contact.otherUserId, contact.otherUserName || "User"),
+        otherUserName: supportDisplayNameFor(contact.otherUserId, contact.otherUserName || t("messages.userFallback")),
       }));
       const archivedSet = new Set(archivedContacts.map((contact) => contact.conversationId));
       const inboxOnly = namedConversations.filter((contact) => !archivedSet.has(contact.conversationId));
@@ -509,12 +513,12 @@ export function Messages() {
       }
     } catch (error: any) {
       console.error('Failed to load conversations:', error);
-      toast.error(error.message || 'Failed to load conversations');
+      toast.error(error.message || t("messages.toast.loadConversationsFailed"));
       setContacts([]); // Ensure contacts is set to empty array on error
     } finally {
       setLoading(false);
     }
-  }, [archivedContacts, selectedContact, supportDisplayNameFor]);
+  }, [archivedContacts, selectedContact, supportDisplayNameFor, t]);
   loadConversationsRef.current = loadConversations;
 
   const loadArchivedConversations = async () => {
@@ -542,7 +546,7 @@ export function Messages() {
 
   const beginEditMessage = (message: Message) => {
     if (!canEditMessage(message)) {
-      toast.error("You can only edit a message within 30 seconds.");
+      toast.error(t("messages.toast.editWindowExpired"));
       return;
     }
     setEditingMessageId(message._id);
@@ -558,7 +562,7 @@ export function Messages() {
     if (!editingMessageId) return;
     const nextContent = editingText.trim();
     if (!nextContent) {
-      toast.error("Message cannot be empty.");
+      toast.error(t("messages.toast.emptyMessage"));
       return;
     }
 
@@ -582,9 +586,9 @@ export function Messages() {
 
       setEditingMessageId(null);
       setEditingText("");
-      toast.success("Message updated");
+      toast.success(t("messages.toast.messageUpdated"));
     } catch (error: any) {
-      toast.error(error?.message || "Unable to edit message");
+      toast.error(error?.message || t("messages.toast.editFailed"));
     } finally {
       setIsEditingSaving(false);
     }
@@ -617,7 +621,7 @@ export function Messages() {
       }
     } catch (error: any) {
       console.error('Failed to load messages:', error);
-      toast.error(error.message || 'Failed to load messages');
+      toast.error(error.message || t("messages.toast.loadMessagesFailed"));
       setMessages([]);
     }
   };
@@ -691,7 +695,7 @@ export function Messages() {
       setMessages((prev) =>
         prev.map((item) => (item.clientMessageId === clientMessageId ? { ...item, pending: false, failed: true } : item)),
       );
-      toast.error(error.message || 'Failed to send message');
+      toast.error(error.message || t("messages.toast.sendFailed"));
     } finally {
       setSending(false);
     }
@@ -706,13 +710,13 @@ export function Messages() {
   const handleBlockUser = async () => {
     if (!selectedContact) return;
 
-    if (!confirm(`Are you sure you want to block ${selectedContact.otherUserName}? They will no longer be able to send you messages.`)) {
+    if (!confirm(t("messages.confirm.blockUser", { name: selectedContact.otherUserName }))) {
       return;
     }
 
     try {
       await blockUser(selectedContact.otherUserId);
-      toast.success(`${selectedContact.otherUserName} has been blocked`);
+      toast.success(t("messages.toast.blockedSuccess", { name: selectedContact.otherUserName }));
       setShowMoreMenu(false);
 
       // Remove from contacts list and reload
@@ -720,7 +724,7 @@ export function Messages() {
       setSelectedContact(null);
       setMessages([]);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to block user');
+      toast.error(error.message || t("messages.toast.blockFailed"));
     }
   };
 
@@ -729,7 +733,7 @@ export function Messages() {
 
     try {
       await archiveConversation(selectedContact.otherUserId, selectedContact.jobId || undefined);
-      toast.success("Conversation archived");
+      toast.success(t("messages.toast.archiveSuccess"));
       setShowMoreMenu(false);
 
       const archivedConversationId = `${selectedContact.otherUserId}::${selectedContact.jobId || "general"}`;
@@ -742,7 +746,7 @@ export function Messages() {
       setSelectedContact(null);
       setMessages([]);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to archive conversation');
+      toast.error(error.message || t("messages.toast.archiveFailed"));
     }
   };
 
@@ -751,7 +755,7 @@ export function Messages() {
 
     try {
       await archiveConversation(selectedContact.otherUserId, selectedContact.jobId || undefined, false);
-      toast.success("Conversation moved to inbox");
+      toast.success(t("messages.toast.unarchiveSuccess"));
       setShowMoreMenu(false);
 
       const conversationId = `${selectedContact.otherUserId}::${selectedContact.jobId || "general"}`;
@@ -760,20 +764,20 @@ export function Messages() {
       await loadArchivedConversations();
       setShowArchived(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to unarchive conversation');
+      toast.error(error.message || t("messages.toast.unarchiveFailed"));
     }
   };
 
   const handleDeleteConversation = async () => {
     if (!selectedContact) return;
 
-    if (!confirm(`Remove this conversation with ${selectedContact.otherUserName} from your inbox? The other person will keep their copy.`)) {
+    if (!confirm(t("messages.confirm.removeConversation", { name: selectedContact.otherUserName }))) {
       return;
     }
 
     try {
       await deleteConversation(selectedContact.otherUserId, selectedContact.jobId || undefined);
-      toast.success("Conversation removed from your inbox");
+      toast.success(t("messages.toast.deleteSuccess"));
       setShowMoreMenu(false);
 
       // Remove from contacts list and reload
@@ -781,7 +785,7 @@ export function Messages() {
       setSelectedContact(null);
       setMessages([]);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to delete conversation');
+      toast.error(error.message || t("messages.toast.deleteFailed"));
     }
   };
 
@@ -882,7 +886,7 @@ export function Messages() {
     orderedMessages.forEach((message) => {
       const currentDay = new Date(message.createdAt).toDateString();
       if (currentDay !== previousDay) {
-        rows.push({ type: "divider", label: formatMessageDay(message.createdAt) });
+        rows.push({ type: "divider", label: formatMessageDay(t, message.createdAt) });
         previousDay = currentDay;
         previousMessage = null;
       }
@@ -896,7 +900,7 @@ export function Messages() {
     });
 
     return rows;
-  }, [orderedMessages]);
+  }, [orderedMessages, t]);
 
   if (loading) {
     return (
@@ -934,7 +938,7 @@ export function Messages() {
           <div className="border-b border-slate-100 px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <h1 className="ui-page-title text-[22px]">Messages</h1>
+                <h1 className="ui-page-title text-[22px]">{t("messages.title")}</h1>
                 {unreadTotal > 0 ? (
                   <span className="rounded-full bg-[#1C4D8D] px-2.5 py-0.5 text-[12px] font-semibold text-white">
                     {unreadTotal}
@@ -946,8 +950,8 @@ export function Messages() {
                   type="button"
                   onClick={() => setShowListMenu((prev) => !prev)}
                   className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
-                  title="List options"
-                  aria-label="List options"
+                  title={t("messages.listOptionsLabel")}
+                  aria-label={t("messages.listOptionsLabel")}
                   aria-expanded={showListMenu}
                 >
                   <Ellipsis className="h-4 w-4" />
@@ -967,7 +971,7 @@ export function Messages() {
                         className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
                       >
                         <Archive className="h-4 w-4" />
-                        {showArchived ? "Back To Inbox" : "View Archived"}
+                        {showArchived ? t("messages.backToInbox") : t("messages.viewArchived")}
                       </button>
                     </motion.div>
                   ) : null}
@@ -979,10 +983,10 @@ export function Messages() {
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search"
+                placeholder={t("messages.searchPlaceholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search conversations"
+                aria-label={t("messages.searchAria")}
                 className="w-full rounded-full border border-slate-200 bg-white py-3 pl-11 pr-4 text-[14px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20"
               />
             </div>
@@ -995,7 +999,7 @@ export function Messages() {
                   <MessagesSquare className="h-6 w-6 text-slate-400" />
                 </div>
                 <p className="text-[15px] font-medium text-slate-500">
-                  {showArchived ? "No archived conversations." : "No conversations yet."}
+                  {showArchived ? t("messages.emptyArchived") : t("messages.emptyInbox")}
                 </p>
               </div>
             ) : (
@@ -1031,14 +1035,14 @@ export function Messages() {
                             {contact.otherUserName}
                           </p>
                           <span className="whitespace-nowrap text-[12px] text-slate-400">
-                            {formatTime(contact.lastMessageAt)}
+                            {formatTime(t, contact.lastMessageAt)}
                           </span>
                         </div>
                         {contact.jobTitle ? (
-                          <p className="mt-0.5 truncate text-[12px] text-slate-400">Re: {contact.jobTitle}</p>
+                          <p className="mt-0.5 truncate text-[12px] text-slate-400">{t("messages.reJob", { jobTitle: contact.jobTitle })}</p>
                         ) : null}
                         <p className={`mt-1 line-clamp-2 text-[13px] ${hasUnread ? "font-medium text-slate-700" : "text-slate-500"}`}>
-                          {contact.lastMessage || "No messages yet"}
+                          {contact.lastMessage || t("messages.noMessagesPreview")}
                         </p>
                       </div>
                     </div>
@@ -1055,7 +1059,7 @@ export function Messages() {
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
                 <MessagesSquare className="h-7 w-7 text-slate-400" />
               </div>
-              <p className="text-[15px] font-medium text-slate-500">Select a conversation to start messaging.</p>
+              <p className="text-[15px] font-medium text-slate-500">{t("messages.noConversationSelected")}</p>
             </div>
           ) : (
             <>
@@ -1069,8 +1073,8 @@ export function Messages() {
                       setShowMoreMenu(false);
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 md:hidden"
-                    title="Back"
-                    aria-label="Back to conversations"
+                    title={t("messages.back")}
+                    aria-label={t("messages.backAria")}
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </button>
@@ -1080,9 +1084,9 @@ export function Messages() {
                   <div className="min-w-0">
                     <p className="truncate text-[16px] font-semibold text-slate-900">{selectedContact.otherUserName}</p>
                     {peerTyping ? (
-                      <p className="text-[13px] font-medium text-[#1C4D8D]">typing…</p>
+                      <p className="text-[13px] font-medium text-[#1C4D8D]">{t("messages.typing")}</p>
                     ) : selectedContact.jobTitle ? (
-                      <p className="truncate text-[13px] text-slate-400">Re: {selectedContact.jobTitle}</p>
+                      <p className="truncate text-[13px] text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</p>
                     ) : null}
                   </div>
                 </div>
@@ -1092,8 +1096,8 @@ export function Messages() {
                     type="button"
                     onClick={() => setShowMoreMenu((prev) => !prev)}
                     className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50"
-                    title="More options"
-                    aria-label="Open conversation options"
+                    title={t("messages.moreOptions")}
+                    aria-label={t("messages.moreOptionsAria")}
                     aria-expanded={showMoreMenu}
                   >
                     <MoreVertical className="h-4 w-4" />
@@ -1114,7 +1118,7 @@ export function Messages() {
                             className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
                           >
                             <Archive className="h-4 w-4" />
-                            Unarchive
+                            {t("messages.unarchive")}
                           </button>
                         ) : (
                           <button
@@ -1123,7 +1127,7 @@ export function Messages() {
                             className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
                           >
                             <Archive className="h-4 w-4" />
-                            Archive
+                            {t("messages.archive")}
                           </button>
                         )}
                         {canViewSelectedProfile ? (
@@ -1132,7 +1136,7 @@ export function Messages() {
                             onClick={handleViewProfile}
                             className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
                           >
-                            View profile
+                            {t("messages.viewProfile")}
                           </button>
                         ) : null}
                         <button
@@ -1141,7 +1145,7 @@ export function Messages() {
                           className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
                         >
                           <Ban className="h-4 w-4" />
-                          Block user
+                          {t("messages.blockUser")}
                         </button>
                         <button
                           type="button"
@@ -1149,7 +1153,7 @@ export function Messages() {
                           className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
-                          Delete conversation
+                          {t("messages.deleteConversation")}
                         </button>
                       </motion.div>
                     ) : null}
@@ -1163,7 +1167,7 @@ export function Messages() {
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm">
                       <MessagesSquare className="h-6 w-6 text-slate-400" />
                     </div>
-                    <p className="text-[14px] font-medium text-slate-500">No messages yet. Start the conversation!</p>
+                    <p className="text-[14px] font-medium text-slate-500">{t("messages.noMessagesYet")}</p>
                   </div>
                 ) : (
                   <div className="space-y-1.5">
@@ -1238,7 +1242,7 @@ export function Messages() {
                                       className="rounded bg-slate-200 px-2 py-1 text-[12px] text-slate-700"
                                       disabled={isEditingSaving}
                                     >
-                                      Cancel
+                                      {t("messages.editing.cancel")}
                                     </button>
                                     <button
                                       type="button"
@@ -1246,7 +1250,7 @@ export function Messages() {
                                       className="rounded bg-[#1C4D8D] px-2 py-1 text-[12px] text-white"
                                       disabled={isEditingSaving}
                                     >
-                                      Save
+                                      {t("messages.editing.save")}
                                     </button>
                                   </div>
                                 </div>
@@ -1256,29 +1260,29 @@ export function Messages() {
                             </button>
                             <div className={`mt-1 flex items-center gap-2 text-[11px] text-slate-400 ${isOwn ? "justify-end" : "justify-start"}`}>
                               {message.failed ? (
-                                <span className="font-medium text-red-600">Failed to send · tap to retry</span>
+                                <span className="font-medium text-red-600">{t("messages.failedToSend")}</span>
                               ) : message.pending ? (
-                                <span>Sending…</span>
+                                <span>{t("messages.sending")}</span>
                               ) : (
                                 <>
-                                  {message.isEdited ? <span>(edited)</span> : null}
+                                  {message.isEdited ? <span>{t("messages.edited")}</span> : null}
                                   {isOwn && !isEditing && canEditMessage(message) ? (
                                     <button
                                       type="button"
                                       onClick={() => beginEditMessage(message)}
                                       className="font-medium text-[#1C4D8D] hover:underline"
                                     >
-                                      Edit
+                                      {t("messages.edit")}
                                     </button>
                                   ) : null}
                                   {isOwn && isLastOwn ? (
                                     message.read ? (
                                       <span className="flex items-center gap-0.5 text-[#1C4D8D]">
-                                        <CheckCheck className="h-3.5 w-3.5" /> Read
+                                        <CheckCheck className="h-3.5 w-3.5" /> {t("messages.read")}
                                       </span>
                                     ) : (
                                       <span className="flex items-center gap-0.5">
-                                        <Check className="h-3.5 w-3.5" /> Sent
+                                        <Check className="h-3.5 w-3.5" /> {t("messages.sent")}
                                       </span>
                                     )
                                   ) : null}
@@ -1298,7 +1302,7 @@ export function Messages() {
                 <div className="flex items-end gap-3">
                   <textarea
                     ref={composerRef}
-                    placeholder="Enter message"
+                    placeholder={t("messages.composerPlaceholder")}
                     value={messageText}
                     onChange={(e) => handleComposerChange(e.target.value)}
                     onKeyDown={(event) => {
@@ -1312,14 +1316,14 @@ export function Messages() {
                     disabled={sending}
                     maxLength={4000}
                     rows={1}
-                    aria-label="Message"
+                    aria-label={t("messages.composerAria")}
                     className="min-h-[44px] max-h-40 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20 disabled:opacity-60"
                   />
                   <button
                     type="button"
                     onClick={handleSendMessage}
                     disabled={!messageText.trim() || sending}
-                    aria-label="Send message"
+                    aria-label={t("messages.sendAria")}
                     className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {sending ? (

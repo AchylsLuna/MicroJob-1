@@ -1,0 +1,621 @@
+{
+  "chatScreen": {
+    "toast": {
+      "sendFailed": "Unable to send message.",
+      "networkError": "Network error.",
+      "workerHired": "Worker hired successfully.",
+      "offerAccepted": "Offer accepted.",
+      "offerRejected": "Offer rejected.",
+      "offerCancelled": "Offer cancelled.",
+      "offerUpdateFailed": "Unable to update this offer."
+    },
+    "header": {
+      "backLabel": "Back to conversations",
+      "fallbackTitle": "Chat",
+      "employerConversationLabel": "EMPLOYER CONVERSATION",
+      "notificationsLabel": "Open notifications",
+      "notificationsLabelWithCount": "Open notifications, {{count}} unread"
+    },
+    "offer": {
+      "accessibilityLabel": "Formal job offer, {{amount}}, {{status}}",
+      "eyebrow": "FORMAL JOB OFFER",
+      "fallbackTitle": "Local job",
+      "escrowHint": "Escrow-backed guaranteed pay",
+      "decline": "Decline",
+      "accept": "Accept Offer",
+      "cancel": "Cancel",
+      "confirmHire": "Confirm Hire"
+    },
+    "invoice": {
+      "accessibilityLabel": "Payment invoice for {{title}}, {{amount}}, {{status}}",
+      "fallbackTitle": "Job settlement",
+      "eyebrow": "MICROJOBS PAYMENT INVOICE",
+      "qrLabel": "Secure payment QR image",
+      "manualCode": "Manual code: {{code}}",
+      "tapToReview": "Tap to review and confirm",
+      "sentForReview": "Sent to employer for review",
+      "statusLabel": "Invoice {{status}}"
+    },
+    "input": {
+      "placeholder": "Type a message...",
+      "accessibilityLabel": "Message",
+      "sendLabel": "Send message",
+      "send": "Send"
+    }
+  },
+  "jobPosts": {
+    "errors": {
+      "loadFailed": "Failed to load job posts.",
+      "completeFailed": "Failed to complete job.",
+      "closeFailed": "Failed to close job.",
+      "reopenFailed": "Failed to reopen job.",
+      "deleteFailed": "Failed to delete job."
+    },
+    "toast": {
+      "completed": "Job completed. Worker payouts were triggered automatically from escrow.",
+      "closed": "Job closed. New applications are paused.",
+      "reopened": "Job reopened. Workers can apply again.",
+      "deleted": "Job deleted. Any eligible escrow refund was returned to your wallet."
+    },
+    "confirm": {
+      "cancelLabel": "Cancel",
+      "complete": { "title": "Mark Job as Done", "question": "Complete \"{{title}}\"?", "detail": "Escrow funds will automatically be paid to hired workers. This action should only be used after the work is finished.", "button": "Confirm Done" },
+      "close": { "title": "Close Job", "question": "Pause new applications for \"{{title}}\"?", "detail": "The secured funds stay in escrow, and you can reopen this job later.", "button": "Close Job" },
+      "reopen": { "title": "Reopen Job", "question": "Reopen \"{{title}}\"?", "detailEscrow": "The required amount will be secured in escrow again before workers can apply.", "detailDefault": "Workers will be able to submit applications again.", "button": "Reopen Job" },
+      "delete": { "title": "Delete Job", "question": "Permanently delete \"{{title}}\"?", "detail": "Associated applications will be removed. Any eligible unused escrow is refunded automatically.", "button": "Delete Job" }
+    },
+    "header": { "title": "Home" },
+    "banner": { "title": "Hiring operations", "detail": "Manage local job posts, candidates, conversations, and secured employer funds." },
+    "metrics": { "activeJobs": "Active jobs", "applicants": "Applicants", "workersHired": "Workers hired" },
+    "quickOperations": { "title": "Quick operations" },
+    "actions": { "postJob": "Post a job", "reviewApplicants": "Review applicants", "messages": "Messages", "employerWallet": "Employer wallet" },
+    "openings": { "title": "Your job openings" },
+    "loading": { "title": "Loading hiring workspace", "body": "Getting your employer jobs and applicant totals." },
+    "error": { "title": "Hiring data unavailable" },
+    "empty": { "title": "No Job Posts Yet", "body": "Create your first job post to start receiving applications." },
+    "badges": { "urgent": "Urgent" },
+    "status": { "available": "Available" },
+    "card": {
+      "positions": "Positions: {{hired}}/{{needed}}",
+      "view": "View",
+      "edit": "Edit",
+      "hideActionsLabel": "Hide actions for {{title}}",
+      "showActionsLabel": "Show actions for {{title}}",
+      "more": "More",
+      "close": "Close",
+      "reopen": "Reopen",
+      "markDone": "Mark Done",
+      "delete": "Delete",
+      "autoPayHintReady": "Marking this job done automatically releases escrow to hired workers.",
+      "autoPayHintBlocked": "Hire at least one worker before marking this job as done."
+    },
+    "details": {
+      "eyebrow": "JOB DETAILS",
+      "closeLabel": "Close job details",
+      "jobTypeFallback": "Opportunity",
+      "labels": { "location": "Location", "minimumPay": "Minimum pay", "workers": "Workers", "category": "Category", "deadline": "Deadline" },
+      "hiredOfNeeded": "{{hired}} hired of {{needed}}",
+      "notSpecified": "Not specified",
+      "sections": { "description": "Description", "requirements": "Requirements", "responsibilities": "Responsibilities", "skills": "Skills" },
+      "editButton": "Edit details"
+    },
+    "balanceModal": { "title": "Insufficient balance", "notNow": "Not now", "topUpWallet": "Top up wallet" }
+  },
+  "messageList": {
+    "time": { "yesterday": "YESTERDAY", "daysAgo": "{{count}} DAYS AGO" },
+    "row": {
+      "startConversation": "Start a conversation",
+      "openLabelWithUnread": "Open conversation with {{name}}, {{count}} unread messages",
+      "openLabel": "Open conversation with {{name}}",
+      "longPressHint": "Long press for conversation options"
+    },
+    "toast": {
+      "deleteFailed": "Unable to delete conversation.",
+      "archiveFailed": "Unable to archive conversation.",
+      "userBlocked": "User has been blocked.",
+      "blockFailed": "Unable to block user.",
+      "cannotOpen": "Cannot open this conversation."
+    },
+    "options": { "archive": "Archive", "delete": "Delete", "block": "Block", "markUnread": "Mark as Unread", "markRead": "Mark as Read", "cancel": "Cancel", "title": "Conversation options" },
+    "title": "Messages",
+    "subtitle": "Employer hiring conversations",
+    "searchPlaceholder": "Search conversations...",
+    "searchAccessibilityLabel": "Search conversations",
+    "loading": { "title": "Loading conversations", "body": "Pulling your latest message threads." },
+    "empty": { "title": "No conversations yet", "body": "Messages with workers and employers will appear here." }
+  },
+  "employerEWallet": {
+    "header": {
+      "title": "E-Wallet",
+      "subtitle": "Employer funds and job payments",
+      "notificationsLabel": "Open notifications",
+      "notificationsLabelWithCount": "Open notifications, {{count}} unread"
+    },
+    "banner": { "title": "Employer wallet", "detail": "Fund local opportunities and release secured payments after work approval." },
+    "balanceCard": {
+      "label": "Employer balance",
+      "secondary": "Worker earnings: {{amount}} (not available for job funding)",
+      "note": "Use employer funds to post and fund jobs in your Philippine community.",
+      "actionLabel": "Top Up",
+      "quickActionLabel": "Scan to Pay"
+    },
+    "metrics": { "credited": "Total credited", "spent": "Spent / escrowed", "pending": "Pending" },
+    "topup": {
+      "accordionTitle": "Top up employer funds",
+      "accordionSubtitle": "Minimum PHP 100 through secure checkout.",
+      "cardTitle": "Top Up Wallet",
+      "cardSubtitle": "Add employer funds through the secure payment page.",
+      "inputLabel": "Top Up Amount (PHP)",
+      "inputAccessibilityLabel": "Top up amount in Philippine pesos",
+      "submitButton": "Create Top Up"
+    },
+    "invoices": {
+      "sectionTitle": "Worker Payment Requests",
+      "sectionSubtitle": "Submitted QR invoices awaiting review or already settled.",
+      "emptyTitle": "No payment requests",
+      "emptyBody": "Invoices submitted by hired workers will appear here.",
+      "defaultJobTitle": "Job payment",
+      "defaultWorkerName": "Worker",
+      "reviewAccessibilityLabel": "Review payment request for {{title}}",
+      "review": "Review",
+      "closed": "Closed"
+    },
+    "transactions": {
+      "sectionTitle": "Recent Transactions",
+      "subtitle_one": "{{count}} employer-wallet entry",
+      "subtitle_other": "{{count}} employer-wallet entries",
+      "emptyTitle": "No transactions yet",
+      "emptyBody": "Top-ups, job funding, and refunds will appear here.",
+      "defaultTitle": "Transaction"
+    },
+    "toast": {
+      "invalidAmount": "Enter a valid top-up amount (minimum PHP 100).",
+      "signInFirst": "Please sign in first before topping up.",
+      "noPaymentLink": "No payment link was returned by the server.",
+      "cannotOpenLink": "Unable to open payment link on this device.",
+      "openingPaymentLink": "Opening payment link in your browser. Complete payment to top up your wallet.",
+      "topupStartFailed": "Unable to start top up right now."
+    },
+    "errors": {
+      "profileFailed": "Failed to load wallet profile.",
+      "transactionsFailed": "Failed to load transactions.",
+      "requestsFailed": "Failed to load payment requests.",
+      "someUnavailable": "Some wallet details could not be refreshed.",
+      "confirmTopupFailed": "Failed to confirm top-up.",
+      "createTopupFailed": "Failed to create top-up session.",
+      "checkConnection": "Check your connection and try again."
+    }
+  },
+  "employerPaymentMethods": {
+    "header": { "title": "Payment Methods", "subtitle": "Employer billing methods" },
+    "banner": { "title": "Employer billing", "detail": "Manage the payment methods used to securely fund local jobs." },
+    "intro": {
+      "title": "Saved cards",
+      "subtitle": "New accounts stay empty until you add a payment method.",
+      "addLabel": "Add",
+      "cancelLabel": "Cancel",
+      "addAccessibilityLabel": "Add payment method",
+      "cancelAccessibilityLabel": "Cancel adding payment method"
+    },
+    "form": {
+      "accordionTitle": "Add payment method",
+      "accordionSubtitle": "Card details are validated before safe metadata is stored.",
+      "cardTitle": "Add a card",
+      "helper": "Only the brand, last four digits, cardholder name, and expiry are sent and saved.",
+      "nameLabel": "Name on card",
+      "namePlaceholder": "Name on card",
+      "numberLabel": "Card number",
+      "numberPlaceholder": "Card number",
+      "expiryLabel": "Expiry",
+      "cvvLabel": "Security code",
+      "saveButton": "Save card",
+      "savingButton": "Saving..."
+    },
+    "empty": { "title": "No payment methods yet", "body": "A card appears here only after you add it." },
+    "method": {
+      "endingIn": "{{brand}} ending in {{last4}}",
+      "meta": "{{name}} · Expires {{expiry}}",
+      "default": "DEFAULT",
+      "expired": "EXPIRED",
+      "setDefault": "Set default",
+      "removeAccessibilityLabel": "Remove {{brand}} ending in {{last4}}",
+      "defaultBrand": "Card"
+    },
+    "removeModal": {
+      "title": "Remove payment method?",
+      "description": "{{brand}} ending in {{last4}} will be removed from your employer account.",
+      "confirmLabel": "Remove"
+    },
+    "toast": {
+      "loadFailed": "Failed to load payment methods.",
+      "incompleteForm": "Complete all card fields.",
+      "invalidCardNumber": "Enter a valid card number.",
+      "invalidExpiry": "Enter a future expiry date in MM/YY format.",
+      "invalidCvv": "Enter a valid CVV.",
+      "addFailed": "Failed to add payment method.",
+      "added": "Payment method added.",
+      "setDefaultFailed": "Failed to update the default payment method.",
+      "defaultUpdated": "Default payment method updated.",
+      "removeFailed": "Failed to remove payment method.",
+      "removed": "Payment method removed."
+    },
+    "errors": {
+      "notAuthenticated": "Not authenticated. Please sign in again."
+    }
+  },
+  "employerProfile": {
+    "header": { "title": "My Profile" },
+    "banner": { "title": "Business profile", "detail": "Build trust with workers and keep your hiring identity ready." },
+    "defaultName": "Employer",
+    "avatar": {
+      "changeLabel": "Change employer profile photo",
+      "changeHint": "Opens your photo library",
+      "currentLabel": "Current employer profile photo"
+    },
+    "hero": {
+      "badge": "Employer account",
+      "subtitle": "Manage the profile workers see before they apply, message, or accept an offer.",
+      "profileCompleteLabel": "Profile complete",
+      "readyItemsLabel": "Ready items",
+      "settingsLabel": "Settings",
+      "settingsAccessibilityLabel": "Open settings",
+      "walletLabel": "Wallet",
+      "walletAccessibilityLabel": "Open wallet"
+    },
+    "readiness": {
+      "accordionTitle": "Employer readiness",
+      "accordionSubtitle": "Complete the details workers use to evaluate your jobs.",
+      "sectionTitle": "Employer readiness",
+      "subtitle": "Complete your public details so workers can trust the profile behind every job post.",
+      "progressAccessibilityLabel": "Employer profile completion",
+      "progressValueText": "{{percent}}% complete"
+    },
+    "completion": {
+      "photo": "Photo",
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "city": "City",
+      "address": "Address"
+    },
+    "identity": {
+      "accordionTitle": "Company and identity",
+      "accordionSubtitle": "Verified account details shown with your job posts.",
+      "sectionTitle": "Identity",
+      "sectionHint": "Visible on employer profile",
+      "nameLabel": "Name",
+      "firstNamePlaceholder": "First Name",
+      "firstNameAccessibilityLabel": "First name",
+      "lastNamePlaceholder": "Last Name",
+      "lastNameAccessibilityLabel": "Last name",
+      "emailLabel": "Email",
+      "emailPlaceholder": "Email",
+      "emailAccessibilityLabel": "Email address",
+      "emailHelper": "Email changes require a verified change flow and are currently locked."
+    },
+    "contact": {
+      "accordionTitle": "Contact and Philippine location",
+      "accordionSubtitleFallback": "Add your local hiring area",
+      "sectionTitle": "Contact & location",
+      "sectionHint": "Used for support and job context",
+      "phoneLabel": "Phone Number",
+      "phonePlaceholder": "Add phone number",
+      "phoneAccessibilityLabel": "Phone number",
+      "cityLabel": "City",
+      "cityPlaceholder": "City / Location",
+      "cityAccessibilityLabel": "City",
+      "addressLabel": "Address",
+      "addressPlaceholder": "Full address",
+      "addressAccessibilityLabel": "Address"
+    },
+    "editButton": "Edit Business Information",
+    "editAccessibilityLabel": "Edit business information",
+    "reviews": { "accordionTitle": "Worker reviews", "accordionSubtitle": "Feedback from completed local jobs." },
+    "toast": {
+      "photoPermission": "Please allow photo access to upload a profile picture.",
+      "signInAgain": "Please sign in again.",
+      "avatarUploadFailed": "Failed to upload profile picture.",
+      "avatarUpdated": "Profile picture updated."
+    },
+    "errors": {
+      "loadFailed": "Failed to load profile."
+    }
+  },
+  "employerPostJob": {
+    "header": { "editTitle": "Edit Job", "createTitle": "Post a Job" },
+    "intro": {
+      "editTitle": "Update this opportunity",
+      "createTitle": "Create a clear opportunity",
+      "text": "Post short-term work, a flexible side hustle, or recruit for an ongoing role."
+    },
+    "banner": {
+      "editTitle": "Update opportunity",
+      "createTitle": "Create an opportunity",
+      "detail": "Clear details help local workers understand the job and your secured pay."
+    },
+    "jobType": {
+      "shortTerm": { "label": "Short-term", "description": "One-time or temporary work with a clear finish." },
+      "sideHustle": { "label": "Side hustle", "description": "Flexible work someone can take on for extra income." },
+      "recruiting": { "label": "Recruiting", "description": "Hire for an ongoing or longer-term role." }
+    },
+    "basics": {
+      "accordionTitle": "Opportunity basics",
+      "accordionSubtitle": "Title, category, work details, skills, and guaranteed pay.",
+      "titleLabel": "Job Title",
+      "titlePlaceholder": "e.g. Weekend event assistant",
+      "categoryLabel": "Category",
+      "categoryPlaceholder": "Search job categories",
+      "noCategoriesFound": "No categories found.",
+      "descriptionLabel": "Description",
+      "descriptionPlaceholder": "Describe the job role and responsibilities",
+      "responsibilitiesLabel": "Responsibilities (Optional)",
+      "responsibilitiesPlaceholder": "List responsibilities",
+      "requirementsLabel": "Requirements (Optional)",
+      "requirementsPlaceholder": "List requirements",
+      "skillsLabel": "Skills (Optional)",
+      "skillsPlaceholder": "React, TypeScript, GraphQL",
+      "salaryLabel": "Minimum Guaranteed Pay per Worker (PHP)",
+      "salaryPlaceholder": "e.g. 1500",
+      "salaryHelper": "This is the minimum amount guaranteed to each hired worker and secured in escrow."
+    },
+    "location": {
+      "accordionTitle": "Philippine work location",
+      "accordionSubtitleFallback": "Province, city or municipality, and barangay",
+      "typeLabel": "Location Type",
+      "typeHome": "Home",
+      "typeOffice": "Office",
+      "typePlace": "Place",
+      "provinceLabel": "Province",
+      "provinceLoading": "Loading provinces...",
+      "provincePlaceholder": "Type or select province",
+      "cityLabel": "City / Municipality",
+      "citySelectProvinceFirst": "Select province first",
+      "cityPlaceholder": "Type or select city",
+      "barangayLabel": "Barangay",
+      "barangaySelectCityFirst": "Select city first",
+      "barangayLoading": "Loading barangays...",
+      "barangayPlaceholder": "Type or select barangay",
+      "addressLabel": "Address / Place",
+      "addressPlacePlaceholder": "e.g. Near City Hall",
+      "addressOtherPlaceholder": "House no., street, subdivision",
+      "previewLabel": "Location preview: {{location}}",
+      "previewPlaceholder": "Select province, city, and barangay"
+    },
+    "hiring": {
+      "accordionTitle": "Pay and hiring",
+      "accordionSubtitle": "Workers needed, opportunity type, deadline, and urgency.",
+      "positionsLabel": "Workers Needed",
+      "positionsHelper": "How many workers do you need? Job will auto-close when all positions are filled.",
+      "opportunityTypeLabel": "Opportunity Type",
+      "legacyTypeText": "This existing post uses the legacy type \"{{type}}\". Choose a current type to modernize it.",
+      "deadlineLabel": "Application Deadline",
+      "selectDate": "Select date",
+      "selectTime": "Select time",
+      "calendarTitle": "Application deadline",
+      "calendarSetDeadline": "Set deadline",
+      "calendarClear": "Clear",
+      "urgentLabel": "Mark as urgent"
+    },
+    "submit": { "update": "Update Job", "post": "Post Job" },
+    "toast": { "updated": "Job updated successfully.", "posted": "Job posted successfully." },
+    "errors": {
+      "loadCategoriesFailed": "Failed to load categories.",
+      "loadLocationsFailed": "Failed to load location options.",
+      "loadBarangaysFailed": "Failed to load barangays.",
+      "missingFields": "Missing required fields: {{fields}}.",
+      "invalidSalary": "Minimum guaranteed pay must be greater than zero.",
+      "invalidPositions": "Workers needed must be a positive whole number.",
+      "invalidDeadline": "Please provide a valid deadline date.",
+      "invalidCategory": "Please select a valid category from the list.",
+      "updateFailed": "Failed to update job.",
+      "postFailed": "Failed to post job."
+    },
+    "fieldNames": {
+      "title": "title",
+      "description": "description",
+      "location": "location",
+      "salary": "salary",
+      "jobType": "job type",
+      "deadline": "application deadline"
+    },
+    "balanceModal": {
+      "accessibilityLabel": "Insufficient balance",
+      "title": "Insufficient balance",
+      "notNow": "Not now",
+      "topUpAccessibilityLabel": "Top up employer wallet",
+      "topUp": "Top up wallet"
+    }
+  },
+  "employerApplications": {
+    "header": { "candidates": "Candidates", "applications": "Applications" },
+    "banner": {
+      "candidateTitle": "Candidate workspace",
+      "candidateDetail": "Review this opening's candidates and take the next valid hiring action.",
+      "jobTitle": "Application pipeline",
+      "jobDetail": "Choose a job opening to review candidates by hiring stage."
+    },
+    "errors": {
+      "loadJobsFailed": "Failed to load job openings.",
+      "loadCandidatesFailed": "Failed to load candidates.",
+      "loadFailed": "Unable to load applications.",
+      "checkConnection": "Check your connection and try again.",
+      "actionFailed": "Unable to complete this action.",
+      "updateCandidateFailed": "Unable to update candidate.",
+      "scheduleInterviewFailed": "Unable to schedule interview.",
+      "removeFailed": "Unable to remove application."
+    },
+    "toast": {
+      "candidateMoved": "Candidate moved to {{status}}.",
+      "interviewSaved": "Interview schedule saved.",
+      "offerSent": "Formal offer sent in chat.",
+      "workerHired": "Worker hired successfully.",
+      "workerPaid": "Worker paid successfully."
+    },
+    "workerFallback": "Worker",
+    "backToJobs": "All job openings",
+    "selectedJobEyebrow": "SELECTED JOB",
+    "locationNotSet": "Location not set",
+    "confirmDefaultLabel": "Confirm",
+    "retry": "Retry",
+    "summary": {
+      "candidates": "Candidates",
+      "hiredOfNeeded": "Hired of {{needed}}",
+      "interviewed": "Interviewed"
+    },
+    "stages": {
+      "new": "New",
+      "shortlisted": "Shortlisted",
+      "interview": "Interview",
+      "offer": "Offer",
+      "hired": "Hired",
+      "closed": "Closed"
+    },
+    "search": {
+      "candidatesPlaceholder": "Search candidates",
+      "jobsPlaceholder": "Search job openings",
+      "openFiltersLabel": "Open filters"
+    },
+    "empty": {
+      "candidatesTitle": "No {{stage}} candidates",
+      "candidatesBody": "Candidates in this stage will appear here.",
+      "jobsTitle": "No job openings found",
+      "jobsBody": "Change the filters or create a new employer job post."
+    },
+    "jobsHeading": {
+      "title": "Job Openings",
+      "subtitle": "{{shown}} of {{total}} jobs"
+    },
+    "jobCard": {
+      "openLabel": "Open candidates for {{title}}",
+      "localWork": "Local work",
+      "availableStatus": "Available",
+      "hiredCount": "{{hired}}/{{needed}} hired",
+      "candidatesCount": "candidates",
+      "interviewedCount": "interviewed"
+    },
+    "candidateCard": {
+      "appliedOn": "Applied {{date}}",
+      "appliedRecently": "recently",
+      "matchPercent": "{{percent}}% match",
+      "ratingValue": "{{rating}} ★",
+      "nextInterview": "Next {{date}}"
+    },
+    "actions": {
+      "viewProfile": "View Profile",
+      "message": "Message",
+      "reschedule": "Reschedule",
+      "interview": "Interview",
+      "shortlist": "Shortlist"
+    },
+    "interviewScheduled": {
+      "title": "Interview scheduled",
+      "detail": "{{datetime}} · {{mode}}",
+      "otherMode": "other"
+    },
+    "offerPanel": {
+      "title": "Formal escrow-backed offer",
+      "guaranteedMinimum": "Guaranteed minimum {{amount}}",
+      "amountPlaceholder": "PHP amount",
+      "reviewOffer": "Review Offer",
+      "additionalEscrow": "Additional escrow: {{amount}}"
+    },
+    "offerActive": {
+      "accepted": "Offer accepted",
+      "awaiting": "Awaiting worker",
+      "escrowBacked": "{{amount}} escrow-backed offer",
+      "confirmHire": "Confirm Hire",
+      "cancelOffer": "Cancel Offer"
+    },
+    "hiredPanel": {
+      "title": "Assignment and payment",
+      "summary": "{{amount}} · Work: {{workStatus}} · Payment: {{paymentStatus}}",
+      "workStatusDefault": "In Progress",
+      "paymentStatusDefault": "Secured",
+      "authorizePayment": "Authorize Payment · Held Until Approval",
+      "approveAndPay": "Approve and Pay",
+      "changeReasonPlaceholder": "Required change reason",
+      "requestChanges": "Request Changes"
+    },
+    "rejectCandidate": "Reject Candidate",
+    "removeFromList": "Remove from employer list",
+    "confirm": {
+      "reject": {
+        "title": "Reject candidate?",
+        "question": "Reject {{name}}?",
+        "detail": "The worker will be notified. This action can be reviewed in the closed stage.",
+        "label": "Reject Candidate"
+      },
+      "remove": {
+        "title": "Remove application?",
+        "question": "Remove {{name}} from this list?",
+        "detail": "This removes the application from your employer view.",
+        "label": "Remove"
+      },
+      "offer": {
+        "title": "Send formal offer?",
+        "question": "Offer {{name}} {{amount}}?",
+        "detail": "Advertised minimum: {{minimum}}. Additional escrow: {{escrow}}.",
+        "label": "Send Offer"
+      },
+      "cancelOffer": {
+        "title": "Cancel offer?",
+        "question": "Cancel the {{amount}} offer?",
+        "detail": "Any additional negotiated escrow will be returned safely.",
+        "label": "Cancel Offer"
+      },
+      "confirmHire": {
+        "title": "Confirm hiring?",
+        "question": "Hire {{name}} for {{amount}}?",
+        "detail": "This starts the worker assignment using the accepted escrow-backed terms.",
+        "label": "Confirm Hire"
+      },
+      "pay": {
+        "title": "Approve and pay?",
+        "question": "Release {{amount}} to {{name}}?",
+        "detail": "This approves submitted work and releases only this worker’s secured payment. It cannot be paid twice.",
+        "label": "Approve and Pay"
+      }
+    },
+    "filters": {
+      "candidateTitle": "Candidate filters",
+      "jobTitle": "Job filters",
+      "minimumMatch": "Minimum match",
+      "any": "Any",
+      "matchPercent": "{{percent}}%+",
+      "applicationDate": "Application date",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "stage": "Stage",
+      "jobStatus": "Job status",
+      "category": "Category",
+      "showResults": "Show Results"
+    },
+    "jobStatusOptions": {
+      "all": "All",
+      "available": "Available",
+      "inProgress": "In Progress",
+      "closed": "Closed",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "interviewModal": {
+      "eyebrow": "INTERVIEW",
+      "rescheduleTitle": "Reschedule interview",
+      "scheduleTitle": "Schedule interview",
+      "modeLabel": "Mode",
+      "modeOptions": {
+        "virtual": "Virtual",
+        "phone": "Phone",
+        "inPerson": "In-person",
+        "other": "Other"
+      },
+      "locationLabel": "Location or meeting link",
+      "locationPlaceholder": "Meeting link, office, or call details",
+      "notesLabel": "Notes",
+      "notesPlaceholder": "Preparation details",
+      "saveButton": "Save Interview",
+      "calendarTitle": "Interview date",
+      "calendarSetDate": "Set date"
+    }
+  }
+}

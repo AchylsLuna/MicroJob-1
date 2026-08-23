@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import AppHeader from '../../components/AppHeader';
@@ -66,6 +67,7 @@ const getBrand = (number: string): PaymentMethod['brand'] => {
 
 export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void }) {
   const toast = useToast();
+  const { t } = useTranslation('employer');
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -75,11 +77,11 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', number: '', expiry: '', cvv: '' });
 
-  const authHeaders = async () => {
+  const authHeaders = useCallback(async () => {
     const token = await AsyncStorage.getItem('auth_token');
-    if (!token) throw new Error('Not authenticated. Please sign in again.');
+    if (!token) throw new Error(t('employerPaymentMethods.errors.notAuthenticated'));
     return { Authorization: `Bearer ${token}` };
-  };
+  }, [t]);
 
   const loadMethods = useCallback(async () => {
     setIsLoading(true);
@@ -88,17 +90,17 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
       const result = await apiRequest(
         `${API_URL}/payment/methods`,
         { headers },
-        'Failed to load payment methods.'
+        t('employerPaymentMethods.toast.loadFailed')
       );
       if (!result.ok) throw new Error(result.message);
       const payload = asObject<any>(result.data) || {};
       setMethods(asList<PaymentMethod>(payload, ['paymentMethods']));
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to load payment methods.');
+      toast.error(error?.message || t('employerPaymentMethods.toast.loadFailed'));
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, t, authHeaders]);
 
   useEffect(() => {
     void loadMethods();
@@ -106,21 +108,21 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
 
   const handleAdd = async () => {
     if (!form.name || !form.number || !form.expiry || !form.cvv) {
-      toast.error('Complete all card fields.');
+      toast.error(t('employerPaymentMethods.toast.incompleteForm'));
       return;
     }
     const number = digitsOnly(form.number);
     if (!isValidCardNumber(number)) {
-      toast.error('Enter a valid card number.');
+      toast.error(t('employerPaymentMethods.toast.invalidCardNumber'));
       return;
     }
     const expiry = parseExpiry(form.expiry);
     if (!expiry) {
-      toast.error('Enter a future expiry date in MM/YY format.');
+      toast.error(t('employerPaymentMethods.toast.invalidExpiry'));
       return;
     }
     if (!/^\d{3,4}$/.test(form.cvv)) {
-      toast.error('Enter a valid CVV.');
+      toast.error(t('employerPaymentMethods.toast.invalidCvv'));
       return;
     }
 
@@ -139,7 +141,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
             ...expiry,
           }),
         },
-        'Failed to add payment method.'
+        t('employerPaymentMethods.toast.addFailed')
       );
       if (!result.ok) throw new Error(result.message);
       const payload = asObject<any>(result.raw) || {};
@@ -148,9 +150,9 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
       else await loadMethods();
       setForm({ name: '', number: '', expiry: '', cvv: '' });
       setIsFormOpen(false);
-      toast.success('Payment method added.');
+      toast.success(t('employerPaymentMethods.toast.added'));
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to add payment method.');
+      toast.error(error?.message || t('employerPaymentMethods.toast.addFailed'));
     } finally {
       setIsSaving(false);
     }
@@ -163,14 +165,14 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
       const result = await apiRequest(
         `${API_URL}/payment/methods/${id}/default`,
         { method: 'PATCH', headers },
-        'Failed to update the default payment method.'
+        t('employerPaymentMethods.toast.setDefaultFailed')
       );
       if (!result.ok) throw new Error(result.message);
       const payload = asObject<any>(result.data) || {};
       setMethods(asList<PaymentMethod>(payload, ['paymentMethods']));
-      toast.success('Default payment method updated.');
+      toast.success(t('employerPaymentMethods.toast.defaultUpdated'));
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to update the default payment method.');
+      toast.error(error?.message || t('employerPaymentMethods.toast.setDefaultFailed'));
     } finally {
       setActionId(null);
     }
@@ -183,15 +185,15 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
       const result = await apiRequest(
         `${API_URL}/payment/methods/${id}`,
         { method: 'DELETE', headers },
-        'Failed to remove payment method.'
+        t('employerPaymentMethods.toast.removeFailed')
       );
       if (!result.ok) throw new Error(result.message);
       const payload = asObject<any>(result.data) || {};
       setMethods(asList<PaymentMethod>(payload, ['paymentMethods']));
-      toast.success('Payment method removed.');
+      toast.success(t('employerPaymentMethods.toast.removed'));
       setRemoveTarget(null);
     } catch (error: any) {
-      const message = error?.message || 'Failed to remove payment method.';
+      const message = error?.message || t('employerPaymentMethods.toast.removeFailed');
       setRemoveError(message);
       toast.error(message);
     } finally {
@@ -208,48 +210,48 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
     <View style={styles.container}>
       <ConfirmModal
         visible={Boolean(removeTarget)}
-        title="Remove payment method?"
-        description={`${removeTarget?.brand || 'Card'} ending in ${removeTarget?.last4 || '••••'} will be removed from your employer account.`}
-        confirmLabel="Remove"
+        title={t('employerPaymentMethods.removeModal.title')}
+        description={t('employerPaymentMethods.removeModal.description', { brand: removeTarget?.brand || t('employerPaymentMethods.method.defaultBrand'), last4: removeTarget?.last4 || '••••' })}
+        confirmLabel={t('employerPaymentMethods.removeModal.confirmLabel')}
         destructive
         pending={Boolean(removeTarget && actionId === removeTarget.id)}
         error={removeError}
         onCancel={() => { if (!actionId) { setRemoveTarget(null); setRemoveError(null); } }}
         onConfirm={() => { if (removeTarget && !actionId) void removeMethod(removeTarget.id); }}
       />
-      <AppHeader title="Payment Methods" subtitle="Employer billing methods" onBack={onBack} showBrandBadge employerMode />
+      <AppHeader title={t('employerPaymentMethods.header.title')} subtitle={t('employerPaymentMethods.header.subtitle')} onBack={onBack} showBrandBadge employerMode />
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
-        <EmployerModeBanner title="Employer billing" detail="Manage the payment methods used to securely fund local jobs." />
+        <EmployerModeBanner title={t('employerPaymentMethods.banner.title')} detail={t('employerPaymentMethods.banner.detail')} />
         <View style={styles.introCard}>
           <View style={styles.introIcon}>
             <Ionicons name="card-outline" size={25} color={tokens.colors.brand} />
           </View>
           <View style={styles.introCopy}>
-            <Text style={styles.title}>Saved cards</Text>
-            <Text style={styles.subtitle}>New accounts stay empty until you add a payment method.</Text>
+            <Text style={styles.title}>{t('employerPaymentMethods.intro.title')}</Text>
+            <Text style={styles.subtitle}>{t('employerPaymentMethods.intro.subtitle')}</Text>
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={() => setIsFormOpen((value) => !value)} accessibilityRole="button" accessibilityLabel={isFormOpen ? "Cancel adding payment method" : "Add payment method"}>
-            <Text style={styles.addButtonText}>{isFormOpen ? 'Cancel' : 'Add'}</Text>
+          <TouchableOpacity style={styles.addButton} onPress={() => setIsFormOpen((value) => !value)} accessibilityRole="button" accessibilityLabel={isFormOpen ? t('employerPaymentMethods.intro.cancelAccessibilityLabel') : t('employerPaymentMethods.intro.addAccessibilityLabel')}>
+            <Text style={styles.addButtonText}>{isFormOpen ? t('employerPaymentMethods.intro.cancelLabel') : t('employerPaymentMethods.intro.addLabel')}</Text>
           </TouchableOpacity>
         </View>
 
-        <EmployerAccordion title="Add payment method" subtitle="Card details are validated before safe metadata is stored." icon="card-outline" expanded={isFormOpen} onToggle={() => setIsFormOpen((value) => !value)}>
+        <EmployerAccordion title={t('employerPaymentMethods.form.accordionTitle')} subtitle={t('employerPaymentMethods.form.accordionSubtitle')} icon="card-outline" expanded={isFormOpen} onToggle={() => setIsFormOpen((value) => !value)}>
           <View>
-            <Text style={styles.cardTitle}>Add a card</Text>
+            <Text style={styles.cardTitle}>{t('employerPaymentMethods.form.cardTitle')}</Text>
             <Text style={styles.helper}>
-              Only the brand, last four digits, cardholder name, and expiry are sent and saved.
+              {t('employerPaymentMethods.form.helper')}
             </Text>
-            <Text style={styles.inputLabel}>Name on card</Text>
+            <Text style={styles.inputLabel}>{t('employerPaymentMethods.form.nameLabel')}</Text>
             <TextInput
               style={styles.input}
               value={form.name}
               onChangeText={(name: string) => setForm({ ...form, name })}
-              placeholder="Name on card"
+              placeholder={t('employerPaymentMethods.form.namePlaceholder')}
               autoCapitalize="words"
-              accessibilityLabel="Name on card"
+              accessibilityLabel={t('employerPaymentMethods.form.nameLabel')}
               autoComplete="cc-name"
             />
-            <Text style={styles.inputLabel}>Card number</Text>
+            <Text style={styles.inputLabel}>{t('employerPaymentMethods.form.numberLabel')}</Text>
             <TextInput
               style={styles.input}
               value={form.number}
@@ -257,15 +259,15 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
                 const digits = digitsOnly(value).slice(0, 19);
                 setForm({ ...form, number: digits.match(/.{1,4}/g)?.join(' ') || '' });
               }}
-              placeholder="Card number"
+              placeholder={t('employerPaymentMethods.form.numberPlaceholder')}
               keyboardType="number-pad"
               maxLength={23}
-              accessibilityLabel="Card number"
+              accessibilityLabel={t('employerPaymentMethods.form.numberLabel')}
               autoComplete="cc-number"
             />
             <View style={styles.inputRow}>
-              <View style={styles.halfInput}><Text style={styles.inputLabel}>Expiry</Text><TextInput style={styles.input} value={form.expiry} onChangeText={(expiry: string) => setForm({ ...form, expiry })} placeholder="MM/YY" keyboardType="number-pad" maxLength={7} accessibilityLabel="Card expiry date" autoComplete="cc-exp" /></View>
-              <View style={styles.halfInput}><Text style={styles.inputLabel}>Security code</Text><TextInput style={styles.input} value={form.cvv} onChangeText={(cvv: string) => setForm({ ...form, cvv: digitsOnly(cvv).slice(0, 4) })} placeholder="CVV" keyboardType="number-pad" secureTextEntry maxLength={4} accessibilityLabel="Card security code" autoComplete="cc-csc" /></View>
+              <View style={styles.halfInput}><Text style={styles.inputLabel}>{t('employerPaymentMethods.form.expiryLabel')}</Text><TextInput style={styles.input} value={form.expiry} onChangeText={(expiry: string) => setForm({ ...form, expiry })} placeholder="MM/YY" keyboardType="number-pad" maxLength={7} accessibilityLabel={t('employerPaymentMethods.form.expiryLabel')} autoComplete="cc-exp" /></View>
+              <View style={styles.halfInput}><Text style={styles.inputLabel}>{t('employerPaymentMethods.form.cvvLabel')}</Text><TextInput style={styles.input} value={form.cvv} onChangeText={(cvv: string) => setForm({ ...form, cvv: digitsOnly(cvv).slice(0, 4) })} placeholder="CVV" keyboardType="number-pad" secureTextEntry maxLength={4} accessibilityLabel={t('employerPaymentMethods.form.cvvLabel')} autoComplete="cc-csc" /></View>
             </View>
             <TouchableOpacity
               style={[styles.primaryButton, isSaving && styles.disabled]}
@@ -274,7 +276,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
               accessibilityRole="button"
               accessibilityState={{ disabled: isSaving, busy: isSaving }}
             >
-              <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save card'}</Text>
+              <Text style={styles.primaryButtonText}>{isSaving ? t('employerPaymentMethods.form.savingButton') : t('employerPaymentMethods.form.saveButton')}</Text>
             </TouchableOpacity>
           </View>
         </EmployerAccordion>
@@ -286,8 +288,8 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
         ) : methods.length === 0 ? (
           <View style={styles.emptyCard}>
             <Ionicons name="card-outline" size={34} color={tokens.colors.textSubtle} />
-            <Text style={styles.emptyTitle}>No payment methods yet</Text>
-            <Text style={styles.emptyText}>A card appears here only after you add it.</Text>
+            <Text style={styles.emptyTitle}>{t('employerPaymentMethods.empty.title')}</Text>
+            <Text style={styles.emptyText}>{t('employerPaymentMethods.empty.body')}</Text>
           </View>
         ) : (
           methods.map((method) => (
@@ -296,10 +298,10 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
                 <Text style={styles.brandText}>{method.brand}</Text>
               </View>
               <View style={styles.methodCopy}>
-                <Text style={styles.methodTitle}>{method.brand} ending in {method.last4}</Text>
-                <Text style={styles.methodMeta}>{method.cardholderName} · Expires {method.expiry}</Text>
-                {method.status === 'default' ? <Text style={styles.defaultLabel}>DEFAULT</Text> : null}
-                {method.status === 'expired' ? <Text style={styles.expiredLabel}>EXPIRED</Text> : null}
+                <Text style={styles.methodTitle}>{t('employerPaymentMethods.method.endingIn', { brand: method.brand, last4: method.last4 })}</Text>
+                <Text style={styles.methodMeta}>{t('employerPaymentMethods.method.meta', { name: method.cardholderName, expiry: method.expiry })}</Text>
+                {method.status === 'default' ? <Text style={styles.defaultLabel}>{t('employerPaymentMethods.method.default')}</Text> : null}
+                {method.status === 'expired' ? <Text style={styles.expiredLabel}>{t('employerPaymentMethods.method.expired')}</Text> : null}
               </View>
               <View style={styles.methodActions}>
                 {method.status === 'active' ? (
@@ -308,10 +310,10 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
                     onPress={() => void handleSetDefault(method.id)}
                     disabled={actionId === method.id}
                   >
-                    <Text style={styles.actionText}>Set default</Text>
+                    <Text style={styles.actionText}>{t('employerPaymentMethods.method.setDefault')}</Text>
                   </TouchableOpacity>
                 ) : null}
-                <TouchableOpacity style={styles.methodActionButton} onPress={() => confirmRemove(method)} disabled={actionId === method.id} accessibilityRole="button" accessibilityLabel={`Remove ${method.brand} ending in ${method.last4}`}>
+                <TouchableOpacity style={styles.methodActionButton} onPress={() => confirmRemove(method)} disabled={actionId === method.id} accessibilityRole="button" accessibilityLabel={t('employerPaymentMethods.method.removeAccessibilityLabel', { brand: method.brand, last4: method.last4 })}>
                   <Ionicons name="trash-outline" size={21} color={tokens.colors.danger} />
                 </TouchableOpacity>
               </View>

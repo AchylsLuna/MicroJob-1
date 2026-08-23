@@ -1,13 +1,24 @@
+import type { TFunction } from "i18next";
+
 export const PHONE_DIGITS = 11;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const NAME_REGEX = /^[\p{L}][\p{L}\s'.-]*$/u;
 const PH_PHONE_REGEX = /^09\d{9}$/;
 
-export const EMAIL_VALIDATION_MESSAGE =
-  "Please enter a valid email address (example: email@gmail.com).";
-export const PHONE_VALIDATION_MESSAGE = "Phone number must be a valid Philippine mobile number (09XXXXXXXXX).";
-export const FULL_NAME_VALIDATION_MESSAGE =
-  "Full name must contain letters only (spaces, apostrophes, hyphens, and periods are allowed).";
+// Translated equivalents. Callers pass the `t` from
+// `useTranslation("auth")` so these resolve "validation.*" keys in
+// client/src/locales/{en,tl}/auth.json.
+export function getEmailValidationMessage(t: TFunction): string {
+  return t("validation.email");
+}
+
+export function getPhoneValidationMessage(t: TFunction): string {
+  return t("validation.phone");
+}
+
+export function getFullNameValidationMessage(t: TFunction): string {
+  return t("validation.fullName");
+}
 
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();

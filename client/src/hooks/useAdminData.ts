@@ -15,6 +15,7 @@ import {
   type PayoutRequest,
   type PaymentTransaction,
 } from "../services/api";
+import { formatCurrency as formatCurrencyAmount, formatDate } from "../lib/formatters";
 
 export type AdminUser = {
   _id: string;
@@ -222,8 +223,7 @@ export function useAdminData() {
     return Number.isFinite(amount) ? amount : 0;
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("en-PH", { style: "currency", currency: "PHP", maximumFractionDigits: 0 }).format(value);
+  const formatCurrency = (value: number) => formatCurrencyAmount(value, { maximumFractionDigits: 0 });
 
   const formatSalary = (salary?: string | number) => {
     const amount = parseSalary(salary);
@@ -319,7 +319,7 @@ export function useAdminData() {
   const formatDateFromObjectId = (id?: string) => {
     if (!id || id.length < 8) return "—";
     const timestamp = parseInt(id.slice(0, 8), 16) * 1000;
-    return new Date(timestamp).toLocaleDateString();
+    return formatDate(new Date(timestamp));
   };
 
   const getUserDisplayName = (u: AdminUser) =>

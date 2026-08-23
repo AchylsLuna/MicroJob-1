@@ -14,6 +14,8 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import {
   getEmployerApplications,
@@ -29,6 +31,7 @@ import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
 import { DateField } from "../../components/ui/DateField";
+import { formatDateTime } from "../../lib/formatters";
 
 // Converts between the "YYYY-MM-DD" date portion of scheduleForm.scheduledAt
 // (a "YYYY-MM-DDTHH:mm" string, same shape <input type="datetime-local"> used)
@@ -121,11 +124,11 @@ const toAbsoluteAssetUrl = (value?: string): string | null => {
   return safeExternalUrl(candidate, { purpose: "asset", trustedOrigins: [origin] });
 };
 
-const formatDate = (value?: string) => {
+const formatAppliedDate = (value?: string): string => {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString();
+  return formatDateTime(parsed);
 };
 
 const statusClasses: Record<ApplicationStatus, string> = {
@@ -139,13 +142,27 @@ const statusClasses: Record<ApplicationStatus, string> = {
   Withdrawn: "bg-[#F3F4F6] text-[#6B7280]",
 };
 
-const getApplicantName = (application: EmployerApplication) =>
+const STATUS_LABEL_KEYS: Record<ApplicationStatus, string> = {
+  Applied: "applied",
+  Shortlisted: "shortlisted",
+  "Interview Scheduled": "interviewScheduled",
+  Interviewed: "interviewed",
+  "Offer Sent": "offerSent",
+  Hired: "hired",
+  Rejected: "rejected",
+  Withdrawn: "withdrawn",
+};
+
+const getStatusLabel = (t: TFunction, status: ApplicationStatus) =>
+  t(`applicationsManagement.status.${STATUS_LABEL_KEYS[status]}`);
+
+const getApplicantName = (application: EmployerApplication, fallback: string) =>
   `${application.applicant?.firstName || ""} ${application.applicant?.lastName || ""}`.trim() ||
   application.applicant?.email ||
-  "Applicant";
+  fallback;
 
-const getApplicantInitials = (application: EmployerApplication) =>
-  getApplicantName(application)
+const getApplicantInitials = (application: EmployerApplication, fallback: string) =>
+  getApplicantName(application, fallback)
     .split(/\s+/)
     .filter(Boolean)
     .map((part) => part[0])
@@ -176,6 +193,8 @@ function ApplicationCard({
   reviewEligibility?: ReviewEligibilityItem;
   onRate: (application: EmployerApplication) => void;
 }) {
+  const { t } = useTranslation("employer");
+  const applicantFallback = t("applicationsManagement.card.applicantFallback");
   const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
 
   return (
@@ -185,29 +204,33 @@ function ApplicationCard({
           type="button"
           onClick={() => onToggleSelected(application._id)}
           className="mt-1 text-[#64748B] hover:opacity-80"
-          aria-label={selected ? "Deselect application" : "Select application"}
+          aria-label={
+            selected
+              ? t("applicationsManagement.card.deselectAria")
+              : t("applicationsManagement.card.selectAria")
+          }
         >
           {selected ? <CheckSquare className="w-5 h-5" /> : <Square className="w-5 h-5" />}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] flex items-center justify-center font-semibold">
-              {getApplicantInitials(application)}
+              {getApplicantInitials(application, applicantFallback)}
             </div>
             <div className="min-w-0">
-              <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{getApplicantName(application)}</p>
-              <p className="text-[12px] text-[#6B7280] line-clamp-1">{application.applicant?.email || "No email provided"}</p>
+              <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{getApplicantName(application, applicantFallback)}</p>
+              <p className="text-[12px] text-[#6B7280] line-clamp-1">{application.applicant?.email || t("applicationsManagement.card.noEmail")}</p>
             </div>
           </div>
         </div>
         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[application.status]}`}>
-          {application.status}
+          {getStatusLabel(t, application.status)}
         </span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
         <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-bold text-emerald-700">
-          {Number(application.match?.percentage || 0)}% Match
+          {t("applicationsManagement.card.matchPercent", { percent: Number(application.match?.percentage || 0) })}
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800">
           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
@@ -216,13 +239,15 @@ function ApplicationCard({
       </div>
 
       <div>
-        <p className="text-[14px] font-medium text-[#111827]">{application.job?.title || "Untitled role"}</p>
-        <p className="text-[12px] text-[#6B7280] mt-1">Applied {formatDate(application.createdAt)}</p>
+        <p className="text-[14px] font-medium text-[#111827]">{application.job?.title || t("applicationsManagement.card.untitledRole")}</p>
+        <p className="text-[12px] text-[#6B7280] mt-1">
+          {t("applicationsManagement.card.appliedOn", { date: formatAppliedDate(application.createdAt) })}
+        </p>
       </div>
 
       {application.nextInterview ? (
         <div className="rounded-[12px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] text-[#1C4D8D]">
-          Next interview: {formatDate(application.nextInterview.scheduledAt)}
+          {t("applicationsManagement.card.nextInterview", { date: formatAppliedDate(application.nextInterview.scheduledAt) })}
           {application.nextInterview.location ? ` · ${application.nextInterview.location}` : ""}
         </div>
       ) : null}
@@ -234,15 +259,15 @@ function ApplicationCard({
       <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
         <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.jobsApplied || 0}</div>
-          <div className="text-[#6B7280] mt-1">Applied</div>
+          <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.applied")}</div>
         </div>
         <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.projectsCompleted || 0}</div>
-          <div className="text-[#6B7280] mt-1">Completed</div>
+          <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.completed")}</div>
         </div>
         <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] px-2 py-2">
           <div className="text-[#111827] font-semibold">{application.applicant?.successRate || "0%"}</div>
-          <div className="text-[#6B7280] mt-1">Success</div>
+          <div className="text-[#6B7280] mt-1">{t("applicationsManagement.card.stats.success")}</div>
         </div>
       </div>
 
@@ -256,12 +281,12 @@ function ApplicationCard({
               it cannot be re-selected; hiring is driven by the offer flow. */}
           {application.status === "Hired" ? (
             <option value="Hired" disabled>
-              Hired (via offer)
+              {t("applicationsManagement.card.hiredViaOffer")}
             </option>
           ) : null}
           {EDITABLE_STATUSES.map((status) => (
             <option key={status} value={status}>
-              {status}
+              {getStatusLabel(t, status)}
             </option>
           ))}
         </select>
@@ -273,7 +298,7 @@ function ApplicationCard({
             className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] font-semibold text-[#1C4D8D]"
           >
             <Calendar className="w-4 h-4" />
-            {application.nextInterview ? "Reschedule" : "Schedule"}
+            {application.nextInterview ? t("applicationsManagement.card.reschedule") : t("applicationsManagement.card.schedule")}
           </button>
           <button
             type="button"
@@ -281,7 +306,7 @@ function ApplicationCard({
             className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12px] font-semibold text-[#B91C1C]"
           >
             <Eye className="w-4 h-4" />
-            Hide
+            {t("applicationsManagement.card.hide")}
           </button>
         </div>
 
@@ -292,7 +317,7 @@ function ApplicationCard({
             className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
           >
             <UserIcon className="w-4 h-4" />
-            Profile
+            {t("applicationsManagement.card.profile")}
           </button>
           <button
             type="button"
@@ -300,7 +325,7 @@ function ApplicationCard({
             className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#E5E7EB] px-3 py-2 text-[12px] font-semibold text-[#111827]"
           >
             <MessageSquare className="w-4 h-4" />
-            Message
+            {t("applicationsManagement.card.message")}
           </button>
         </div>
 
@@ -312,15 +337,15 @@ function ApplicationCard({
             className="inline-flex items-center gap-2 text-[12px] font-semibold text-[#1C4D8D]"
           >
             <Mail className="w-4 h-4" />
-            View Resume
+            {t("applicationsManagement.card.viewResume")}
           </a>
         ) : null}
         {reviewEligibility?.canReview ? (
           <button type="button" onClick={() => onRate(application)} className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-amber-500 px-3 py-2 text-[12px] font-semibold text-white">
-            <Star className="h-4 w-4" /> Rate Worker
+            <Star className="h-4 w-4" /> {t("applicationsManagement.card.rateWorker")}
           </button>
         ) : reviewEligibility?.existingReview ? (
-          <p className="text-center text-[12px] font-semibold text-emerald-700">Review submitted</p>
+          <p className="text-center text-[12px] font-semibold text-emerald-700">{t("applicationsManagement.card.reviewSubmitted")}</p>
         ) : null}
       </div>
     </div>
@@ -328,6 +353,7 @@ function ApplicationCard({
 }
 
 export function ApplicationsManagement() {
+  const { t } = useTranslation("employer");
   const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
   const [viewMode, setViewMode] = useState<"board" | "table">("board");
@@ -368,12 +394,12 @@ export function ApplicationsManagement() {
       setReviewEligibility(Object.fromEntries((reviewResponse?.asEmployer || []).map((item) => [item.applicationId, item])));
       setSelectedIds((current) => current.filter((id) => nextApplications.some((item) => item._id === id)));
     } catch (error: any) {
-      setLoadError(error?.message || "Failed to load applications.");
+      setLoadError(error?.message || t("applicationsManagement.errors.loadFailed"));
       setApplications([]);
     } finally {
       setIsLoading(false);
     }
-  }, [jobFilter, searchTerm, statusFilter]);
+  }, [jobFilter, searchTerm, statusFilter, t]);
 
   useEffect(() => {
     const timer = window.setTimeout(loadApplications, 250);
@@ -414,9 +440,9 @@ export function ApplicationsManagement() {
     try {
       await updateApplicationStatus(applicationId, nextStatus);
       updateLocalApplication(applicationId, (item) => ({ ...item, status: nextStatus }));
-      toast.success(`Application moved to ${nextStatus}.`);
+      toast.success(t("applicationsManagement.toast.statusMoved", { status: getStatusLabel(t, nextStatus) }));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update application status.");
+      toast.error(error?.message || t("applicationsManagement.toast.statusUpdateFailed"));
     }
   };
 
@@ -427,8 +453,8 @@ export function ApplicationsManagement() {
     const failed = applicationIds.length - succeeded.length;
     setApplications((current) => current.filter((item) => !succeeded.includes(item._id)));
     setSelectedIds((current) => current.filter((id) => !succeeded.includes(id)));
-    if (succeeded.length) toast.success(`${succeeded.length} application${succeeded.length === 1 ? "" : "s"} hidden.`);
-    if (failed) toast.error(`${failed} application${failed === 1 ? "" : "s"} could not be hidden. Try again.`);
+    if (succeeded.length) toast.success(t("applicationsManagement.toast.hiddenCount", { count: succeeded.length }));
+    if (failed) toast.error(t("applicationsManagement.toast.hideFailedCount", { count: failed }));
   };
 
   const handleBulkStatusChange = async () => {
@@ -442,10 +468,10 @@ export function ApplicationsManagement() {
         current.map((item) => (succeeded.has(item._id) ? { ...item, status: bulkStatus } : item)),
       );
       setSelectedIds((current) => current.filter((id) => !succeeded.has(id)));
-      if (succeeded.size) toast.success(`Updated ${succeeded.size} application${succeeded.size === 1 ? "" : "s"}.`);
-      if (failed) toast.error(`${failed} application${failed === 1 ? "" : "s"} could not be updated and remain selected.`);
+      if (succeeded.size) toast.success(t("applicationsManagement.toast.bulkUpdatedCount", { count: succeeded.size }));
+      if (failed) toast.error(t("applicationsManagement.toast.bulkFailedCount", { count: failed }));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to update selected applications.");
+      toast.error(error?.message || t("applicationsManagement.toast.bulkUpdateFailed"));
     } finally {
       setIsBulkUpdating(false);
     }
@@ -472,13 +498,14 @@ export function ApplicationsManagement() {
   };
 
   const handleMessage = (application: EmployerApplication) => {
-    const name = getApplicantName(application);
+    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
+    const jobTitle = application.job?.title || t("applicationsManagement.card.thisRoleFallback");
     const params = new URLSearchParams({
       contact: `${application.applicant._id}::${application.job?._id || ""}`,
       startUser: application.applicant._id,
       jobId: application.job?._id || "",
       startName: name,
-      draft: `Hi ${name}, I would like to discuss your application for ${application.job?.title || "this role"}.`,
+      draft: t("applicationsManagement.messageDraft", { name, job: jobTitle }),
     });
     navigate(`${ROUTES.employer.messages}?${params.toString()}`);
   };
@@ -486,8 +513,8 @@ export function ApplicationsManagement() {
   const handleRateWorker = (application: EmployerApplication) => {
     setRatingTarget({
       applicationId: application._id,
-      name: getApplicantName(application),
-      jobTitle: application.job?.title || "Completed job",
+      name: getApplicantName(application, t("applicationsManagement.card.applicantFallback")),
+      jobTitle: application.job?.title || t("applicationsManagement.card.completedJobFallback"),
       roleLabel: "worker",
     });
   };
@@ -507,7 +534,7 @@ export function ApplicationsManagement() {
   const handleScheduleSubmit = async () => {
     if (!scheduleTarget) return;
     if (!scheduleForm.scheduledAt) {
-      toast.error("Interview date and time are required.");
+      toast.error(t("applicationsManagement.toast.interviewDateRequired"));
       return;
     }
 
@@ -528,11 +555,15 @@ export function ApplicationsManagement() {
           notes: scheduleForm.notes.trim(),
         });
       }
-      toast.success(scheduleTarget.nextInterview ? "Interview rescheduled." : "Interview scheduled.");
+      toast.success(
+        scheduleTarget.nextInterview
+          ? t("applicationsManagement.toast.interviewRescheduled")
+          : t("applicationsManagement.toast.interviewScheduledSuccess"),
+      );
       setScheduleTarget(null);
       await loadApplications();
     } catch (error: any) {
-      toast.error(error?.message || "Failed to save interview schedule.");
+      toast.error(error?.message || t("applicationsManagement.toast.interviewSaveFailed"));
     } finally {
       setIsScheduling(false);
     }
@@ -543,8 +574,8 @@ export function ApplicationsManagement() {
       <div className="ui-card p-6 space-y-5">
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div>
-            <h1 className="ui-page-title">Applications</h1>
-            <p className="ui-page-subtitle">Review applicants by stage, schedule interviews, and run bulk workflow actions safely.</p>
+            <h1 className="ui-page-title">{t("applicationsManagement.title")}</h1>
+            <p className="ui-page-subtitle">{t("applicationsManagement.subtitle")}</p>
           </div>
           <div className="inline-flex items-center rounded-[12px] border border-[#E5E7EB] overflow-hidden self-start">
             <button
@@ -554,7 +585,7 @@ export function ApplicationsManagement() {
               className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold ${viewMode === "board" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
             >
               <Grid2X2 className="w-4 h-4" />
-              Board
+              {t("applicationsManagement.viewToggle.board")}
             </button>
             <button
               type="button"
@@ -563,7 +594,7 @@ export function ApplicationsManagement() {
               className={`inline-flex items-center gap-2 px-4 py-2 text-[13px] font-semibold border-l border-[#E5E7EB] ${viewMode === "table" ? "bg-[#1C4D8D]/[0.06] text-[#1C4D8D]" : "bg-white text-[#475569]"}`}
             >
               <LayoutList className="w-4 h-4" />
-              Table
+              {t("applicationsManagement.viewToggle.table")}
             </button>
           </div>
         </div>
@@ -575,31 +606,31 @@ export function ApplicationsManagement() {
               type="text"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Search by applicant, email, or job title"
-              aria-label="Search applications"
+              placeholder={t("applicationsManagement.filters.searchPlaceholder")}
+              aria-label={t("applicationsManagement.filters.searchAriaLabel")}
               className="w-full h-11 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
             />
           </div>
           <select
-            aria-label="Filter applications by stage"
+            aria-label={t("applicationsManagement.filters.stageAriaLabel")}
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
             className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
           >
-            <option value="all">All stages</option>
+            <option value="all">{t("applicationsManagement.filters.allStages")}</option>
             {PIPELINE_STATUSES.map((status) => (
               <option key={status} value={status}>
-                {status}
+                {getStatusLabel(t, status)}
               </option>
             ))}
           </select>
           <select
-            aria-label="Filter applications by job"
+            aria-label={t("applicationsManagement.filters.jobAriaLabel")}
             value={jobFilter}
             onChange={(event) => setJobFilter(event.target.value)}
             className="h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
           >
-            <option value="all">All jobs</option>
+            <option value="all">{t("applicationsManagement.filters.allJobs")}</option>
             {jobOptions.map((job) => (
               <option key={job.id} value={job.id}>
                 {job.title}
@@ -611,18 +642,18 @@ export function ApplicationsManagement() {
         {selectedIds.length > 0 ? (
           <div className="rounded-[14px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div className="text-[13px] text-[#1C4D8D] font-medium">
-              {selectedIds.length} application{selectedIds.length === 1 ? "" : "s"} selected
+              {t("applicationsManagement.bulk.selectedCount", { count: selectedIds.length })}
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <select
-                aria-label="Bulk application stage"
+                aria-label={t("applicationsManagement.bulk.stageAriaLabel")}
                 value={bulkStatus}
                 onChange={(event) => setBulkStatus(event.target.value as ApplicationStatus)}
                 className="h-10 rounded-[10px] border border-[#1C4D8D]/20 px-3 text-[13px] text-[#111827]"
               >
                 {EDITABLE_STATUSES.map((status) => (
                   <option key={status} value={status}>
-                    Move to {status}
+                    {t("applicationsManagement.bulk.moveTo", { status: getStatusLabel(t, status) })}
                   </option>
                 ))}
               </select>
@@ -632,14 +663,14 @@ export function ApplicationsManagement() {
                 disabled={isBulkUpdating}
                 className="h-10 rounded-[10px] bg-[#1C4D8D] px-4 text-[13px] font-semibold text-white disabled:opacity-60"
               >
-                {isBulkUpdating ? "Updating..." : "Apply Bulk Status"}
+                {isBulkUpdating ? t("applicationsManagement.bulk.updating") : t("applicationsManagement.bulk.applyBulkStatus")}
               </button>
               <button
                 type="button"
                 onClick={() => handleHideApplications(selectedIds)}
                 className="h-10 rounded-[10px] border border-[#FCA5A5] bg-white px-4 text-[13px] font-semibold text-[#B91C1C]"
               >
-                Hide Selected
+                {t("applicationsManagement.bulk.hideSelected")}
               </button>
             </div>
           </div>
@@ -654,13 +685,13 @@ export function ApplicationsManagement() {
 
       {isLoading ? (
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
-          Loading applications...
+          {t("applicationsManagement.states.loading")}
         </div>
       ) : null}
 
       {!isLoading && applications.length === 0 ? (
         <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-10 text-center text-[#6B7280]">
-          No applications matched the current filters.
+          {t("applicationsManagement.states.empty")}
         </div>
       ) : null}
 
@@ -670,8 +701,10 @@ export function ApplicationsManagement() {
             <div key={status} className="w-full rounded-[18px] bg-[#F8FAFC] border border-[#E5E7EB] p-4 space-y-4 md:min-w-[320px] md:max-w-[320px]">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-[16px] font-semibold text-[#111827]">{status}</h3>
-                  <p className="text-[12px] text-[#6B7280] mt-1">{groupedApplications[status].length} applicant{groupedApplications[status].length === 1 ? "" : "s"}</p>
+                  <h3 className="text-[16px] font-semibold text-[#111827]">{getStatusLabel(t, status)}</h3>
+                  <p className="text-[12px] text-[#6B7280] mt-1">
+                    {t("applicationsManagement.board.applicantCount", { count: groupedApplications[status].length })}
+                  </p>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[status]}`}>
                   {groupedApplications[status].length}
@@ -681,7 +714,7 @@ export function ApplicationsManagement() {
               <div className="space-y-3">
                 {groupedApplications[status].length === 0 ? (
                   <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-white px-4 py-8 text-center text-[13px] text-[#94A3B8]">
-                    No applicants here.
+                    {t("applicationsManagement.board.emptyColumn")}
                   </div>
                 ) : (
                   groupedApplications[status].map((application, index) => (
@@ -726,18 +759,19 @@ export function ApplicationsManagement() {
                     )}
                   </button>
                 </th>
-                <th className="py-3 pr-4 font-medium">Applicant</th>
-                <th className="py-3 pr-4 font-medium">Role</th>
-                <th className="py-3 pr-4 font-medium">Stage</th>
-                <th className="py-3 pr-4 font-medium">Interview</th>
-                <th className="py-3 pr-4 font-medium">Applied</th>
-                <th className="py-3 pr-4 font-medium">Resume</th>
-                <th className="py-3 font-medium">Actions</th>
+                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.applicant")}</th>
+                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.role")}</th>
+                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.stage")}</th>
+                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.interview")}</th>
+                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.applied")}</th>
+                <th className="py-3 pr-4 font-medium">{t("applicationsManagement.table.headers.resume")}</th>
+                <th className="py-3 font-medium">{t("applicationsManagement.table.headers.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {visibleApplications.map((application, index) => {
                 const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
+                const applicantFallback = t("applicationsManagement.card.applicantFallback");
                 return (
                   <motion.tr
                     key={application._id}
@@ -752,7 +786,7 @@ export function ApplicationsManagement() {
                       </button>
                     </td>
                     <td className="py-3 pr-4 text-[#111827]">
-                      <div className="font-medium">{getApplicantName(application)}</div>
+                      <div className="font-medium">{getApplicantName(application, applicantFallback)}</div>
                       <div className="text-[12px] text-[#6B7280] mt-1">{application.applicant?.email || "—"}</div>
                     </td>
                     <td className="py-3 pr-4 text-[#6B7280]">{application.job?.title || "—"}</td>
@@ -764,27 +798,29 @@ export function ApplicationsManagement() {
                       >
                         {application.status === "Hired" ? (
                           <option value="Hired" disabled>
-                            Hired (via offer)
+                            {t("applicationsManagement.card.hiredViaOffer")}
                           </option>
                         ) : null}
                         {EDITABLE_STATUSES.map((status) => (
                           <option key={status} value={status}>
-                            {status}
+                            {getStatusLabel(t, status)}
                           </option>
                         ))}
                       </select>
                     </td>
                     <td className="py-3 pr-4 text-[#6B7280]">
-                      {application.nextInterview ? formatDate(application.nextInterview.scheduledAt) : "Not scheduled"}
+                      {application.nextInterview
+                        ? formatAppliedDate(application.nextInterview.scheduledAt)
+                        : t("applicationsManagement.table.notScheduled")}
                     </td>
-                    <td className="py-3 pr-4 text-[#6B7280]">{formatDate(application.createdAt)}</td>
+                    <td className="py-3 pr-4 text-[#6B7280]">{formatAppliedDate(application.createdAt)}</td>
                     <td className="py-3 pr-4">
                       {resumeUrl ? (
                         <a href={resumeUrl} target="_blank" rel="noreferrer" className="text-[#1C4D8D] font-semibold">
-                          View Resume
+                          {t("applicationsManagement.card.viewResume")}
                         </a>
                       ) : (
-                        <span className="text-[#9CA3AF]">No resume</span>
+                        <span className="text-[#9CA3AF]">{t("applicationsManagement.table.noResume")}</span>
                       )}
                     </td>
                     <td className="py-3">
@@ -794,25 +830,25 @@ export function ApplicationsManagement() {
                           onClick={() => handleOpenSchedule(application)}
                           className="px-3 py-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] text-[#1C4D8D] font-semibold"
                         >
-                          Interview
+                          {t("applicationsManagement.table.actions.interview")}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleOpenProfile(application)}
                           className="px-3 py-2 rounded-[10px] border border-[#E5E7EB] text-[#111827] font-semibold"
                         >
-                          Profile
+                          {t("applicationsManagement.card.profile")}
                         </button>
                         <button
                           type="button"
                           onClick={() => handleHideApplications([application._id])}
                           className="px-3 py-2 rounded-[10px] border border-[#FECACA] text-[#B91C1C] font-semibold"
                         >
-                          Hide
+                          {t("applicationsManagement.card.hide")}
                         </button>
                         {reviewEligibility[application._id]?.canReview ? (
                           <button type="button" onClick={() => handleRateWorker(application)} className="inline-flex items-center gap-1 rounded-[10px] bg-amber-500 px-3 py-2 font-semibold text-white">
-                            <Star className="h-4 w-4" /> Rate
+                            <Star className="h-4 w-4" /> {t("applicationsManagement.table.actions.rate")}
                           </button>
                         ) : null}
                       </div>
@@ -833,10 +869,15 @@ export function ApplicationsManagement() {
           <div className="w-full max-w-xl bg-white rounded-[18px] p-6 shadow-xl space-y-5">
             <div>
               <h3 className="text-[20px] font-semibold text-[#111827]">
-                {scheduleTarget.nextInterview ? "Update Interview" : "Schedule Interview"}
+                {scheduleTarget.nextInterview
+                  ? t("applicationsManagement.scheduleModal.updateTitle")
+                  : t("applicationsManagement.scheduleModal.scheduleTitle")}
               </h3>
               <p className="text-[13px] text-[#6B7280] mt-1">
-                {getApplicantName(scheduleTarget)} · {scheduleTarget.job?.title || "Role"}
+                {t("applicationsManagement.scheduleModal.subtitle", {
+                  name: getApplicantName(scheduleTarget, t("applicationsManagement.card.applicantFallback")),
+                  job: scheduleTarget.job?.title || t("applicationsManagement.scheduleModal.roleFallback"),
+                })}
               </p>
             </div>
 
@@ -845,7 +886,7 @@ export function ApplicationsManagement() {
                 <div>
                   <DateField
                     id="interview-date"
-                    label="Date"
+                    label={t("applicationsManagement.scheduleModal.dateLabel")}
                     minDate={new Date()}
                     value={scheduleForm.scheduledAt ? parseDateOnly(scheduleForm.scheduledAt.slice(0, 10)) : null}
                     onChange={(next) =>
@@ -857,7 +898,7 @@ export function ApplicationsManagement() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="interview-time" className="block text-[13px] text-[#374151] mb-2">Time</label>
+                  <label htmlFor="interview-time" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.timeLabel")}</label>
                   <input
                     id="interview-time"
                     type="time"
@@ -873,42 +914,42 @@ export function ApplicationsManagement() {
                 </div>
               </div>
               <div>
-                <label htmlFor="interview-mode" className="block text-[13px] text-[#374151] mb-2">Mode</label>
+                <label htmlFor="interview-mode" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.modeLabel")}</label>
                 <select
                   id="interview-mode"
                   value={scheduleForm.mode}
                   onChange={(event) => setScheduleForm((current) => ({ ...current, mode: event.target.value }))}
                   className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
                 >
-                  <option value="virtual">Virtual</option>
-                  <option value="onsite">On-site</option>
-                  <option value="phone">Phone</option>
-                  <option value="other">Other</option>
+                  <option value="virtual">{t("applicationsManagement.scheduleModal.mode.virtual")}</option>
+                  <option value="onsite">{t("applicationsManagement.scheduleModal.mode.onsite")}</option>
+                  <option value="phone">{t("applicationsManagement.scheduleModal.mode.phone")}</option>
+                  <option value="other">{t("applicationsManagement.scheduleModal.mode.other")}</option>
                 </select>
               </div>
             </div>
 
             <div>
-              <label htmlFor="interview-location" className="block text-[13px] text-[#374151] mb-2">Location or meeting link</label>
+              <label htmlFor="interview-location" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.locationLabel")}</label>
               <input
                 id="interview-location"
                 type="text"
                 value={scheduleForm.location}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, location: event.target.value }))}
                 className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827]"
-                placeholder="Google Meet link, office address, or call instructions"
+                placeholder={t("applicationsManagement.scheduleModal.locationPlaceholder")}
               />
             </div>
 
             <div>
-              <label htmlFor="interview-notes" className="block text-[13px] text-[#374151] mb-2">Notes</label>
+              <label htmlFor="interview-notes" className="block text-[13px] text-[#374151] mb-2">{t("applicationsManagement.scheduleModal.notesLabel")}</label>
               <textarea
                 id="interview-notes"
                 rows={4}
                 value={scheduleForm.notes}
                 onChange={(event) => setScheduleForm((current) => ({ ...current, notes: event.target.value }))}
                 className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827]"
-                placeholder="Interview preparation, interviewer names, or custom instructions"
+                placeholder={t("applicationsManagement.scheduleModal.notesPlaceholder")}
               />
             </div>
 
@@ -919,7 +960,7 @@ export function ApplicationsManagement() {
                 className="px-4 py-2 rounded-[10px] border border-[#D1D5DB] text-[14px]"
                 disabled={isScheduling}
               >
-                Cancel
+                {t("applicationsManagement.scheduleModal.cancel")}
               </button>
               <button
                 type="button"
@@ -927,7 +968,11 @@ export function ApplicationsManagement() {
                 className="px-4 py-2 rounded-[10px] bg-[#1C4D8D] text-white text-[14px] font-medium disabled:opacity-60"
                 disabled={isScheduling}
               >
-                {isScheduling ? "Saving..." : scheduleTarget.nextInterview ? "Update Interview" : "Schedule Interview"}
+                {isScheduling
+                  ? t("applicationsManagement.scheduleModal.saving")
+                  : scheduleTarget.nextInterview
+                  ? t("applicationsManagement.scheduleModal.updateTitle")
+                  : t("applicationsManagement.scheduleModal.scheduleTitle")}
               </button>
             </div>
           </div>
