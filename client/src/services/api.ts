@@ -221,7 +221,7 @@ const normalizeApiPath = (value: string) => {
   return withoutApiPrefix.split('?')[0];
 };
 
-const getCsrfToken = () => {
+export const getCsrfToken = () => {
   if (typeof document === 'undefined') return '';
   const cookie = document.cookie || '';
   const match = cookie.match(/(?:^|; )csrfToken=([^;]+)/);
@@ -896,15 +896,6 @@ export function verifyPhoneVerificationCode(payload: { otp: string }) {
     method: 'POST',
     body: payload,
   });
-}
-
-export function uploadIdentityDocument(file: File) {
-  const formData = new FormData();
-  formData.append('document', file);
-  return request<{ message: string; documentUrl: string; status: string }>(
-    '/auth/verification/documents/identity',
-    { method: 'POST', body: formData }
-  );
 }
 
 export function uploadAddressDocument(file: File) {

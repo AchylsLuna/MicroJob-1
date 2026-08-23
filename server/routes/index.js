@@ -13,6 +13,7 @@ import SupportRoute from './SupportRoute.js';
 import ProfileRoute from './ProfileRoute.js';
 import ReviewRoute from './ReviewRoute.js';
 import PhoneRoute from './PhoneRoute.js';
+import IdAnalyzerRoute from './IdAnalyzerRoute.js';
 
 export const registerRoutes = (app) => {
     app.get('/', (req, res) => {
@@ -41,4 +42,5 @@ export const registerRoutes = (app) => {
     app.use('/api/verify-phone', PhoneRoute);
     app.use('/api/support', SupportRoute);
     app.use('/api/reviews', ReviewRoute);
+    app.use('/api/verify-id', IdAnalyzerRoute);
 };

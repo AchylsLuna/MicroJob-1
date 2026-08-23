@@ -50,7 +50,6 @@ import {
   getVerificationStatus,
   sendPhoneVerification,
   confirmPhoneVerification,
-  uploadIdentityDocument,
   uploadAddressDocument,
 } from '../controllers/verificationController.js';
 
@@ -95,7 +94,6 @@ router.post('/logout', verifyToken, logout);
 router.get('/verification/status', verifyToken, getVerificationStatus);
 router.post('/verification/phone', verifyToken, verificationPhoneSendLimiter, sendPhoneVerification);
 router.post('/verification/phone/confirm', verifyToken, verificationPhoneConfirmLimiter, confirmPhoneVerification);
-router.post('/verification/documents/identity', verifyToken, uploadVerificationFile, uploadIdentityDocument);
 router.post('/verification/documents/address', verifyToken, uploadVerificationFile, uploadAddressDocument);
 
 export default router;
