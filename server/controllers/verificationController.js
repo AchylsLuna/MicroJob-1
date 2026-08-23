@@ -129,49 +129,6 @@ export const confirmPhoneVerification = async (req, res) => {
   }
 };
 
-export const uploadIdentityDocument = async (req, res) => {
-  let persisted = false;
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'No document file provided' });
-    }
-    if (!hasValidVerificationFileSignature(req.file)) {
-      await removeUploadFile(req.file.filename);
-      return res.status(400).json({ message: 'The uploaded file content does not match its document type.' });
-    }
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      await removeUploadFile(req.file.filename);
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const documentUrl = `/uploads/${req.file.filename}`;
-    const previousDocumentUrl = user.verification?.identityDocument?.documentUrl;
-    user.verification = user.verification || {};
-    user.verification.identityVerified = false;
-    user.verification.identityDocument = {
-      status: 'in-review',
-      documentUrl,
-      uploadedAt: new Date(),
-    };
-    await user.save();
-    persisted = true;
-    if (previousDocumentUrl && previousDocumentUrl !== documentUrl) {
-      await removeUploadFile(previousDocumentUrl);
-    }
-
-    return res.status(200).json({
-      message: 'Identity document uploaded successfully',
-      documentUrl,
-      status: 'in-review',
-    });
-  } catch (err) {
-    if (!persisted && req.file?.filename) await removeUploadFile(req.file.filename);
-    console.error('Identity document upload error', err);
-    return res.status(500).json({ message: 'Failed to upload identity document' });
-  }
-};
-
 export const uploadAddressDocument = async (req, res) => {
   let persisted = false;
   try {
@@ -219,6 +176,5 @@ export default {
   getVerificationStatus,
   sendPhoneVerification,
   confirmPhoneVerification,
-  uploadIdentityDocument,
   uploadAddressDocument,
 };

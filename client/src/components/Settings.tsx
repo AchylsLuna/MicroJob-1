@@ -14,9 +14,15 @@ import {
   revokeAllSessions,
   cleanupInactiveSessions,
   getVerificationStatus,
+<<<<<<< HEAD
   requestPhoneVerificationOtp,
   confirmPhoneVerificationOtp,
   uploadIdentityDocument,
+=======
+  sendPhoneVerificationCode,
+  resendPhoneVerificationCode,
+  verifyPhoneVerificationCode,
+>>>>>>> c35c65755e8745ec060e6f40e8433ff4b1422400
   uploadAddressDocument,
   addWorkExperience,
   updateWorkExperience,
@@ -34,6 +40,7 @@ import { MfaSettingsCard } from "./settings/MfaSettingsCard";
 import { WorkerResumeSection } from "./settings/WorkerResumeSection";
 import { SettingsTabList } from "./settings/SettingsTabList";
 import { ConfirmDialog } from "./ui";
+import IdAnalyzerVerifier from "./IdAnalyzerVerifier";
 import {
   normalizeFullName,
   normalizePhone,
@@ -1183,19 +1190,6 @@ export function Settings() {
       toast.error(error?.message || "Failed to verify phone");
     } finally {
       setIsConfirmingPhoneCode(false);
-    }
-  };
-
-  const handleUploadIdentityDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      await uploadIdentityDocument(file);
-      toast.success("Identity document uploaded successfully");
-      // Reload verification status
-      await reloadVerificationStatus();
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to upload identity document");
     }
   };
 
@@ -2354,15 +2348,12 @@ export function Settings() {
                                 )}
 
                                 {step.id === "identity" && (step.status === "pending" || step.status === "rejected") && (
-                                  <label className="mt-2 inline-block px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 cursor-pointer">
-                                    {step.status === "rejected" ? "Upload replacement ID" : "Upload ID"}
-                                    <input
-                                      type="file"
-                                      accept="image/*,.pdf"
-                                      onChange={handleUploadIdentityDocument}
-                                      className="hidden"
+                                  <div className="mt-2">
+                                    <IdAnalyzerVerifier
+                                      profileId={import.meta.env.VITE_KYC_PROFILE_ID}
+                                      onComplete={async () => { await reloadVerificationStatus(); }}
                                     />
-                                  </label>
+                                  </div>
                                 )}
 
                                 {step.id === "address" && (step.status === "pending" || step.status === "rejected") && (

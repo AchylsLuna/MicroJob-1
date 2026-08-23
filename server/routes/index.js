@@ -12,6 +12,11 @@ import SavedJobRoute from './SavedJobRoute.js';
 import SupportRoute from './SupportRoute.js';
 import ProfileRoute from './ProfileRoute.js';
 import ReviewRoute from './ReviewRoute.js';
+<<<<<<< HEAD
+=======
+import PhoneRoute from './PhoneRoute.js';
+import IdAnalyzerRoute from './IdAnalyzerRoute.js';
+>>>>>>> c35c65755e8745ec060e6f40e8433ff4b1422400
 
 export const registerRoutes = (app) => {
     app.get('/', (req, res) => {
@@ -39,4 +44,5 @@ export const registerRoutes = (app) => {
     app.use('/api/saved-jobs', SavedJobRoute);
     app.use('/api/support', SupportRoute);
     app.use('/api/reviews', ReviewRoute);
+    app.use('/api/verify-id', IdAnalyzerRoute);
 };
