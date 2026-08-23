@@ -14,7 +14,8 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
-import { useTranslation, type TFunction } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 type SupportMessage = {
   _id?: string;

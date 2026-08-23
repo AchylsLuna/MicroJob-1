@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { useSearchParams } from "react-router-dom";
 import {
@@ -14,15 +15,8 @@ import {
   revokeAllSessions,
   cleanupInactiveSessions,
   getVerificationStatus,
-<<<<<<< HEAD
   requestPhoneVerificationOtp,
   confirmPhoneVerificationOtp,
-  uploadIdentityDocument,
-=======
-  sendPhoneVerificationCode,
-  resendPhoneVerificationCode,
-  verifyPhoneVerificationCode,
->>>>>>> c35c65755e8745ec060e6f40e8433ff4b1422400
   uploadAddressDocument,
   addWorkExperience,
   updateWorkExperience,
@@ -221,6 +215,7 @@ const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): Pers
 });
 
 export function Settings() {
+  const { t: tAuth } = useTranslation("auth");
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = mapTabParam(searchParams.get("tab")) ?? "account";
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
@@ -725,7 +720,7 @@ export function Settings() {
       linkedin: personalInfo.linkedin.trim(),
       website: personalInfo.website.trim(),
     };
-    const validationIssue = validateProfileDetails(normalizedProfile, { employer: isEmployerRole });
+    const validationIssue = validateProfileDetails(normalizedProfile, { employer: isEmployerRole }, tAuth);
     if (validationIssue) {
       const fieldIds: Record<ProfileValidationField, string> = {
         firstName: "settings-first-name",

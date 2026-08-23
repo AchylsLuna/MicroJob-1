@@ -75,9 +75,13 @@ if (!/setNavigationProfileInitials\(getUserInitials\(nextUser\)\)/.test(sessionS
 }
 
 const signUpSource = fs.readFileSync(path.join(projectRoot, 'pages/signUp.tsx'), 'utf8');
-if (!/Find work/.test(signUpSource) || !/Hire people/.test(signUpSource) || !/Both/.test(signUpSource)) failures.push('signUp.tsx: worker, employer, and Both choices are required');
+if (!/value:\s*['"]work['"]/.test(signUpSource)
+  || !/value:\s*['"]hire['"]/.test(signUpSource)
+  || !/value:\s*['"]both['"]/.test(signUpSource)) {
+  failures.push('signUp.tsx: worker, employer, and Both choices are required');
+}
 const settingsSource = fs.readFileSync(path.join(projectRoot, 'pages/pages1/Settings.tsx'), 'utf8');
-if (!/canSwitchAccountMode/.test(settingsSource) || !/ACCOUNT MODE/.test(settingsSource)) {
+if (!/canSwitchAccountMode/.test(settingsSource) || !/settings\.modeCard\.sectionLabel/.test(settingsSource)) {
   failures.push('Settings.tsx: Both-account mode switching is missing');
 }
 for (const file of ['pages/pages1/Profile.tsx', 'pages/employer/EmployerProfile.tsx']) {

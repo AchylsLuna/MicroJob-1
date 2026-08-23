@@ -889,31 +889,6 @@ export function confirmPhoneVerificationOtp(payload: { code: string }) {
   });
 }
 
-<<<<<<< HEAD
-export function uploadIdentityDocument(file: File) {
-  const formData = new FormData();
-  formData.append('document', file);
-  return request<{ message: string; documentUrl: string; status: string }>(
-    '/auth/verification/documents/identity',
-    { method: 'POST', body: formData }
-  );
-=======
-export function sendPhoneVerificationCode() {
-  return request<{ message: string }>('/verify-phone/send-code', { method: 'POST' });
-}
-
-export function resendPhoneVerificationCode() {
-  return request<{ message: string }>('/verify-phone/resend-code', { method: 'POST' });
-}
-
-export function verifyPhoneVerificationCode(payload: { otp: string }) {
-  return request<{ message: string }>('/verify-phone/verify-code', {
-    method: 'POST',
-    body: payload,
-  });
->>>>>>> c35c65755e8745ec060e6f40e8433ff4b1422400
-}
-
 export function uploadAddressDocument(file: File) {
   const formData = new FormData();
   formData.append('document', file);

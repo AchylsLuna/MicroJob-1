@@ -82,7 +82,7 @@ export default function IdVerifier({ profileId, onResult }: Props) {
         >
           {loading ? 'Verifying…' : 'Verify ID'}
         </button>
-        <label className="text-[12px] text-[#64748B]">or use your device camera to capture an ID</label>
+        <span className="text-[12px] text-[#64748B]">or use your device camera to capture an ID</span>
       </div>
     </div>
   );
