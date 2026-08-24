@@ -3,6 +3,7 @@ import {
   createTopUpSession,
   handleWebhook,
   getUserTransactions,
+  emailTransactionReceipt,
   getMobileWallet,
   getAllTransactions,
   confirmTopUp,
@@ -25,7 +26,8 @@ import requireAdmin from '../middleware/admin.js';
 const router = express.Router();
 
 router.post('/topup', verifyToken, createTopUpSession);
-router.get('/transactions', verifyToken, getUserTransactions);
+  router.get('/transactions', verifyToken, getUserTransactions);
+router.post('/transactions/:transactionId/receipt/email', verifyToken, emailTransactionReceipt);
 router.get('/wallet', verifyToken, getMobileWallet);
 router.post('/qr-requests', verifyToken, qrSettlementLimiter, createQrSettlementRequest);
 router.get('/qr-requests', verifyToken, listQrSettlementRequests);
