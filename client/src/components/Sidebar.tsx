@@ -1,24 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  BarChart3,
-  Bell,
-  Briefcase,
-  ChevronDown,
-  CircleHelp,
-  ClipboardList,
-  FileText,
-  Mail,
-  MessageSquare,
-  Plus,
-  Search,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  Star,
-  Users,
-  Wallet,
-  X,
-} from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { useNotifications } from "../contexts/NotificationContext";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
@@ -160,34 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const pinnedSettingsItem = bottomMenuItems.find((item) => item.icon === "settings");
   const workspaceMenuItems = bottomMenuItems.filter((item) => item.icon !== "settings");
 
-  const iconMap: Record<string, React.ReactNode> = {
-    dashboard: <Star className="h-5 w-5" />,
-    "find-jobs": <Search className="h-5 w-5" />,
-    "applied-jobs": <Mail className="h-5 w-5" />,
-    "saved-jobs": <Star className="h-5 w-5" />,
-    "post-job": <Plus className="h-5 w-5" />,
-    applications: <ClipboardList className="h-5 w-5" />,
-    analytics: <BarChart3 className="h-5 w-5" />,
-    reports: <FileText className="h-5 w-5" />,
-    payouts: <Wallet className="h-5 w-5" />,
-    "jobs-monitoring": <Briefcase className="h-5 w-5" />,
-    "jobs-management": <Briefcase className="h-5 w-5" />,
-    security: <ShieldCheck className="h-5 w-5" />,
-    "user-management": <Users className="h-5 w-5" />,
-    messages: <MessageSquare className="h-5 w-5" />,
-    "e-wallet": <Wallet className="h-5 w-5" />,
-    notifications: <Bell className="h-5 w-5" />,
-    settings: <SettingsIcon className="h-5 w-5" />,
-    support: <CircleHelp className="h-5 w-5" />,
-  };
-
   const [isEmployerGroupOpen, setIsEmployerGroupOpen] = useState<boolean>(true);
-
-  const renderIcon = (iconKey: string) => (
-    <span aria-hidden="true" className="text-current">
-      {iconMap[iconKey] || <Star className="h-5 w-5" />}
-    </span>
-  );
 
   const isPathActive = (path: string) => {
     if (path === ROUTES.notifications || path === ROUTES.employer.notifications) {
@@ -288,7 +243,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             className={getNavButtonClass(isPathActive(dashboardPath))}
             title={isCollapsed ? "Dashboard" : ""}
           >
-            {renderIcon("dashboard")}
             {(mobile || !isCollapsed) && <span>Dashboard</span>}
           </button>
 
@@ -300,7 +254,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                   className={`${getNavButtonClass(isEmployerParentActive)} ${!isCollapsed ? "pr-10" : ""}`}
                   title={isCollapsed ? employerMenuGroup.label : ""}
                 >
-                  {renderIcon(employerMenuGroup.icon)}
                   {!isCollapsed && <span>{employerMenuGroup.label}</span>}
                 </button>
 
@@ -346,7 +299,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               className={getNavButtonClass(isPathActive(item.path))}
               title={isCollapsed ? item.label : ""}
             >
-              {renderIcon(item.icon)}
               {(mobile || !isCollapsed) && <span>{item.label}</span>}
               {item.notification && item.icon === "notifications" && notifCount > 0 && (
                   <span
@@ -371,7 +323,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               className={getNavButtonClass(isPathActive(item.path))}
               title={isCollapsed ? item.label : ""}
             >
-              {renderIcon(item.icon)}
               {(mobile || !isCollapsed) && <span>{item.label}</span>}
               {item.notification && item.icon === "notifications" && notifCount > 0 && (
                   <span
@@ -395,7 +346,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             onClick={() => navigate(pinnedSettingsItem.path)}
             className={getNavButtonClass(isPathActive(pinnedSettingsItem.path))}
           >
-            {renderIcon(pinnedSettingsItem.icon)}
             <span>{pinnedSettingsItem.label}</span>
           </button>
         )}

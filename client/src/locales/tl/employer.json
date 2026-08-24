@@ -1,5 +1,9 @@
 {
   "postJob": {
+    "header": {
+      "title": "Mag-post ng Trabaho",
+      "subtitle": "Gumawa ng job post, subaybayan ang status, at pamahalaan ang iyong mga listing."
+    },
     "jobType": {
       "shortTerm": { "label": "Panandaliang trabaho", "description": "Minsanang o pansamantalang trabaho na may malinaw na katapusan." },
       "sideHustle": { "label": "Side hustle", "description": "Flexible na trabaho na puwedeng gawin para sa dagdag na kita." },

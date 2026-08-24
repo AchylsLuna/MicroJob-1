@@ -1,5 +1,9 @@
 {
   "postJob": {
+    "header": {
+      "title": "Post a Job",
+      "subtitle": "Create job posts, track their status, and manage your listings."
+    },
     "jobType": {
       "shortTerm": { "label": "Short-term", "description": "One-time or temporary work with a clear finish." },
       "sideHustle": { "label": "Side hustle", "description": "Flexible work someone can take on for extra income." },

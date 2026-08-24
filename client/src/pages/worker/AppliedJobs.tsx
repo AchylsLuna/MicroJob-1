@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowRight, BriefcaseBusiness, CalendarDays, ClipboardList, MapPin, Star } from "lucide-react";
+import { BriefcaseBusiness, CalendarDays, MapPin, Star } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
 import { getEligibleReviews, type ApplicationStatus, type ReviewEligibilityItem } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
@@ -299,10 +299,6 @@ const AppliedJobs: React.FC = () => {
           {!loading && filteredApplications.length === 0 && (
             <div className="rounded-[20px] border border-[#E5E7EB] bg-white px-8 py-12 text-center shadow-sm sm:px-12">
               <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
-                <div className="mb-4 flex h-18 w-18 items-center justify-center rounded-[20px] bg-[#1C4D8D]/[0.06] text-[#1C4D8D]">
-                  <ClipboardList className="h-8 w-8" />
-                </div>
-
                 <div className="mb-4 inline-flex items-center rounded-full bg-[#F8FAFC] px-3 py-1 text-[12px] font-medium text-[#64748B]">
                   {emptyStateLabel}
                 </div>
@@ -318,11 +314,9 @@ const AppliedJobs: React.FC = () => {
                 <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
                   <button
                     onClick={() => navigate(ROUTES.worker.findJobs)}
-                    className="inline-flex items-center gap-2 rounded-[14px] bg-[#1C4D8D] px-5 py-3 text-[15px] font-semibold text-white transition hover:opacity-90"
+                    className="inline-flex items-center justify-center rounded-[14px] bg-[#1C4D8D] px-5 py-3 text-[15px] font-semibold text-white transition hover:opacity-90"
                   >
-                    <BriefcaseBusiness className="h-4 w-4" />
                     {t("appliedJobs.emptyState.browseJobs")}
-                    <ArrowRight className="h-4 w-4" />
                   </button>
 
                   {selectedFilter !== "All" ? (

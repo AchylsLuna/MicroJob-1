@@ -617,28 +617,32 @@ const PostJob: React.FC = () => {
   return (
     <div className="ui-page px-4 md:px-0 pb-16">
       <div className="ui-page-header">
+        <div>
+          <h1 className="ui-page-title">{t("postJob.header.title")}</h1>
+          <p className="ui-page-subtitle">{t("postJob.header.subtitle")}</p>
+        </div>
         <button
           type="button"
           onClick={openCreateModal}
-          className="ml-auto inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
         >
           <Plus size={20} />
           {t("postJob.actions.postJob")}
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="ui-card p-8 text-center">
-          <p className="text-4xl font-bold text-slate-900">{totalPostings}</p>
-          <p className="mt-2 text-base text-slate-500">{t("postJob.stats.totalPostings")}</p>
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+        <div className="ui-card p-5">
+          <p className="text-sm font-medium text-slate-500">{t("postJob.stats.totalPostings")}</p>
+          <p className="mt-1 text-3xl font-bold tracking-tight text-slate-900">{totalPostings}</p>
         </div>
-        <div className="ui-card p-8 text-center">
-          <p className="text-4xl font-bold text-emerald-600">{activePostings}</p>
-          <p className="mt-2 text-base text-slate-500">{t("postJob.stats.active")}</p>
+        <div className="ui-card p-5">
+          <p className="text-sm font-medium text-slate-500">{t("postJob.stats.active")}</p>
+          <p className="mt-1 text-3xl font-bold tracking-tight text-emerald-600">{activePostings}</p>
         </div>
-        <div className="ui-card p-8 text-center">
-          <p className="text-4xl font-bold text-slate-400">{closedPostings}</p>
-          <p className="mt-2 text-base text-slate-500">{t("postJob.status.closed")}</p>
+        <div className="ui-card p-5">
+          <p className="text-sm font-medium text-slate-500">{t("postJob.status.closed")}</p>
+          <p className="mt-1 text-3xl font-bold tracking-tight text-slate-400">{closedPostings}</p>
         </div>
       </div>
 
@@ -650,7 +654,7 @@ const PostJob: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               >
                 <option value="all">{t("postJob.filters.allStatuses")}</option>
                 <option value="Available">{t("postJob.status.available")}</option>
@@ -665,7 +669,7 @@ const PostJob: React.FC = () => {
               <select
                 value={jobTypeFilter}
                 onChange={(e) => setJobTypeFilter(e.target.value)}
-                className="h-12 w-full rounded-xl border border-indigo-500 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
               >
                 <option value="all">{t("postJob.filters.allJobs")}</option>
                 {jobTypeOptions.map((option) => (
@@ -684,7 +688,7 @@ const PostJob: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("postJob.filters.searchPlaceholder")}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
             </div>
           </div>
@@ -702,16 +706,16 @@ const PostJob: React.FC = () => {
       )}
 
       {!loadingJobs && jobs.length === 0 && (
-        <div className="ui-card px-6 py-20 text-center">
-          <div className="mx-auto w-fit rounded-full bg-slate-100 p-5">
-            <BriefcaseBusiness size={48} className="text-slate-300" />
+        <div className="ui-card px-6 py-14 text-center">
+          <div className="mx-auto w-fit rounded-full bg-blue-50 p-4">
+            <BriefcaseBusiness size={32} className="text-[#1C4D8D]" />
           </div>
-          <h3 className="mt-6 text-3xl font-semibold text-slate-500">{t("postJob.emptyState.title")}</h3>
-          <p className="mt-2 text-base text-slate-400">{t("postJob.emptyState.subtitle")}</p>
+          <h3 className="mt-5 text-xl font-semibold text-slate-900">{t("postJob.emptyState.title")}</h3>
+          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{t("postJob.emptyState.subtitle")}</p>
           <button
             type="button"
             onClick={openCreateModal}
-            className="mt-8 inline-flex h-11 items-center gap-2 rounded-xl bg-indigo-600 px-6 text-sm font-semibold text-white transition hover:bg-indigo-700"
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-6 text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
           >
             <Plus size={20} />
             {t("postJob.actions.postJob")}
@@ -749,7 +753,7 @@ const PostJob: React.FC = () => {
                     >
                       {statusLabels[job.status || "Available"] || job.status || t("postJob.status.available")}
                     </span>
-                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-sm font-semibold text-indigo-700">
+                    <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
                       {formatMinimumPay(job.salary, t("postJob.card.payNotSet"))}
                     </span>
                   </div>
@@ -759,21 +763,21 @@ const PostJob: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => openEditModal(job)}
-                    className="h-10 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
                   >
                     {t("postJob.card.edit")}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(job)}
-                    className="h-10 rounded-lg border border-indigo-200 bg-indigo-50 px-4 text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
                   >
                     {isClosed ? t("postJob.card.reopen") : t("postJob.card.close")}
                   </button>
                   <button
                     type="button"
                     onClick={() => setDeleteTarget(job)}
-                    className="h-10 rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 hover:bg-red-100"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 focus-visible:ring-offset-2"
                   >
                     {t("postJob.card.delete")}
                   </button>
@@ -811,11 +815,11 @@ const PostJob: React.FC = () => {
               <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-5 md:px-7">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 sm:flex">
+                    <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 sm:flex">
                       <BriefcaseBusiness size={24} />
                     </div>
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-600">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
                         {t("postJob.modal.employerWorkspace")}
                       </p>
                       <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
@@ -850,7 +854,7 @@ const PostJob: React.FC = () => {
                 <form onSubmit={handleSubmit} noValidate className="space-y-6">
                   <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:p-6">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-slate-200">
                         <ClipboardList size={20} />
                       </div>
                       <div>
@@ -870,7 +874,7 @@ const PostJob: React.FC = () => {
                         data-field="title"
                         value={formData.title}
                         onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder={t("postJob.modal.fields.jobTitle.placeholder")}
                         maxLength={100}
                         required
@@ -886,7 +890,7 @@ const PostJob: React.FC = () => {
                         data-field="category"
                         value={formData.category}
                         onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
                         <option value="">{t("postJob.modal.fields.category.placeholder")}</option>
@@ -913,13 +917,13 @@ const PostJob: React.FC = () => {
                             role="radio"
                             aria-checked={selected}
                             onClick={() => setFormData((prev) => ({ ...prev, jobType: option.value }))}
-                            className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-indigo-400 ${
+                            className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                               selected
-                                ? "border-indigo-600 bg-indigo-50 shadow-sm"
-                                : "border-slate-200 bg-white hover:border-indigo-300"
+                                ? "border-blue-600 bg-blue-50 shadow-sm"
+                                : "border-slate-200 bg-white hover:border-blue-300"
                             }`}
                           >
-                            <span className={`block text-sm font-semibold ${selected ? "text-indigo-700" : "text-slate-900"}`}>
+                            <span className={`block text-sm font-semibold ${selected ? "text-blue-700" : "text-slate-900"}`}>
                               {option.label}
                             </span>
                             <span className="mt-1 block text-xs leading-5 text-slate-500">{option.description}</span>
@@ -937,7 +941,7 @@ const PostJob: React.FC = () => {
 
                   <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                         <MapPin size={20} />
                       </div>
                       <div>
@@ -964,7 +968,7 @@ const PostJob: React.FC = () => {
                           }))
                         }
                         disabled={isLoadingLocationData}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
                         <option value="">
@@ -993,7 +997,7 @@ const PostJob: React.FC = () => {
                           }))
                         }
                         disabled={isLoadingLocationData || !formData.province}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
                         <option value="">
@@ -1025,7 +1029,7 @@ const PostJob: React.FC = () => {
                           }))
                         }
                         disabled={isLoadingBarangays || !formData.city}
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                         required
                       >
                         <option value="">
@@ -1051,7 +1055,7 @@ const PostJob: React.FC = () => {
                       type="text"
                       value={formData.address}
                       onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                      className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder={t("postJob.modal.location.address.placeholder")}
                     />
                     </div>
@@ -1067,7 +1071,7 @@ const PostJob: React.FC = () => {
 
                   <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:p-6">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-indigo-600 shadow-sm ring-1 ring-slate-200">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-slate-200">
                         <WalletCards size={20} />
                       </div>
                       <div>
@@ -1095,7 +1099,7 @@ const PostJob: React.FC = () => {
                             minimumSalary: e.target.value.replace(/[^0-9]/g, ""),
                           }))
                         }
-                        className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder={t("postJob.modal.pay.placeholder")}
                         required
                       />
@@ -1128,24 +1132,24 @@ const PostJob: React.FC = () => {
                         onChange={(e) =>
                           setFormData((prev) => ({ ...prev, positionsNeeded: e.target.value }))
                         }
-                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                        className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     </div>
 
-                    <div className="flex flex-col gap-2 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <p className="text-sm font-bold text-indigo-950">
+                        <p className="text-sm font-bold text-blue-900">
                           {editingJob ? t("postJob.modal.walletSummary.estimatedValue") : t("postJob.modal.walletSummary.fundsNeeded")}
                         </p>
-                        <p className="mt-0.5 text-xs text-indigo-700">
+                        <p className="mt-0.5 text-xs text-blue-700">
                           {t("postJob.modal.walletSummary.formula", {
                             rate: formatCurrency(Number(formData.minimumSalary || 0), { maximumFractionDigits: 0 }),
                             count: Number(formData.positionsNeeded || 0),
                           })}
                         </p>
                       </div>
-                      <p className="text-2xl font-bold tracking-tight text-indigo-700">
+                      <p className="text-2xl font-bold tracking-tight text-blue-700">
                         {formatCurrency(estimatedEscrow, { maximumFractionDigits: 0 })}
                       </p>
                     </div>
@@ -1153,7 +1157,7 @@ const PostJob: React.FC = () => {
 
                   <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
                     <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                         <FileText size={20} />
                       </div>
                       <div>
@@ -1171,7 +1175,7 @@ const PostJob: React.FC = () => {
                         data-field="description"
                         value={formData.description}
                         onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                        className="min-h-[140px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                        className="min-h-[140px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                         placeholder={t("postJob.description.placeholder")}
                         maxLength={3000}
                         required
@@ -1190,7 +1194,7 @@ const PostJob: React.FC = () => {
                           onChange={(e) =>
                             setFormData((prev) => ({ ...prev, requirements: e.target.value }))
                           }
-                          className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                          className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                           placeholder={t("postJob.requirements.placeholder")}
                         />
                       </div>
@@ -1203,7 +1207,7 @@ const PostJob: React.FC = () => {
                           id="job-skills"
                           value={formData.skills}
                           onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
-                          className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-200"
+                          className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
                           placeholder={t("postJob.skills.placeholder")}
                         />
                         <p className="mt-2 text-xs text-slate-400">{t("postJob.skills.helper")}</p>
@@ -1222,7 +1226,7 @@ const PostJob: React.FC = () => {
                     </button>
                     <button
                       type="submit"
-                      className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                      className="h-11 rounded-xl bg-[#1C4D8D] text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 disabled:opacity-60"
                       disabled={submitting}
                     >
                       {submitting
@@ -1283,7 +1287,7 @@ const PostJob: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(ROUTES.employer.eWallet)}
-                    className="h-11 rounded-xl bg-indigo-600 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2"
+                    className="h-11 rounded-xl bg-[#1C4D8D] text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
                   >
                     {t("postJob.insufficientBalance.topUp")}
                   </button>
