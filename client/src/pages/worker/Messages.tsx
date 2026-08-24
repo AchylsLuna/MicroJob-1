@@ -175,14 +175,12 @@ export function Messages() {
       ? t("messages.adminSupportName")
       : fallbackName, [supportStartUserId, t]);
 
-  // Memoized (rather than a plain function) because it's referenced from the
-  // search-params effect and loadConversations below, and it calls t() — a
-  // reactive value — so react-hooks/exhaustive-deps requires it to be a
-  // stable, listed dependency wherever it's used.
   const handleSelectContact = useCallback(async (contact: Contact) => {
     setSelectedContact(contact);
     setShowMoreMenu(false);
-    setContacts((prev) => prev.map((c) => (c.conversationId === contact.conversationId ? { ...c, unreadCount: 0 } : c)));
+    setContacts((prev) => prev.map((item) => (
+      item.conversationId === contact.conversationId ? { ...item, unreadCount: 0 } : item
+    )));
 
     try {
       const response: any = await getConversationWithUser(contact.otherUserId, contact.jobId || undefined);
@@ -191,21 +189,20 @@ export function Messages() {
         response?.data?.messages,
         response?.meta?.messages,
         response?.data,
-        response
+        response,
       );
       setMessages(messagesArray);
 
-      // Mark messages as read
       if (messagesArray.length > 0) {
         try {
           await markMessagesAsRead(contact.otherUserId, contact.jobId || undefined);
           window.dispatchEvent(new Event("messages-refresh"));
-        } catch (e) {
-          // Ignore marking errors
+        } catch {
+          // Reading a conversation still works when a read receipt cannot be recorded.
         }
       }
     } catch (error: any) {
-      console.error('Failed to load messages:', error);
+      console.error("Failed to load messages:", error);
       toast.error(error.message || t("messages.toast.loadMessagesFailed"));
       setMessages([]);
     }

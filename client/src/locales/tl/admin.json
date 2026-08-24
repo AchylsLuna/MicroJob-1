@@ -324,6 +324,7 @@
       "mfaCodePrompt": "Ilagay ang code mula sa iyong authenticator app para magpatuloy.",
       "adminAccessRequired": "Kailangan ng admin access. Gumamit ng admin account.",
       "welcomeBack": "Maligayang pagbabalik{{name}}!",
+      "credentialsIncorrect": "Mali ang email, username, o password. Subukan muli.",
       "signInFailed": "Hindi matagumpay ang pag-sign in",
       "mfaVerificationFailed": "Hindi matagumpay ang MFA verification"
     }

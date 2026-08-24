@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { toast } from "../lib/toast";
-import { formatDate, formatDateTime } from "../lib/formatters";
 import { useSearchParams } from "react-router-dom";
 import {
   getProfile,
@@ -71,19 +69,16 @@ const toAbsoluteAssetUrl = (value?: string | null): string | null => {
 type TabType = "account" | "privacy" | "payments";
 type AccountTab = "personal" | "experience" | "resume";
 
-// Factories (not module-level constants) so labels can be recomputed via
-// useMemo(() => getXConfig(t), [t]) whenever the active language changes —
-// a plain constant built once at import time would freeze stale text.
-const getAccountTabConfig = (t: TFunction): { id: AccountTab; label: string }[] => [
-  { id: "personal", label: t("settings.accountTabs.personal") },
-  { id: "experience", label: t("settings.accountTabs.experience") },
-  { id: "resume", label: t("settings.accountTabs.resume") },
+const accountTabConfig: { id: AccountTab; label: string }[] = [
+  { id: "personal", label: "Personal Information" },
+  { id: "experience", label: "Experience" },
+  { id: "resume", label: "CV/Resume" },
 ];
 
-const getMainTabConfig = (t: TFunction): { id: TabType; label: string }[] => [
-  { id: "account", label: t("settings.tabs.account") },
-  { id: "privacy", label: t("settings.tabs.privacy") },
-  { id: "payments", label: t("settings.tabs.payments") },
+const mainTabConfig: { id: TabType; label: string }[] = [
+  { id: "account", label: "Account" },
+  { id: "privacy", label: "Security & Privacy" },
+  { id: "payments", label: "Payments" },
 ];
 
 const mapTabParam = (value: string | null): TabType | null => {
@@ -121,167 +116,20 @@ const verificationStatusStyles: Record<VerificationStatus, string> = {
   pending: "bg-[#E2E8F0] text-[#475569]",
 };
 
-const getVerificationStatusLabels = (t: TFunction): Record<VerificationStatus, string> => ({
-  complete: t("settings.verification.statusLabels.complete"),
-  "in-review": t("settings.verification.statusLabels.inReview"),
-  rejected: t("settings.verification.statusLabels.rejected"),
-  pending: t("settings.verification.statusLabels.pending"),
-});
+const verificationStatusLabels: Record<VerificationStatus, string> = {
+  complete: "Completed",
+  "in-review": "In Review",
+  rejected: "Rejected",
+  pending: "Pending",
+};
 
-const ADDRESS_SUGGESTION_KEYS = [
-  "nearCityHall",
-  "nearPublicMarket",
-  "nearBarangayHall",
-  "nearTransportTerminal",
-  "nearSchoolZone",
-  "nearBusinessDistrict",
-] as const;
-
-const getAddressSuggestions = (t: TFunction): string[] =>
-  ADDRESS_SUGGESTION_KEYS.map((key) => t(`settings.personal.addressSuggestions.${key}`));
-
-// Predefined skill catalog. `value` is the English string persisted to the
-// backend (never translated); the visible option/optgroup label is looked
-// up from settings.skills.catalog.{categories,items}.<key> at render time.
-const SKILL_CATALOG: { categoryKey: string; items: { key: string; value: string }[] }[] = [
-  {
-    categoryKey: "householdCleaning",
-    items: [
-      { key: "houseCleaning", value: "House Cleaning" },
-      { key: "windowCleaning", value: "Window Cleaning" },
-      { key: "laundryService", value: "Laundry Service" },
-      { key: "ironing", value: "Ironing" },
-      { key: "kitchenCleaning", value: "Kitchen Cleaning" },
-      { key: "bathroomCleaning", value: "Bathroom Cleaning" },
-    ],
-  },
-  {
-    categoryKey: "gardeningLandscaping",
-    items: [
-      { key: "gardening", value: "Gardening" },
-      { key: "lawnMowing", value: "Lawn Mowing" },
-      { key: "landscaping", value: "Landscaping" },
-      { key: "plantCare", value: "Plant Care" },
-      { key: "weeding", value: "Weeding" },
-      { key: "hedgeTrimming", value: "Hedge Trimming" },
-    ],
-  },
-  {
-    categoryKey: "shoppingDelivery",
-    items: [
-      { key: "shopping", value: "Shopping" },
-      { key: "groceryShopping", value: "Grocery Shopping" },
-      { key: "deliveryService", value: "Delivery Service" },
-      { key: "errandRunning", value: "Errand Running" },
-      { key: "packagePickup", value: "Package Pickup" },
-    ],
-  },
-  {
-    categoryKey: "academicTutoring",
-    items: [
-      { key: "tutoring", value: "Tutoring" },
-      { key: "mathTutoring", value: "Math Tutoring" },
-      { key: "englishTutoring", value: "English Tutoring" },
-      { key: "languageTutoring", value: "Language Tutoring" },
-      { key: "scienceTutoring", value: "Science Tutoring" },
-      { key: "homeworkHelp", value: "Homework Help" },
-      { key: "testPreparation", value: "Test Preparation" },
-    ],
-  },
-  {
-    categoryKey: "languagesTranslation",
-    items: [
-      { key: "englishSpeaking", value: "English Speaking" },
-      { key: "translationService", value: "Translation Service" },
-      { key: "languageCoaching", value: "Language Coaching" },
-      { key: "pronunciationTraining", value: "Pronunciation Training" },
-    ],
-  },
-  {
-    categoryKey: "fitnessWellness",
-    items: [
-      { key: "personalTraining", value: "Personal Training" },
-      { key: "yogaInstruction", value: "Yoga Instruction" },
-      { key: "fitnessCoaching", value: "Fitness Coaching" },
-      { key: "walkingCompanion", value: "Walking Companion" },
-    ],
-  },
-  {
-    categoryKey: "petCare",
-    items: [
-      { key: "dogWalking", value: "Dog Walking" },
-      { key: "petSitting", value: "Pet Sitting" },
-      { key: "petGrooming", value: "Pet Grooming" },
-      { key: "petTraining", value: "Pet Training" },
-    ],
-  },
-  {
-    categoryKey: "handymanRepairs",
-    items: [
-      { key: "handymanServices", value: "Handyman Services" },
-      { key: "painting", value: "Painting" },
-      { key: "carpentry", value: "Carpentry" },
-      { key: "plumbingAssistance", value: "Plumbing Assistance" },
-      { key: "furnitureAssembly", value: "Furniture Assembly" },
-      { key: "electricalAssistance", value: "Electrical Assistance" },
-    ],
-  },
-  {
-    categoryKey: "cookingFood",
-    items: [
-      { key: "mealPreparation", value: "Meal Preparation" },
-      { key: "cooking", value: "Cooking" },
-      { key: "baking", value: "Baking" },
-      { key: "foodDelivery", value: "Food Delivery" },
-      { key: "kitchenHelp", value: "Kitchen Help" },
-    ],
-  },
-  {
-    categoryKey: "childcareBabysitting",
-    items: [
-      { key: "babysitting", value: "Babysitting" },
-      { key: "childcare", value: "Childcare" },
-      { key: "afterSchoolCare", value: "After-School Care" },
-      { key: "tutoringKids", value: "Tutoring Kids" },
-    ],
-  },
-  {
-    categoryKey: "administrativeTechnical",
-    items: [
-      { key: "dataEntry", value: "Data Entry" },
-      { key: "virtualAssistant", value: "Virtual Assistant" },
-      { key: "typingServices", value: "Typing Services" },
-      { key: "transcription", value: "Transcription" },
-      { key: "emailManagement", value: "Email Management" },
-    ],
-  },
-  {
-    categoryKey: "creativeServices",
-    items: [
-      { key: "socialMediaManagement", value: "Social Media Management" },
-      { key: "photography", value: "Photography" },
-      { key: "graphicDesign", value: "Graphic Design" },
-      { key: "contentWriting", value: "Content Writing" },
-      { key: "videoEditing", value: "Video Editing" },
-    ],
-  },
-  {
-    categoryKey: "movingHeavyLifting",
-    items: [
-      { key: "movingHelp", value: "Moving Help" },
-      { key: "heavyLifting", value: "Heavy Lifting" },
-      { key: "packingService", value: "Packing Service" },
-    ],
-  },
-  {
-    categoryKey: "eventServices",
-    items: [
-      { key: "eventSetup", value: "Event Setup" },
-      { key: "eventPlanning", value: "Event Planning" },
-      { key: "partyHostingAssistance", value: "Party Hosting Assistance" },
-      { key: "decoration", value: "Decoration" },
-    ],
-  },
+const addressSuggestions = [
+  "Near City Hall",
+  "Near Public Market",
+  "Near Barangay Hall",
+  "Near Transport Terminal",
+  "Near School Zone",
+  "Near Business District",
 ];
 
 interface SkillItem {
@@ -315,7 +163,7 @@ const formatExperienceMonth = (value?: string | null) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? String(value)
-    : formatDate(date, { month: "short", year: "numeric" });
+    : date.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 };
 
 const mapWorkExperiences = (items: WorkExperience[] = []): WorkExperienceItem[] =>
@@ -367,7 +215,7 @@ const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): Pers
 });
 
 export function Settings() {
-  const { t } = useTranslation("worker");
+  const { t: tAuth } = useTranslation("auth");
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = mapTabParam(searchParams.get("tab")) ?? "account";
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
@@ -486,11 +334,6 @@ export function Settings() {
     (item) => item.name.toLowerCase() === personalInfo.barangay.trim().toLowerCase(),
   );
 
-  const mainTabConfig = useMemo(() => getMainTabConfig(t), [t]);
-  const accountTabConfig = useMemo(() => getAccountTabConfig(t), [t]);
-  const verificationStatusLabels = useMemo(() => getVerificationStatusLabels(t), [t]);
-  const addressSuggestions = useMemo(() => getAddressSuggestions(t), [t]);
-
   const visibleMainTabs = hasEmployerAccess
     ? mainTabConfig
     : mainTabConfig.filter((tab) => tab.id !== "payments");
@@ -500,7 +343,7 @@ export function Settings() {
     : accountTabConfig
   ).map((tab) =>
     isEmployerRole && tab.id === "personal"
-      ? { ...tab, label: t("settings.accountTabs.business") }
+      ? { ...tab, label: "Business Information" }
       : tab
   );
 
@@ -603,21 +446,21 @@ export function Settings() {
         const mapped = sessionsData.map((s: any) => ({
           id: s._id,
           current: s.isCurrent === true,
-          device: s.userAgent || t("settings.sessions.unknownDevice"),
-          location: t("settings.sessions.unknown"),
-          ip: s.ip || t("settings.sessions.unknown"),
-          lastActive: s.createdAt ? formatDateTime(s.createdAt) : t("settings.sessions.unknown"),
+          device: s.userAgent || "Unknown device",
+          location: "Unknown",
+          ip: s.ip || "Unknown",
+          lastActive: s.createdAt ? new Date(s.createdAt).toLocaleString() : "Unknown",
         }));
         setSessions(mapped);
       } catch (error: any) {
         console.error("Failed to load sessions:", error);
-        toast.error(t("settings.toast.loadSessionsFailed"));
+        toast.error("Failed to load active sessions");
       } finally {
         setIsLoadingSessions(false);
       }
     };
     loadSessions();
-  }, [activeTab, t]);
+  }, [activeTab]);
 
   // Load verification status when privacy tab is active
   useEffect(() => {
@@ -628,13 +471,13 @@ export function Settings() {
         await reloadVerificationStatus();
       } catch (error: any) {
         console.error("Failed to load verification status:", error);
-        toast.error(t("settings.toast.loadVerificationFailed"));
+        toast.error("Failed to load verification status");
       } finally {
         setIsLoadingVerification(false);
       }
     };
     loadVerification();
-  }, [activeTab, isAdminRole, t]);
+  }, [activeTab, isAdminRole]);
 
   const handlePersonalInfoChange = (field: string, value: string) => {
     profileDraftDirtyRef.current = true;
@@ -684,11 +527,11 @@ export function Settings() {
       const newAvatarUrl = toAbsoluteAssetUrl(response?.data?.avatarUrl || null);
       setAvatarUrl(newAvatarUrl);
       updateAuthProfile({ avatarUrl: newAvatarUrl ?? undefined });
-      toast.success(t("settings.toast.photoUploaded"));
+      toast.success("Profile photo uploaded successfully!");
       // Trigger sidebar update
       window.dispatchEvent(new Event('auth_user_updated'));
     } catch (error: any) {
-      toast.error(error.message || t("settings.toast.photoUploadFailed"));
+      toast.error(error.message || "Failed to upload profile photo");
     } finally {
       setIsAvatarSubmitting(false);
       e.target.value = "";
@@ -702,11 +545,11 @@ export function Settings() {
       await deleteAvatar();
       setAvatarUrl(null);
       updateAuthProfile({ avatarUrl: undefined });
-      toast.success(t("settings.toast.photoRemoved"));
+      toast.success("Profile photo removed successfully!");
       // Trigger sidebar update
       window.dispatchEvent(new Event('auth_user_updated'));
     } catch (error: any) {
-      toast.error(error.message || t("settings.toast.photoRemoveFailed"));
+      toast.error(error.message || "Failed to remove profile photo");
     } finally {
       setIsAvatarSubmitting(false);
     }
@@ -744,7 +587,7 @@ export function Settings() {
       } catch (error) {
         console.error("Failed to load Philippine location data:", error);
         if (isMounted) {
-          setLocationDataError(t("settings.toast.locationOptionsUnavailable"));
+          setLocationDataError("Philippine location options are unavailable. Retry before changing your location.");
         }
       } finally {
         if (isMounted) {
@@ -758,7 +601,7 @@ export function Settings() {
     return () => {
       isMounted = false;
     };
-  }, [locationReloadKey, t]);
+  }, [locationReloadKey]);
 
   useEffect(() => {
     let isMounted = true;
@@ -780,7 +623,7 @@ export function Settings() {
         console.error("Failed to load barangays:", error);
         if (isMounted) {
           setBarangayOptions([]);
-          setBarangayDataError(t("settings.toast.barangayOptionsUnavailable"));
+          setBarangayDataError("Barangay options are unavailable. Re-select the city or try again shortly.");
         }
       } finally {
         if (isMounted) {
@@ -794,7 +637,7 @@ export function Settings() {
     return () => {
       isMounted = false;
     };
-  }, [selectedCity?.code, t]);
+  }, [selectedCity?.code]);
 
   useEffect(() => {
     let isMounted = true;
@@ -849,7 +692,7 @@ export function Settings() {
           avatarUrl: normalizedAvatarUrl,
         });
       } catch (error: any) {
-        const message = error?.message || t("settings.toast.loadProfileFailed");
+        const message = error?.message || "Failed to load profile.";
         toast.error(message);
       } finally {
         if (isMounted) setIsProfileLoading(false);
@@ -859,7 +702,7 @@ export function Settings() {
     return () => {
       isMounted = false;
     };
-  }, [updateAuthProfile, t]);
+  }, [updateAuthProfile]);
 
   const handleSavePersonalInfo = async () => {
     if (isProfileSaving || isProfileLoading) return;
@@ -877,7 +720,7 @@ export function Settings() {
       linkedin: personalInfo.linkedin.trim(),
       website: personalInfo.website.trim(),
     };
-    const validationIssue = validateProfileDetails(normalizedProfile, { employer: isEmployerRole }, t);
+    const validationIssue = validateProfileDetails(normalizedProfile, { employer: isEmployerRole }, tAuth);
     if (validationIssue) {
       const fieldIds: Record<ProfileValidationField, string> = {
         firstName: "settings-first-name",
@@ -898,7 +741,7 @@ export function Settings() {
 
     const original = originalPersonalInfoRef.current;
     if (!original) {
-      const message = t("settings.toast.profileStillLoading");
+      const message = "Your profile is still loading. Please wait and try again.";
       setProfileFormError(message);
       toast.error(message);
       return;
@@ -913,19 +756,19 @@ export function Settings() {
       .some((field) => normalizedLocation[field] !== original[field].trim());
     const hasAnyLocation = Object.values(normalizedLocation).some(Boolean);
     if (locationChanged && (isLoadingLocationData || isLoadingBarangays)) {
-      const message = t("settings.toast.waitForLocationData");
+      const message = "Please wait for the Philippine location options to finish loading.";
       setProfileFormError(message);
       toast.error(message);
       return;
     }
     if (locationChanged && locationDataError) {
-      const message = t("settings.toast.locationDataUnavailableForSave");
+      const message = "Location options are unavailable, so location changes cannot be validated yet. Retry loading them first.";
       setProfileFormError(message);
       toast.error(message);
       return;
     }
     if (hasAnyLocation && (!selectedProvince || !selectedCity || !selectedBarangay)) {
-      const message = t("settings.toast.selectValidLocation");
+      const message = "Select a valid Province, City/Municipality, and Barangay from the suggestions.";
       setProfileFormError(message);
       toast.error(message);
       return;
@@ -978,7 +821,7 @@ export function Settings() {
       );
       if (Object.keys(profilePayload).length === 0) {
         profileDraftDirtyRef.current = false;
-        toast.success(t("settings.toast.noProfileChanges"));
+        toast.success("No profile changes to save.");
         return;
       }
       const response = await updateProfile({
@@ -1017,9 +860,9 @@ export function Settings() {
         successRate: updated.successRate ?? '0%',
         avatarUrl: updated.avatarUrl,
       });
-      toast.success(t("settings.toast.profileSaved"));
+      toast.success("Personal information saved successfully!");
     } catch (error: any) {
-      const message = error?.message || t("settings.toast.profileSaveFailed");
+      const message = error?.message || "Failed to save personal information.";
       setProfileFormError(message);
       setProfileErrorField(null);
       toast.error(message);
@@ -1033,19 +876,19 @@ export function Settings() {
     const skillDescription = newSkillDescription.trim();
     
     if (!skillName) {
-      toast.error(t("settings.toast.skillNameRequired"));
+      toast.error("Please select or enter a skill name");
       return;
     }
     if (skillName.length > PROFILE_LIMITS.skillName) {
-      toast.error(t("settings.toast.skillNameTooLong", { limit: PROFILE_LIMITS.skillName }));
+      toast.error(`Skill name must be ${PROFILE_LIMITS.skillName} characters or fewer.`);
       return;
     }
     if (skillDescription.length > PROFILE_LIMITS.skillDescription) {
-      toast.error(t("settings.toast.skillDescriptionTooLong", { limit: PROFILE_LIMITS.skillDescription }));
+      toast.error(`Skill description must be ${PROFILE_LIMITS.skillDescription} characters or fewer.`);
       return;
     }
     if (skills.length >= 50 && !skills.some((skill) => skill.name.toLowerCase() === skillName.toLowerCase())) {
-      toast.error(t("settings.toast.skillLimitReached"));
+      toast.error("You can add up to 50 skills.");
       return;
     }
     if (skillMutationId) return;
@@ -1062,9 +905,9 @@ export function Settings() {
       setNewSkillDescription("");
       setSelectedPredefinedSkill("");
       setSkillSelectionMode("predefined");
-      toast.success(data?.message || t("settings.toast.skillSaved", { name: skillName }));
+      toast.success(data?.message || `${skillName} saved to your skills!`);
     } catch (error: any) {
-      toast.error(error.message || t("settings.toast.skillAddFailed"));
+      toast.error(error.message || "Failed to add skill");
     } finally {
       setSkillMutationId(null);
     }
@@ -1072,7 +915,7 @@ export function Settings() {
 
   const handleEditSkillDescription = async (id: string) => {
     if (editingSkillDescription.trim().length > PROFILE_LIMITS.skillDescription) {
-      toast.error(t("settings.toast.skillDescriptionTooLong", { limit: PROFILE_LIMITS.skillDescription }));
+      toast.error(`Skill description must be ${PROFILE_LIMITS.skillDescription} characters or fewer.`);
       return;
     }
     if (skillMutationId) return;
@@ -1087,9 +930,9 @@ export function Settings() {
       updateAuthProfile({ skills: mappedSkills });
       setEditingSkillId(null);
       setEditingSkillDescription("");
-      toast.success(t("settings.toast.skillDescriptionUpdated"));
+      toast.success("Skill description updated successfully!");
     } catch (error: any) {
-      toast.error(error.message || t("settings.toast.skillDescriptionUpdateFailed"));
+      toast.error(error.message || "Failed to update skill description");
     } finally {
       setSkillMutationId(null);
     }
@@ -1106,9 +949,9 @@ export function Settings() {
       })) as SkillItem[];
       setSkills(mappedSkills);
       updateAuthProfile({ skills: mappedSkills });
-      toast.success(t("settings.toast.skillRemoved"));
+      toast.success("Skill removed successfully!");
     } catch (error: any) {
-      toast.error(error.message || t("settings.toast.skillRemoveFailed"));
+      toast.error(error.message || "Failed to remove skill");
     } finally {
       setSkillMutationId(null);
     }
@@ -1122,20 +965,20 @@ export function Settings() {
   const handleSaveExperience = async () => {
     if (isExperienceSaving) return;
     if (!experienceDraft.title.trim() || !experienceDraft.company.trim() || !experienceDraft.startDate) {
-      toast.error(t("settings.toast.experienceRequiredFields"));
+      toast.error("Job title, company or client, and start date are required.");
       return;
     }
     if (!experienceDraft.current && !experienceDraft.endDate) {
-      toast.error(t("settings.toast.experienceEndDateRequired"));
+      toast.error("Add an end date or mark this as your current role.");
       return;
     }
     const currentMonth = new Date().toISOString().slice(0, 7);
     if (experienceDraft.startDate > currentMonth || (!experienceDraft.current && String(experienceDraft.endDate) > currentMonth)) {
-      toast.error(t("settings.toast.experienceFutureDate"));
+      toast.error("Work experience dates cannot be in the future.");
       return;
     }
     if (!experienceDraft.current && experienceDraft.endDate && experienceDraft.endDate < experienceDraft.startDate) {
-      toast.error(t("settings.toast.experienceEndBeforeStart"));
+      toast.error("End date cannot be before start date.");
       return;
     }
     if (
@@ -1144,11 +987,11 @@ export function Settings() {
       (experienceDraft.location?.trim().length || 0) > PROFILE_LIMITS.experienceLocation ||
       (experienceDraft.description?.trim().length || 0) > PROFILE_LIMITS.experienceDescription
     ) {
-      toast.error(t("settings.toast.experienceFieldTooLong"));
+      toast.error("One or more work experience fields exceed the allowed length.");
       return;
     }
     if (!editingExperienceId && workExperiences.length >= 25) {
-      toast.error(t("settings.toast.experienceLimitReached"));
+      toast.error("You can add up to 25 work experience entries.");
       return;
     }
 
@@ -1169,9 +1012,9 @@ export function Settings() {
       setWorkExperiences(nextItems);
       updateAuthProfile({ workExperience: nextItems });
       resetExperienceEditor();
-      toast.success(editingExperienceId ? t("settings.toast.experienceUpdated") : t("settings.toast.experienceAdded"));
+      toast.success(editingExperienceId ? "Work experience updated." : "Work experience added.");
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.experienceSaveFailed"));
+      toast.error(error?.message || "Failed to save work experience.");
     } finally {
       setIsExperienceSaving(false);
     }
@@ -1200,9 +1043,9 @@ export function Settings() {
       updateAuthProfile({ workExperience: nextItems });
       if (editingExperienceId === id) resetExperienceEditor();
       setDeleteExperienceTarget(null);
-      toast.success(t("settings.toast.experienceRemoved"));
+      toast.success("Work experience removed.");
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.experienceRemoveFailed"));
+      toast.error(error?.message || "Failed to remove work experience.");
     } finally {
       setDeletingExperienceId(null);
     }
@@ -1210,7 +1053,7 @@ export function Settings() {
 
   const handleRequestPasswordOtp = async () => {
     if (!securityData.currentPassword) {
-      toast.error(t("settings.toast.currentPasswordRequired"));
+      toast.error("Please enter your current password");
       return;
     }
 
@@ -1218,9 +1061,9 @@ export function Settings() {
     try {
       await requestPasswordChangeOtp({ currentPassword: securityData.currentPassword });
       setPasswordOtpRequested(true);
-      toast.success(t("settings.toast.otpSent"));
+      toast.success("OTP sent to your email");
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.otpSendFailed"));
+      toast.error(error?.message || "Failed to send OTP");
     } finally {
       setIsOtpSending(false);
     }
@@ -1228,22 +1071,22 @@ export function Settings() {
 
   const handleChangePassword = async () => {
     if (!passwordOtpRequested) {
-      toast.error(t("settings.toast.otpRequestFirst"));
+      toast.error("Request OTP first");
       return;
     }
 
     if (!passwordOtp) {
-      toast.error(t("settings.toast.otpCodeRequired"));
+      toast.error("Please enter the OTP code");
       return;
     }
 
     if (!securityData.currentPassword || !securityData.newPassword || !securityData.confirmPassword) {
-      toast.error(t("settings.toast.fillAllFields"));
+      toast.error("Please fill in all fields");
       return;
     }
 
     if (securityData.newPassword !== securityData.confirmPassword) {
-      toast.error(t("settings.toast.passwordsDoNotMatch"));
+      toast.error("New passwords do not match");
       return;
     }
 
@@ -1254,7 +1097,7 @@ export function Settings() {
         code: passwordOtp,
         newPassword: securityData.newPassword,
       });
-      toast.success(t("settings.toast.passwordChanged"));
+      toast.success("Password changed successfully!");
       setSecurityData({
         currentPassword: "",
         newPassword: "",
@@ -1263,7 +1106,7 @@ export function Settings() {
       setPasswordOtp("");
       setPasswordOtpRequested(false);
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.passwordChangeFailed"));
+      toast.error(error?.message || "Failed to change password");
     } finally {
       setIsPasswordSubmitting(false);
     }
@@ -1277,7 +1120,7 @@ export function Settings() {
     });
     setPasswordOtp("");
     setPasswordOtpRequested(false);
-    toast.info(t("settings.toast.changesDiscarded"));
+    toast.info("Changes discarded");
   };
 
   const handleRevokeSession = async (sessionId: string) => {
@@ -1285,9 +1128,9 @@ export function Settings() {
       await revokeSession(sessionId);
       // Immediately update UI by removing the session
       setSessions(prevSessions => prevSessions.filter((s) => s.id !== sessionId));
-      toast.success(t("settings.toast.sessionRevoked"));
+      toast.success("Session revoked successfully");
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.sessionRevokeFailed"));
+      toast.error(error?.message || "Failed to revoke session");
       console.error("Revoke session error:", error);
     }
   };
@@ -1297,11 +1140,11 @@ export function Settings() {
       await revokeAllSessions();
       // Clear all sessions from state
       setSessions([]);
-      toast.success(t("settings.toast.allSessionsRevoked"));
+      toast.success("All sessions revoked. You will be logged out.");
       // Optionally redirect to login or refresh the page
       window.location.href = "/sign-in";
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.allSessionsRevokeFailed"));
+      toast.error(error?.message || "Failed to revoke all sessions");
     }
   };
 
@@ -1312,14 +1155,14 @@ export function Settings() {
       setPhoneCodeRequested(true);
       setPhoneCodeHint(
         response.devCode
-          ? t("settings.toast.devCode", { code: response.devCode })
+          ? `Development code: ${response.devCode}`
           : response.phoneMasked
-            ? t("settings.toast.codeSentTo", { phone: response.phoneMasked })
+            ? `Code sent to ${response.phoneMasked}`
             : null
       );
-      toast.success(response?.message || t("settings.toast.verificationCodeSent"));
+      toast.success(response?.message || "Verification code sent");
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.verificationCodeSendFailed"));
+      toast.error(error?.message || "Failed to send verification code");
     } finally {
       setIsSendingPhoneCode(false);
     }
@@ -1328,18 +1171,18 @@ export function Settings() {
   const handleConfirmPhoneCode = async () => {
     const normalizedCode = phoneVerificationCode.trim();
     if (!normalizedCode) {
-      toast.error(t("settings.toast.enterVerificationCode"));
+      toast.error("Enter the verification code");
       return;
     }
     try {
       setIsConfirmingPhoneCode(true);
       await confirmPhoneVerificationOtp({ code: normalizedCode });
-      toast.success(t("settings.toast.phoneVerified"));
+      toast.success("Phone verified successfully");
       setPhoneVerificationCode("");
       setPhoneCodeRequested(false);
       await reloadVerificationStatus();
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.phoneVerifyFailed"));
+      toast.error(error?.message || "Failed to verify phone");
     } finally {
       setIsConfirmingPhoneCode(false);
     }
@@ -1350,11 +1193,11 @@ export function Settings() {
     if (!file) return;
     try {
       await uploadAddressDocument(file);
-      toast.success(t("settings.toast.addressUploaded"));
+      toast.success("Address document uploaded successfully");
       // Reload verification status
       await reloadVerificationStatus();
     } catch (error: any) {
-      toast.error(error?.message || t("settings.toast.addressUploadFailed"));
+      toast.error(error?.message || "Failed to upload address document");
     }
   };
 
@@ -1362,9 +1205,9 @@ export function Settings() {
     <div className="ui-page mx-auto max-w-[1200px] px-4 pb-16 md:px-0">
       <div className="ui-page-header">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">{t("settings.eyebrow")}</p>
-          <h1 className="ui-page-title mt-1">{t("settings.title")}</h1>
-          <p className="ui-page-subtitle">{t("settings.subtitle")}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">Account preferences</p>
+          <h1 className="ui-page-title mt-1">Settings</h1>
+          <p className="ui-page-subtitle">Manage your profile, security, verification, and payment information.</p>
         </div>
       </div>
 
@@ -1372,7 +1215,7 @@ export function Settings() {
         <div className="bg-slate-50 px-4 pt-4 sm:px-6 sm:pt-5">
           <div className="border-b border-slate-200 pb-4">
             <SettingsTabList
-              ariaLabel={t("settings.tabs.ariaMain")}
+              ariaLabel="Settings sections"
               idPrefix="settings-main"
               options={visibleMainTabs}
               value={activeTab}
@@ -1390,7 +1233,7 @@ export function Settings() {
           >
             <div className="mb-6">
               <SettingsTabList
-                ariaLabel={t("settings.tabs.ariaAccount")}
+                ariaLabel="Account settings sections"
                 idPrefix="settings-account"
                 options={visibleAccountTabs}
                 value={accountTab}
@@ -1414,13 +1257,13 @@ export function Settings() {
                 >
                       <div>
                         <h2 className="text-[18px] font-semibold text-[#111827]">
-                          {isEmployerRole ? t("settings.personal.businessHeading") : t("settings.personal.personalHeading")}
+                          {isEmployerRole ? "Business Information" : "Personal Information"}
                         </h2>
                         <p className="text-[13px] text-[#6B7280]">
-                          {isEmployerRole ? t("settings.personal.businessSubtitle") : t("settings.personal.personalSubtitle")}
+                          Update your {isEmployerRole ? "employer profile" : "profile information"}.
                         </p>
                         {isProfileLoading && (
-                          <p className="text-[12px] text-[#6B7280] mt-1" role="status">{t("settings.personal.loading")}</p>
+                          <p className="text-[12px] text-[#6B7280] mt-1" role="status">Loading profile...</p>
                         )}
                       </div>
 
@@ -1432,7 +1275,7 @@ export function Settings() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label htmlFor="settings-first-name" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.firstName")}</label>
+                          <label htmlFor="settings-first-name" className="text-[14px] font-medium text-[#475569] mb-2 block">First name</label>
                           <input
                             id="settings-first-name"
                             type="text"
@@ -1447,7 +1290,7 @@ export function Settings() {
                           />
                         </div>
                         <div>
-                          <label htmlFor="settings-last-name" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.lastName")}</label>
+                          <label htmlFor="settings-last-name" className="text-[14px] font-medium text-[#475569] mb-2 block">Last name</label>
                           <input
                             id="settings-last-name"
                             type="text"
@@ -1465,7 +1308,7 @@ export function Settings() {
 
                       {isEmployerRole && (
                         <div>
-                          <label htmlFor="settings-company-name" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.companyName")}</label>
+                          <label htmlFor="settings-company-name" className="text-[14px] font-medium text-[#475569] mb-2 block">Company name</label>
                           <input
                             id="settings-company-name"
                             type="text"
@@ -1476,7 +1319,7 @@ export function Settings() {
                             aria-invalid={profileErrorField === "companyName"}
                             aria-describedby={profileErrorField === "companyName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("companyName", e.target.value)}
-                            placeholder={t("settings.personal.companyNamePlaceholder")}
+                            placeholder="Enter your company name"
                             className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
                         </div>
@@ -1492,13 +1335,13 @@ export function Settings() {
                                 onClick={() => setLocationReloadKey((value) => value + 1)}
                                 className="min-h-11 rounded-[8px] border border-amber-300 bg-white px-4 font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
                               >
-                                {t("settings.personal.retry")}
+                                Retry
                               </button>
                             </div>
                           ) : null}
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                              <label htmlFor="settings-province" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.province")}</label>
+                              <label htmlFor="settings-province" className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
                               <input
                                 id="settings-province"
                                 list="settings-province-options"
@@ -1508,7 +1351,7 @@ export function Settings() {
                                 disabled={isLoadingLocationData || Boolean(locationDataError)}
                                 aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
                                 onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
-                                placeholder={isLoadingLocationData ? t("settings.personal.provincePlaceholderLoading") : t("settings.personal.provincePlaceholder")}
+                                placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
                                 className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
                               />
                               <datalist id="settings-province-options">
@@ -1517,7 +1360,7 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label htmlFor="settings-city" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.city")}</label>
+                              <label htmlFor="settings-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City / Municipality</label>
                               <input
                                 id="settings-city"
                                 list="settings-city-options"
@@ -1527,7 +1370,7 @@ export function Settings() {
                                 disabled={!selectedProvince || Boolean(locationDataError)}
                                 aria-invalid={Boolean(personalInfo.city) && !selectedCity}
                                 onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
-                                placeholder={selectedProvince ? t("settings.personal.cityPlaceholder") : t("settings.personal.cityPlaceholderDisabled")}
+                                placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
                                 className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
                               />
                               <datalist id="settings-city-options">
@@ -1536,7 +1379,7 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label htmlFor="settings-barangay" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.barangay")}</label>
+                              <label htmlFor="settings-barangay" className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
                               <input
                                 id="settings-barangay"
                                 list="settings-barangay-options"
@@ -1546,7 +1389,7 @@ export function Settings() {
                                 aria-invalid={Boolean(personalInfo.barangay) && !selectedBarangay}
                                 aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
                                 onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
-                                placeholder={!selectedCity ? t("settings.personal.barangayPlaceholderDisabled") : isLoadingBarangays ? t("settings.personal.barangayPlaceholderLoading") : t("settings.personal.barangayPlaceholder")}
+                                placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
                                 className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
                               />
                               <datalist id="settings-barangay-options">
@@ -1558,20 +1401,20 @@ export function Settings() {
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label htmlFor="settings-location-type" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.locationType")}</label>
+                              <label htmlFor="settings-location-type" className="text-[14px] font-medium text-[#475569] mb-2 block">Location type</label>
                               <select
                                 id="settings-location-type"
                                 value={personalInfo.addressType}
                                 onChange={(e) => handlePersonalInfoChange("addressType", e.target.value)}
                                 className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
-                                <option value="home">{t("settings.personal.locationTypeOptions.home")}</option>
-                                <option value="office">{t("settings.personal.locationTypeOptions.office")}</option>
-                                <option value="place">{t("settings.personal.locationTypeOptions.place")}</option>
+                                <option value="home">Home address</option>
+                                <option value="office">Office / Business address</option>
+                                <option value="place">Landmark / Place</option>
                               </select>
                             </div>
                             <div>
-                              <label htmlFor="settings-address" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.address")}</label>
+                              <label htmlFor="settings-address" className="text-[14px] font-medium text-[#475569] mb-2 block">Address / Place</label>
                               <input
                                 id="settings-address"
                                 type="text"
@@ -1582,7 +1425,7 @@ export function Settings() {
                                 aria-invalid={profileErrorField === "address"}
                                 aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
                                 onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
-                                placeholder={personalInfo.addressType === "place" ? t("settings.personal.addressPlaceholderPlace") : t("settings.personal.addressPlaceholderDefault")}
+                                placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
                                 className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               />
                             </div>
@@ -1599,7 +1442,7 @@ export function Settings() {
                       {!isAdminRole && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label htmlFor="settings-phone" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.phone")}</label>
+                            <label htmlFor="settings-phone" className="text-[14px] font-medium text-[#475569] mb-2 block">Phone number</label>
                             <input
                               id="settings-phone"
                               type="tel"
@@ -1610,12 +1453,12 @@ export function Settings() {
                               aria-describedby={profileErrorField === "phone" ? "settings-profile-error" : undefined}
                               maxLength={20}
                               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
-                              placeholder={t("settings.personal.phonePlaceholder")}
+                              placeholder="e.g., 0917 123 4567"
                               className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             />
                           </div>
                           <div>
-                            <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.email")}</label>
+                            <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
                             <input
                               id="settings-employer-email"
                               type="email"
@@ -1629,7 +1472,7 @@ export function Settings() {
 
                       {isAdminRole && (
                         <div>
-                          <label htmlFor="settings-worker-email" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.email")}</label>
+                          <label htmlFor="settings-worker-email" className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
                           <input
                             id="settings-worker-email"
                             type="email"
@@ -1643,7 +1486,7 @@ export function Settings() {
                       {!isAdminRole && (
                         <>
                           <div>
-                            <label htmlFor="settings-about" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.about")}</label>
+                            <label htmlFor="settings-about" className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
                             <textarea
                               id="settings-about"
                               value={personalInfo.about}
@@ -1651,7 +1494,7 @@ export function Settings() {
                               aria-invalid={profileErrorField === "about"}
                               aria-describedby={profileErrorField === "about" ? "settings-profile-error settings-about-count" : "settings-about-count"}
                               onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
-                              placeholder={t("settings.personal.aboutPlaceholder")}
+                              placeholder="Tell us about yourself, your experience, and what you're passionate about..."
                               className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={4}
                             />
@@ -1661,13 +1504,13 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label htmlFor="settings-job-position" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.jobPosition")}</label>
+                            <label htmlFor="settings-job-position" className="text-[14px] font-medium text-[#475569] mb-2 block">Professional headline</label>
                             <input
                               id="settings-job-position"
                               type="text"
                               value={personalInfo.jobPosition}
                               onChange={(e) => handlePersonalInfoChange("jobPosition", e.target.value)}
-                              placeholder={t("settings.personal.jobPositionPlaceholder")}
+                              placeholder="e.g., House cleaner, Tutor, Delivery specialist"
                               maxLength={PROFILE_LIMITS.jobPosition}
                               aria-invalid={profileErrorField === "jobPosition"}
                               aria-describedby={profileErrorField === "jobPosition" ? "settings-profile-error" : undefined}
@@ -1677,13 +1520,13 @@ export function Settings() {
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label htmlFor="settings-linkedin" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.linkedin")}</label>
+                              <label htmlFor="settings-linkedin" className="text-[14px] font-medium text-[#475569] mb-2 block">LinkedIn URL</label>
                               <input
                                 id="settings-linkedin"
                                 type="url"
                                 value={personalInfo.linkedin}
                                 onChange={(e) => handlePersonalInfoChange("linkedin", e.target.value)}
-                                placeholder={t("settings.personal.linkedinPlaceholder")}
+                                placeholder="https://linkedin.com/in/your-name"
                                 maxLength={PROFILE_LIMITS.url}
                                 autoComplete="url"
                                 aria-invalid={profileErrorField === "linkedin"}
@@ -1692,13 +1535,13 @@ export function Settings() {
                               />
                             </div>
                             <div>
-                              <label htmlFor="settings-website" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.website")}</label>
+                              <label htmlFor="settings-website" className="text-[14px] font-medium text-[#475569] mb-2 block">Portfolio or website</label>
                               <input
                                 id="settings-website"
                                 type="url"
                                 value={personalInfo.website}
                                 onChange={(e) => handlePersonalInfoChange("website", e.target.value)}
-                                placeholder={t("settings.personal.websitePlaceholder")}
+                                placeholder="https://your-portfolio.example"
                                 maxLength={PROFILE_LIMITS.url}
                                 autoComplete="url"
                                 aria-invalid={profileErrorField === "website"}
@@ -1709,30 +1552,30 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label htmlFor="settings-experience" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.experienceLabel")}</label>
+                            <label htmlFor="settings-experience" className="text-[14px] font-medium text-[#475569] mb-2 block">Total Experience</label>
                             <select
                               id="settings-experience"
                               value={experienceStats.totalExperience}
                               onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
                               className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             >
-                              <option value="">{t("settings.personal.experienceOptions.select")}</option>
-                              <option value="Less than 1 Year">{t("settings.personal.experienceOptions.lessThanOne")}</option>
-                              <option value="1 Year">{t("settings.personal.experienceOptions.one")}</option>
-                              <option value="2 Years">{t("settings.personal.experienceOptions.two")}</option>
-                              <option value="3 Years">{t("settings.personal.experienceOptions.three")}</option>
-                              <option value="4 Years">{t("settings.personal.experienceOptions.four")}</option>
-                              <option value="5 Years">{t("settings.personal.experienceOptions.five")}</option>
-                              <option value="6 Years">{t("settings.personal.experienceOptions.six")}</option>
-                              <option value="7 Years">{t("settings.personal.experienceOptions.seven")}</option>
-                              <option value="8 Years">{t("settings.personal.experienceOptions.eight")}</option>
-                              <option value="9 Years">{t("settings.personal.experienceOptions.nine")}</option>
-                              <option value="10+ Years">{t("settings.personal.experienceOptions.tenPlus")}</option>
+                              <option value="">Select experience</option>
+                              <option value="Less than 1 Year">Less than 1 Year</option>
+                              <option value="1 Year">1 Year</option>
+                              <option value="2 Years">2 Years</option>
+                              <option value="3 Years">3 Years</option>
+                              <option value="4 Years">4 Years</option>
+                              <option value="5 Years">5 Years</option>
+                              <option value="6 Years">6 Years</option>
+                              <option value="7 Years">7 Years</option>
+                              <option value="8 Years">8 Years</option>
+                              <option value="9 Years">9 Years</option>
+                              <option value="10+ Years">10+ Years</option>
                             </select>
                           </div>
 
                           <div>
-                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.personal.photo")}</p>
+                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</p>
                             {resolvedAvatarUrl ? (
                               <div className="flex items-center gap-4">
                                 <img
@@ -1743,7 +1586,7 @@ export function Settings() {
                                 <div className="flex flex-col gap-2">
                                   <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-2 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 text-[14px]">
                                     <Upload className="w-4 h-4" />
-                                    {t("settings.personal.changePhoto")}
+                                    Change photo
                                     <input
                                       type="file"
                                       accept=".jpg,.jpeg,.png,.gif,.webp"
@@ -1760,25 +1603,25 @@ export function Settings() {
                                     aria-busy={isAvatarSubmitting}
                                     className="text-[#EF4444] hover:bg-[#FEE2E2] px-6 py-2 rounded-[10px] transition-all text-[14px] font-medium border border-[#FCA5A5]"
                                   >
-                                    {t("settings.personal.removePhoto")}
+                                    Remove photo
                                   </button>
                                 </div>
                               </div>
                             ) : (
                               <div className="flex flex-wrap items-center gap-4">
-                                <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
-                                  <Upload className="w-4 h-4" />
-                                  {t("settings.personal.uploadPhoto")}
+                              <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
+                               <Upload className="w-4 h-4 text-white" />
+                                <span className="text-white">Upload your photo</span>
                                   <input
-                                    type="file"
-                                    accept=".jpg,.jpeg,.png,.gif,.webp"
-                                    onChange={handlePhotoUpload}
-                                    disabled={isAvatarSubmitting}
-                                    aria-label="Choose a profile photo"
-                                    className="sr-only"
-                                  />
+                                       type="file"
+                                       accept=".jpg,.jpeg,.png,.gif,.webp"
+                                        onChange={handlePhotoUpload}
+                                        disabled={isAvatarSubmitting}
+                                         aria-label="Choose a profile photo"
+                                         className="sr-only"
+                                />  
                                 </label>
-                                <span className="text-[13px] text-[#64748B]">{t("settings.personal.photoHint")}</span>
+                                <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
                               </div>
                             )}
                           </div>
@@ -1793,7 +1636,7 @@ export function Settings() {
                           isProfileSaving || isProfileLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
                         }`}
                       >
-                        {isProfileSaving ? t("settings.personal.saving") : isProfileLoading ? t("settings.personal.loadingButton") : t("settings.personal.save")}
+                        {isProfileSaving ? "Saving..." : isProfileLoading ? "Loading..." : "Save changes"}
                       </button>
                 </form>
               </div>
@@ -1807,38 +1650,38 @@ export function Settings() {
                       className="space-y-6"
                     >
                       <div>
-                        <h2 className="text-[18px] font-semibold text-[#111827]">{t("settings.experience.heading")}</h2>
-                        <p className="text-[13px] text-[#6B7280]">{t("settings.experience.subtitle")}</p>
+                        <h2 className="text-[18px] font-semibold text-[#111827]">Skills & Experience</h2>
+                        <p className="text-[13px] text-[#6B7280]">Add and manage your skills and expertise.</p>
                       </div>
 
                       <div className="rounded-[16px] border border-[#E2E8F0] bg-white p-6 space-y-5">
                         <div>
                           <h3 className="text-[16px] font-semibold text-[#1E293B]">
-                            {editingExperienceId ? t("settings.experience.editHeading") : t("settings.experience.addHeading")}
+                            {editingExperienceId ? "Edit work experience" : "Add work experience"}
                           </h3>
-                          <p className="mt-1 text-[13px] text-[#64748B]">{t("settings.experience.formSubtitle")}</p>
+                          <p className="mt-1 text-[13px] text-[#64748B]">Show employers the roles, client work, or self-employment that support your skills.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label htmlFor="experience-title" className="text-[13px] font-medium text-[#475569] mb-2 block">{t("settings.experience.jobTitle")}</label>
-                            <input id="experience-title" value={experienceDraft.title} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder={t("settings.experience.jobTitlePlaceholder")} className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-title" className="text-[13px] font-medium text-[#475569] mb-2 block">Job title *</label>
+                            <input id="experience-title" value={experienceDraft.title} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Math tutor" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                           </div>
                           <div>
-                            <label htmlFor="experience-company" className="text-[13px] font-medium text-[#475569] mb-2 block">{t("settings.experience.company")}</label>
-                            <input id="experience-company" value={experienceDraft.company} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder={t("settings.experience.companyPlaceholder")} className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-company" className="text-[13px] font-medium text-[#475569] mb-2 block">Company or client *</label>
+                            <input id="experience-company" value={experienceDraft.company} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Self-employed" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                           </div>
                           <div>
-                            <label htmlFor="experience-location" className="text-[13px] font-medium text-[#475569] mb-2 block">{t("settings.experience.location")}</label>
-                            <input id="experience-location" value={experienceDraft.location} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder={t("settings.experience.locationPlaceholder")} className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-location" className="text-[13px] font-medium text-[#475569] mb-2 block">Location</label>
+                            <input id="experience-location" value={experienceDraft.location} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label htmlFor="experience-start" className="text-[13px] font-medium text-[#475569] mb-2 block">{t("settings.experience.start")}</label>
+                              <label htmlFor="experience-start" className="text-[13px] font-medium text-[#475569] mb-2 block">Start *</label>
                               <input id="experience-start" type="month" value={experienceDraft.startDate} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-[#E2E8F0] rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                             </div>
                             <div>
-                              <label htmlFor="experience-end" className="text-[13px] font-medium text-[#475569] mb-2 block">{t("settings.experience.end")}</label>
+                              <label htmlFor="experience-end" className="text-[13px] font-medium text-[#475569] mb-2 block">End *</label>
                               <input id="experience-end" type="month" value={experienceDraft.endDate || ""} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={experienceDraft.current} className="w-full border border-[#E2E8F0] rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
                             </div>
                           </div>
@@ -1846,53 +1689,53 @@ export function Settings() {
 
                         <label className="flex items-center gap-2 text-[13px] text-[#475569] cursor-pointer">
                           <input type="checkbox" checked={experienceDraft.current} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? "" : prev.endDate }))} className="w-4 h-4" />
-                          {t("settings.experience.current")}
+                          I currently work here
                         </label>
 
                         <div>
-                          <label htmlFor="experience-description" className="text-[13px] font-medium text-[#475569] mb-2 block">{t("settings.experience.description")}</label>
-                          <textarea id="experience-description" value={experienceDraft.description} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder={t("settings.experience.descriptionPlaceholder")} className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
+                          <label htmlFor="experience-description" className="text-[13px] font-medium text-[#475569] mb-2 block">Description</label>
+                          <textarea id="experience-description" value={experienceDraft.description} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
                         </div>
 
                         <div className="flex flex-wrap gap-3">
                           <button type="button" onClick={handleSaveExperience} disabled={isExperienceSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
-                            {isExperienceSaving ? t("settings.experience.saving") : editingExperienceId ? t("settings.experience.save") : t("settings.experience.add")}
+                            {isExperienceSaving ? "Saving..." : editingExperienceId ? "Save experience" : "Add experience"}
                           </button>
                           {editingExperienceId && (
-                            <button type="button" onClick={resetExperienceEditor} className="bg-[#F1F5F9] text-[#475569] font-semibold px-5 py-2.5 rounded-[10px]">{t("settings.experience.cancel")}</button>
+                            <button type="button" onClick={resetExperienceEditor} className="bg-[#F1F5F9] text-[#475569] font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
                           )}
                         </div>
                       </div>
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-[16px] font-semibold text-[#1E293B]">{t("settings.experience.historyHeading")}</h3>
-                          <span className="text-[12px] text-[#64748B]">{t("settings.experience.entry", { count: workExperiences.length })}</span>
+                          <h3 className="text-[16px] font-semibold text-[#1E293B]">Work history</h3>
+                          <span className="text-[12px] text-[#64748B]">{workExperiences.length} {workExperiences.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {workExperiences.length ? workExperiences.map((item) => (
                           <div key={item.id} className="rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <p className="text-[15px] font-semibold text-[#1E293B]">{item.title}</p>
                               <p className="text-[13px] text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                              <p className="mt-1 text-[12px] text-[#64748B]">{formatExperienceMonth(item.startDate)} – {item.current ? t("settings.experience.present") : formatExperienceMonth(item.endDate)}</p>
+                              <p className="mt-1 text-[12px] text-[#64748B]">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
                               {item.description ? <p className="mt-3 text-[13px] text-[#475569] whitespace-pre-line">{item.description}</p> : null}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <button type="button" onClick={() => handleEditExperience(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">{t("settings.experience.edit")}</button>
-                              <button type="button" onClick={() => setDeleteExperienceTarget(item)} aria-label={t("settings.experience.deleteAria", { title: item.title })} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
+                              <button type="button" onClick={() => handleEditExperience(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => setDeleteExperienceTarget(item)} aria-label={`Delete ${item.title} experience`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </div>
                         )) : (
-                          <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-8 text-center text-[13px] text-[#64748B]">{t("settings.experience.empty")}</div>
+                          <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-8 text-center text-[13px] text-[#64748B]">No work history added yet.</div>
                         )}
                       </div>
 
                       <div className="bg-[#1C4D8D]/[0.08] border border-[#1C4D8D]/20 rounded-[16px] p-6">
-                        <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">{t("settings.skills.addNew")}</h3>
+                        <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">Add New Skill</h3>
                         <div className="space-y-4">
                           {/* Skill Selection Mode */}
                           <div>
-                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.skills.chooseOption")}</p>
+                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">Choose Option</p>
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -1902,7 +1745,7 @@ export function Settings() {
                                   onChange={() => setSkillSelectionMode("predefined")}
                                   className="w-4 h-4 text-[#1C4D8D]"
                                 />
-                                <span className="text-[14px] text-[#475569]">{t("settings.skills.selectFromList")}</span>
+                                <span className="text-[14px] text-[#475569]">Select from list</span>
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -1912,14 +1755,14 @@ export function Settings() {
                                   onChange={() => setSkillSelectionMode("custom")}
                                   className="w-4 h-4 text-[#1C4D8D]"
                                 />
-                                <span className="text-[14px] text-[#475569]">{t("settings.skills.customSkill")}</span>
+                                <span className="text-[14px] text-[#475569]">Custom skill</span>
                               </label>
                             </div>
                           </div>
 
                           {/* Skill Name Input */}
                           <div>
-                            <p id="settings-skill-name-label" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.skills.skillName")}</p>
+                            <p id="settings-skill-name-label" className="text-[14px] font-medium text-[#475569] mb-2 block">Skill Name</p>
                             {skillSelectionMode === "predefined" ? (
                               <select
                                 aria-labelledby="settings-skill-name-label"
@@ -1927,19 +1770,103 @@ export function Settings() {
                                 onChange={(e) => setSelectedPredefinedSkill(e.target.value)}
                                 className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
-                                <option value="">{t("settings.skills.selectPlaceholder")}</option>
-                                {SKILL_CATALOG.map((category) => (
-                                  <optgroup
-                                    key={category.categoryKey}
-                                    label={t(`settings.skills.catalog.categories.${category.categoryKey}`)}
-                                  >
-                                    {category.items.map((item) => (
-                                      <option key={item.key} value={item.value}>
-                                        {t(`settings.skills.catalog.items.${item.key}`)}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                ))}
+                                <option value="">Select a skill</option>
+                                <optgroup label="Household & Cleaning">
+                                  <option value="House Cleaning">House Cleaning</option>
+                                  <option value="Window Cleaning">Window Cleaning</option>
+                                  <option value="Laundry Service">Laundry Service</option>
+                                  <option value="Ironing">Ironing</option>
+                                  <option value="Kitchen Cleaning">Kitchen Cleaning</option>
+                                  <option value="Bathroom Cleaning">Bathroom Cleaning</option>
+                                </optgroup>
+                                <optgroup label="Gardening & Landscaping">
+                                  <option value="Gardening">Gardening</option>
+                                  <option value="Lawn Mowing">Lawn Mowing</option>
+                                  <option value="Landscaping">Landscaping</option>
+                                  <option value="Plant Care">Plant Care</option>
+                                  <option value="Weeding">Weeding</option>
+                                  <option value="Hedge Trimming">Hedge Trimming</option>
+                                </optgroup>
+                                <optgroup label="Shopping & Delivery">
+                                  <option value="Shopping">Shopping</option>
+                                  <option value="Grocery Shopping">Grocery Shopping</option>
+                                  <option value="Delivery Service">Delivery Service</option>
+                                  <option value="Errand Running">Errand Running</option>
+                                  <option value="Package Pickup">Package Pickup</option>
+                                </optgroup>
+                                <optgroup label="Academic & Tutoring">
+                                  <option value="Tutoring">Tutoring</option>
+                                  <option value="Math Tutoring">Math Tutoring</option>
+                                  <option value="English Tutoring">English Tutoring</option>
+                                  <option value="Language Tutoring">Language Tutoring</option>
+                                  <option value="Science Tutoring">Science Tutoring</option>
+                                  <option value="Homework Help">Homework Help</option>
+                                  <option value="Test Preparation">Test Preparation</option>
+                                </optgroup>
+                                <optgroup label="Languages & Translation">
+                                  <option value="English Speaking">English Speaking</option>
+                                  <option value="Translation Service">Translation Service</option>
+                                  <option value="Language Coaching">Language Coaching</option>
+                                  <option value="Pronunciation Training">Pronunciation Training</option>
+                                </optgroup>
+                                <optgroup label="Fitness & Wellness">
+                                  <option value="Personal Training">Personal Training</option>
+                                  <option value="Yoga Instruction">Yoga Instruction</option>
+                                  <option value="Fitness Coaching">Fitness Coaching</option>
+                                  <option value="Walking Companion">Walking Companion</option>
+                                </optgroup>
+                                <optgroup label="Pet Care">
+                                  <option value="Dog Walking">Dog Walking</option>
+                                  <option value="Pet Sitting">Pet Sitting</option>
+                                  <option value="Pet Grooming">Pet Grooming</option>
+                                  <option value="Pet Training">Pet Training</option>
+                                </optgroup>
+                                <optgroup label="Handyman & Repairs">
+                                  <option value="Handyman Services">Handyman Services</option>
+                                  <option value="Painting">Painting</option>
+                                  <option value="Carpentry">Carpentry</option>
+                                  <option value="Plumbing Assistance">Plumbing Assistance</option>
+                                  <option value="Furniture Assembly">Furniture Assembly</option>
+                                  <option value="Electrical Assistance">Electrical Assistance</option>
+                                </optgroup>
+                                <optgroup label="Cooking & Food">
+                                  <option value="Meal Preparation">Meal Preparation</option>
+                                  <option value="Cooking">Cooking</option>
+                                  <option value="Baking">Baking</option>
+                                  <option value="Food Delivery">Food Delivery</option>
+                                  <option value="Kitchen Help">Kitchen Help</option>
+                                </optgroup>
+                                <optgroup label="Childcare & Babysitting">
+                                  <option value="Babysitting">Babysitting</option>
+                                  <option value="Childcare">Childcare</option>
+                                  <option value="After-School Care">After-School Care</option>
+                                  <option value="Tutoring Kids">Tutoring Kids</option>
+                                </optgroup>
+                                <optgroup label="Administrative & Technical">
+                                  <option value="Data Entry">Data Entry</option>
+                                  <option value="Virtual Assistant">Virtual Assistant</option>
+                                  <option value="Typing Services">Typing Services</option>
+                                  <option value="Transcription">Transcription</option>
+                                  <option value="Email Management">Email Management</option>
+                                </optgroup>
+                                <optgroup label="Creative Services">
+                                  <option value="Social Media Management">Social Media Management</option>
+                                  <option value="Photography">Photography</option>
+                                  <option value="Graphic Design">Graphic Design</option>
+                                  <option value="Content Writing">Content Writing</option>
+                                  <option value="Video Editing">Video Editing</option>
+                                </optgroup>
+                                <optgroup label="Moving & Heavy Lifting">
+                                  <option value="Moving Help">Moving Help</option>
+                                  <option value="Heavy Lifting">Heavy Lifting</option>
+                                  <option value="Packing Service">Packing Service</option>
+                                </optgroup>
+                                <optgroup label="Event Services">
+                                  <option value="Event Setup">Event Setup</option>
+                                  <option value="Event Planning">Event Planning</option>
+                                  <option value="Party Hosting Assistance">Party Hosting Assistance</option>
+                                  <option value="Decoration">Decoration</option>
+                                </optgroup>
                               </select>
                             ) : (
                               <input
@@ -1948,7 +1875,7 @@ export function Settings() {
                                 value={newSkillName}
                                 maxLength={PROFILE_LIMITS.skillName}
                                 onChange={(e) => setNewSkillName(e.target.value)}
-                                placeholder={t("settings.skills.customPlaceholder")}
+                                placeholder="e.g., Flutter, Blockchain, Video Editing"
                                 className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                                 onKeyDown={(event) => {
                                   if (event.key === "Enter") {
@@ -1961,14 +1888,14 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label htmlFor="settings-skill-description" className="text-[14px] font-medium text-[#475569] mb-2 block">{t("settings.skills.descriptionLabel")}</label>
+                            <label htmlFor="settings-skill-description" className="text-[14px] font-medium text-[#475569] mb-2 block">Description or experience note</label>
                             <textarea
                               id="settings-skill-description"
                               value={newSkillDescription}
                               maxLength={PROFILE_LIMITS.skillDescription}
                               aria-describedby="settings-skill-description-count"
                               onChange={(e) => setNewSkillDescription(e.target.value)}
-                              placeholder={t("settings.skills.descriptionPlaceholder")}
+                              placeholder="Optional: describe what you can do or your experience with this skill"
                               className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={3}
                             />
@@ -1983,14 +1910,14 @@ export function Settings() {
                             aria-busy={skillMutationId === "new"}
                             className="w-full bg-[#1C4D8D] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:opacity-90 transition-all"
                           >
-                            {skillMutationId === "new" ? t("settings.skills.saving") : t("settings.skills.add")}
+                            {skillMutationId === "new" ? "Saving..." : "Add Skill"}
                           </button>
                         </div>
                       </div>
 
                       {skills.length > 0 ? (
                         <div>
-                          <h3 className="text-[14px] font-semibold text-[#111827] mb-3">{t("settings.skills.yourSkills")}</h3>
+                          <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Your Skills</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {skills.map((skill) => (
                               <div
@@ -2002,11 +1929,11 @@ export function Settings() {
                                   {editingSkillId === skill.id ? (
                                     <div className="mt-3 space-y-3">
                                       <textarea
-                                        aria-label={t("settings.skills.descriptionForAria", { name: skill.name })}
+                                        aria-label={`Description for ${skill.name}`}
                                         value={editingSkillDescription}
                                         maxLength={PROFILE_LIMITS.skillDescription}
                                         onChange={(e) => setEditingSkillDescription(e.target.value)}
-                                        placeholder={t("settings.skills.descriptionEditPlaceholder")}
+                                        placeholder="Describe your experience with this skill"
                                         className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] text-[#111827] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                                         rows={3}
                                       />
@@ -2016,7 +1943,7 @@ export function Settings() {
                                           disabled={skillMutationId === skill.id}
                                           className="bg-[#1C4D8D] text-white text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:opacity-90 transition-all"
                                         >
-                                          {skillMutationId === skill.id ? t("settings.skills.saving") : t("settings.skills.saveNote")}
+                                          {skillMutationId === skill.id ? "Saving..." : "Save note"}
                                         </button>
                                         <button
                                           onClick={() => {
@@ -2025,14 +1952,14 @@ export function Settings() {
                                           }}
                                           className="bg-[#F3F4F6] text-[#374151] text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:bg-[#E5E7EB] transition-all"
                                         >
-                                          {t("settings.skills.cancel")}
+                                          Cancel
                                         </button>
                                       </div>
                                     </div>
                                   ) : (
                                     <>
                                       <p className="mt-2 text-[13px] text-[#64748B]">
-                                        {skill.description?.trim() || t("settings.skills.noDescription")}
+                                        {skill.description?.trim() || "No description added"}
                                       </p>
                                       <div className="flex items-center gap-2 mt-3">
                                         <button
@@ -2042,10 +1969,10 @@ export function Settings() {
                                           }}
                                           className="text-[12px] font-semibold text-[#1C4D8D] hover:opacity-80"
                                         >
-                                          {t("settings.skills.editDescription")}
+                                          Edit description
                                         </button>
                                         {skill.endorsements ? (
-                                          <span className="text-[12px] text-[#64748B]">{t("settings.skills.endorsements", { count: skill.endorsements })}</span>
+                                          <span className="text-[12px] text-[#64748B]">{skill.endorsements} endorsements</span>
                                         ) : null}
                                       </div>
                                     </>
@@ -2055,7 +1982,7 @@ export function Settings() {
                                   type="button"
                                   onClick={() => handleDeleteSkill(skill.id)}
                                   disabled={skillMutationId === skill.id}
-                                  aria-label={t("settings.skills.deleteAria", { name: skill.name })}
+                                  aria-label={`Delete ${skill.name} skill`}
                                   aria-busy={skillMutationId === skill.id}
                                   className="text-[#EF4444] hover:bg-[#FEE2E2] p-2 rounded-[8px] transition-colors flex-shrink-0"
                                 >
@@ -2067,8 +1994,8 @@ export function Settings() {
                         </div>
                       ) : (
                         <div className="text-center py-12 bg-[#f8fafc] rounded-[16px] border border-[#E5E7EB]">
-                          <p className="text-[14px] text-[#64748B] mb-2">{t("settings.skills.emptyTitle")}</p>
-                          <p className="text-[12px] text-[#94A3B8]">{t("settings.skills.emptySubtitle")}</p>
+                          <p className="text-[14px] text-[#64748B] mb-2">No skills added yet</p>
+                          <p className="text-[12px] text-[#94A3B8]">Add your skills above to showcase your expertise</p>
                         </div>
                       )}
                     </div>
@@ -2095,15 +2022,15 @@ export function Settings() {
             >
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
                 <div className="mb-6">
-                  <h2 className="text-[20px] font-semibold text-[#111827]">{t("settings.password.heading")}</h2>
+                  <h2 className="text-[20px] font-semibold text-[#111827]">Change Password</h2>
                   <p className="text-[13px] text-[#6B7280]">
-                    {t("settings.password.subtitle")}
+                    Changing your password will revoke your other active sessions and keep this one signed in.
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="settings-current-password" className="text-[13px] text-[#6B7280]">{t("settings.password.current")}</label>
+                    <label htmlFor="settings-current-password" className="text-[13px] text-[#6B7280]">Current Password</label>
                     <div className="relative">
                       <input
                         id="settings-current-password"
@@ -2116,7 +2043,7 @@ export function Settings() {
                       <button
                         type="button"
                         onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                        aria-label={showCurrentPassword ? t("settings.password.hideCurrent") : t("settings.password.showCurrent")}
+                        aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
                         aria-pressed={showCurrentPassword}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
                       >
@@ -2126,7 +2053,7 @@ export function Settings() {
                   </div>
 
                   <div className="rounded-[10px] border border-[#E5E7EB] bg-[#F8FAFC] p-3 text-[12px] text-[#475569]">
-                    {t("settings.password.otpHint")}
+                    Request OTP first. You will need the OTP from your email before setting a new password.
                   </div>
 
                   <div>
@@ -2135,28 +2062,28 @@ export function Settings() {
                       disabled={isOtpSending}
                       className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-[13px] font-semibold disabled:opacity-60"
                     >
-                      {isOtpSending ? t("settings.password.sendingOtp") : passwordOtpRequested ? t("settings.password.resendOtp") : t("settings.password.sendOtp")}
+                      {isOtpSending ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
                     </button>
                   </div>
 
                   <div>
-                    <label htmlFor="settings-password-otp" className="text-[13px] text-[#6B7280]">{t("settings.password.otpLabel")}</label>
+                    <label htmlFor="settings-password-otp" className="text-[13px] text-[#6B7280]">OTP Code</label>
                     <input
                       id="settings-password-otp"
                       type="text"
                       inputMode="numeric"
                       autoComplete="one-time-code"
-                      aria-label={t("settings.password.otpAria")}
+                      aria-label="Password change verification code"
                       value={passwordOtp}
                       onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                      placeholder={t("settings.password.otpPlaceholder")}
+                      placeholder="Enter 6-digit OTP"
                       className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="settings-new-password" className="text-[13px] text-[#6B7280]">{t("settings.password.new")}</label>
+                      <label htmlFor="settings-new-password" className="text-[13px] text-[#6B7280]">New Password</label>
                       <div className="relative">
                         <input
                           id="settings-new-password"
@@ -2169,7 +2096,7 @@ export function Settings() {
                         <button
                           type="button"
                           onClick={() => setShowNewPassword(!showNewPassword)}
-                          aria-label={showNewPassword ? t("settings.password.hideNew") : t("settings.password.showNew")}
+                          aria-label={showNewPassword ? "Hide new password" : "Show new password"}
                           aria-pressed={showNewPassword}
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
                         >
@@ -2179,7 +2106,7 @@ export function Settings() {
                     </div>
 
                     <div>
-                      <label htmlFor="settings-confirm-password" className="text-[13px] text-[#6B7280]">{t("settings.password.confirm")}</label>
+                      <label htmlFor="settings-confirm-password" className="text-[13px] text-[#6B7280]">Confirm Password</label>
                       <div className="relative">
                         <input
                           id="settings-confirm-password"
@@ -2192,7 +2119,7 @@ export function Settings() {
                         <button
                           type="button"
                           onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          aria-label={showConfirmPassword ? t("settings.password.hideConfirm") : t("settings.password.showConfirm")}
+                          aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
                           aria-pressed={showConfirmPassword}
                           className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94A3B8]"
                         >
@@ -2208,14 +2135,14 @@ export function Settings() {
                     onClick={handleDiscardPassword}
                     className="px-6 py-2.5 border border-[#E5E7EB] text-[#64748B] rounded-full text-[14px]"
                   >
-                    {t("settings.password.discard")}
+                    Discard
                   </button>
                   <button
                     onClick={handleChangePassword}
                     disabled={isPasswordSubmitting}
                     className="px-6 py-2.5 bg-[#1C4D8D] text-white rounded-full text-[14px] font-semibold disabled:opacity-60"
                   >
-                    {isPasswordSubmitting ? t("settings.password.saving") : t("settings.password.save")}
+                    {isPasswordSubmitting ? "Saving..." : "Save New Password"}
                   </button>
                 </div>
               </div>
@@ -2226,57 +2153,57 @@ export function Settings() {
 
               <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-[16px] font-semibold text-[#111827]">{t("settings.sessions.heading")}</h3>
+                  <h3 className="text-[16px] font-semibold text-[#111827]">Active Sessions</h3>
                   {sessions.length > 0 && (
                     <button
                       onClick={handleRevokeAllSessions}
                       className="text-[#EF4444] hover:bg-[#FEE2E2] px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors"
                     >
-                      {t("settings.sessions.signOutAll")}
+                      Sign out all sessions
                     </button>
                   )}
                 </div>
                 <p className="text-[13px] text-[#6B7280] mb-4">
-                  {t("settings.sessions.subtitle")}
+                  See your currently logged in sessions and remove unrecognized ones.
                 </p>
                 <div className="space-y-4">
                   {isLoadingSessions ? (
-                    <p className="text-[13px] text-[#6B7280]">{t("settings.sessions.loading")}</p>
+                    <p className="text-[13px] text-[#6B7280]">Loading sessions...</p>
                   ) : sessions.length === 0 ? (
-                    <p className="text-[13px] text-[#6B7280]">{t("settings.sessions.empty")}</p>
+                    <p className="text-[13px] text-[#6B7280]">No active sessions found.</p>
                   ) : (
                     sessions.map((session, index) => (
                       <div key={session.id} className="border border-[#E5E7EB] rounded-[12px] p-4">
                         <div className="flex items-start justify-between mb-3">
-                          <p className="text-[13px] font-semibold text-[#111827]">{t("settings.sessions.sessionLabel", { number: index + 1 })}</p>
+                          <p className="text-[13px] font-semibold text-[#111827]">Session {index + 1}</p>
                           {!session.current && (
                             <button
                               onClick={() => handleRevokeSession(session.id)}
                               className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-[12px] font-medium transition-colors"
                             >
-                              {t("settings.sessions.revoke")}
+                              Revoke
                             </button>
                           )}
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">{t("settings.sessions.currentQuestion")}</p>
-                            <p className="text-[14px] font-semibold text-[#111827]">{session.current ? t("settings.sessions.yes") : t("settings.sessions.no")}</p>
+                            <p className="text-[12px] text-[#6B7280]">Current Session?</p>
+                            <p className="text-[14px] font-semibold text-[#111827]">{session.current ? "Yes" : "No"}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">{t("settings.sessions.device")}</p>
+                            <p className="text-[12px] text-[#6B7280]">Device Details</p>
                             <p className="text-[14px] font-semibold text-[#111827]">{session.device}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">{t("settings.sessions.ip")}</p>
+                            <p className="text-[12px] text-[#6B7280]">IP Address</p>
                             <p className="text-[14px] font-semibold text-[#111827]">{session.ip}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">{t("settings.sessions.location")}</p>
+                            <p className="text-[12px] text-[#6B7280]">Location</p>
                             <p className="text-[14px] font-semibold text-[#111827]">{session.location}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">{t("settings.sessions.lastActive")}</p>
+                            <p className="text-[12px] text-[#6B7280]">Last activity</p>
                             <p className="text-[14px] font-semibold text-[#111827]">{session.lastActive}</p>
                           </div>
                           <div className="flex items-end">
@@ -2285,7 +2212,7 @@ export function Settings() {
                                 session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#E2E8F0] text-[#475569]"
                               }`}
                             >
-                              {session.current ? t("settings.sessions.currentBadge") : t("settings.sessions.signedInBadge")}
+                              {session.current ? "Current session" : "Signed in"}
                             </span>
                           </div>
                         </div>
@@ -2297,27 +2224,27 @@ export function Settings() {
 
               {!isAdminRole && (
                 <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                  <h3 className="text-[16px] font-semibold text-[#111827] mb-2">{t("settings.verification.heading")}</h3>
+                  <h3 className="text-[16px] font-semibold text-[#111827] mb-2">Verification</h3>
                   <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] p-4 mb-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-[14px] text-[#64748B]">{t("settings.verification.statusLabel")}</p>
+                        <p className="text-[14px] text-[#64748B]">Verification status</p>
                         <h4 className="text-[18px] font-semibold text-[#111827]">
-                          {isProfileVerified ? t("settings.verification.verified") : t("settings.verification.incomplete")}
+                          {isProfileVerified ? "Profile verified" : "Verification incomplete"}
                         </h4>
                         <p className="text-[12px] text-[#64748B] mt-1">
-                          {isProfileVerified ? t("settings.verification.verifiedSubtitle") : t("settings.verification.incompleteSubtitle")}
+                          {isProfileVerified ? "All requirements completed." : "Complete the remaining requirements below."}
                         </p>
                       </div>
                       <span className="text-[12px] font-semibold px-3 py-1 rounded-full bg-[#DCFCE7] text-[#166534]">
-                        {t("settings.verification.percentComplete", { percent: verificationCompletionPercent })}
+                        {verificationCompletionPercent}% complete
                       </span>
                     </div>
                     <div className="mt-3">
                       <div
                         className="h-2 w-full bg-[#E2E8F0] rounded-full overflow-hidden"
                         role="progressbar"
-                        aria-label={t("settings.verification.progressAria")}
+                        aria-label="Profile verification progress"
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-valuenow={verificationCompletionPercent}
@@ -2325,14 +2252,14 @@ export function Settings() {
                         <div className="h-full bg-[#22C55E]" style={{ width: `${verificationCompletionPercent}%` }} />
                       </div>
                       <p className="text-[12px] text-[#64748B] mt-2">
-                        {t("settings.verification.stepsCompleted", { completed: completedSteps, total: verificationStepsData.length })}
+                        {completedSteps} of {verificationStepsData.length} steps completed
                       </p>
                     </div>
                   </div>
 
                   <div className="space-y-3">
                     {isLoadingVerification ? (
-                      <p className="text-[13px] text-[#6B7280]">{t("settings.verification.loading")}</p>
+                      <p className="text-[13px] text-[#6B7280]">Loading verification status...</p>
                     ) : (
                       verificationStepsData.map((step) => {
                       const statusBadge = verificationStatusStyles[step.status];
@@ -2377,10 +2304,10 @@ export function Settings() {
                                         className="px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 disabled:opacity-60"
                                       >
                                         {isSendingPhoneCode
-                                          ? t("settings.verification.sendingCode")
+                                          ? "Sending..."
                                           : phoneCodeRequested
-                                            ? t("settings.verification.resendCode")
-                                            : t("settings.verification.sendCode")}
+                                            ? "Resend code"
+                                            : "Send verification code"}
                                       </button>
                                       {phoneCodeHint && (
                                         <span className="text-[12px] text-[#475569]">{phoneCodeHint}</span>
@@ -2392,7 +2319,7 @@ export function Settings() {
                                           type="text"
                                           inputMode="numeric"
                                           autoComplete="one-time-code"
-                                          aria-label={t("settings.verification.codeAria")}
+                                          aria-label="Phone verification code"
                                           maxLength={6}
                                           value={phoneVerificationCode}
                                           onChange={(event) =>
@@ -2400,7 +2327,7 @@ export function Settings() {
                                               event.target.value.replace(/[^\d]/g, "").slice(0, 6)
                                             )
                                           }
-                                          placeholder={t("settings.verification.codePlaceholder")}
+                                          placeholder="Enter 6-digit code"
                                           className="w-[180px] bg-white border border-[#CBD5E1] rounded-[8px] px-3 py-2 text-[12px] text-[#0F172A] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                                         />
                                         <button
@@ -2408,7 +2335,7 @@ export function Settings() {
                                           disabled={isConfirmingPhoneCode}
                                           className="px-4 py-2 border border-[#1C4D8D] text-[#1C4D8D] text-[12px] font-semibold rounded-[8px] hover:opacity-90/[0.06] disabled:opacity-60"
                                         >
-                                          {isConfirmingPhoneCode ? t("settings.verification.verifying") : t("settings.verification.confirmCode")}
+                                          {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
                                         </button>
                                       </div>
                                     )}
@@ -2426,7 +2353,7 @@ export function Settings() {
 
                                 {step.id === "address" && (step.status === "pending" || step.status === "rejected") && (
                                   <label className="mt-2 inline-block px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 cursor-pointer">
-                                    {step.status === "rejected" ? t("settings.verification.uploadReplacement") : t("settings.verification.uploadDocument")}
+                                    {step.status === "rejected" ? "Upload replacement" : "Upload Document"}
                                     <input
                                       type="file"
                                       accept="image/*,.pdf"
@@ -2466,11 +2393,9 @@ export function Settings() {
       </div>
       <ConfirmDialog
         open={Boolean(deleteExperienceTarget)}
-        title={t("settings.deleteExperienceDialog.title")}
-        description={t("settings.deleteExperienceDialog.description", {
-          title: deleteExperienceTarget?.title || t("settings.deleteExperienceDialog.fallbackTitle"),
-        })}
-        confirmLabel={t("settings.deleteExperienceDialog.confirmLabel")}
+        title="Remove work experience"
+        description={`Remove ${deleteExperienceTarget?.title || "this role"} from your profile?`}
+        confirmLabel="Remove experience"
         destructive
         pending={Boolean(deletingExperienceId)}
         onClose={() => setDeleteExperienceTarget(null)}

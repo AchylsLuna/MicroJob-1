@@ -8,6 +8,7 @@ import PayoutRequest from '../models/PayoutRequest.js';
 import JobApplication from '../models/JobApplication.js';
 import monitor from '../lib/monitor.js';
 import { createNotification } from '../lib/notificationService.js';
+import { sendPaymentReceiptEmail } from '../services/paymentReceiptService.js';
 
 const PAYMONGO_BASE = 'https://api.paymongo.com/v1';
 const XENDIT_BASE = 'https://api.xendit.co';
@@ -53,6 +54,17 @@ const populateTransactionQuery = (query) =>
     .populate('jobReference', 'title status')
     .populate('payoutRequest', 'status amount destinationSnapshot createdAt paidAt reviewedAt')
     .populate('linkedTransaction', 'type status amount createdAt reference');
+
+async function sendReceiptWithoutBlockingPayment(transactionId, userId, eventName) {
+  try {
+    const result = await sendPaymentReceiptEmail({ transactionId, userId });
+    if (!result.sent && result.reason !== 'smtp_unconfigured') {
+      console.warn(`${eventName} completed, but no receipt could be sent: ${result.reason}`);
+    }
+  } catch (error) {
+    console.warn(`${eventName} completed, but the receipt email failed`, error);
+  }
+}
 
 const createXenditCheckout = async ({ amount, referenceNumber, target, user }) => {
   const xenditSecret = process.env.XENDIT_SECRET_KEY;
@@ -126,6 +138,7 @@ async function applyTopUpToUser({ user, amount, target, reference, source, check
         target: normalizedTarget,
         transaction: existing,
         transactions: [existing],
+        created: false,
         user: {
           _id: user._id,
           employerBalance: user.employerBalance,
@@ -184,6 +197,7 @@ async function applyTopUpToUser({ user, amount, target, reference, source, check
       target: normalizedTarget,
       transaction,
       transactions: [transaction],
+      created: true,
       user: {
         _id: userDoc._id,
         employerBalance: userDoc.employerBalance,
@@ -283,6 +297,30 @@ export async function getUserTransactions(req, res) {
   } catch (error) {
     console.error('Get transactions error', error);
     return res.status(500).json({ message: 'Failed to fetch transactions' });
+  }
+}
+
+export async function emailTransactionReceipt(req, res) {
+  try {
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) return res.status(401).json({ message: 'Authentication required' });
+
+    const result = await sendPaymentReceiptEmail({
+      transactionId: req.params.transactionId,
+      userId,
+    });
+    if (!result.sent) {
+      if (result.reason === 'not_found') return res.status(404).json({ message: 'Transaction not found' });
+      if (result.reason === 'smtp_unconfigured') {
+        return res.status(503).json({ message: 'Receipt email is not configured. Please contact support.' });
+      }
+      return res.status(500).json({ message: 'Unable to send receipt email' });
+    }
+
+    return res.status(200).json({ message: 'Receipt sent to your email.' });
+  } catch (error) {
+    console.error('Email transaction receipt error', error);
+    return res.status(500).json({ message: 'Unable to send receipt email' });
   }
 }
 
@@ -512,7 +550,7 @@ export async function handleWebhook(req, res) {
           return res.status(200).send('Already processed');
         }
 
-        await applyTopUpToUser({
+        const topUpResult = await applyTopUpToUser({
           user,
           amount: amountAdded,
           target,
@@ -520,6 +558,9 @@ export async function handleWebhook(req, res) {
           source: 'paymongo',
           checkoutId,
         });
+        if (topUpResult.created) {
+          await sendReceiptWithoutBlockingPayment(topUpResult.transaction._id, user._id, 'Top-up');
+        }
       }
     }
 
@@ -628,6 +669,9 @@ export async function confirmTopUp(req, res) {
           meta: { target: topUpResult.target, ref, provider: 'xendit' },
         });
         await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
+        if (topUpResult.created) {
+          await sendReceiptWithoutBlockingPayment(topUpResult.transaction._id, user._id, 'Top-up');
+        }
 
         return res.status(200).json({
           message: 'Top-up applied',
@@ -700,6 +744,9 @@ export async function confirmTopUp(req, res) {
       meta: { target: topUpResult.target, ref, provider: 'paymongo' },
     });
     await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
+    if (topUpResult.created) {
+      await sendReceiptWithoutBlockingPayment(topUpResult.transaction._id, user._id, 'Top-up');
+    }
 
     return res.status(200).json({
       message: 'Top-up applied',
@@ -756,6 +803,9 @@ export async function simulateWebhook(req, res) {
       meta: { target: topUpResult.target, referenceNumber },
     });
     await monitor.recordTopUp({ userId: String(user._id), ip: req.ip || null });
+    if (topUpResult.created) {
+      await sendReceiptWithoutBlockingPayment(topUpResult.transaction._id, user._id, 'Top-up');
+    }
     return res.status(200).json({
       message: 'Simulated top-up applied',
       ...(topUpResult.target === TOPUP_TARGET.BOTH ? { transactions: topUpResult.transactions } : { transaction: topUpResult.transaction }),
@@ -880,6 +930,9 @@ export async function createPayoutRequest(req, res) {
     const populated = await PayoutRequest.findById(payoutRequest._id)
       .populate('transaction')
       .populate('user', 'firstName lastName email');
+    if (created && populated?.transaction?._id) {
+      await sendReceiptWithoutBlockingPayment(populated.transaction._id, userId, 'Withdrawal request');
+    }
     return res.status(created ? 201 : 200).json({
       message: created ? 'Payout request submitted.' : 'Payout request already submitted.',
       payoutRequest: populated,
@@ -1097,6 +1150,9 @@ export async function updateAdminPayoutRequest(req, res) {
       .populate('user', 'firstName lastName email role status workerBalance')
       .populate('reviewer', 'firstName lastName email')
       .populate('transaction');
+    if (changed && status === 'paid' && populated?.transaction?._id) {
+      await sendReceiptWithoutBlockingPayment(populated.transaction._id, populated.user?._id || payoutRequest.user, 'Withdrawal');
+    }
     return res.status(200).json({ message: 'Payout request updated.', payoutRequest: populated });
   } catch (error) {
     if (!error?.statusCode) console.error('Update admin payout request error', error);
@@ -1129,6 +1185,7 @@ export async function getAllTransactions(req, res) {
 
 export default {
   getUserTransactions,
+  emailTransactionReceipt,
   createTopUpSession,
   handleWebhook,
   confirmTopUp,

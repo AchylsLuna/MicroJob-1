@@ -8,6 +8,7 @@ import { isAdmin } from "../../utils/dashboardRoutes";
 import { getPostSignInPath } from "../../utils/authRedirects";
 import { ROUTES } from "../../utils/routes";
 import { MfaLoginForm } from "../../components/auth/MfaLoginForm";
+import { isCredentialLoginError } from "../../utils/authSession";
 
 export function AdminSignIn() {
   const { t } = useTranslation("admin");
@@ -59,7 +60,9 @@ export function AdminSignIn() {
 
       toast.success(t("signIn.toast.welcomeBack", { name: result.user.firstName ? `, ${result.user.firstName}` : "" }));
     } catch (error: any) {
-      toast.error(error.message || t("signIn.toast.signInFailed"));
+      toast.error(isCredentialLoginError(error?.message)
+        ? t("signIn.toast.credentialsIncorrect")
+        : error?.message || t("signIn.toast.signInFailed"));
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";
