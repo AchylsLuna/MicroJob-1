@@ -1609,17 +1609,17 @@ export function Settings() {
                               </div>
                             ) : (
                               <div className="flex flex-wrap items-center gap-4">
-                                <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
-                                  <Upload className="w-4 h-4" />
-                                  Upload your photo
+                              <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
+                               <Upload className="w-4 h-4 text-white" />
+                                <span className="text-white">Upload your photo</span>
                                   <input
-                                    type="file"
-                                    accept=".jpg,.jpeg,.png,.gif,.webp"
-                                    onChange={handlePhotoUpload}
-                                    disabled={isAvatarSubmitting}
-                                    aria-label="Choose a profile photo"
-                                    className="sr-only"
-                                  />
+                                       type="file"
+                                       accept=".jpg,.jpeg,.png,.gif,.webp"
+                                        onChange={handlePhotoUpload}
+                                        disabled={isAvatarSubmitting}
+                                         aria-label="Choose a profile photo"
+                                         className="sr-only"
+                                />  
                                 </label>
                                 <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
                               </div>
