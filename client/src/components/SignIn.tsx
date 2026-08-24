@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Mail, Lock, Eye, EyeOff, Award, Users, TrendingUp, ArrowLeft } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -121,30 +121,21 @@ export function SignIn() {
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
-              <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Users className="w-6 h-6 text-white" />
-              </div>
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.verified.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signIn.hero.features.verified.description")}</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
-              <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Award className="w-6 h-6 text-white" />
-              </div>
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.quality.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signIn.hero.features.quality.description")}</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
-              <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.growth.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signIn.hero.features.growth.description")}</p>

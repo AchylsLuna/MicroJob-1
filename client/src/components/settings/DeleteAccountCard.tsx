@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../lib/toast";
 import { requestAccountDeletion } from "../../services/api";
+import { Card } from "../ui";
 
 export function DeleteAccountCard() {
   const { t } = useTranslation("worker");
@@ -39,9 +40,9 @@ export function DeleteAccountCard() {
   };
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-      <h3 className="text-[16px] font-semibold text-[#111827]">{t("settings.deleteAccount.title")}</h3>
-      <p className="mt-1 text-[13px] text-[#6B7280]">
+    <Card>
+      <h3 className="text-base font-semibold text-slate-900">{t("settings.deleteAccount.title")}</h3>
+      <p className="mt-1 text-[13px] text-slate-500">
         {t("settings.deleteAccount.description")}
       </p>
 
@@ -58,7 +59,7 @@ export function DeleteAccountCard() {
           <p className="text-[13px] font-semibold text-[#991B1B]">
             {t("settings.deleteAccount.confirmWarning")}
           </p>
-          <label className="block text-[13px] font-medium text-[#374151]">
+          <label className="block text-[13px] font-medium text-slate-700">
             {t("settings.deleteAccount.currentPasswordLabel")}
             <input
               type="password"
@@ -68,7 +69,7 @@ export function DeleteAccountCard() {
               className="mt-2 w-full rounded-[10px] border border-[#FCA5A5] bg-white px-4 py-3 text-[14px]"
             />
           </label>
-          <label className="block text-[13px] font-medium text-[#374151]">
+          <label className="block text-[13px] font-medium text-slate-700">
             {t("settings.deleteAccount.typeDeleteLabel")}
             <input
               type="text"
@@ -87,7 +88,7 @@ export function DeleteAccountCard() {
                 setConfirmation("");
               }}
               disabled={isDeleting}
-              className="rounded-[10px] border border-[#CBD5E1] bg-white px-4 py-2 text-[13px] font-semibold text-[#475569]"
+              className="rounded-[10px] border border-slate-300 bg-white px-4 py-2 text-[13px] font-semibold text-slate-600"
             >
               {t("settings.deleteAccount.cancelButton")}
             </button>
@@ -102,6 +103,6 @@ export function DeleteAccountCard() {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

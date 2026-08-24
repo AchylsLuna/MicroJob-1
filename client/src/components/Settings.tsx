@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle } from "lucide-react";
+import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle, XCircle, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   getProfile,
   updateProfile,
@@ -33,7 +33,8 @@ import { EmployerPrivacyCard } from "./settings/EmployerPrivacyCard";
 import { MfaSettingsCard } from "./settings/MfaSettingsCard";
 import { WorkerResumeSection } from "./settings/WorkerResumeSection";
 import { SettingsTabList } from "./settings/SettingsTabList";
-import { ConfirmDialog } from "./ui";
+import { Card, Dialog, ConfirmDialog } from "./ui";
+import { ROUTES } from "../utils/routes";
 import IdAnalyzerVerifier from "./IdAnalyzerVerifier";
 import {
   normalizeFullName,
@@ -109,19 +110,74 @@ interface VerificationStep {
   status: VerificationStatus;
 }
 
-const verificationStatusStyles: Record<VerificationStatus, string> = {
-  complete: "bg-[#DCFCE7] text-[#166534]",
-  "in-review": "bg-[#FEF3C7] text-[#92400E]",
-  rejected: "bg-[#FEE2E2] text-[#991B1B]",
-  pending: "bg-[#E2E8F0] text-[#475569]",
+// One record per status. Previously the badge colors, the labels, the icon and the icon
+// background were four separate lookups for the same four states — the last two as inline
+// nested ternaries at the call site.
+const verificationStatusMeta: Record<
+  VerificationStatus,
+  { label: string; badge: string; iconBg: string; iconColor: string; Icon: LucideIcon }
+> = {
+  complete: {
+    label: "Completed",
+    badge: "bg-[#DCFCE7] text-[#166534]",
+    iconBg: "bg-[#DCFCE7]",
+    iconColor: "text-[#16A34A]",
+    Icon: CheckCircle2,
+  },
+  "in-review": {
+    label: "In Review",
+    badge: "bg-[#FEF3C7] text-[#92400E]",
+    iconBg: "bg-[#FEF3C7]",
+    iconColor: "text-[#D97706]",
+    Icon: Clock,
+  },
+  // Rejected used to share the plain `Circle` glyph with pending, so a failure was only
+  // distinguishable by color.
+  rejected: {
+    label: "Rejected",
+    badge: "bg-[#FEE2E2] text-[#991B1B]",
+    iconBg: "bg-[#FEE2E2]",
+    iconColor: "text-[#DC2626]",
+    Icon: XCircle,
+  },
+  pending: {
+    label: "Pending",
+    badge: "bg-slate-100 text-slate-600",
+    iconBg: "bg-slate-100",
+    iconColor: "text-slate-400",
+    Icon: Circle,
+  },
 };
 
-const verificationStatusLabels: Record<VerificationStatus, string> = {
-  complete: "Completed",
-  "in-review": "In Review",
-  rejected: "Rejected",
-  pending: "Pending",
-};
+// The server returns steps as a flat list (verificationController.js). Grouping is a purely
+// client-side concern, keyed on step.id. Any id not listed here still renders — it falls into
+// the trailing "other" group rather than disappearing.
+const verificationActionClass =
+  "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#1C4D8D] px-4 text-xs font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 disabled:opacity-60";
+
+const verificationSecondaryActionClass =
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[#1C4D8D] px-4 text-xs font-semibold text-[#1C4D8D] transition hover:bg-[#1C4D8D]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 disabled:opacity-60";
+
+const VERIFICATION_GROUPS: Array<{ key: string; label: string; stepIds: string[] }> = [
+  { key: "contact", label: "Contact details", stepIds: ["email", "phone"] },
+  { key: "documents", label: "Identity documents", stepIds: ["identity", "address"] },
+];
+
+function groupVerificationSteps(steps: VerificationStep[]) {
+  const claimed = new Set(VERIFICATION_GROUPS.flatMap((group) => group.stepIds));
+  const groups = VERIFICATION_GROUPS.map((group) => ({
+    key: group.key,
+    label: group.label,
+    steps: group.stepIds
+      .map((id) => steps.find((step) => step.id === id))
+      .filter((step): step is VerificationStep => Boolean(step)),
+  }));
+  const ungrouped = steps.filter((step) => !claimed.has(step.id));
+  if (ungrouped.length > 0) {
+    groups.push({ key: "other", label: "Other requirements", steps: ungrouped });
+  }
+  return groups.filter((group) => group.steps.length > 0);
+}
 
 const addressSuggestions = [
   "Near City Hall",
@@ -216,6 +272,7 @@ const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): Pers
 
 export function Settings() {
   const { t: tAuth } = useTranslation("auth");
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = mapTabParam(searchParams.get("tab")) ?? "account";
   const [activeTab, setActiveTab] = useState<TabType>(initialTab);
@@ -305,6 +362,9 @@ export function Settings() {
   const [isSendingPhoneCode, setIsSendingPhoneCode] = useState(false);
   const [isConfirmingPhoneCode, setIsConfirmingPhoneCode] = useState(false);
   const [phoneCodeHint, setPhoneCodeHint] = useState<string | null>(null);
+  const [isIdWizardOpen, setIsIdWizardOpen] = useState(false);
+  const [isUploadingAddressDocument, setIsUploadingAddressDocument] = useState(false);
+  const addressDocumentInputRef = useRef<HTMLInputElement>(null);
 
   const [provinceOptions, setProvinceOptions] = useState<ProvinceOption[]>([]);
   const [cityOptions, setCityOptions] = useState<CityOption[]>([]);
@@ -1191,6 +1251,7 @@ export function Settings() {
   const handleUploadAddressDocument = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setIsUploadingAddressDocument(true);
     try {
       await uploadAddressDocument(file);
       toast.success("Address document uploaded successfully");
@@ -1198,6 +1259,10 @@ export function Settings() {
       await reloadVerificationStatus();
     } catch (error: any) {
       toast.error(error?.message || "Failed to upload address document");
+    } finally {
+      // Reset so re-picking the same file still fires onChange.
+      e.target.value = "";
+      setIsUploadingAddressDocument(false);
     }
   };
 
@@ -1256,14 +1321,14 @@ export function Settings() {
                   }}
                 >
                       <div>
-                        <h2 className="text-[18px] font-semibold text-[#111827]">
+                        <h2 className="text-lg font-semibold text-slate-900">
                           {isEmployerRole ? "Business Information" : "Personal Information"}
                         </h2>
-                        <p className="text-[13px] text-[#6B7280]">
+                        <p className="text-[13px] text-slate-500">
                           Update your {isEmployerRole ? "employer profile" : "profile information"}.
                         </p>
                         {isProfileLoading && (
-                          <p className="text-[12px] text-[#6B7280] mt-1" role="status">Loading profile...</p>
+                          <p className="text-[12px] text-slate-500 mt-1" role="status">Loading profile...</p>
                         )}
                       </div>
 
@@ -1275,7 +1340,7 @@ export function Settings() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label htmlFor="settings-first-name" className="text-[14px] font-medium text-[#475569] mb-2 block">First name</label>
+                          <label htmlFor="settings-first-name" className="text-[14px] font-medium text-slate-600 mb-2 block">First name</label>
                           <input
                             id="settings-first-name"
                             type="text"
@@ -1286,11 +1351,11 @@ export function Settings() {
                             aria-invalid={profileErrorField === "firstName"}
                             aria-describedby={profileErrorField === "firstName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
                         </div>
                         <div>
-                          <label htmlFor="settings-last-name" className="text-[14px] font-medium text-[#475569] mb-2 block">Last name</label>
+                          <label htmlFor="settings-last-name" className="text-[14px] font-medium text-slate-600 mb-2 block">Last name</label>
                           <input
                             id="settings-last-name"
                             type="text"
@@ -1301,14 +1366,14 @@ export function Settings() {
                             aria-invalid={profileErrorField === "lastName"}
                             aria-describedby={profileErrorField === "lastName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
                         </div>
                       </div>
 
                       {isEmployerRole && (
                         <div>
-                          <label htmlFor="settings-company-name" className="text-[14px] font-medium text-[#475569] mb-2 block">Company name</label>
+                          <label htmlFor="settings-company-name" className="text-[14px] font-medium text-slate-600 mb-2 block">Company name</label>
                           <input
                             id="settings-company-name"
                             type="text"
@@ -1320,7 +1385,7 @@ export function Settings() {
                             aria-describedby={profileErrorField === "companyName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("companyName", e.target.value)}
                             placeholder="Enter your company name"
-                            className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                           />
                         </div>
                       )}
@@ -1341,7 +1406,7 @@ export function Settings() {
                           ) : null}
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                              <label htmlFor="settings-province" className="text-[14px] font-medium text-[#475569] mb-2 block">Province</label>
+                              <label htmlFor="settings-province" className="text-[14px] font-medium text-slate-600 mb-2 block">Province</label>
                               <input
                                 id="settings-province"
                                 list="settings-province-options"
@@ -1352,7 +1417,7 @@ export function Settings() {
                                 aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
                                 onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
                                 placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
                               />
                               <datalist id="settings-province-options">
                                 {provinceOptions.map((province) => <option key={province.code} value={province.name} />)}
@@ -1360,7 +1425,7 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label htmlFor="settings-city" className="text-[14px] font-medium text-[#475569] mb-2 block">City / Municipality</label>
+                              <label htmlFor="settings-city" className="text-[14px] font-medium text-slate-600 mb-2 block">City / Municipality</label>
                               <input
                                 id="settings-city"
                                 list="settings-city-options"
@@ -1371,7 +1436,7 @@ export function Settings() {
                                 aria-invalid={Boolean(personalInfo.city) && !selectedCity}
                                 onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
                                 placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
                               />
                               <datalist id="settings-city-options">
                                 {filteredCityOptions.map((city) => <option key={city.code} value={city.name} />)}
@@ -1379,7 +1444,7 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label htmlFor="settings-barangay" className="text-[14px] font-medium text-[#475569] mb-2 block">Barangay</label>
+                              <label htmlFor="settings-barangay" className="text-[14px] font-medium text-slate-600 mb-2 block">Barangay</label>
                               <input
                                 id="settings-barangay"
                                 list="settings-barangay-options"
@@ -1390,7 +1455,7 @@ export function Settings() {
                                 aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
                                 onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
                                 placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
                               />
                               <datalist id="settings-barangay-options">
                                 {barangayOptions.map((barangay) => <option key={barangay.code} value={barangay.name} />)}
@@ -1401,12 +1466,12 @@ export function Settings() {
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label htmlFor="settings-location-type" className="text-[14px] font-medium text-[#475569] mb-2 block">Location type</label>
+                              <label htmlFor="settings-location-type" className="text-[14px] font-medium text-slate-600 mb-2 block">Location type</label>
                               <select
                                 id="settings-location-type"
                                 value={personalInfo.addressType}
                                 onChange={(e) => handlePersonalInfoChange("addressType", e.target.value)}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
                                 <option value="home">Home address</option>
                                 <option value="office">Office / Business address</option>
@@ -1414,7 +1479,7 @@ export function Settings() {
                               </select>
                             </div>
                             <div>
-                              <label htmlFor="settings-address" className="text-[14px] font-medium text-[#475569] mb-2 block">Address / Place</label>
+                              <label htmlFor="settings-address" className="text-[14px] font-medium text-slate-600 mb-2 block">Address / Place</label>
                               <input
                                 id="settings-address"
                                 type="text"
@@ -1426,7 +1491,7 @@ export function Settings() {
                                 aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
                                 onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
                                 placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               />
                             </div>
                           </div>
@@ -1442,7 +1507,7 @@ export function Settings() {
                       {!isAdminRole && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label htmlFor="settings-phone" className="text-[14px] font-medium text-[#475569] mb-2 block">Phone number</label>
+                            <label htmlFor="settings-phone" className="text-[14px] font-medium text-slate-600 mb-2 block">Phone number</label>
                             <input
                               id="settings-phone"
                               type="tel"
@@ -1454,17 +1519,17 @@ export function Settings() {
                               maxLength={20}
                               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
                               placeholder="e.g., 0917 123 4567"
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             />
                           </div>
                           <div>
-                            <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
+                            <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-slate-600 mb-2 block">Email</label>
                             <input
                               id="settings-employer-email"
                               type="email"
                               value={personalInfo.email}
                               disabled
-                              className="w-full bg-gray-50 border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
+                              className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
                             />
                           </div>
                         </div>
@@ -1472,13 +1537,13 @@ export function Settings() {
 
                       {isAdminRole && (
                         <div>
-                          <label htmlFor="settings-worker-email" className="text-[14px] font-medium text-[#475569] mb-2 block">Email</label>
+                          <label htmlFor="settings-worker-email" className="text-[14px] font-medium text-slate-600 mb-2 block">Email</label>
                           <input
                             id="settings-worker-email"
                             type="email"
                             value={personalInfo.email}
                             disabled
-                            className="w-full bg-gray-50 border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
+                            className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
                           />
                         </div>
                       )}
@@ -1486,7 +1551,7 @@ export function Settings() {
                       {!isAdminRole && (
                         <>
                           <div>
-                            <label htmlFor="settings-about" className="text-[14px] font-medium text-[#475569] mb-2 block">About Me</label>
+                            <label htmlFor="settings-about" className="text-[14px] font-medium text-slate-600 mb-2 block">About Me</label>
                             <textarea
                               id="settings-about"
                               value={personalInfo.about}
@@ -1495,16 +1560,16 @@ export function Settings() {
                               aria-describedby={profileErrorField === "about" ? "settings-profile-error settings-about-count" : "settings-about-count"}
                               onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
                               placeholder="Tell us about yourself, your experience, and what you're passionate about..."
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
+                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={4}
                             />
-                            <p id="settings-about-count" className="mt-1 text-right text-[12px] text-[#64748B]">
+                            <p id="settings-about-count" className="mt-1 text-right text-[12px] text-slate-500">
                               {personalInfo.about.length}/{PROFILE_LIMITS.about}
                             </p>
                           </div>
 
                           <div>
-                            <label htmlFor="settings-job-position" className="text-[14px] font-medium text-[#475569] mb-2 block">Professional headline</label>
+                            <label htmlFor="settings-job-position" className="text-[14px] font-medium text-slate-600 mb-2 block">Professional headline</label>
                             <input
                               id="settings-job-position"
                               type="text"
@@ -1514,13 +1579,13 @@ export function Settings() {
                               maxLength={PROFILE_LIMITS.jobPosition}
                               aria-invalid={profileErrorField === "jobPosition"}
                               aria-describedby={profileErrorField === "jobPosition" ? "settings-profile-error" : undefined}
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             />
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label htmlFor="settings-linkedin" className="text-[14px] font-medium text-[#475569] mb-2 block">LinkedIn URL</label>
+                              <label htmlFor="settings-linkedin" className="text-[14px] font-medium text-slate-600 mb-2 block">LinkedIn URL</label>
                               <input
                                 id="settings-linkedin"
                                 type="url"
@@ -1531,11 +1596,11 @@ export function Settings() {
                                 autoComplete="url"
                                 aria-invalid={profileErrorField === "linkedin"}
                                 aria-describedby={profileErrorField === "linkedin" ? "settings-profile-error" : undefined}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               />
                             </div>
                             <div>
-                              <label htmlFor="settings-website" className="text-[14px] font-medium text-[#475569] mb-2 block">Portfolio or website</label>
+                              <label htmlFor="settings-website" className="text-[14px] font-medium text-slate-600 mb-2 block">Portfolio or website</label>
                               <input
                                 id="settings-website"
                                 type="url"
@@ -1546,18 +1611,18 @@ export function Settings() {
                                 autoComplete="url"
                                 aria-invalid={profileErrorField === "website"}
                                 aria-describedby={profileErrorField === "website" ? "settings-profile-error" : undefined}
-                                className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               />
                             </div>
                           </div>
 
                           <div>
-                            <label htmlFor="settings-experience" className="text-[14px] font-medium text-[#475569] mb-2 block">Total Experience</label>
+                            <label htmlFor="settings-experience" className="text-[14px] font-medium text-slate-600 mb-2 block">Total Experience</label>
                             <select
                               id="settings-experience"
                               value={experienceStats.totalExperience}
                               onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
-                              className="w-full bg-white border border-[#E5E7EB] rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             >
                               <option value="">Select experience</option>
                               <option value="Less than 1 Year">Less than 1 Year</option>
@@ -1575,13 +1640,13 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">Profile photo</p>
+                            <p className="text-[14px] font-medium text-slate-600 mb-2 block">Profile photo</p>
                             {resolvedAvatarUrl ? (
                               <div className="flex items-center gap-4">
                                 <img
                                   src={resolvedAvatarUrl}
                                   alt="Profile"
-                                  className="w-24 h-24 rounded-[12px] object-cover border-2 border-[#E5E7EB]"
+                                  className="w-24 h-24 rounded-[12px] object-cover border-2 border-slate-200"
                                 />
                                 <div className="flex flex-col gap-2">
                                   <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-2 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 text-[14px]">
@@ -1621,7 +1686,7 @@ export function Settings() {
                                          className="sr-only"
                                 />  
                                 </label>
-                                <span className="text-[13px] text-[#64748B]">(jpg/png format)</span>
+                                <span className="text-[13px] text-slate-500">(jpg/png format)</span>
                               </div>
                             )}
                           </div>
@@ -1650,51 +1715,51 @@ export function Settings() {
                       className="space-y-6"
                     >
                       <div>
-                        <h2 className="text-[18px] font-semibold text-[#111827]">Skills & Experience</h2>
-                        <p className="text-[13px] text-[#6B7280]">Add and manage your skills and expertise.</p>
+                        <h2 className="text-lg font-semibold text-slate-900">Skills & Experience</h2>
+                        <p className="text-[13px] text-slate-500">Add and manage your skills and expertise.</p>
                       </div>
 
-                      <div className="rounded-[16px] border border-[#E2E8F0] bg-white p-6 space-y-5">
+                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
                         <div>
-                          <h3 className="text-[16px] font-semibold text-[#1E293B]">
+                          <h3 className="text-base font-semibold text-slate-900">
                             {editingExperienceId ? "Edit work experience" : "Add work experience"}
                           </h3>
-                          <p className="mt-1 text-[13px] text-[#64748B]">Show employers the roles, client work, or self-employment that support your skills.</p>
+                          <p className="mt-1 text-[13px] text-slate-500">Show employers the roles, client work, or self-employment that support your skills.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label htmlFor="experience-title" className="text-[13px] font-medium text-[#475569] mb-2 block">Job title *</label>
-                            <input id="experience-title" value={experienceDraft.title} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Math tutor" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-title" className="text-[13px] font-medium text-slate-600 mb-2 block">Job title *</label>
+                            <input id="experience-title" value={experienceDraft.title} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Math tutor" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                           </div>
                           <div>
-                            <label htmlFor="experience-company" className="text-[13px] font-medium text-[#475569] mb-2 block">Company or client *</label>
-                            <input id="experience-company" value={experienceDraft.company} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Self-employed" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-company" className="text-[13px] font-medium text-slate-600 mb-2 block">Company or client *</label>
+                            <input id="experience-company" value={experienceDraft.company} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Self-employed" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                           </div>
                           <div>
-                            <label htmlFor="experience-location" className="text-[13px] font-medium text-[#475569] mb-2 block">Location</label>
-                            <input id="experience-location" value={experienceDraft.location} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-location" className="text-[13px] font-medium text-slate-600 mb-2 block">Location</label>
+                            <input id="experience-location" value={experienceDraft.location} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label htmlFor="experience-start" className="text-[13px] font-medium text-[#475569] mb-2 block">Start *</label>
-                              <input id="experience-start" type="month" value={experienceDraft.startDate} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-[#E2E8F0] rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                              <label htmlFor="experience-start" className="text-[13px] font-medium text-slate-600 mb-2 block">Start *</label>
+                              <input id="experience-start" type="month" value={experienceDraft.startDate} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
                             </div>
                             <div>
-                              <label htmlFor="experience-end" className="text-[13px] font-medium text-[#475569] mb-2 block">End *</label>
-                              <input id="experience-end" type="month" value={experienceDraft.endDate || ""} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={experienceDraft.current} className="w-full border border-[#E2E8F0] rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
+                              <label htmlFor="experience-end" className="text-[13px] font-medium text-slate-600 mb-2 block">End *</label>
+                              <input id="experience-end" type="month" value={experienceDraft.endDate || ""} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={experienceDraft.current} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
                             </div>
                           </div>
                         </div>
 
-                        <label className="flex items-center gap-2 text-[13px] text-[#475569] cursor-pointer">
+                        <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
                           <input type="checkbox" checked={experienceDraft.current} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? "" : prev.endDate }))} className="w-4 h-4" />
                           I currently work here
                         </label>
 
                         <div>
-                          <label htmlFor="experience-description" className="text-[13px] font-medium text-[#475569] mb-2 block">Description</label>
-                          <textarea id="experience-description" value={experienceDraft.description} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-[#E2E8F0] rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
+                          <label htmlFor="experience-description" className="text-[13px] font-medium text-slate-600 mb-2 block">Description</label>
+                          <textarea id="experience-description" value={experienceDraft.description} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
                         </div>
 
                         <div className="flex flex-wrap gap-3">
@@ -1702,23 +1767,23 @@ export function Settings() {
                             {isExperienceSaving ? "Saving..." : editingExperienceId ? "Save experience" : "Add experience"}
                           </button>
                           {editingExperienceId && (
-                            <button type="button" onClick={resetExperienceEditor} className="bg-[#F1F5F9] text-[#475569] font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                            <button type="button" onClick={resetExperienceEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
                           )}
                         </div>
                       </div>
 
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-[16px] font-semibold text-[#1E293B]">Work history</h3>
-                          <span className="text-[12px] text-[#64748B]">{workExperiences.length} {workExperiences.length === 1 ? "entry" : "entries"}</span>
+                          <h3 className="text-base font-semibold text-slate-900">Work history</h3>
+                          <span className="text-[12px] text-slate-500">{workExperiences.length} {workExperiences.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {workExperiences.length ? workExperiences.map((item) => (
-                          <div key={item.id} className="rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 flex items-start justify-between gap-4">
+                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
                             <div className="min-w-0">
-                              <p className="text-[15px] font-semibold text-[#1E293B]">{item.title}</p>
-                              <p className="text-[13px] text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                              <p className="mt-1 text-[12px] text-[#64748B]">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
-                              {item.description ? <p className="mt-3 text-[13px] text-[#475569] whitespace-pre-line">{item.description}</p> : null}
+                              <p className="text-[15px] font-semibold text-slate-900">{item.title}</p>
+                              <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                              <p className="mt-1 text-[12px] text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
+                              {item.description ? <p className="mt-3 text-[13px] text-slate-600 whitespace-pre-line">{item.description}</p> : null}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button type="button" onClick={() => handleEditExperience(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
@@ -1726,16 +1791,16 @@ export function Settings() {
                             </div>
                           </div>
                         )) : (
-                          <div className="rounded-[14px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-8 text-center text-[13px] text-[#64748B]">No work history added yet.</div>
+                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No work history added yet.</div>
                         )}
                       </div>
 
                       <div className="bg-[#1C4D8D]/[0.08] border border-[#1C4D8D]/20 rounded-[16px] p-6">
-                        <h3 className="text-[16px] font-semibold text-[#1e293b] mb-4">Add New Skill</h3>
+                        <h3 className="text-base font-semibold text-slate-900 mb-4">Add New Skill</h3>
                         <div className="space-y-4">
                           {/* Skill Selection Mode */}
                           <div>
-                            <p className="text-[14px] font-medium text-[#475569] mb-2 block">Choose Option</p>
+                            <p className="text-[14px] font-medium text-slate-600 mb-2 block">Choose Option</p>
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -1745,7 +1810,7 @@ export function Settings() {
                                   onChange={() => setSkillSelectionMode("predefined")}
                                   className="w-4 h-4 text-[#1C4D8D]"
                                 />
-                                <span className="text-[14px] text-[#475569]">Select from list</span>
+                                <span className="text-[14px] text-slate-600">Select from list</span>
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -1755,20 +1820,20 @@ export function Settings() {
                                   onChange={() => setSkillSelectionMode("custom")}
                                   className="w-4 h-4 text-[#1C4D8D]"
                                 />
-                                <span className="text-[14px] text-[#475569]">Custom skill</span>
+                                <span className="text-[14px] text-slate-600">Custom skill</span>
                               </label>
                             </div>
                           </div>
 
                           {/* Skill Name Input */}
                           <div>
-                            <p id="settings-skill-name-label" className="text-[14px] font-medium text-[#475569] mb-2 block">Skill Name</p>
+                            <p id="settings-skill-name-label" className="text-[14px] font-medium text-slate-600 mb-2 block">Skill Name</p>
                             {skillSelectionMode === "predefined" ? (
                               <select
                                 aria-labelledby="settings-skill-name-label"
                                 value={selectedPredefinedSkill}
                                 onChange={(e) => setSelectedPredefinedSkill(e.target.value)}
-                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                               >
                                 <option value="">Select a skill</option>
                                 <optgroup label="Household & Cleaning">
@@ -1876,7 +1941,7 @@ export function Settings() {
                                 maxLength={PROFILE_LIMITS.skillName}
                                 onChange={(e) => setNewSkillName(e.target.value)}
                                 placeholder="e.g., Flutter, Blockchain, Video Editing"
-                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                                 onKeyDown={(event) => {
                                   if (event.key === "Enter") {
                                     event.preventDefault();
@@ -1888,7 +1953,7 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label htmlFor="settings-skill-description" className="text-[14px] font-medium text-[#475569] mb-2 block">Description or experience note</label>
+                            <label htmlFor="settings-skill-description" className="text-[14px] font-medium text-slate-600 mb-2 block">Description or experience note</label>
                             <textarea
                               id="settings-skill-description"
                               value={newSkillDescription}
@@ -1896,10 +1961,10 @@ export function Settings() {
                               aria-describedby="settings-skill-description-count"
                               onChange={(e) => setNewSkillDescription(e.target.value)}
                               placeholder="Optional: describe what you can do or your experience with this skill"
-                              className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-[#1E293B] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
+                              className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                               rows={3}
                             />
-                            <p id="settings-skill-description-count" className="mt-1 text-right text-[12px] text-[#64748B]">
+                            <p id="settings-skill-description-count" className="mt-1 text-right text-[12px] text-slate-500">
                               {newSkillDescription.length}/{PROFILE_LIMITS.skillDescription}
                             </p>
                           </div>
@@ -1917,15 +1982,15 @@ export function Settings() {
 
                       {skills.length > 0 ? (
                         <div>
-                          <h3 className="text-[14px] font-semibold text-[#111827] mb-3">Your Skills</h3>
+                          <h3 className="text-[14px] font-semibold text-slate-900 mb-3">Your Skills</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {skills.map((skill) => (
                               <div
                                 key={skill.id}
-                                className="bg-white border border-[#E5E7EB] rounded-[10px] p-4 flex items-start justify-between hover:shadow-md transition-all"
+                                className="bg-white border border-slate-200 rounded-[10px] p-4 flex items-start justify-between hover:shadow-md transition-all"
                               >
                                 <div className="flex-1">
-                                  <p className="text-[14px] font-semibold text-[#111827]">{skill.name}</p>
+                                  <p className="text-[14px] font-semibold text-slate-900">{skill.name}</p>
                                   {editingSkillId === skill.id ? (
                                     <div className="mt-3 space-y-3">
                                       <textarea
@@ -1934,7 +1999,7 @@ export function Settings() {
                                         maxLength={PROFILE_LIMITS.skillDescription}
                                         onChange={(e) => setEditingSkillDescription(e.target.value)}
                                         placeholder="Describe your experience with this skill"
-                                        className="w-full bg-[#F8FAFC] border border-[#E5E7EB] rounded-[10px] px-3 py-2 text-[13px] text-[#111827] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-[10px] px-3 py-2 text-[13px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
                                         rows={3}
                                       />
                                       <div className="flex items-center gap-2">
@@ -1950,7 +2015,7 @@ export function Settings() {
                                             setEditingSkillId(null);
                                             setEditingSkillDescription("");
                                           }}
-                                          className="bg-[#F3F4F6] text-[#374151] text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:bg-[#E5E7EB] transition-all"
+                                          className="bg-slate-100 text-slate-700 text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:bg-slate-200 transition-all"
                                         >
                                           Cancel
                                         </button>
@@ -1958,7 +2023,7 @@ export function Settings() {
                                     </div>
                                   ) : (
                                     <>
-                                      <p className="mt-2 text-[13px] text-[#64748B]">
+                                      <p className="mt-2 text-[13px] text-slate-500">
                                         {skill.description?.trim() || "No description added"}
                                       </p>
                                       <div className="flex items-center gap-2 mt-3">
@@ -1972,7 +2037,7 @@ export function Settings() {
                                           Edit description
                                         </button>
                                         {skill.endorsements ? (
-                                          <span className="text-[12px] text-[#64748B]">{skill.endorsements} endorsements</span>
+                                          <span className="text-[12px] text-slate-500">{skill.endorsements} endorsements</span>
                                         ) : null}
                                       </div>
                                     </>
@@ -1993,8 +2058,8 @@ export function Settings() {
                           </div>
                         </div>
                       ) : (
-                        <div className="text-center py-12 bg-[#f8fafc] rounded-[16px] border border-[#E5E7EB]">
-                          <p className="text-[14px] text-[#64748B] mb-2">No skills added yet</p>
+                        <div className="text-center py-12 bg-slate-50 rounded-[16px] border border-slate-200">
+                          <p className="text-[14px] text-slate-500 mb-2">No skills added yet</p>
                           <p className="text-[12px] text-[#94A3B8]">Add your skills above to showcase your expertise</p>
                         </div>
                       )}
@@ -2020,17 +2085,17 @@ export function Settings() {
               aria-labelledby="settings-main-tab-privacy"
               className="space-y-6"
             >
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+              <Card>
                 <div className="mb-6">
-                  <h2 className="text-[20px] font-semibold text-[#111827]">Change Password</h2>
-                  <p className="text-[13px] text-[#6B7280]">
+                  <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
+                  <p className="text-[13px] text-slate-500">
                     Changing your password will revoke your other active sessions and keep this one signed in.
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="settings-current-password" className="text-[13px] text-[#6B7280]">Current Password</label>
+                    <label htmlFor="settings-current-password" className="text-[13px] text-slate-500">Current Password</label>
                     <div className="relative">
                       <input
                         id="settings-current-password"
@@ -2038,7 +2103,7 @@ export function Settings() {
                         autoComplete="current-password"
                         value={securityData.currentPassword}
                         onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
-                        className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                        className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                       />
                       <button
                         type="button"
@@ -2052,7 +2117,7 @@ export function Settings() {
                     </div>
                   </div>
 
-                  <div className="rounded-[10px] border border-[#E5E7EB] bg-[#F8FAFC] p-3 text-[12px] text-[#475569]">
+                  <div className="rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-[12px] text-slate-600">
                     Request OTP first. You will need the OTP from your email before setting a new password.
                   </div>
 
@@ -2067,7 +2132,7 @@ export function Settings() {
                   </div>
 
                   <div>
-                    <label htmlFor="settings-password-otp" className="text-[13px] text-[#6B7280]">OTP Code</label>
+                    <label htmlFor="settings-password-otp" className="text-[13px] text-slate-500">OTP Code</label>
                     <input
                       id="settings-password-otp"
                       type="text"
@@ -2077,13 +2142,13 @@ export function Settings() {
                       value={passwordOtp}
                       onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="Enter 6-digit OTP"
-                      className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                      className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="settings-new-password" className="text-[13px] text-[#6B7280]">New Password</label>
+                      <label htmlFor="settings-new-password" className="text-[13px] text-slate-500">New Password</label>
                       <div className="relative">
                         <input
                           id="settings-new-password"
@@ -2091,7 +2156,7 @@ export function Settings() {
                           autoComplete="new-password"
                           value={securityData.newPassword}
                           onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                          className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                         />
                         <button
                           type="button"
@@ -2106,7 +2171,7 @@ export function Settings() {
                     </div>
 
                     <div>
-                      <label htmlFor="settings-confirm-password" className="text-[13px] text-[#6B7280]">Confirm Password</label>
+                      <label htmlFor="settings-confirm-password" className="text-[13px] text-slate-500">Confirm Password</label>
                       <div className="relative">
                         <input
                           id="settings-confirm-password"
@@ -2114,7 +2179,7 @@ export function Settings() {
                           autoComplete="new-password"
                           value={securityData.confirmPassword}
                           onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-[#E5E7EB] rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                          className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
                         />
                         <button
                           type="button"
@@ -2133,7 +2198,7 @@ export function Settings() {
                 <div className="flex items-center gap-4 mt-6">
                   <button
                     onClick={handleDiscardPassword}
-                    className="px-6 py-2.5 border border-[#E5E7EB] text-[#64748B] rounded-full text-[14px]"
+                    className="px-6 py-2.5 border border-slate-200 text-slate-500 rounded-full text-[14px]"
                   >
                     Discard
                   </button>
@@ -2145,15 +2210,15 @@ export function Settings() {
                     {isPasswordSubmitting ? "Saving..." : "Save New Password"}
                   </button>
                 </div>
-              </div>
+              </Card>
 
               <MfaSettingsCard />
 
               {hasEmployerAccess && <EmployerPrivacyCard initialValue={hideHiredCandidates} />}
 
-              <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+              <Card>
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-[16px] font-semibold text-[#111827]">Active Sessions</h3>
+                  <h3 className="text-base font-semibold text-slate-900">Active Sessions</h3>
                   {sessions.length > 0 && (
                     <button
                       onClick={handleRevokeAllSessions}
@@ -2163,19 +2228,19 @@ export function Settings() {
                     </button>
                   )}
                 </div>
-                <p className="text-[13px] text-[#6B7280] mb-4">
+                <p className="text-[13px] text-slate-500 mb-4">
                   See your currently logged in sessions and remove unrecognized ones.
                 </p>
                 <div className="space-y-4">
                   {isLoadingSessions ? (
-                    <p className="text-[13px] text-[#6B7280]">Loading sessions...</p>
+                    <p className="text-[13px] text-slate-500">Loading sessions...</p>
                   ) : sessions.length === 0 ? (
-                    <p className="text-[13px] text-[#6B7280]">No active sessions found.</p>
+                    <p className="text-[13px] text-slate-500">No active sessions found.</p>
                   ) : (
                     sessions.map((session, index) => (
-                      <div key={session.id} className="border border-[#E5E7EB] rounded-[12px] p-4">
+                      <div key={session.id} className="border border-slate-200 rounded-[12px] p-4">
                         <div className="flex items-start justify-between mb-3">
-                          <p className="text-[13px] font-semibold text-[#111827]">Session {index + 1}</p>
+                          <p className="text-[13px] font-semibold text-slate-900">Session {index + 1}</p>
                           {!session.current && (
                             <button
                               onClick={() => handleRevokeSession(session.id)}
@@ -2187,29 +2252,29 @@ export function Settings() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">Current Session?</p>
-                            <p className="text-[14px] font-semibold text-[#111827]">{session.current ? "Yes" : "No"}</p>
+                            <p className="text-[12px] text-slate-500">Current Session?</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{session.current ? "Yes" : "No"}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">Device Details</p>
-                            <p className="text-[14px] font-semibold text-[#111827]">{session.device}</p>
+                            <p className="text-[12px] text-slate-500">Device Details</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{session.device}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">IP Address</p>
-                            <p className="text-[14px] font-semibold text-[#111827]">{session.ip}</p>
+                            <p className="text-[12px] text-slate-500">IP Address</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{session.ip}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">Location</p>
-                            <p className="text-[14px] font-semibold text-[#111827]">{session.location}</p>
+                            <p className="text-[12px] text-slate-500">Location</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{session.location}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-[#6B7280]">Last activity</p>
-                            <p className="text-[14px] font-semibold text-[#111827]">{session.lastActive}</p>
+                            <p className="text-[12px] text-slate-500">Last activity</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{session.lastActive}</p>
                           </div>
                           <div className="flex items-end">
                             <span
                               className={`px-3 py-1 rounded-full text-[12px] font-semibold ${
-                                session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#E2E8F0] text-[#475569]"
+                                session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-slate-200 text-slate-600"
                               }`}
                             >
                               {session.current ? "Current session" : "Signed in"}
@@ -2220,160 +2285,256 @@ export function Settings() {
                     ))
                   )}
                 </div>
-              </div>
+              </Card>
 
               {!isAdminRole && (
-                <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-                  <h3 className="text-[16px] font-semibold text-[#111827] mb-2">Verification</h3>
-                  <div className="bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] p-4 mb-4">
-                    <div className="flex items-start justify-between gap-4">
+                <Card>
+                  <h3 className="text-base font-semibold text-slate-900">Verification</h3>
+
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="text-[14px] text-[#64748B]">Verification status</p>
-                        <h4 className="text-[18px] font-semibold text-[#111827]">
+                        <p className="text-sm text-slate-500">Verification status</p>
+                        <h4 className="text-lg font-semibold text-slate-900">
                           {isProfileVerified ? "Profile verified" : "Verification incomplete"}
                         </h4>
-                        <p className="text-[12px] text-[#64748B] mt-1">
-                          {isProfileVerified ? "All requirements completed." : "Complete the remaining requirements below."}
+                        <p className="mt-1 text-xs text-slate-500">
+                          {isProfileVerified
+                            ? "All requirements completed."
+                            : "Complete the remaining requirements below."}
                         </p>
                       </div>
-                      <span className="text-[12px] font-semibold px-3 py-1 rounded-full bg-[#DCFCE7] text-[#166534]">
+                      {/* Was hardcoded success-green, so a brand-new user saw "0% complete" in green. */}
+                      <span
+                        className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
+                          isProfileVerified
+                            ? "bg-[#DCFCE7] text-[#166534]"
+                            : verificationCompletionPercent > 0
+                              ? "bg-[#FEF3C7] text-[#92400E]"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
                         {verificationCompletionPercent}% complete
                       </span>
                     </div>
                     <div className="mt-3">
                       <div
-                        className="h-2 w-full bg-[#E2E8F0] rounded-full overflow-hidden"
+                        className="h-2 w-full overflow-hidden rounded-full bg-slate-200"
                         role="progressbar"
                         aria-label="Profile verification progress"
                         aria-valuemin={0}
                         aria-valuemax={100}
                         aria-valuenow={verificationCompletionPercent}
+                        aria-valuetext={`${completedSteps} of ${verificationStepsData.length} steps completed`}
                       >
-                        <div className="h-full bg-[#22C55E]" style={{ width: `${verificationCompletionPercent}%` }} />
+                        <div
+                          className={`h-full transition-[width] duration-300 motion-reduce:transition-none ${
+                            isProfileVerified ? "bg-[#22C55E]" : "bg-[#1C4D8D]"
+                          }`}
+                          style={{ width: `${verificationCompletionPercent}%` }}
+                        />
                       </div>
-                      <p className="text-[12px] text-[#64748B] mt-2">
+                      <p className="mt-2 text-xs text-slate-500">
                         {completedSteps} of {verificationStepsData.length} steps completed
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {isLoadingVerification ? (
-                      <p className="text-[13px] text-[#6B7280]">Loading verification status...</p>
-                    ) : (
-                      verificationStepsData.map((step) => {
-                      const statusBadge = verificationStatusStyles[step.status];
-                      const statusLabel = verificationStatusLabels[step.status];
-                      const iconBg =
-                        step.status === "complete"
-                          ? "bg-[#DCFCE7]"
-                          : step.status === "in-review"
-                            ? "bg-[#FEF3C7]"
-                            : step.status === "rejected"
-                              ? "bg-[#FEE2E2]"
-                              : "bg-[#E2E8F0]";
-                      const icon =
-                        step.status === "complete" ? (
-                          <CheckCircle2 className="w-5 h-5 text-[#16A34A]" />
-                        ) : step.status === "in-review" ? (
-                          <Clock className="w-5 h-5 text-[#D97706]" />
-                        ) : step.status === "rejected" ? (
-                          <Circle className="w-5 h-5 text-[#DC2626]" />
-                        ) : (
-                          <Circle className="w-5 h-5 text-[#94A3B8]" />
-                        );
-
-                      return (
-                        <div key={step.id} className="bg-white border border-[#E5E7EB] rounded-[12px] p-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex items-start gap-3">
-                              <div className={`w-9 h-9 rounded-full flex items-center justify-center ${iconBg}`}>
-                                {icon}
+                  {isLoadingVerification ? (
+                    <div className="mt-5 space-y-5" aria-hidden="true">
+                      {[0, 1].map((groupIndex) => (
+                        <div key={`verif-skeleton-${groupIndex}`}>
+                          <div className="h-3 w-32 rounded bg-slate-100" />
+                          <div className="mt-2 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
+                            {[0, 1].map((rowIndex) => (
+                              <div key={rowIndex} className="flex items-center gap-3 p-4">
+                                <div className="h-9 w-9 shrink-0 rounded-full bg-slate-100" />
+                                <div className="min-w-0 flex-1 space-y-2">
+                                  <div className="h-3.5 w-32 rounded bg-slate-100" />
+                                  <div className="h-3 w-full max-w-xs rounded bg-slate-100" />
+                                </div>
+                                <div className="h-6 w-20 shrink-0 rounded-full bg-slate-100" />
                               </div>
-                              <div className="flex-1">
-                                <p className="text-[15px] font-semibold text-[#1E293B]">{step.title}</p>
-                                <p className="text-[13px] text-[#64748B] mt-1">{step.description}</p>
-
-                                {/* Action buttons based on verification type and status */}
-                                {step.id === "phone" && step.status !== "complete" && (
-                                  <div className="mt-2 space-y-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                      <button
-                                        onClick={handleRequestPhoneCode}
-                                        disabled={isSendingPhoneCode}
-                                        className="px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 disabled:opacity-60"
-                                      >
-                                        {isSendingPhoneCode
-                                          ? "Sending..."
-                                          : phoneCodeRequested
-                                            ? "Resend code"
-                                            : "Send verification code"}
-                                      </button>
-                                      {phoneCodeHint && (
-                                        <span className="text-[12px] text-[#475569]">{phoneCodeHint}</span>
-                                      )}
-                                    </div>
-                                    {phoneCodeRequested && (
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <input
-                                          type="text"
-                                          inputMode="numeric"
-                                          autoComplete="one-time-code"
-                                          aria-label="Phone verification code"
-                                          maxLength={6}
-                                          value={phoneVerificationCode}
-                                          onChange={(event) =>
-                                            setPhoneVerificationCode(
-                                              event.target.value.replace(/[^\d]/g, "").slice(0, 6)
-                                            )
-                                          }
-                                          placeholder="Enter 6-digit code"
-                                          className="w-[180px] bg-white border border-[#CBD5E1] rounded-[8px] px-3 py-2 text-[12px] text-[#0F172A] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
-                                        />
-                                        <button
-                                          onClick={handleConfirmPhoneCode}
-                                          disabled={isConfirmingPhoneCode}
-                                          className="px-4 py-2 border border-[#1C4D8D] text-[#1C4D8D] text-[12px] font-semibold rounded-[8px] hover:opacity-90/[0.06] disabled:opacity-60"
-                                        >
-                                          {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {step.id === "identity" && (step.status === "pending" || step.status === "rejected") && (
-                                  <div className="mt-2">
-                                    <IdAnalyzerVerifier
-                                      profileId={import.meta.env.VITE_KYC_PROFILE_ID}
-                                      onComplete={async () => { await reloadVerificationStatus(); }}
-                                    />
-                                  </div>
-                                )}
-
-                                {step.id === "address" && (step.status === "pending" || step.status === "rejected") && (
-                                  <label className="mt-2 inline-block px-4 py-2 bg-[#1C4D8D] text-white text-[12px] rounded-[8px] hover:opacity-90 cursor-pointer">
-                                    {step.status === "rejected" ? "Upload replacement" : "Upload Document"}
-                                    <input
-                                      type="file"
-                                      accept="image/*,.pdf"
-                                      onChange={handleUploadAddressDocument}
-                                      className="hidden"
-                                    />
-                                  </label>
-                                )}
-                              </div>
-                            </div>
-                            <span className={`text-[12px] font-semibold px-3 py-1 rounded-full ${statusBadge} whitespace-nowrap`}>
-                              {statusLabel}
-                            </span>
+                            ))}
                           </div>
                         </div>
-                      );
-                    })
-                    )}
-                  </div>
-                </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="sr-only" role="status" aria-live="polite">
+                        {completedSteps} of {verificationStepsData.length} verification steps completed
+                      </p>
+                      <div className="mt-5 space-y-5">
+                        {groupVerificationSteps(verificationStepsData).map((group) => {
+                          const groupDone = group.steps.filter((step) => step.status === "complete").length;
+                          return (
+                            <section key={group.key} aria-label={group.label}>
+                              <div className="flex items-baseline justify-between gap-3">
+                                <h4 className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                                  {group.label}
+                                </h4>
+                                <span className="shrink-0 text-xs text-slate-500">
+                                  {groupDone} of {group.steps.length}
+                                </span>
+                              </div>
+
+                              <div className="mt-2 divide-y divide-slate-200 overflow-hidden rounded-xl border border-slate-200">
+                                {group.steps.map((step) => {
+                                  const meta =
+                                    verificationStatusMeta[step.status] || verificationStatusMeta.pending;
+                                  const StatusIcon = meta.Icon;
+                                  const needsAction =
+                                    step.status === "pending" || step.status === "rejected";
+                                  return (
+                                    <div key={step.id} className="p-4">
+                                      <div className="flex items-start gap-3">
+                                        <span
+                                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${meta.iconBg}`}
+                                          aria-hidden="true"
+                                        >
+                                          <StatusIcon className={`h-5 w-5 ${meta.iconColor}`} />
+                                        </span>
+
+                                        {/* min-w-0 is what lets a long "Rejected: <reason>" wrap instead
+                                            of blowing the row out. */}
+                                        <div className="min-w-0 flex-1">
+                                          <p className="text-[15px] font-semibold text-slate-900">{step.title}</p>
+                                          <p className="mt-1 text-[13px] text-slate-500">{step.description}</p>
+
+                                          {step.id === "email" && needsAction && (
+                                            <button
+                                              type="button"
+                                              onClick={() => navigate(ROUTES.emailVerification)}
+                                              className={verificationActionClass}
+                                            >
+                                              Verify email
+                                            </button>
+                                          )}
+
+                                          {step.id === "phone" && step.status !== "complete" && (
+                                            <div className="mt-3 space-y-2">
+                                              <div className="flex flex-wrap items-center gap-2">
+                                                <button
+                                                  type="button"
+                                                  onClick={handleRequestPhoneCode}
+                                                  disabled={isSendingPhoneCode}
+                                                  className={verificationActionClass}
+                                                >
+                                                  {isSendingPhoneCode
+                                                    ? "Sending..."
+                                                    : phoneCodeRequested
+                                                      ? "Resend code"
+                                                      : "Send verification code"}
+                                                </button>
+                                                {phoneCodeHint && (
+                                                  <span className="text-xs text-slate-600">{phoneCodeHint}</span>
+                                                )}
+                                              </div>
+                                              {phoneCodeRequested && (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                  <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    autoComplete="one-time-code"
+                                                    aria-label="Phone verification code"
+                                                    maxLength={6}
+                                                    value={phoneVerificationCode}
+                                                    onChange={(event) =>
+                                                      setPhoneVerificationCode(
+                                                        event.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                                                      )
+                                                    }
+                                                    placeholder="Enter 6-digit code"
+                                                    className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                                  />
+                                                  <button
+                                                    type="button"
+                                                    onClick={handleConfirmPhoneCode}
+                                                    disabled={isConfirmingPhoneCode}
+                                                    className={verificationSecondaryActionClass}
+                                                  >
+                                                    {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+
+                                          {step.id === "identity" && needsAction && (
+                                            <button
+                                              type="button"
+                                              onClick={() => setIsIdWizardOpen(true)}
+                                              className={verificationActionClass}
+                                            >
+                                              {step.status === "rejected" ? "Re-verify ID" : "Verify ID"}
+                                            </button>
+                                          )}
+
+                                          {step.id === "address" && needsAction && (
+                                            <>
+                                              {/* Was a bare <label>, so it took no keyboard focus and
+                                                  showed no busy state. The input stays hidden; a real
+                                                  button drives it. */}
+                                              <button
+                                                type="button"
+                                                onClick={() => addressDocumentInputRef.current?.click()}
+                                                disabled={isUploadingAddressDocument}
+                                                className={verificationActionClass}
+                                              >
+                                                {isUploadingAddressDocument
+                                                  ? "Uploading..."
+                                                  : step.status === "rejected"
+                                                    ? "Upload replacement"
+                                                    : "Upload document"}
+                                              </button>
+                                              <input
+                                                ref={addressDocumentInputRef}
+                                                type="file"
+                                                accept="image/*,.pdf"
+                                                onChange={handleUploadAddressDocument}
+                                                className="hidden"
+                                                tabIndex={-1}
+                                                aria-hidden="true"
+                                              />
+                                            </>
+                                          )}
+                                        </div>
+
+                                        <span
+                                          className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${meta.badge}`}
+                                        >
+                                          {meta.label}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </section>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
+                  {/* The ID wizard used to render inline, ~400px tall, inside a row whose siblings
+                      were two lines of text. Nothing in the list could line up. */}
+                  <Dialog
+                    open={isIdWizardOpen}
+                    title="Verify your government ID"
+                    description="Scan a valid Philippine government ID to confirm your identity."
+                    onClose={() => setIsIdWizardOpen(false)}
+                  >
+                    <IdAnalyzerVerifier
+                      profileId={import.meta.env.VITE_KYC_PROFILE_ID}
+                      onComplete={async () => {
+                        await reloadVerificationStatus();
+                        setIsIdWizardOpen(false);
+                      }}
+                    />
+                  </Dialog>
+                </Card>
               )}
 
               <DeleteAccountCard />

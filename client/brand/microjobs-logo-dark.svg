@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="56" viewBox="0 0 260 56" fill="none" role="img" aria-label="MicroJobs">
+  <title>MicroJobs</title>
+  <!-- Dark variant: for light backgrounds. Mirrors src/components/MicroJobsLogo.tsx.
+       Mark: 42x42 rounded square, corner radius 6 (15% of the side), tilted 30deg. -->
+  <g transform="translate(7 7)">
+    <rect x="0" y="0" width="42" height="42" rx="6" fill="#1C4D8D" transform="rotate(30 21 21)" />
+    <!-- The M is a stroked path, not <text>, so the mark never depends on an available font. -->
+    <path d="M14.2 27.3 L14.2 15.0 L21 22.9 L27.8 15.0 L27.8 27.3"
+          stroke="#FFFFFF" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  </g>
+  <!-- Wordmark uses <text>: see brand/README.md for the outlined-path caveat. -->
+  <text x="62" y="37" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="32" font-weight="700" letter-spacing="-0.6">
+    <tspan fill="#0F2954">Micro</tspan><tspan fill="#1C4D8D">Jobs</tspan>
+  </text>
+</svg>

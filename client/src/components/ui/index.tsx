@@ -4,6 +4,7 @@ import {
   useId,
   useRef,
   type ButtonHTMLAttributes,
+  type ComponentPropsWithRef,
   type HTMLAttributes,
   type InputHTMLAttributes,
   type RefObject,
@@ -109,7 +110,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 );
 Textarea.displayName = "Textarea";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+export function Card({ className, ...props }: ComponentPropsWithRef<"div">) {
   return <div className={join("rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6", className)} {...props} />;
 }
 

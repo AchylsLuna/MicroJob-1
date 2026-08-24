@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="56" viewBox="0 0 260 56" fill="none" role="img" aria-label="MicroJobs">
+  <title>MicroJobs</title>
+  <!-- Light variant: for dark/brand-blue backgrounds (sign-in hero, sidebar on blue).
+       Mirrors src/components/MicroJobsLogo.tsx with variant="light". -->
+  <g transform="translate(7 7)">
+    <rect x="0" y="0" width="42" height="42" rx="6" fill="#FFFFFF" transform="rotate(30 21 21)" />
+    <path d="M14.2 27.3 L14.2 15.0 L21 22.9 L27.8 15.0 L27.8 27.3"
+          stroke="#1C4D8D" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+  </g>
+  <text x="62" y="37" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+        font-size="32" font-weight="700" letter-spacing="-0.6" fill="#FFFFFF">MicroJobs</text>
+</svg>

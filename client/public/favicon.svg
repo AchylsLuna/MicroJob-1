@@ -1,10 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Matches the in-app mark in src/components/MicroJobsLogo.tsx: a brand-blue rounded
+       square tilted 30deg (corner radius 15% of the side), with an upright white M. Side is 23 so the rotated bounding
+       box (23 * (cos30 + sin30) = 31.4) still fits the 32 viewBox. -->
+  <rect x="4.5" y="4.5" width="23" height="23" rx="3.5" fill="#1C4D8D" transform="rotate(30 16 16)" />
+  <!-- The M is a stroked path rather than <text> so it renders identically everywhere,
+       with no dependency on an available font. It stays upright, as it does in the app. -->
   <path
-    d="M20.4446 9.34824C19.129 8.4692 17.5822 8 16 8V0C19.1645 0 22.2579 0.938384 24.8891 2.69649C27.5203 4.45458 29.571 6.95345 30.7821 9.87704C31.993 12.8006 32.3099 16.0178 31.6926 19.1214C31.0752 22.2251 29.5514 25.0761 27.3137 27.3137C25.0761 29.5514 22.2251 31.0752 19.1214 31.6926C16.0178 32.3099 12.8006 31.993 9.87704 30.7821C6.95345 29.571 4.45458 27.5203 2.69649 24.8891C0.938384 22.2579 0 19.1645 0 16H8C8 17.5822 8.4692 19.129 9.34824 20.4446C10.2273 21.7602 11.4767 22.7855 12.9386 23.391C14.4003 23.9966 16.0089 24.155 17.5607 23.8462C19.1126 23.5376 20.538 22.7757 21.6569 21.6569C22.7757 20.538 23.5376 19.1126 23.8462 17.5607C24.155 16.0089 23.9966 14.4003 23.391 12.9386C22.7855 11.4767 21.7602 10.2273 20.4446 9.34824Z"
-    fill="#1C4D8D"
-  />
-  <path
-    d="M8 0C8 1.05058 7.79308 2.09087 7.39104 3.06147C6.989 4.03208 6.39972 4.91399 5.65685 5.65686C4.91399 6.39973 4.03208 6.989 3.06147 7.39104C2.09086 7.79308 1.05057 8 0 8V16C2.10115 16 4.18172 15.5862 6.12294 14.7821C8.06416 13.978 9.828 12.7994 11.3137 11.3137C12.7994 9.828 13.978 8.06416 14.7821 6.12294C15.5862 4.18172 16 2.10115 16 0H8Z"
-    fill="#1C4D8D"
+    d="M10.8 20.8 L10.8 11.4 L16 17.4 L21.2 11.4 L21.2 20.8"
+    stroke="#FFFFFF"
+    stroke-width="3.4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
   />
 </svg>

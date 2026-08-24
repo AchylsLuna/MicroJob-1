@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../../lib/toast";
 import { updateProfile } from "../../services/api";
+import { Card } from "../ui";
 
 export function EmployerPrivacyCard({ initialValue }: { initialValue: boolean }) {
   const { t } = useTranslation("employer");
@@ -28,18 +29,18 @@ export function EmployerPrivacyCard({ initialValue }: { initialValue: boolean })
   };
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-      <h3 className="text-[16px] font-semibold text-[#111827]">{t("employerPrivacy.title")}</h3>
-      <p className="mt-1 text-[13px] text-[#6B7280]">
+    <Card>
+      <h3 className="text-base font-semibold text-slate-900">{t("employerPrivacy.title")}</h3>
+      <p className="mt-1 text-[13px] text-slate-500">
         {t("employerPrivacy.subtitle")}
       </p>
-      <div className="mt-4 flex items-center justify-between gap-4 rounded-[12px] border border-[#E5E7EB] px-4 py-4">
+      <div className="mt-4 flex items-center justify-between gap-4 rounded-[12px] border border-slate-200 px-4 py-4">
         <div>
-          <p className="text-[15px] font-semibold text-[#111827]">{t("employerPrivacy.hideHiredCandidates.label")}</p>
-          <p className="text-[12px] text-[#6B7280]">{t("employerPrivacy.hideHiredCandidates.description")}</p>
+          <p className="text-[15px] font-semibold text-slate-900">{t("employerPrivacy.hideHiredCandidates.label")}</p>
+          <p className="text-[12px] text-slate-500">{t("employerPrivacy.hideHiredCandidates.description")}</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[12px] text-[#6B7280]">
+          <span className="text-[12px] text-slate-500">
             {isSaving ? t("employerPrivacy.status.saving") : hideHiredCandidates ? t("employerPrivacy.status.enabled") : t("employerPrivacy.status.disabled")}
           </span>
           <button
@@ -61,6 +62,6 @@ export function EmployerPrivacyCard({ initialValue }: { initialValue: boolean })
           </button>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

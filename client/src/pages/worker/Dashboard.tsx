@@ -23,7 +23,6 @@ import { ROUTES } from "../../utils/routes";
 import { calculateProfileCompletion } from "../../lib/profileCompletion";
 import { formatMinimumPay } from "../../lib/jobCompensation";
 import { formatDate } from "../../lib/formatters";
-import { CategoryTile } from "../../components/ui/CategoryTile";
 import { SectionHeader } from "../../components/ui/SectionHeader";
 import { JobCard } from "../../components/job/JobCard";
 import { toJobCardData } from "../../components/job/jobCardModel";
@@ -362,8 +361,11 @@ function WorkerDashboardContent() {
           <SectionHeader title="Job Categories" />
           <div className="flex gap-3 overflow-x-auto pb-1 lg:grid lg:grid-cols-6 lg:overflow-visible">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="flex w-[116px] shrink-0 flex-col items-center gap-1.5">
-                <div className="h-24 w-24 animate-pulse rounded-2xl bg-slate-100" />
+              <div
+                key={i}
+                className="flex h-[124px] w-[132px] shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-4 lg:w-full"
+              >
+                <div className="h-7 w-8 animate-pulse rounded bg-slate-100" />
                 <div className="h-3 w-16 animate-pulse rounded bg-slate-100" />
               </div>
             ))}
@@ -378,9 +380,12 @@ function WorkerDashboardContent() {
                 key={category._id}
                 type="button"
                 onClick={() => navigate(`${ROUTES.worker.findJobs}?category=${encodeURIComponent(category._id)}`)}
-                className="shrink-0 snap-start"
+                className="flex h-[124px] w-[132px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-2xl border border-slate-200 bg-white p-4 text-center transition hover:border-[#1C4D8D]/30 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 lg:w-full"
               >
-                <CategoryTile category={category} size="lg" showLabel count={category.count} />
+                <span className="text-2xl font-extrabold leading-none text-[#1C4D8D]">{category.count ?? 0}</span>
+                <span className="line-clamp-2 text-[12px] font-semibold leading-tight text-slate-600">
+                  {category.name}
+                </span>
               </button>
             ))}
           </div>

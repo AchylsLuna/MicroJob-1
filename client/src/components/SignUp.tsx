@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, User, Eye, EyeOff, Phone, Briefcase, Users, Award, TrendingUp, UserPlus, Handshake, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, Phone, Briefcase, UserPlus, Handshake, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { OTPVerification } from "./OTPVerification";
@@ -204,48 +204,34 @@ export function SignUp() {
         {/* Left Side - Branding */}
         <div className="text-white space-y-8 flex flex-col justify-start max-w-full min-w-0 overflow-hidden">
           <div className="space-y-4">
-            <div className="pl-4 mb-6">
+            <div className="mb-6">
               <MicroJobsLogo variant="light" className="[&>span]:text-[32px] [&>span]:font-bold" />
             </div>
-            
-            <div className="grid grid-cols-[48px_1fr] gap-4 pl-4">
-              <div aria-hidden="true" />
-              <div>
-                <h2 className="text-[28px] font-bold leading-tight whitespace-pre-line">
-                  {t("signUp.hero.title")}
-                </h2>
-                <p className="text-[16px] opacity-90 leading-relaxed">
-                  {t("signUp.hero.subtitle")}
-                </p>
-              </div>
-            </div>
+
+            <h2 className="text-[28px] font-bold leading-tight whitespace-pre-line">
+              {t("signUp.hero.title")}
+            </h2>
+            <p className="text-[16px] opacity-90 leading-relaxed">
+              {t("signUp.hero.subtitle")}
+            </p>
           </div>
 
           <div className="space-y-4">
-            <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
-              <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Users className="w-6 h-6 text-white" />
-              </div>
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signUp.hero.features.verified.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signUp.hero.features.verified.description")}</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
-              <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Award className="w-6 h-6 text-white" />
-              </div>
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signUp.hero.features.quality.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signUp.hero.features.quality.description")}</p>
               </div>
             </div>
 
-            <div className="flex items-start gap-4 p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
-              <div className="w-12 h-12 rounded-[12px] bg-white/20 flex items-center justify-center flex-shrink-0">
-                <TrendingUp className="w-6 h-6 text-white" />
-              </div>
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signUp.hero.features.growth.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signUp.hero.features.growth.description")}</p>

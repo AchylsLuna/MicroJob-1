@@ -9,6 +9,7 @@ import {
   startMfaSetup,
   type MfaStatus,
 } from "../../services/api";
+import { Card } from "../ui";
 
 const defaultStatus: MfaStatus = {
   enabled: false,
@@ -117,17 +118,17 @@ export function MfaSettingsCard() {
   };
 
   return (
-    <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+    <Card>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-[16px] font-semibold text-[#111827]">{t("settings.mfa.title")}</h3>
-          <p className="mt-1 text-[13px] text-[#6B7280]">
+          <h3 className="text-base font-semibold text-slate-900">{t("settings.mfa.title")}</h3>
+          <p className="mt-1 text-[13px] text-slate-500">
             {t("settings.mfa.description")}
           </p>
         </div>
         <span
           className={`rounded-full px-3 py-1 text-[12px] font-semibold ${
-            status.enabled ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#F1F5F9] text-[#475569]"
+            status.enabled ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#F1F5F9] text-slate-600"
           }`}
         >
           {isLoading ? t("settings.mfa.statusLoading") : status.enabled ? t("settings.mfa.statusEnabled") : t("settings.mfa.statusDisabled")}
@@ -150,14 +151,14 @@ export function MfaSettingsCard() {
           </button>
 
           {(secret || status.hasPendingSetup) && (
-            <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-              <p className="text-[13px] font-semibold text-[#1E293B]">{t("settings.mfa.setupHeading")}</p>
-              <p className="mt-1 text-[12px] text-[#64748B]">
+            <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4">
+              <p className="text-[13px] font-semibold text-slate-900">{t("settings.mfa.setupHeading")}</p>
+              <p className="mt-1 text-[12px] text-slate-500">
                 {t("settings.mfa.setupInstructions")}
               </p>
               {secret ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <code className="rounded border border-[#E5E7EB] bg-white px-3 py-2 text-[13px] text-[#0F172A]">
+                  <code className="rounded border border-slate-200 bg-white px-3 py-2 text-[13px] text-[#0F172A]">
                     {secret}
                   </code>
                   <button
@@ -177,7 +178,7 @@ export function MfaSettingsCard() {
                 </p>
               )}
               {otpauthUrl && (
-                <p className="mt-2 break-all text-[11px] text-[#64748B]">{otpauthUrl}</p>
+                <p className="mt-2 break-all text-[11px] text-slate-500">{otpauthUrl}</p>
               )}
             </div>
           )}
@@ -186,7 +187,7 @@ export function MfaSettingsCard() {
 
       {!isLoading && (status.enabled || status.hasPendingSetup || secret) && (
         <div className="mt-5">
-          <label className="block text-[13px] font-medium text-[#374151]">
+          <label className="block text-[13px] font-medium text-slate-700">
             {status.enabled ? t("settings.mfa.currentOrBackupCodeLabel") : t("settings.mfa.sixDigitCodeLabel")}
             <input
               type="text"
@@ -195,7 +196,7 @@ export function MfaSettingsCard() {
               placeholder={status.enabled ? t("settings.mfa.codeInputPlaceholderEnabled") : t("settings.mfa.codeInputPlaceholder")}
               autoComplete="one-time-code"
               inputMode="numeric"
-              className="mt-2 w-full max-w-sm rounded-[12px] border border-[#E5E7EB] bg-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+              className="mt-2 w-full max-w-sm rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
             />
           </label>
           <div className="mt-3 flex flex-wrap gap-3">
@@ -230,7 +231,7 @@ export function MfaSettingsCard() {
             )}
           </div>
           {status.enabled && (
-            <p className="mt-3 text-[12px] text-[#64748B]">
+            <p className="mt-3 text-[12px] text-slate-500">
               {t("settings.mfa.backupCodesRemaining", { count: status.backupCodesRemaining })}
             </p>
           )}
@@ -252,6 +253,6 @@ export function MfaSettingsCard() {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

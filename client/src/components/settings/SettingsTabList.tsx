@@ -66,7 +66,7 @@ export function SettingsTabList<T extends string>({
             className={`min-h-11 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 ${
               selected
                 ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]"
-                : "text-[#64748B] hover:bg-[#F8FAFC]"
+                : "text-slate-500 hover:bg-slate-50"
             }`}
           >
             {tab.label}
