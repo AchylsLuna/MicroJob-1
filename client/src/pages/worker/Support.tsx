@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
   Book,
@@ -15,6 +15,8 @@ import {
   Ticket,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useAuth } from "../../hooks/useAuth";
 import {
@@ -26,45 +28,32 @@ import {
   type SupportTicket,
 } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
+import { formatDateTime } from "../../lib/formatters";
 
-const faqs = [
-  {
-    id: "account-verify",
-    question: "How do I verify my account?",
-    answer: "Go to settings and complete your identity details. Verification items remain visible until they are reviewed.",
-    category: "account",
-  },
-  {
-    id: "payout-time",
-    question: "How long do payouts take?",
-    answer: "Payout requests are reviewed manually. Once approved, you can track each request in your wallet history.",
-    category: "payments",
-  },
-  {
-    id: "application-status",
-    question: "Why did my application stage change?",
-    answer: "Employers now move applications through explicit pipeline stages such as Shortlisted, Interview Scheduled, Offer Sent, and Hired.",
-    category: "jobs",
-  },
-  {
-    id: "messages",
-    question: "Can I contact an employer directly?",
-    answer: "Yes. Use the Messages area from job details or your application workflow to contact the employer directly.",
-    category: "jobs",
-  },
-  {
-    id: "security",
-    question: "How do I secure my account?",
-    answer: "Use a strong password, enable MFA in settings, and review active sessions regularly from your account settings.",
-    category: "account",
-  },
+const FAQ_CONFIG: Array<{ id: string; key: string; category: "account" | "payments" | "jobs" }> = [
+  { id: "account-verify", key: "accountVerify", category: "account" },
+  { id: "payout-time", key: "payoutTime", category: "payments" },
+  { id: "application-status", key: "applicationStatus", category: "jobs" },
+  { id: "messages", key: "messages", category: "jobs" },
+  { id: "security", key: "security", category: "account" },
 ];
+
+// A factory (not a module-level constant) so FAQ text can be recomputed via
+// useMemo(() => getFaqs(t), [t]) whenever the active language changes.
+function getFaqs(t: TFunction) {
+  return FAQ_CONFIG.map(({ id, key, category }) => ({
+    id,
+    category,
+    question: t(`support.faqs.${key}.question`),
+    answer: t(`support.faqs.${key}.answer`),
+  }));
+}
 
 const formatDate = (value?: string) => {
   if (!value) return "-";
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return "-";
-  return parsed.toLocaleString();
+  return formatDateTime(parsed);
 };
 
 const getStatusClasses = (status: SupportTicket["status"]) => {
@@ -115,6 +104,7 @@ const extractTicket = (response: any): SupportTicket | undefined => {
 export function Support() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { t } = useTranslation("worker");
   const prefersReducedMotion = useReducedMotion();
   const [searchParams, setSearchParams] = useSearchParams();
   const [openFAQ, setOpenFAQ] = useState<string | null>(null);
@@ -135,10 +125,12 @@ export function Support() {
   });
   const supportFormRef = useRef<HTMLFormElement>(null);
 
+  const faqs = useMemo(() => getFaqs(t), [t]);
+
   const prepareSecurityEscalation = () => {
     setSupportForm((current) => ({
       ...current,
-      subject: current.subject || "Security escalation",
+      subject: current.subject || t("support.cards.securityEscalation.subjectDefault"),
       category: "account",
       priority: "urgent",
     }));
@@ -151,7 +143,11 @@ export function Support() {
     [selectedTicketId, tickets],
   );
 
-  const loadTickets = async (selectedId?: string | null, options?: { silent?: boolean }) => {
+  // Memoized (rather than a plain function) because they call t() — a
+  // reactive value — and are referenced from the effects below, so
+  // react-hooks/exhaustive-deps requires them to be stable, listed
+  // dependencies wherever they're used.
+  const loadTickets = useCallback(async (selectedId?: string | null, options?: { silent?: boolean }) => {
     const silent = Boolean(options?.silent);
     if (!silent) setIsLoadingTickets(true);
     try {
@@ -165,14 +161,14 @@ export function Support() {
       }
     } catch (error: any) {
       if (!silent) {
-        toast.error(error?.message || "Failed to load support tickets.");
+        toast.error(error?.message || t("support.toast.loadTicketsFailed"));
       }
     } finally {
       if (!silent) setIsLoadingTickets(false);
     }
-  };
+  }, [t]);
 
-  const loadTicketDetails = async (ticketId: string, options?: { silent?: boolean }) => {
+  const loadTicketDetails = useCallback(async (ticketId: string, options?: { silent?: boolean }) => {
     const silent = Boolean(options?.silent);
     try {
       const response = await getSupportTicket(ticketId);
@@ -183,10 +179,10 @@ export function Support() {
       );
     } catch (error: any) {
       if (!silent) {
-        toast.error(error?.message || "Failed to load ticket details.");
+        toast.error(error?.message || t("support.toast.loadTicketDetailsFailed"));
       }
     }
-  };
+  }, [t]);
 
   useEffect(() => {
     const query = searchParams.get("q") || "";
@@ -195,20 +191,20 @@ export function Support() {
 
   useEffect(() => {
     loadTickets();
-  }, []);
+  }, [loadTickets]);
 
   useEffect(() => {
     if (selectedTicketId) {
       loadTicketDetails(selectedTicketId);
     }
-  }, [selectedTicketId]);
+  }, [selectedTicketId, loadTicketDetails]);
 
   useEffect(() => {
     const id = window.setInterval(() => {
       loadTickets(selectedTicketId, { silent: true });
     }, 10000);
     return () => window.clearInterval(id);
-  }, [selectedTicketId]);
+  }, [selectedTicketId, loadTickets]);
 
   useEffect(() => {
     if (!selectedTicketId) return;
@@ -216,7 +212,7 @@ export function Support() {
       loadTicketDetails(selectedTicketId, { silent: true });
     }, 5000);
     return () => window.clearInterval(id);
-  }, [selectedTicketId]);
+  }, [selectedTicketId, loadTicketDetails]);
 
   const filteredFAQs = faqs.filter((faq) => {
     const matchesCategory = categoryFilter === "all" || faq.category === categoryFilter;
@@ -229,7 +225,7 @@ export function Support() {
   const handleSubmitTicket = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!supportForm.subject.trim() || !supportForm.message.trim()) {
-      toast.error("Subject and message are required.");
+      toast.error(t("support.toast.ticketRequiredFields"));
       return;
     }
 
@@ -249,9 +245,9 @@ export function Support() {
         await loadTickets();
       }
       setSupportForm({ subject: "", category: "general", priority: "medium", message: "" });
-      toast.success("Support ticket submitted.");
+      toast.success(t("support.toast.ticketSubmitted"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to submit support ticket.");
+      toast.error(error?.message || t("support.toast.ticketSubmitFailed"));
     } finally {
       setIsSubmitting(false);
     }
@@ -271,9 +267,9 @@ export function Support() {
         await loadTicketDetails(selectedTicketId);
       }
       setReplyDraft("");
-      toast.success("Reply sent.");
+      toast.success(t("support.toast.replySent"));
     } catch (error: any) {
-      toast.error(error?.message || "Failed to send reply.");
+      toast.error(error?.message || t("support.toast.replySendFailed"));
     } finally {
       setIsReplying(false);
     }
@@ -291,11 +287,11 @@ export function Support() {
 
       const target = agents[0];
       if (!target?._id) {
-        toast.error("No support admin is available right now.");
+        toast.error(t("support.toast.noSupportAdmin"));
         return;
       }
 
-      const displayName = "Admin Support";
+      const displayName = t("messages.adminSupportName");
 
       const messageRoute = window.location.pathname.startsWith("/employer")
         ? ROUTES.employer.messages
@@ -309,7 +305,7 @@ export function Support() {
       });
       navigate(`${messageRoute}?${params.toString()}`);
     } catch (error: any) {
-      toast.error(error?.message || "Failed to open support messages.");
+      toast.error(error?.message || t("support.toast.openMessagesFailed"));
     } finally {
       setIsOpeningMessages(false);
     }
@@ -323,17 +319,17 @@ export function Support() {
             <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full -mr-36 -mt-36" />
             <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h1 className="text-[32px] font-semibold mb-2">Support Center</h1>
+                <h1 className="text-[32px] font-semibold mb-2">{t("support.header.title")}</h1>
                 <p className="text-[15px] text-white/85 max-w-[620px]">
-                  Search FAQs, open a support ticket, and track each reply in a single thread.
+                  {t("support.header.subtitle")}
                 </p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-[16px] px-5 py-4 min-w-[240px]">
-                <p className="text-[12px] uppercase tracking-[0.18em] text-white/65">Signed in as</p>
+                <p className="text-[12px] uppercase tracking-[0.18em] text-white/65">{t("support.header.signedInAs")}</p>
                 <p className="text-[18px] font-semibold mt-1">
-                  {`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || "MicroJobs user"}
+                  {`${user?.firstName || ""} ${user?.lastName || ""}`.trim() || user?.email || t("support.header.userFallback")}
                 </p>
-                <p className="text-[13px] text-white/75 mt-1">{user?.email || "Support replies will appear here."}</p>
+                <p className="text-[13px] text-white/75 mt-1">{user?.email || t("support.header.emailFallback")}</p>
               </div>
             </div>
           </div>
@@ -343,14 +339,14 @@ export function Support() {
               <div className="w-12 h-12 rounded-[12px] bg-[#1C4D8D]/[0.08] flex items-center justify-center mb-4">
                 <MessageSquare className="w-6 h-6 text-[#1C4D8D]" />
               </div>
-              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Message Support</h3>
-              <p className="text-[14px] text-[#6B7280] mb-4">Use the messaging workspace for urgent conversations with the support team.</p>
+              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.messageSupport.title")}</h3>
+              <p className="text-[14px] text-[#6B7280] mb-4">{t("support.cards.messageSupport.description")}</p>
               <button
                 onClick={() => void handleOpenSupportMessages()}
                 disabled={isOpeningMessages}
                 className="w-full bg-[#1C4D8D] text-white font-medium py-2 rounded-[8px] hover:opacity-90 transition-all text-[14px] disabled:opacity-60"
               >
-                {isOpeningMessages ? "Opening..." : "Open Messages"}
+                {isOpeningMessages ? t("support.cards.messageSupport.opening") : t("support.cards.messageSupport.open")}
               </button>
             </div>
 
@@ -358,13 +354,13 @@ export function Support() {
               <div className="w-12 h-12 rounded-[12px] bg-[#DCFCE7] flex items-center justify-center mb-4">
                 <Mail className="w-6 h-6 text-[#15803D]" />
               </div>
-              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Email Support</h3>
+              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.emailSupport.title")}</h3>
               <p className="text-[14px] text-[#6B7280] mb-4">support@microjobs.ph</p>
               <a
                 href="mailto:support@microjobs.ph"
                 className="w-full block text-center bg-white border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]"
               >
-                Send Email
+                {t("support.cards.emailSupport.sendEmail")}
               </a>
             </div>
 
@@ -372,10 +368,10 @@ export function Support() {
               <div className="w-12 h-12 rounded-[12px] bg-[#FEF3C7] flex items-center justify-center mb-4">
                 <Phone className="w-6 h-6 text-[#B45309]" />
               </div>
-              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">Security Escalation</h3>
-              <p className="text-[14px] text-[#6B7280] mb-4">Account compromise, payout disputes, and identity concerns.</p>
+              <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.securityEscalation.title")}</h3>
+              <p className="text-[14px] text-[#6B7280] mb-4">{t("support.cards.securityEscalation.description")}</p>
               <button type="button" onClick={prepareSecurityEscalation} className="min-h-11 w-full border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]">
-                Escalate Issue
+                {t("support.cards.securityEscalation.escalate")}
               </button>
             </div>
           </div>
@@ -383,7 +379,7 @@ export function Support() {
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-6">
               <HelpCircle className="w-6 h-6 text-[#1C4D8D]" />
-              <h2 className="text-[24px] font-semibold text-[#111827]">Frequently Asked Questions</h2>
+              <h2 className="text-[24px] font-semibold text-[#111827]">{t("support.faqSection.title")}</h2>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] gap-4 mb-6">
@@ -396,7 +392,7 @@ export function Support() {
                     setSearchQuery(value);
                     setSearchParams(value ? { q: value } : {});
                   }}
-                  placeholder="Search FAQs..."
+                  placeholder={t("support.faqSection.searchPlaceholder")}
                   className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
                 />
               </div>
@@ -411,7 +407,7 @@ export function Support() {
                         : "bg-gray-100 text-[#6B7280] hover:bg-gray-200"
                     }`}
                   >
-                    {item === "all" ? "All" : item.charAt(0).toUpperCase() + item.slice(1)}
+                    {t(`support.faqSection.categories.${item}`)}
                   </button>
                 ))}
               </div>
@@ -458,44 +454,44 @@ export function Support() {
           </div>
 
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
-            <h2 className="text-[24px] font-semibold text-[#111827] mb-2">Submit a Support Ticket</h2>
+            <h2 className="text-[24px] font-semibold text-[#111827] mb-2">{t("support.ticketForm.title")}</h2>
             <p className="text-[14px] text-[#6B7280] mb-6">
-              Create a ticket for payout issues, account access, application disputes, or platform bugs.
+              {t("support.ticketForm.subtitle")}
             </p>
 
-            <form ref={supportFormRef} onSubmit={handleSubmitTicket} className="space-y-4" aria-label="Submit a support ticket">
+            <form ref={supportFormRef} onSubmit={handleSubmitTicket} className="space-y-4" aria-label={t("support.ticketForm.title")}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
-                  <label htmlFor="support-subject" className="block text-[14px] font-medium text-[#111827] mb-2">Subject</label>
+                  <label htmlFor="support-subject" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.subjectLabel")}</label>
                   <input
                     id="support-subject"
                     type="text"
                     value={supportForm.subject}
                     onChange={(event) => setSupportForm((current) => ({ ...current, subject: event.target.value }))}
-                    placeholder="Brief description of the issue"
+                    placeholder={t("support.ticketForm.subjectPlaceholder")}
                     className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
                   />
                 </div>
                 <div>
-                  <label htmlFor="support-category" className="block text-[14px] font-medium text-[#111827] mb-2">Category</label>
+                  <label htmlFor="support-category" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.categoryLabel")}</label>
                   <select
                     id="support-category"
                     value={supportForm.category}
                     onChange={(event) => setSupportForm((current) => ({ ...current, category: event.target.value }))}
                     className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
                   >
-                    <option value="general">General</option>
-                    <option value="payments">Payments</option>
-                    <option value="account">Account</option>
-                    <option value="jobs">Jobs</option>
-                    <option value="technical">Technical</option>
+                    <option value="general">{t("support.ticketForm.categories.general")}</option>
+                    <option value="payments">{t("support.ticketForm.categories.payments")}</option>
+                    <option value="account">{t("support.ticketForm.categories.account")}</option>
+                    <option value="jobs">{t("support.ticketForm.categories.jobs")}</option>
+                    <option value="technical">{t("support.ticketForm.categories.technical")}</option>
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="support-priority" className="block text-[14px] font-medium text-[#111827] mb-2">Priority</label>
+                  <label htmlFor="support-priority" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.priorityLabel")}</label>
                   <select
                     id="support-priority"
                     value={supportForm.priority}
@@ -507,25 +503,25 @@ export function Support() {
                     }
                     className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent"
                   >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
+                    <option value="low">{t("support.priorityLabels.low")}</option>
+                    <option value="medium">{t("support.priorityLabels.medium")}</option>
+                    <option value="high">{t("support.priorityLabels.high")}</option>
+                    <option value="urgent">{t("support.priorityLabels.urgent")}</option>
                   </select>
                 </div>
                 <div className="bg-[#F8FAFC] rounded-[12px] border border-[#E5E7EB] px-4 py-3">
-                  <p className="text-[12px] uppercase tracking-[0.14em] text-[#6B7280]">Reply Destination</p>
-                  <p className="text-[15px] font-semibold text-[#111827] mt-1">{user?.email || "Signed-in email"}</p>
+                  <p className="text-[12px] uppercase tracking-[0.14em] text-[#6B7280]">{t("support.ticketForm.replyDestinationLabel")}</p>
+                  <p className="text-[15px] font-semibold text-[#111827] mt-1">{user?.email || t("support.ticketForm.signedInEmailFallback")}</p>
                 </div>
               </div>
 
               <div>
-                <label htmlFor="support-message" className="block text-[14px] font-medium text-[#111827] mb-2">Message</label>
+                <label htmlFor="support-message" className="block text-[14px] font-medium text-[#111827] mb-2">{t("support.ticketForm.messageLabel")}</label>
                 <textarea
                   id="support-message"
                   value={supportForm.message}
                   onChange={(event) => setSupportForm((current) => ({ ...current, message: event.target.value }))}
-                  placeholder="Describe the issue, the expected result, and any dates or references we should review."
+                  placeholder={t("support.ticketForm.messagePlaceholder")}
                   rows={6}
                   className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent resize-none"
                 />
@@ -537,7 +533,7 @@ export function Support() {
                 className="w-full md:w-auto bg-[#1C4D8D] text-white font-semibold py-3 px-8 rounded-[12px] hover:opacity-90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
-                {isSubmitting ? "Submitting..." : "Submit Ticket"}
+                {isSubmitting ? t("support.ticketForm.submitting") : t("support.ticketForm.submit")}
               </button>
             </form>
           </div>
@@ -547,16 +543,16 @@ export function Support() {
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-4">
               <Ticket className="w-5 h-5 text-[#1C4D8D]" />
-              <h2 className="text-[20px] font-semibold text-[#111827]">Your Tickets</h2>
+              <h2 className="text-[20px] font-semibold text-[#111827]">{t("support.sidebar.yourTickets")}</h2>
             </div>
 
             {isLoadingTickets ? (
-              <div className="py-8 text-center text-[14px] text-[#6B7280]">Loading ticket history...</div>
+              <div className="py-8 text-center text-[14px] text-[#6B7280]">{t("support.sidebar.loadingHistory")}</div>
             ) : tickets.length === 0 ? (
               <div className="py-8 text-center">
                 <LifeBuoy className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
-                <p className="text-[15px] font-medium text-[#111827]">No tickets yet</p>
-                <p className="text-[13px] text-[#6B7280] mt-1">Submit a ticket to start a support thread.</p>
+                <p className="text-[15px] font-medium text-[#111827]">{t("support.sidebar.emptyTitle")}</p>
+                <p className="text-[13px] text-[#6B7280] mt-1">{t("support.sidebar.emptyHint")}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -581,19 +577,19 @@ export function Support() {
                           <p className="text-[12px] text-[#6B7280] mt-1">{formatDate(ticket.updatedAt || ticket.createdAt)}</p>
                         </div>
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getStatusClasses(ticket.status)}`}>
-                          {ticket.status.replace(/_/g, " ")}
+                          {t(`support.statusLabels.${ticket.status}`)}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${getPriorityClasses(ticket.priority)}`}>
-                          {ticket.priority || "low"}
+                          {t(`support.priorityLabels.${ticket.priority || "low"}`)}
                         </span>
                         <span className="text-[12px] text-[#6B7280] inline-flex items-center gap-1">
                           <Clock3 className="w-3.5 h-3.5" />
-                          {ticket.messageCount || ticket.messages?.length || 0} messages
+                          {t("support.sidebar.messagesCount", { count: ticket.messageCount || ticket.messages?.length || 0 })}
                         </span>
                       </div>
-                      <p className="text-[13px] text-[#6B7280] line-clamp-2">{latestMessage?.body || "No messages yet."}</p>
+                      <p className="text-[13px] text-[#6B7280] line-clamp-2">{latestMessage?.body || t("support.sidebar.noMessagesYet")}</p>
                     </motion.button>
                   );
                 })}
@@ -604,21 +600,21 @@ export function Support() {
           <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
             <div className="flex items-center gap-3 mb-4">
               <Book className="w-5 h-5 text-[#1C4D8D]" />
-              <h2 className="text-[20px] font-semibold text-[#111827]">Ticket Thread</h2>
+              <h2 className="text-[20px] font-semibold text-[#111827]">{t("support.sidebar.ticketThread")}</h2>
             </div>
 
             {!selectedTicket ? (
-              <div className="py-8 text-center text-[14px] text-[#6B7280]">Select a ticket to review the thread.</div>
+              <div className="py-8 text-center text-[14px] text-[#6B7280]">{t("support.sidebar.selectTicket")}</div>
             ) : (
               <div className="space-y-4">
                 <div className="rounded-[12px] bg-[#F8FAFC] border border-[#E5E7EB] p-4">
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div>
                       <p className="text-[17px] font-semibold text-[#111827]">{selectedTicket.subject}</p>
-                      <p className="text-[13px] text-[#6B7280] mt-1">Opened {formatDate(selectedTicket.createdAt)}</p>
+                      <p className="text-[13px] text-[#6B7280] mt-1">{t("support.sidebar.opened", { date: formatDate(selectedTicket.createdAt) })}</p>
                     </div>
                     <span className={`px-3 py-1.5 rounded-full text-[11px] font-semibold ${getStatusClasses(selectedTicket.status)}`}>
-                      {selectedTicket.status.replace(/_/g, " ")}
+                      {t(`support.statusLabels.${selectedTicket.status}`)}
                     </span>
                   </div>
                 </div>
@@ -643,7 +639,7 @@ export function Support() {
                               <MessageSquare className="w-4 h-4 text-[#6B7280]" />
                             )}
                             <p className="text-[13px] font-semibold text-[#111827]">
-                              {isAdmin ? "Support Team" : "You"}
+                              {isAdmin ? t("support.sidebar.supportTeam") : t("support.sidebar.you")}
                             </p>
                           </div>
                           <p className="text-[12px] text-[#6B7280]">{formatDate(message.createdAt)}</p>
@@ -656,7 +652,7 @@ export function Support() {
 
                 {selectedTicket.status === "closed" ? (
                   <div className="rounded-[12px] border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[13px] text-[#6B7280]">
-                    This ticket is closed. Open a new ticket if you need further help.
+                    {t("support.sidebar.closedNotice")}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -664,7 +660,7 @@ export function Support() {
                       value={replyDraft}
                       onChange={(event) => setReplyDraft(event.target.value)}
                       rows={4}
-                      placeholder="Add more detail or reply to support..."
+                      placeholder={t("support.sidebar.replyPlaceholder")}
                       className="w-full px-4 py-3 border border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent resize-none"
                     />
                     <button
@@ -673,7 +669,7 @@ export function Support() {
                       disabled={isReplying || !replyDraft.trim()}
                       className="w-full bg-[#1C4D8D] text-white font-semibold py-3 px-4 rounded-[12px] hover:opacity-90 transition-all disabled:opacity-60"
                     >
-                      {isReplying ? "Sending reply..." : "Reply to Ticket"}
+                      {isReplying ? t("support.sidebar.sendingReply") : t("support.sidebar.replyToTicket")}
                     </button>
                   </div>
                 )}

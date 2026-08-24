@@ -889,7 +889,6 @@ export function confirmPhoneVerificationOtp(payload: { code: string }) {
   });
 }
 
-<<<<<<< HEAD
 export function uploadIdentityDocument(file: File) {
   const formData = new FormData();
   formData.append('document', file);
@@ -897,7 +896,8 @@ export function uploadIdentityDocument(file: File) {
     '/auth/verification/documents/identity',
     { method: 'POST', body: formData }
   );
-=======
+}
+
 export function sendPhoneVerificationCode() {
   return request<{ message: string }>('/verify-phone/send-code', { method: 'POST' });
 }
@@ -911,7 +911,6 @@ export function verifyPhoneVerificationCode(payload: { otp: string }) {
     method: 'POST',
     body: payload,
   });
->>>>>>> c35c65755e8745ec060e6f40e8433ff4b1422400
 }
 
 export function uploadAddressDocument(file: File) {

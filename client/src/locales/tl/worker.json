@@ -563,6 +563,205 @@
       "save": "I-save"
     }
   },
+  "profile": {
+    "dateUnavailable": "Petsang hindi available",
+    "locationNotSet": "Hindi itinakda ang lokasyon",
+    "retry": "Subukan muli",
+    "editProfile": "I-edit ang Profile",
+    "tabs": {
+      "overview": "Overview",
+      "skills": "Kasanayan at Karanasan",
+      "accepted": "Tinanggap na Trabaho"
+    },
+    "completeness": {
+      "title": "Kakumpletuhan ng profile",
+      "ready": "Handa na ang iyong profile para sa mga employer.",
+      "incomplete": "Idagdag ang mga kulang na detalye para mas mabilis kang masuri ng mga employer.",
+      "refreshingAria": "Nire-refresh ang profile",
+      "ariaLabel": "Kakumpletuhan ng profile"
+    },
+    "overviewTab": {
+      "aboutMe": "Tungkol sa Akin",
+      "aboutFallback": "Wala pang idinagdag na buod ng profile.",
+      "contactInfo": "Impormasyon sa Pakikipag-ugnayan",
+      "email": "Email",
+      "phone": "Telepono",
+      "linkedin": "LinkedIn",
+      "website": "Website",
+      "notSet": "Hindi itinakda",
+      "openProfile": "Buksan ang profile",
+      "visitWebsite": "Bisitahin ang website",
+      "skills": "Mga Kasanayan",
+      "noSkillsShort": "Wala pang idinagdag na kasanayan",
+      "noDescriptionAdded": "Walang idinagdag na deskripsyon",
+      "cvResume": "CV/Resume",
+      "resumeName": "Resume ni {{name}}",
+      "resumeUploaded": "Na-upload na ang resume",
+      "downloadResume": "I-download ang Resume",
+      "viewResumeHint": "Tingnan ang iyong na-upload na propesyonal na resume",
+      "replaceResume": "Palitan o alisin ang résumé",
+      "noResumeUploaded": "Walang na-upload na resume",
+      "uploadResume": "I-upload ang Resume",
+      "quickStats": "Mabilisang Estadistika",
+      "totalExperience": "Kabuuang Karanasan",
+      "jobsCompleted": "Nakumpletong Trabaho",
+      "jobsApplied": "Inaplayang Trabaho",
+      "successRate": "Success Rate"
+    },
+    "skillsTab": {
+      "heading": "Kasanayan at Karanasan",
+      "manage": "Pamahalaan",
+      "workHistory": "Kasaysayan ng trabaho",
+      "entry_one": "{{count}} entry",
+      "entry_other": "{{count}} na entry",
+      "present": "Kasalukuyan",
+      "noWorkHistory": "Wala pang idinagdag na kasaysayan ng trabaho.",
+      "skillsHeading": "Mga Kasanayan",
+      "skill_one": "{{count}} kasanayan",
+      "skill_other": "{{count}} na kasanayan",
+      "endorsements_one": "{{count}} endorsement",
+      "endorsements_other": "{{count}} na endorsement",
+      "noSkillsTitle": "Wala pang idinagdag na kasanayan",
+      "noSkillsHint": "Pumunta sa Settings para magdagdag at pamahalaan ang iyong mga kasanayan"
+    },
+    "acceptedTab": {
+      "heading": "Tinanggap na Trabaho",
+      "loading": "Naglo-load ng tinanggap na trabaho…",
+      "loadFailed": "Hindi na-load ang tinanggap na trabaho.",
+      "noneTitle": "Wala pang tinanggap na trabaho",
+      "noneHint": "Kapag tumanggap ka ng trabaho, lalabas ito dito",
+      "status": {
+        "completed": "Nakumpleto",
+        "inProgress": "Kasalukuyang Ginagawa"
+      },
+      "employerFallback": "Employer",
+      "untitledJob": "Walang pamagat na trabaho",
+      "salaryUnavailable": "Hindi available ang sahod",
+      "noDescription": "Walang ibinigay na deskripsyon."
+    }
+  },
+  "support": {
+    "faqs": {
+      "accountVerify": {
+        "question": "Paano ko ma-verify ang aking account?",
+        "answer": "Pumunta sa settings at kumpletuhin ang iyong mga detalye ng pagkakakilanlan. Mananatiling visible ang mga verification item hanggang masuri ang mga ito."
+      },
+      "payoutTime": {
+        "question": "Gaano katagal ang mga payout?",
+        "answer": "Manu-manong sinusuri ang mga payout request. Kapag naaprubahan, masusubaybayan mo ang bawat request sa kasaysayan ng iyong wallet."
+      },
+      "applicationStatus": {
+        "question": "Bakit nagbago ang stage ng aking aplikasyon?",
+        "answer": "Inililipat na ngayon ng mga employer ang mga aplikasyon sa mga malinaw na yugto ng pipeline tulad ng Shortlisted, Interview Scheduled, Offer Sent, at Hired."
+      },
+      "messages": {
+        "question": "Maaari ko bang direktang kontakin ang isang employer?",
+        "answer": "Oo. Gamitin ang seksyon ng Mga Mensahe mula sa detalye ng trabaho o sa iyong proseso ng aplikasyon para direktang kontakin ang employer."
+      },
+      "security": {
+        "question": "Paano ko papananatilihing ligtas ang aking account?",
+        "answer": "Gumamit ng matibay na password, i-enable ang MFA sa settings, at regular na suriin ang mga aktibong session mula sa iyong mga setting ng account."
+      }
+    },
+    "statusLabels": {
+      "open": "Bukas",
+      "in_progress": "Ginagawa Na",
+      "waiting_user": "Naghihintay sa Iyo",
+      "resolved": "Naresolba",
+      "closed": "Sarado"
+    },
+    "priorityLabels": {
+      "low": "Mababa",
+      "medium": "Katamtaman",
+      "high": "Mataas",
+      "urgent": "Kagyat"
+    },
+    "toast": {
+      "noSupportAdmin": "Walang available na support admin sa ngayon.",
+      "openMessagesFailed": "Hindi nabuksan ang mga mensahe ng support.",
+      "ticketRequiredFields": "Kinakailangan ang subject at mensahe.",
+      "ticketSubmitFailed": "Hindi naisumite ang support ticket.",
+      "ticketSubmitted": "Naisumite ang support ticket.",
+      "replySendFailed": "Hindi naipadala ang reply.",
+      "replySent": "Naipadala ang reply.",
+      "loadTicketsFailed": "Hindi na-load ang mga support ticket.",
+      "loadTicketDetailsFailed": "Hindi na-load ang detalye ng ticket."
+    },
+    "header": {
+      "title": "Support Center",
+      "subtitle": "Maghanap ng FAQ, magbukas ng support ticket, at subaybayan ang bawat reply sa iisang thread.",
+      "signedInAs": "Naka-sign in bilang",
+      "userFallback": "User ng MicroJobs",
+      "emailFallback": "Lalabas dito ang mga reply ng support."
+    },
+    "cards": {
+      "messageSupport": {
+        "title": "Mensahe sa Support",
+        "description": "Gamitin ang messaging workspace para sa mga kagyat na usapan sa support team.",
+        "opening": "Binubuksan...",
+        "open": "Buksan ang Mga Mensahe"
+      },
+      "emailSupport": {
+        "title": "Email Support",
+        "sendEmail": "Magpadala ng Email"
+      },
+      "securityEscalation": {
+        "title": "Security Escalation",
+        "description": "Pagkakompromiso ng account, alitan sa payout, at mga alalahanin sa pagkakakilanlan.",
+        "escalate": "I-escalate ang Isyu",
+        "subjectDefault": "Security escalation"
+      }
+    },
+    "faqSection": {
+      "title": "Mga Madalas Itanong",
+      "searchPlaceholder": "Maghanap ng FAQ...",
+      "categories": {
+        "all": "Lahat",
+        "account": "Account",
+        "payments": "Mga Bayad",
+        "jobs": "Mga Trabaho"
+      }
+    },
+    "ticketForm": {
+      "title": "Magsumite ng Support Ticket",
+      "subtitle": "Gumawa ng ticket para sa isyu sa payout, access sa account, alitan sa aplikasyon, o bug sa platform.",
+      "subjectLabel": "Subject",
+      "subjectPlaceholder": "Maikling deskripsyon ng isyu",
+      "categoryLabel": "Kategorya",
+      "categories": {
+        "general": "Pangkalahatan",
+        "payments": "Mga Bayad",
+        "account": "Account",
+        "jobs": "Mga Trabaho",
+        "technical": "Teknikal"
+      },
+      "priorityLabel": "Priyoridad",
+      "replyDestinationLabel": "Destinasyon ng Reply",
+      "signedInEmailFallback": "Naka-sign in na email",
+      "messageLabel": "Mensahe",
+      "messagePlaceholder": "Ilarawan ang isyu, ang inaasahang resulta, at anumang petsa o reference na dapat naming suriin.",
+      "submitting": "Isinusumite...",
+      "submit": "Isumite ang Ticket"
+    },
+    "sidebar": {
+      "yourTickets": "Iyong mga Ticket",
+      "loadingHistory": "Naglo-load ng kasaysayan ng ticket...",
+      "emptyTitle": "Wala pang ticket",
+      "emptyHint": "Magsumite ng ticket para simulan ang isang support thread.",
+      "messagesCount_one": "{{count}} mensahe",
+      "messagesCount_other": "{{count}} na mensahe",
+      "noMessagesYet": "Wala pang mensahe.",
+      "ticketThread": "Thread ng Ticket",
+      "selectTicket": "Pumili ng ticket para suriin ang thread.",
+      "opened": "Binuksan {{date}}",
+      "supportTeam": "Support Team",
+      "you": "Ikaw",
+      "closedNotice": "Sarado na ang ticket na ito. Magbukas ng bagong ticket kung kailangan mo pa ng tulong.",
+      "replyPlaceholder": "Magdagdag ng detalye o mag-reply sa support...",
+      "sendingReply": "Ipinapadala ang reply...",
+      "replyToTicket": "I-reply sa Ticket"
+    }
+  },
   "settings": {
     "eyebrow": "Mga kagustuhan sa account",
     "title": "Mga Setting",

@@ -563,6 +563,205 @@
       "save": "Save"
     }
   },
+  "profile": {
+    "dateUnavailable": "Date unavailable",
+    "locationNotSet": "Location not set",
+    "retry": "Retry",
+    "editProfile": "Edit Profile",
+    "tabs": {
+      "overview": "Overview",
+      "skills": "Skills & Experience",
+      "accepted": "Accepted Work"
+    },
+    "completeness": {
+      "title": "Profile completeness",
+      "ready": "Your profile is ready for employers.",
+      "incomplete": "Add the missing details to help employers evaluate you faster.",
+      "refreshingAria": "Refreshing profile",
+      "ariaLabel": "Profile completeness"
+    },
+    "overviewTab": {
+      "aboutMe": "About Me",
+      "aboutFallback": "No profile summary added yet.",
+      "contactInfo": "Contact Information",
+      "email": "Email",
+      "phone": "Phone",
+      "linkedin": "LinkedIn",
+      "website": "Website",
+      "notSet": "Not set",
+      "openProfile": "Open profile",
+      "visitWebsite": "Visit website",
+      "skills": "Skills",
+      "noSkillsShort": "No skills added yet",
+      "noDescriptionAdded": "No description added",
+      "cvResume": "CV/Resume",
+      "resumeName": "{{name}}'s Resume",
+      "resumeUploaded": "Resume uploaded",
+      "downloadResume": "Download Resume",
+      "viewResumeHint": "View your uploaded professional resume",
+      "replaceResume": "Replace or remove résumé",
+      "noResumeUploaded": "No resume uploaded",
+      "uploadResume": "Upload Resume",
+      "quickStats": "Quick Stats",
+      "totalExperience": "Total Experience",
+      "jobsCompleted": "Jobs Completed",
+      "jobsApplied": "Jobs Applied",
+      "successRate": "Success Rate"
+    },
+    "skillsTab": {
+      "heading": "Skills & Experience",
+      "manage": "Manage",
+      "workHistory": "Work history",
+      "entry_one": "{{count}} entry",
+      "entry_other": "{{count}} entries",
+      "present": "Present",
+      "noWorkHistory": "No work history added yet.",
+      "skillsHeading": "Skills",
+      "skill_one": "{{count}} skill",
+      "skill_other": "{{count}} skills",
+      "endorsements_one": "{{count}} endorsement",
+      "endorsements_other": "{{count}} endorsements",
+      "noSkillsTitle": "No skills added yet",
+      "noSkillsHint": "Go to Settings to add and manage your skills"
+    },
+    "acceptedTab": {
+      "heading": "Accepted Work",
+      "loading": "Loading accepted work…",
+      "loadFailed": "Failed to load accepted work.",
+      "noneTitle": "No accepted work yet",
+      "noneHint": "Once you accept a job, it will appear here",
+      "status": {
+        "completed": "Completed",
+        "inProgress": "In Progress"
+      },
+      "employerFallback": "Employer",
+      "untitledJob": "Untitled job",
+      "salaryUnavailable": "Salary unavailable",
+      "noDescription": "No description provided."
+    }
+  },
+  "support": {
+    "faqs": {
+      "accountVerify": {
+        "question": "How do I verify my account?",
+        "answer": "Go to settings and complete your identity details. Verification items remain visible until they are reviewed."
+      },
+      "payoutTime": {
+        "question": "How long do payouts take?",
+        "answer": "Payout requests are reviewed manually. Once approved, you can track each request in your wallet history."
+      },
+      "applicationStatus": {
+        "question": "Why did my application stage change?",
+        "answer": "Employers now move applications through explicit pipeline stages such as Shortlisted, Interview Scheduled, Offer Sent, and Hired."
+      },
+      "messages": {
+        "question": "Can I contact an employer directly?",
+        "answer": "Yes. Use the Messages area from job details or your application workflow to contact the employer directly."
+      },
+      "security": {
+        "question": "How do I secure my account?",
+        "answer": "Use a strong password, enable MFA in settings, and review active sessions regularly from your account settings."
+      }
+    },
+    "statusLabels": {
+      "open": "Open",
+      "in_progress": "In Progress",
+      "waiting_user": "Waiting on You",
+      "resolved": "Resolved",
+      "closed": "Closed"
+    },
+    "priorityLabels": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "toast": {
+      "noSupportAdmin": "No support admin is available right now.",
+      "openMessagesFailed": "Failed to open support messages.",
+      "ticketRequiredFields": "Subject and message are required.",
+      "ticketSubmitFailed": "Failed to submit support ticket.",
+      "ticketSubmitted": "Support ticket submitted.",
+      "replySendFailed": "Failed to send reply.",
+      "replySent": "Reply sent.",
+      "loadTicketsFailed": "Failed to load support tickets.",
+      "loadTicketDetailsFailed": "Failed to load ticket details."
+    },
+    "header": {
+      "title": "Support Center",
+      "subtitle": "Search FAQs, open a support ticket, and track each reply in a single thread.",
+      "signedInAs": "Signed in as",
+      "userFallback": "MicroJobs user",
+      "emailFallback": "Support replies will appear here."
+    },
+    "cards": {
+      "messageSupport": {
+        "title": "Message Support",
+        "description": "Use the messaging workspace for urgent conversations with the support team.",
+        "opening": "Opening...",
+        "open": "Open Messages"
+      },
+      "emailSupport": {
+        "title": "Email Support",
+        "sendEmail": "Send Email"
+      },
+      "securityEscalation": {
+        "title": "Security Escalation",
+        "description": "Account compromise, payout disputes, and identity concerns.",
+        "escalate": "Escalate Issue",
+        "subjectDefault": "Security escalation"
+      }
+    },
+    "faqSection": {
+      "title": "Frequently Asked Questions",
+      "searchPlaceholder": "Search FAQs...",
+      "categories": {
+        "all": "All",
+        "account": "Account",
+        "payments": "Payments",
+        "jobs": "Jobs"
+      }
+    },
+    "ticketForm": {
+      "title": "Submit a Support Ticket",
+      "subtitle": "Create a ticket for payout issues, account access, application disputes, or platform bugs.",
+      "subjectLabel": "Subject",
+      "subjectPlaceholder": "Brief description of the issue",
+      "categoryLabel": "Category",
+      "categories": {
+        "general": "General",
+        "payments": "Payments",
+        "account": "Account",
+        "jobs": "Jobs",
+        "technical": "Technical"
+      },
+      "priorityLabel": "Priority",
+      "replyDestinationLabel": "Reply Destination",
+      "signedInEmailFallback": "Signed-in email",
+      "messageLabel": "Message",
+      "messagePlaceholder": "Describe the issue, the expected result, and any dates or references we should review.",
+      "submitting": "Submitting...",
+      "submit": "Submit Ticket"
+    },
+    "sidebar": {
+      "yourTickets": "Your Tickets",
+      "loadingHistory": "Loading ticket history...",
+      "emptyTitle": "No tickets yet",
+      "emptyHint": "Submit a ticket to start a support thread.",
+      "messagesCount_one": "{{count}} message",
+      "messagesCount_other": "{{count}} messages",
+      "noMessagesYet": "No messages yet.",
+      "ticketThread": "Ticket Thread",
+      "selectTicket": "Select a ticket to review the thread.",
+      "opened": "Opened {{date}}",
+      "supportTeam": "Support Team",
+      "you": "You",
+      "closedNotice": "This ticket is closed. Open a new ticket if you need further help.",
+      "replyPlaceholder": "Add more detail or reply to support...",
+      "sendingReply": "Sending reply...",
+      "replyToTicket": "Reply to Ticket"
+    }
+  },
   "settings": {
     "eyebrow": "Account preferences",
     "title": "Settings",

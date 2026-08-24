@@ -21,7 +21,8 @@ import { useToast } from '../../contexts/ToastContext';
 import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSection, WalletSkeleton, WalletTransactionRow } from '../../components/wallet/WalletUI';
 import { WorkerQrRequestModal } from '../../components/wallet/WalletQrFlow';
 import { formatCurrency, formatDateTime } from '../../lib/formatters';
-import { useTranslation, type TFunction } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 
 type EWalletProps = {
   activeTab?: string;

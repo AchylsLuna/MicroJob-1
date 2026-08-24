@@ -175,6 +175,42 @@ export function Messages() {
       ? t("messages.adminSupportName")
       : fallbackName, [supportStartUserId, t]);
 
+  // Memoized (rather than a plain function) because it's referenced from the
+  // search-params effect and loadConversations below, and it calls t() — a
+  // reactive value — so react-hooks/exhaustive-deps requires it to be a
+  // stable, listed dependency wherever it's used.
+  const handleSelectContact = useCallback(async (contact: Contact) => {
+    setSelectedContact(contact);
+    setShowMoreMenu(false);
+    setContacts((prev) => prev.map((c) => (c.conversationId === contact.conversationId ? { ...c, unreadCount: 0 } : c)));
+
+    try {
+      const response: any = await getConversationWithUser(contact.otherUserId, contact.jobId || undefined);
+      const messagesArray = pickArray<Message>(
+        response?.messages,
+        response?.data?.messages,
+        response?.meta?.messages,
+        response?.data,
+        response
+      );
+      setMessages(messagesArray);
+
+      // Mark messages as read
+      if (messagesArray.length > 0) {
+        try {
+          await markMessagesAsRead(contact.otherUserId, contact.jobId || undefined);
+          window.dispatchEvent(new Event("messages-refresh"));
+        } catch (e) {
+          // Ignore marking errors
+        }
+      }
+    } catch (error: any) {
+      console.error('Failed to load messages:', error);
+      toast.error(error.message || t("messages.toast.loadMessagesFailed"));
+      setMessages([]);
+    }
+  }, [t]);
+
   useEffect(() => {
     loadArchivedConversations();
     void loadConversationsRef.current();
@@ -451,7 +487,7 @@ export function Messages() {
       nextParams.delete("source");
       setSearchParams(nextParams, { replace: true });
     }
-  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor, selectedContact?.conversationId, t]);
+  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor, selectedContact?.conversationId, t, handleSelectContact]);
 
   useEffect(() => {
     // Close menu when clicking outside
@@ -518,7 +554,7 @@ export function Messages() {
     } finally {
       setLoading(false);
     }
-  }, [archivedContacts, selectedContact, supportDisplayNameFor, t]);
+  }, [archivedContacts, selectedContact, supportDisplayNameFor, t, handleSelectContact]);
   loadConversationsRef.current = loadConversations;
 
   const loadArchivedConversations = async () => {
@@ -591,38 +627,6 @@ export function Messages() {
       toast.error(error?.message || t("messages.toast.editFailed"));
     } finally {
       setIsEditingSaving(false);
-    }
-  };
-
-  const handleSelectContact = async (contact: Contact) => {
-    setSelectedContact(contact);
-    setShowMoreMenu(false);
-    setContacts((prev) => prev.map((c) => (c.conversationId === contact.conversationId ? { ...c, unreadCount: 0 } : c)));
-
-    try {
-      const response: any = await getConversationWithUser(contact.otherUserId, contact.jobId || undefined);
-      const messagesArray = pickArray<Message>(
-        response?.messages,
-        response?.data?.messages,
-        response?.meta?.messages,
-        response?.data,
-        response
-      );
-      setMessages(messagesArray);
-
-      // Mark messages as read
-      if (messagesArray.length > 0) {
-        try {
-          await markMessagesAsRead(contact.otherUserId, contact.jobId || undefined);
-          window.dispatchEvent(new Event("messages-refresh"));
-        } catch (e) {
-          // Ignore marking errors
-        }
-      }
-    } catch (error: any) {
-      console.error('Failed to load messages:', error);
-      toast.error(error.message || t("messages.toast.loadMessagesFailed"));
-      setMessages([]);
     }
   };
 
