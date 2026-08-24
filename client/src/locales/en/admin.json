@@ -324,6 +324,7 @@
       "mfaCodePrompt": "Enter your authenticator code to continue.",
       "adminAccessRequired": "Admin access required. Please use an admin account.",
       "welcomeBack": "Welcome back{{name}}!",
+      "credentialsIncorrect": "The email, username, or password is incorrect. Please try again.",
       "signInFailed": "Sign in failed",
       "mfaVerificationFailed": "MFA verification failed"
     }

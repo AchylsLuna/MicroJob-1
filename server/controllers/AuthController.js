@@ -148,7 +148,7 @@ const loginUser = async (req, res) => {
 
     let user;
     let includePhone = false;
-    let invalidMessage = 'Invalid credentials';
+    let invalidMessage = 'The email, username, or password is incorrect. Please try again.';
     const normalizedPhone = normalizePhone(phoneNumber || '');
 
     if (normalizedPhone) {
@@ -156,7 +156,7 @@ const loginUser = async (req, res) => {
         return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
       }
       includePhone = true;
-      invalidMessage = 'Invalid phone number or password';
+      invalidMessage = 'The phone number or password is incorrect. Please try again.';
       user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed');
     } else {
       const loginInput = String(emailOrUsername || '').trim();

@@ -6,6 +6,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { getPostSignInPath } from "../utils/authRedirects";
+import { isCredentialLoginError } from "../utils/authSession";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { OTPVerification } from "./OTPVerification";
@@ -75,7 +76,9 @@ export function SignIn() {
         toast.success(t("signIn.toast.otpSent"));
       }
     } catch (error: any) {
-      toast.error(error.message || t("signIn.toast.signInFailed"));
+      toast.error(isCredentialLoginError(error?.message)
+        ? t("signIn.toast.credentialsIncorrect")
+        : error?.message || t("signIn.toast.signInFailed"));
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";

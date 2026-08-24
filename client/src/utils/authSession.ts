@@ -8,6 +8,7 @@ const PENDING_VERIFICATION_EMAIL_KEY = "pending_verification_email";
 const PENDING_VERIFICATION_NAME_KEY = "pending_verification_name";
 const PENDING_ACCOUNT_PREFERENCE_KEY = "pending_account_preference";
 const TOKEN_ERROR_PATTERN = /(invalid|expired).*token|jwt/i;
+const CREDENTIAL_ERROR_PATTERN = /^(?:invalid credentials|invalid phone number or password|the (?:email, username, or|phone number or) password is incorrect\. please try again\.)$/i;
 const PUBLIC_AUTH_PATHS = new Set([
   "/auth/login",
   "/auth/register",
@@ -52,6 +53,9 @@ export const isInvalidTokenError = ({
   // Protected API returned 401 while we had a token, treat as expired session.
   return Boolean(hasToken);
 };
+
+export const isCredentialLoginError = (message?: unknown) =>
+  CREDENTIAL_ERROR_PATTERN.test(String(message || '').trim());
 
 export const clearAuthStorage = () => {
   localStorage.removeItem(AUTH_USER_KEY);
