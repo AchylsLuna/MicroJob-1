@@ -25,10 +25,12 @@ import { formatDate, getActiveDateLocale } from "../../lib/formatters";
 import {
   getConversations,
   getArchivedConversations,
+  getBlockedUsers,
   getConversationWithUser,
   sendMessage,
   editMessage,
   blockUser,
+  unblockUser,
   archiveConversation,
   deleteConversation,
   markMessagesAsRead,
@@ -71,6 +73,16 @@ interface Contact {
   lastMessageAt: string;
   unreadCount?: number;
 }
+
+interface BlockedUser {
+  id?: string;
+  _id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+}
+
+type RealtimeStatus = "connecting" | "live" | "reconnecting" | "offline";
 
 const getInitials = (name: string): string => {
   const parts = name.split(" ");
@@ -147,13 +159,17 @@ export function Messages() {
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingText, setEditingText] = useState("");
   const [isEditingSaving, setIsEditingSaving] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
+  const [conversationFilter, setConversationFilter] = useState<"inbox" | "archived" | "blocked">("inbox");
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [showListMenu, setShowListMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
+  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("connecting");
   const prefersReducedMotion = useReducedMotion();
   const currentUserId = user?.id || "";
   const listMenuRef = useRef<HTMLDivElement>(null);
@@ -163,19 +179,33 @@ export function Messages() {
   const startChatHandledRef = useRef(false);
   const prefilledDraftHandledRef = useRef(false);
   const socketRef = useRef<Socket | null>(null);
+  const selectedContactRef = useRef<Contact | null>(null);
+  const selectionRequestRef = useRef(0);
   const loadConversationsRef = useRef<() => Promise<void>>(async () => undefined);
   const typingStopTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const peerTypingClearTimeoutRef = useRef<number | null>(null);
   const supportSource = searchParams.get("source") || "";
   const supportStartUserId = supportSource === "support-center" ? (searchParams.get("startUser") || "") : "";
+  const showArchived = conversationFilter === "archived";
+  const showBlocked = conversationFilter === "blocked";
 
   const supportDisplayNameFor = useCallback((otherUserId: string, fallbackName: string) =>
     supportStartUserId && String(otherUserId) === String(supportStartUserId)
       ? t("messages.adminSupportName")
       : fallbackName, [supportStartUserId, t]);
 
+  useEffect(() => {
+    selectedContactRef.current = selectedContact;
+  }, [selectedContact]);
+
   const handleSelectContact = useCallback(async (contact: Contact) => {
+    // Conversation loads can complete out of order. Record the intended
+    // contact synchronously so an older inbox/default request cannot replace
+    // a Support conversation with the first employer thread.
+    const requestId = selectionRequestRef.current + 1;
+    selectionRequestRef.current = requestId;
+    selectedContactRef.current = contact;
     setSelectedContact(contact);
     setShowMoreMenu(false);
     setContacts((prev) => prev.map((item) => (
@@ -191,6 +221,7 @@ export function Messages() {
         response?.data,
         response,
       );
+      if (selectionRequestRef.current !== requestId) return;
       setMessages(messagesArray);
 
       if (messagesArray.length > 0) {
@@ -202,6 +233,7 @@ export function Messages() {
         }
       }
     } catch (error: any) {
+      if (selectionRequestRef.current !== requestId) return;
       console.error("Failed to load messages:", error);
       toast.error(error.message || t("messages.toast.loadMessagesFailed"));
       setMessages([]);
@@ -210,6 +242,7 @@ export function Messages() {
 
   useEffect(() => {
     loadArchivedConversations();
+    loadBlockedUsers();
     void loadConversationsRef.current();
   }, [currentUserId]);
 
@@ -225,18 +258,23 @@ export function Messages() {
     const socketUrl = explicitSocketUrl || proxyTarget || derivedFromApiBase || window.location.origin;
     const socket = io(socketUrl, {
       withCredentials: true,
+      transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 8,
       reconnectionDelayMax: 10_000,
     });
     socketRef.current = socket;
-    socket.emit("register", currentUserId);
+    setRealtimeStatus("connecting");
 
     const synchronizeAfterConnect = () => {
+      setRealtimeStatus("live");
+      socket.emit("register", currentUserId);
       void loadConversationsRef.current();
       void loadArchivedConversations();
-      if (!selectedContact) return;
-      void getConversationWithUser(selectedContact.otherUserId, selectedContact.jobId || undefined)
+      void loadBlockedUsers();
+      const activeContact = selectedContactRef.current;
+      if (!activeContact) return;
+      void getConversationWithUser(activeContact.otherUserId, activeContact.jobId || undefined)
         .then((response: any) => {
           const synchronized = pickArray<Message>(
             response?.messages,
@@ -252,6 +290,9 @@ export function Messages() {
         });
     };
     socket.on("connect", synchronizeAfterConnect);
+    socket.on("connect_error", () => setRealtimeStatus("offline"));
+    socket.on("reconnect_attempt", () => setRealtimeStatus("reconnecting"));
+    socket.on("disconnect", () => setRealtimeStatus("reconnecting"));
 
     const handleIncomingMessage = (incoming: any) => {
       const message = incoming?.data || incoming;
@@ -262,10 +303,11 @@ export function Messages() {
       const conversationId = `${otherUserId}::${messageJobId || "general"}`;
       const senderName = getUserName(message?.sender);
       const receiverName = getUserName(message?.receiver);
+      const activeContact = selectedContactRef.current;
       const isCurrentConversation = Boolean(
-        selectedContact &&
-        selectedContact.otherUserId === otherUserId &&
-        (selectedContact.jobId || "") === (messageJobId || ""),
+        activeContact &&
+        activeContact.otherUserId === otherUserId &&
+        (activeContact.jobId || "") === (messageJobId || ""),
       );
       const isFromSelf = senderId === currentUserId;
 
@@ -355,9 +397,10 @@ export function Messages() {
     const handleMessagesRead = (incoming: any) => {
       const payload = incoming?.data || incoming;
       const readerId = String(payload?.readerId || "");
-      if (!readerId || !selectedContact || selectedContact.otherUserId !== readerId) return;
+      const activeContact = selectedContactRef.current;
+      if (!readerId || !activeContact || activeContact.otherUserId !== readerId) return;
       const payloadJobId = payload?.jobId || null;
-      if ((selectedContact.jobId || null) !== payloadJobId) return;
+      if ((activeContact.jobId || null) !== payloadJobId) return;
       setMessages((prev) =>
         prev.map((item) => (String(item.sender?._id) === currentUserId ? { ...item, read: true } : item)),
       );
@@ -366,9 +409,10 @@ export function Messages() {
     const handlePeerTyping = (incoming: any) => {
       const payload = incoming?.data || incoming;
       const fromUserId = String(payload?.fromUserId || "");
-      if (!selectedContact || fromUserId !== selectedContact.otherUserId) return;
+      const activeContact = selectedContactRef.current;
+      if (!activeContact || fromUserId !== activeContact.otherUserId) return;
       const payloadJobId = payload?.jobId || null;
-      if ((selectedContact.jobId || null) !== payloadJobId) return;
+      if ((activeContact.jobId || null) !== payloadJobId) return;
 
       if (peerTypingClearTimeoutRef.current) window.clearTimeout(peerTypingClearTimeoutRef.current);
       if (payload?.isTyping) {
@@ -379,23 +423,44 @@ export function Messages() {
       }
     };
 
+    const handleConversationDeleted = (incoming: any) => {
+      const payload = incoming?.data || incoming;
+      const otherUserId = String(payload?.otherUserId || "");
+      const jobId = payload?.jobId || null;
+      if (!otherUserId) return;
+      const conversationId = `${otherUserId}::${jobId || "general"}`;
+      setContacts((current) => current.filter((contact) => contact.conversationId !== conversationId));
+      setArchivedContacts((current) => current.filter((contact) => contact.conversationId !== conversationId));
+      const activeContact = selectedContactRef.current;
+      if (activeContact?.conversationId === conversationId) {
+        selectedContactRef.current = null;
+        setSelectedContact(null);
+        setMessages([]);
+      }
+    };
+
     socket.on("new_message", handleIncomingMessage);
     socket.on("new_message_echo", handleIncomingMessage);
     socket.on("message_edited", handleMessageEdited);
     socket.on("messages_read", handleMessagesRead);
     socket.on("peer_typing", handlePeerTyping);
+    socket.on("conversation_deleted", handleConversationDeleted);
 
     return () => {
       socket.off("connect", synchronizeAfterConnect);
+      socket.off("connect_error");
+      socket.off("reconnect_attempt");
+      socket.off("disconnect");
       socket.off("new_message", handleIncomingMessage);
       socket.off("new_message_echo", handleIncomingMessage);
       socket.off("message_edited", handleMessageEdited);
       socket.off("messages_read", handleMessagesRead);
       socket.off("peer_typing", handlePeerTyping);
+      socket.off("conversation_deleted", handleConversationDeleted);
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [currentUserId, selectedContact, supportDisplayNameFor, supportStartUserId, t]);
+  }, [currentUserId, supportDisplayNameFor, supportStartUserId, t]);
 
   // A single, slower safety net now that the socket does the real-time work —
   // covers a dropped connection between the "connect" resync and the next one.
@@ -540,8 +605,11 @@ export function Messages() {
       const inboxOnly = namedConversations.filter((contact) => !archivedSet.has(contact.conversationId));
       setContacts(inboxOnly);
 
-      // Select first contact by default if none selected
-      if (inboxOnly.length > 0 && !selectedContact) {
+      // A URL-selected recipient (Support or a job inquiry) must win over the
+      // inbox default. Without this guard, the first employer conversation can
+      // race the Support Center navigation and overwrite the selected admin.
+      const requestedStartUserId = searchParams.get("startUser");
+      if (inboxOnly.length > 0 && !selectedContactRef.current && !requestedStartUserId) {
         handleSelectContact(inboxOnly[0]);
       }
     } catch (error: any) {
@@ -551,7 +619,7 @@ export function Messages() {
     } finally {
       setLoading(false);
     }
-  }, [archivedContacts, selectedContact, supportDisplayNameFor, t, handleSelectContact]);
+  }, [archivedContacts, searchParams, supportDisplayNameFor, t, handleSelectContact]);
   loadConversationsRef.current = loadConversations;
 
   const loadArchivedConversations = async () => {
@@ -567,6 +635,22 @@ export function Messages() {
       setArchivedContacts(archivedArray);
     } catch {
       setArchivedContacts([]);
+    }
+  };
+
+  const loadBlockedUsers = async () => {
+    try {
+      const response: any = await getBlockedUsers();
+      const users = pickArray<BlockedUser>(
+        response?.blocked,
+        response?.data?.blocked,
+        response?.meta?.blocked,
+        response?.data,
+        response,
+      );
+      setBlockedUsers(users);
+    } catch {
+      setBlockedUsers([]);
     }
   };
 
@@ -683,15 +767,20 @@ export function Messages() {
 
     try {
       setSending(true);
-      await sendMessage({
+      const response: any = await sendMessage({
         receiverId: selectedContact.otherUserId,
         content: trimmed,
         jobId: selectedContact.jobId || undefined,
         clientMessageId,
       });
-      // Reconciliation happens via the "new_message_echo" socket event
-      // matching this clientMessageId (see handleIncomingMessage above); the
-      // 20s polling safety net covers a dropped socket.
+      // The API response is authoritative if the socket is reconnecting. The
+      // echo can still arrive later and is deduplicated by message id.
+      const delivered = response?.data;
+      if (delivered?._id) {
+        setMessages((prev) => prev.map((item) =>
+          item.clientMessageId === clientMessageId ? delivered as Message : item
+        ));
+      }
     } catch (error: any) {
       setMessages((prev) =>
         prev.map((item) => (item.clientMessageId === clientMessageId ? { ...item, pending: false, failed: true } : item)),
@@ -716,14 +805,15 @@ export function Messages() {
     }
 
     try {
-      await blockUser(selectedContact.otherUserId);
+      await blockUser(selectedContact.otherUserId, selectedContact.jobId || undefined);
       toast.success(t("messages.toast.blockedSuccess", { name: selectedContact.otherUserName }));
       setShowMoreMenu(false);
-
-      // Remove from contacts list and reload
-      await loadConversations();
+      setContacts((current) => current.filter((contact) => contact.conversationId !== selectedContact.conversationId));
+      selectedContactRef.current = null;
       setSelectedContact(null);
       setMessages([]);
+      setConversationFilter("archived");
+      await Promise.all([loadArchivedConversations(), loadBlockedUsers()]);
     } catch (error: any) {
       toast.error(error.message || t("messages.toast.blockFailed"));
     }
@@ -763,43 +853,69 @@ export function Messages() {
       setArchivedContacts((prev) => prev.filter((contact) => contact.conversationId !== conversationId));
       await loadConversations();
       await loadArchivedConversations();
-      setShowArchived(false);
+      setConversationFilter("inbox");
     } catch (error: any) {
       toast.error(error.message || t("messages.toast.unarchiveFailed"));
     }
   };
 
-  const handleDeleteConversation = async () => {
+  const openDeleteConfirmation = () => {
     if (!selectedContact) return;
+    setDeleteTarget(selectedContact);
+    setShowMoreMenu(false);
+  };
 
-    if (!confirm(t("messages.confirm.removeConversation", { name: selectedContact.otherUserName }))) {
-      return;
-    }
+  const handleDeleteConversation = async () => {
+    if (!deleteTarget || isDeleting) return;
 
     try {
-      await deleteConversation(selectedContact.otherUserId, selectedContact.jobId || undefined);
+      setIsDeleting(true);
+      await deleteConversation(deleteTarget.otherUserId, deleteTarget.jobId || undefined);
       toast.success(t("messages.toast.deleteSuccess"));
-      setShowMoreMenu(false);
-
-      // Remove from contacts list and reload
-      await loadConversations();
+      // Permanent deletion removes this exact job/general thread from both
+      // participants, including its archived copy and every message record.
+      setContacts((current) => current.filter((contact) => contact.conversationId !== deleteTarget.conversationId));
+      setArchivedContacts((current) => current.filter((contact) => contact.conversationId !== deleteTarget.conversationId));
+      selectedContactRef.current = null;
       setSelectedContact(null);
       setMessages([]);
+      setConversationFilter("inbox");
+      setDeleteTarget(null);
     } catch (error: any) {
       toast.error(error.message || t("messages.toast.deleteFailed"));
+    } finally {
+      setIsDeleting(false);
     }
   };
 
-  const toggleArchiveMode = async () => {
-    const next = !showArchived;
-    setShowArchived(next);
+  const setConversationListFilter = async (next: "inbox" | "archived" | "blocked") => {
+    setConversationFilter(next);
     setShowListMenu(false);
-    if (next) {
+    if (next === "archived" || next === "blocked") {
       await loadArchivedConversations();
     }
+    if (next === "blocked") {
+      await loadBlockedUsers();
+    }
+    selectedContactRef.current = null;
     setSelectedContact(null);
     setMessages([]);
     setShowMoreMenu(false);
+  };
+
+  const handleUnblockUser = async () => {
+    if (!selectedContact) return;
+    try {
+      await unblockUser(selectedContact.otherUserId);
+      setBlockedUsers((current) => current.filter((user) => String(user.id || user._id || "") !== selectedContact.otherUserId));
+      selectedContactRef.current = null;
+      setSelectedContact(null);
+      setMessages([]);
+      setShowMoreMenu(false);
+      toast.success(`${selectedContact.otherUserName} unblocked.`);
+    } catch (error: any) {
+      toast.error(error.message || "Could not unblock this user.");
+    }
   };
 
   const canViewSelectedProfile =
@@ -818,19 +934,48 @@ export function Messages() {
     () => new Set(archivedContacts.map((contact) => contact.conversationId)),
     [archivedContacts],
   );
+  const blockedUserIdSet = useMemo(
+    () => new Set(blockedUsers.map((user) => String(user.id || user._id || "")).filter(Boolean)),
+    [blockedUsers],
+  );
+  const blockedContacts = useMemo(() => {
+    const archivedBlocked = archivedContacts.filter((contact) => blockedUserIdSet.has(contact.otherUserId));
+    const existingIds = new Set(archivedBlocked.map((contact) => contact.otherUserId));
+    const missingContacts = blockedUsers
+      .map((user): Contact | null => {
+        const otherUserId = String(user.id || user._id || "");
+        if (!otherUserId || existingIds.has(otherUserId)) return null;
+        const otherUserName = `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email || t("messages.userFallback");
+        return {
+          conversationId: `${otherUserId}::general`,
+          otherUserId,
+          otherUserName,
+          jobId: null,
+          jobTitle: null,
+          lastMessage: "",
+          lastMessageAt: new Date(0).toISOString(),
+        };
+      })
+      .filter((contact): contact is Contact => Boolean(contact));
+    return [...archivedBlocked, ...missingContacts];
+  }, [archivedContacts, blockedUserIdSet, blockedUsers, t]);
   const contactsArray = useMemo(
     () =>
-      Array.isArray(showArchived ? archivedContacts : contacts)
-        ? showArchived
+      showBlocked
+        ? blockedContacts
+        : showArchived
           ? archivedContacts
-          : contacts.filter((contact) => !archivedSet.has(contact.conversationId))
-        : [],
-    [archivedContacts, archivedSet, contacts, showArchived],
+          : contacts.filter((contact) => !archivedSet.has(contact.conversationId)),
+    [archivedContacts, archivedSet, blockedContacts, contacts, showArchived, showBlocked],
   );
   const canInjectSelectedContact =
     selectedContact &&
     !contactsArray.some((contact) => contact.conversationId === selectedContact.conversationId) &&
-    (showArchived ? archivedSet.has(selectedContact.conversationId) : !archivedSet.has(selectedContact.conversationId));
+    (showBlocked
+      ? blockedUserIdSet.has(selectedContact.otherUserId)
+      : showArchived
+        ? archivedSet.has(selectedContact.conversationId)
+        : !archivedSet.has(selectedContact.conversationId));
   const effectiveContacts = useMemo(
     () => (canInjectSelectedContact ? [selectedContact as Contact, ...contactsArray] : contactsArray),
     [canInjectSelectedContact, contactsArray, selectedContact],
@@ -940,6 +1085,17 @@ export function Messages() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h1 className="ui-page-title text-[22px]">{t("messages.title")}</h1>
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    realtimeStatus === "live"
+                      ? "bg-emerald-500"
+                      : realtimeStatus === "offline"
+                        ? "bg-rose-500"
+                        : "bg-amber-400"
+                  }`}
+                  title={realtimeStatus === "live" ? "Live updates connected" : "Live updates reconnecting"}
+                  aria-label={realtimeStatus === "live" ? "Live updates connected" : "Live updates reconnecting"}
+                />
                 {unreadTotal > 0 ? (
                   <span className="rounded-full bg-[#1C4D8D] px-2.5 py-0.5 text-[12px] font-semibold text-white">
                     {unreadTotal}
@@ -966,13 +1122,17 @@ export function Messages() {
                       transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
                       className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
                     >
-                      <button
-                        type="button"
-                        onClick={toggleArchiveMode}
-                        className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50"
-                      >
+                      <button type="button" onClick={() => void setConversationListFilter("inbox")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50">
+                        <MessagesSquare className="h-4 w-4" />
+                        Inbox
+                      </button>
+                      <button type="button" onClick={() => void setConversationListFilter("archived")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50">
                         <Archive className="h-4 w-4" />
-                        {showArchived ? t("messages.backToInbox") : t("messages.viewArchived")}
+                        {t("messages.viewArchived")}
+                      </button>
+                      <button type="button" onClick={() => void setConversationListFilter("blocked")} className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-slate-700 hover:bg-slate-50">
+                        <Ban className="h-4 w-4" />
+                        Blocked
                       </button>
                     </motion.div>
                   ) : null}
@@ -1000,7 +1160,7 @@ export function Messages() {
                   <MessagesSquare className="h-6 w-6 text-slate-400" />
                 </div>
                 <p className="text-[15px] font-medium text-slate-500">
-                  {showArchived ? t("messages.emptyArchived") : t("messages.emptyInbox")}
+                  {showBlocked ? "No blocked conversations." : showArchived ? t("messages.emptyArchived") : t("messages.emptyInbox")}
                 </p>
               </div>
             ) : (
@@ -1112,7 +1272,16 @@ export function Messages() {
                         transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
                         className="absolute right-0 top-full z-50 mt-2 w-52 rounded-xl border border-slate-200 bg-white py-2 shadow-lg"
                       >
-                        {showArchived ? (
+                        {showBlocked ? (
+                          <button
+                            type="button"
+                            onClick={handleUnblockUser}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-[#047857] hover:bg-emerald-50"
+                          >
+                            <Check className="h-4 w-4" />
+                            Unblock user
+                          </button>
+                        ) : showArchived ? (
                           <button
                             type="button"
                             onClick={handleUnarchiveConversation}
@@ -1140,17 +1309,19 @@ export function Messages() {
                             {t("messages.viewProfile")}
                           </button>
                         ) : null}
+                        {!showBlocked ? (
+                          <button
+                            type="button"
+                            onClick={handleBlockUser}
+                            className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
+                          >
+                            <Ban className="h-4 w-4" />
+                            {t("messages.blockUser")}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          onClick={handleBlockUser}
-                          className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
-                        >
-                          <Ban className="h-4 w-4" />
-                          {t("messages.blockUser")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleDeleteConversation}
+                          onClick={openDeleteConfirmation}
                           className="flex w-full items-center gap-3 px-4 py-2 text-left text-[14px] text-red-600 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1339,6 +1510,57 @@ export function Messages() {
           )}
         </div>
       </div>
+      <AnimatePresence>
+        {deleteTarget ? (
+          <motion.div
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4"
+            initial={prefersReducedMotion ? false : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={prefersReducedMotion ? undefined : { opacity: 0 }}
+            role="presentation"
+            onMouseDown={() => !isDeleting && setDeleteTarget(null)}
+          >
+            <motion.div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="delete-conversation-title"
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.96, y: 8 }}
+              onMouseDown={(event) => event.stopPropagation()}
+              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
+            >
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <h2 id="delete-conversation-title" className="mt-4 text-lg font-semibold text-slate-900">
+                Permanently delete conversation?
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                This permanently deletes every message with <span className="font-medium text-slate-900">{deleteTarget.otherUserName}</span> in this conversation for both participants. It cannot be restored.
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDeleteTarget(null)}
+                  disabled={isDeleting}
+                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteConversation()}
+                  disabled={isDeleting}
+                  className="inline-flex min-w-28 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {isDeleting ? "Deleting..." : "Delete permanently"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

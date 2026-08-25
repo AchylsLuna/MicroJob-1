@@ -526,7 +526,7 @@
     "noMessagesPreview": "Wala pang mensahe",
     "userFallback": "User",
     "employerFallback": "Employer",
-    "adminSupportName": "Admin Support",
+    "adminSupportName": "Support Agent",
     "time": {
       "now": "ngayon lang",
       "minutesAgo_one": "{{count}}m ang nakaraan",

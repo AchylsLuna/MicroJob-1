@@ -138,6 +138,17 @@ export function Support() {
     window.setTimeout(() => document.getElementById("support-subject")?.focus(), 250);
   };
 
+  const prepareEmailSupport = () => {
+    // Ticket submission is the server-backed email route: it notifies active
+    // support admins and preserves the reply history for the user.
+    setSupportForm((current) => ({
+      ...current,
+      subject: current.subject || t("support.cards.emailSupport.title"),
+    }));
+    supportFormRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => document.getElementById("support-message")?.focus(), 250);
+  };
+
   const selectedTicket = useMemo(
     () => tickets.find((ticket) => ticket._id === selectedTicketId) || null,
     [selectedTicketId, tickets],
@@ -356,12 +367,13 @@ export function Support() {
               </div>
               <h3 className="text-[18px] font-semibold text-[#111827] mb-2">{t("support.cards.emailSupport.title")}</h3>
               <p className="text-[14px] text-[#6B7280] mb-4">support@microjobs.ph</p>
-              <a
-                href="mailto:support@microjobs.ph"
+              <button
+                type="button"
+                onClick={prepareEmailSupport}
                 className="w-full block text-center bg-white border border-[#E5E7EB] text-[#1C4D8D] font-medium py-2 rounded-[8px] hover:bg-gray-50 transition-all text-[14px]"
               >
                 {t("support.cards.emailSupport.sendEmail")}
-              </a>
+              </button>
             </div>
 
             <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">

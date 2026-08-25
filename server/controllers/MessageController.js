@@ -473,15 +473,25 @@ const MessageController = {
   blockUser: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
-      const { otherUserId } = req.body;
+      const { otherUserId, jobId } = req.body;
       if (!userId) return sendError(res, 401, 'Authentication required.');
-      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
-      await User.updateOne({ _id: userId }, { $addToSet: { blockedUsers: otherUserId } });
+      if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required.');
+      const normalizedJobId = normalizeOptionalJobId(jobId);
+      if (normalizedJobId && !isValidObjectId(normalizedJobId)) return sendError(res, 400, 'A valid jobId is required.');
+      const conversationId = buildConversationKey(otherUserId, normalizedJobId);
+
+      // Blocking is local to the current user and also removes this exact
+      // thread from the inbox. It remains available in Archived/Blocked so it
+      // can be reviewed or unblocked later.
+      await User.updateOne(
+        { _id: userId },
+        { $addToSet: { blockedUsers: otherUserId, archivedConversations: conversationId } },
+      );
       // notify the blocked user via socket that they were blocked by userId
       try {
         emitToUser(otherUserId, 'user_blocked', { blockerId: userId });
       } catch (e) {}
-      return sendSuccess(res, 200, 'User blocked', { otherUserId });
+      return sendSuccess(res, 200, 'User blocked', { otherUserId, conversationId });
     } catch (error) {
       return sendError(res, 500, 'Server error', { error: error.message });
     }
@@ -492,7 +502,7 @@ const MessageController = {
       const userId = getAuthUserId(req);
       const { otherUserId } = req.body;
       if (!userId) return sendError(res, 401, 'Authentication required.');
-      if (!otherUserId) return sendError(res, 400, 'otherUserId required');
+      if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required.');
       await User.updateOne({ _id: userId }, { $pull: { blockedUsers: otherUserId } });
       try {
         emitToUser(otherUserId, 'user_unblocked', { unblockedBy: userId });
@@ -579,7 +589,9 @@ const MessageController = {
     }
   },
 
-  // Compatibility endpoint: remove a conversation from the current user's inbox only.
+  // Permanently erase one exact conversation (general or job-scoped) for both
+  // participants. This is intentionally separate from archiving, which is
+  // reversible and only affects the current user's inbox.
   deleteConversationForBoth: async (req, res) => {
     try {
       const userId = getAuthUserId(req);
@@ -588,14 +600,38 @@ const MessageController = {
       if (!otherUserId || !isValidObjectId(otherUserId)) return sendError(res, 400, 'A valid otherUserId is required');
       const normalizedJobId = normalizeOptionalJobId(jobId);
       if (normalizedJobId && !isValidObjectId(normalizedJobId)) return sendError(res, 400, 'A valid jobId is required');
-      const convId = buildConversationKey(otherUserId, normalizedJobId);
-      await User.updateOne({ _id: userId }, { $addToSet: { archivedConversations: convId } });
+      const conversationId = buildConversationKey(otherUserId, normalizedJobId);
+      const otherConversationId = buildConversationKey(userId, normalizedJobId);
+      const filter = {
+        $or: [
+          { sender: userId, receiver: otherUserId },
+          { sender: otherUserId, receiver: userId },
+        ],
+      };
+      if (normalizedJobId) filter.job = normalizedJobId;
+
+      const deletion = await Message.deleteMany(filter);
+      await Promise.all([
+        User.updateOne({ _id: userId }, { $pull: { archivedConversations: conversationId } }),
+        User.updateOne({ _id: otherUserId }, { $pull: { archivedConversations: otherConversationId } }),
+      ]);
+
+      try {
+        emitToUser(otherUserId, 'conversation_deleted', {
+          otherUserId: String(userId),
+          jobId: normalizedJobId || null,
+        });
+      } catch (e) {
+        // Deletion is already committed; the recipient's normal refresh will
+        // still remove the empty conversation if their socket is unavailable.
+      }
+
       return sendSuccess(
         res,
         200,
-        'Conversation removed from your inbox',
-        { conversationId: convId, removal: 'local' },
-        { conversationId: convId, removal: 'local', deprecatedEndpoint: true }
+        'Conversation permanently deleted',
+        { conversationId, deletedCount: deletion.deletedCount || 0 },
+        { conversationId, deletedCount: deletion.deletedCount || 0, permanent: true }
       );
     } catch (error) {
       return sendError(res, 500, 'Server error', { error: error.message });

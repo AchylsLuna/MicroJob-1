@@ -1080,8 +1080,8 @@ export function getConversationWithUser(otherUserId: string, jobId?: string) {
   return request<any[]>(`/messages/conversation/${otherUserId}${buildQuery(jobId ? { jobId } : undefined)}`, { method: 'GET' });
 }
 
-export function blockUser(otherUserId: string) {
-  return request<any>('/messages/block', { method: 'POST', body: { otherUserId } });
+export function blockUser(otherUserId: string, jobId?: string) {
+  return request<any>('/messages/block', { method: 'POST', body: { otherUserId, jobId: jobId || null } });
 }
 
 export function unblockUser(otherUserId: string) {

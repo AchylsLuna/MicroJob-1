@@ -40,8 +40,10 @@ const isDeliverableEmail = (value) => {
 const findAdminRecipients = async () =>
   User.find({
     role: { $regex: /^(admin|superadmin)$/i },
-    status: { $ne: 'deleted' },
+    // Do not route new Support conversations or emails to inactive staff.
+    status: 'active',
   })
+    .sort({ role: 1, createdAt: 1, _id: 1 })
     .select('_id email firstName lastName role')
     .lean();
 

@@ -526,7 +526,7 @@
     "noMessagesPreview": "No messages yet",
     "userFallback": "User",
     "employerFallback": "Employer",
-    "adminSupportName": "Admin Support",
+    "adminSupportName": "Support Agent",
     "time": {
       "now": "now",
       "minutesAgo_one": "{{count}}m ago",
