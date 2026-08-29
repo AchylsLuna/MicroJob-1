@@ -1,6 +1,6 @@
 const expo = {
   name: 'MicroJobs',
-  slug: 'mobile',
+  slug: 'Mobile',
   version: '1.0.0',
   splash: {
     image: './assets/microjobs-launch-logo.png',
