@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, X } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { useAdminPermissions } from "../hooks/useAdminPermissions";
 import { useNotifications } from "../contexts/NotificationContext";
+import type { AdminPermission } from "../lib/adminPermissions";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
 import { MicroJobsLogo } from "./MicroJobsLogo";
@@ -22,6 +24,8 @@ type MenuItem = {
   label: string;
   path: string;
   notification?: boolean;
+  /** Admin links only — the RBAC permission required to see this link. */
+  permission?: AdminPermission;
 };
 
 type EmployerMenuGroup = {
@@ -42,6 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isCollapsed = false;
   const [, setAuthUpdateTrigger] = useState(0); // Force re-render on auth updates
   const { user: authUser } = useAuth();
+  const { can } = useAdminPermissions();
   const { unreadCount: notifCount } = useNotifications();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -102,17 +107,28 @@ const Sidebar: React.FC<SidebarProps> = ({
           { icon: "e-wallet", label: "E-Wallet", path: ROUTES.worker.eWallet },
         ];
 
-  const adminMenuItems: MenuItem[] = [
-    { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics },
-    { icon: "reports", label: "Reports", path: ROUTES.admin.reports },
-    { icon: "support", label: "Support", path: ROUTES.admin.support },
-    { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet },
-    { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts },
-    { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs },
-    { icon: "security", label: "Security", path: ROUTES.admin.security },
-    { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement },
+  // Each link carries the permission that opens its page, so the sidebar and
+  // the page gates cannot drift apart. Items without a `permission` (Messages)
+  // stay visible to every staff role — as does the Dashboard button rendered
+  // separately below, and Settings in `bottomMenuItems`, so no role can end up
+  // looking at an empty sidebar.
+  const allAdminMenuItems: MenuItem[] = [
+    { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics, permission: "analytics.view" },
+    { icon: "reports", label: "Reports", path: ROUTES.admin.reports, permission: "analytics.view" },
+    { icon: "support", label: "Support", path: ROUTES.admin.support, permission: "support.tickets.handle" },
+    { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet, permission: "finance.transactions.view" },
+    { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts, permission: "finance.payouts.review" },
+    { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs, permission: "jobs.view" },
+    { icon: "security", label: "Security", path: ROUTES.admin.security, permission: "audit.view" },
+    { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement, permission: "users.view" },
+    { icon: "staff-management", label: "Staff Management", path: ROUTES.admin.staffManagement, permission: "staff.view" },
+    { icon: "audit-logs", label: "Audit Logs", path: ROUTES.admin.auditLogs, permission: "audit.view" },
+    { icon: "moderation", label: "Moderation Queue", path: ROUTES.admin.moderationQueue, permission: "moderation.review" },
+    { icon: "verification", label: "ID Verification", path: ROUTES.admin.verificationReview, permission: "verification.review" },
+    { icon: "disputes", label: "Financial Disputes", path: ROUTES.admin.disputes, permission: "finance.disputes.handle" },
     { icon: "messages", label: "Messages", path: ROUTES.admin.messages, notification: true },
   ];
+  const adminMenuItems = allAdminMenuItems.filter((item) => !item.permission || can(item.permission));
 
   let menuItems: MenuItem[] = [];
   if (effectiveRole === "user") {

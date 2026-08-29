@@ -61,6 +61,11 @@ const AdminJobMonitoring = lazy(() => import("./pages/admin/AdminJobMonitoring")
 const AdminSecurity = lazy(() => import("./pages/admin/AdminSecurity").then((module) => ({ default: module.AdminSecurity })));
 const AdminSupportTickets = lazy(() => import("./pages/admin/AdminSupportTickets").then((module) => ({ default: module.AdminSupportTickets })));
 const AdminUserManagement = lazy(() => import("./pages/admin/AdminUserManagement").then((module) => ({ default: module.AdminUserManagement })));
+const AdminStaffManagement = lazy(() => import("./pages/admin/AdminStaffManagement").then((module) => ({ default: module.AdminStaffManagement })));
+const AdminAuditLogs = lazy(() => import("./pages/admin/AdminAuditLogs").then((module) => ({ default: module.AdminAuditLogs })));
+const AdminModerationQueue = lazy(() => import("./pages/admin/AdminModerationQueue").then((module) => ({ default: module.AdminModerationQueue })));
+const AdminVerificationReview = lazy(() => import("./pages/admin/AdminVerificationReview").then((module) => ({ default: module.AdminVerificationReview })));
+const AdminFinancialDisputes = lazy(() => import("./pages/admin/AdminFinancialDisputes").then((module) => ({ default: module.AdminFinancialDisputes })));
 
 const RouteLoading = () => <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-600"><span className="mr-3 h-6 w-6 animate-spin rounded-full border-4 border-blue-200 border-t-blue-700" aria-hidden="true" />Loading page…</div>;
 
@@ -324,6 +329,11 @@ const App: React.FC = () => {
             <Route path={ROUTES.admin.jobs} element={<AdminJobMonitoring />} />
             <Route path={ROUTES.admin.security} element={<AdminSecurity />} />
             <Route path={ROUTES.admin.userManagement} element={<AdminUserManagement />} />
+            <Route path={ROUTES.admin.staffManagement} element={<AdminStaffManagement />} />
+            <Route path={ROUTES.admin.auditLogs} element={<AdminAuditLogs />} />
+            <Route path={ROUTES.admin.moderationQueue} element={<AdminModerationQueue />} />
+            <Route path={ROUTES.admin.verificationReview} element={<AdminVerificationReview />} />
+            <Route path={ROUTES.admin.disputes} element={<AdminFinancialDisputes />} />
           </Route>
 
           <Route path={ROUTES.settings} element={<RoleAwareSettingsRoute />} />
@@ -531,6 +541,26 @@ const App: React.FC = () => {
         <Route
           path={ROUTES.legacyDashboard.admin.userManagement}
           element={<PreserveRedirect to={ROUTES.admin.userManagement} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.staffManagement}
+          element={<PreserveRedirect to={ROUTES.admin.staffManagement} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.auditLogs}
+          element={<PreserveRedirect to={ROUTES.admin.auditLogs} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.moderationQueue}
+          element={<PreserveRedirect to={ROUTES.admin.moderationQueue} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.verificationReview}
+          element={<PreserveRedirect to={ROUTES.admin.verificationReview} />}
+        />
+        <Route
+          path={ROUTES.legacyDashboard.admin.disputes}
+          element={<PreserveRedirect to={ROUTES.admin.disputes} />}
         />
 
         <Route

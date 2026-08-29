@@ -1,4 +1,5 @@
 import { ROUTES } from "./routes";
+import { isStaffRole } from "../lib/adminPermissions";
 
 export interface DashboardRouteUser {
   role?: string | null;
@@ -21,7 +22,11 @@ const getAccountType = (user?: DashboardRouteUser | null) =>
 
 export function isAdmin(user?: DashboardRouteUser | null) {
   const role = getRole(user);
-  return role === "admin" || role === "superadmin";
+  // Accepts the five staff sub-roles too. This is called with both normalized
+  // users (role already "admin") and raw API/localStorage shapes (role still
+  // "moderator"), so it must agree with `normalizeRole` in AuthContext or a
+  // staff member gets classified as a worker by `isPatient`'s fallback below.
+  return role === "admin" || role === "superadmin" || isStaffRole(role);
 }
 
 export function isEmployer(user?: DashboardRouteUser | null) {

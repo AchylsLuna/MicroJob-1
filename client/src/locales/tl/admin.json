@@ -4,6 +4,252 @@
       "accessDenied": "Wala kang access sa admin section na ito."
     }
   },
+  "auditLogs": {
+    "title": "Mga Audit Log",
+    "subtitle": "Aktibidad ng sistema at mga error log sa buong platform.",
+    "cards": {
+      "total": "Kabuuang entry",
+      "errors": "Mga error"
+    },
+    "filters": {
+      "categoryLabel": "Kategorya",
+      "allCategories": "Lahat ng kategorya",
+      "system": "Sistema",
+      "error": "Error",
+      "searchLabel": "Maghanap",
+      "searchPlaceholder": "Aktor, aksyon, o target"
+    },
+    "table": {
+      "caption": "Mga entry ng aktibidad ng sistema at error log",
+      "timestamp": "Petsa at oras",
+      "actor": "Aktor",
+      "action": "Aksyon",
+      "target": "Target",
+      "category": "Kategorya"
+    },
+    "states": {
+      "emptyTitle": "Walang log entry na tumutugma sa filter na ito",
+      "emptyDescription": "Subukan ang ibang kategorya o search term."
+    }
+  },
+  "moderationQueue": {
+    "title": "Pila ng Moderation",
+    "subtitle": "Suriin ang mga na-report na user at job posting.",
+    "cards": {
+      "pending": "Naghihintay ng review",
+      "total": "Kabuuang report"
+    },
+    "table": {
+      "caption": "Mga na-report na user at trabaho na naghihintay ng moderation",
+      "reported": "Na-report",
+      "reason": "Dahilan",
+      "reportedBy": "Iniulat ni",
+      "date": "Petsa",
+      "status": "Status",
+      "actions": "Mga Aksyon"
+    },
+    "statuses": {
+      "pending": "Naghihintay",
+      "resolved": "Naresolba",
+      "dismissed": "Ibinasura"
+    },
+    "actions": {
+      "suspended": "I-suspend",
+      "banned": "I-ban",
+      "dismiss": "Ibasura"
+    },
+    "states": {
+      "emptyTitle": "Walang report",
+      "emptyDescription": "Lalabas dito ang mga na-report na user at trabaho."
+    },
+    "enforceDialog": {
+      "titleSuspend": "I-suspend ang account",
+      "titleBan": "I-ban ang account",
+      "description": "Ang aksyong ito ay ilalapat kay {{name}} at itatala kasama ang iyong dahilan.",
+      "reasonLabel": "Dahilan",
+      "reasonRequired": "Kinakailangan ang dahilan para sa aksyong ito.",
+      "cancel": "Kanselahin"
+    },
+    "dismissDialog": {
+      "title": "Ibasura ang report",
+      "description": "Ang report kay {{name}} ay mamarkahang ibinasura nang walang aksyong gagawin."
+    },
+    "toast": {
+      "suspended": "Na-suspend si {{name}}.",
+      "banned": "Na-ban si {{name}}.",
+      "dismissed": "Naibasura ang report kay {{name}}."
+    }
+  },
+  "verificationReview": {
+    "title": "Pag-verify ng ID",
+    "subtitle": "Suriin ang mga dokumento ng pagkakakilanlan at address na isinumite para sa pag-verify.",
+    "cards": {
+      "pending": "Naghihintay ng review"
+    },
+    "identityLabel": "Dokumento ng pagkakakilanlan",
+    "addressLabel": "Dokumento ng address",
+    "viewDocument": "Tingnan ang dokumento",
+    "table": {
+      "caption": "Mga dokumento ng pagkakakilanlan at address na naghihintay ng desisyon",
+      "applicant": "Aplikante",
+      "document": "Dokumento",
+      "actions": "Mga Aksyon"
+    },
+    "actions": {
+      "approve": "Aprubahan",
+      "reject": "Tanggihan"
+    },
+    "states": {
+      "loading": "Naglo-load ng mga isinumite…",
+      "errorTitle": "Hindi ma-load ang mga isinumite",
+      "retry": "Subukan muli",
+      "emptyTitle": "Walang naghihintay ng review",
+      "emptyDescription": "Lalabas dito ang mga bagong isinumiteng dokumento ng pagkakakilanlan at address."
+    },
+    "rejectDialog": {
+      "title": "Tanggihan ang isinumite",
+      "description": "Sabihin kay {{name}} kung ano ang kailangang ayusin.",
+      "reasonLabel": "Dahilan",
+      "reasonRequired": "Kinakailangan ang dahilan para tanggihan ang isang isinumite.",
+      "cancel": "Kanselahin"
+    },
+    "toast": {
+      "approved": "Naaprubahan ang dokumento ni {{name}}.",
+      "rejected": "Natanggihan ang dokumento ni {{name}}.",
+      "failed": "Hindi ma-update ang isinumiteng ito."
+    }
+  },
+  "disputes": {
+    "title": "Mga Financial Dispute",
+    "subtitle": "Imbestigahan at lutasin ang mga alitan sa pagbabayad.",
+    "cards": {
+      "open": "Bukas",
+      "investigating": "Iniimbestigahan"
+    },
+    "filters": {
+      "statusLabel": "Status",
+      "all": "Lahat ng status",
+      "searchLabel": "Maghanap",
+      "searchPlaceholder": "Case o humiling"
+    },
+    "table": {
+      "caption": "Mga kaso ng financial dispute",
+      "case": "Kaso",
+      "amount": "Halaga",
+      "raisedBy": "Iniangat ni",
+      "date": "Petsa",
+      "status": "Status",
+      "actions": "Mga Aksyon"
+    },
+    "statuses": {
+      "open": "Bukas",
+      "investigating": "Iniimbestigahan",
+      "resolved": "Naresolba",
+      "rejected": "Tinanggihan"
+    },
+    "actions": {
+      "investigate": "Simulan ang imbestigasyon",
+      "resolve": "Resolbahin",
+      "reject": "Tanggihan"
+    },
+    "states": {
+      "emptyTitle": "Walang dispute na tumutugma sa filter na ito",
+      "emptyDescription": "Subukan ang ibang status o search term."
+    },
+    "resolveDialog": {
+      "titleResolve": "Resolbahin ang dispute",
+      "titleReject": "Tanggihan ang dispute",
+      "description": "Itala ang resulta para sa \"{{subject}}\".",
+      "notesLabel": "Mga tala sa resolusyon",
+      "notesRequired": "Kinakailangan ang mga tala sa resolusyon.",
+      "cancel": "Kanselahin"
+    },
+    "toast": {
+      "investigating": "Ang \"{{subject}}\" ay iniimbestigahan na ngayon.",
+      "resolved": "Naresolba ang \"{{subject}}\".",
+      "rejected": "Tinanggihan ang \"{{subject}}\"."
+    }
+  },
+  "staffManagement": {
+    "title": "Pamamahala ng Staff",
+    "subtitle": "Gumawa ng mga staff account at itakda ang kanilang mga tungkulin.",
+    "cards": {
+      "total": "Kabuuang staff",
+      "active": "Aktibo",
+      "disabled": "Na-disable"
+    },
+    "filters": {
+      "roleLabel": "Tungkulin",
+      "allRoles": "Lahat ng tungkulin",
+      "searchLabel": "Maghanap",
+      "searchPlaceholder": "Pangalan o email"
+    },
+    "roles": {
+      "superadmin": "Superadmin",
+      "admin_team": "Admin Team",
+      "moderator": "Moderator",
+      "finance_team": "Finance Team",
+      "analytics_team": "Analytics Team",
+      "support_staff": "Support Staff"
+    },
+    "statuses": {
+      "active": "Aktibo",
+      "disabled": "Na-disable"
+    },
+    "table": {
+      "caption": "Mga staff account at ang kanilang itinalagang tungkulin",
+      "name": "Pangalan",
+      "role": "Tungkulin",
+      "status": "Status",
+      "lastActive": "Huling aktibo",
+      "actions": "Mga Aksyon"
+    },
+    "actions": {
+      "createStaff": "Gumawa ng staff",
+      "changeRole": "Baguhin ang tungkulin",
+      "enable": "I-enable",
+      "disable": "I-disable"
+    },
+    "states": {
+      "emptyTitle": "Walang staff na tumutugma sa filter na ito",
+      "emptyDescription": "Subukan ang ibang tungkulin o search term."
+    },
+    "createDialog": {
+      "title": "Gumawa ng staff account",
+      "description": "Magdagdag ng bagong miyembro ng staff at itakda ang kanilang tungkulin.",
+      "firstName": "Pangalan",
+      "lastName": "Apelyido",
+      "email": "Email",
+      "role": "Tungkulin",
+      "cancel": "Kanselahin",
+      "confirm": "Gumawa ng account"
+    },
+    "roleDialog": {
+      "title": "Baguhin ang tungkulin",
+      "description": "I-update ang tungkulin na itinalaga kay {{name}}.",
+      "roleLabel": "Tungkulin",
+      "cancel": "Kanselahin",
+      "confirm": "I-save ang tungkulin"
+    },
+    "statusDialog": {
+      "disableTitle": "I-disable ang staff account",
+      "disableDescription": "Mawawalan agad ng access si {{name}} sa admin area. Maaari itong bawiin sa pamamagitan ng muling pag-enable sa account.",
+      "enableTitle": "I-enable ang staff account",
+      "enableDescription": "Magkakaroon muli ng access si {{name}} sa admin area."
+    },
+    "formErrors": {
+      "firstNameRequired": "Kailangan ang pangalan.",
+      "lastNameRequired": "Kailangan ang apelyido.",
+      "emailInvalid": "Maglagay ng wastong email address.",
+      "emailTaken": "May umiiral nang staff account na may email na ito."
+    },
+    "toast": {
+      "created": "Naidagdag si {{name}} bilang staff.",
+      "roleUpdated": "Na-update ang tungkulin ni {{name}}.",
+      "disabled": "Na-disable ang staff account ni {{name}}.",
+      "enabled": "Na-enable ang staff account ni {{name}}."
+    }
+  },
   "dashboard": {
     "badge": "Operasyon ng Platform",
     "header": {

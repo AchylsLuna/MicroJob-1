@@ -13,6 +13,7 @@ import {
   resetPasswordWithOtp,
 } from "../services/api";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
+import { normalizeStaffRole, type AdminStaffRole } from "../lib/adminPermissions";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import {
   getEmailValidationMessage,
@@ -33,6 +34,13 @@ export interface User {
   lastName: string;
   role: "user" | "employer" | "admin" | "both";
   systemRole?: string;
+  /**
+   * Fine-grained admin role, derived from `systemRole`. `role` stays coarse
+   * ("admin") so the existing route guards keep working; this carries which
+   * kind of admin, and drives the RBAC matrix in `lib/adminPermissions`.
+   * `null` for anyone who is not staff.
+   */
+  staffRole?: AdminStaffRole | null;
   accountType: "worker" | "employer";
   accountOptions: ("worker" | "employer")[];
   accountPreference?: "worker" | "employer" | "both";
@@ -135,6 +143,13 @@ type AccountPreference = "employer" | "worker" | "both";
 
 const normalizeRole = (role?: string | null): User["role"] => {
   const value = String(role || "").toLowerCase();
+  // Every staff role — including the five sub-roles — collapses to the coarse
+  // "admin" so the existing route guards admit them. Without this a user whose
+  // server role is "moderator" falls through to "user" and gets bounced to the
+  // worker dashboard. The sub-role survives separately on `staffRole`.
+  if (normalizeStaffRole(value)) {
+    return "admin";
+  }
   if (value === "admin" || value === "superadmin") {
     return "admin";
   }
@@ -300,6 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastName: apiUser.lastName || "User",
       role,
       systemRole: String(apiUser.role || role),
+      staffRole: normalizeStaffRole(apiUser.role || role),
       accountType,
       accountPreference: normalizePreference(preferredAccount) || undefined,
       accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
@@ -349,6 +365,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const normalizedUser = {
             ...parsed,
             role: normalizedRole,
+            // Re-derived rather than trusted from storage, so a session
+            // persisted before staffRole existed still resolves. `systemRole`
+            // is preferred because `parsed.role` has already been flattened to
+            // "admin" and would lose the sub-role.
+            staffRole: parsed.staffRole ?? normalizeStaffRole(parsed.systemRole ?? getRoleCandidate(parsed)),
             accountType: parsedAccountType || derivedAccountType,
             accountPreference: normalizePreference(preferredAccount) || undefined,
             accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
@@ -518,6 +539,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: apiUser.lastName || splitName(verificationName).lastName,
         role,
         systemRole: String(apiUser.role || role),
+        staffRole: normalizeStaffRole(apiUser.role || role),
         accountType,
         accountPreference: normalizePreference(preferredAccount) || undefined,
         accountOptions: [...accountOptions],

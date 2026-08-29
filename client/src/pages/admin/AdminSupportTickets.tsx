@@ -410,7 +410,7 @@ function AdminSupportTicketsContent() {
 
 export function AdminSupportTickets() {
   return (
-    <AdminGate allowedRoles={["admin", "superadmin"]}>
+    <AdminGate permission="support.tickets.handle">
       <AdminSupportTicketsContent />
     </AdminGate>
   );

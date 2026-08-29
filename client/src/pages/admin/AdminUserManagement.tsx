@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 import { Button, ConfirmDialog, Dialog, Input, Select } from "../../components/ui";
 import { useAuth } from "../../hooks/useAuth";
+import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
 import { isValidEmail } from "../../lib/authValidation";
 import { updateAdminVerification } from "../../services/api";
@@ -47,6 +48,7 @@ function AdminUserManagementContent() {
   const { t } = useTranslation("admin");
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const { can } = useAdminPermissions();
   const {
     isLoading,
     loadError,
@@ -157,6 +159,12 @@ function AdminUserManagementContent() {
     const isSelf = user._id === currentUser?.id;
     return !isSelf && (!privileged || canManagePrivilegedRoles);
   };
+  // RBAC write gate: Support Staff has `users.view` (this page) but not
+  // `users.suspend`, so they land here read-only per the spec ("View User
+  // profiles (Read-only)"). Combined with the self/privileged check above for
+  // every mutating action — viewing and messaging stay ungated by permission.
+  const canWriteUsers = can("users.suspend");
+  const canMutateUser = (user: typeof users[number]) => canWriteUsers && canManageUser(user);
 
   const handleVerificationReview = async (
     documentType: "identity" | "address",
@@ -292,10 +300,12 @@ function AdminUserManagementContent() {
               <p className="mt-1 text-sm text-slate-500">{t("userManagement.manage.subtitle")}</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button ref={addAccountButtonRef} onClick={openCreate} className="shrink-0">
-                <UserPlus className="h-4 w-4" aria-hidden="true" />
-                {t("userManagement.manage.addAccount")}
-              </Button>
+              {canWriteUsers ? (
+                <Button ref={addAccountButtonRef} onClick={openCreate} className="shrink-0">
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  {t("userManagement.manage.addAccount")}
+                </Button>
+              ) : null}
               <div className="relative min-w-[240px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
                 <input
@@ -340,8 +350,13 @@ function AdminUserManagementContent() {
                 <dl className="mt-4 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-500">{t("userManagement.mobileList.roleLabel")}</dt><dd className="mt-1 capitalize text-slate-900">{getRoleLabel(user.role, t)}</dd></div><div><dt className="text-slate-500">{t("userManagement.mobileList.joinedLabel")}</dt><dd className="mt-1 text-slate-900">{formatJoinedDate(user._id)}</dd></div></dl>
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-100" onClick={() => { setSelectedUserId(user._id); }}>{t("userManagement.mobileList.view")}</Button>
-                  <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? t("userManagement.mobileList.edit") : t("userManagement.mobileList.restricted")}</Button>
-                  {canManageUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>{t("userManagement.mobileList.delete")}</Button>}
+                  {/* Read-only roles (no `users.suspend`) never see Edit at all — "Restricted"
+                      is reserved for roles that CAN write but are blocked by the self/privileged-
+                      target guard below, which is a different, pre-existing reason. */}
+                  {canWriteUsers ? (
+                    <Button disabled={!canManageUser(user)} onClick={() => openEdit(user)}>{canManageUser(user) ? t("userManagement.mobileList.edit") : t("userManagement.mobileList.restricted")}</Button>
+                  ) : null}
+                  {canMutateUser(user) && <Button className="col-span-2 !bg-red-700 hover:!bg-red-800" onClick={() => { setDeleteError(null); setDeleteTargetId(user._id); }}>{t("userManagement.mobileList.delete")}</Button>}
                 </div>
               </motion.article>
             ))}
@@ -439,7 +454,7 @@ function AdminUserManagementContent() {
                               >
                                 {t("userManagement.table.menu.viewProfile")}
                               </button>}
-                              <button
+                              {canMutateUser(user) && <button
                                 type="button"
                                 onClick={(event) => {
                                   editMenuTriggerRef.current = event.currentTarget
@@ -451,7 +466,7 @@ function AdminUserManagementContent() {
                                 className="w-full px-3 py-2 text-[13px] text-[#111827] hover:bg-[#F8FAFC]"
                               >
                                 {t("userManagement.table.menu.editUser")}
-                              </button>
+                              </button>}
                               <button
                                 type="button"
                                 onClick={() => {
@@ -464,7 +479,7 @@ function AdminUserManagementContent() {
                               >
                                 {t("userManagement.table.menu.messageUser")}
                               </button>
-                              {user.status === "pending" && canManageUser(user) && (
+                              {user.status === "pending" && canMutateUser(user) && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -476,7 +491,7 @@ function AdminUserManagementContent() {
                                   {t("userManagement.table.menu.approveUser")}
                                 </button>
                               )}
-                              {canManageUser(user) && <button
+                              {canMutateUser(user) && <button
                                 type="button"
                                 onClick={() => {
                                   handleToggleUserStatus(user);
@@ -488,7 +503,7 @@ function AdminUserManagementContent() {
                               >
                                 {user.status === "disabled" ? t("userManagement.table.menu.activateUser") : t("userManagement.table.menu.suspendUser")}
                               </button>}
-                              {canManageUser(user) && <button
+                              {canMutateUser(user) && <button
                                 type="button"
                                 onClick={() => {
                                   setDeleteError(null);
@@ -788,7 +803,7 @@ function AdminUserManagementContent() {
 
 export function AdminUserManagement() {
   return (
-    <AdminGate allowedRoles={["admin"]}>
+    <AdminGate permission="users.view">
       <AdminUserManagementContent />
     </AdminGate>
   );

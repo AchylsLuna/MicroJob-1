@@ -77,6 +77,11 @@ export const ROUTES = {
     jobs: "/admin/jobs",
     security: "/admin/security",
     userManagement: "/admin/user-management",
+    staffManagement: "/admin/staff-management",
+    auditLogs: "/admin/audit-logs",
+    moderationQueue: "/admin/moderation",
+    verificationReview: "/admin/verification",
+    disputes: "/admin/disputes",
   },
 
   legacyDashboard: {
@@ -125,6 +130,11 @@ export const ROUTES = {
       jobs: "/dashboard/admin-dashboard/jobs",
       security: "/dashboard/admin-dashboard/security",
       userManagement: "/dashboard/admin-dashboard/user-management",
+      staffManagement: "/dashboard/admin-dashboard/staff-management",
+      auditLogs: "/dashboard/admin-dashboard/audit-logs",
+      moderationQueue: "/dashboard/admin-dashboard/moderation",
+      verificationReview: "/dashboard/admin-dashboard/verification",
+      disputes: "/dashboard/admin-dashboard/disputes",
     },
   },
 

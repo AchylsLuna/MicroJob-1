@@ -85,7 +85,7 @@ function AdminSecurityContent() {
 
 export function AdminSecurity() {
   return (
-    <AdminGate allowedRoles={["admin"]}>
+    <AdminGate permission="audit.view">
       <AdminSecurityContent />
     </AdminGate>
   );

@@ -28,7 +28,7 @@ function AdminAnalyticsContent() {
 
 export function AdminAnalytics() {
   return (
-    <AdminGate allowedRoles={["admin"]}>
+    <AdminGate permission="analytics.view">
       <AdminAnalyticsContent />
     </AdminGate>
   );

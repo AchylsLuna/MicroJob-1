@@ -4,6 +4,252 @@
       "accessDenied": "You don't have access to this admin section."
     }
   },
+  "auditLogs": {
+    "title": "Audit Logs",
+    "subtitle": "System activity and error logs across the platform.",
+    "cards": {
+      "total": "Total entries",
+      "errors": "Errors"
+    },
+    "filters": {
+      "categoryLabel": "Category",
+      "allCategories": "All categories",
+      "system": "System",
+      "error": "Error",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Actor, action, or target"
+    },
+    "table": {
+      "caption": "System activity and error log entries",
+      "timestamp": "Timestamp",
+      "actor": "Actor",
+      "action": "Action",
+      "target": "Target",
+      "category": "Category"
+    },
+    "states": {
+      "emptyTitle": "No log entries match this filter",
+      "emptyDescription": "Try a different category or search term."
+    }
+  },
+  "moderationQueue": {
+    "title": "Moderation Queue",
+    "subtitle": "Review reported users and job postings.",
+    "cards": {
+      "pending": "Pending review",
+      "total": "Total reports"
+    },
+    "table": {
+      "caption": "Reported users and jobs awaiting moderation",
+      "reported": "Reported",
+      "reason": "Reason",
+      "reportedBy": "Reported by",
+      "date": "Date",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "statuses": {
+      "pending": "Pending",
+      "resolved": "Resolved",
+      "dismissed": "Dismissed"
+    },
+    "actions": {
+      "suspended": "Suspend",
+      "banned": "Ban",
+      "dismiss": "Dismiss"
+    },
+    "states": {
+      "emptyTitle": "No reports",
+      "emptyDescription": "Reported users and jobs will appear here."
+    },
+    "enforceDialog": {
+      "titleSuspend": "Suspend account",
+      "titleBan": "Ban account",
+      "description": "This enforcement action applies to {{name}} and is logged with your reason.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "A reason is required for this action.",
+      "cancel": "Cancel"
+    },
+    "dismissDialog": {
+      "title": "Dismiss report",
+      "description": "The report on {{name}} will be marked dismissed with no action taken."
+    },
+    "toast": {
+      "suspended": "{{name}} was suspended.",
+      "banned": "{{name}} was banned.",
+      "dismissed": "The report on {{name}} was dismissed."
+    }
+  },
+  "verificationReview": {
+    "title": "ID Verification Review",
+    "subtitle": "Review identity and address documents submitted for verification.",
+    "cards": {
+      "pending": "Awaiting review"
+    },
+    "identityLabel": "Identity document",
+    "addressLabel": "Address document",
+    "viewDocument": "View document",
+    "table": {
+      "caption": "Identity and address documents awaiting a decision",
+      "applicant": "Applicant",
+      "document": "Document",
+      "actions": "Actions"
+    },
+    "actions": {
+      "approve": "Approve",
+      "reject": "Reject"
+    },
+    "states": {
+      "loading": "Loading submissions…",
+      "errorTitle": "Couldn't load submissions",
+      "retry": "Retry",
+      "emptyTitle": "Nothing awaiting review",
+      "emptyDescription": "New identity and address submissions will appear here."
+    },
+    "rejectDialog": {
+      "title": "Reject submission",
+      "description": "Tell {{name}} what needs to be corrected.",
+      "reasonLabel": "Reason",
+      "reasonRequired": "A reason is required to reject a submission.",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "approved": "{{name}}'s document was approved.",
+      "rejected": "{{name}}'s document was rejected.",
+      "failed": "Couldn't update this submission."
+    }
+  },
+  "disputes": {
+    "title": "Financial Disputes",
+    "subtitle": "Investigate and resolve payment disputes.",
+    "cards": {
+      "open": "Open",
+      "investigating": "Investigating"
+    },
+    "filters": {
+      "statusLabel": "Status",
+      "all": "All statuses",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Case or requester"
+    },
+    "table": {
+      "caption": "Financial dispute cases",
+      "case": "Case",
+      "amount": "Amount",
+      "raisedBy": "Raised by",
+      "date": "Date",
+      "status": "Status",
+      "actions": "Actions"
+    },
+    "statuses": {
+      "open": "Open",
+      "investigating": "Investigating",
+      "resolved": "Resolved",
+      "rejected": "Rejected"
+    },
+    "actions": {
+      "investigate": "Start investigating",
+      "resolve": "Resolve",
+      "reject": "Reject"
+    },
+    "states": {
+      "emptyTitle": "No disputes match this filter",
+      "emptyDescription": "Try a different status or search term."
+    },
+    "resolveDialog": {
+      "titleResolve": "Resolve dispute",
+      "titleReject": "Reject dispute",
+      "description": "Record the outcome for \"{{subject}}\".",
+      "notesLabel": "Resolution notes",
+      "notesRequired": "Resolution notes are required.",
+      "cancel": "Cancel"
+    },
+    "toast": {
+      "investigating": "\"{{subject}}\" is now under investigation.",
+      "resolved": "\"{{subject}}\" was resolved.",
+      "rejected": "\"{{subject}}\" was rejected."
+    }
+  },
+  "staffManagement": {
+    "title": "Staff Management",
+    "subtitle": "Create staff accounts and assign their roles.",
+    "cards": {
+      "total": "Total staff",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "filters": {
+      "roleLabel": "Role",
+      "allRoles": "All roles",
+      "searchLabel": "Search",
+      "searchPlaceholder": "Name or email"
+    },
+    "roles": {
+      "superadmin": "Superadmin",
+      "admin_team": "Admin Team",
+      "moderator": "Moderator",
+      "finance_team": "Finance Team",
+      "analytics_team": "Analytics Team",
+      "support_staff": "Support Staff"
+    },
+    "statuses": {
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "table": {
+      "caption": "Staff accounts and their assigned roles",
+      "name": "Name",
+      "role": "Role",
+      "status": "Status",
+      "lastActive": "Last active",
+      "actions": "Actions"
+    },
+    "actions": {
+      "createStaff": "Create staff",
+      "changeRole": "Change role",
+      "enable": "Enable",
+      "disable": "Disable"
+    },
+    "states": {
+      "emptyTitle": "No staff match this filter",
+      "emptyDescription": "Try a different role or search term."
+    },
+    "createDialog": {
+      "title": "Create staff account",
+      "description": "Add a new staff member and assign their role.",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "email": "Email",
+      "role": "Role",
+      "cancel": "Cancel",
+      "confirm": "Create account"
+    },
+    "roleDialog": {
+      "title": "Change role",
+      "description": "Update the role assigned to {{name}}.",
+      "roleLabel": "Role",
+      "cancel": "Cancel",
+      "confirm": "Save role"
+    },
+    "statusDialog": {
+      "disableTitle": "Disable staff account",
+      "disableDescription": "{{name}} will immediately lose access to the admin area. This can be reversed by enabling the account again.",
+      "enableTitle": "Enable staff account",
+      "enableDescription": "{{name}} will regain access to the admin area."
+    },
+    "formErrors": {
+      "firstNameRequired": "First name is required.",
+      "lastNameRequired": "Last name is required.",
+      "emailInvalid": "Enter a valid email address.",
+      "emailTaken": "A staff account with this email already exists."
+    },
+    "toast": {
+      "created": "{{name}} was added as staff.",
+      "roleUpdated": "{{name}}'s role was updated.",
+      "disabled": "{{name}}'s staff account was disabled.",
+      "enabled": "{{name}}'s staff account was enabled."
+    }
+  },
   "dashboard": {
     "badge": "Platform operations",
     "header": {

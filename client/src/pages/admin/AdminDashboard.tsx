@@ -14,7 +14,9 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData, type AdminJob } from "../../hooks/useAdminData";
+import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { ROUTES } from "../../utils/routes";
+import type { AdminPermission } from "../../lib/adminPermissions";
 import { formatDate } from "../../lib/formatters";
 
 const panelClass = "rounded-2xl border border-slate-200 bg-white shadow-sm";
@@ -30,6 +32,7 @@ const getPosterName = (job: AdminJob, t: TFunction<"admin">) => {
 
 function AdminDashboardContent() {
   const { t } = useTranslation("admin");
+  const { can } = useAdminPermissions();
   const {
     isLoading,
     loadError,
@@ -83,12 +86,15 @@ function AdminDashboardContent() {
     },
   ];
 
-  const quickActions = [
-    { label: t("dashboard.quickActions.manageUsers.label"), description: t("dashboard.quickActions.manageUsers.description"), to: ROUTES.admin.userManagement, icon: Users },
-    { label: t("dashboard.quickActions.monitorJobs.label"), description: t("dashboard.quickActions.monitorJobs.description"), to: ROUTES.admin.jobs, icon: BriefcaseBusiness },
-    { label: t("dashboard.quickActions.openReports.label"), description: t("dashboard.quickActions.openReports.description"), to: ROUTES.admin.reports, icon: FileText },
-    { label: t("dashboard.quickActions.reviewPayouts.label"), description: t("dashboard.quickActions.reviewPayouts.description"), to: ROUTES.admin.payouts, icon: Wallet },
+  // Matches the permission each destination page is gated by (AdminGate), so
+  // a tile is never a dead end that only reveals its own restriction on click.
+  const allQuickActions: Array<{ label: string; description: string; to: string; icon: typeof Users; permission: AdminPermission }> = [
+    { label: t("dashboard.quickActions.manageUsers.label"), description: t("dashboard.quickActions.manageUsers.description"), to: ROUTES.admin.userManagement, icon: Users, permission: "users.view" },
+    { label: t("dashboard.quickActions.monitorJobs.label"), description: t("dashboard.quickActions.monitorJobs.description"), to: ROUTES.admin.jobs, icon: BriefcaseBusiness, permission: "jobs.view" },
+    { label: t("dashboard.quickActions.openReports.label"), description: t("dashboard.quickActions.openReports.description"), to: ROUTES.admin.reports, icon: FileText, permission: "analytics.view" },
+    { label: t("dashboard.quickActions.reviewPayouts.label"), description: t("dashboard.quickActions.reviewPayouts.description"), to: ROUTES.admin.payouts, icon: Wallet, permission: "finance.payouts.review" },
   ];
+  const quickActions = allQuickActions.filter((action) => can(action.permission));
 
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">

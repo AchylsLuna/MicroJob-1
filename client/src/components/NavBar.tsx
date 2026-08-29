@@ -347,6 +347,41 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
       };
     }
 
+    if (isPath(ROUTES.admin.staffManagement, ROUTES.legacyDashboard.admin.staffManagement)) {
+      return {
+        title: t("navbar.pages.adminStaffManagement.title"),
+        subtitle: t("navbar.pages.adminStaffManagement.subtitle"),
+      };
+    }
+
+    if (isPath(ROUTES.admin.auditLogs, ROUTES.legacyDashboard.admin.auditLogs)) {
+      return {
+        title: t("navbar.pages.adminAuditLogs.title"),
+        subtitle: t("navbar.pages.adminAuditLogs.subtitle"),
+      };
+    }
+
+    if (isPath(ROUTES.admin.moderationQueue, ROUTES.legacyDashboard.admin.moderationQueue)) {
+      return {
+        title: t("navbar.pages.adminModerationQueue.title"),
+        subtitle: t("navbar.pages.adminModerationQueue.subtitle"),
+      };
+    }
+
+    if (isPath(ROUTES.admin.verificationReview, ROUTES.legacyDashboard.admin.verificationReview)) {
+      return {
+        title: t("navbar.pages.adminVerificationReview.title"),
+        subtitle: t("navbar.pages.adminVerificationReview.subtitle"),
+      };
+    }
+
+    if (isPath(ROUTES.admin.disputes, ROUTES.legacyDashboard.admin.disputes)) {
+      return {
+        title: t("navbar.pages.adminDisputes.title"),
+        subtitle: t("navbar.pages.adminDisputes.subtitle"),
+      };
+    }
+
     if (
       startsWithPath(path, ROUTES.worker.jobDetailsPattern.replace("/:jobId", "")) ||
       startsWithPath(path, ROUTES.legacyDashboard.jobDetailsPattern.replace("/:jobId", ""))

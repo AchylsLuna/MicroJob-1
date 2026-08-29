@@ -84,6 +84,11 @@
       "adminReports": { "title": "Mga Ulat", "subtitle": "Bumuo at mag-download ng mga ulat ng platform" },
       "adminSecurity": { "title": "Seguridad at Access", "subtitle": "Pamahalaan ang access ng user, mga tungkulin, at status ng seguridad" },
       "adminDashboard": { "title": "Admin Dashboard", "subtitle": "Overview ng iyong job posting platform" },
+      "adminStaffManagement": { "title": "Pamamahala ng Staff", "subtitle": "Gumawa ng mga staff account at pamahalaan ang kanilang mga tungkulin" },
+      "adminAuditLogs": { "title": "Mga Audit Log", "subtitle": "Aktibidad ng sistema at mga error log" },
+      "adminModerationQueue": { "title": "Pila ng Moderation", "subtitle": "Suriin ang mga na-report na user at trabaho" },
+      "adminVerificationReview": { "title": "Pag-verify ng ID", "subtitle": "Suriin ang mga isinumiteng dokumento ng pagkakakilanlan at address" },
+      "adminDisputes": { "title": "Mga Financial Dispute", "subtitle": "Imbestigahan at lutasin ang mga alitan sa pagbabayad" },
       "jobDetails": { "title": "Detalye ng Trabaho" },
       "employerFallback": { "title": "Employer" },
       "adminFallback": { "title": "Admin" }

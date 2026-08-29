@@ -3,6 +3,7 @@ import { CheckCircle2, Clock3, RefreshCw, Search, WalletCards, XCircle } from "l
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { AdminGate } from "./admin/AdminGate";
+import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { Button, Dialog, StatusState, Textarea } from "../../components/ui";
 import { toast } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
@@ -29,6 +30,12 @@ const accountName = (request: PayoutRequest, t: TFunction<"admin">) => {
 
 function AdminPayoutRequestsContent() {
   const { t } = useTranslation("admin");
+  // The page itself is already gated on this permission (AdminGate below),
+  // so this is defense-in-depth: it keeps the actions correctly hidden if a
+  // future change ever splits "view payouts" from "review payouts" into
+  // separate permissions.
+  const { can } = useAdminPermissions();
+  const canReviewPayouts = can("finance.payouts.review");
   const [requests, setRequests] = useState<PayoutRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -187,9 +194,9 @@ function AdminPayoutRequestsContent() {
                         <td className="px-3 py-4 text-slate-600">{request.createdAt ? formatDateTime(request.createdAt) : "—"}</td>
                         <td className="px-3 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${statusStyle[request.status]}`}>{request.status}</span>{request.reviewNotes ? <p className="mt-2 max-w-52 text-xs text-slate-500">{request.reviewNotes}</p> : null}</td>
                         <td className="px-3 py-4"><div className="flex justify-end gap-2">
-                          {request.status === "requested" ? <Button onClick={() => openReview(request, "approved")}>{t("payoutRequests.actions.approve")}</Button> : null}
-                          {request.status === "approved" ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">{t("payoutRequests.actions.markPaid")}</Button> : null}
-                          {request.status === "requested" || request.status === "approved" ? <Button onClick={() => openReview(request, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50"><XCircle className="h-4 w-4" aria-hidden="true" />{t("payoutRequests.actions.reject")}</Button> : null}
+                          {canReviewPayouts && request.status === "requested" ? <Button onClick={() => openReview(request, "approved")}>{t("payoutRequests.actions.approve")}</Button> : null}
+                          {canReviewPayouts && request.status === "approved" ? <Button onClick={() => openReview(request, "paid")} className="!bg-emerald-700 hover:!bg-emerald-800">{t("payoutRequests.actions.markPaid")}</Button> : null}
+                          {canReviewPayouts && (request.status === "requested" || request.status === "approved") ? <Button onClick={() => openReview(request, "rejected")} className="!bg-white !text-red-700 ring-1 ring-red-300 hover:!bg-red-50"><XCircle className="h-4 w-4" aria-hidden="true" />{t("payoutRequests.actions.reject")}</Button> : null}
                         </div></td>
                       </tr>
                     );
@@ -228,5 +235,5 @@ function AdminPayoutRequestsContent() {
 }
 
 export function AdminPayoutRequests() {
-  return <AdminGate allowedRoles={["admin"]}><AdminPayoutRequestsContent /></AdminGate>;
+  return <AdminGate permission="finance.payouts.review"><AdminPayoutRequestsContent /></AdminGate>;
 }

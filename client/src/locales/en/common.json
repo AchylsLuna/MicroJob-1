@@ -84,6 +84,11 @@
       "adminReports": { "title": "Reports", "subtitle": "Generate and download platform reports" },
       "adminSecurity": { "title": "Security & Access", "subtitle": "Manage user access, roles, and security status" },
       "adminDashboard": { "title": "Admin Dashboard", "subtitle": "Overview of your job posting platform" },
+      "adminStaffManagement": { "title": "Staff Management", "subtitle": "Create staff accounts and manage their roles" },
+      "adminAuditLogs": { "title": "Audit Logs", "subtitle": "System activity and error logs" },
+      "adminModerationQueue": { "title": "Moderation Queue", "subtitle": "Review reported users and jobs" },
+      "adminVerificationReview": { "title": "ID Verification", "subtitle": "Review submitted identity and address documents" },
+      "adminDisputes": { "title": "Financial Disputes", "subtitle": "Investigate and resolve payment disputes" },
       "jobDetails": { "title": "Job Details" },
       "employerFallback": { "title": "Employer" },
       "adminFallback": { "title": "Admin" }
