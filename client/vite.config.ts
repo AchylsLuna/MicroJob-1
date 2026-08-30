@@ -21,7 +21,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
   },
   server: {
-    port: 8082,
+    port: 5173,
     strictPort: true,
     proxy: {
       '/api': {

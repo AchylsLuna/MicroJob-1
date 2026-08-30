@@ -43,6 +43,11 @@ const UserSchema = new mongoose.Schema(
       enum: ['hire', 'work', 'both', 'admin', 'superadmin'],
       default: 'work',
     },
+    staffRole: {
+      type: String,
+      enum: ['superadmin', 'admin_team', 'moderator', 'finance_team', 'analytics_team', 'support_staff'],
+      default: null,
+    },
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     archivedConversations: [{ type: String }],
     status: {

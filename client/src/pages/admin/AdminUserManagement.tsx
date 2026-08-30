@@ -86,6 +86,7 @@ function AdminUserManagementContent() {
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
     return users.filter((user) => {
+      if (user.staffRole) return false;
       const name = `${user.firstName || ""} ${user.lastName || ""}`.trim();
       const phone = user.phoneNumber ? String(user.phoneNumber).toLowerCase() : "";
       const role = String(user.role || "work").toLowerCase();

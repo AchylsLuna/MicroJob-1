@@ -5,6 +5,7 @@ import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
 import PayoutRequest from '../models/PayoutRequest.js';
 import SupportTicket from '../models/SupportTicket.js';
+import AuditLog from '../models/AuditLog.js';
 
 export async function getAdminStats(req, res) {
   try {
@@ -64,7 +65,12 @@ export async function getAdminStats(req, res) {
 
 export async function getAdminUserList(req, res) {
   try {
-    const users = await User.find({})
+    const users = await User.find({
+      $or: [
+        { staffRole: null },
+        { staffRole: { $exists: false } },
+      ],
+    })
       .select('-passwordHashed -mfaSecret -mfaPendingSecret -mfaBackupCodes')
       .sort({ createdAt: -1 })
       .lean();
@@ -274,6 +280,83 @@ export async function getAdminRecentPayouts(req, res) {
   } catch (error) {
     console.error('Get recent payouts error:', error);
     res.status(500).json({ message: 'Failed to fetch recent payouts', error: error.message });
+  }
+}
+
+export async function getAdminAuditLogs(req, res) {
+  try {
+    const { status, search, limit } = req.query || {};
+    const filter = {};
+
+    if (status) {
+      const normalizedStatus = String(status).toLowerCase();
+      if (['initiated', 'success', 'failed', 'error'].includes(normalizedStatus)) {
+        filter.status = normalizedStatus === 'error' ? 'failed' : normalizedStatus;
+      }
+    }
+
+    const query = String(search || '').trim();
+    const safeLimit = Math.min(Number.parseInt(limit || '100', 10) || 100, 200);
+
+    let logs = await AuditLog.find(filter)
+      .populate('actor', 'firstName lastName email role')
+      .sort({ createdAt: -1 })
+      .limit(safeLimit)
+      .lean();
+
+    if (query) {
+      const needle = query.toLowerCase();
+      logs = logs.filter((entry) => {
+        const actorName = `${entry.actor?.firstName || ''} ${entry.actor?.lastName || ''}`.trim().toLowerCase();
+        const actorEmail = String(entry.actor?.email || '').toLowerCase();
+        const action = String(entry.action || '').toLowerCase();
+        const target = String(
+          entry.meta?.target ||
+          entry.meta?.userId ||
+          entry.meta?.entityId ||
+          entry.meta?.jobId ||
+          entry.meta?.reference ||
+          ''
+        ).toLowerCase();
+        return actorName.includes(needle) || actorEmail.includes(needle) || action.includes(needle) || target.includes(needle);
+      });
+    }
+
+    const formatted = logs.map((entry) => {
+      const actorName = entry.actor
+        ? `${entry.actor.firstName || ''} ${entry.actor.lastName || ''}`.trim() || entry.actor.email || 'System'
+        : 'System';
+
+      const reason = entry.meta?.reason || entry.meta?.message || entry.meta?.error || null;
+      const target = String(
+        entry.meta?.target ||
+        entry.meta?.userId ||
+        entry.meta?.entityId ||
+        entry.meta?.jobId ||
+        entry.meta?.reference ||
+        entry.meta?.id ||
+        '—'
+      );
+
+      const category = /error|failed|rejected|denied/i.test(entry.action) || String(entry.status || '').toLowerCase() === 'failed'
+        ? 'error'
+        : 'system';
+
+      return {
+        id: String(entry._id),
+        actor: actorName,
+        action: entry.action,
+        target,
+        category,
+        reason: reason ? String(reason) : undefined,
+        at: entry.createdAt ? new Date(entry.createdAt).toISOString() : new Date().toISOString(),
+      };
+    });
+
+    return res.status(200).json(formatted);
+  } catch (error) {
+    console.error('Get admin audit logs error:', error);
+    return res.status(500).json({ message: 'Failed to fetch audit logs.', error: error.message });
   }
 }
 

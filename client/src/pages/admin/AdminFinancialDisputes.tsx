@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { AlertCircle, CheckCircle2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +6,13 @@ import { AdminGate } from "./admin/AdminGate";
 import { Button, Dialog, StatusState, Textarea } from "../../components/ui";
 import { toast } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
-import { FINANCIAL_DISPUTE_FIXTURES, type FinancialDispute } from "../../lib/adminFixtures";
+import {
+  getAdminFinancialDisputes,
+  investigateAdminFinancialDispute,
+  rejectAdminFinancialDispute,
+  resolveAdminFinancialDispute,
+} from "../../services/api";
+import type { FinancialDispute } from "../../lib/adminFixtures";
 
 type ResolveOutcome = "resolved" | "rejected";
 
@@ -17,17 +23,25 @@ const statusStyle: Record<FinancialDispute["status"], string> = {
   rejected: "bg-red-100 text-red-900",
 };
 
-/** Fixture-backed — see `lib/adminFixtures.ts`. Actions only update local state. */
+/** Disputes are loaded from and mutated through the persisted admin API. */
 function AdminFinancialDisputesContent() {
   const { t } = useTranslation("admin");
   const prefersReducedMotion = useReducedMotion();
 
-  const [disputes, setDisputes] = useState<FinancialDispute[]>(FINANCIAL_DISPUTE_FIXTURES);
+  const [disputes, setDisputes] = useState<FinancialDispute[]>([]);
   const [statusFilter, setStatusFilter] = useState<"all" | FinancialDispute["status"]>("all");
   const [search, setSearch] = useState("");
   const [resolveTarget, setResolveTarget] = useState<{ dispute: FinancialDispute; outcome: ResolveOutcome } | null>(null);
   const [resolveNotes, setResolveNotes] = useState("");
   const [resolveError, setResolveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getAdminFinancialDisputes()
+      .then((items) => { if (active) setDisputes(items); })
+      .catch((error) => toast.error(error instanceof Error ? error.message : t("disputes.states.emptyDescription")));
+    return () => { active = false; };
+  }, [t]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -47,9 +61,14 @@ function AdminFinancialDisputesContent() {
     [disputes],
   );
 
-  const startInvestigating = (dispute: FinancialDispute) => {
-    setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, status: "investigating" } : item)));
-    toast.success(t("disputes.toast.investigating", { subject: dispute.subject }));
+  const startInvestigating = async (dispute: FinancialDispute) => {
+    try {
+      await investigateAdminFinancialDispute(dispute.id);
+      setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, status: "investigating" } : item)));
+      toast.success(t("disputes.toast.investigating", { subject: dispute.subject }));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("disputes.states.emptyDescription"));
+    }
   };
 
   const openResolve = (dispute: FinancialDispute, outcome: ResolveOutcome) => {
@@ -58,7 +77,7 @@ function AdminFinancialDisputesContent() {
     setResolveError(null);
   };
 
-  const submitResolve = () => {
+  const submitResolve = async () => {
     if (!resolveTarget) return;
     const notes = resolveNotes.trim();
     if (!notes) {
@@ -66,13 +85,22 @@ function AdminFinancialDisputesContent() {
       return;
     }
     const { dispute, outcome } = resolveTarget;
-    setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, status: outcome, resolutionNotes: notes } : item)));
-    toast.success(
-      outcome === "resolved"
-        ? t("disputes.toast.resolved", { subject: dispute.subject })
-        : t("disputes.toast.rejected", { subject: dispute.subject }),
-    );
-    setResolveTarget(null);
+    try {
+      if (outcome === "resolved") {
+        await resolveAdminFinancialDispute(dispute.id, notes);
+      } else {
+        await rejectAdminFinancialDispute(dispute.id, notes);
+      }
+      setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, status: outcome, resolutionNotes: notes } : item)));
+      toast.success(
+        outcome === "resolved"
+          ? t("disputes.toast.resolved", { subject: dispute.subject })
+          : t("disputes.toast.rejected", { subject: dispute.subject }),
+      );
+      setResolveTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("disputes.states.emptyDescription"));
+    }
   };
 
   return (

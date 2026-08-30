@@ -3,6 +3,7 @@ import { isStaffRole } from "../lib/adminPermissions";
 
 export interface DashboardRouteUser {
   role?: string | null;
+  staffRole?: string | null;
   user_type?: string | null;
   accountType?: string | null;
 }
@@ -19,6 +20,8 @@ const getRole = (user?: DashboardRouteUser | null) =>
   (user?.role || user?.user_type || "").toLowerCase();
 const getAccountType = (user?: DashboardRouteUser | null) =>
   (user?.accountType || "").toLowerCase();
+const getStaffRole = (user?: DashboardRouteUser | null) =>
+  String(user?.staffRole || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
 
 export function isAdmin(user?: DashboardRouteUser | null) {
   const role = getRole(user);
@@ -71,6 +74,11 @@ export function isPatient(user?: DashboardRouteUser | null) {
 
 export function getDefaultDashboardPath(user?: DashboardRouteUser | null) {
   if (isAdmin(user)) {
+    const staffRole = getStaffRole(user);
+    if (staffRole === "support_staff") return ROUTES.admin.support;
+    if (staffRole === "moderator") return ROUTES.admin.moderationQueue;
+    if (staffRole === "finance_team") return ROUTES.admin.disputes;
+    if (staffRole === "analytics_team") return ROUTES.admin.analytics;
     return ADMIN_DASHBOARD_PATH;
   }
 
@@ -94,7 +102,7 @@ export function getDefaultDashboardPath(user?: DashboardRouteUser | null) {
  */
 export function getPostAuthLandingPath(user?: DashboardRouteUser | null) {
   if (isAdmin(user)) {
-    return ADMIN_DASHBOARD_PATH;
+    return getDefaultDashboardPath(user);
   }
 
   if (isEmployer(user)) {

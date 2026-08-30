@@ -25,6 +25,8 @@ export type AdminStaffRole =
   | "support_staff";
 
 export type AdminPermission =
+  // Admin home
+  | "admin.dashboard"
   // Staff accounts
   | "staff.view"
   | "staff.create"
@@ -68,6 +70,7 @@ export const ROLE_PERMISSIONS: Record<AdminStaffRole, readonly AdminPermission[]
   superadmin: [],
 
   admin_team: [
+    "admin.dashboard",
     "staff.view",
     "staff.create",
     "staff.assignRole",

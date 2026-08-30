@@ -1,14 +1,9 @@
 /**
- * Sample data for admin screens that have no backend endpoint yet: Staff
- * Management, Audit Logs, Moderation Queue, and Financial Disputes. (ID
- * Verification Review is not here — it reads real users via `useAdminData`
- * and writes through the real `updateAdminVerification` endpoint.)
+ * Legacy shape definitions retained for admin API response compatibility.
+ * The admin screens now load their records from the backend.
  *
- * Every export below maps 1:1 to a future real endpoint, named in its
- * `// TODO(backend)` comment, so swapping fixtures for a real fetch later is
- * mechanical: replace the array with the response, keep the shape. Actions
- * on these screens (create, resolve, disable, ...) only mutate local
- * component state — nothing persists past a page reload.
+ * The arrays remain useful as design-time examples and for shared UI types;
+ * they are not used as runtime data by the admin pages.
  */
 
 import type { AdminStaffRole } from "./adminPermissions";
@@ -32,7 +27,6 @@ export interface StaffAccount {
   lastActiveAt: string;
 }
 
-// TODO(backend): replace with GET /admin/staff
 export const STAFF_ACCOUNT_FIXTURES: StaffAccount[] = [
   {
     id: "staff_001",
@@ -91,7 +85,6 @@ export interface AuditLogEntry {
   at: string;
 }
 
-// TODO(backend): replace with GET /admin/audit-logs
 export const AUDIT_LOG_FIXTURES: AuditLogEntry[] = [
   { id: "al_001", actor: "Maria Santos", action: "staff.create", target: "liza.fernandez@microjobs.ph", category: "system", at: "2026-08-29T14:22:10Z" },
   { id: "al_002", actor: "Jose Reyes", action: "user.suspend", target: "usr_8821", category: "system", reason: "Repeated no-shows", at: "2026-08-29T09:05:41Z" },
@@ -112,7 +105,6 @@ export interface ModerationReport {
   resolution?: string;
 }
 
-// TODO(backend): replace with GET /admin/moderation/reports
 export const MODERATION_QUEUE_FIXTURES: ModerationReport[] = [
   { id: "mod_001", targetType: "user", targetName: "Carlo Ibanez", reportedBy: "employer@acme.ph", reason: "Requested payment outside the platform", reportedAt: "2026-08-29T11:05:00Z", status: "pending" },
   { id: "mod_002", targetType: "job", targetName: "\"Easy money, no verification\"", reportedBy: "worker@example.ph", reason: "Looks like a scam listing", reportedAt: "2026-08-28T19:40:00Z", status: "pending" },
@@ -131,7 +123,6 @@ export interface FinancialDispute {
   resolutionNotes?: string;
 }
 
-// TODO(backend): replace with GET /admin/finance/disputes
 export const FINANCIAL_DISPUTE_FIXTURES: FinancialDispute[] = [
   { id: "disp_001", subject: "Payout #4471 never received", raisedBy: "worker@example.ph", amount: 1250, reason: "Bank transfer shows completed but funds not received after 5 days", status: "open", raisedAt: "2026-08-29T10:00:00Z" },
   { id: "disp_002", subject: "Charged twice for job posting fee", raisedBy: "employer@acme.ph", amount: 300, reason: "Duplicate charge on card ending 4471", status: "investigating", raisedAt: "2026-08-28T14:30:00Z" },

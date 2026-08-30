@@ -6,6 +6,7 @@ import { useAdminPermissions } from "../hooks/useAdminPermissions";
 import { useNotifications } from "../contexts/NotificationContext";
 import type { AdminPermission } from "../lib/adminPermissions";
 import { ROUTES, matchesPath, startsWithPath } from "../utils/routes";
+import { getDefaultDashboardPath } from "../utils/dashboardRoutes";
 import { webUi } from "../styles/webUi";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { workerMoreNavigation, workerPrimaryNavigation } from "./workerNavigation";
@@ -197,7 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const dashboardPath =
     effectiveRole === "admin"
-      ? ROUTES.admin.dashboard
+      ? getDefaultDashboardPath(authUser)
       : effectiveRole === "employer"
       ? ROUTES.employer.dashboard
       : ROUTES.worker.dashboard;

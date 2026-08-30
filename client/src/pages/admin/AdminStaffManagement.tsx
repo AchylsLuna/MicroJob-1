@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { ShieldCheck, UserCog, UserX, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,13 +8,13 @@ import { toast } from "../../lib/toast";
 import { formatDateTime } from "../../lib/formatters";
 import { useAuth } from "../../hooks/useAuth";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
-import { STAFF_ACCOUNT_FIXTURES, type StaffAccount } from "../../lib/adminFixtures";
+import { createAdminStaff, getAdminStaff, updateAdminStaffRole, updateAdminStaffStatus } from "../../services/api";
+import type { StaffAccount } from "../../lib/adminFixtures";
 import { ADMIN_STAFF_ROLES, ROLE_BADGE_STYLE, type AdminStaffRole } from "../../lib/adminPermissions";
 
 /**
- * Fixture-backed for now — see the header comment in `lib/adminFixtures.ts`
- * for why this does not call `createUserByAdmin`. Enable/disable and role
- * changes here only update local component state; nothing is persisted.
+ * Staff accounts are persisted by the admin staff API. The local array is
+ * only the current server snapshot used for filtering and optimistic-free UI.
  */
 function AdminStaffManagementContent() {
   const { t } = useTranslation("admin");
@@ -22,7 +22,7 @@ function AdminStaffManagementContent() {
   const { can } = useAdminPermissions();
   const prefersReducedMotion = useReducedMotion();
 
-  const [staff, setStaff] = useState<StaffAccount[]>(STAFF_ACCOUNT_FIXTURES);
+  const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | AdminStaffRole>("all");
 
@@ -34,6 +34,16 @@ function AdminStaffManagementContent() {
   const [roleDraft, setRoleDraft] = useState<AdminStaffRole>(ADMIN_STAFF_ROLES[0]);
 
   const [statusTarget, setStatusTarget] = useState<StaffAccount | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getAdminStaff()
+      .then((accounts) => {
+        if (active) setStaff(accounts.map((account) => ({ ...account, staffRole: account.staffRole as AdminStaffRole })));
+      })
+      .catch((error) => toast.error(error instanceof Error ? error.message : t("staffManagement.states.emptyDescription")));
+    return () => { active = false; };
+  }, [t]);
 
   const roleLabel = (role: AdminStaffRole) => t(`staffManagement.roles.${role}`);
 
@@ -67,7 +77,7 @@ function AdminStaffManagementContent() {
     setCreateOpen(true);
   };
 
-  const submitCreate = () => {
+  const submitCreate = async () => {
     const errors: Record<string, string> = {};
     if (!createForm.firstName.trim()) errors.firstName = t("staffManagement.formErrors.firstNameRequired");
     if (!createForm.lastName.trim()) errors.lastName = t("staffManagement.formErrors.lastNameRequired");
@@ -78,18 +88,15 @@ function AdminStaffManagementContent() {
     setCreateErrors(errors);
     if (Object.keys(errors).length) return;
 
-    const account: StaffAccount = {
-      id: `staff_${Date.now()}`,
-      firstName: createForm.firstName.trim(),
-      lastName: createForm.lastName.trim(),
-      email: createForm.email.trim(),
-      staffRole: createForm.staffRole,
-      status: "active",
-      lastActiveAt: new Date().toISOString(),
-    };
-    setStaff((current) => [account, ...current]);
-    toast.success(t("staffManagement.toast.created", { name: `${account.firstName} ${account.lastName}` }));
-    setCreateOpen(false);
+    try {
+      const { staff: created } = await createAdminStaff({ ...createForm, email: createForm.email.trim() });
+      const account = { ...created, staffRole: created.staffRole as AdminStaffRole };
+      setStaff((current) => [account, ...current]);
+      toast.success(t("staffManagement.toast.created", { name: `${account.firstName} ${account.lastName}` }));
+      setCreateOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("staffManagement.formErrors.emailTaken"));
+    }
   };
 
   const openRoleChange = (account: StaffAccount) => {
@@ -97,27 +104,33 @@ function AdminStaffManagementContent() {
     setRoleTarget(account);
   };
 
-  const submitRoleChange = () => {
+  const submitRoleChange = async () => {
     if (!roleTarget) return;
-    setStaff((current) =>
-      current.map((account) => (account.id === roleTarget.id ? { ...account, staffRole: roleDraft } : account)),
-    );
-    toast.success(t("staffManagement.toast.roleUpdated", { name: `${roleTarget.firstName} ${roleTarget.lastName}` }));
-    setRoleTarget(null);
+    try {
+      await updateAdminStaffRole(roleTarget.id, roleDraft);
+      setStaff((current) => current.map((account) => (account.id === roleTarget.id ? { ...account, staffRole: roleDraft } : account)));
+      toast.success(t("staffManagement.toast.roleUpdated", { name: `${roleTarget.firstName} ${roleTarget.lastName}` }));
+      setRoleTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("staffManagement.states.emptyDescription"));
+    }
   };
 
-  const submitStatusToggle = () => {
+  const submitStatusToggle = async () => {
     if (!statusTarget) return;
     const nextStatus = statusTarget.status === "active" ? "disabled" : "active";
-    setStaff((current) =>
-      current.map((account) => (account.id === statusTarget.id ? { ...account, status: nextStatus } : account)),
-    );
-    toast.success(
-      nextStatus === "disabled"
-        ? t("staffManagement.toast.disabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` })
-        : t("staffManagement.toast.enabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` }),
-    );
-    setStatusTarget(null);
+    try {
+      await updateAdminStaffStatus(statusTarget.id, nextStatus);
+      setStaff((current) => current.map((account) => (account.id === statusTarget.id ? { ...account, status: nextStatus } : account)));
+      toast.success(
+        nextStatus === "disabled"
+          ? t("staffManagement.toast.disabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` })
+          : t("staffManagement.toast.enabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` }),
+      );
+      setStatusTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t("staffManagement.states.emptyDescription"));
+    }
   };
 
   return (

@@ -59,6 +59,7 @@ export type AuthUser = {
   lastName?: string;
   email: string;
   role?: string;
+  staffRole?: string | null;
   phoneNumber?: string;
   city?: string;
   country?: string;
@@ -180,6 +181,45 @@ export type SupportAgent = {
   email?: string;
   role?: string;
   displayName?: string;
+};
+export type AdminAuditLogEntry = {
+  id: string;
+  actor: string;
+  action: string;
+  target: string;
+  category: 'system' | 'error';
+  reason?: string;
+  at: string;
+};
+export type AdminStaffAccount = {
+  id: string;
+  _id?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  staffRole: string;
+  status: 'active' | 'disabled';
+  lastActiveAt: string;
+};
+export type AdminModerationReport = {
+  id: string;
+  targetType: 'user' | 'job';
+  targetName: string;
+  reportedBy: string;
+  reason: string;
+  reportedAt: string;
+  status: 'pending' | 'resolved' | 'dismissed';
+  resolution?: string;
+};
+export type AdminFinancialDispute = {
+  id: string;
+  subject: string;
+  raisedBy: string;
+  amount: number;
+  reason: string;
+  status: 'open' | 'investigating' | 'resolved' | 'rejected';
+  raisedAt: string;
+  resolutionNotes?: string;
 };
 export type PayoutRequest = {
   _id: string;
@@ -1172,6 +1212,54 @@ export function getAdminWalletStats() {
 
 export function getAdminRecentPayouts() {
   return request<any[]>('/admin/recent-payouts', { method: 'GET' });
+}
+
+export function getAdminAuditLogs(params?: QueryParams) {
+  return request<AdminAuditLogEntry[]>(`/admin/audit-logs${buildQuery(params)}`, { method: 'GET' });
+}
+
+export function getAdminStaff() {
+  return request<AdminStaffAccount[]>('/admin/staff', { method: 'GET' });
+}
+
+export function createAdminStaff(payload: { firstName: string; lastName: string; email: string; staffRole: string; password?: string }) {
+  return request<{ staff: AdminStaffAccount }>('/admin/staff', { method: 'POST', body: payload });
+}
+
+export function updateAdminStaffRole(staffId: string, staffRole: string) {
+  return request<{ staff: AdminStaffAccount }>(`/admin/staff/${staffId}/role`, { method: 'PATCH', body: { staffRole } });
+}
+
+export function updateAdminStaffStatus(staffId: string, status: 'active' | 'disabled') {
+  return request<{ staff: AdminStaffAccount }>(`/admin/staff/${staffId}/status`, { method: 'PATCH', body: { status } });
+}
+
+export function getAdminModerationReports() {
+  return request<AdminModerationReport[]>('/admin/moderation/reports', { method: 'GET' });
+}
+
+export function enforceAdminModerationReport(reportId: string, payload: { action: 'suspended' | 'banned'; reason: string }) {
+  return request<{ report: Partial<AdminModerationReport> }>(`/admin/moderation/reports/${reportId}/enforce`, { method: 'PATCH', body: payload });
+}
+
+export function dismissAdminModerationReport(reportId: string, reason: string) {
+  return request<{ report: Partial<AdminModerationReport> }>(`/admin/moderation/reports/${reportId}/dismiss`, { method: 'PATCH', body: { reason } });
+}
+
+export function getAdminFinancialDisputes() {
+  return request<AdminFinancialDispute[]>('/admin/finance/disputes', { method: 'GET' });
+}
+
+export function investigateAdminFinancialDispute(disputeId: string) {
+  return request<{ dispute: Partial<AdminFinancialDispute> }>(`/admin/finance/disputes/${disputeId}/investigate`, { method: 'PATCH' });
+}
+
+export function resolveAdminFinancialDispute(disputeId: string, resolutionNotes: string) {
+  return request<{ dispute: Partial<AdminFinancialDispute> }>(`/admin/finance/disputes/${disputeId}/resolve`, { method: 'PATCH', body: { resolutionNotes } });
+}
+
+export function rejectAdminFinancialDispute(disputeId: string, resolutionNotes: string) {
+  return request<{ dispute: Partial<AdminFinancialDispute> }>(`/admin/finance/disputes/${disputeId}/reject`, { method: 'PATCH', body: { resolutionNotes } });
 }
 
 export function getAdminTransactions() {

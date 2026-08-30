@@ -141,6 +141,7 @@ export const buildLoginPayload = (user, includePhone = false) => {
     lastName: user.lastName,
     email: user.email,
     role,
+    staffRole: user.staffRole || null,
     accountOptions,
     avatarUrl: user.avatarUrl,
     city: user.city,

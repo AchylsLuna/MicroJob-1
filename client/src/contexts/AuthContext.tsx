@@ -315,7 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastName: apiUser.lastName || "User",
       role,
       systemRole: String(apiUser.role || role),
-      staffRole: normalizeStaffRole(apiUser.role || role),
+      staffRole: normalizeStaffRole(apiUser.staffRole || apiUser.role || role),
       accountType,
       accountPreference: normalizePreference(preferredAccount) || undefined,
       accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
@@ -366,7 +366,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...parsed,
             role: normalizedRole,
             // Re-derived rather than trusted from storage, so a session
-            // persisted before staffRole existed still resolves. `systemRole`
             // is preferred because `parsed.role` has already been flattened to
             // "admin" and would lose the sub-role.
             staffRole: parsed.staffRole ?? normalizeStaffRole(parsed.systemRole ?? getRoleCandidate(parsed)),
@@ -539,7 +538,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: apiUser.lastName || splitName(verificationName).lastName,
         role,
         systemRole: String(apiUser.role || role),
-        staffRole: normalizeStaffRole(apiUser.role || role),
+        staffRole: normalizeStaffRole(apiUser.staffRole || apiUser.role || role),
         accountType,
         accountPreference: normalizePreference(preferredAccount) || undefined,
         accountOptions: [...accountOptions],

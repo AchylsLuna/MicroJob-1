@@ -274,7 +274,7 @@ function AdminDashboardContent() {
 
 export function AdminDashboard() {
   return (
-    <AdminGate allowedRoles={["admin"]}>
+    <AdminGate permission="admin.dashboard">
       <AdminDashboardContent />
     </AdminGate>
   );

@@ -53,7 +53,7 @@ const verifyToken = async (req, res, next) => {
             }
         }
 
-        const authoritativeUser = await User.findById(tokenUserId).select('role status');
+        const authoritativeUser = await User.findById(tokenUserId).select('role staffRole status');
         if (!authoritativeUser || authoritativeUser.status !== 'active') {
             await Session.updateOne(
                 { _id: sessionId, active: true },
@@ -68,6 +68,7 @@ const verifyToken = async (req, res, next) => {
             userId: tokenUserId,
             sessionId,
             role: authoritativeUser.role,
+            staffRole: authoritativeUser.staffRole || null,
         };
         next();
     } catch (error) {

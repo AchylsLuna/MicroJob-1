@@ -16,6 +16,7 @@ import {
   type PaymentTransaction,
 } from "../services/api";
 import { formatCurrency as formatCurrencyAmount, formatDate } from "../lib/formatters";
+import { useAdminPermissions } from "./useAdminPermissions";
 
 export type AdminUser = {
   _id: string;
@@ -25,6 +26,7 @@ export type AdminUser = {
   createdAt?: string;
   phoneNumber?: string | null;
   role?: "user" | "employer" | "admin" | "doctor" | "hire" | "work" | "both" | "superadmin";
+  staffRole?: string | null;
   status?: "active" | "pending" | "disabled" | "deleted";
   deletedAt?: string | null;
   redactedAt?: string | null;
@@ -112,6 +114,7 @@ const DEFAULT_ADMIN_WALLET_STATS: AdminWalletStats = {
 };
 
 export function useAdminData() {
+  const { can } = useAdminPermissions();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [categories, setCategories] = useState<AdminCategory[]>([]);
@@ -130,15 +133,16 @@ export function useAdminData() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult] = await Promise.all([
-          getAdminStats(),
-          getAdminUsers(),
-          getAdminJobs(),
-          getAdminCategories(),
-          getAdminWalletStats(),
-          getAdminRecentPayouts(),
-          getAdminTransactions(),
-        ]);
+        const requests = [
+          can("admin.dashboard") ? getAdminStats() : Promise.resolve(null),
+          can("users.view") ? getAdminUsers() : Promise.resolve([]),
+          can("jobs.view") ? getAdminJobs() : Promise.resolve([]),
+          can("admin.dashboard") ? getAdminCategories() : Promise.resolve([]),
+          can("finance.transactions.view") ? getAdminWalletStats() : Promise.resolve(null),
+          can("finance.payouts.review") ? getAdminRecentPayouts() : Promise.resolve([]),
+          can("finance.transactions.view") ? getAdminTransactions() : Promise.resolve([]),
+        ] as const;
+        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult] = await Promise.all(requests);
         
         if (!isActive) return;
         
@@ -172,7 +176,7 @@ export function useAdminData() {
     return () => {
       isActive = false;
     };
-  }, [reloadKey]);
+  }, [reloadKey, can]);
 
   const jobsByUser = useMemo(() => {
     const map = new Map<string, number>();

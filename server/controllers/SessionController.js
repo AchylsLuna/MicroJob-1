@@ -58,15 +58,6 @@ const refreshSession = async (req, res) => {
       expires: new Date(Date.now() + 15 * 60 * 1000),
     });
 
-    await monitor.audit({
-      actor: user._id,
-      action: 'session_refresh',
-      ip: req.ip || null,
-      userAgent: req.get('user-agent'),
-      status: 'success',
-      meta: { sessionId: String(rotatedSession._id), client: isNativeAuthRequest(req) ? 'native' : 'web' },
-    });
-
     return res.status(200).json({
       token: newAccess,
       accessTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
