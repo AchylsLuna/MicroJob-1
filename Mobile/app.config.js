@@ -1,7 +1,8 @@
 const expo = {
   name: 'MicroJobs',
-  slug: 'Mobile',
+  slug: 'mobile',
   version: '1.0.0',
+  icon: './assets/icon.png',
   splash: {
     image: './assets/microjobs-launch-logo.png',
     resizeMode: 'contain',
@@ -23,6 +24,10 @@ const expo = {
   android: {
     package: 'com.bananas1.mobile',
     versionCode: 1,
+    adaptiveIcon: {
+      foregroundImage: './assets/icon.png',
+      backgroundColor: '#FFFFFF',
+    },
   },
   ios: {
     bundleIdentifier: 'com.bananas1.mobile',

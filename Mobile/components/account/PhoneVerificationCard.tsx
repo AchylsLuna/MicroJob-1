@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
@@ -15,15 +16,19 @@ type Props = {
 
 const RESEND_SECONDS = 60;
 
-const safeError = (status: number, message: string, fallback: string) => {
-  if (status === 0) return 'Unable to connect. Check your internet connection and try again.';
-  if (status === 401) return 'Your session has expired. Please sign in again.';
-  if (status === 429) return 'Too many attempts. Please wait before trying again.';
-  if (status >= 500) return fallback;
-  return message && !/https?:\/\//i.test(message) ? message : fallback;
+const safeError = (status: number, message: string, fallback: string, translate: (key: string) => string) => {
+  if (status === 0) return translate('personalInformation.phoneVerification.errors.connection');
+  if (status === 401) return translate('personalInformation.phoneVerification.errors.sessionExpired');
+  if (status === 429) return translate('personalInformation.phoneVerification.errors.tooManyAttempts');
+  if (message && typeof message === 'string' && message.trim() && !/https?:\/\//i.test(message)) {
+    return message;
+  }
+  if (status >= 500) return translate('personalInformation.phoneVerification.errors.serviceUnavailable');
+  return fallback;
 };
 
 export default function PhoneVerificationCard({ savedPhone, draftPhone, onVerified }: Props) {
+  const { t } = useTranslation('worker');
   const [verified, setVerified] = useState(false);
   const [statusLoading, setStatusLoading] = useState(true);
   const [codeSent, setCodeSent] = useState(false);
@@ -52,19 +57,20 @@ export default function PhoneVerificationCard({ savedPhone, draftPhone, onVerifi
     try {
       const headers = await authHeaders();
       if (!headers) return;
-      const result = await apiRequest(`${API_URL}/auth/verification/status`, { headers }, 'Failed to check phone verification.');
+      const result = await apiRequest(`${API_URL}/auth/verification/status`, { headers }, t('personalInformation.phoneVerification.errors.statusFailed'));
       if (!mountedRef.current) return;
       if (!result.ok) {
-        setError(safeError(result.status, result.message, 'Failed to check phone verification.'));
+        setError(safeError(result.status, result.message, t('personalInformation.phoneVerification.errors.statusFailed'), t));
         return;
       }
+      setError('');
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
       const phoneStep = Array.isArray(payload.steps) ? payload.steps.find((step: any) => step?.id === 'phone') : null;
       setVerified(phoneStep?.status === 'complete');
     } finally {
       if (mountedRef.current) setStatusLoading(false);
     }
-  }, [authHeaders]);
+  }, [authHeaders, t]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -97,16 +103,16 @@ export default function PhoneVerificationCard({ savedPhone, draftPhone, onVerifi
     try {
       const headers = await authHeaders();
       if (!headers) {
-        setError('Your session has expired. Please sign in again.');
+        setError(t('personalInformation.phoneVerification.errors.sessionExpired'));
         return;
       }
       const result = await apiRequest(
         `${API_URL}/auth/verification/phone`,
         { method: 'POST', headers },
-        'Failed to send verification code.',
+        t('personalInformation.phoneVerification.errors.sendFailed'),
       );
       if (!result.ok) {
-        setError(safeError(result.status, result.message, 'Failed to send verification code.'));
+        setError(safeError(result.status, result.message, t('personalInformation.phoneVerification.errors.sendFailed'), t));
         return;
       }
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
@@ -134,7 +140,7 @@ export default function PhoneVerificationCard({ savedPhone, draftPhone, onVerifi
     try {
       const headers = await authHeaders();
       if (!headers) {
-        setError('Your session has expired. Please sign in again.');
+        setError(t('personalInformation.phoneVerification.errors.sessionExpired'));
         return;
       }
       const result = await apiRequest(
@@ -144,10 +150,10 @@ export default function PhoneVerificationCard({ savedPhone, draftPhone, onVerifi
           headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify({ code }),
         },
-        'Failed to verify phone number.',
+        t('personalInformation.phoneVerification.errors.confirmFailed'),
       );
       if (!result.ok) {
-        setError(safeError(result.status, result.message, 'The code could not be verified.'));
+        setError(safeError(result.status, result.message, t('personalInformation.phoneVerification.errors.confirmFailed'), t));
         return;
       }
       setVerified(true);
@@ -163,12 +169,12 @@ export default function PhoneVerificationCard({ savedPhone, draftPhone, onVerifi
   };
 
   const statusText = needsSave
-    ? 'Save number first'
+    ? t('personalInformation.phoneVerification.status.saveFirst')
     : verified
-      ? 'Verified'
+      ? t('personalInformation.phoneVerification.status.verified')
       : hasSavedPhone
-        ? 'Not verified'
-        : 'Add a phone number';
+        ? t('personalInformation.phoneVerification.status.notVerified')
+        : t('personalInformation.phoneVerification.status.addNumber');
 
   return (
     <View style={styles.card} accessibilityLabel={`Phone verification: ${statusText}`}>

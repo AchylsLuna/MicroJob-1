@@ -12,7 +12,7 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
   const [enabled, setEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [city, setCity] = useState(t('locationServices.city.notAvailable'));
-  const [coordinates, setCoordinates] = useState('—');
+  const [privacyStatus, setPrivacyStatus] = useState(t('locationServices.currentLocation.privacyProtected'));
   const toast = useToast();
 
   const fetchCurrentLocation = async () => {
@@ -22,7 +22,7 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
       if (permission.status !== 'granted') {
         setEnabled(false);
         setCity(t('locationServices.city.permissionDenied'));
-        setCoordinates('—');
+        setPrivacyStatus(t('locationServices.currentLocation.privacyDenied'));
         toast.error(t('locationServices.toast.permissionDenied'));
         return;
       }
@@ -31,7 +31,7 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = position.coords;
-      setCoordinates(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      setPrivacyStatus(t('locationServices.currentLocation.privacyProtected'));
 
       try {
         const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
@@ -48,7 +48,7 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
     } catch (error: any) {
       setEnabled(false);
       setCity(t('locationServices.city.notAvailable'));
-      setCoordinates('—');
+      setPrivacyStatus(t('locationServices.currentLocation.privacyUnavailable'));
       toast.error(error?.message || t('locationServices.toast.getLocationFailed'));
     } finally {
       setIsLoading(false);
@@ -59,7 +59,7 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
     if (enabled) {
       setEnabled(false);
       setCity(t('locationServices.city.notAvailable'));
-      setCoordinates('—');
+      setPrivacyStatus(t('locationServices.currentLocation.privacyDisabled'));
       toast.info(t('locationServices.toast.disabled'));
       return;
     }
@@ -92,21 +92,18 @@ export default function LocationServices({ onBack }: { onBack?: () => void }) {
           <Text style={styles.sectionTitle}>{t('locationServices.currentLocation.title')}</Text>
           <Text style={styles.sectionSubtitle}>{t('locationServices.currentLocation.subtitle')}</Text>
           <View style={styles.locationRow}>
-              <Text style={styles.locationLabel}>{t('locationServices.currentLocation.cityLabel')}</Text>
-              <Text style={styles.locationValue}>{city}</Text>
-            </View>
-            <View style={styles.locationRow}>
-              <Text style={styles.locationLabel}>{t('locationServices.currentLocation.coordinatesLabel')}</Text>
-              <Text style={styles.locationValue}>{coordinates}</Text>
-            </View>
+            <Text style={styles.locationLabel}>{t('locationServices.currentLocation.cityLabel')}</Text>
+            <Text style={styles.locationValue}>{city}</Text>
           </View>
+          <View style={styles.locationRow}>
+            <Text style={styles.locationLabel}>{t('locationServices.currentLocation.privacyLabel')}</Text>
+            <Text style={[styles.locationValue, enabled && styles.privacyActive]}>{privacyStatus}</Text>
+          </View>
+        </View>
 
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>{t('locationServices.mapPreview.title')}</Text>
-          <Text style={styles.sectionSubtitle}>{t('locationServices.mapPreview.subtitle')}</Text>
-          <View style={styles.mapPlaceholder}>
-            <Text style={styles.mapText}>{t('locationServices.mapPreview.placeholder')}</Text>
-          </View>
+          <Text style={styles.sectionTitle}>{t('locationServices.privacy.title')}</Text>
+          <Text style={styles.privacyNotice}>{t('locationServices.privacy.notice')}</Text>
         </View>
       </ScrollView>
     </View>
@@ -137,12 +134,6 @@ const styles = StyleSheet.create({
   locationRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   locationLabel: { fontSize: 13, color: tokens.colors.textMuted },
   locationValue: { fontSize: 13, color: tokens.colors.text, fontWeight: '600' },
-  mapPlaceholder: {
-    height: 160,
-    borderRadius: 12,
-    backgroundColor: '#eef2f7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapText: { color: '#94a3b8', fontWeight: '600' },
+  privacyActive: { color: '#08785A' },
+  privacyNotice: { fontSize: 12, color: '#526071', lineHeight: 18 },
 });

@@ -15,6 +15,7 @@ import { tokens } from '../../theme/tokens';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
 import { useToast } from '../../contexts/ToastContext';
+import QRCode from 'react-native-qrcode-svg';
 
 type MFAStatus = {
   enabled: boolean;
@@ -29,6 +30,8 @@ const defaultStatus: MFAStatus = {
   backupCodesRemaining: 0,
   hasPendingSetup: false,
 };
+
+const isValidVerificationCode = (value: string) => /^\d{6}$/.test(value) || /^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(value);
 
 export default function MFA({ onBack }: { onBack?: () => void }) {
   const [status, setStatus] = useState<MFAStatus>(defaultStatus);
@@ -106,8 +109,8 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
   };
 
   const handleEnable = async () => {
-    if (!code.trim()) {
-      toast.error(t('mfa.toast.codeRequired'));
+    if (!isValidVerificationCode(code.trim().toUpperCase())) {
+      toast.error(t('mfa.toast.codeInvalid'));
       return;
     }
 
@@ -122,7 +125,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
             ...headers,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ code: code.trim() }),
+          body: JSON.stringify({ code: code.trim().toUpperCase() }),
         },
         t('mfa.toast.enableFailedFallback')
       );
@@ -144,7 +147,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
   };
 
   const handleDisable = async () => {
-    if (!code.trim()) {
+    if (!isValidVerificationCode(code.trim().toUpperCase())) {
       toast.error(t('mfa.toast.currentCodeRequired'));
       return;
     }
@@ -160,7 +163,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
             ...headers,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ code: code.trim() }),
+          body: JSON.stringify({ code: code.trim().toUpperCase() }),
         },
         t('mfa.toast.disableFailedFallback')
       );
@@ -181,7 +184,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
   };
 
   const handleRegenerateCodes = async () => {
-    if (!code.trim()) {
+    if (!isValidVerificationCode(code.trim().toUpperCase())) {
       toast.error(t('mfa.toast.currentCodeRequiredFirst'));
       return;
     }
@@ -197,7 +200,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
             ...headers,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ code: code.trim() }),
+          body: JSON.stringify({ code: code.trim().toUpperCase() }),
         },
         t('mfa.toast.regenerateFailedFallback')
       );
@@ -261,8 +264,15 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
               <Text style={styles.sectionSubtitle}>
                 {t('mfa.setupSubtitle')}
               </Text>
-              <Text selectable style={styles.secretText}>{secret || t('mfa.secretLoading')}</Text>
-              {otpauthUrl ? <Text style={styles.urlHint}>{t('mfa.otpauthUrl', { url: otpauthUrl })}</Text> : null}
+              {otpauthUrl ? (
+                <View style={styles.qrContainer}>
+                  <QRCode value={otpauthUrl} size={160} />
+                </View>
+              ) : null}
+              <View style={styles.secretBox}>
+                <Text style={styles.secretLabel}>{t('mfa.manualEntryLabel')}</Text>
+                <Text selectable style={styles.secretText}>{secret || t('mfa.secretLoading')}</Text>
+              </View>
             </View>
           ) : null}
 
@@ -276,7 +286,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
               placeholder={t('mfa.codeInputPlaceholder')}
               placeholderTextColor={tokens.colors.textSubtle}
               value={code}
-              onChangeText={setCode}
+              onChangeText={(value) => setCode(value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 9))}
               autoCapitalize="characters"
             />
             {!status.enabled ? (
@@ -304,7 +314,7 @@ export default function MFA({ onBack }: { onBack?: () => void }) {
               <Text style={styles.sectionSubtitle}>{t('mfa.backupCodesSubtitle')}</Text>
               <View style={styles.codesBox}>
                 {backupCodes.map((backupCode) => (
-                  <Text key={backupCode} style={styles.codeText}>{backupCode}</Text>
+                  <Text key={backupCode} selectable style={styles.codeText}>{backupCode}</Text>
                 ))}
               </View>
             </View>
@@ -377,6 +387,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748b',
   },
+  qrContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    marginVertical: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  secretBox: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  secretLabel: {
+    fontSize: 11,
+    color: '#64748b',
+    fontWeight: '600',
+    marginBottom: 4,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   codesBox: {
     marginTop: 4,
     padding: 12,
@@ -386,9 +423,10 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   codeText: {
-    fontSize: 12,
+    fontSize: 13,
     color: tokens.colors.text,
     fontWeight: '700',
     marginBottom: 6,
+    letterSpacing: 1,
   },
 });

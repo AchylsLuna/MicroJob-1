@@ -125,7 +125,7 @@ export default function EmployerEWallet({
     };
   }, [formatDate, t]);
 
-  const refreshWalletData = useCallback(async () => {
+  const refreshWalletData = useCallback(async (showFeedback = false) => {
     try {
       setIsRefreshingWallet(true);
       setWalletError('');
@@ -156,6 +156,8 @@ export default function EmployerEWallet({
 
       const failedResult = [profileResult, txResult, invoiceResult].find((result) => !result.ok);
       if (failedResult) setWalletError(failedResult.message || t('employerEWallet.errors.someUnavailable'));
+      let refreshedBalance = 0;
+      let hasBalanceResult = false;
 
       if (profileResult.ok) {
         const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
@@ -166,7 +168,9 @@ export default function EmployerEWallet({
 
         const nextBalance = Number.isFinite(nextEmployer) ? nextEmployer : 0;
 
-        setLiveBalance(Number.isFinite(nextBalance) ? nextBalance : 0);
+        refreshedBalance = Number.isFinite(nextBalance) ? nextBalance : 0;
+        hasBalanceResult = true;
+        setLiveBalance(refreshedBalance);
         setWorkerBalance(Number.isFinite(nextWorker) ? nextWorker : 0);
         setProfileRole(role);
       }
@@ -174,7 +178,9 @@ export default function EmployerEWallet({
       if (txResult.ok) {
         const txPayload = asObject<any>(txResult.data) || asObject<any>(txResult.raw) || {};
         const list = Array.isArray(txPayload?.transactions) ? txPayload.transactions : [];
-        setLiveBalance(Number(txPayload.balance || 0));
+        refreshedBalance = Number(txPayload.balance || 0);
+        hasBalanceResult = true;
+        setLiveBalance(refreshedBalance);
         setWalletSummary({ credited: Number(txPayload.summary?.credited || 0), spent: Number(txPayload.summary?.spent || 0), pending: Number(txPayload.summary?.pending || 0), transactionCount: Number(txPayload.summary?.transactionCount || list.length) });
         setTransactions(list.map((transaction: any) => mapTxToUi(transaction, walletOwnerId)));
       }
@@ -183,13 +189,20 @@ export default function EmployerEWallet({
         const requests = Array.isArray(invoicePayload.requests) ? invoicePayload.requests : [];
         setInvoices(requests.filter((item: any) => !walletOwnerId || String(item?.preview?.employer?.id || '') === walletOwnerId));
       }
+      if (showFeedback && hasBalanceResult) {
+        if (refreshedBalance <= 0) {
+          toast.info(t('employerEWallet.toast.noBalance'));
+        } else {
+          toast.success(t('employerEWallet.toast.balanceVerified', { amount: php(refreshedBalance) }));
+        }
+      }
     } catch (error: any) {
       setWalletError(error?.message || t('employerEWallet.errors.checkConnection'));
     } finally {
       setIsRefreshingWallet(false);
       setHasLoadedWallet(true);
     }
-  }, [mapTxToUi, t]);
+  }, [mapTxToUi, t, toast]);
 
   const confirmPendingTopup = useCallback(async () => {
     try {
@@ -351,10 +364,10 @@ export default function EmployerEWallet({
       <ScrollView
         contentContainerStyle={[styles.scroll, { paddingBottom: tokens.layout.tabBarClearance }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isRefreshingWallet && hasLoadedWallet} onRefresh={() => void refreshWalletData()} tintColor={tokens.colors.brand} />}
+        refreshControl={<RefreshControl refreshing={isRefreshingWallet && hasLoadedWallet} onRefresh={() => void refreshWalletData(true)} tintColor={tokens.colors.brand} />}
       >
         {!hasLoadedWallet && isRefreshingWallet ? <WalletSkeleton /> : <>
-        <WalletError message={walletError} onRetry={() => void refreshWalletData()} />
+        <WalletError message={walletError} onRetry={() => void refreshWalletData(true)} />
         <EmployerModeBanner title={t('employerEWallet.banner.title')} detail={t('employerEWallet.banner.detail')} />
         <WalletBalanceCard
           label={t('employerEWallet.balanceCard.label')}
@@ -362,7 +375,7 @@ export default function EmployerEWallet({
           secondary={profileRole === 'both' ? t('employerEWallet.balanceCard.secondary', { amount: php(workerBalance) }) : undefined}
           note={t('employerEWallet.balanceCard.note')}
           refreshing={isRefreshingWallet}
-          onRefresh={() => void refreshWalletData()}
+          onRefresh={() => void refreshWalletData(true)}
           actionLabel={t('employerEWallet.balanceCard.actionLabel')}
           actionIcon="add-outline"
           expanded={isTopupExpanded}
@@ -390,7 +403,7 @@ export default function EmployerEWallet({
               ref={topupInputRef}
               style={styles.input}
               value={topupAmount}
-              onChangeText={setTopupAmount}
+              onChangeText={(amount) => setTopupAmount(amount.replace(/[^0-9.]/g, ''))}
               placeholder="100"
               placeholderTextColor={tokens.colors.textSubtle}
               keyboardType="numeric"
@@ -442,7 +455,7 @@ export default function EmployerEWallet({
       </ScrollView>
 
       <EmployerNavigation activeTab={activeTab} onTabPress={onTabPress} />
-      <EmployerQrScannerModal visible={isScannerVisible} initialRequestId={pendingInvoiceId} onClose={() => { setIsScannerVisible(false); setPendingInvoiceId(null); }} onSettled={() => { setPendingInvoiceId(null); void refreshWalletData(); }} />
+      <EmployerQrScannerModal visible={isScannerVisible} initialRequestId={pendingInvoiceId} onClose={() => { setIsScannerVisible(false); setPendingInvoiceId(null); }} onSettled={() => { setPendingInvoiceId(null); void refreshWalletData(false); }} />
     </View>
   );
 }

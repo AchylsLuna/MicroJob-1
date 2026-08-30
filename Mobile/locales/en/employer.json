@@ -169,7 +169,11 @@
       "defaultTitle": "Transaction"
     },
     "toast": {
-      "invalidAmount": "Enter a valid top-up amount (minimum PHP 100).",
+      "invalidAmount": "Enter a valid top-up amount.",
+      "noBalance": "No available balance. Your employer wallet balance is ₱0.00.",
+      "insufficientBalance": "Insufficient balance. You need at least {{required}} (Available: {{available}}).",
+      "belowMinimum": "Amount is below the minimum required top-up limit of {{min}}.",
+      "balanceVerified": "Current available balance: {{amount}} verified successfully.",
       "signInFirst": "Please sign in first before topping up.",
       "noPaymentLink": "No payment link was returned by the server.",
       "cannotOpenLink": "Unable to open payment link on this device.",

@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { Ionicons } from '@expo/vector-icons';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -27,7 +28,9 @@ import {
   isValidProfilePhone,
   normalizeProfileName,
   normalizeProfilePhone,
+  normalizeProfileUrl,
   validateMobileAvatar,
+  validateProfileUrl,
 } from '../../lib/profileValidation';
 import {
   getPhilippineBarangays,
@@ -84,6 +87,7 @@ export default function PersonalInformation({
   const [locationDataError, setLocationDataError] = useState('');
   const [locationReloadKey, setLocationReloadKey] = useState(0);
   const toast = useToast();
+  const { t } = useTranslation('worker');
   const scrollRef = useRef<any>(null);
   const sectionOffsets = useRef<Record<string, number>>({});
   const isEmployer = currentRole === 'employer';
@@ -405,12 +409,33 @@ export default function PersonalInformation({
       toast.error(message);
       return;
     }
-    if (!isValidOptionalProfileUrl(linkedin) || !isValidOptionalProfileUrl(website)) {
-      const message = 'LinkedIn and website links must be valid HTTPS URLs.';
+    const linkedinLabel = t('personalInformation.fields.linkedin.label');
+    const websiteLabel = isEmployer ? t('personalInformation.fields.website.labelEmployer') : t('personalInformation.fields.website.labelWorker');
+    const urlErrorMessage = (reason: string | null, label: string) => {
+      switch (reason) {
+        case 'tooLong': return t('personalInformation.errors.urlTooLong', { field: label, max: PROFILE_LIMITS.url });
+        case 'invalidScheme': return t('personalInformation.errors.urlInvalidScheme', { field: label });
+        case 'insecure': return t('personalInformation.errors.urlInsecure', { field: label });
+        case 'invalidDomain': return t('personalInformation.errors.urlInvalidDomain', { field: label });
+        default: return t('personalInformation.errors.urlInvalidFormat', { field: label });
+      }
+    };
+    const linkedinValidation = validateProfileUrl(linkedin, linkedinLabel);
+    if (!linkedinValidation.isValid) {
+      const message = urlErrorMessage(linkedinValidation.reason, linkedinLabel);
       setFormError(message);
       toast.error(message);
       return;
     }
+
+    const websiteValidation = validateProfileUrl(website, websiteLabel);
+    if (!websiteValidation.isValid) {
+      const message = urlErrorMessage(websiteValidation.reason, websiteLabel);
+      setFormError(message);
+      toast.error(message);
+      return;
+    }
+
     const originalProfile = originalProfileRef.current;
     if (!originalProfile) {
       const message = 'Your profile is still loading. Please wait and try again.';
@@ -457,8 +482,8 @@ export default function PersonalInformation({
         province: province.trim(),
         barangay: barangay.trim(),
         about: about.trim(),
-        linkedin: linkedin.trim(),
-        website: website.trim(),
+        linkedin: linkedinValidation.normalized || linkedin.trim(),
+        website: websiteValidation.normalized || website.trim(),
         address: address.trim(),
       };
       const updateData = Object.fromEntries(

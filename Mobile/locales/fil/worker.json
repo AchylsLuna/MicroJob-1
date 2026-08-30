@@ -434,7 +434,14 @@
     "toast": {
       "workerOnlyPayout": "Available lang ang mga payout request mula sa worker balance.",
       "invalidAmount": "Ilagay ang wastong halaga ng payout.",
+      "noBalance": "Walang available na balanse. Ang iyong balanse ay ₱0.00.",
+      "noBalanceWithdraw": "Walang available na balanse para i-withdraw. Ang iyong balanse ay ₱0.00.",
+      "insufficientBalance": "Kulang ang balanse. Kailangan mo ng hindi bababa sa {{required}} (Available: {{available}}).",
       "amountExceedsBalance": "Hindi maaaring lumampas ang halaga ng payout sa iyong worker balance.",
+      "amountExceedsBalanceDetailed": "Kulang ang balanse. Ang hiniling mo ay {{requested}} ngunit ang iyong available na balanse ay {{available}}.",
+      "belowMinimum": "Mababa ang halaga sa minimum limit na {{min}}.",
+      "belowMinimumWithdrawal": "Mababa ang halaga sa minimum withdrawal limit na {{min}}.",
+      "balanceVerified": "Kasalukuyang available na balanse: Matagumpay na na-verify ang {{amount}}.",
       "incompleteDestination": "Kumpletuhin ang detalye ng destinasyon bago isumite ang iyong withdrawal.",
       "payoutSubmitted": "Naisumite na ang iyong withdrawal para sa admin review.",
       "payoutCancelled": "Naibalik ang halaga sa iyong worker balance."
@@ -796,12 +803,34 @@
       "phoneInvalid": "Ang numero ng telepono ay dapat Philippine mobile number sa 09XXXXXXXXX na format.",
       "lengthExceeded": "Dapat {{max}} character o mas kaunti ang {{field}}.",
       "urlInvalid": "Ang LinkedIn at website links ay dapat valid na HTTPS URLs.",
+      "urlTooLong": "Dapat {{max}} character o mas kaunti ang {{field}}.",
+      "urlInvalidScheme": "Ang {{field}} ay dapat web address na nagsisimula sa https://.",
+      "urlInsecure": "Ang {{field}} ay dapat gumamit ng secure na HTTPS link.",
+      "urlInvalidDomain": "Maglagay ng valid na web domain para sa {{field}} (halimbawa, example.com).",
+      "urlInvalidFormat": "Maglagay ng valid na URL para sa {{field}} (halimbawa, https://example.com).",
       "profileStillLoading": "Nilo-load pa ang iyong profile. Maghintay at subukan ulit.",
       "locationLoading": "Maghintay hanggang matapos mag-load ang mga opsyon sa Philippine location.",
       "locationUnavailable": "Hindi available ang mga opsyon sa lokasyon. Subukan ulit bago i-save ang mga pagbabago sa lokasyon.",
       "locationSelectValid": "Pumili ng wastong Probinsya, Lungsod/Munisipyo, at Barangay mula sa mga mungkahi.",
       "phoneInUse": "Ginagamit na ang numero ng teleponong ito. Gumamit ng ibang numero.",
       "locationOptionsUnavailable": "Hindi available ang mga opsyon sa Philippine location."
+    },
+    "phoneVerification": {
+      "status": {
+        "saveFirst": "I-save muna ang numero",
+        "verified": "Na-verify",
+        "notVerified": "Hindi na-verify",
+        "addNumber": "Magdagdag ng numero ng telepono"
+      },
+      "errors": {
+        "connection": "Hindi makakonekta sa serbisyo ng verification. Suriin ang iyong internet connection at subukan muli.",
+        "sessionExpired": "Nag-expire ang iyong session. Mag-sign in muli.",
+        "tooManyAttempts": "Masyadong maraming pagtatangka sa verification. Maghintay ng ilang minuto bago subukan muli.",
+        "serviceUnavailable": "Pansamantalang hindi available ang serbisyo ng verification. Pakisubukan muli mamaya.",
+        "statusFailed": "Hindi ma-check ang status ng phone verification.",
+        "sendFailed": "Hindi maipadala ang verification code.",
+        "confirmFailed": "Hindi ma-verify ang code."
+      }
     },
     "apiFallback": {
       "loadProfileFailed": "Hindi na-load ang profile.",
@@ -833,12 +862,15 @@
       "title": "Kasalukuyang Lokasyon",
       "subtitle": "Batay sa mga setting ng iyong device.",
       "cityLabel": "Lungsod",
-      "coordinatesLabel": "Coordinates"
+      "privacyLabel": "Privacy ng lokasyon",
+      "privacyProtected": "Protektado (tinatayang lugar lamang)",
+      "privacyDenied": "Tinanggihan ang pahintulot",
+      "privacyUnavailable": "Hindi available",
+      "privacyDisabled": "Naka-disable"
     },
-    "mapPreview": {
-      "title": "Preview ng Mapa",
-      "subtitle": "Preview ng lokasyon (UI lang).",
-      "placeholder": "Preview ng Mapa"
+    "privacy": {
+      "title": "Privacy at Seguridad",
+      "notice": "Ang eksaktong GPS coordinates mo ay hindi kailanman makikita ng publiko o ibabahagi sa ibang user. Tinatayang antas lamang ng munisipalidad o lungsod ang ginagamit ng MicroJobs upang makahanap ng mga malapit na oportunidad."
     }
   },
   "savedJobs": {

@@ -76,16 +76,41 @@ export const normalizeProfilePhone = (value: string) => {
 
 export const isValidProfilePhone = (value: string) => PH_PHONE_PATTERN.test(normalizeProfilePhone(value));
 
-export const isValidOptionalProfileUrl = (value: string) => {
-  const raw = value.trim();
-  if (!raw) return true;
-  if (raw.length > PROFILE_LIMITS.url) return false;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^https?:\/\//i.test(raw)) return false;
-  try {
-    const parsed = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
-    const localHttp = parsed.protocol === 'http:' && ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
-    return parsed.protocol === 'https:' || localHttp;
-  } catch {
-    return false;
-  }
+export type ProfileUrlValidation = {
+  isValid: boolean;
+  normalized: string;
+  error: string | null;
+  reason: 'tooLong' | 'invalidScheme' | 'insecure' | 'invalidDomain' | 'invalidFormat' | null;
 };
+
+export function validateProfileUrl(value: string, label: string): ProfileUrlValidation {
+  const raw = value.trim();
+  if (!raw) return { isValid: true, normalized: '', error: null, reason: null };
+  if (raw.length > PROFILE_LIMITS.url) {
+    return { isValid: false, normalized: raw, error: `${label} must be ${PROFILE_LIMITS.url} characters or fewer.`, reason: 'tooLong' };
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(raw) && !/^https?:\/\//i.test(raw)) {
+    return { isValid: false, normalized: raw, error: `${label} must be a valid web address starting with https://`, reason: 'invalidScheme' };
+  }
+  try {
+    const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const parsed = new URL(withScheme);
+    const isLocal = ['localhost', '127.0.0.1', '::1'].includes(parsed.hostname);
+    if (!['http:', 'https:'].includes(parsed.protocol) || (!isLocal && parsed.protocol !== 'https:')) {
+      return { isValid: false, normalized: raw, error: `${label} must be a secure HTTPS link.`, reason: 'insecure' };
+    }
+    if (!parsed.hostname || (!parsed.hostname.includes('.') && !isLocal)) {
+      return { isValid: false, normalized: raw, error: `Please enter a valid web domain for ${label.toLowerCase()} (e.g. example.com).`, reason: 'invalidDomain' };
+    }
+    return { isValid: true, normalized: withScheme, error: null, reason: null };
+  } catch {
+    return { isValid: false, normalized: raw, error: `Please enter a valid URL format for ${label.toLowerCase()}.`, reason: 'invalidFormat' };
+  }
+}
+
+export const normalizeProfileUrl = (value: string): string => {
+  const validation = validateProfileUrl(value, 'Link');
+  return validation.isValid && validation.normalized ? validation.normalized : value.trim();
+};
+
+export const isValidOptionalProfileUrl = (value: string) => validateProfileUrl(value, 'Link').isValid;

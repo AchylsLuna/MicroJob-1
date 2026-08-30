@@ -99,7 +99,7 @@ const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const AUTH_USER_KEY = 'auth_user';
 const API_IDENTITY_KEY = 'api_environment_identity';
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
-const WARNING_DURATION_MS = 10 * 1000;
+const WARNING_DURATION_MS = 2.5 * 60 * 1000; // 2.5 minutes warning window before automatic logout
 
 const normalizeRole = (value: unknown): string | null => {
   const role = String(value || '').toLowerCase();
@@ -196,6 +196,7 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   const [bootstrapIssue, setBootstrapIssue] = useState<BootstrapIssue | null>(null);
   const [apiIdentity, setApiIdentity] = useState<{ environmentId?: string; databaseId?: string; revision?: string }>({});
 
+  const lastActiveAtRef = useRef<number>(Date.now());
   const socketRef = useRef<any>(null);
   const warningTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -231,18 +232,52 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
       setShowIdleWarning(false);
       return;
     }
-    warningTimerRef.current = setTimeout(() => setShowIdleWarning(true), Math.max(IDLE_TIMEOUT_MS - WARNING_DURATION_MS, 0));
+    const elapsed = Date.now() - lastActiveAtRef.current;
+    const remainingToWarning = Math.max(IDLE_TIMEOUT_MS - WARNING_DURATION_MS - elapsed, 0);
+    const remainingToLogout = Math.max(IDLE_TIMEOUT_MS - elapsed, 0);
+
+    if (remainingToLogout <= 0) {
+      void logoutRef.current();
+      return;
+    }
+
+    if (remainingToWarning <= 0) {
+      setShowIdleWarning(true);
+    } else {
+      warningTimerRef.current = setTimeout(() => setShowIdleWarning(true), remainingToWarning);
+    }
+
     logoutTimerRef.current = setTimeout(() => {
       void logoutRef.current();
-    }, IDLE_TIMEOUT_MS);
+    }, remainingToLogout);
   }, [clearIdleTimers, isAuthenticated]);
 
   const registerActivity = useCallback((force = false) => {
     if (!isAuthenticated) return;
     if (showIdleWarning && !force) return;
+    lastActiveAtRef.current = Date.now();
     setShowIdleWarning(false);
     scheduleIdleTimers();
   }, [isAuthenticated, scheduleIdleTimers, showIdleWarning]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && isAuthenticated) {
+        const elapsed = Date.now() - lastActiveAtRef.current;
+        if (elapsed >= IDLE_TIMEOUT_MS) {
+          void logoutRef.current();
+        } else if (elapsed >= IDLE_TIMEOUT_MS - WARNING_DURATION_MS) {
+          setShowIdleWarning(true);
+          scheduleIdleTimers();
+        } else {
+          scheduleIdleTimers();
+        }
+      }
+    });
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated, scheduleIdleTimers]);
 
   const refreshSavedJobs = useCallback(async () => {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);
@@ -539,11 +574,18 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   }), [isAuthenticated, refreshNotifications, refreshProfile, refreshSavedJobs, refreshUnreadMessages]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      clearIdleTimers();
+      setShowIdleWarning(false);
+      return;
+    }
+    // Do not inherit idle time accrued before a user signed in.
+    lastActiveAtRef.current = Date.now();
     scheduleIdleTimers();
     return () => {
       clearIdleTimers();
     };
-  }, [clearIdleTimers, scheduleIdleTimers]);
+  }, [clearIdleTimers, isAuthenticated, scheduleIdleTimers]);
 
   useEffect(() => {
     const originalFetch = globalThis.fetch;

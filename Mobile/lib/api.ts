@@ -1,6 +1,6 @@
 import storage from './storage';
 import { inferMutationDomains, publishDataRefresh } from './dataRefresh';
-import { API_URL } from '../config';
+import { API_REQUEST_TIMEOUT_MS, API_URL } from '../config';
 import { Platform } from 'react-native';
 
 export type APIResult<T = unknown> = {
@@ -11,7 +11,6 @@ export type APIResult<T = unknown> = {
   raw: unknown;
 };
 
-const DEFAULT_REQUEST_TIMEOUT_MS = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS || 8000);
 const AUTH_TOKEN_KEY = 'auth_token';
 export const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 let invalidSessionHandler: ((result: APIResult) => void) | null = null;
@@ -122,15 +121,19 @@ const inferData = <T>(raw: unknown): T | null => {
 
 export async function apiRequest<T = unknown>(
   url: string,
-  init?: RequestInit,
+  init?: RequestInit & { timeoutMs?: number },
   fallbackMessage = 'Request failed.',
   allowRefresh = true,
 ): Promise<APIResult<T>> {
   const controller = new AbortController();
-  const timeoutMs = Number.isFinite(DEFAULT_REQUEST_TIMEOUT_MS) && DEFAULT_REQUEST_TIMEOUT_MS > 0
-    ? DEFAULT_REQUEST_TIMEOUT_MS
-    : 8000;
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutMs = Number.isFinite(init?.timeoutMs) && (init?.timeoutMs as number) > 0
+    ? (init?.timeoutMs as number)
+    : API_REQUEST_TIMEOUT_MS;
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
   if (init?.signal) {
     if (init.signal.aborted) {
@@ -171,18 +174,26 @@ export async function apiRequest<T = unknown>(
       raw = text || null;
     }
 
+    const rawMessage = getMessage(raw, fallbackMessage);
+    const isCsrfError = response.status === 403 && /csrf/i.test(String(rawMessage || ''));
+    const cleanMessage = isCsrfError
+      ? 'Your security session has expired. Please refresh or sign in again.'
+      : rawMessage;
+
     const result: APIResult<T> = {
       ok: response.ok,
       status: response.status,
-      message: getMessage(raw, fallbackMessage),
+      message: cleanMessage,
       data: inferData<T>(raw),
       raw,
     };
     const isRefreshEndpoint = /\/auth\/(?:login|refresh)(?:\/|$)/.test(new URL(url).pathname);
-    if (response.status === 401 && isMicroJobsApiUrl(url) && allowRefresh && !isRefreshEndpoint) {
+    // Auto-retry on 401 Unauthorized or 403 CSRF session token expiration
+    if ((response.status === 401 || isCsrfError) && isMicroJobsApiUrl(url) && allowRefresh && !isRefreshEndpoint) {
       if (await refreshSession()) {
         const retryHeaders = new Headers(init?.headers || {});
         retryHeaders.delete('Authorization');
+        if (isWeb) retryHeaders.delete('x-csrf-token');
         return apiRequest<T>(url, { ...init, headers: retryHeaders }, fallbackMessage, false);
       }
       invalidSessionHandler?.(result);
@@ -193,13 +204,13 @@ export async function apiRequest<T = unknown>(
     }
     return result;
   } catch (error) {
-    const isTimeout = error instanceof Error && error.name === 'AbortError';
+    const isTimeout = timedOut && error instanceof Error && error.name === 'AbortError';
     if (__DEV__) console.warn(`API request failed: ${url}`, error);
     return {
       ok: false,
       status: 0,
       message: isTimeout
-        ? 'The request timed out. Check your connection and try again.'
+        ? 'The request took too long to respond. Please check your connection and try again.'
         : 'Unable to connect. Check your connection and try again.',
       data: null,
       raw: { error: error instanceof Error ? error.message : String(error) },

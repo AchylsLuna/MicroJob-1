@@ -5,6 +5,13 @@ const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
 const envSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
 const envSocketPath = process.env.EXPO_PUBLIC_SOCKET_PATH;
 const envApiSource = process.env.EXPO_PUBLIC_API_SOURCE;
+const configuredRequestTimeoutMs = Number(process.env.EXPO_PUBLIC_API_TIMEOUT_MS || 12000);
+
+// Keep API timeouts consistent across every screen. Individual long-running
+// requests can still supply a larger timeout through apiRequest.
+export const API_REQUEST_TIMEOUT_MS = Number.isFinite(configuredRequestTimeoutMs) && configuredRequestTimeoutMs > 0
+  ? configuredRequestTimeoutMs
+  : 12000;
 const normalizeExpoOrigin = (value: unknown): string => {
   if (typeof value !== 'string' || !value.trim()) return '';
   const raw = value.trim();

@@ -434,7 +434,14 @@
     "toast": {
       "workerOnlyPayout": "Payout requests are only available from worker balances.",
       "invalidAmount": "Enter a valid payout amount.",
+      "noBalance": "No available balance. Your wallet balance is ₱0.00.",
+      "noBalanceWithdraw": "No available balance to withdraw. Your wallet balance is ₱0.00.",
+      "insufficientBalance": "Insufficient balance. You need at least {{required}} (Available: {{available}}).",
       "amountExceedsBalance": "Payout amount cannot exceed your worker balance.",
+      "amountExceedsBalanceDetailed": "Insufficient balance. You requested {{requested}} but your available balance is {{available}}.",
+      "belowMinimum": "Amount is below the minimum required limit of {{min}}.",
+      "belowMinimumWithdrawal": "Amount is below the minimum required withdrawal limit of {{min}}.",
+      "balanceVerified": "Current available balance: {{amount}} verified successfully.",
       "incompleteDestination": "Complete the destination details before submitting your withdrawal.",
       "payoutSubmitted": "Your withdrawal has been submitted for admin review.",
       "payoutCancelled": "The amount was restored to your worker balance."
@@ -796,12 +803,34 @@
       "phoneInvalid": "Phone number must be a Philippine mobile number in 09XXXXXXXXX format.",
       "lengthExceeded": "{{field}} must be {{max}} characters or fewer.",
       "urlInvalid": "LinkedIn and website links must be valid HTTPS URLs.",
+      "urlTooLong": "{{field}} must be {{max}} characters or fewer.",
+      "urlInvalidScheme": "{{field}} must be a web address starting with https://.",
+      "urlInsecure": "{{field}} must use a secure HTTPS link.",
+      "urlInvalidDomain": "Enter a valid web domain for {{field}} (for example, example.com).",
+      "urlInvalidFormat": "Enter a valid URL for {{field}} (for example, https://example.com).",
       "profileStillLoading": "Your profile is still loading. Please wait and try again.",
       "locationLoading": "Please wait for the Philippine location options to finish loading.",
       "locationUnavailable": "Location options are unavailable. Retry before saving location changes.",
       "locationSelectValid": "Select a valid Province, City/Municipality, and Barangay from the suggestions.",
       "phoneInUse": "This phone number is already in use. Please use a different number.",
       "locationOptionsUnavailable": "Philippine location options are unavailable."
+    },
+    "phoneVerification": {
+      "status": {
+        "saveFirst": "Save number first",
+        "verified": "Verified",
+        "notVerified": "Not verified",
+        "addNumber": "Add a phone number"
+      },
+      "errors": {
+        "connection": "Unable to connect to the verification service. Check your internet connection and try again.",
+        "sessionExpired": "Your session has expired. Please sign in again.",
+        "tooManyAttempts": "Too many verification attempts. Please wait a few minutes before trying again.",
+        "serviceUnavailable": "The verification service is temporarily unavailable. Please try again later.",
+        "statusFailed": "Failed to check phone verification status.",
+        "sendFailed": "Failed to send verification code.",
+        "confirmFailed": "The code could not be verified."
+      }
     },
     "apiFallback": {
       "loadProfileFailed": "Failed to load profile.",
@@ -833,12 +862,15 @@
       "title": "Current Location",
       "subtitle": "Based on your device settings.",
       "cityLabel": "City",
-      "coordinatesLabel": "Coordinates"
+      "privacyLabel": "Location privacy",
+      "privacyProtected": "Protected (coarse area only)",
+      "privacyDenied": "Permission denied",
+      "privacyUnavailable": "Not available",
+      "privacyDisabled": "Disabled"
     },
-    "mapPreview": {
-      "title": "Map Preview",
-      "subtitle": "Location preview (UI only).",
-      "placeholder": "Map Preview"
+    "privacy": {
+      "title": "Privacy & Security",
+      "notice": "Your exact GPS coordinates are never publicly visible or shared with other users. MicroJobs only uses approximate municipality or city-level data to match you with nearby opportunities."
     }
   },
   "savedJobs": {

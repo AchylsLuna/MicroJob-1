@@ -161,7 +161,9 @@ export default function EWallet({
     [payoutRequests],
   );
 
-  const refreshWalletData = useCallback(async () => {
+  const MINIMUM_PAYOUT_AMOUNT = 100;
+
+  const refreshWalletData = useCallback(async (showFeedback = false) => {
     try {
       setIsRefreshingWallet(true);
       setWalletError('');
@@ -184,6 +186,8 @@ export default function EWallet({
       const failedResult = [profileResult, walletResult, payoutsResult].find((result) => !result.ok);
       if (failedResult) setWalletError(failedResult.message || t('eWallet.apiFallback.refreshFailed'));
 
+      let currentWorkerBalance = workerBalance;
+
       if (profileResult.ok) {
         const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
         const normalizedRole = String(profilePayload?.role || '').toLowerCase();
@@ -193,7 +197,8 @@ export default function EWallet({
 
         setProfileRole(normalizedRole || 'worker');
         setAccountOptions(normalizedOptions.length > 0 ? normalizedOptions : normalizedRole === 'employer' ? ['employer'] : normalizedRole === 'both' ? ['worker', 'employer'] : ['worker']);
-        setWorkerBalance(Number.isFinite(nextWorkerBalance) ? nextWorkerBalance : 0);
+        currentWorkerBalance = Number.isFinite(nextWorkerBalance) ? nextWorkerBalance : 0;
+        setWorkerBalance(currentWorkerBalance);
         setEmployerBalance(Number.isFinite(nextEmployerBalance) ? nextEmployerBalance : 0);
       }
 
@@ -201,7 +206,8 @@ export default function EWallet({
         const transactionPayload = asObject<any>(walletResult.data) || asObject<any>(walletResult.raw) || {};
         const nextTransactions = asList<WalletTransaction>(transactionPayload.transactions || walletResult.raw, ['transactions']);
         setTransactions(nextTransactions);
-        setWorkerBalance(Number(transactionPayload.balance || 0));
+        currentWorkerBalance = Number(transactionPayload.balance || 0);
+        setWorkerBalance(currentWorkerBalance);
         setWalletSummary({ credited: Number(transactionPayload.summary?.credited || 0), spent: Number(transactionPayload.summary?.spent || 0), pending: Number(transactionPayload.summary?.pending || 0), transactionCount: Number(transactionPayload.summary?.transactionCount || nextTransactions.length) });
       }
 
@@ -213,13 +219,21 @@ export default function EWallet({
         setPayoutRequests([]);
       }
       if (invoicesResult.ok) setInvoices(asList<any>((asObject<any>(invoicesResult.data) || asObject<any>(invoicesResult.raw))?.requests || invoicesResult.raw, ['requests']));
+
+      if (showFeedback) {
+        if (currentWorkerBalance <= 0) {
+          toast.info(t('eWallet.toast.noBalance'));
+        } else {
+          toast.success(t('eWallet.toast.balanceVerified', { amount: formatCurrency(currentWorkerBalance) }));
+        }
+      }
     } catch (error: any) {
       setWalletError(error?.message || t('eWallet.apiFallback.connectionFailed'));
     } finally {
       setIsRefreshingWallet(false);
       setHasLoadedWallet(true);
     }
-  }, [t]);
+  }, [t, toast, workerBalance]);
 
   useEffect(() => {
     void refreshWalletData();
@@ -236,13 +250,22 @@ export default function EWallet({
       return;
     }
 
+    if (workerBalance <= 0) {
+      toast.error(t('eWallet.toast.noBalanceWithdraw'));
+      return;
+    }
+
     const amount = Number(payoutForm.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error(t('eWallet.toast.invalidAmount'));
       return;
     }
+    if (amount < MINIMUM_PAYOUT_AMOUNT) {
+      toast.error(t('eWallet.toast.belowMinimumWithdrawal', { min: formatCurrency(MINIMUM_PAYOUT_AMOUNT) }));
+      return;
+    }
     if (amount > workerBalance) {
-      toast.error(t('eWallet.toast.amountExceedsBalance'));
+      toast.error(t('eWallet.toast.amountExceedsBalanceDetailed', { requested: formatCurrency(amount), available: formatCurrency(workerBalance) }));
       return;
     }
     if (!payoutForm.institutionName.trim() || !payoutForm.accountName.trim() || !payoutForm.accountNumber.trim()) {
@@ -341,16 +364,16 @@ export default function EWallet({
         notificationBadgeCount={notificationBadgeCount}
       />
 
-      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={isRefreshingWallet && hasLoadedWallet} onRefresh={() => void refreshWalletData()} tintColor={tokens.colors.brand} />}>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={isRefreshingWallet && hasLoadedWallet} onRefresh={() => void refreshWalletData(true)} tintColor={tokens.colors.brand} />}>
         {!hasLoadedWallet && isRefreshingWallet ? <WalletSkeleton /> : <>
-        <WalletError message={walletError} onRetry={() => void refreshWalletData()} />
+        <WalletError message={walletError} onRetry={() => void refreshWalletData(true)} />
         <WalletBalanceCard
           label={t('eWallet.balanceCard.label')}
           value={formatCurrency(workerBalance)}
           secondary={isBothRole ? t('eWallet.balanceCard.employerSecondary', { amount: formatCurrency(employerBalance) }) : undefined}
           note={t('eWallet.balanceCard.note')}
           refreshing={isRefreshingWallet}
-          onRefresh={() => void refreshWalletData()}
+          onRefresh={() => void refreshWalletData(true)}
           actionLabel={t('eWallet.balanceCard.withdrawAction')}
           actionIcon="arrow-down-outline"
           expanded={isPayoutFormExpanded}
@@ -367,26 +390,25 @@ export default function EWallet({
           { label: t('eWallet.metrics.transactions'), value: String(walletSummary.transactionCount), icon: 'receipt-outline' },
         ]} />
 
-        <WalletSection title={t('eWallet.invoices.sectionTitle')} subtitle={t('eWallet.invoices.sectionSubtitle')} collapsible collapsed={collapsedSections.invoices} onToggle={() => toggleSection('invoices')}>
-          {invoices.length === 0 ? <WalletEmpty icon="qr-code-outline" title={t('eWallet.invoices.empty.title')} body={t('eWallet.invoices.empty.body')} /> : <View style={styles.listWrap}>{invoices.slice(0, 6).map((item) => { const preview = item.preview || {}; const active = String(preview.status) === 'active'; return <View key={preview.requestId} style={styles.listCard}><View style={styles.listHeader}><View style={styles.transactionTypeWrap}><Text style={styles.listTitle}>{preview.job?.title || t('eWallet.invoices.jobFallback')}</Text><Text style={styles.listSubtitle}>{formatCurrency(preview.totalAmount)} · {preview.status || t('eWallet.common.statusUnknown')}</Text></View></View><View style={styles.invoiceActions}><TouchableOpacity style={styles.invoiceAction} onPress={() => { setSelectedInvoiceId(preview.requestId); setIsQrVisible(true); }}><Text style={styles.invoiceActionText}>{t('eWallet.invoices.actions.viewQr')}</Text></TouchableOpacity>{onOpenInvoiceChat ? <TouchableOpacity style={styles.invoiceAction} onPress={() => onOpenInvoiceChat({ id: preview.employer?.id, name: preview.employer?.name })}><Text style={styles.invoiceActionText}>{t('eWallet.invoices.actions.openChat')}</Text></TouchableOpacity> : null}<TouchableOpacity style={styles.invoiceAction} onPress={() => void replaceInvoice(item)}><Text style={styles.invoiceActionText}>{t('eWallet.invoices.actions.generateReplacement')}</Text></TouchableOpacity>{active ? <TouchableOpacity style={styles.invoiceAction} onPress={async () => { const token = await AsyncStorage.getItem('auth_token'); const result = await apiRequest(`${API_URL}/payment/qr-requests/${preview.requestId}/cancel`, { method: 'POST', headers: token ? { Authorization: `Bearer ${token}` } : undefined }, t('eWallet.apiFallback.cancelInvoiceFailed')); if (!result.ok) toast.error(result.message); await refreshWalletData(); }}><Text style={[styles.invoiceActionText, { color: tokens.colors.danger }]}>{t('eWallet.invoices.actions.cancel')}</Text></TouchableOpacity> : null}</View></View>; })}</View>}
-        </WalletSection>
-
-        {hasWorkerWallet && isPayoutFormExpanded ? (
+        {isPayoutFormExpanded && hasWorkerWallet ? (
           <View
             style={styles.card}
             onLayout={(event) => setPayoutFormOffsetY(event.nativeEvent.layout.y)}
+            accessibilityLabel={t('eWallet.payoutForm.title')}
           >
             <Text style={styles.cardTitle}>{t('eWallet.payoutForm.title')}</Text>
-            <Text style={styles.cardSubtitle}>{t('eWallet.payoutForm.availableSubtitle', { amount: formatCurrency(workerBalance) })}</Text>
+            <Text style={styles.cardSubtitle}>
+              {t('eWallet.payoutForm.availableSubtitle', { amount: formatCurrency(workerBalance) })}
+            </Text>
 
             <Text style={styles.inputLabel}>{t('eWallet.payoutForm.amountLabel')}</Text>
             <TextInput
               style={styles.input}
               value={payoutForm.amount}
-              onChangeText={(amount) => setPayoutForm((current) => ({ ...current, amount }))}
-              placeholder="1000"
+              onChangeText={(amount) => setPayoutForm((current) => ({ ...current, amount: amount.replace(/[^0-9.]/g, '') }))}
+              placeholder="0.00"
               placeholderTextColor={tokens.colors.textSubtle}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               accessibilityLabel={t('eWallet.payoutForm.amountAccessibility')}
             />
 
@@ -485,7 +507,7 @@ export default function EWallet({
       </ScrollView>
 
       <Navigation activeTab={activeTab} onTabPress={onTabPress} messageBadgeCount={messageBadgeCount} />
-      <WorkerQrRequestModal visible={isQrVisible} initialRequestId={selectedInvoiceId} onClose={() => { setIsQrVisible(false); setSelectedInvoiceId(null); }} onSettled={() => void refreshWalletData()} />
+      <WorkerQrRequestModal visible={isQrVisible} initialRequestId={selectedInvoiceId} onClose={() => { setIsQrVisible(false); setSelectedInvoiceId(null); }} onSettled={() => void refreshWalletData(false)} />
     </View>
   );
 }
@@ -614,7 +636,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  invoiceActions: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, invoiceAction: { minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, alignItems: 'center', justifyContent: 'center' }, invoiceActionText: { color: tokens.colors.brand, fontSize: 11, fontWeight: '800' },
+  invoiceActions: { marginTop: 10, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  invoiceAction: { minHeight: 44, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, borderColor: tokens.colors.border, alignItems: 'center', justifyContent: 'center' },
+  invoiceActionText: { color: tokens.colors.brand, fontSize: 11, fontWeight: '800' },
   listWrap: {
     marginTop: 14,
     gap: 12,
