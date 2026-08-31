@@ -44,6 +44,17 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
   const [loading, setLoading] = useState(false);
   const toast = useToast();
 
+  const getRegistrationAlert = (status: number, message?: string) => {
+    const normalizedMessage = String(message || '').toLowerCase();
+    if (status === 0) return t('signUp.toast.networkError');
+    if (status === 409 && /email/.test(normalizedMessage)) return t('signUp.toast.emailAlreadyRegistered');
+    if (status === 409 && /phone/.test(normalizedMessage)) return t('signUp.toast.phoneAlreadyRegistered');
+    if (status === 409) return t('signUp.toast.accountAlreadyRegistered');
+    if (/password/.test(normalizedMessage)) return t('signUp.errors.passwordWeak');
+    if (/email/.test(normalizedMessage)) return t('signUp.errors.emailInvalid');
+    return t('signUp.toast.accountCreationFailed');
+  };
+
   const progress = useMemo(() => Math.round((step / 3) * 100), [step]);
   const progressWidth = `${progress}%` as `${number}%`;
   const goBack = () => step > 1 ? setStep((value) => value - 1) : onBack();
@@ -62,16 +73,25 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
     if (!isValidEmail(email)) next.email = t('signUp.errors.emailInvalid');
     if (!isValidPhone(normalizePhone(phone))) next.phone = t('signUp.errors.phoneInvalid');
     setErrors(next);
+    if (Object.keys(next).length > 0) {
+      const hasMissingField = !fullName.trim() || !email.trim() || !phone.trim();
+      toast.error(hasMissingField ? t('signUp.toast.requiredFields') : Object.values(next)[0]);
+    }
     return Object.keys(next).length === 0;
   };
   const continueFromIdentity = () => { if (validateIdentity()) setStep(2); };
 
   const submit = async () => {
     const next: Errors = {};
-    if (!isStrongPassword(password)) next.password = t('signUp.errors.passwordWeak');
-    if (!confirm || password !== confirm) next.confirm = t('signUp.errors.confirmMismatch');
+    if (!password) next.password = t('signUp.errors.passwordRequired');
+    else if (!isStrongPassword(password)) next.password = t('signUp.errors.passwordWeak');
+    if (!confirm) next.confirm = t('signUp.errors.confirmRequired');
+    else if (password !== confirm) next.confirm = t('signUp.errors.confirmMismatch');
     setErrors(next);
-    if (Object.keys(next).length) return;
+    if (Object.keys(next).length) {
+      toast.error(!password || !confirm ? t('signUp.toast.requiredFields') : Object.values(next)[0]);
+      return;
+    }
     const name = parseFullName(fullName);
     const normalizedEmail = normalizeEmail(email);
     const normalizedPhone = normalizePhone(phone);
@@ -82,11 +102,11 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: name.normalized, firstName: name.firstName, lastName: name.lastName, email: normalizedEmail, phoneNumber: normalizedPhone, password, role }),
       }, t('signUp.toast.registrationFailedFallback'));
-      if (!result.ok) { toast.error(t('signUp.toast.httpError', { message: result.message || t('signUp.toast.registrationFailedFallback'), status: result.status })); return; }
+      if (!result.ok) { toast.error(getRegistrationAlert(result.status, result.message)); return; }
       await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
       toast.success(t('signUp.toast.accountCreated'));
       onNavigateToVerify(normalizedEmail);
-    } catch (error: any) { toast.error(error?.message || t('signUp.toast.accountCreationFailed')); }
+    } catch { toast.error(t('signUp.toast.networkError')); }
     finally { setLoading(false); }
   };
 

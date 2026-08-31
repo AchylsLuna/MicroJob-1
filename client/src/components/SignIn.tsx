@@ -7,6 +7,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { getPostSignInPath } from "../utils/authRedirects";
 import { isCredentialLoginError } from "../utils/authSession";
+import { isValidEmail, normalizeEmail } from "../lib/authValidation";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { OTPVerification } from "./OTPVerification";
@@ -32,6 +33,28 @@ export function SignIn() {
   // be distinguishable from "the default dashboard" rather than defaulting to it.
   const validatedFrom = getPostSignInPath(rawFrom, "");
 
+  const getSignInFailureMessage = (error: unknown) => {
+    const message = String((error as { message?: unknown } | null)?.message || "").trim();
+    const normalizedMessage = message.toLowerCase();
+
+    if (/invalid email|email.*invalid|valid email/.test(normalizedMessage)) {
+      return t("signIn.toast.emailInvalid");
+    }
+    if (/(?:no account|account.*not found|email.*not found|does not exist)/.test(normalizedMessage)) {
+      return t("signIn.toast.accountNotFound");
+    }
+    if (/incorrect password|password.*incorrect/.test(normalizedMessage)) {
+      return t("signIn.toast.incorrectPassword");
+    }
+    if (isCredentialLoginError(message)) {
+      return t("signIn.toast.credentialsIncorrect");
+    }
+    if (/network|failed to fetch|unable to connect|connection|timeout/.test(normalizedMessage)) {
+      return t("signIn.toast.networkError");
+    }
+    return t("signIn.toast.signInFailed");
+  };
+
   if (!isLoading && isAuthenticated && user?.role) {
     return <Navigate to={redirectPath} replace />;
   }
@@ -52,14 +75,20 @@ export function SignIn() {
       return;
     }
 
-    if (!email || !password) {
+    const normalizedEmail = normalizeEmail(email);
+    if (!normalizedEmail || !password) {
       toast.error(t("signIn.toast.fillAllFields"));
+      return;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      toast.error(t("signIn.toast.emailInvalid"));
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await login(email, password, { suppressToast: true, requireOtp: true });
+      const result = await login(normalizedEmail, password, { suppressToast: true, requireOtp: true });
       if (result.status === "mfa_required") {
         toast.info(t("signIn.toast.mfaCodePrompt"));
       } else if (result.status === "otp_required") {
@@ -76,9 +105,7 @@ export function SignIn() {
         toast.success(t("signIn.toast.otpSent"));
       }
     } catch (error: any) {
-      toast.error(isCredentialLoginError(error?.message)
-        ? t("signIn.toast.credentialsIncorrect")
-        : error?.message || t("signIn.toast.signInFailed"));
+      toast.error(getSignInFailureMessage(error));
     } finally {
       if (passwordInputRef.current) {
         passwordInputRef.current.value = "";

@@ -42,11 +42,13 @@ npm run mobile:web           # Expo -> react-native-web in a browser
 ```
 
 `dev:client` and `mobile:start` both need the API running, so start
-`dev:server` first when you launch them separately.
+`dev:server` first when you launch them separately. For phone testing, prefer
+`dev:mobile`: it starts the API and Expo with matching ports and does not start
+the web app.
 
 ## How the mobile app finds the API (important)
 
-There is no hardcoded IP. `npm run dev`/`mobile:start` sets:
+There is no hardcoded IP. `npm run dev`/`dev:mobile` sets:
 
 - `EXPO_PUBLIC_API_SOURCE=development-metro-proxy`
 - `MICROJOBS_METRO_API_TARGET=http://127.0.0.1:5050`

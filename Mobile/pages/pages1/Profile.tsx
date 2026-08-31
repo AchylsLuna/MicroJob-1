@@ -348,8 +348,26 @@ export default function Profile({
       .toUpperCase() || 'U';
 
   const verification = profile?.verification || {};
-  const identityStatus = verification?.identityDocument?.status || 'pending';
-  const addressStatus = verification?.addressDocument?.status || 'pending';
+  const rawIdentityStatus = verification?.identityDocument?.status;
+  const hasIdentityDoc = Boolean(verification?.identityDocument?.documentUrl);
+  const identityStatus = verification?.identityVerified === true || rawIdentityStatus === 'verified'
+    ? 'verified'
+    : rawIdentityStatus === 'rejected'
+      ? 'rejected'
+      : (rawIdentityStatus === 'in-review' || rawIdentityStatus === 'pending' || hasIdentityDoc)
+        ? 'in-review'
+        : 'unsubmitted';
+
+  const rawAddressStatus = verification?.addressDocument?.status;
+  const hasAddressDoc = Boolean(verification?.addressDocument?.documentUrl);
+  const addressStatus = verification?.addressVerified === true || rawAddressStatus === 'verified'
+    ? 'verified'
+    : rawAddressStatus === 'rejected'
+      ? 'rejected'
+      : (rawAddressStatus === 'in-review' || rawAddressStatus === 'pending' || hasAddressDoc)
+        ? 'in-review'
+        : 'unsubmitted';
+
   const verificationItems = [
     { label: 'Email', complete: verification?.emailVerified === true },
     { label: 'Phone', complete: verification?.phoneVerified === true },
@@ -520,7 +538,7 @@ export default function Profile({
 
   const handleGovernmentIdAction = async () => {
     if (identityStatus === 'in-review') {
-      toast.info('Your government ID is already under review.');
+      toast.info('Your government ID is in review and pending approval by the admin.');
       return;
     }
     if (hasGovernmentId) {
@@ -574,7 +592,7 @@ export default function Profile({
 
   const handleAddressDocumentAction = async () => {
     if (addressStatus === 'in-review') {
-      toast.info('Your proof of address is already under review.');
+      toast.info('Your proof of address is in review and pending approval by the admin.');
       return;
     }
     if (hasVerifiedAddress) {
@@ -865,7 +883,7 @@ export default function Profile({
                     {hasGovernmentId
                       ? 'Identity verified'
                       : identityStatus === 'in-review'
-                        ? 'Document under review'
+                        ? 'In review — pending approval by admin'
                         : identityStatus === 'rejected'
                           ? 'Document rejected — upload a replacement'
                           : 'Upload an ID for verification'}
@@ -915,7 +933,7 @@ export default function Profile({
                     {hasVerifiedAddress
                       ? 'Address verified'
                       : addressStatus === 'in-review'
-                        ? 'Document under review'
+                        ? 'In review — pending approval by admin'
                         : addressStatus === 'rejected'
                           ? 'Document rejected — upload a replacement'
                           : 'Upload a recent bill or bank statement'}
@@ -1007,7 +1025,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 18,
     paddingTop: 8,
-    paddingBottom: tokens.layout.tabBarClearance,
+    paddingBottom: tokens.layout.tabBarClearance + 80,
     gap: 24,
   },
   errorCard: {

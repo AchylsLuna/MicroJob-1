@@ -150,7 +150,8 @@ export async function apiRequest<T = unknown>(
     const csrfToken = getBrowserCsrfToken();
     if (csrfToken) headers.set('x-csrf-token', csrfToken);
   }
-  if (isMicroJobsApiUrl(url) && !headers.has('Authorization')) {
+  const isAuthEntryUrl = /\/auth\/(?:login|register|otp|password-reset)(?:\/|$)/i.test(url);
+  if (isMicroJobsApiUrl(url) && !isAuthEntryUrl && !headers.has('Authorization')) {
     const token = await storage.getItem(AUTH_TOKEN_KEY);
     if (token) headers.set('Authorization', `Bearer ${token}`);
   }

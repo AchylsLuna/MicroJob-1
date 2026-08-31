@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, SafeAreaView, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Keyboard, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList } from '../../lib/api';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { EmployerQrScannerModal } from '../../components/wallet/WalletQrFlow';
@@ -42,6 +42,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  const keyboardScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
   const toast = useToast();
   const [authToken, setAuthToken] = useState('');
@@ -49,6 +50,19 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
   const [invoiceCodes, setInvoiceCodes] = useState<Record<string, string>>({});
   const [clock, setClock] = useState(Date.now());
   const [processingOfferId, setProcessingOfferId] = useState<string | null>(null);
+
+  const scrollToLatest = useCallback((animated = true) => {
+    requestAnimationFrame(() => flatListRef.current?.scrollToEnd({ animated }));
+  }, []);
+
+  const scheduleScrollToLatest = useCallback((delay = 0) => {
+    if (keyboardScrollTimerRef.current) clearTimeout(keyboardScrollTimerRef.current);
+    keyboardScrollTimerRef.current = setTimeout(() => scrollToLatest(), delay);
+  }, [scrollToLatest]);
+
+  useEffect(() => () => {
+    if (keyboardScrollTimerRef.current) clearTimeout(keyboardScrollTimerRef.current);
+  }, []);
   useEffect(() => { void AsyncStorage.getItem('auth_token').then((value) => setAuthToken(value || '')); }, []);
   useEffect(() => { const interval = setInterval(() => setClock(Date.now()), 1000); return () => clearInterval(interval); }, []);
   useEffect(() => {
@@ -182,13 +196,33 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
 
   useEffect(() => {
     if (messages.length > 0) {
-      flatListRef.current?.scrollToEnd({ animated: true });
+      scrollToLatest();
     }
-  }, [messages]);
+  }, [messages, scrollToLatest]);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => scheduleScrollToLatest(Platform.OS === 'ios' ? 80 : 0),
+    );
+    const frameSubscription = Platform.OS === 'ios'
+      ? Keyboard.addListener('keyboardWillChangeFrame', () => scheduleScrollToLatest(80))
+      : null;
+
+    return () => {
+      showSubscription.remove();
+      frameSubscription?.remove();
+    };
+  }, [scheduleScrollToLatest]);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: tokens.colors.background }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <SafeAreaView edges={['top']} style={styles.screen}>
+      <KeyboardAvoidingView
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+        onLayout={() => scheduleScrollToLatest()}
+      >
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backTouch} accessibilityRole="button" accessibilityLabel={t('chatScreen.header.backLabel')}>
             <Ionicons name="chevron-back" size={20} color={tokens.colors.brand} />
@@ -213,6 +247,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           keyExtractor={item => item._id}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          onContentSizeChange={() => scheduleScrollToLatest()}
           initialNumToRender={20}
           maxToRenderPerBatch={12}
           updateCellsBatchingPeriod={40}
@@ -247,7 +282,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
             </View>
             );
           }}
-          contentContainerStyle={{ padding: 16, paddingBottom: 112 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 16 }}
         />
       <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <TextInput
@@ -258,6 +293,7 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
           placeholderTextColor={tokens.colors.textSubtle}
           accessibilityLabel={t('chatScreen.input.accessibilityLabel')}
           returnKeyType="send"
+          onFocus={() => scheduleScrollToLatest(Platform.OS === 'ios' ? 80 : 0)}
           onSubmitEditing={sendMessage}
         />
         <TouchableOpacity style={styles.sendBtn} onPress={sendMessage} accessibilityRole="button" accessibilityLabel={t('chatScreen.input.sendLabel')} accessibilityState={{ disabled: !input.trim() }} disabled={!input.trim()}>
@@ -272,6 +308,15 @@ export default function ChatScreen({ userId, displayName: initialDisplayName, on
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: tokens.colors.background,
+  },
+  keyboardContainer: {
+    flex: 1,
+    minHeight: 0,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

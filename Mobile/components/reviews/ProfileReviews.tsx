@@ -233,8 +233,13 @@ export default function ProfileReviews({
           })}
         </View>
       </View>
-
-      <NativeScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+      <NativeScrollView
+        horizontal
+        nestedScrollEnabled
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.sortRow}
+      >
         {SORT_OPTIONS.map((option) => (
           <TouchableOpacity key={option.value} style={[styles.sortChip, sort === option.value && styles.sortChipActive]} onPress={() => changeSort(option.value)}>
             <Text style={[styles.sortText, sort === option.value && styles.sortTextActive]}>{option.label}</Text>

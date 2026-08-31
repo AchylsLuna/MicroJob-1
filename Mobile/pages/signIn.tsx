@@ -68,6 +68,18 @@ export default function SignIn({
   const toast = useToast();
   const { t } = useTranslation('auth');
 
+  const getSignInAlert = (status: number, message?: string) => {
+    const normalizedMessage = String(message || '').toLowerCase();
+    if (status === 0) return t('signIn.toast.networkError');
+    if (status === 403 || /csrf|forbidden/.test(normalizedMessage)) return 'Your security session expired. We refreshed it—please try logging in again.';
+    if (/invalid email|email.*invalid/.test(normalizedMessage)) return t('signIn.errors.emailInvalid');
+    if (/verify your email/.test(normalizedMessage)) return t('signIn.toast.emailVerificationRequired');
+    if (/(?:account|email).*(?:not found|does not exist)/.test(normalizedMessage)) return t('signIn.toast.accountNotFound');
+    if (/disabled|deleted/.test(normalizedMessage)) return t('signIn.toast.accountUnavailable');
+    if (status === 401 || /incorrect|invalid credentials|password/.test(normalizedMessage)) return t('signIn.toast.incorrectPassword');
+    return message && !/https?:\/\//i.test(message) ? message : t('signIn.toast.signInFailed');
+  };
+
   const continueAfterPrimaryAuth = async (token: string, user: any, refreshToken?: string) => {
     if (!token || !user) {
       throw new Error('Invalid login response.');
@@ -94,16 +106,19 @@ export default function SignIn({
     const normalizedEmail = normalizeEmail(email);
     if (!normalizedEmail) {
       setErrors({ email: t('signIn.errors.emailRequired') });
+      toast.error(t('signIn.toast.requiredFields'));
       return;
     }
 
     if (!isValidEmail(normalizedEmail)) {
       setErrors({ email: t('signIn.errors.emailInvalid') });
+      toast.error(t('signIn.errors.emailInvalid'));
       return;
     }
 
     if (!password) {
       setErrors({ password: t('signIn.errors.passwordRequired') });
+      toast.error(t('signIn.toast.requiredFields'));
       return;
     }
 
@@ -143,22 +158,18 @@ export default function SignIn({
       } else if (result.ok && token) {
         await continueAfterPrimaryAuth(token, user, refreshToken);
       } else {
-        const serverMessage = result.message || t('signIn.toast.signInFailed');
+        const serverMessage = result.message || '';
         if (result.status === 401 && /verify your email/i.test(serverMessage)) {
           await AsyncStorage.setItem('pending_verification_email', normalizedEmail);
-          toast.info(serverMessage);
+          toast.info(t('signIn.toast.emailVerificationRequired'));
           onNavigateToVerify?.();
-        } else if (result.status === 401 && /invalid credentials/i.test(serverMessage)) {
-          toast.error(t('signIn.toast.invalidCredentials'));
-        } else if (result.status === 0) {
-          toast.error(serverMessage);
         } else {
-          toast.error(t('signIn.toast.httpError', { message: serverMessage, status: result.status }));
+          toast.error(getSignInAlert(result.status, serverMessage));
         }
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      toast.error(error?.message || t('signIn.toast.networkError'));
+      toast.error(t('signIn.toast.networkError'));
     } finally {
       setIsLoading(false);
     }
@@ -198,7 +209,7 @@ export default function SignIn({
         return;
       }
 
-      toast.error(t('signIn.toast.httpError', { message: result.message || t('signIn.toast.invalidMfaCode'), status: result.status }));
+      toast.error(result.status === 0 ? t('signIn.toast.networkError') : t('signIn.toast.invalidMfaCode'));
     } catch (error) {
       toast.error(t('signIn.toast.mfaNetworkError'));
     } finally {

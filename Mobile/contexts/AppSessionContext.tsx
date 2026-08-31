@@ -99,7 +99,7 @@ const REFRESH_TOKEN_KEY = 'auth_refresh_token';
 const AUTH_USER_KEY = 'auth_user';
 const API_IDENTITY_KEY = 'api_environment_identity';
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
-const WARNING_DURATION_MS = 2.5 * 60 * 1000; // 2.5 minutes warning window before automatic logout
+const WARNING_DURATION_MS = 5 * 60 * 1000;
 
 const normalizeRole = (value: unknown): string | null => {
   const role = String(value || '').toLowerCase();

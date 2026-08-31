@@ -22,8 +22,11 @@ const SmoothScrollView = forwardRef<ScrollView, ScrollViewProps>(function Smooth
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
       scrollEventThrottle={16}
+      decelerationRate="normal"
+      removeClippedSubviews={Platform.OS === 'android'}
       overScrollMode="auto"
-      directionalLockEnabled
+      nestedScrollEnabled
+      alwaysBounceVertical={!horizontal}
       {...props}
     />
   );

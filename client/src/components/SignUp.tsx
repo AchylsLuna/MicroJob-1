@@ -184,14 +184,18 @@ export function SignUp() {
       toast.success(nextMessage);
       setShowOTP(true);
     } catch (error: any) {
-      const message = error?.message || t("signUp.toast.registrationFailed");
-      const invalidInputMessage = /(invalid|required|must|format|phone|email|password|name|taken|exists)/i.test(
-        String(message),
-      );
-      const normalizedMessage = /^invalid input:/i.test(String(message))
-        ? String(message)
-        : t("validation.invalidInputPrefix", { detail: message });
-      toast.error(invalidInputMessage ? normalizedMessage : message);
+      const message = String(error?.message || "").toLowerCase();
+      if (/already registered|already exists|email.*taken|email.*exists/.test(message)) {
+        toast.error(t("signUp.toast.emailAlreadyRegistered"));
+      } else if (/invalid email|email.*invalid|valid email/.test(message)) {
+        toast.error(t("signUp.toast.emailInvalid"));
+      } else if (/password.*(?:weak|must)|weak password/.test(message)) {
+        toast.error(t("signUp.toast.weakPassword"));
+      } else if (/network|failed to fetch|unable to connect|connection|timeout/.test(message)) {
+        toast.error(t("signUp.toast.networkError"));
+      } else {
+        toast.error(t("signUp.toast.registrationFailed"));
+      }
     } finally {
       submitInFlightRef.current = false;
       setIsSubmitting(false);

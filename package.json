@@ -16,6 +16,7 @@
     "predev": "npm run check:dependencies",
     "dev": "node scripts/run-with-node.cjs node scripts/dev.cjs",
     "dev:tunnel": "node scripts/run-with-node.cjs node scripts/dev.cjs --tunnel",
+    "dev:mobile": "node scripts/run-with-node.cjs node scripts/dev.cjs --mobile-only",
     "dev:server": "npm --prefix server run dev",
     "predev:client": "npm run check:dependencies",
     "dev:client": "node scripts/run-with-node.cjs node node_modules/vite/bin/vite.js --config client/vite.config.ts",

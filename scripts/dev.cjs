@@ -5,6 +5,7 @@ const os = require('node:os');
 
 const args = process.argv.slice(2);
 const tunnelMode = args.includes('--tunnel');
+const mobileOnly = args.includes('--mobile-only');
 const apiPort = Number(process.env.DEV_API_PORT || process.env.PORT || 5050);
 const webPort = Number(process.env.DEV_CLIENT_PORT || 8082);
 const metroPort = Number(process.env.METRO_PORT || process.env.EXPO_METRO_PORT || 8081);
@@ -185,14 +186,14 @@ const main = async () => {
 
   console.log(`Starting MicroJobs development environment (${tunnelMode ? 'tunnel' : 'LAN'} mode)…`);
   const api = await ensureApi(environment, npmCommand);
-  const web = await ensureWeb(environment);
+  const web = mobileOnly ? null : await ensureWeb(environment);
   const metro = await ensureMetro(environment, npmCommand);
   const lanAddress = getLanAddress();
   const phoneApi = tunnelMode
     ? 'derived from the Expo tunnel QR host (/microjobs-api/api)'
     : lanAddress ? `http://${lanAddress}:${metroPort}/microjobs-api/api` : 'unavailable: no private LAN address detected';
   console.log('\nMicroJobs is ready');
-  console.log(`  Web:       ${webOrigin}${web.reused ? ' (reused)' : ''}`);
+  if (web) console.log(`  Web:       ${webOrigin}${web.reused ? ' (reused)' : ''}`);
   console.log(`  API:       ${apiOrigin}/api${api.reused ? ' (reused)' : ''}`);
   console.log(`  Database:  ${api.identity.environment}:${api.identity.databaseId}`);
   console.log(`  Expo:      ${tunnelMode ? 'scan the tunnel QR shown above' : lanAddress ? `exp://${lanAddress}:${metroPort}` : 'LAN address unavailable; use npm run dev:tunnel'}${metro.reused ? ' (reused)' : ''}`);
