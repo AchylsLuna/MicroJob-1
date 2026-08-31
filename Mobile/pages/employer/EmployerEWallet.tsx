@@ -125,27 +125,41 @@ export default function EmployerEWallet({
     };
   }, [formatDate, t]);
 
+  /** Detect CSRF/403 errors and return a localized message; fall back to raw message or key. */
+  const formatApiError = useCallback((err: any, fallbackKey: string): string => {
+    const httpStatus = typeof err === 'object' ? (err?.status || err?.statusCode || 0) : 0;
+    const msg = typeof err === 'string' ? err : (err?.message || '');
+    if (httpStatus === 403 || /csrf|security session|session.?expired|forbidden/i.test(msg)) {
+      return t('employerEWallet.toast.sessionExpired');
+    }
+    return msg || t(fallbackKey);
+  }, [t]);
+
   const refreshWalletData = useCallback(async (showFeedback = false) => {
     try {
       setIsRefreshingWallet(true);
       setWalletError('');
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return;
-      const storedUser = await AsyncStorage.getItem('auth_user');
+
+      // Seed walletOwnerId from cached user â€” no extra /auth/me round-trip needed
       let walletOwnerId = '';
+      const storedUser = await AsyncStorage.getItem('auth_user');
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
           walletOwnerId = String(parsedUser?._id || parsedUser?.id || parsedUser?.userId || '');
+          if (!profileRole) {
+            setProfileRole(String(parsedUser?.role || '').toLowerCase());
+            setWorkerBalance(Number(parsedUser?.workerBalance || parsedUser?.worker_balance || 0));
+          }
         } catch {
           walletOwnerId = '';
         }
       }
 
-      const [profileResult, txResult, invoiceResult] = await Promise.all([
-        apiRequest(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }, t('employerEWallet.errors.profileFailed')),
+      // /payment/wallet already returns balance + summary â€” no need to also call /auth/me
+      const [txResult, invoiceResult] = await Promise.all([
         apiRequest(`${API_URL}/payment/wallet?mode=employer`, {
           headers: { Authorization: `Bearer ${token}` },
         }, t('employerEWallet.errors.transactionsFailed')),
@@ -154,26 +168,13 @@ export default function EmployerEWallet({
         }, t('employerEWallet.errors.requestsFailed')),
       ]);
 
-      const failedResult = [profileResult, txResult, invoiceResult].find((result) => !result.ok);
-      if (failedResult) setWalletError(failedResult.message || t('employerEWallet.errors.someUnavailable'));
+      const walletFailed = [txResult, invoiceResult].find((r) => !r.ok);
+      if (walletFailed) {
+        setWalletError(formatApiError(walletFailed, 'employerEWallet.errors.someUnavailable'));
+      }
+
       let refreshedBalance = 0;
       let hasBalanceResult = false;
-
-      if (profileResult.ok) {
-        const profilePayload = asObject<any>(profileResult.data) || asObject<any>(profileResult.raw) || {};
-        const nextEmployer = Number(profilePayload?.employerBalance || 0);
-        const nextWorker = Number(profilePayload?.workerBalance || 0);
-        const role = String(profilePayload?.role || '').toLowerCase();
-        walletOwnerId = String(profilePayload?._id || profilePayload?.id || profilePayload?.userId || walletOwnerId);
-
-        const nextBalance = Number.isFinite(nextEmployer) ? nextEmployer : 0;
-
-        refreshedBalance = Number.isFinite(nextBalance) ? nextBalance : 0;
-        hasBalanceResult = true;
-        setLiveBalance(refreshedBalance);
-        setWorkerBalance(Number.isFinite(nextWorker) ? nextWorker : 0);
-        setProfileRole(role);
-      }
 
       if (txResult.ok) {
         const txPayload = asObject<any>(txResult.data) || asObject<any>(txResult.raw) || {};
@@ -181,14 +182,28 @@ export default function EmployerEWallet({
         refreshedBalance = Number(txPayload.balance || 0);
         hasBalanceResult = true;
         setLiveBalance(refreshedBalance);
-        setWalletSummary({ credited: Number(txPayload.summary?.credited || 0), spent: Number(txPayload.summary?.spent || 0), pending: Number(txPayload.summary?.pending || 0), transactionCount: Number(txPayload.summary?.transactionCount || list.length) });
+        if (txPayload.role) setProfileRole(String(txPayload.role).toLowerCase());
+        if (txPayload.workerBalance != null) setWorkerBalance(Number(txPayload.workerBalance || 0));
+        setWalletSummary({
+          credited: Number(txPayload.summary?.credited || 0),
+          spent: Number(txPayload.summary?.spent || 0),
+          pending: Number(txPayload.summary?.pending || 0),
+          transactionCount: Number(txPayload.summary?.transactionCount || list.length),
+        });
         setTransactions(list.map((transaction: any) => mapTxToUi(transaction, walletOwnerId)));
       }
+
       if (invoiceResult.ok) {
         const invoicePayload = asObject<any>(invoiceResult.data) || asObject<any>(invoiceResult.raw) || {};
+        // Server already scopes this endpoint to the authenticated employer â€”
+        // old client-side employer.id filter silently dropped invoices when absent.
         const requests = Array.isArray(invoicePayload.requests) ? invoicePayload.requests : [];
-        setInvoices(requests.filter((item: any) => !walletOwnerId || String(item?.preview?.employer?.id || '') === walletOwnerId));
+        setInvoices(requests.map((item: any) => ({
+          ...item,
+          preview: item?.preview || item,
+        })));
       }
+
       if (showFeedback && hasBalanceResult) {
         if (refreshedBalance <= 0) {
           toast.info(t('employerEWallet.toast.noBalance'));
@@ -197,12 +212,12 @@ export default function EmployerEWallet({
         }
       }
     } catch (error: any) {
-      setWalletError(error?.message || t('employerEWallet.errors.checkConnection'));
+      setWalletError(formatApiError(error, 'employerEWallet.errors.checkConnection'));
     } finally {
       setIsRefreshingWallet(false);
       setHasLoadedWallet(true);
     }
-  }, [mapTxToUi, t, toast]);
+  }, [formatApiError, mapTxToUi, profileRole, t, toast]);
 
   const confirmPendingTopup = useCallback(async () => {
     try {
@@ -318,7 +333,7 @@ export default function EmployerEWallet({
 
       const safeCheckoutUrl = safeExternalUrl(checkoutUrl, { purpose: 'payment' });
       if (!result.ok || !safeCheckoutUrl) {
-        toast.error(result.message || t('employerEWallet.toast.noPaymentLink'));
+        toast.error(formatApiError(result, 'employerEWallet.toast.noPaymentLink'));
         return;
       }
 
@@ -341,7 +356,7 @@ export default function EmployerEWallet({
       setIsTopupExpanded(false);
       toast.info(t('employerEWallet.toast.openingPaymentLink'));
     } catch (error: any) {
-      toast.error(error?.message || t('employerEWallet.toast.topupStartFailed'));
+      toast.error(formatApiError(error, 'employerEWallet.toast.topupStartFailed'));
     } finally {
       setIsCreatingPayment(false);
     }
