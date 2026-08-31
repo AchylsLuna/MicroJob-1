@@ -315,7 +315,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lastName: apiUser.lastName || "User",
       role,
       systemRole: String(apiUser.role || role),
-      staffRole: normalizeStaffRole(apiUser.role || role),
+      // Prefer the server's explicit sub-role. Falling back to `apiUser.role`
+      // would collapse every staff member to admin_team, since `role` is only
+      // ever "admin" or "superadmin" — the fallback exists solely for a session
+      // issued before the server started sending staffRole.
+      staffRole: normalizeStaffRole(apiUser.staffRole ?? apiUser.role ?? role),
       accountType,
       accountPreference: normalizePreference(preferredAccount) || undefined,
       accountOptions: normalizedOptions.length > 0 ? normalizedOptions : [...accountOptions],
@@ -539,7 +543,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         lastName: apiUser.lastName || splitName(verificationName).lastName,
         role,
         systemRole: String(apiUser.role || role),
-        staffRole: normalizeStaffRole(apiUser.role || role),
+        staffRole: normalizeStaffRole(apiUser.staffRole ?? apiUser.role ?? role),
         accountType,
         accountPreference: normalizePreference(preferredAccount) || undefined,
         accountOptions: [...accountOptions],

@@ -5,6 +5,7 @@ import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
 import PayoutRequest from '../models/PayoutRequest.js';
 import SupportTicket from '../models/SupportTicket.js';
+import AuditLog from '../models/AuditLog.js';
 
 export async function getAdminStats(req, res) {
   try {
@@ -274,6 +275,35 @@ export async function getAdminRecentPayouts(req, res) {
   } catch (error) {
     console.error('Get recent payouts error:', error);
     res.status(500).json({ message: 'Failed to fetch recent payouts', error: error.message });
+  }
+}
+
+/** GET /admin/audit-logs — recent admin-role activity, most recent first. */
+export async function getAdminAuditLogs(req, res) {
+  try {
+    const limit = Math.min(Math.max(Number(req.query?.limit) || 200, 1), 500);
+    const logs = await AuditLog.find({})
+      .populate('actor', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    return res.status(200).json(
+      logs.map((log) => ({
+        id: log._id,
+        actor: log.actor
+          ? `${log.actor.firstName || ''} ${log.actor.lastName || ''}`.trim() || log.actor.email
+          : 'System',
+        action: log.action,
+        target: log.target || '—',
+        category: log.category === 'error' ? 'error' : 'system',
+        reason: log.reason || undefined,
+        at: log.createdAt,
+      })),
+    );
+  } catch (error) {
+    console.error('Get admin audit logs error:', error);
+    return res.status(500).json({ message: 'Failed to fetch audit logs.' });
   }
 }
 

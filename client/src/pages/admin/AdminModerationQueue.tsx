@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { AlertOctagon, Briefcase, ShieldOff, User as UserIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +7,19 @@ import { Button, ConfirmDialog, Dialog, StatusState, Textarea } from "../../comp
 import { toast } from "../../lib/toast";
 import { formatDateTime } from "../../lib/formatters";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
-import { MODERATION_QUEUE_FIXTURES, type ModerationReport } from "../../lib/adminFixtures";
+import { getAdminModerationReports, updateAdminModerationReport, updateUserStatus } from "../../services/api";
+
+interface ModerationReport {
+  id: string;
+  targetType: "user" | "job";
+  targetId: string;
+  targetName: string;
+  reportedBy: string;
+  reason: string;
+  reportedAt: string;
+  status: "pending" | "resolved" | "dismissed";
+  resolution?: string;
+}
 
 type EnforcementAction = "suspended" | "banned";
 
@@ -17,17 +29,24 @@ const statusStyle: Record<ModerationReport["status"], string> = {
   dismissed: "bg-slate-200 text-slate-700",
 };
 
-/** Fixture-backed — see `lib/adminFixtures.ts`. Actions only update local state. */
 function AdminModerationQueueContent() {
   const { t } = useTranslation("admin");
   const { can } = useAdminPermissions();
   const prefersReducedMotion = useReducedMotion();
 
-  const [reports, setReports] = useState<ModerationReport[]>(MODERATION_QUEUE_FIXTURES);
+  const [reports, setReports] = useState<ModerationReport[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [enforceTarget, setEnforceTarget] = useState<{ report: ModerationReport; action: EnforcementAction } | null>(null);
   const [enforceReason, setEnforceReason] = useState("");
   const [enforceError, setEnforceError] = useState<string | null>(null);
   const [dismissTarget, setDismissTarget] = useState<ModerationReport | null>(null);
+
+  useEffect(() => {
+    getAdminModerationReports()
+      .then((list) => setReports(Array.isArray(list) ? list : []))
+      .catch((error: any) => toast.error(error?.message || "Failed to load moderation reports."))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const pendingCount = useMemo(() => reports.filter((report) => report.status === "pending").length, [reports]);
 
@@ -37,7 +56,7 @@ function AdminModerationQueueContent() {
     setEnforceError(null);
   };
 
-  const submitEnforce = () => {
+  const submitEnforce = async () => {
     if (!enforceTarget) return;
     const reason = enforceReason.trim();
     if (!reason) {
@@ -45,27 +64,35 @@ function AdminModerationQueueContent() {
       return;
     }
     const { report, action } = enforceTarget;
-    setReports((current) =>
-      current.map((item) =>
-        item.id === report.id ? { ...item, status: "resolved", resolution: `${t(`moderationQueue.actions.${action}`)}: ${reason}` } : item,
-      ),
-    );
-    toast.success(
-      action === "banned"
-        ? t("moderationQueue.toast.banned", { name: report.targetName })
-        : t("moderationQueue.toast.suspended", { name: report.targetName }),
-    );
-    setEnforceTarget(null);
-    setEnforceReason("");
+    const resolution = `${t(`moderationQueue.actions.${action}`)}: ${reason}`;
+    try {
+      if (report.targetType === "user") {
+        await updateUserStatus(report.targetId, "disabled");
+      }
+      const { report: updated } = await updateAdminModerationReport(report.id, { status: "resolved", resolution });
+      setReports((current) => current.map((item) => (item.id === report.id ? { ...item, ...updated, id: item.id } : item)));
+      toast.success(
+        action === "banned"
+          ? t("moderationQueue.toast.banned", { name: report.targetName })
+          : t("moderationQueue.toast.suspended", { name: report.targetName }),
+      );
+      setEnforceTarget(null);
+      setEnforceReason("");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to enforce action.");
+    }
   };
 
-  const submitDismiss = () => {
+  const submitDismiss = async () => {
     if (!dismissTarget) return;
-    setReports((current) =>
-      current.map((item) => (item.id === dismissTarget.id ? { ...item, status: "dismissed" } : item)),
-    );
-    toast.success(t("moderationQueue.toast.dismissed", { name: dismissTarget.targetName }));
-    setDismissTarget(null);
+    try {
+      const { report: updated } = await updateAdminModerationReport(dismissTarget.id, { status: "dismissed" });
+      setReports((current) => current.map((item) => (item.id === dismissTarget.id ? { ...item, ...updated, id: item.id } : item)));
+      toast.success(t("moderationQueue.toast.dismissed", { name: dismissTarget.targetName }));
+      setDismissTarget(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to dismiss report.");
+    }
   };
 
   return (
@@ -94,7 +121,9 @@ function AdminModerationQueueContent() {
         </div>
 
         <div className="mt-6">
-          {reports.length === 0 ? (
+          {isLoading ? (
+            <StatusState title={t("moderationQueue.states.emptyTitle")} description="Loading reports…" />
+          ) : reports.length === 0 ? (
             <StatusState
               title={t("moderationQueue.states.emptyTitle")}
               description={t("moderationQueue.states.emptyDescription")}

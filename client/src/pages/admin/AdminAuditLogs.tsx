@@ -1,28 +1,48 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { AlertTriangle, Search, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { StatusState } from "../../components/ui";
 import { formatDateTime } from "../../lib/formatters";
-import { AUDIT_LOG_FIXTURES, type AuditLogEntry } from "../../lib/adminFixtures";
+import { toast } from "../../lib/toast";
+import { getAdminAuditLogs } from "../../services/api";
+
+interface AuditLogEntry {
+  id: string;
+  actor: string;
+  action: string;
+  target: string;
+  category: "system" | "error";
+  reason?: string;
+  at: string;
+}
 
 const categoryStyle: Record<AuditLogEntry["category"], string> = {
   system: "bg-blue-100 text-blue-900",
   error: "bg-red-100 text-red-900",
 };
 
-/** Read-only — nothing on this page writes. Fixture-backed, see `lib/adminFixtures.ts`. */
+/** Read-only — nothing on this page writes. Backed by GET /admin/audit-logs. */
 function AdminAuditLogsContent() {
   const { t } = useTranslation("admin");
   const prefersReducedMotion = useReducedMotion();
 
+  const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"all" | AuditLogEntry["category"]>("all");
 
+  useEffect(() => {
+    getAdminAuditLogs()
+      .then((list) => setLogs(Array.isArray(list) ? list : []))
+      .catch((error: any) => toast.error(error?.message || "Failed to load audit logs."))
+      .finally(() => setIsLoading(false));
+  }, []);
+
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return AUDIT_LOG_FIXTURES.filter((entry) => {
+    return logs.filter((entry) => {
       const matchesCategory = categoryFilter === "all" || entry.category === categoryFilter;
       const matchesSearch =
         !query ||
@@ -31,14 +51,14 @@ function AdminAuditLogsContent() {
         entry.target.toLowerCase().includes(query);
       return matchesCategory && matchesSearch;
     }).sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-  }, [search, categoryFilter]);
+  }, [logs, search, categoryFilter]);
 
   const counts = useMemo(
     () => ({
-      total: AUDIT_LOG_FIXTURES.length,
-      errors: AUDIT_LOG_FIXTURES.filter((entry) => entry.category === "error").length,
+      total: logs.length,
+      errors: logs.filter((entry) => entry.category === "error").length,
     }),
-    [],
+    [logs],
   );
 
   return (
@@ -95,7 +115,9 @@ function AdminAuditLogsContent() {
         </div>
 
         <div className="mt-6">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <StatusState title={t("auditLogs.states.emptyTitle")} description="Loading audit logs…" />
+          ) : filtered.length === 0 ? (
             <StatusState
               title={t("auditLogs.states.emptyTitle")}
               description={t("auditLogs.states.emptyDescription")}

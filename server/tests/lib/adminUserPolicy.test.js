@@ -27,3 +27,63 @@ test("a superadmin may update a different account when another superadmin remain
   const result = getAdminUserMutationError({ actorRole: "superadmin", actorId: "a", targetId: "b", targetRole: "superadmin", nextRole: "admin", nextStatus: "active", activeSuperadminCount: 2 });
   assert.equal(result, null);
 });
+
+test("admin_team may create the four delegable staff sub-roles", () => {
+  assert.equal(
+    getAdminUserCreationError({ actorRole: "admin", actorStaffRole: "admin_team", newRole: "admin", newStaffRole: "moderator" }),
+    null,
+  );
+  assert.equal(
+    getAdminUserCreationError({ actorRole: "admin", actorStaffRole: "admin_team", newRole: "admin", newStaffRole: "finance_team" }),
+    null,
+  );
+});
+
+test("only a superadmin may create another admin_team member", () => {
+  assert.equal(
+    getAdminUserCreationError({ actorRole: "admin", actorStaffRole: "admin_team", newRole: "admin", newStaffRole: "admin_team" })?.status,
+    403,
+  );
+  assert.equal(
+    getAdminUserCreationError({ actorRole: "superadmin", newRole: "admin", newStaffRole: "admin_team" }),
+    null,
+  );
+});
+
+test("a staff role without staff.create cannot create staff accounts", () => {
+  assert.equal(
+    getAdminUserCreationError({ actorRole: "admin", actorStaffRole: "moderator", newRole: "admin", newStaffRole: "support_staff" })?.status,
+    403,
+  );
+  assert.equal(
+    getAdminUserCreationError({ actorRole: "admin", actorStaffRole: "analytics_team", newRole: "admin", newStaffRole: "support_staff" })?.status,
+    403,
+  );
+});
+
+test("admin_team may manage a delegable sub-role but never an admin_team peer", () => {
+  assert.equal(
+    getAdminUserMutationError({
+      actorRole: "admin", actorStaffRole: "admin_team", actorId: "a", targetId: "b",
+      targetRole: "admin", targetStaffRole: "moderator", nextRole: "admin", nextStaffRole: "support_staff", nextStatus: "active",
+    }),
+    null,
+  );
+  assert.equal(
+    getAdminUserMutationError({
+      actorRole: "admin", actorStaffRole: "admin_team", actorId: "a", targetId: "b",
+      targetRole: "admin", targetStaffRole: "admin_team", nextRole: "admin", nextStaffRole: "moderator", nextStatus: "active",
+    })?.status,
+    403,
+  );
+});
+
+test("a staff role without staff.assignRole cannot manage other staff", () => {
+  assert.equal(
+    getAdminUserMutationError({
+      actorRole: "admin", actorStaffRole: "support_staff", actorId: "a", targetId: "b",
+      targetRole: "admin", targetStaffRole: "moderator", nextRole: "admin", nextStaffRole: "moderator", nextStatus: "disabled",
+    })?.status,
+    403,
+  );
+});
