@@ -101,7 +101,24 @@ export function EmployerQrScannerModal({ visible, onClose, onSettled, initialReq
   const [scanned, setScanned] = useState(false);
   const [torch, setTorch] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => { if (visible) { setPreview(null); setScanned(false); setError(''); setManualCode(''); if (initialRequestId) { setBusy(true); void (async () => { const result = await apiRequest(`${API_URL}/payment/qr-requests/${initialRequestId}`, { headers: await authHeaders() }, 'Unable to open payment invoice.'); if (!result.ok) throw new Error(result.message); const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {}; setPreview(payload.preview); })().catch((caught) => setError(caught?.message || 'Unable to open payment invoice.')).finally(() => setBusy(false)); } } }, [initialRequestId, visible]);
+  useEffect(() => {
+    if (visible) {
+      setPreview(null);
+      setScanned(false);
+      setError('');
+      setManualCode('');
+      if (initialRequestId) {
+        setBusy(true);
+        void (async () => {
+          const result = await apiRequest(`${API_URL}/payment/qr-requests/${initialRequestId}`, { headers: await authHeaders() }, 'Unable to open payment invoice.');
+          if (!result.ok) throw new Error(result.message);
+          const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
+          const resolvedPreview = payload?.preview || (payload?.requestId ? payload : null);
+          setPreview(resolvedPreview);
+        })().catch((caught) => setError(caught?.message || 'Unable to open payment invoice.')).finally(() => setBusy(false));
+      }
+    }
+  }, [initialRequestId, visible]);
 
   const resolve = async (value: string, isCode = false) => {
     if (busy || !value.trim()) return;
@@ -112,7 +129,8 @@ export function EmployerQrScannerModal({ visible, onClose, onSettled, initialReq
       }, 'Unable to resolve payment QR.');
       if (!result.ok) throw new Error(result.message);
       const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
-      setPreview(payload.preview);
+      const resolvedPreview = payload?.preview || (payload?.requestId ? payload : null);
+      setPreview(resolvedPreview);
     } catch (caught: any) { setError(caught?.message || 'Unable to resolve payment QR.'); setScanned(false); }
     finally { setBusy(false); }
   };

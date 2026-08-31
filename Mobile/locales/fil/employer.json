@@ -168,13 +168,18 @@
       "emptyBody": "Lalabas dito ang mga top-up, pagpopondo ng trabaho, at refund.",
       "defaultTitle": "Transaksyon"
     },
-    "toast": {
       "invalidAmount": "Maglagay ng valid na halaga ng top up (minimum PHP 100).",
+      "noBalance": "Walang available na balanse. Ang balanse ng iyong employer wallet ay ₱0.00.",
+      "insufficientBalance": "Kulang ang balanse. Kailangan mo ng hindi bababa sa {{required}} (Available: {{available}}).",
+      "belowMinimum": "Mababa ang halaga sa minimum na limitasyon ng top-up na {{min}}.",
+      "balanceVerified": "Kasalukuyang available na balanse: {{amount}} matagumpay na na-verify.",
       "signInFirst": "Mangyaring mag-sign in muna bago mag-top up.",
       "noPaymentLink": "Walang naibalik na payment link mula sa server.",
       "cannotOpenLink": "Hindi mabuksan ang payment link sa device na ito.",
       "openingPaymentLink": "Binubuksan ang payment link sa iyong browser. Kumpletuhin ang bayad para mag-top up ang wallet.",
-      "topupStartFailed": "Hindi ma-start ang top up ngayon."
+      "topupStartFailed": "Hindi ma-start ang top up ngayon.",
+      "sessionExpired": "Nag-expire ang iyong sesyon ng seguridad. Mangyaring mag-refresh o mag-sign in muli.",
+      "csrfError": "Nabigo ang security check. Mangyaring i-refresh ang iyong wallet."
     },
     "errors": {
       "profileFailed": "Hindi na-load ang profile ng wallet.",

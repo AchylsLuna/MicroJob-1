@@ -178,7 +178,9 @@
       "noPaymentLink": "No payment link was returned by the server.",
       "cannotOpenLink": "Unable to open payment link on this device.",
       "openingPaymentLink": "Opening payment link in your browser. Complete payment to top up your wallet.",
-      "topupStartFailed": "Unable to start top up right now."
+      "topupStartFailed": "Unable to start top up right now.",
+      "sessionExpired": "Your security session has expired. Please refresh or sign in again.",
+      "csrfError": "Security check failed. Please refresh your wallet."
     },
     "errors": {
       "profileFailed": "Failed to load wallet profile.",
