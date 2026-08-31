@@ -33,19 +33,15 @@ export const navigateToRoleTab = <R extends Role>(
     if (state?.routeNames?.includes(tab)) {
       const activeRoute = state.routes[state.index];
       if (activeRoute?.name !== tab) {
-        target.dispatch(CommonActions.navigate({
-          name: String(tab),
-          params: role === 'worker' && tab === 'Jobs' ? { initialCategory: null } : undefined,
-          merge: false,
-        }));
+        target.dispatch(CommonActions.navigate(
+          String(tab),
+          role === 'worker' && tab === 'Jobs' ? { initialCategory: null } : undefined,
+        ));
       }
       return;
     }
     target = target.getParent?.();
   }
 
-  navigation.dispatch(CommonActions.navigate({
-    name: tabContainers[role],
-    params: { screen: tab },
-  }));
+  navigation.dispatch(CommonActions.navigate(tabContainers[role], { screen: tab }));
 };
