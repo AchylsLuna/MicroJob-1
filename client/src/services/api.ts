@@ -374,7 +374,9 @@ async function request<T>(
     if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession })) {
       handleInvalidSession();
     }
-    throw new Error(message);
+    const error = new Error(message) as Error & { status?: number };
+    error.status = res.status;
+    throw error;
   }
   return data as T;
 }
@@ -1215,4 +1217,39 @@ export function replyToAdminSupportTicket(ticketId: string, payload: { message: 
     method: 'POST',
     body: payload,
   });
+}
+
+export function getAdminAuditLogs(params?: { limit?: number }) {
+  return request<any[]>(`/admin/audit-logs${buildQuery(params)}`, { method: 'GET' });
+}
+
+export function getAdminStaff() {
+  return request<any[]>('/admin/staff', { method: 'GET' });
+}
+
+export function createAdminStaff(payload: { firstName: string; lastName: string; email: string; password: string; staffRole: string }) {
+  return request<{ message: string; staff: any }>('/admin/staff', { method: 'POST', body: payload });
+}
+
+export function updateAdminStaff(userId: string, payload: { staffRole?: string; status?: 'active' | 'disabled' }) {
+  return request<{ message: string; staff: any }>(`/admin/staff/${userId}`, { method: 'PATCH', body: payload });
+}
+
+export function getAdminModerationReports() {
+  return request<any[]>('/admin/moderation/reports', { method: 'GET' });
+}
+
+export function updateAdminModerationReport(reportId: string, payload: { status: 'resolved' | 'dismissed'; resolution?: string }) {
+  return request<{ message: string; report: any }>(`/admin/moderation/reports/${reportId}`, { method: 'PATCH', body: payload });
+}
+
+export function getAdminFinancialDisputes() {
+  return request<any[]>('/admin/finance/disputes', { method: 'GET' });
+}
+
+export function updateAdminFinancialDispute(
+  disputeId: string,
+  payload: { status: 'open' | 'investigating' | 'resolved' | 'rejected'; resolutionNotes?: string },
+) {
+  return request<{ message: string; dispute: any }>(`/admin/finance/disputes/${disputeId}`, { method: 'PATCH', body: payload });
 }

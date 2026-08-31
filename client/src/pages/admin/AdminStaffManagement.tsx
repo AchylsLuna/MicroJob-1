@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { ShieldCheck, UserCog, UserX, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,32 +8,52 @@ import { toast } from "../../lib/toast";
 import { formatDateTime } from "../../lib/formatters";
 import { useAuth } from "../../hooks/useAuth";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
-import { STAFF_ACCOUNT_FIXTURES, type StaffAccount } from "../../lib/adminFixtures";
+import { getAdminStaff, createAdminStaff, updateAdminStaff } from "../../services/api";
+import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
 import { ADMIN_STAFF_ROLES, ROLE_BADGE_STYLE, type AdminStaffRole } from "../../lib/adminPermissions";
 
-/**
- * Fixture-backed for now — see the header comment in `lib/adminFixtures.ts`
- * for why this does not call `createUserByAdmin`. Enable/disable and role
- * changes here only update local component state; nothing is persisted.
- */
+interface StaffAccount {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  staffRole: AdminStaffRole;
+  status: "active" | "disabled";
+  lastActiveAt: string;
+}
+
 function AdminStaffManagementContent() {
   const { t } = useTranslation("admin");
   const { user: currentUser } = useAuth();
   const { can } = useAdminPermissions();
   const prefersReducedMotion = useReducedMotion();
 
-  const [staff, setStaff] = useState<StaffAccount[]>(STAFF_ACCOUNT_FIXTURES);
+  const [staff, setStaff] = useState<StaffAccount[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | AdminStaffRole>("all");
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ firstName: "", lastName: "", email: "", staffRole: ADMIN_STAFF_ROLES[0] });
+  const [createForm, setCreateForm] = useState({ firstName: "", lastName: "", email: "", password: "", staffRole: ADMIN_STAFF_ROLES[0] });
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
 
   const [roleTarget, setRoleTarget] = useState<StaffAccount | null>(null);
   const [roleDraft, setRoleDraft] = useState<AdminStaffRole>(ADMIN_STAFF_ROLES[0]);
 
   const [statusTarget, setStatusTarget] = useState<StaffAccount | null>(null);
+
+  const loadStaff = () => {
+    setIsLoading(true);
+    getAdminStaff()
+      .then((list) => setStaff(Array.isArray(list) ? list : []))
+      .catch((error: any) => toast.error(error?.message || "Failed to load staff accounts."))
+      .finally(() => setIsLoading(false));
+  };
+
+  useEffect(() => {
+    loadStaff();
+  }, []);
 
   const roleLabel = (role: AdminStaffRole) => t(`staffManagement.roles.${role}`);
 
@@ -62,12 +82,12 @@ function AdminStaffManagementContent() {
   );
 
   const openCreate = () => {
-    setCreateForm({ firstName: "", lastName: "", email: "", staffRole: ADMIN_STAFF_ROLES[0] });
+    setCreateForm({ firstName: "", lastName: "", email: "", password: "", staffRole: ADMIN_STAFF_ROLES[0] });
     setCreateErrors({});
     setCreateOpen(true);
   };
 
-  const submitCreate = () => {
+  const submitCreate = async () => {
     const errors: Record<string, string> = {};
     if (!createForm.firstName.trim()) errors.firstName = t("staffManagement.formErrors.firstNameRequired");
     if (!createForm.lastName.trim()) errors.lastName = t("staffManagement.formErrors.lastNameRequired");
@@ -75,21 +95,27 @@ function AdminStaffManagementContent() {
     if (staff.some((account) => account.email.toLowerCase() === createForm.email.trim().toLowerCase())) {
       errors.email = t("staffManagement.formErrors.emailTaken");
     }
+    if (!getPasswordStrength(createForm.password).isStrong) errors.password = STRONG_PASSWORD_ERROR;
     setCreateErrors(errors);
     if (Object.keys(errors).length) return;
 
-    const account: StaffAccount = {
-      id: `staff_${Date.now()}`,
-      firstName: createForm.firstName.trim(),
-      lastName: createForm.lastName.trim(),
-      email: createForm.email.trim(),
-      staffRole: createForm.staffRole,
-      status: "active",
-      lastActiveAt: new Date().toISOString(),
-    };
-    setStaff((current) => [account, ...current]);
-    toast.success(t("staffManagement.toast.created", { name: `${account.firstName} ${account.lastName}` }));
-    setCreateOpen(false);
+    setIsSubmittingCreate(true);
+    try {
+      const { staff: created } = await createAdminStaff({
+        firstName: createForm.firstName.trim(),
+        lastName: createForm.lastName.trim(),
+        email: createForm.email.trim(),
+        password: createForm.password,
+        staffRole: createForm.staffRole,
+      });
+      setStaff((current) => [created, ...current]);
+      toast.success(t("staffManagement.toast.created", { name: `${created.firstName} ${created.lastName}` }));
+      setCreateOpen(false);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to create staff account.");
+    } finally {
+      setIsSubmittingCreate(false);
+    }
   };
 
   const openRoleChange = (account: StaffAccount) => {
@@ -97,27 +123,33 @@ function AdminStaffManagementContent() {
     setRoleTarget(account);
   };
 
-  const submitRoleChange = () => {
+  const submitRoleChange = async () => {
     if (!roleTarget) return;
-    setStaff((current) =>
-      current.map((account) => (account.id === roleTarget.id ? { ...account, staffRole: roleDraft } : account)),
-    );
-    toast.success(t("staffManagement.toast.roleUpdated", { name: `${roleTarget.firstName} ${roleTarget.lastName}` }));
-    setRoleTarget(null);
+    try {
+      const { staff: updated } = await updateAdminStaff(roleTarget.id, { staffRole: roleDraft });
+      setStaff((current) => current.map((account) => (account.id === roleTarget.id ? updated : account)));
+      toast.success(t("staffManagement.toast.roleUpdated", { name: `${roleTarget.firstName} ${roleTarget.lastName}` }));
+      setRoleTarget(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update staff role.");
+    }
   };
 
-  const submitStatusToggle = () => {
+  const submitStatusToggle = async () => {
     if (!statusTarget) return;
     const nextStatus = statusTarget.status === "active" ? "disabled" : "active";
-    setStaff((current) =>
-      current.map((account) => (account.id === statusTarget.id ? { ...account, status: nextStatus } : account)),
-    );
-    toast.success(
-      nextStatus === "disabled"
-        ? t("staffManagement.toast.disabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` })
-        : t("staffManagement.toast.enabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` }),
-    );
-    setStatusTarget(null);
+    try {
+      const { staff: updated } = await updateAdminStaff(statusTarget.id, { status: nextStatus });
+      setStaff((current) => current.map((account) => (account.id === statusTarget.id ? updated : account)));
+      toast.success(
+        nextStatus === "disabled"
+          ? t("staffManagement.toast.disabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` })
+          : t("staffManagement.toast.enabled", { name: `${statusTarget.firstName} ${statusTarget.lastName}` }),
+      );
+      setStatusTarget(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update staff status.");
+    }
   };
 
   return (
@@ -177,7 +209,9 @@ function AdminStaffManagementContent() {
         </div>
 
         <div className="mt-6">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <StatusState title={t("staffManagement.states.emptyTitle")} description="Loading staff accounts…" />
+          ) : filtered.length === 0 ? (
             <StatusState
               title={t("staffManagement.states.emptyTitle")}
               description={t("staffManagement.states.emptyDescription")}
@@ -274,6 +308,16 @@ function AdminStaffManagementContent() {
             />
           </div>
           <div className="sm:col-span-2">
+            <Input
+              label="Temporary password"
+              type="password"
+              autoComplete="new-password"
+              value={createForm.password}
+              error={createErrors.password}
+              onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
+            />
+          </div>
+          <div className="sm:col-span-2">
             <Select
               label={t("staffManagement.createDialog.role")}
               value={createForm.staffRole}
@@ -289,7 +333,7 @@ function AdminStaffManagementContent() {
           <Button onClick={() => setCreateOpen(false)} className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50">
             {t("staffManagement.createDialog.cancel")}
           </Button>
-          <Button onClick={submitCreate}>{t("staffManagement.createDialog.confirm")}</Button>
+          <Button onClick={submitCreate} disabled={isSubmittingCreate}>{t("staffManagement.createDialog.confirm")}</Button>
         </div>
       </Dialog>
 

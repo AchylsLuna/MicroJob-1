@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
@@ -139,6 +140,10 @@ const registerUser = async (req, res) => {
   }
 };
 
+// A real bcrypt hash (of a value nothing can log in with) compared against
+// when no account matches, purely to keep the failure path's timing constant.
+const ENUMERATION_TIMING_HASH = '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy';
+
 const loginUser = async (req, res) => {
   try {
     const { emailOrUsername, password, phoneNumber, requireOtp } = req.body;
@@ -169,11 +174,22 @@ const loginUser = async (req, res) => {
       }).select('+passwordHashed');
     }
 
+    // One generic message for both "no such account" and "wrong password".
+    // Distinct messages let an unauthenticated caller confirm which emails and
+    // phone numbers are registered (OWASP ASVS 3.2.2) — the same reason
+    // requestPasswordResetOtp returns PASSWORD_RESET_GENERIC_MESSAGE.
+    const invalidMessage = includePhone
+      ? 'The phone number or password is incorrect. Please try again.'
+      : 'The email, username, or password is incorrect. Please try again.';
+
     if (!user) {
-      return sendError(res, 401, includePhone ? 'No account found with this phone number.' : 'No account found with this email.');
+      // Spend the same bcrypt work as the wrong-password path, so a missing
+      // account cannot be identified by how quickly the request comes back.
+      await bcrypt.compare(password, ENUMERATION_TIMING_HASH);
+      return sendError(res, 401, invalidMessage);
     }
     if (!(await user.validatePassword(password))) {
-      return sendError(res, 401, 'Incorrect password. Please try again.');
+      return sendError(res, 401, invalidMessage);
     }
 
     if (user.status === 'pending') {

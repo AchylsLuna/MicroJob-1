@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { AlertCircle, CheckCircle2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -6,7 +6,18 @@ import { AdminGate } from "./admin/AdminGate";
 import { Button, Dialog, StatusState, Textarea } from "../../components/ui";
 import { toast } from "../../lib/toast";
 import { formatCurrency, formatDateTime } from "../../lib/formatters";
-import { FINANCIAL_DISPUTE_FIXTURES, type FinancialDispute } from "../../lib/adminFixtures";
+import { getAdminFinancialDisputes, updateAdminFinancialDispute } from "../../services/api";
+
+interface FinancialDispute {
+  id: string;
+  subject: string;
+  raisedBy: string;
+  amount: number;
+  reason: string;
+  status: "open" | "investigating" | "resolved" | "rejected";
+  raisedAt: string;
+  resolutionNotes?: string;
+}
 
 type ResolveOutcome = "resolved" | "rejected";
 
@@ -17,17 +28,24 @@ const statusStyle: Record<FinancialDispute["status"], string> = {
   rejected: "bg-red-100 text-red-900",
 };
 
-/** Fixture-backed — see `lib/adminFixtures.ts`. Actions only update local state. */
 function AdminFinancialDisputesContent() {
   const { t } = useTranslation("admin");
   const prefersReducedMotion = useReducedMotion();
 
-  const [disputes, setDisputes] = useState<FinancialDispute[]>(FINANCIAL_DISPUTE_FIXTURES);
+  const [disputes, setDisputes] = useState<FinancialDispute[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<"all" | FinancialDispute["status"]>("all");
   const [search, setSearch] = useState("");
   const [resolveTarget, setResolveTarget] = useState<{ dispute: FinancialDispute; outcome: ResolveOutcome } | null>(null);
   const [resolveNotes, setResolveNotes] = useState("");
   const [resolveError, setResolveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getAdminFinancialDisputes()
+      .then((list) => setDisputes(Array.isArray(list) ? list : []))
+      .catch((error: any) => toast.error(error?.message || "Failed to load financial disputes."))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -47,9 +65,14 @@ function AdminFinancialDisputesContent() {
     [disputes],
   );
 
-  const startInvestigating = (dispute: FinancialDispute) => {
-    setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, status: "investigating" } : item)));
-    toast.success(t("disputes.toast.investigating", { subject: dispute.subject }));
+  const startInvestigating = async (dispute: FinancialDispute) => {
+    try {
+      const { dispute: updated } = await updateAdminFinancialDispute(dispute.id, { status: "investigating" });
+      setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, ...updated, id: item.id } : item)));
+      toast.success(t("disputes.toast.investigating", { subject: dispute.subject }));
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update dispute.");
+    }
   };
 
   const openResolve = (dispute: FinancialDispute, outcome: ResolveOutcome) => {
@@ -58,7 +81,7 @@ function AdminFinancialDisputesContent() {
     setResolveError(null);
   };
 
-  const submitResolve = () => {
+  const submitResolve = async () => {
     if (!resolveTarget) return;
     const notes = resolveNotes.trim();
     if (!notes) {
@@ -66,13 +89,18 @@ function AdminFinancialDisputesContent() {
       return;
     }
     const { dispute, outcome } = resolveTarget;
-    setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, status: outcome, resolutionNotes: notes } : item)));
-    toast.success(
-      outcome === "resolved"
-        ? t("disputes.toast.resolved", { subject: dispute.subject })
-        : t("disputes.toast.rejected", { subject: dispute.subject }),
-    );
-    setResolveTarget(null);
+    try {
+      const { dispute: updated } = await updateAdminFinancialDispute(dispute.id, { status: outcome, resolutionNotes: notes });
+      setDisputes((current) => current.map((item) => (item.id === dispute.id ? { ...item, ...updated, id: item.id } : item)));
+      toast.success(
+        outcome === "resolved"
+          ? t("disputes.toast.resolved", { subject: dispute.subject })
+          : t("disputes.toast.rejected", { subject: dispute.subject }),
+      );
+      setResolveTarget(null);
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to update dispute.");
+    }
   };
 
   return (
@@ -131,7 +159,9 @@ function AdminFinancialDisputesContent() {
         </div>
 
         <div className="mt-6">
-          {filtered.length === 0 ? (
+          {isLoading ? (
+            <StatusState title={t("disputes.states.emptyTitle")} description="Loading disputes…" />
+          ) : filtered.length === 0 ? (
             <StatusState title={t("disputes.states.emptyTitle")} description={t("disputes.states.emptyDescription")} />
           ) : (
             <div className="overflow-x-auto">

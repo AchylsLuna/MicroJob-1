@@ -126,35 +126,57 @@ export function useAdminData() {
   useEffect(() => {
     let isActive = true;
 
+    // Every admin sub-role lands on pages that all call this one hook, but the
+    // server now enforces each section's permission independently (users.view,
+    // jobs.view, finance.transactions.view, finance.payouts.review — see
+    // server/routes/AdminRoute.js). A role missing one permission must not
+    // lose every other section, so each fetch is settled independently and a
+    // 403 degrades that section to its empty default instead of failing the
+    // whole dashboard.
     const loadData = async () => {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult] = await Promise.all([
-          getAdminStats(),
-          getAdminUsers(),
-          getAdminJobs(),
-          getAdminCategories(),
-          getAdminWalletStats(),
-          getAdminRecentPayouts(),
-          getAdminTransactions(),
-        ]);
-        
+        const [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult] =
+          await Promise.allSettled([
+            getAdminStats(),
+            getAdminUsers(),
+            getAdminJobs(),
+            getAdminCategories(),
+            getAdminWalletStats(),
+            getAdminRecentPayouts(),
+            getAdminTransactions(),
+          ]);
+
         if (!isActive) return;
-        
+
+        const unexpectedErrors: string[] = [];
+        const collect = (result: PromiseSettledResult<unknown>) => {
+          if (result.status === "rejected" && (result.reason as any)?.status !== 403) {
+            unexpectedErrors.push((result.reason as any)?.message || "Failed to load admin data.");
+          }
+        };
+        [statResult, userList, jobList, categoryList, walletResult, payoutsResult, txResult].forEach(collect);
+
         setStats({
           ...DEFAULT_ADMIN_STATS,
-          ...(statResult && typeof statResult === "object" ? statResult : {}),
+          ...(statResult.status === "fulfilled" && typeof statResult.value === "object" ? statResult.value : {}),
         });
-        setUsers(Array.isArray(userList) ? userList : []);
-        setJobs(Array.isArray(jobList) ? jobList : []);
-        setCategories(Array.isArray(categoryList) ? categoryList : []);
+        setUsers(userList.status === "fulfilled" && Array.isArray(userList.value) ? userList.value : []);
+        setJobs(jobList.status === "fulfilled" && Array.isArray(jobList.value) ? jobList.value : []);
+        setCategories(categoryList.status === "fulfilled" && Array.isArray(categoryList.value) ? categoryList.value : []);
         setWalletStats({
           ...DEFAULT_ADMIN_WALLET_STATS,
-          ...(walletResult && typeof walletResult === "object" ? walletResult : {}),
+          ...(walletResult.status === "fulfilled" && typeof walletResult.value === "object" ? walletResult.value : {}),
         });
-        setRecentPayouts(Array.isArray(payoutsResult) ? payoutsResult : []);
-        setTransactions(Array.isArray(txResult) ? txResult : []);
+        setRecentPayouts(payoutsResult.status === "fulfilled" && Array.isArray(payoutsResult.value) ? payoutsResult.value : []);
+        setTransactions(txResult.status === "fulfilled" && Array.isArray(txResult.value) ? txResult.value : []);
+
+        if (unexpectedErrors.length) {
+          const message = unexpectedErrors[0];
+          setLoadError(message);
+          toast.error(message);
+        }
       } catch (error: any) {
         if (!isActive) return;
         const message = error?.message || "Failed to load admin data.";

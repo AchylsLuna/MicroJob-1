@@ -68,7 +68,11 @@ export async function audit(opts = {}) {
   try {
     await AuditLog.create({
       actor: opts.actor || null,
+      actorRole: opts.actorRole || null,
       action: opts.action || 'unknown',
+      target: opts.target || null,
+      reason: opts.reason || null,
+      category: opts.category === 'error' ? 'error' : 'system',
       ip: opts.ip || null,
       userAgent: opts.userAgent || null,
       device: opts.device || null,

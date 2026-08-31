@@ -141,6 +141,10 @@ export const buildLoginPayload = (user, includePhone = false) => {
     lastName: user.lastName,
     email: user.email,
     role,
+    // The admin sub-role that drives the RBAC matrix (server/lib/adminPermissions.js).
+    // `role` alone flattens every staff member to "admin", so without this the
+    // client cannot tell a moderator from a finance_team member.
+    staffRole: role === 'superadmin' ? 'superadmin' : user.staffRole || null,
     accountOptions,
     avatarUrl: user.avatarUrl,
     city: user.city,

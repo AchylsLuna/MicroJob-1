@@ -43,6 +43,14 @@ const UserSchema = new mongoose.Schema(
       enum: ['hire', 'work', 'both', 'admin', 'superadmin'],
       default: 'work',
     },
+    // Sub-role for `role: 'admin'` staff accounts only — see server/lib/adminPermissions.js,
+    // which mirrors client/src/lib/adminPermissions.ts. Null for non-staff and for superadmin,
+    // which sits above the five staff roles and needs no sub-role.
+    staffRole: {
+      type: String,
+      enum: ['admin_team', 'moderator', 'finance_team', 'analytics_team', 'support_staff', null],
+      default: null,
+    },
     blockedUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     archivedConversations: [{ type: String }],
     status: {
