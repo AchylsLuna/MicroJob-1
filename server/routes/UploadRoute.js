@@ -33,9 +33,10 @@ export const createUploadsRouter = () => {
                     { resumeUrl: uploadUrl },
                     { 'verification.identityDocument.documentUrl': uploadUrl },
                     { 'verification.addressDocument.documentUrl': uploadUrl },
+                    { 'workExperience.media.url': uploadUrl },
                 ],
             }).select(
-                '_id avatarUrl resumeFileName resumeUrl verification.identityDocument.documentUrl verification.addressDocument.documentUrl'
+                '_id avatarUrl resumeFileName resumeUrl verification.identityDocument.documentUrl verification.addressDocument.documentUrl workExperience.media.url'
             );
 
             if (!owner) {
@@ -50,6 +51,12 @@ export const createUploadsRouter = () => {
                 owner.verification?.identityDocument?.documentUrl === uploadUrl ||
                 owner.verification?.addressDocument?.documentUrl === uploadUrl;
             const isSensitiveFile = isResume || isVerificationDocument;
+            // Work-sample photos exist specifically to be shown on the public
+            // profile ("Public View"), so they're public like avatars, not
+            // gated like resumes/verification docs.
+            const isPortfolioMedia = (owner.workExperience || []).some((experience) =>
+                (experience.media || []).some((item) => item.url === uploadUrl)
+            );
 
             if (isSensitiveFile) {
                 const authContext = await getAuthContextFromRequest(req);
@@ -72,7 +79,7 @@ export const createUploadsRouter = () => {
                 }
             }
 
-            if (isAvatar || isSensitiveFile) {
+            if (isAvatar || isPortfolioMedia || isSensitiveFile) {
                 res.setHeader('Content-Type', storedUpload.contentType || 'application/octet-stream');
                 res.setHeader('X-Content-Type-Options', 'nosniff');
                 res.setHeader('Cache-Control', isSensitiveFile ? 'private, no-store' : 'public, max-age=3600');

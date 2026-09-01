@@ -282,6 +282,34 @@ const UserSchema = new mongoose.Schema(
           maxlength: 1000,
           default: '',
         },
+        // Work samples attached to this entry. `filename` is the StoredUpload
+        // key (uploads live in Mongo, not on disk -- see lib/uploadStore.js),
+        // and is what deletion uses to reclaim the blob.
+        media: [
+          {
+            url: {
+              type: String,
+              required: true,
+              trim: true,
+              maxlength: 500,
+            },
+            filename: {
+              type: String,
+              required: true,
+              trim: true,
+              maxlength: 255,
+            },
+            originalName: {
+              type: String,
+              trim: true,
+              maxlength: 255,
+            },
+            createdAt: {
+              type: Date,
+              default: Date.now,
+            },
+          },
+        ],
         createdAt: {
           type: Date,
           default: Date.now,

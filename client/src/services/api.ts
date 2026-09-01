@@ -83,6 +83,13 @@ export type LoginResponse =
   | AuthResponse
   | MfaChallengeResponse
   | { data: AuthResponse | MfaChallengeResponse; message?: string };
+export type WorkExperienceMedia = {
+  _id?: string;
+  url: string;
+  filename?: string;
+  originalName?: string;
+  createdAt?: string;
+};
 export type WorkExperience = {
   _id?: string;
   id?: string;
@@ -93,6 +100,7 @@ export type WorkExperience = {
   endDate?: string | null;
   current: boolean;
   description?: string;
+  media?: WorkExperienceMedia[];
 };
 export type PaymentTarget = 'EMPLOYER' | 'WORKER' | 'BOTH';
 export type PaymentTransaction = {
@@ -374,8 +382,9 @@ async function request<T>(
     if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession })) {
       handleInvalidSession();
     }
-    const error = new Error(message) as Error & { status?: number };
+    const error = new Error(message) as Error & { status?: number; code?: string };
     error.status = res.status;
+    if (typeof data?.code === 'string') error.code = data.code;
     throw error;
   }
   return data as T;
@@ -734,6 +743,21 @@ export function updateWorkExperience(experienceId: string, payload: Partial<Work
 
 export function deleteWorkExperience(experienceId: string) {
   return request<{ workExperience: WorkExperience[] }>(`/auth/profile/experience/${experienceId}`, {
+    method: 'DELETE',
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function uploadExperienceMedia(experienceId: string, file: File) {
+  const formData = new FormData();
+  formData.append('media', file);
+  return request<{ workExperience: WorkExperience[] }>(`/auth/profile/experience/${experienceId}/media`, {
+    method: 'POST',
+    body: formData,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function deleteExperienceMedia(experienceId: string, mediaId: string) {
+  return request<{ workExperience: WorkExperience[] }>(`/auth/profile/experience/${experienceId}/media/${mediaId}`, {
     method: 'DELETE',
   }).then((response: any) => response?.data ?? response);
 }

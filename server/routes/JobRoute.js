@@ -25,7 +25,7 @@ router.get('/available', optionalAuth, getAvailableJobs);
 router.get('/recommended', verifyToken, getRecommendedJobs);
 router.get('/category/:categoryId', optionalAuth, getJobByCategory);
 router.get('/mine', verifyToken, getMyJobs);
-router.get('/:id', getJobDetails);
+router.get('/:id', optionalAuth, getJobDetails);
 
 router.post('/', verifyToken, createJob);
 router.put('/:id', verifyToken, updateJob);

@@ -11,23 +11,53 @@ export const APPLICANT_SELECT = [
 const WORKER_ROLES = new Set(['work', 'worker', 'user', 'patient', 'both']);
 const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-export async function resolveDiscoveryCity({ userId, role, requestedCity, allowUnscoped }) {
+/**
+ * Resolves the viewer's home locality. Discovery is national — this is a
+ * *ranking* signal, never a filter, so a missing city is a normal state rather
+ * than an error: the viewer simply sees the national list unranked.
+ */
+export async function resolveDiscoveryCity({ userId, role, requestedCity }) {
   if (userId && WORKER_ROLES.has(role)) {
-    const worker = await User.findById(userId).select('city');
-    const city = String(worker?.city || '').trim();
-    return city ? { city } : { error: true };
+    const worker = await User.findById(userId).select('city province');
+    return {
+      city: String(worker?.city || '').trim(),
+      province: String(worker?.province || '').trim(),
+    };
   }
 
-  const city = String(requestedCity || '').trim();
-  if (city) return { city };
-  if (userId && allowUnscoped) return { city: '' };
-  return { error: true };
+  return { city: String(requestedCity || '').trim(), province: '' };
 }
 
-export function addCityFilter(filter, city) {
-  if (!city) return filter;
-  const citySegment = `(?:^|,\\s*)${escapeRegExp(city)}(?:\\s*,|$)`;
-  return { ...filter, location: { $regex: citySegment, $options: 'i' } };
+/** True when `location` names this locality as a whole comma-separated segment. */
+function locationMatches(location, locality) {
+  if (!locality) return false;
+  const pattern = new RegExp(`(?:^|,\\s*)${escapeRegExp(locality)}(?:\\s*,|$)`, 'i');
+  return pattern.test(String(location || ''));
+}
+
+/**
+ * Tags how close a job is to the viewer, so the client can label a group
+ * ("Nearest in your city") without re-deriving the match itself.
+ */
+export function proximityOf(job, { city, province } = {}) {
+  if (locationMatches(job?.location, city)) return 'city';
+  if (locationMatches(job?.location, province)) return 'province';
+  return 'national';
+}
+
+const PROXIMITY_RANK = { city: 0, province: 1, national: 2 };
+
+/**
+ * Orders a national result set so the viewer's own city surfaces first, then
+ * their province, then everywhere else — each group newest-first. Jobs are never
+ * removed: a worker in a quiet municipality still sees the whole country.
+ */
+export function sortByProximity(jobs, locality) {
+  return [...jobs].sort((a, b) => {
+    const rankDiff = PROXIMITY_RANK[proximityOf(a, locality)] - PROXIMITY_RANK[proximityOf(b, locality)];
+    if (rankDiff !== 0) return rankDiff;
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+  });
 }
 
 export function serializePublicJob(job) {

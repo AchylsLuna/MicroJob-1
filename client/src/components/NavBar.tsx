@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { useLanguage, type Language } from "../hooks/useLanguage";
 import { jobsAPI } from "../services/jobs";
 import { mapNotificationRecord, type FeedNotification } from "../utils/notificationFeed";
 import { useNotifications } from "../contexts/NotificationContext";
@@ -20,7 +19,6 @@ interface NavBarProps {
 
 export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarProps) {
   const { t } = useTranslation("common");
-  const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -809,7 +807,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   </div>
                 )}
 
-                {user?.id ? (
+                {user?.id && notificationAudience !== "admin" ? (
                   <div className="border-b border-slate-200 p-2">
                     <button
                       type="button"
@@ -831,27 +829,6 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
                   </button>
                 </div>
 
-                <div className="border-t border-slate-200 p-4">
-                  <label className="block text-xs font-semibold text-slate-500">{t("language.label")}</label>
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setLanguage("en" as Language)}
-                      aria-pressed={language === "en"}
-                      className={`min-h-9 flex-1 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${language === "en" ? "border-[#1C4D8D] bg-[#EAF1FB] text-[#1C4D8D]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-                    >
-                      {t("language.english")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLanguage("tl" as Language)}
-                      aria-pressed={language === "tl"}
-                      className={`min-h-9 flex-1 rounded-lg border px-3 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${language === "tl" ? "border-[#1C4D8D] bg-[#EAF1FB] text-[#1C4D8D]" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
-                    >
-                      {t("language.filipino")}
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
           </div>

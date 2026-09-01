@@ -203,11 +203,25 @@ export function JobDetails() {
 
   const handleApply = async () => {
     if (!job?._id) return;
+    // Mirrors the server's own gate (getWorkerProfileRequirementError) so a
+    // worker with no photo yet is sent straight to the fix rather than a
+    // generic "application failed" toast — the server enforces this
+    // regardless of what runs here.
+    if (!user?.avatarUrl?.trim()) {
+      toast.error(t("jobDetails.toast.profileIncomplete"));
+      navigate(ROUTES.worker.settings);
+      return;
+    }
     try {
       await applyForJob(job._id);
       setHasApplied(true);
       toast.success(t("jobDetails.toast.applySuccess"));
     } catch (error: any) {
+      if (error?.code === "WORKER_PROFILE_INCOMPLETE") {
+        toast.error(t("jobDetails.toast.profileIncomplete"));
+        navigate(ROUTES.worker.settings);
+        return;
+      }
       toast.error(error?.message || t("jobDetails.toast.applyFailed"));
     }
   };

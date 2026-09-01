@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import Category from '../models/Category.js';
 import JobApplication from '../models/JobApplication.js';
+import Job from '../models/Job.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 import { normalizeExperience } from '../lib/profileValidation.js';
@@ -25,30 +26,60 @@ export const getProfile = async (req, res) => {
       return sendError(res, 404, 'User not found');
     }
 
-    const [jobsApplied, jobsCompleted] = await Promise.all([
-      JobApplication.countDocuments({ applicant: req.user?.id }),
-      JobApplication.countDocuments({ applicant: req.user?.id, status: 'Hired' }),
-    ]);
-    const successRate = jobsApplied > 0
-      ? `${Math.round((jobsCompleted / jobsApplied) * 100)}%`
-      : '0%';
-
     const profile = user.toObject();
-    profile.jobsApplied = jobsApplied;
-    profile.projectsCompleted = jobsCompleted;
-    profile.successRate = successRate;
+    const isWorker = user.role === 'work' || user.role === 'both';
+    const isEmployer = user.role === 'hire' || user.role === 'both';
 
-    if (
-      user.jobsApplied !== jobsApplied ||
-      user.projectsCompleted !== jobsCompleted ||
-      user.successRate !== successRate
-    ) {
-      void User.updateOne(
-        { _id: user._id },
-        { $set: { jobsApplied, projectsCompleted: jobsCompleted, successRate } }
-      ).catch((statsError) => {
-        console.warn('Failed to cache profile statistics:', statsError?.message || statsError);
-      });
+    // Previously this block ran unconditionally for every role, including pure
+    // employers -- who have no JobApplication rows as an applicant -- and then
+    // PERSISTED the resulting zeros back onto the employer's own document via
+    // User.updateOne below. Every profile load silently overwrote a real
+    // successRate with '0%'. Gating by role stops that; employer stats are
+    // computed in the branch below instead, and are never cached (matching
+    // getPublicProfile's employer math, which also always computes fresh).
+    if (isWorker) {
+      const [jobsApplied, jobsCompleted] = await Promise.all([
+        JobApplication.countDocuments({ applicant: req.user?.id }),
+        JobApplication.countDocuments({ applicant: req.user?.id, status: 'Hired' }),
+      ]);
+      const successRate = jobsApplied > 0
+        ? `${Math.round((jobsCompleted / jobsApplied) * 100)}%`
+        : '0%';
+
+      profile.jobsApplied = jobsApplied;
+      profile.projectsCompleted = jobsCompleted;
+      profile.successRate = successRate;
+
+      if (
+        user.jobsApplied !== jobsApplied ||
+        user.projectsCompleted !== jobsCompleted ||
+        user.successRate !== successRate
+      ) {
+        void User.updateOne(
+          { _id: user._id },
+          { $set: { jobsApplied, projectsCompleted: jobsCompleted, successRate } }
+        ).catch((statsError) => {
+          console.warn('Failed to cache profile statistics:', statsError?.message || statsError);
+        });
+      }
+    }
+
+    if (isEmployer) {
+      // Mirrors getPublicProfile's employer math (controllers/UserController.js)
+      // exactly, so a worker's own view and their public profile never disagree.
+      const postedJobIds = await Job.find({ jobPoster: user._id }).distinct('_id');
+      const [totalApplicants, hiredCount] = postedJobIds.length
+        ? await Promise.all([
+            JobApplication.countDocuments({ job: { $in: postedJobIds } }),
+            JobApplication.countDocuments({ job: { $in: postedJobIds }, status: 'Hired' }),
+          ])
+        : [0, 0];
+
+      profile.jobsPosted = postedJobIds.length;
+      profile.totalApplicants = totalApplicants;
+      profile.employerSuccessRate = totalApplicants > 0
+        ? `${Math.round((hiredCount / totalApplicants) * 100)}%`
+        : '0%';
     }
 
     return sendSuccess(res, 200, 'Profile retrieved', profile);

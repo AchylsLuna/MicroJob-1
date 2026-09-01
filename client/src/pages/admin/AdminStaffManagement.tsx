@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { ShieldCheck, UserCog, UserX, Search } from "lucide-react";
+import { ShieldCheck, UserCog, UserX, Search, Eye, EyeOff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { Button, ConfirmDialog, Dialog, Input, Select, StatusState } from "../../components/ui";
@@ -34,7 +34,9 @@ function AdminStaffManagementContent() {
   const [roleFilter, setRoleFilter] = useState<"all" | AdminStaffRole>("all");
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({ firstName: "", lastName: "", email: "", password: "", staffRole: ADMIN_STAFF_ROLES[0] });
+  const [createForm, setCreateForm] = useState({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "", staffRole: ADMIN_STAFF_ROLES[0] });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
 
@@ -82,7 +84,9 @@ function AdminStaffManagementContent() {
   );
 
   const openCreate = () => {
-    setCreateForm({ firstName: "", lastName: "", email: "", password: "", staffRole: ADMIN_STAFF_ROLES[0] });
+    setCreateForm({ firstName: "", lastName: "", email: "", password: "", confirmPassword: "", staffRole: ADMIN_STAFF_ROLES[0] });
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setCreateErrors({});
     setCreateOpen(true);
   };
@@ -96,6 +100,7 @@ function AdminStaffManagementContent() {
       errors.email = t("staffManagement.formErrors.emailTaken");
     }
     if (!getPasswordStrength(createForm.password).isStrong) errors.password = STRONG_PASSWORD_ERROR;
+    if (createForm.confirmPassword !== createForm.password) errors.confirmPassword = "Passwords do not match.";
     setCreateErrors(errors);
     if (Object.keys(errors).length) return;
 
@@ -308,14 +313,52 @@ function AdminStaffManagementContent() {
             />
           </div>
           <div className="sm:col-span-2">
-            <Input
-              label="Temporary password"
-              type="password"
-              autoComplete="new-password"
-              value={createForm.password}
-              error={createErrors.password}
-              onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
-            />
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+              <span>Temporary password</span>
+              <span className="relative block">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={createForm.password}
+                  onChange={(event) => setCreateForm((current) => ({ ...current, password: event.target.value }))}
+                  aria-invalid={Boolean(createErrors.password)}
+                  className={`min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 pr-11 text-sm font-normal text-slate-900 outline-none transition focus:ring-2 ${createErrors.password ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-blue-600 focus:ring-blue-100"}`}
+                />
+                <button
+                  type="button"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowPassword((current) => !current)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </span>
+            </label>
+            {createErrors.password ? <p className="mt-1 text-xs font-medium text-red-700">{createErrors.password}</p> : null}
+          </div>
+          <div className="sm:col-span-2">
+            <label className="block space-y-1.5 text-sm font-semibold text-slate-700">
+              <span>Confirm password</span>
+              <span className="relative block">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  value={createForm.confirmPassword}
+                  onChange={(event) => setCreateForm((current) => ({ ...current, confirmPassword: event.target.value }))}
+                  aria-invalid={Boolean(createErrors.confirmPassword)}
+                  className={`min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 pr-11 text-sm font-normal text-slate-900 outline-none transition focus:ring-2 ${createErrors.confirmPassword ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-blue-600 focus:ring-blue-100"}`}
+                />
+                <button
+                  type="button"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                  onClick={() => setShowConfirmPassword((current) => !current)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </span>
+            </label>
+            {createErrors.confirmPassword ? <p className="mt-1 text-xs font-medium text-red-700">{createErrors.confirmPassword}</p> : null}
           </div>
           <div className="sm:col-span-2">
             <Select

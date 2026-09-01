@@ -5,9 +5,18 @@
       "subtitle": "Create job posts, track their status, and manage your listings."
     },
     "jobType": {
-      "shortTerm": { "label": "Short-term", "description": "One-time or temporary work with a clear finish." },
-      "sideHustle": { "label": "Side hustle", "description": "Flexible work someone can take on for extra income." },
-      "recruiting": { "label": "Recruiting", "description": "Hire for an ongoing or longer-term role." }
+      "shortTerm": {
+        "label": "Short-term",
+        "description": "One-time or temporary work with a clear finish."
+      },
+      "sideHustle": {
+        "label": "Side hustle",
+        "description": "Flexible work someone can take on for extra income."
+      },
+      "recruiting": {
+        "label": "Recruiting",
+        "description": "Hire for an ongoing or longer-term role."
+      }
     },
     "requiredFields": {
       "title": "Job title",
@@ -55,7 +64,10 @@
       "searchPlaceholder": "Search jobs by title, location, skill, or category..."
     },
     "loading": "Loading your job postings...",
-    "emptyState": { "title": "No job postings yet", "subtitle": "Post your first job to start receiving applications" },
+    "emptyState": {
+      "title": "No job postings yet",
+      "subtitle": "Post your first job to start receiving applications"
+    },
     "card": {
       "locationNotSet": "Location not set",
       "jobTypeNotSet": "Job type not set",
@@ -77,20 +89,50 @@
       "subtitle": "Only the essential details workers need to decide and apply.",
       "closeAria": "Close modal",
       "legacyTypeWarning": "This existing post uses the legacy type “{{type}}”. Choose a current type to modernize it.",
-      "roleOverview": { "title": "Role overview", "subtitle": "Name the work and choose the opportunity that fits it best." },
+      "roleOverview": {
+        "title": "Role overview",
+        "subtitle": "Name the work and choose the opportunity that fits it best."
+      },
       "fields": {
-        "jobTitle": { "label": "Job Title", "placeholder": "e.g. Weekend event assistant" },
-        "category": { "label": "Category", "placeholder": "Select category" },
+        "jobTitle": {
+          "label": "Job Title",
+          "placeholder": "e.g. Weekend event assistant"
+        },
+        "category": {
+          "label": "Category",
+          "placeholder": "Select category"
+        },
         "opportunityType": "Opportunity Type"
       },
       "location": {
         "title": "Work location",
         "subtitle": "Choose the area first, then add an optional landmark or street.",
-        "province": { "label": "Province", "loading": "Loading provinces...", "placeholder": "Select province" },
-        "city": { "label": "City / Municipality", "selectProvinceFirst": "Select province first", "loading": "Loading cities...", "placeholder": "Select city/municipality" },
-        "barangay": { "label": "Barangay", "selectCityFirst": "Select city first", "loading": "Loading barangays...", "placeholder": "Select barangay" },
-        "address": { "label": "Street or landmark", "optional": "(optional)", "placeholder": "e.g. Rizal Street, near City Hall" },
-        "preview": { "label": "Location preview:", "placeholder": "Select province, city, and barangay" }
+        "province": {
+          "label": "Province",
+          "loading": "Loading provinces...",
+          "placeholder": "Select province"
+        },
+        "city": {
+          "label": "City / Municipality",
+          "selectProvinceFirst": "Select province first",
+          "loading": "Loading cities...",
+          "placeholder": "Select city/municipality"
+        },
+        "barangay": {
+          "label": "Barangay",
+          "selectCityFirst": "Select city first",
+          "loading": "Loading barangays...",
+          "placeholder": "Select barangay"
+        },
+        "address": {
+          "label": "Street or landmark",
+          "optional": "(optional)",
+          "placeholder": "e.g. Rizal Street, near City Hall"
+        },
+        "preview": {
+          "label": "Location preview:",
+          "placeholder": "Select province, city, and barangay"
+        }
       },
       "pay": {
         "title": "Pay and schedule",
@@ -100,8 +142,12 @@
         "placeholder": "e.g. 1500",
         "helper": "Enter the minimum amount guaranteed to each hired worker. This amount is secured in escrow."
       },
-      "deadline": { "label": "Deadline *" },
-      "positions": { "label": "Positions Needed" },
+      "deadline": {
+        "label": "Deadline *"
+      },
+      "positions": {
+        "label": "Positions Needed"
+      },
       "walletSummary": {
         "estimatedValue": "Estimated job value",
         "fundsNeeded": "Wallet funds needed",
@@ -137,12 +183,18 @@
       "description": "Delete “{{title}}”? This action cannot be undone.",
       "defaultTitle": "this job",
       "confirm": "Delete job"
+    },
+    "profileIncomplete": {
+      "toast": "Add your company name and logo in Settings before posting a job."
     }
   },
   "applicationsManagement": {
     "title": "Applications",
     "subtitle": "Review applicants by stage, schedule interviews, and run bulk workflow actions safely.",
-    "viewToggle": { "board": "Board", "table": "Table" },
+    "viewToggle": {
+      "board": "Board",
+      "table": "Table"
+    },
     "filters": {
       "searchPlaceholder": "Search by applicant, email, or job title",
       "searchAriaLabel": "Search applications",
@@ -170,7 +222,9 @@
       "updating": "Updating...",
       "hideSelected": "Hide Selected"
     },
-    "errors": { "loadFailed": "Failed to load applications." },
+    "errors": {
+      "loadFailed": "Failed to load applications."
+    },
     "states": {
       "loading": "Loading applications...",
       "empty": "No applications matched the current filters."
@@ -188,7 +242,11 @@
       "untitledRole": "Untitled role",
       "appliedOn": "Applied {{date}}",
       "nextInterview": "Next interview: {{date}}",
-      "stats": { "applied": "Applied", "completed": "Completed", "success": "Success" },
+      "stats": {
+        "applied": "Applied",
+        "completed": "Completed",
+        "success": "Success"
+      },
       "hiredViaOffer": "Hired (via offer)",
       "reschedule": "Reschedule",
       "schedule": "Schedule",
@@ -214,7 +272,10 @@
       },
       "notScheduled": "Not scheduled",
       "noResume": "No resume",
-      "actions": { "interview": "Interview", "rate": "Rate" }
+      "actions": {
+        "interview": "Interview",
+        "rate": "Rate"
+      }
     },
     "messageDraft": "Hi {{name}}, I would like to discuss your application for {{job}}.",
     "toast": {
@@ -242,7 +303,12 @@
       "dateLabel": "Date",
       "timeLabel": "Time",
       "modeLabel": "Mode",
-      "mode": { "virtual": "Virtual", "onsite": "On-site", "phone": "Phone", "other": "Other" },
+      "mode": {
+        "virtual": "Virtual",
+        "onsite": "On-site",
+        "phone": "Phone",
+        "other": "Other"
+      },
       "locationLabel": "Location or meeting link",
       "locationPlaceholder": "Google Meet link, office address, or call instructions",
       "notesLabel": "Notes",
@@ -309,7 +375,9 @@
         "daysAgo_other": "{{count}} days ago"
       }
     },
-    "errors": { "loadFailed": "Failed to load the employer dashboard." }
+    "errors": {
+      "loadFailed": "Failed to load the employer dashboard."
+    }
   },
   "jobsManagement": {
     "header": {
@@ -345,7 +413,9 @@
       "contract": "Contract",
       "remote": "Remote"
     },
-    "actions": { "cancel": "Cancel" },
+    "actions": {
+      "cancel": "Cancel"
+    },
     "card": {
       "departmentFallback": "General",
       "untitledJob": "Untitled Job",
@@ -385,7 +455,9 @@
       "deleteSuccess": "Job deleted successfully.",
       "deleteFailed": "Failed to delete job."
     },
-    "errors": { "loadFailed": "Failed to load job postings." },
+    "errors": {
+      "loadFailed": "Failed to load job postings."
+    },
     "modal": {
       "closeAria": "Close job details",
       "minimumPayLabel": "Minimum pay",
@@ -495,6 +567,49 @@
     "toast": {
       "saveSuccess": "Employer privacy setting saved.",
       "saveFailed": "Failed to save employer privacy setting."
+    }
+  },
+  "profile": {
+    "retry": "Retry",
+    "editProfile": "Edit Profile",
+    "publicView": "Public View",
+    "locationNotSet": "Location not set",
+    "fallbackName": "Employer",
+    "tabs": {
+      "overview": "Overview",
+      "jobs": "Jobs"
+    },
+    "statRow": {
+      "yearsInBusiness": "Years in business",
+      "jobsPosted": "Jobs posted",
+      "successRate": "Success rate"
+    },
+    "overviewTab": {
+      "companyDescription": "Company Description",
+      "aboutFallback": "No company description provided yet.",
+      "contactInfo": "Contact Information",
+      "email": "Email",
+      "phone": "Phone",
+      "linkedin": "LinkedIn",
+      "website": "Website",
+      "notSet": "Not set",
+      "openProfile": "Open profile",
+      "visitWebsite": "Visit website",
+      "loadFailed": "Failed to load profile."
+    },
+    "jobsTab": {
+      "heading": "Jobs Posted",
+      "manage": "Manage jobs",
+      "loading": "Loading jobs...",
+      "loadFailed": "Failed to load your jobs.",
+      "locationNotSet": "Location not set",
+      "dateUnavailable": "Date unavailable",
+      "applicantCount_other": "{{count}} applicants",
+      "empty": "You haven't posted any jobs yet",
+      "postJobCta": "Post a Job",
+      "applicantCount_one": "{{count}} applicant",
+      "totalApplicants_one": "{{count}} applicant across all postings",
+      "totalApplicants_other": "{{count}} applicants across all postings"
     }
   }
 }

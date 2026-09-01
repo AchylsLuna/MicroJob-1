@@ -1,7 +1,7 @@
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import User from '../models/User.js';
-import { addCityFilter, serializePublicJob } from '../lib/jobDiscovery.js';
+import { proximityOf, serializePublicJob } from '../lib/jobDiscovery.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
@@ -19,15 +19,18 @@ export async function getRecommendedJobs(req, res) {
     const applied = await JobApplication.find({ applicant: userId }).select('job').lean();
     const excludedJobIds = applied.map((item) => item.job).filter(Boolean);
     const limit = Math.max(1, Math.min(50, Number(req.query?.limit) || 12));
-    const filter = addCityFilter(
-      {
-        status: 'Available',
-        deadline: { $gte: new Date() },
-        jobPoster: { $ne: userId },
-        ...(excludedJobIds.length ? { _id: { $nin: excludedJobIds } } : {}),
-      },
-      String(worker.city || '').trim()
-    );
+    // National pool: recommendations rank on match quality, with the worker's
+    // own locality used as a tiebreaker below rather than as a hard filter.
+    const filter = {
+      status: 'Available',
+      deadline: { $gte: new Date() },
+      jobPoster: { $ne: userId },
+      ...(excludedJobIds.length ? { _id: { $nin: excludedJobIds } } : {}),
+    };
+    const locality = {
+      city: String(worker.city || '').trim(),
+      province: String(worker.province || '').trim(),
+    };
 
     const jobs = await Job.find(filter)
       .populate('category', 'name')
@@ -39,6 +42,7 @@ export async function getRecommendedJobs(req, res) {
       .map((job) => ({
         ...serializePublicJob(job),
         match: scoreJobForWorker(job, worker),
+        proximity: proximityOf(job, locality),
       }))
       .sort((left, right) =>
         right.match.percentage - left.match.percentage ||

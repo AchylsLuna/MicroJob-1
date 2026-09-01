@@ -54,6 +54,11 @@ export type AdminJob = {
   location?: string;
   createdAt?: string;
   applicants?: string[];
+  /** Both are already returned by GET /admin/jobs — `applicantsCount` is computed
+   * per job by the controller, `hiredCount` is a field on the Job document. */
+  applicantsCount?: number;
+  hiredCount?: number;
+  viewCount?: number;
   category?: { _id: string; name: string } | string | null;
   jobPoster?: { _id: string; firstName?: string; lastName?: string; email?: string } | string | null;
 };

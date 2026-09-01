@@ -58,34 +58,47 @@ after(async () => {
   await mongoServer.stop();
 });
 
-test('public discovery requires a city and never returns another city', async () => {
+test('discovery is national and never requires a city', async () => {
   const employer = await createUser({ role: 'hire', companyName: 'Local Services' });
   await Promise.all([
     createJob(employer._id, 'Pasig City, Metro Manila'),
     createJob(employer._id, 'Makati City, Metro Manila'),
+    createJob(employer._id, 'Cebu City, Cebu'),
   ]);
 
-  const missingCity = createResponse();
-  await getJobList({ query: {}, headers: {} }, missingCity);
-  assert.equal(missingCity.statusCode, 428);
-  assert.equal(missingCity.payload.code, 'CITY_REQUIRED');
-
-  const pasig = createResponse();
-  await getJobList({ query: { city: 'Pasig City' }, headers: {} }, pasig);
-  assert.equal(pasig.statusCode, 200);
-  assert.equal(pasig.payload.length, 1);
-  assert.match(pasig.payload[0].location, /Pasig City/);
-  assert.equal(pasig.payload[0].jobPoster.email, undefined);
+  const anonymous = createResponse();
+  await getJobList({ query: {}, headers: {} }, anonymous);
+  assert.equal(anonymous.statusCode, 200, 'a missing city must not gate discovery');
+  assert.equal(anonymous.payload.length, 3, 'every city is visible nationally');
+  assert.equal(anonymous.payload[0].jobPoster.email, undefined, 'poster credentials stay hidden');
 });
 
-test('worker discovery derives the saved city and ignores a different query city', async () => {
+test('a requested city ranks first without hiding the rest of the country', async () => {
+  const employer = await createUser({ role: 'hire' });
+  await Promise.all([
+    createJob(employer._id, 'Makati City, Metro Manila'),
+    createJob(employer._id, 'Pasig City, Metro Manila'),
+    createJob(employer._id, 'Cebu City, Cebu'),
+  ]);
+
+  const response = createResponse();
+  await getJobList({ query: { city: 'Pasig City' }, headers: {} }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.payload.length, 3, 'ranking must not drop other cities');
+  assert.match(response.payload[0].location, /Pasig City/, 'the chosen city leads');
+  assert.equal(response.payload[0].proximity, 'city');
+  assert.ok(response.payload.slice(1).every((job) => job.proximity !== 'city'));
+});
+
+test("a worker's saved city ranks first and overrides a different query city", async () => {
   const [worker, employer] = await Promise.all([
     createUser({ role: 'work', city: 'Pasig City' }),
     createUser({ role: 'hire' }),
   ]);
   await Promise.all([
-    createJob(employer._id, 'Pasig City, Metro Manila'),
     createJob(employer._id, 'Makati City, Metro Manila'),
+    createJob(employer._id, 'Pasig City, Metro Manila'),
   ]);
 
   const response = createResponse();
@@ -96,8 +109,27 @@ test('worker discovery derives the saved city and ignores a different query city
   }, response);
 
   assert.equal(response.statusCode, 200);
-  assert.equal(response.payload.length, 1);
-  assert.match(response.payload[0].location, /Pasig City/);
+  assert.equal(response.payload.length, 2, 'other cities remain reachable');
+  assert.match(response.payload[0].location, /Pasig City/, 'the saved city wins over the query city');
+  assert.equal(response.payload[0].proximity, 'city');
+});
+
+test('a worker with no city set still sees the national list', async () => {
+  const [worker, employer] = await Promise.all([
+    createUser({ role: 'work' }),
+    createUser({ role: 'hire' }),
+  ]);
+  await Promise.all([
+    createJob(employer._id, 'Davao City, Davao del Sur'),
+    createJob(employer._id, 'Cebu City, Cebu'),
+  ]);
+
+  const response = createResponse();
+  await getJobList({ query: {}, headers: {}, user: { id: worker._id, role: 'work' } }, response);
+
+  assert.equal(response.statusCode, 200, 'a worker without a city must not be blocked');
+  assert.equal(response.payload.length, 2);
+  assert.ok(response.payload.every((job) => job.proximity === 'national'));
 });
 
 test('applicant responses expose hiring fields but not credentials or account balances', async () => {

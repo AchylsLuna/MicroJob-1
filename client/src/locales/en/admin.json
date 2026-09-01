@@ -823,7 +823,23 @@
       "payoutTrend": "Completed Payout Trend",
       "jobsByCategory": "Jobs by Category",
       "userGrowth": "User Growth",
-      "othersCategory": "Others"
+      "othersCategory": "Others",
+      "legendJobs": "Jobs posted",
+      "legendUsers": "New users",
+      "noData": "No activity recorded in this period",
+      "noPriorMonth": "No prior month to compare"
+    },
+    "topCategories": {
+      "title": "Top Job Categories",
+      "columnCategory": "Categories",
+      "columnPercent": "Percent",
+      "columnTotal": "Totals",
+      "metrics": {
+        "hunting": "Job hunting",
+        "hired": "Hired",
+        "viewed": "Viewed",
+        "posted": "Popular"
+      }
     }
   }
 }

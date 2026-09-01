@@ -2,9 +2,11 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { normalizeExperience } from '../lib/profileValidation.js';
+import { hasValidAvatarFileSignature, removeUploadFile } from '../middleware/uploadConfig.js';
 
 const MAX_PROFILE_SKILLS = 50;
 const MAX_WORK_EXPERIENCES = 25;
+const MAX_WORK_EXPERIENCE_MEDIA = 6;
 const MAX_SKILL_NAME_LENGTH = 80;
 const MAX_SKILL_DESCRIPTION_LENGTH = 500;
 
@@ -212,8 +214,14 @@ export const deleteWorkExperience = async (req, res) => {
     const experience = user.workExperience?.id(req.params.experienceId);
     if (!experience) return sendError(res, 404, 'Work experience not found');
 
+    // Capture before deleteOne(): afterwards the subdocument is detached and
+    // its media filenames are unreachable, which would orphan the StoredUpload
+    // blobs in Mongo with nothing left pointing at them.
+    const mediaFilenames = (experience.media || []).map((item) => item.filename).filter(Boolean);
+
     experience.deleteOne();
     await user.save();
+    await Promise.all(mediaFilenames.map(removeUploadFile));
 
     return sendSuccess(res, 200, 'Work experience deleted successfully', {
       workExperience: user.workExperience,
@@ -224,6 +232,91 @@ export const deleteWorkExperience = async (req, res) => {
   }
 };
 
+export const addExperienceMedia = async (req, res) => {
+  // The upload middleware has already persisted the blob by the time this runs,
+  // so every early return below must remove it again or it leaks.
+  const uploadedFilename = req.file?.filename || null;
+  const discardUpload = async () => {
+    if (uploadedFilename) await removeUploadFile(uploadedFilename);
+  };
+
+  try {
+    if (!mongoose.isValidObjectId(req.params.experienceId)) {
+      await discardUpload();
+      return sendError(res, 400, 'Invalid work experience ID');
+    }
+    if (!req.file) {
+      return sendError(res, 400, 'No image was uploaded');
+    }
+    if (!hasValidAvatarFileSignature(req.file)) {
+      await discardUpload();
+      return sendError(res, 400, 'That file is not a valid JPG, PNG, GIF, or WEBP image');
+    }
+
+    const user = await User.findById(req.user?.id);
+    if (!user) {
+      await discardUpload();
+      return sendError(res, 404, 'User not found');
+    }
+
+    const experience = user.workExperience?.id(req.params.experienceId);
+    if (!experience) {
+      await discardUpload();
+      return sendError(res, 404, 'Work experience not found');
+    }
+
+    if ((experience.media?.length || 0) >= MAX_WORK_EXPERIENCE_MEDIA) {
+      await discardUpload();
+      return sendError(res, 400, `You can attach up to ${MAX_WORK_EXPERIENCE_MEDIA} photos to one work experience`);
+    }
+
+    experience.media.push({
+      url: `/uploads/${req.file.filename}`,
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+    });
+    await user.save();
+
+    return sendSuccess(res, 201, 'Photo attached successfully', {
+      workExperience: user.workExperience,
+    });
+  } catch (error) {
+    await discardUpload();
+    console.error('Add experience media error:', error);
+    return sendProfileMutationError(res, error, 'Failed to attach photo');
+  }
+};
+
+export const deleteExperienceMedia = async (req, res) => {
+  try {
+    const { experienceId, mediaId } = req.params;
+    if (!mongoose.isValidObjectId(experienceId) || !mongoose.isValidObjectId(mediaId)) {
+      return sendError(res, 400, 'Invalid work experience or photo ID');
+    }
+
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    const experience = user.workExperience?.id(experienceId);
+    if (!experience) return sendError(res, 404, 'Work experience not found');
+
+    const mediaItem = experience.media?.id(mediaId);
+    if (!mediaItem) return sendError(res, 404, 'Photo not found');
+
+    const { filename } = mediaItem;
+    mediaItem.deleteOne();
+    await user.save();
+    if (filename) await removeUploadFile(filename);
+
+    return sendSuccess(res, 200, 'Photo removed successfully', {
+      workExperience: user.workExperience,
+    });
+  } catch (error) {
+    console.error('Delete experience media error:', error);
+    return sendProfileMutationError(res, error, 'Failed to remove photo');
+  }
+};
+
 export default {
   addSkill,
   deleteSkill,
@@ -231,5 +324,7 @@ export default {
   addWorkExperience,
   updateWorkExperience,
   deleteWorkExperience,
+  addExperienceMedia,
+  deleteExperienceMedia,
   normalizeExperience,
 };

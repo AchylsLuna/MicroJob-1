@@ -44,6 +44,7 @@ const WorkerMessages = lazy(() => import("./pages/worker/Messages").then((module
 const WorkerEWallet = lazy(() => import("./pages/worker/EWallet").then((module) => ({ default: module.EWallet })));
 const WorkerNotifications = lazy(() => import("./pages/worker/Notifications"));
 const WorkerProfile = lazy(() => import("./pages/worker/Profile").then((module) => ({ default: module.Profile })));
+const EmployerProfile = lazy(() => import("./pages/employer/Profile").then((module) => ({ default: module.Profile })));
 const WorkerSupport = lazy(() => import("./pages/worker/Support").then((module) => ({ default: module.Support })));
 
 const EmployerDashboard = lazy(() => import("./pages/employer/EmployerDashboard").then((module) => ({ default: module.EmployerDashboard })));
@@ -311,7 +312,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.employer.notifications} element={<NotificationsRouter />} />
             <Route path={ROUTES.employer.support} element={<SupportRouter />} />
             <Route path={ROUTES.employer.settings} element={<Settings />} />
-            <Route path={ROUTES.employer.profile} element={<Settings />} />
+            <Route path={ROUTES.employer.profile} element={<EmployerProfile />} />
           </Route>
 
           <Route element={<RoleRoute requiredRole="admin" />}>

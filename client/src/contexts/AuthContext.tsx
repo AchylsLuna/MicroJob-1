@@ -69,6 +69,13 @@ export interface User {
   projectsCompleted?: number;
   jobsApplied?: number;
   successRate?: string;
+  /** Employer-side stats, computed fresh on every profile load (never cached) --
+   * see server/controllers/ProfileController.js#getProfile. Kept on separate
+   * fields from the worker stats above so a 'both'-role user's two roles never
+   * collide on one number. */
+  jobsPosted?: number;
+  totalApplicants?: number;
+  employerSuccessRate?: string;
   passwordChangeRequired?: boolean;
   skills?: Array<{
     _id?: string;
@@ -88,6 +95,7 @@ export interface User {
     endDate?: string | null;
     current: boolean;
     description?: string;
+    media?: Array<{ _id?: string; url: string; filename?: string; originalName?: string; createdAt?: string }>;
   }>;
 }
 

@@ -15,6 +15,8 @@ import {
   X,
 } from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
+import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "../../lib/toast";
 import { ConfirmDialog } from "../../components/ui";
 import { DateField } from "../../components/ui/DateField";
 import { ROUTES } from "../../utils/routes";
@@ -185,8 +187,26 @@ const parseLocationToParts = (locationText?: string) => {
 };
 
 const composeLocation = (form: FormState) => {
-  const chunks = [form.address.trim(), form.barangay.trim(), form.city.trim(), form.province.trim()].filter(Boolean);
-  return chunks.join(", ");
+  // The free-text address field commonly repeats the barangay/city/province the
+  // employer already picked via the dropdowns above it (e.g. typing "Pantal, City
+  // of Dagupan, Pangasinan" as the address when those are also selected), which
+  // used to produce a doubled string like "Pantal, City of Dagupan, Pangasinan,
+  // Pantal, City of Dagupan, Pangasinan". Flattening every field's own comma
+  // segments before deduping catches that case (and a genuine street address like
+  // "123 Rizal St., Pantal, ...") without losing real detail — a segment is only
+  // ever dropped if it exactly repeats one already kept, preserving order.
+  const segments = [form.address, form.barangay, form.city, form.province]
+    .flatMap((field) => field.split(","))
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const seen = new Set<string>();
+  const deduped = segments.filter((segment) => {
+    const key = segment.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return deduped.join(", ");
 };
 
 const extractSalaryValue = (value: unknown): string => {
@@ -217,6 +237,7 @@ const buildFormFromJob = (job: JobEdit): FormState => {
 
 const PostJob: React.FC = () => {
   const { t } = useTranslation("employer");
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as { job?: JobEdit; returnTo?: string } | null;
@@ -349,13 +370,24 @@ const PostJob: React.FC = () => {
     }
   }, [t]);
 
+  // Mirrors the server's own gate (getEmployerProfileRequirementError) so an
+  // incomplete profile is caught before the modal even opens, not as a raw
+  // error after filling out the whole form. The server enforces this
+  // regardless — this is only the friendlier path to the same rule.
+  const hasCompleteProfile = Boolean(user?.companyName?.trim()) && Boolean(user?.avatarUrl?.trim());
+
   const openCreateModal = useCallback(() => {
+    if (!hasCompleteProfile) {
+      toast.error(t("postJob.profileIncomplete.toast"));
+      navigate(ROUTES.employer.settings);
+      return;
+    }
     setEditingJob(null);
     setReturnAfterSave(null);
     setFormData(createEmptyForm());
     setFormError(null);
     setShowModal(true);
-  }, []);
+  }, [hasCompleteProfile, navigate, t]);
 
   const openEditModal = useCallback((job: JobEdit, returnTo: string | null = null) => {
     setEditingJob(job);
@@ -581,6 +613,16 @@ const PostJob: React.FC = () => {
       await loadJobs();
       closeModal();
     } catch (err: any) {
+      // The server enforces this regardless of the openCreateModal pre-check
+      // above (e.g. the profile was edited to remove the logo in another tab
+      // while this modal stayed open) — redirect the same way rather than
+      // showing a generic "post failed" message for a fixable cause.
+      if (err?.code === "EMPLOYER_PROFILE_INCOMPLETE") {
+        closeModal();
+        toast.error(t("postJob.profileIncomplete.toast"));
+        navigate(ROUTES.employer.settings);
+        return;
+      }
       setFormError(
         err?.response?.data?.message ||
           err?.message ||

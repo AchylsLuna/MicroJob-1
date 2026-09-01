@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getPublicProfile, type ReviewSummary } from "../../services/api";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
+import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { ProfileReviewsLoader } from "../../components/reviews/ProfileReviewsLoader";
 
 type PublicProfileResponse = {
@@ -30,6 +31,7 @@ type PublicProfileResponse = {
       endDate?: string | null;
       current?: boolean;
       description?: string;
+      media?: Array<{ _id?: string; url?: string; originalName?: string }>;
     }>;
   };
   rating?: {
@@ -57,19 +59,6 @@ type PublicProfileResponse = {
       successRate?: number | null;
     };
   };
-};
-
-const toAbsoluteAssetUrl = (value?: string): string | null => {
-  if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return value;
-  if (value.startsWith("/")) {
-    const apiBase = import.meta.env.VITE_API_BASE || "/api";
-    const origin = apiBase.startsWith("http")
-      ? apiBase.replace(/\/api\/?$/, "")
-      : window.location.origin;
-    return `${origin}${value}`;
-  }
-  return value;
 };
 
 export function PublicProfile() {
@@ -282,6 +271,25 @@ export function PublicProfile() {
                         <p className="text-xs text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
                         <p className="mt-1 text-xs text-[#64748B]">{formatExperienceDate(item.startDate)} – {item.current ? "Present" : formatExperienceDate(item.endDate)}</p>
                         {item.description ? <p className="mt-2 whitespace-pre-line text-sm text-[#475569]">{item.description}</p> : null}
+                        {item.media?.length ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {item.media.map((media) => {
+                              const mediaUrl = toAbsoluteAssetUrl(media.url);
+                              if (!mediaUrl) return null;
+                              return (
+                                <a
+                                  key={media._id || media.url}
+                                  href={mediaUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block h-16 w-16 overflow-hidden rounded-lg border border-[#E2E8F0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                >
+                                  <img src={mediaUrl} alt={media.originalName || item.title || ""} className="h-full w-full object-cover" />
+                                </a>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   ))}

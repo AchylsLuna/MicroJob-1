@@ -823,7 +823,23 @@
       "payoutTrend": "Uso ng Nakumpletong Payout",
       "jobsByCategory": "Mga Trabaho ayon sa Kategorya",
       "userGrowth": "Paglago ng User",
-      "othersCategory": "Iba pa"
+      "othersCategory": "Iba pa",
+      "legendJobs": "Mga naka-post na trabaho",
+      "legendUsers": "Mga bagong user",
+      "noData": "Walang naitalang aktibidad sa panahong ito",
+      "noPriorMonth": "Walang naunang buwan na maikukumpara"
+    },
+    "topCategories": {
+      "title": "Nangungunang Kategorya ng Trabaho",
+      "columnCategory": "Mga kategorya",
+      "columnPercent": "Porsyento",
+      "columnTotal": "Kabuuan",
+      "metrics": {
+        "hunting": "Naghahanap ng trabaho",
+        "hired": "Natanggap",
+        "viewed": "Natingnan",
+        "posted": "Sikat"
+      }
     }
   }
 }

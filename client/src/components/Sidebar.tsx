@@ -28,6 +28,12 @@ type MenuItem = {
   permission?: AdminPermission;
 };
 
+/** A labeled cluster of admin links, grouped by domain rather than shown as one flat list. */
+type MenuGroup = {
+  label: string;
+  items: MenuItem[];
+};
+
 type EmployerMenuGroup = {
   icon: string;
   label: string;
@@ -112,34 +118,77 @@ const Sidebar: React.FC<SidebarProps> = ({
   // stay visible to every staff role — as does the Dashboard button rendered
   // separately below, and Settings in `bottomMenuItems`, so no role can end up
   // looking at an empty sidebar.
-  const allAdminMenuItems: MenuItem[] = [
-    { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics, permission: "analytics.view" },
-    { icon: "reports", label: "Reports", path: ROUTES.admin.reports, permission: "analytics.view" },
-    { icon: "support", label: "Support", path: ROUTES.admin.support, permission: "support.tickets.handle" },
-    { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet, permission: "finance.transactions.view" },
-    { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts, permission: "finance.payouts.review" },
-    { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs, permission: "jobs.view" },
-    { icon: "security", label: "Security", path: ROUTES.admin.security, permission: "audit.view" },
-    { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement, permission: "users.view" },
-    { icon: "staff-management", label: "Staff Management", path: ROUTES.admin.staffManagement, permission: "staff.view" },
-    { icon: "audit-logs", label: "Audit Logs", path: ROUTES.admin.auditLogs, permission: "audit.view" },
-    { icon: "moderation", label: "Moderation Queue", path: ROUTES.admin.moderationQueue, permission: "moderation.review" },
-    { icon: "verification", label: "ID Verification", path: ROUTES.admin.verificationReview, permission: "verification.review" },
-    { icon: "disputes", label: "Financial Disputes", path: ROUTES.admin.disputes, permission: "finance.disputes.handle" },
-    { icon: "messages", label: "Messages", path: ROUTES.admin.messages, notification: true },
+  //
+  // Grouped by domain — the same domains the permission matrix in
+  // lib/adminPermissions.ts is itself organized around (marketplace,
+  // finance, platform/system, analytics, support) — rather than one flat,
+  // unweighted list. A role missing every permission in a group simply
+  // never sees that group's header, so the sidebar stays proportional to
+  // what that role can actually do instead of always showing all fourteen
+  // links at equal visual weight.
+  const adminMenuGroupsRaw: MenuGroup[] = [
+    {
+      label: "Marketplace",
+      items: [
+        { icon: "user-management", label: "User Management", path: ROUTES.admin.userManagement, permission: "users.view" },
+        { icon: "jobs-monitoring", label: "Job Monitoring", path: ROUTES.admin.jobs, permission: "jobs.view" },
+        { icon: "verification", label: "ID Verification", path: ROUTES.admin.verificationReview, permission: "verification.review" },
+        { icon: "moderation", label: "Moderation Queue", path: ROUTES.admin.moderationQueue, permission: "moderation.review" },
+      ],
+    },
+    {
+      label: "Finance",
+      items: [
+        { icon: "e-wallet", label: "E-Wallet", path: ROUTES.admin.eWallet, permission: "finance.transactions.view" },
+        { icon: "payouts", label: "Payout Requests", path: ROUTES.admin.payouts, permission: "finance.payouts.review" },
+        { icon: "disputes", label: "Financial Disputes", path: ROUTES.admin.disputes, permission: "finance.disputes.handle" },
+      ],
+    },
+    {
+      label: "Platform",
+      items: [
+        { icon: "staff-management", label: "Staff Management", path: ROUTES.admin.staffManagement, permission: "staff.view" },
+        { icon: "audit-logs", label: "Audit Logs", path: ROUTES.admin.auditLogs, permission: "audit.view" },
+        { icon: "security", label: "Security", path: ROUTES.admin.security, permission: "audit.view" },
+      ],
+    },
+    {
+      label: "Insights",
+      items: [
+        { icon: "analytics", label: "Analytics", path: ROUTES.admin.analytics, permission: "analytics.view" },
+        { icon: "reports", label: "Reports", path: ROUTES.admin.reports, permission: "analytics.view" },
+      ],
+    },
+    {
+      label: "Support",
+      items: [
+        { icon: "support", label: "Support", path: ROUTES.admin.support, permission: "support.tickets.handle" },
+      ],
+    },
   ];
-  const adminMenuItems = allAdminMenuItems.filter((item) => !item.permission || can(item.permission));
+
+  // Ungated, like Dashboard — every staff role gets the same admin inbox
+  // workers/employers get (WorkerMessages), so it belongs at top level next
+  // to Dashboard, not nested inside a domain group it isn't actually part of.
+  const adminMessagesItem: MenuItem = {
+    icon: "messages",
+    label: "Messages",
+    path: ROUTES.admin.messages,
+    notification: true,
+  };
+  const adminMenuGroups = adminMenuGroupsRaw
+    .map((group) => ({ ...group, items: group.items.filter((item) => !item.permission || can(item.permission)) }))
+    .filter((group) => group.items.length > 0);
 
   let menuItems: MenuItem[] = [];
   if (effectiveRole === "user") {
     menuItems = [...workerMenuItems, ...commonMenuItems];
   } else if (effectiveRole === "employer") {
     menuItems = [...commonMenuItems];
-  } else if (effectiveRole === "admin") {
-    menuItems = adminMenuItems;
-  } else {
+  } else if (effectiveRole !== "admin") {
     menuItems = [...workerMenuItems, ...commonMenuItems];
   }
+  // Admin renders `adminMenuGroups` directly below instead of a flat `menuItems` list.
 
   const bottomMenuItems: MenuItem[] =
     effectiveRole === "admin"
@@ -219,6 +268,26 @@ const Sidebar: React.FC<SidebarProps> = ({
       active ? "bg-blue-50 font-semibold text-[#1C4D8D]" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
     }`;
 
+  const renderMenuButton = (item: MenuItem) => (
+    <button
+      key={item.path}
+      onClick={() => navigate(item.path)}
+      className={getNavButtonClass(isPathActive(item.path))}
+      title={isCollapsed ? item.label : ""}
+    >
+      {(mobile || !isCollapsed) && <span>{item.label}</span>}
+      {item.notification && item.icon === "notifications" && notifCount > 0 && (
+        <span
+          className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
+            isCollapsed ? "absolute right-2 top-2" : ""
+          }`}
+        >
+          {notifCount}
+        </span>
+      )}
+    </button>
+  );
+
   const isEmployerParentActive =
     effectiveRole === "employer" && matchesPath(location.pathname, employerMenuGroup.path);
 
@@ -261,6 +330,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           >
             {(mobile || !isCollapsed) && <span>Dashboard</span>}
           </button>
+
+          {effectiveRole === "admin" && renderMenuButton(adminMessagesItem)}
 
           {effectiveRole === "employer" && (
             <div>
@@ -308,49 +379,29 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
 
-          {menuItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={getNavButtonClass(isPathActive(item.path))}
-              title={isCollapsed ? item.label : ""}
-            >
-              {(mobile || !isCollapsed) && <span>{item.label}</span>}
-              {item.notification && item.icon === "notifications" && notifCount > 0 && (
-                  <span
-                    className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
-                      isCollapsed ? "absolute right-2 top-2" : ""
-                    }`}
-                  >
-                    {notifCount}
-                  </span>
-                )}
-            </button>
-          ))}
+          {effectiveRole === "admin"
+            ? adminMenuGroups.map((group, index) => (
+                <div
+                  key={group.label}
+                  className={
+                    index === 0
+                      ? "space-y-1.5"
+                      : `space-y-1.5 border-t py-4 ${webUi.sidebar.sectionDivider}`
+                  }
+                >
+                  <p className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">
+                    {group.label}
+                  </p>
+                  {group.items.map((item) => renderMenuButton(item))}
+                </div>
+              ))
+            : menuItems.map((item) => renderMenuButton(item))}
         </div>
 
         {workspaceMenuItems.length > 0 && (
           <div className={`space-y-1.5 border-t py-4 ${webUi.sidebar.sectionDivider}`}>
             <p className="px-4 pb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">Workspace</p>
-            {workspaceMenuItems.map((item) => (
-            <button
-              key={item.path}
-              onClick={() => navigate(item.path)}
-              className={getNavButtonClass(isPathActive(item.path))}
-              title={isCollapsed ? item.label : ""}
-            >
-              {(mobile || !isCollapsed) && <span>{item.label}</span>}
-              {item.notification && item.icon === "notifications" && notifCount > 0 && (
-                  <span
-                    className={`ml-auto inline-flex items-center justify-center text-xs font-semibold text-white bg-red-500 rounded-full px-2 py-0.5 ${
-                      isCollapsed ? "absolute right-2 top-2" : ""
-                    }`}
-                  >
-                    {notifCount}
-                  </span>
-                )}
-            </button>
-            ))}
+            {workspaceMenuItems.map((item) => renderMenuButton(item))}
           </div>
         )}
       </nav>

@@ -60,6 +60,14 @@ const JobSchema = new mongoose.Schema(
             min: 1,
         },
         // How many applicants have been hired
+        // Denormalised counter kept in step with the JobView collection, which
+        // holds one row per unique viewer — see lib/jobViews.js. Reading a
+        // number here keeps admin analytics cheap; JobView is the source of truth.
+        viewCount: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
         hiredCount: {
             type: Number,
             default: 0,

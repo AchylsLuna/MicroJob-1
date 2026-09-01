@@ -8,11 +8,14 @@ import { createNotification } from '../lib/notificationService.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
 import { isSupportedJobType, parseMinimumPay } from '../lib/jobPosting.js';
+import { recordJobView } from '../lib/jobViews.js';
+import { getEmployerProfileRequirementError } from '../lib/profileCompleteness.js';
 import {
     APPLICANT_SELECT,
     PUBLIC_JOB_POSTER_SELECT,
-    addCityFilter,
+    proximityOf,
     resolveDiscoveryCity,
+    sortByProximity,
     serializeApplicant,
     serializePublicJob,
 } from '../lib/jobDiscovery.js';
@@ -26,24 +29,22 @@ const canPostJobsRole = (role) =>
     role === 'employer' ||
     role === 'doctor' ||
     isAdminRole(role);
-const cityRequiredResponse = (res) => res.status(428).json({
-    message: 'Set your city or municipality before searching for local jobs.',
-    code: 'CITY_REQUIRED',
-});
-
 const getDiscoveryCity = (req) => resolveDiscoveryCity({
     userId: getRequesterId(req),
     role: getRequesterRole(req),
     requestedCity: req.query?.city,
-    allowUnscoped: canPostJobsRole(getRequesterRole(req)) || isAdminRole(getRequesterRole(req)),
 });
+
+/** Attaches the proximity tag the client uses to group "nearest in your city". */
+const withProximity = (jobs, locality) =>
+    jobs.map((job) => ({ ...serializePublicJob(job), proximity: proximityOf(job, locality) }));
+
 
 export async function getJobList(req, res) {
     try {
         const { category, jobType, search, excludeOwn } = req.query;
         const discovery = await getDiscoveryCity(req);
-        if (discovery.error) return cityRequiredResponse(res);
-        
+
         let filter = {};
         
         // Filter by category
@@ -57,9 +58,6 @@ export async function getJobList(req, res) {
             filter.jobType = { $in: types };
         }
 
-        // Local-community discovery is scoped to the worker's city/municipality.
-        filter = addCityFilter(filter, discovery.city);
-        
         // Search filter
         if (search) {
             const safeSearch = String(search).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -74,11 +72,13 @@ export async function getJobList(req, res) {
             filter.jobPoster = { $ne: getRequesterId(req) };
         }
         
+        // National result set, ordered so the viewer's own city comes first.
         const jobs = await Job.find(filter)
             .populate('category', 'name')
             .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
-            .sort({ createdAt: -1 });
-        res.status(200).json(jobs.map(serializePublicJob));
+            .sort({ createdAt: -1 })
+            .lean();
+        res.status(200).json(withProximity(sortByProximity(jobs, discovery), discovery));
     } catch (error) {
         console.error('Get jobs error:', error);
         res.status(500).json({message: "Failed to get jobs.", error: error.message});
@@ -88,11 +88,11 @@ export async function getJobList(req, res) {
 export async function getAvailableJobs(req, res){
     try {
         const discovery = await getDiscoveryCity(req);
-        if (discovery.error) return cityRequiredResponse(res);
-        const jobs = await Job.find(addCityFilter({ status: 'Available' }, discovery.city))
+        const jobs = await Job.find({ status: 'Available' })
             .populate('category', 'name')
-            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT);
-        res.status(200).json(jobs.map(serializePublicJob));
+            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
+            .lean();
+        res.status(200).json(withProximity(sortByProximity(jobs, discovery), discovery));
     } catch (error) {
         res.status(500).json({message: "Failed to get available jobs."})
     }
@@ -101,14 +101,14 @@ export async function getJobByCategory(req, res) {
     try {
         const {categoryId} = req.params;
         const discovery = await getDiscoveryCity(req);
-        if (discovery.error) return cityRequiredResponse(res);
-        const jobs = await Job.find(addCityFilter({ category: categoryId }, discovery.city))
+        const jobs = await Job.find({ category: categoryId })
             .populate('category', 'name')
-            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT);
+            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
+            .lean();
         if(!jobs || jobs.length === 0) {
             return res.status(404).json({message: "No jobs were found for this category."});
         }
-        res.status(200).json(jobs.map(serializePublicJob));
+        res.status(200).json(withProximity(sortByProximity(jobs, discovery), discovery));
     } catch (error) {
         res.status(500).json({message: "Failed to get jobs."});
     }
@@ -121,6 +121,13 @@ export async function getJobDetails(req, res){
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
+        // Fire and forget: a view is analytics, and must never delay or fail the
+        // job detail response. recordJobView swallows its own errors.
+        void recordJobView(job, {
+            viewerId: req.user?.id || null,
+            ip: req.ip || null,
+            userAgent: req.get?.('user-agent') || null,
+        });
         res.status(200).json(serializePublicJob(job));
     } catch (error) {
         console.error('Get job details error:', error);
@@ -178,7 +185,17 @@ export async function createJob(req, res){
         if (!canPostJobsRole(requesterRole)) {
             return res.status(403).json({ message: "Only employer accounts can create jobs." });
         }
-        
+
+        const employerProfile = await User.findById(jobPosterId).select('companyName avatarUrl');
+        const profileError = getEmployerProfileRequirementError(employerProfile);
+        if (profileError) {
+            return res.status(profileError.status).json({
+                message: profileError.message,
+                code: profileError.code,
+                missing: profileError.missing,
+            });
+        }
+
         const missingFields = [];
         if (!title) missingFields.push('title');
         if (!description) missingFields.push('description');

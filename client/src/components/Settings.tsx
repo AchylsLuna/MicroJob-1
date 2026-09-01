@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle, XCircle, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
+import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   getProfile,
@@ -21,6 +22,8 @@ import {
   addWorkExperience,
   updateWorkExperience,
   deleteWorkExperience,
+  uploadExperienceMedia,
+  deleteExperienceMedia,
   addProfileSkill,
   updateProfileSkill,
   deleteProfileSkill,
@@ -32,6 +35,7 @@ import { EmployerPaymentMethodsSection } from "./settings/EmployerPaymentMethods
 import { EmployerPrivacyCard } from "./settings/EmployerPrivacyCard";
 import { MfaSettingsCard } from "./settings/MfaSettingsCard";
 import { WorkerResumeSection } from "./settings/WorkerResumeSection";
+import { LanguageSettingsCard } from "./settings/LanguageSettingsCard";
 import { SettingsTabList } from "./settings/SettingsTabList";
 import { Card, Dialog, ConfirmDialog } from "./ui";
 import { ROUTES } from "../utils/routes";
@@ -43,6 +47,7 @@ import {
 import {
   PROFILE_LIMITS,
   validateAvatarFile,
+  validateExperienceMediaFile,
   validateProfileDetails,
   type ProfileValidationField,
 } from "../lib/profileValidation";
@@ -53,19 +58,6 @@ import {
   type CityOption,
   type ProvinceOption,
 } from "../services/philippineLocations";
-
-const toAbsoluteAssetUrl = (value?: string | null): string | null => {
-  if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return value;
-  if (value.startsWith("/")) {
-    const apiBase = import.meta.env.VITE_API_BASE || "/api";
-    const origin = apiBase.startsWith("http")
-      ? apiBase.replace(/\/api\/?$/, "")
-      : window.location.origin;
-    return `${origin}${value}`;
-  }
-  return value;
-};
 
 type TabType = "account" | "privacy" | "payments";
 type AccountTab = "personal" | "experience" | "resume";
@@ -324,6 +316,10 @@ export function Settings() {
   const [isExperienceSaving, setIsExperienceSaving] = useState(false);
   const [deleteExperienceTarget, setDeleteExperienceTarget] = useState<WorkExperienceItem | null>(null);
   const [deletingExperienceId, setDeletingExperienceId] = useState<string | null>(null);
+  // Scoped by experience id, not a single flag, since multiple work-history
+  // entries exist and each has its own independent "Add photo" control.
+  const [mediaUploadingId, setMediaUploadingId] = useState<string | null>(null);
+  const [mediaDeletingId, setMediaDeletingId] = useState<string | null>(null);
 
   const [experienceStats, setExperienceStats] = useState({
     totalExperience: "",
@@ -1111,6 +1107,54 @@ export function Settings() {
     }
   };
 
+  const handleUploadExperienceMedia = async (experienceId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validationError = validateExperienceMediaFile(file);
+    if (validationError) {
+      toast.error(validationError);
+      e.target.value = "";
+      return;
+    }
+    const target = workExperiences.find((item) => item.id === experienceId);
+    if ((target?.media?.length || 0) >= PROFILE_LIMITS.experienceMediaPerEntry) {
+      toast.error(`You can attach up to ${PROFILE_LIMITS.experienceMediaPerEntry} photos to one work experience.`);
+      e.target.value = "";
+      return;
+    }
+
+    setMediaUploadingId(experienceId);
+    try {
+      const response = await uploadExperienceMedia(experienceId, file);
+      const nextItems = mapWorkExperiences((response as any)?.workExperience || []);
+      setWorkExperiences(nextItems);
+      updateAuthProfile({ workExperience: nextItems });
+      toast.success("Photo attached.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to attach photo.");
+    } finally {
+      setMediaUploadingId(null);
+      e.target.value = "";
+    }
+  };
+
+  const handleDeleteExperienceMedia = async (experienceId: string, mediaId: string) => {
+    if (mediaDeletingId) return;
+    setMediaDeletingId(mediaId);
+    try {
+      const response = await deleteExperienceMedia(experienceId, mediaId);
+      const nextItems = mapWorkExperiences((response as any)?.workExperience || []);
+      setWorkExperiences(nextItems);
+      updateAuthProfile({ workExperience: nextItems });
+      toast.success("Photo removed.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to remove photo.");
+    } finally {
+      setMediaDeletingId(null);
+    }
+  };
+
   const handleRequestPasswordOtp = async () => {
     if (!securityData.currentPassword) {
       toast.error("Please enter your current password");
@@ -1704,6 +1748,10 @@ export function Settings() {
                         {isProfileSaving ? "Saving..." : isProfileLoading ? "Loading..." : "Save changes"}
                       </button>
                 </form>
+
+                <div className="mt-6">
+                  <LanguageSettingsCard />
+                </div>
               </div>
                   )}
 
@@ -1779,11 +1827,51 @@ export function Settings() {
                         </div>
                         {workExperiences.length ? workExperiences.map((item) => (
                           <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               <p className="text-[15px] font-semibold text-slate-900">{item.title}</p>
                               <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
                               <p className="mt-1 text-[12px] text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
                               {item.description ? <p className="mt-3 text-[13px] text-slate-600 whitespace-pre-line">{item.description}</p> : null}
+
+                              <div className="mt-3">
+                                <p className="text-[12px] font-semibold text-slate-500 mb-2">Media</p>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {(item.media || []).map((media) => {
+                                    const mediaUrl = toAbsoluteAssetUrl(media.url);
+                                    const mediaId = media._id || media.url;
+                                    if (!mediaUrl) return null;
+                                    return (
+                                      <div key={mediaId} className="relative h-16 w-16 shrink-0">
+                                        <img src={mediaUrl} alt={media.originalName || item.title} className="h-full w-full rounded-lg border border-slate-200 object-cover" />
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteExperienceMedia(item.id, mediaId)}
+                                          disabled={mediaDeletingId === mediaId}
+                                          aria-label={`Remove photo from ${item.title}`}
+                                          aria-busy={mediaDeletingId === mediaId}
+                                          className="absolute -right-1.5 -top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#EF4444] shadow ring-1 ring-slate-200 hover:bg-[#FEE2E2] disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#EF4444]"
+                                        >
+                                          <XCircle className="h-4 w-4" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                  {(item.media?.length || 0) < PROFILE_LIMITS.experienceMediaPerEntry ? (
+                                    <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-[#1C4D8D] hover:text-[#1C4D8D] focus-within:ring-2 focus-within:ring-[#1C4D8D]">
+                                      <Upload className="h-4 w-4" />
+                                      <span className="text-[10px] font-semibold">{mediaUploadingId === item.id ? "…" : "Add"}</span>
+                                      <input
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png,.gif,.webp"
+                                        onChange={(e) => handleUploadExperienceMedia(item.id, e)}
+                                        disabled={mediaUploadingId === item.id}
+                                        aria-label={`Add a photo to ${item.title}`}
+                                        className="sr-only"
+                                      />
+                                    </label>
+                                  ) : null}
+                                </div>
+                              </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
                               <button type="button" onClick={() => handleEditExperience(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>

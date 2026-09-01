@@ -77,7 +77,7 @@
       "applications": { "title": "Mga Aplikasyon", "subtitle": "Suriin ang mga aplikante at i-update ang status ng pagkuha.", "action": "Pamahalaan ang mga trabaho" },
       "postJob": { "title": "Aking Mga Job Posting", "subtitle": "Gumawa at pamahalaan ang iyong mga bukas na posisyon", "action": "Pamahalaan ang mga trabaho" },
       "jobsManagement": { "title": "Pamamahala ng Trabaho", "searchPlaceholder": "Maghanap ng trabaho..." },
-      "adminAnalytics": { "title": "Admin Analytics", "subtitle": "Unawain ang performance ng kategorya at kamakailang aktibidad sa platform" },
+      "adminAnalytics": { "title": "Analytics", "subtitle": "Unawain ang performance ng kategorya at kamakailang aktibidad sa platform" },
       "adminEWallet": { "title": "Pagmomonitor ng E-Wallet", "subtitle": "Subaybayan ang dami ng payout, pending na balanse, at kamakailang natapos" },
       "adminJobs": { "title": "Pagmomonitor ng Job Posting", "subtitle": "Subaybayan ang mga listahan ng trabaho, status, at aktibidad ng aplikante" },
       "adminUsers": { "title": "Mga User", "subtitle": "Pamahalaan ang mga user ng platform at kanilang mga profile" },

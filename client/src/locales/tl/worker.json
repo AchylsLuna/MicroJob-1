@@ -221,11 +221,11 @@
       "allCategories": "Lahat ng kategorya",
       "cityButtonAriaSet": "Mga trabaho sa: {{location}}",
       "cityButtonAriaUnset": "Itakda ang lungsod para sa paghahanap ng trabaho: {{location}}",
-      "deadlinePlaceholder": "Kahit anong deadline"
+      "setCityLabel": "Itakda ang lungsod"
     },
     "locationBanner": {
-      "title": "Idagdag ang iyong lungsod para makahanap ng lokal na trabaho",
-      "subtitle": "Kasalukuyang ipinapakita lamang ng MicroJobs ang mga oportunidad mula sa iyong lungsod o munisipalidad.",
+      "title": "Idagdag ang iyong lungsod para makita muna ang malalapit na trabaho",
+      "subtitle": "Nagba-browse ka ng trabaho sa buong bansa. Itakda ang iyong lungsod at ipapakita muna namin ang pinakamalapit.",
       "updateLocation": "I-update ang lokasyon"
     },
     "preferences": {
@@ -241,7 +241,8 @@
     "results": {
       "countLabel_one": "{{count}} trabahong nahanap",
       "countLabel_other": "{{count}} na trabahong nahanap",
-      "sortedBy": "Nakaayos ang mga oportunidad ayon sa {{sort}}."
+      "sortedBy": "Nakaayos ang mga oportunidad ayon sa {{sort}}.",
+      "nearestFirst": "Ipinapakita ang mga trabaho sa buong bansa, nauuna ang pinakamalapit sa {{city}}."
     },
     "sort": {
       "ariaLabel": "Ayusin ang mga trabaho",
@@ -287,7 +288,9 @@
       "categoryFallback": "Pangkalahatan",
       "locationFallback": "Walang tinukoy na lokasyon",
       "salaryMinimum": "{{salary}} minimum"
-    }
+    },
+    "nearest": "Pinakamalapit sa {{city}}",
+    "nationwide": "Iba pang lugar sa Pilipinas"
   },
   "jobDetails": {
     "backToJobs": "Bumalik sa mga trabaho",
@@ -374,7 +377,8 @@
       "jobInfoMissing": "Hindi available ang impormasyon ng trabaho.",
       "employerInfoMissing": "Hindi available ang impormasyon ng employer para sa trabahong ito.",
       "startConversationFailed": "Hindi ma-simulan ang usapan sa employer na ito.",
-      "employerProfileMissing": "Hindi available ang profile ng employer para sa trabahong ito."
+      "employerProfileMissing": "Hindi available ang profile ng employer para sa trabahong ito.",
+      "profileIncomplete": "Idagdag ang larawan sa profile sa Settings bago mag-apply sa trabaho."
     }
   },
   "eWallet": {
@@ -571,7 +575,8 @@
     "tabs": {
       "overview": "Overview",
       "skills": "Kasanayan at Karanasan",
-      "accepted": "Tinanggap na Trabaho"
+      "accepted": "Tinanggap na Trabaho",
+      "portfolio": "Portfolio"
     },
     "completeness": {
       "title": "Kakumpletuhan ng profile",
@@ -638,6 +643,13 @@
       "untitledJob": "Walang pamagat na trabaho",
       "salaryUnavailable": "Hindi available ang sahod",
       "noDescription": "Walang ibinigay na deskripsyon."
+    },
+    "publicView": "Pampublikong Tanaw",
+    "portfolioTab": {
+      "heading": "Portfolio",
+      "empty": "Wala pang larawan sa portfolio",
+      "emptyHint": "Maglagay ng larawan sa isang work experience entry sa Settings para mabuo ang iyong portfolio.",
+      "manage": "Pamahalaan sa Settings"
     }
   },
   "support": {

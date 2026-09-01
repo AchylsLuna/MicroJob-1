@@ -22,6 +22,7 @@ export const PROFILE_LIMITS = {
   experienceCompany: 120,
   experienceLocation: 120,
   experienceDescription: 1000,
+  experienceMediaPerEntry: 6,
 } as const;
 
 export const MAX_PROFILE_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -45,6 +46,17 @@ export function validateAvatarFile(file: ProfileFile): string | null {
   }
   if (file.size > MAX_PROFILE_UPLOAD_BYTES) {
     return "Profile photos must be 5 MB or smaller.";
+  }
+  return null;
+}
+
+export function validateExperienceMediaFile(file: ProfileFile): string | null {
+  const extension = extensionOf(file.name);
+  if (!AVATAR_EXTENSIONS.has(extension) || !AVATAR_MIME_TYPES.has(file.type.toLowerCase())) {
+    return "Choose a JPG, PNG, GIF, or WEBP image.";
+  }
+  if (file.size > MAX_PROFILE_UPLOAD_BYTES) {
+    return "Work sample photos must be 5 MB or smaller.";
   }
   return null;
 }

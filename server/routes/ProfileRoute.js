@@ -21,10 +21,13 @@ import {
   addWorkExperience,
   updateWorkExperience,
   deleteWorkExperience,
+  addExperienceMedia,
+  deleteExperienceMedia,
 } from '../controllers/skillsController.js';
 import {
   uploadAvatarFile,
   uploadResumeFile,
+  uploadExperienceMediaFile,
 } from '../middleware/uploadConfig.js';
 const router = express.Router();
 
@@ -48,5 +51,7 @@ router.patch('/profile/skills/:skillId', verifyToken, updateSkillDescription);
 router.post('/profile/experience', verifyToken, addWorkExperience);
 router.patch('/profile/experience/:experienceId', verifyToken, updateWorkExperience);
 router.delete('/profile/experience/:experienceId', verifyToken, deleteWorkExperience);
+router.post('/profile/experience/:experienceId/media', verifyToken, uploadExperienceMediaFile, addExperienceMedia);
+router.delete('/profile/experience/:experienceId/media/:mediaId', verifyToken, deleteExperienceMedia);
 
 export default router;

@@ -5,6 +5,7 @@ import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
+import { getWorkerProfileRequirementError } from '../lib/profileCompleteness.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
 import JobOffer from '../models/JobOffer.js';
 import {
@@ -285,6 +286,15 @@ export const applyForJob = async (req, res) => {
     }
     if (String(job.jobPoster) === String(userId)) {
       return sendError(res, 400, 'You cannot apply to your own job');
+    }
+
+    const applicantProfile = await User.findById(userId).select('avatarUrl');
+    const profileError = getWorkerProfileRequirementError(applicantProfile);
+    if (profileError) {
+      return sendError(res, profileError.status, profileError.message, {
+        code: profileError.code,
+        missing: profileError.missing,
+      });
     }
 
     const existingApplication = await JobApplication.findOne({ job: jobId, applicant: userId });

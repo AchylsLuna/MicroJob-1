@@ -18,6 +18,7 @@ const uploadsRoot = `${path.resolve(uploadsDir)}${process.platform === 'win32' ?
 const resumeStorage = multer.memoryStorage();
 const avatarStorage = multer.memoryStorage();
 const documentStorage = multer.memoryStorage();
+const experienceMediaStorage = multer.memoryStorage();
 
 const multerResume = multer({
   storage: resumeStorage,
@@ -38,23 +39,33 @@ const multerResume = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+// Avatars and work-experience media accept exactly the same image types, so
+// they share one filter rather than keeping two copies in step by hand.
+const createImageFileFilter = () => (req, file, cb) => {
+  const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  const allowedMime = new Set([
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+  ]);
+  const ext = safeExt(path.extname(file.originalname));
+  if (allowed.includes(ext) && allowedMime.has(String(file.mimetype || '').toLowerCase())) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only JPG, PNG, GIF, and WEBP images are allowed'));
+  }
+};
+
 const multerAvatar = multer({
   storage: avatarStorage,
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
-    const allowedMime = new Set([
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-    ]);
-    const ext = safeExt(path.extname(file.originalname));
-    if (allowed.includes(ext) && allowedMime.has(String(file.mimetype || '').toLowerCase())) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only JPG, PNG, GIF, and WEBP images are allowed'));
-    }
-  },
+  fileFilter: createImageFileFilter(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
+const multerExperienceMedia = multer({
+  storage: experienceMediaStorage,
+  fileFilter: createImageFileFilter(),
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
@@ -150,6 +161,8 @@ const withUploadErrors = (middleware, kind, defaultExt) => (req, res, next) => {
 export const uploadAvatarFile = withUploadErrors(multerAvatar.single('avatar'), 'avatar', '.jpg');
 export const uploadResumeFile = withUploadErrors(multerResume.single('resume'), 'resume', '.bin');
 export const uploadVerificationFile = withUploadErrors(multerDocument.single('document'), 'verification', '.bin');
+// Same image rules and signature check as avatars -- see hasValidAvatarFileSignature.
+export const uploadExperienceMediaFile = withUploadErrors(multerExperienceMedia.single('media'), 'experience-media', '.jpg');
 
 export const removeUploadFile = async (value) => {
   try {

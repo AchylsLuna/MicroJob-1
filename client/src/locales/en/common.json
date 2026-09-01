@@ -77,7 +77,7 @@
       "applications": { "title": "Applications", "subtitle": "Review applicants and update hiring status.", "action": "Manage jobs" },
       "postJob": { "title": "My Job Postings", "subtitle": "Create and manage your open positions", "action": "Manage jobs" },
       "jobsManagement": { "title": "Jobs Management", "searchPlaceholder": "Search jobs..." },
-      "adminAnalytics": { "title": "Admin Analytics", "subtitle": "Understand category performance and recent platform activity" },
+      "adminAnalytics": { "title": "Analytics", "subtitle": "Understand category performance and recent platform activity" },
       "adminEWallet": { "title": "E-Wallet Monitoring", "subtitle": "Track payout volume, pending balances, and recent completions" },
       "adminJobs": { "title": "Job Posting Monitoring", "subtitle": "Monitor job listings, statuses, and applicant activity" },
       "adminUsers": { "title": "Users", "subtitle": "Manage platform users and their profiles" },

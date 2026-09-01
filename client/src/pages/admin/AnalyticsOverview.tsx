@@ -5,13 +5,47 @@ import { useTranslation } from "react-i18next";
 import type { AdminJob, AdminUser } from "../../hooks/useAdminData";
 import type { PaymentTransaction } from "../../services/api";
 import { formatDate } from "../../lib/formatters";
+import { TopJobCategories } from "./TopJobCategories";
 
 const CHART_MONTHS = 6;
 
-type TopCategory = {
-  name: string;
-  count: number;
+/**
+ * Categorical series colors. Validated as a set with the dataviz palette
+ * checker (lightness band, chroma floor, CVD separation, normal-vision floor,
+ * contrast) against a light surface — do not swap one out in isolation, and
+ * assign in fixed order rather than cycling.
+ */
+const SERIES = {
+  blue: "#2a78d6",
+  orange: "#eb6834",
+  aqua: "#1baf7a",
 };
+const GRID = "#E2E8F0";
+const AXIS_TEXT = "#64748B";
+
+/** Plot geometry shared by both line charts so their axes line up. */
+const PLOT = { width: 400, height: 200, top: 12, right: 12, bottom: 28, left: 52 };
+const INNER_W = PLOT.width - PLOT.left - PLOT.right;
+const INNER_H = PLOT.height - PLOT.top - PLOT.bottom;
+
+/**
+ * Rounded "nice" ticks that never repeat after formatting. The previous axis
+ * divided the max into four equal parts and rounded each, so a max of 1 rendered
+ * as [1, 1, 0, 0] — two duplicate pairs. Forcing an integer step ≥ 1 makes every
+ * tick distinct for the counts and peso amounts these charts show.
+ */
+function niceTicks(maxValue: number, desired = 4): number[] {
+  const safeMax = Math.max(maxValue, 1);
+  const rawStep = safeMax / (desired - 1);
+  const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
+  const normalized = rawStep / magnitude;
+  const niceStep = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  const step = Math.max(1, Math.round(niceStep * magnitude));
+  const top = Math.ceil(safeMax / step) * step;
+  const ticks: number[] = [];
+  for (let value = top; value >= 0; value -= step) ticks.push(value);
+  return ticks;
+}
 
 type AnalyticsOverviewProps = {
   isLoading: boolean;
@@ -19,7 +53,6 @@ type AnalyticsOverviewProps = {
   users: AdminUser[];
   transactions: PaymentTransaction[];
   totalUsers: number;
-  topCategories: TopCategory[];
   formatCurrency: (value: number) => string;
 };
 
@@ -29,18 +62,17 @@ export function AnalyticsOverview({
   users,
   transactions,
   totalUsers,
-  topCategories,
   formatCurrency,
 }: AnalyticsOverviewProps) {
   const { t } = useTranslation("admin");
   const prefersReducedMotion = useReducedMotion();
+
   const monthBuckets = useMemo(() => {
     const now = new Date();
     return Array.from({ length: CHART_MONTHS }, (_, index) => {
       const date = new Date(now.getFullYear(), now.getMonth() - (CHART_MONTHS - 1 - index), 1);
-      const key = `${date.getFullYear()}-${date.getMonth()}`;
       return {
-        key,
+        key: `${date.getFullYear()}-${date.getMonth()}`,
         label: formatDate(date, { month: "short" }),
         month: date.getMonth(),
         year: date.getFullYear(),
@@ -50,179 +82,189 @@ export function AnalyticsOverview({
 
   const getDateFromId = (id?: string) => {
     if (!id || id.length < 8) return null;
-    const timestamp = parseInt(id.slice(0, 8), 16) * 1000;
-    return new Date(timestamp);
+    return new Date(parseInt(id.slice(0, 8), 16) * 1000);
   };
 
-  const jobDates = jobs.map((job) => {
-    if (job.createdAt) return new Date(job.createdAt);
-    return getDateFromId(job._id);
-  });
-
+  const jobDates = jobs.map((job) => (job.createdAt ? new Date(job.createdAt) : getDateFromId(job._id)));
   const userDates = users.map((user) => getDateFromId(user._id));
 
-  const monthlyJobs = monthBuckets.map((bucket) => {
-    return jobs.filter((_, jobIndex) => {
-      const date = jobDates[jobIndex];
-      return date && date.getMonth() === bucket.month && date.getFullYear() === bucket.year;
-    }).length;
-  });
+  const inBucket = (date: Date | null, bucket: { month: number; year: number }) =>
+    Boolean(date) && date!.getMonth() === bucket.month && date!.getFullYear() === bucket.year;
 
-  const monthlyUsers = monthBuckets.map((bucket) => {
-    return users.filter((_, userIndex) => {
-      const date = userDates[userIndex];
-      return date && date.getMonth() === bucket.month && date.getFullYear() === bucket.year;
-    }).length;
-  });
+  const monthlyJobs = monthBuckets.map((bucket) => jobDates.filter((date) => inBucket(date, bucket)).length);
+  const monthlyUsers = monthBuckets.map((bucket) => userDates.filter((date) => inBucket(date, bucket)).length);
 
-  const monthlyPayoutVolume = monthBuckets.map((bucket) => {
-    return transactions.reduce((sum, transaction) => {
+  const monthlyPayoutVolume = monthBuckets.map((bucket) =>
+    transactions.reduce((sum, transaction) => {
       if (transaction.type !== "PAYOUT" || transaction.status !== "COMPLETED") return sum;
       const date = transaction.createdAt ? new Date(transaction.createdAt) : null;
-      if (!date) return sum;
-      if (date.getMonth() !== bucket.month || date.getFullYear() !== bucket.year) return sum;
-      return sum + Number(transaction.amount || 0);
-    }, 0);
-  });
+      return inBucket(date, bucket) ? sum + Number(transaction.amount || 0) : sum;
+    }, 0),
+  );
 
   const totalPayoutVolume = monthlyPayoutVolume.reduce((sum, value) => sum + value, 0);
   const activeJobs = jobs.filter((job) => job.status === "Available" || job.status === "In Progress").length;
 
   const applicantIds = new Set<string>();
-  jobs.forEach((job) => {
-    job.applicants?.forEach((id) => applicantIds.add(id));
-  });
-
+  jobs.forEach((job) => job.applicants?.forEach((id) => applicantIds.add(id)));
   const conversionRate = users.length ? (applicantIds.size / users.length) * 100 : 0;
 
-  const percentChange = (current: number, previous: number) => {
-    if (!previous) return 0;
+  /** `null` when there is no prior month to divide by — shown as a dash rather
+   * than a fabricated "+0.0%", which read as real data on a brand-new platform. */
+  const percentChange = (current: number, previous: number): number | null => {
+    if (!previous) return null;
     return ((current - previous) / previous) * 100;
   };
 
-  const latestIndex = monthBuckets.length - 1;
-  const payoutVolumeChange = percentChange(monthlyPayoutVolume[latestIndex] || 0, monthlyPayoutVolume[latestIndex - 1] || 0);
-  const jobChange = percentChange(monthlyJobs[latestIndex] || 0, monthlyJobs[latestIndex - 1] || 0);
-  const userChange = percentChange(monthlyUsers[latestIndex] || 0, monthlyUsers[latestIndex - 1] || 0);
-  const conversionChange = percentChange(
-    monthlyUsers[latestIndex] ? (monthlyJobs[latestIndex] / monthlyUsers[latestIndex]) * 100 : 0,
-    monthlyUsers[latestIndex - 1]
-      ? (monthlyJobs[latestIndex - 1] / monthlyUsers[latestIndex - 1]) * 100
-      : 0,
-  );
-
+  const last = monthBuckets.length - 1;
   const cardItems = [
     {
       label: t("analytics.overview.cards.payoutVolume"),
       value: isLoading ? "—" : formatCurrency(totalPayoutVolume),
-      change: payoutVolumeChange,
-      icon: <DollarSign className="w-6 h-6 text-[#1C4D8D]" />,
+      change: percentChange(monthlyPayoutVolume[last] || 0, monthlyPayoutVolume[last - 1] || 0),
+      icon: <DollarSign className="h-6 w-6 text-[#1C4D8D]" />,
     },
     {
       label: t("analytics.overview.cards.activeJobs"),
       value: isLoading ? "—" : activeJobs,
-      change: jobChange,
-      icon: <Briefcase className="w-6 h-6 text-[#1C4D8D]" />,
+      change: percentChange(monthlyJobs[last] || 0, monthlyJobs[last - 1] || 0),
+      icon: <Briefcase className="h-6 w-6 text-[#1C4D8D]" />,
     },
     {
       label: t("analytics.overview.cards.totalUsers"),
       value: isLoading ? "—" : totalUsers,
-      change: userChange,
-      icon: <Users className="w-6 h-6 text-[#1C4D8D]" />,
+      change: percentChange(monthlyUsers[last] || 0, monthlyUsers[last - 1] || 0),
+      icon: <Users className="h-6 w-6 text-[#1C4D8D]" />,
     },
     {
       label: t("analytics.overview.cards.conversionRate"),
       value: isLoading ? "—" : `${conversionRate.toFixed(1)}%`,
-      change: conversionChange,
-      icon: <TrendingUp className="w-6 h-6 text-[#1C4D8D]" />,
+      change: null,
+      icon: <TrendingUp className="h-6 w-6 text-[#1C4D8D]" />,
     },
   ];
 
-  const maxMonthly = Math.max(...monthlyJobs, ...monthlyUsers, 1);
-  const maxPayoutVolume = Math.max(...monthlyPayoutVolume, 1);
   const monthlyUserGrowth = monthlyUsers.reduce<number[]>((acc, value) => {
-    const prev = acc.length ? acc[acc.length - 1] : 0;
-    acc.push(prev + value);
+    acc.push((acc.length ? acc[acc.length - 1] : 0) + value);
     return acc;
   }, []);
-  const maxUserGrowth = Math.max(...monthlyUserGrowth, 1);
 
-  const chartPoints = (values: number[], maxValue: number) => {
-    const width = 360;
-    const height = 180;
-    const padding = 10;
-    const step = values.length > 1 ? (width - padding * 2) / (values.length - 1) : 0;
-    return values.map((value, index) => {
-      const x = padding + step * index;
-      const y = height - padding - (value / maxValue) * (height - padding * 2);
-      return { x, y };
-    });
-  };
+  const activityTicks = niceTicks(Math.max(...monthlyJobs, ...monthlyUsers, 0));
+  const payoutTicks = niceTicks(Math.max(...monthlyPayoutVolume, 0));
+  const growthTicks = niceTicks(Math.max(...monthlyUserGrowth, 0));
+  const activityMax = activityTicks[0];
 
-  const payoutVolumePoints = chartPoints(monthlyPayoutVolume, maxPayoutVolume);
-  const userGrowthPoints = chartPoints(monthlyUserGrowth, maxUserGrowth);
+  const hasActivity = monthlyJobs.some((v) => v > 0) || monthlyUsers.some((v) => v > 0);
+  const hasPayouts = monthlyPayoutVolume.some((v) => v > 0);
+  const hasGrowth = monthlyUserGrowth.some((v) => v > 0);
 
-  const linePath = (points: { x: number; y: number }[]) =>
-    points.map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`).join(" ");
+  const xAt = (index: number) =>
+    PLOT.left + (monthBuckets.length > 1 ? (INNER_W / (monthBuckets.length - 1)) * index : INNER_W / 2);
+  const yAt = (value: number, maxValue: number) => PLOT.top + INNER_H - (value / Math.max(maxValue, 1)) * INNER_H;
 
-  const chartTicks = (maxValue: number) => {
-    const ticks = 4;
-    return Array.from({ length: ticks }, (_, index) =>
-      Math.round(maxValue * (1 - index / (ticks - 1)))
+
+  const cardClass = "rounded-[16px] border border-[#E5E7EB] bg-white p-6 transition hover:shadow-md";
+  const headingClass = "text-[18px] font-semibold text-[#111827]";
+
+  const EmptyPlot = ({ label }: { label: string }) => (
+    <div className="flex h-[200px] items-center justify-center rounded-[12px] border border-dashed border-slate-200 text-[13px] text-slate-500">
+      {label}
+    </div>
+  );
+
+  const Legend = ({ items }: { items: { label: string; color: string }[] }) => (
+    <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+      {items.map((item) => (
+        <li key={item.label} className="flex items-center gap-2 text-[12px] text-[#475569]">
+          <span aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: item.color }} />
+          <span>{item.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  /** Shared axis furniture: horizontal gridlines + y tick labels + x month labels. */
+  const Axes = ({ ticks, format }: { ticks: number[]; format: (value: number) => string }) => (
+    <g aria-hidden="true">
+      {ticks.map((tick) => {
+        const y = yAt(tick, ticks[0]);
+        return (
+          <g key={tick}>
+            <line x1={PLOT.left} x2={PLOT.width - PLOT.right} y1={y} y2={y} stroke={GRID} strokeWidth={1} />
+            <text x={PLOT.left - 8} y={y + 4} textAnchor="end" fontSize={11} fill={AXIS_TEXT}>
+              {format(tick)}
+            </text>
+          </g>
+        );
+      })}
+      {monthBuckets.map((bucket, index) => (
+        <text
+          key={bucket.key}
+          x={xAt(index)}
+          y={PLOT.height - 8}
+          textAnchor="middle"
+          fontSize={11}
+          fill={AXIS_TEXT}
+        >
+          {bucket.label}
+        </text>
+      ))}
+    </g>
+  );
+
+  const LineChart = ({
+    values,
+    ticks,
+    color,
+    format,
+  }: {
+    values: number[];
+    ticks: number[];
+    color: string;
+    format: (value: number) => string;
+  }) => {
+    const points = values.map((value, index) => ({ x: xAt(index), y: yAt(value, ticks[0]) }));
+    const path = points.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
+    return (
+      <svg viewBox={`0 0 ${PLOT.width} ${PLOT.height}`} className="h-[200px] w-full" role="img">
+        <Axes ticks={ticks} format={format} />
+        <path d={path} stroke={color} strokeWidth={2} fill="none" strokeLinejoin="round" strokeLinecap="round" />
+        {points.map((point, index) => (
+          <circle key={monthBuckets[index].key} cx={point.x} cy={point.y} r={4} fill={color} stroke="#fff" strokeWidth={2}>
+            <title>{`${monthBuckets[index].label}: ${format(values[index])}`}</title>
+          </circle>
+        ))}
+      </svg>
     );
   };
 
-  const payoutVolumeTicks = chartTicks(maxPayoutVolume);
-  const userGrowthTicks = chartTicks(maxUserGrowth);
-
-  const categoryTotal = jobs.length || 1;
-  const categorySegments = useMemo(() => {
-    const colors = ["#1C4D8D", "#10B981", "#EF4444", "#94A3B8", "#E2E8F0"];
-    const visible = topCategories.slice(0, 4);
-    const used = visible.reduce((sum, item) => sum + item.count, 0);
-    const segments = visible.map((item, index) => ({
-      label: item.name,
-      value: item.count,
-      color: colors[index],
-    }));
-    const remaining = categoryTotal - used;
-    if (remaining > 0) {
-      segments.push({ label: t("analytics.overview.othersCategory"), value: remaining, color: colors[4] });
-    }
-    return segments;
-  }, [topCategories, categoryTotal, t]);
-
-  const donutRadius = 70;
-  const donutCircumference = 2 * Math.PI * donutRadius;
-  let donutOffset = 0;
-
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {cardItems.map((card, index) => (
           <motion.div
             key={card.label}
-            className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:-translate-y-0.5 hover:shadow-md"
+            className={`${cardClass} hover:-translate-y-0.5`}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05, duration: 0.3 }}
           >
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
                 <p className="text-[13px] text-[#6B7280]">{card.label}</p>
-                <p className="text-[28px] font-semibold text-[#111827] mt-2">{card.value}</p>
-                <p
-                  className={`text-[12px] mt-2 ${
-                    card.change < 0 ? "text-[#DC2626]" : "text-[#16A34A]"
-                  }`}
-                >
-                  {t("analytics.overview.changeFromLastMonth", {
-                    sign: card.change >= 0 ? "+" : "",
-                    value: card.change.toFixed(1),
-                  })}
-                </p>
+                <p className="mt-2 text-[28px] font-semibold text-[#111827]">{card.value}</p>
+                {card.change === null ? (
+                  <p className="mt-2 text-[12px] text-[#94A3B8]">{t("analytics.overview.noPriorMonth")}</p>
+                ) : (
+                  <p className={`mt-2 text-[12px] ${card.change < 0 ? "text-[#B91C1C]" : "text-[#15803D]"}`}>
+                    {t("analytics.overview.changeFromLastMonth", {
+                      sign: card.change >= 0 ? "+" : "",
+                      value: card.change.toFixed(1),
+                    })}
+                  </p>
+                )}
               </div>
-              <div className="w-12 h-12 rounded-full bg-[#1C4D8D]/[0.06] flex items-center justify-center">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D]/[0.06]">
                 {card.icon}
               </div>
             </div>
@@ -230,119 +272,89 @@ export function AnalyticsOverview({
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.monthlyActivity")}</h3>
-          <div className="mt-6 flex items-end gap-4 h-[220px]">
-            {monthBuckets.map((bucket, index) => {
-              const jobHeight = (monthlyJobs[index] / maxMonthly) * 100;
-              const userHeight = (monthlyUsers[index] / maxMonthly) * 100;
-              return (
-                <div key={bucket.key} className="flex flex-col items-center gap-2 flex-1">
-                  <div className="flex items-end gap-2 h-[160px]">
-                    <div
-                      className="w-6 rounded-[8px] bg-[#1C4D8D]/80"
-                      style={{ height: `${Math.max(jobHeight, 6)}%` }}
-                    />
-                    <div
-                      className="w-6 rounded-[8px] bg-[#10B981]"
-                      style={{ height: `${Math.max(userHeight, 6)}%` }}
-                    />
-                  </div>
-                  <span className="text-[12px] text-[#6B7280]">{bucket.label}</span>
-                </div>
-              );
-            })}
-          </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className={cardClass}>
+          <h3 className={headingClass}>{t("analytics.overview.monthlyActivity")}</h3>
+          {hasActivity ? (
+            <>
+              <svg viewBox={`0 0 ${PLOT.width} ${PLOT.height}`} className="mt-4 h-[200px] w-full" role="img">
+                <Axes ticks={activityTicks} format={(value) => String(value)} />
+                {monthBuckets.map((bucket, index) => {
+                  const band = INNER_W / monthBuckets.length;
+                  const centre = PLOT.left + band * index + band / 2;
+                  const barWidth = Math.min(14, band / 3);
+                  const series = [
+                    { value: monthlyJobs[index], color: SERIES.blue, label: t("analytics.overview.legendJobs") },
+                    { value: monthlyUsers[index], color: SERIES.orange, label: t("analytics.overview.legendUsers") },
+                  ];
+                  return (
+                    <g key={bucket.key}>
+                      {series.map((item, seriesIndex) => {
+                        // No synthetic minimum height: a zero month must render as
+                        // nothing, or the chart shows activity that never happened.
+                        const height = (item.value / Math.max(activityMax, 1)) * INNER_H;
+                        // 2px surface gap between the two bars in a group.
+                        const x = centre - barWidth - 1 + seriesIndex * (barWidth + 2);
+                        return (
+                          <rect
+                            key={item.label}
+                            x={x}
+                            y={PLOT.top + INNER_H - height}
+                            width={barWidth}
+                            height={height}
+                            rx={height > 4 ? 4 : 0}
+                            fill={item.color}
+                          >
+                            <title>{`${bucket.label} · ${item.label}: ${item.value}`}</title>
+                          </rect>
+                        );
+                      })}
+                    </g>
+                  );
+                })}
+              </svg>
+              <Legend
+                items={[
+                  { label: t("analytics.overview.legendJobs"), color: SERIES.blue },
+                  { label: t("analytics.overview.legendUsers"), color: SERIES.orange },
+                ]}
+              />
+            </>
+          ) : (
+            <div className="mt-4">
+              <EmptyPlot label={t("analytics.overview.noData")} />
+            </div>
+          )}
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.payoutTrend")}</h3>
-          <div className="mt-6 flex gap-4">
-            <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
-              {payoutVolumeTicks.map((tick, index) => (
-                // Keyed by position, not value: ticks are a fixed-length axis that
-                // never reorders, and rounding repeats values at low maxima
-                // (maxValue 1 yields [1, 1, 0, 0]).
-                <span key={index}>{formatCurrency(tick)}</span>
-              ))}
-            </div>
-            <svg viewBox="0 0 360 180" className="w-full h-[200px]">
-              <path d={linePath(payoutVolumePoints)} stroke="#1C4D8D" strokeWidth="2" fill="none" />
-              {payoutVolumePoints.map((point, index) => (
-                <circle key={`rev-${index}`} cx={point.x} cy={point.y} r={4} fill="#1C4D8D" />
-              ))}
-            </svg>
-          </div>
-          <div className="flex justify-between text-[12px] text-[#6B7280] mt-2">
-            {monthBuckets.map((bucket) => (
-              <span key={bucket.key}>{bucket.label}</span>
-            ))}
+        <div className={cardClass}>
+          <h3 className={headingClass}>{t("analytics.overview.payoutTrend")}</h3>
+          <div className="mt-4">
+            {hasPayouts ? (
+              <LineChart values={monthlyPayoutVolume} ticks={payoutTicks} color={SERIES.blue} format={formatCurrency} />
+            ) : (
+              <EmptyPlot label={t("analytics.overview.noData")} />
+            )}
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.jobsByCategory")}</h3>
-          <div className="mt-6 flex flex-col items-center gap-6">
-            <svg width="200" height="200" viewBox="0 0 200 200">
-              <g transform="translate(100 100) rotate(-90)">
-                {categorySegments.map((segment) => {
-                  const value = segment.value / categoryTotal;
-                  const dash = donutCircumference * value;
-                  const strokeDasharray = `${dash} ${donutCircumference - dash}`;
-                  const strokeDashoffset = -donutOffset;
-                  donutOffset += dash;
-                  return (
-                    <circle
-                      key={segment.label}
-                      r={donutRadius}
-                      cx={0}
-                      cy={0}
-                      fill="transparent"
-                      stroke={segment.color}
-                      strokeWidth={24}
-                      strokeDasharray={strokeDasharray}
-                      strokeDashoffset={strokeDashoffset}
-                    />
-                  );
-                })}
-              </g>
-            </svg>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              {categorySegments.map((segment) => (
-                <div key={segment.label} className="flex items-center gap-2 text-[12px] text-[#6B7280]">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: segment.color }} />
-                  <span>
-                    {segment.label} ({Math.round((segment.value / categoryTotal) * 100)}%)
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <TopJobCategories jobs={jobs} />
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:shadow-md">
-          <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.overview.userGrowth")}</h3>
-          <div className="mt-6 flex gap-4">
-            <div className="flex flex-col justify-between text-[12px] text-[#94A3B8] h-[200px]">
-              {userGrowthTicks.map((tick, index) => (
-                // Keyed by position — see the payout-trend axis above.
-                <span key={index}>{tick}</span>
-              ))}
-            </div>
-            <svg viewBox="0 0 360 180" className="w-full h-[200px]">
-              <path d={linePath(userGrowthPoints)} stroke="#EF4444" strokeWidth="2" fill="none" />
-              {userGrowthPoints.map((point, index) => (
-                <circle key={`user-${index}`} cx={point.x} cy={point.y} r={4} fill="#EF4444" />
-              ))}
-            </svg>
-          </div>
-          <div className="flex justify-between text-[12px] text-[#6B7280] mt-2">
-            {monthBuckets.map((bucket) => (
-              <span key={bucket.key}>{bucket.label}</span>
-            ))}
+        <div className={cardClass}>
+          <h3 className={headingClass}>{t("analytics.overview.userGrowth")}</h3>
+          <div className="mt-4">
+            {hasGrowth ? (
+              <LineChart
+                values={monthlyUserGrowth}
+                ticks={growthTicks}
+                color={SERIES.aqua}
+                format={(value) => String(value)}
+              />
+            ) : (
+              <EmptyPlot label={t("analytics.overview.noData")} />
+            )}
           </div>
         </div>
       </div>

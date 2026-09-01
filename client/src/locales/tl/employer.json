@@ -5,9 +5,18 @@
       "subtitle": "Gumawa ng job post, subaybayan ang status, at pamahalaan ang iyong mga listing."
     },
     "jobType": {
-      "shortTerm": { "label": "Panandaliang trabaho", "description": "Minsanang o pansamantalang trabaho na may malinaw na katapusan." },
-      "sideHustle": { "label": "Side hustle", "description": "Flexible na trabaho na puwedeng gawin para sa dagdag na kita." },
-      "recruiting": { "label": "Recruiting", "description": "Mag-hire para sa isang tuluy-tuloy o mas matagalang tungkulin." }
+      "shortTerm": {
+        "label": "Panandaliang trabaho",
+        "description": "Minsanang o pansamantalang trabaho na may malinaw na katapusan."
+      },
+      "sideHustle": {
+        "label": "Side hustle",
+        "description": "Flexible na trabaho na puwedeng gawin para sa dagdag na kita."
+      },
+      "recruiting": {
+        "label": "Recruiting",
+        "description": "Mag-hire para sa isang tuluy-tuloy o mas matagalang tungkulin."
+      }
     },
     "requiredFields": {
       "title": "Pamagat ng trabaho",
@@ -55,7 +64,10 @@
       "searchPlaceholder": "Maghanap ng trabaho ayon sa pamagat, lokasyon, kasanayan, o kategorya..."
     },
     "loading": "Naglo-load ng iyong mga job posting...",
-    "emptyState": { "title": "Wala pang job posting", "subtitle": "I-post ang iyong unang trabaho para makatanggap ng mga aplikasyon" },
+    "emptyState": {
+      "title": "Wala pang job posting",
+      "subtitle": "I-post ang iyong unang trabaho para makatanggap ng mga aplikasyon"
+    },
     "card": {
       "locationNotSet": "Walang nakatakdang lokasyon",
       "jobTypeNotSet": "Walang nakatakdang uri ng trabaho",
@@ -77,20 +89,50 @@
       "subtitle": "Ang mahahalagang detalye lamang na kailangan ng mga manggagawa para magpasya at mag-apply.",
       "closeAria": "Isara ang modal",
       "legacyTypeWarning": "Ginagamit ng post na ito ang lumang uri na “{{type}}”. Pumili ng kasalukuyang uri para i-modernize ito.",
-      "roleOverview": { "title": "Pangkalahatang-ideya ng tungkulin", "subtitle": "Pangalanan ang trabaho at piliin ang oportunidad na pinaka-angkop dito." },
+      "roleOverview": {
+        "title": "Pangkalahatang-ideya ng tungkulin",
+        "subtitle": "Pangalanan ang trabaho at piliin ang oportunidad na pinaka-angkop dito."
+      },
       "fields": {
-        "jobTitle": { "label": "Pamagat ng Trabaho", "placeholder": "hal. Katulong sa weekend event" },
-        "category": { "label": "Kategorya", "placeholder": "Pumili ng kategorya" },
+        "jobTitle": {
+          "label": "Pamagat ng Trabaho",
+          "placeholder": "hal. Katulong sa weekend event"
+        },
+        "category": {
+          "label": "Kategorya",
+          "placeholder": "Pumili ng kategorya"
+        },
         "opportunityType": "Uri ng Oportunidad"
       },
       "location": {
         "title": "Lokasyon ng trabaho",
         "subtitle": "Piliin muna ang lugar, pagkatapos magdagdag ng opsyonal na landmark o kalye.",
-        "province": { "label": "Probinsya", "loading": "Naglo-load ng mga probinsya...", "placeholder": "Pumili ng probinsya" },
-        "city": { "label": "Lungsod / Munisipalidad", "selectProvinceFirst": "Pumili muna ng probinsya", "loading": "Naglo-load ng mga lungsod...", "placeholder": "Pumili ng lungsod/munisipalidad" },
-        "barangay": { "label": "Barangay", "selectCityFirst": "Pumili muna ng lungsod", "loading": "Naglo-load ng mga barangay...", "placeholder": "Pumili ng barangay" },
-        "address": { "label": "Kalye o landmark", "optional": "(opsyonal)", "placeholder": "hal. Rizal Street, malapit sa City Hall" },
-        "preview": { "label": "Preview ng lokasyon:", "placeholder": "Pumili ng probinsya, lungsod, at barangay" }
+        "province": {
+          "label": "Probinsya",
+          "loading": "Naglo-load ng mga probinsya...",
+          "placeholder": "Pumili ng probinsya"
+        },
+        "city": {
+          "label": "Lungsod / Munisipalidad",
+          "selectProvinceFirst": "Pumili muna ng probinsya",
+          "loading": "Naglo-load ng mga lungsod...",
+          "placeholder": "Pumili ng lungsod/munisipalidad"
+        },
+        "barangay": {
+          "label": "Barangay",
+          "selectCityFirst": "Pumili muna ng lungsod",
+          "loading": "Naglo-load ng mga barangay...",
+          "placeholder": "Pumili ng barangay"
+        },
+        "address": {
+          "label": "Kalye o landmark",
+          "optional": "(opsyonal)",
+          "placeholder": "hal. Rizal Street, malapit sa City Hall"
+        },
+        "preview": {
+          "label": "Preview ng lokasyon:",
+          "placeholder": "Pumili ng probinsya, lungsod, at barangay"
+        }
       },
       "pay": {
         "title": "Bayad at iskedyul",
@@ -100,8 +142,12 @@
         "placeholder": "hal. 1500",
         "helper": "Ilagay ang minimum na halagang garantisado sa bawat na-hire na manggagawa. Naka-secure ang halagang ito sa escrow."
       },
-      "deadline": { "label": "Deadline *" },
-      "positions": { "label": "Bilang ng Kailangang Posisyon" },
+      "deadline": {
+        "label": "Deadline *"
+      },
+      "positions": {
+        "label": "Bilang ng Kailangang Posisyon"
+      },
       "walletSummary": {
         "estimatedValue": "Tinatayang halaga ng trabaho",
         "fundsNeeded": "Kailangang pondo sa wallet",
@@ -137,12 +183,18 @@
       "description": "I-delete ang “{{title}}”? Hindi na maibabalik ang aksyong ito.",
       "defaultTitle": "trabahong ito",
       "confirm": "I-delete ang trabaho"
+    },
+    "profileIncomplete": {
+      "toast": "Idagdag ang pangalan ng kompanya at logo sa Settings bago mag-post ng trabaho."
     }
   },
   "applicationsManagement": {
     "title": "Mga Aplikasyon",
     "subtitle": "Suriin ang mga aplikante ayon sa yugto, mag-iskedyul ng interbyu, at ligtas na magsagawa ng bulk na aksyon sa workflow.",
-    "viewToggle": { "board": "Board", "table": "Talahanayan" },
+    "viewToggle": {
+      "board": "Board",
+      "table": "Talahanayan"
+    },
     "filters": {
       "searchPlaceholder": "Maghanap ayon sa aplikante, email, o pamagat ng trabaho",
       "searchAriaLabel": "Maghanap ng mga aplikasyon",
@@ -170,7 +222,9 @@
       "updating": "Ina-update...",
       "hideSelected": "Itago ang Napili"
     },
-    "errors": { "loadFailed": "Hindi na-load ang mga aplikasyon." },
+    "errors": {
+      "loadFailed": "Hindi na-load ang mga aplikasyon."
+    },
     "states": {
       "loading": "Naglo-load ng mga aplikasyon...",
       "empty": "Walang aplikasyong tumugma sa kasalukuyang mga filter."
@@ -188,7 +242,11 @@
       "untitledRole": "Walang pamagat na tungkulin",
       "appliedOn": "Nag-apply noong {{date}}",
       "nextInterview": "Susunod na interbyu: {{date}}",
-      "stats": { "applied": "Nag-apply", "completed": "Nakumpleto", "success": "Tagumpay" },
+      "stats": {
+        "applied": "Nag-apply",
+        "completed": "Nakumpleto",
+        "success": "Tagumpay"
+      },
       "hiredViaOffer": "Na-hire (sa pamamagitan ng alok)",
       "reschedule": "I-reschedule",
       "schedule": "I-iskedyul",
@@ -214,7 +272,10 @@
       },
       "notScheduled": "Hindi pa naka-iskedyul",
       "noResume": "Walang resume",
-      "actions": { "interview": "Interbyu", "rate": "I-rate" }
+      "actions": {
+        "interview": "Interbyu",
+        "rate": "I-rate"
+      }
     },
     "messageDraft": "Kumusta {{name}}, gusto kong pag-usapan ang iyong aplikasyon para sa {{job}}.",
     "toast": {
@@ -242,7 +303,12 @@
       "dateLabel": "Petsa",
       "timeLabel": "Oras",
       "modeLabel": "Mode",
-      "mode": { "virtual": "Virtual", "onsite": "Onsite", "phone": "Telepono", "other": "Iba pa" },
+      "mode": {
+        "virtual": "Virtual",
+        "onsite": "Onsite",
+        "phone": "Telepono",
+        "other": "Iba pa"
+      },
       "locationLabel": "Lokasyon o link ng miting",
       "locationPlaceholder": "Google Meet link, address ng opisina, o mga tagubilin sa pagtawag",
       "notesLabel": "Mga Tala",
@@ -309,7 +375,9 @@
         "daysAgo_other": "{{count}} na araw na ang nakalipas"
       }
     },
-    "errors": { "loadFailed": "Hindi na-load ang employer dashboard." }
+    "errors": {
+      "loadFailed": "Hindi na-load ang employer dashboard."
+    }
   },
   "paymentMethods": {
     "title": "Mga Paraan ng Pagbabayad",
@@ -383,6 +451,49 @@
     "toast": {
       "saveSuccess": "Na-save ang employer privacy setting.",
       "saveFailed": "Hindi na-save ang employer privacy setting."
+    }
+  },
+  "profile": {
+    "retry": "Subukan Muli",
+    "editProfile": "I-edit ang Profile",
+    "publicView": "Pampublikong Tanaw",
+    "locationNotSet": "Hindi pa naitakda ang lokasyon",
+    "fallbackName": "Employer",
+    "tabs": {
+      "overview": "Pangkalahatang-ideya",
+      "jobs": "Mga Trabaho"
+    },
+    "statRow": {
+      "yearsInBusiness": "Taon sa negosyo",
+      "jobsPosted": "Mga na-post na trabaho",
+      "successRate": "Success rate"
+    },
+    "overviewTab": {
+      "companyDescription": "Deskripsyon ng Kompanya",
+      "aboutFallback": "Wala pang deskripsyon ng kompanya.",
+      "contactInfo": "Impormasyon sa Pakikipag-ugnayan",
+      "email": "Email",
+      "phone": "Telepono",
+      "linkedin": "LinkedIn",
+      "website": "Website",
+      "notSet": "Hindi pa naitakda",
+      "openProfile": "Buksan ang profile",
+      "visitWebsite": "Bisitahin ang website",
+      "loadFailed": "Nabigong i-load ang profile."
+    },
+    "jobsTab": {
+      "heading": "Mga Na-post na Trabaho",
+      "manage": "Pamahalaan ang mga trabaho",
+      "loading": "Nilo-load ang mga trabaho...",
+      "loadFailed": "Nabigong i-load ang iyong mga trabaho.",
+      "locationNotSet": "Hindi pa naitakda ang lokasyon",
+      "dateUnavailable": "Petsa hindi available",
+      "applicantCount_other": "{{count}} na aplikante",
+      "empty": "Wala ka pang na-post na trabaho",
+      "postJobCta": "Mag-post ng Trabaho",
+      "applicantCount_one": "{{count}} aplikante",
+      "totalApplicants_one": "{{count}} aplikante sa lahat ng post",
+      "totalApplicants_other": "{{count}} na aplikante sa lahat ng post"
     }
   }
 }

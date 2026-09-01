@@ -9,25 +9,9 @@ import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button, StatusState } from "../../components/ui";
-import { DateField } from "../../components/ui/DateField";
-import { isDateDisabled, type DateRange } from "../../lib/calendarModel";
 import { JobCard } from "../../components/job/JobCard";
 import { toJobCardData } from "../../components/job/jobCardModel";
 import { formatCurrency } from "../../lib/formatters";
-
-// Converts between the "YYYY-MM-DD" strings stored in the URL (?from=&to=)
-// and the Date objects DateField works with.
-function parseDateOnly(value: string): Date | null {
-  const [year, month, day] = value.split("-").map(Number);
-  if (!year || !month || !day) return null;
-  return new Date(year, month - 1, day);
-}
-function formatDateOnly(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
 
 interface Job {
   id: string;
@@ -110,20 +94,6 @@ export function FindJobs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
   const selectedCategory = searchParams.get("category") || "";
-  const dateFromParam = searchParams.get("from") || "";
-  const dateToParam = searchParams.get("to") || "";
-  const deadlineRange: DateRange = {
-    start: dateFromParam ? parseDateOnly(dateFromParam) : null,
-    end: dateToParam ? parseDateOnly(dateToParam) : null,
-  };
-  const setDeadlineRange = (next: DateRange) => {
-    const nextParams = new URLSearchParams(searchParams);
-    if (next.start) nextParams.set("from", formatDateOnly(next.start));
-    else nextParams.delete("from");
-    if (next.end) nextParams.set("to", formatDateOnly(next.end));
-    else nextParams.delete("to");
-    setSearchParams(nextParams);
-  };
   const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -359,20 +329,12 @@ export function FindJobs() {
     saved: savedJobIds.has(job.id),
   }));
 
-  const filteredJobs = jobsWithSavedState.filter(job => {
-    const workerCity = normalizeToken(workerLocation.city);
-    if (!workerCity || !normalizeToken(job.location).includes(workerCity)) {
-      return false;
-    }
-    if (deadlineRange.start && deadlineRange.end) {
-      if (!job.deadline) return false;
-      const deadlineDate = new Date(job.deadline);
-      if (Number.isNaN(deadlineDate.getTime())) return false;
-      if (isDateDisabled(deadlineDate, { minDate: deadlineRange.start, maxDate: deadlineRange.end })) return false;
-    }
-    if (!searchQuery) {
-      return true;
-    }
+  // Search only. Locality is a ranking signal, not a filter — the worker's city
+  // decides the *order* (see the "nearest" sort and locationScore), never which
+  // jobs exist. Filtering here previously hid every out-of-city job, and showed
+  // an empty page to anyone who had not set a city at all.
+  const filteredJobs = jobsWithSavedState.filter((job) => {
+    if (!searchQuery) return true;
     const combined = `${job.title} ${job.company} ${job.category}`.toLowerCase();
     return combined.includes(searchQuery);
   });
@@ -423,7 +385,7 @@ export function FindJobs() {
         </div>
 
         <form
-          className="relative mt-6 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.3fr)_minmax(11rem,0.3fr)_minmax(11rem,0.3fr)]"
+          className="relative mt-6 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.35fr)_minmax(11rem,0.35fr)]"
           role="search"
           onSubmit={(event) => event.preventDefault()}
         >
@@ -463,15 +425,6 @@ export function FindJobs() {
             <MapPin className="h-5 w-5 shrink-0 text-slate-500" aria-hidden="true" />
             <span className="truncate text-sm font-semibold">{workerLocationLabel}</span>
           </button>
-          <DateField
-            mode="range"
-            minDate={new Date()}
-            value={deadlineRange}
-            onChange={setDeadlineRange}
-            placeholder={t("findJobs.hero.deadlinePlaceholder")}
-            className="min-w-0"
-            buttonClassName="flex h-14 w-full items-center gap-2 rounded-xl border-0 bg-white px-4 text-left text-sm font-semibold text-slate-700 outline-none transition focus:ring-2 focus:ring-blue-500"
-          />
         </form>
       </section>
 
@@ -543,7 +496,13 @@ export function FindJobs() {
           <p className="text-xl font-bold leading-tight text-slate-950 sm:text-2xl" aria-live="polite">
             {t("findJobs.results.countLabel", { count: sortedJobs.length })}
           </p>
-          <p className="mt-1 text-sm text-slate-500">{t("findJobs.results.sortedBy", { sort: sortLabels[sortBy].toLowerCase() })}</p>
+          {/* Discovery is nationwide; when the worker has a city we say so
+              explicitly, since "nearest first" is otherwise invisible ordering. */}
+          <p className="mt-1 text-sm text-slate-500">
+            {workerCity && sortBy === "nearest"
+              ? t("findJobs.results.nearestFirst", { city: workerCity })
+              : t("findJobs.results.sortedBy", { sort: sortLabels[sortBy].toLowerCase() })}
+          </p>
         </div>
         <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-600 shadow-sm focus-within:ring-2 focus-within:ring-blue-600">
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />

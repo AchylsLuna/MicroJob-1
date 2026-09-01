@@ -3,7 +3,7 @@ import { AnalyticsOverview } from "./AnalyticsOverview";
 import { useAdminData } from "../../hooks/useAdminData";
 
 function AdminAnalyticsContent() {
-  const { isLoading, loadError, jobs, users, transactions, stats, topCategories, formatCurrency } = useAdminData();
+  const { isLoading, loadError, jobs, users, transactions, stats, formatCurrency } = useAdminData();
 
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
@@ -19,7 +19,6 @@ function AdminAnalyticsContent() {
         users={users}
         transactions={transactions}
         totalUsers={stats.totalUsers}
-        topCategories={topCategories}
         formatCurrency={formatCurrency}
       />
     </div>

@@ -1,18 +1,19 @@
 import { useEffect, useState } from "react";
 import {
-  User,
   Mail,
   Phone,
   MapPin,
   Award,
   Download,
   Edit,
+  Eye,
   Calendar,
   FileText,
   Linkedin,
   Globe,
   DollarSign,
   Briefcase,
+  Images,
   RefreshCw,
   ExternalLink,
 } from "lucide-react";
@@ -23,7 +24,9 @@ import { useAuth } from "../../contexts/AuthContext";
 import { getProfile, getUserApplications, type WorkExperience } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
+import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { formatCurrency, formatDate } from "../../lib/formatters";
+import { SettingsTabList } from "../../components/settings/SettingsTabList";
 
 interface Skill {
   id: string;
@@ -44,6 +47,17 @@ interface AcceptedWork {
   status: "Completed" | "In Progress";
 }
 
+const initialsOf = (label: string, fallback = "") => {
+  const initials = label
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return initials || fallback;
+};
+
 const formatAcceptedDate = (t: TFunction, value?: string) => {
   if (!value) return t("profile.dateUnavailable");
   const date = new Date(value);
@@ -55,7 +69,7 @@ const formatAcceptedDate = (t: TFunction, value?: string) => {
 export function Profile() {
   const navigate = useNavigate();
   const { t } = useTranslation("worker");
-  const [activeTab, setActiveTab] = useState<"overview" | "skills" | "accepted">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "skills" | "accepted" | "portfolio">("overview");
   const { user, updateProfile: updateAuthProfile } = useAuth();
   const [profileUser, setProfileUser] = useState(user);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -73,11 +87,9 @@ export function Profile() {
   const [acceptedWorksError, setAcceptedWorksError] = useState("");
   const apiBase = import.meta.env.VITE_API_BASE || "/api";
   const assetOrigin = apiBase.startsWith("http") ? apiBase.replace(/\/api\/?$/, "") : window.location.origin;
-  const resumeCandidate = resumeUrl?.startsWith("/") ? `${assetOrigin}${resumeUrl}` : resumeUrl;
+  const resumeCandidate = toAbsoluteAssetUrl(resumeUrl);
   const safeResumeUrl = safeExternalUrl(resumeCandidate, { purpose: "asset", trustedOrigins: [assetOrigin] });
-  const avatarCandidate = profileUser?.avatarUrl?.startsWith("/")
-    ? `${assetOrigin}${profileUser.avatarUrl}`
-    : profileUser?.avatarUrl;
+  const avatarCandidate = toAbsoluteAssetUrl(profileUser?.avatarUrl);
   const safeAvatarUrl = safeExternalUrl(avatarCandidate, { purpose: "asset", trustedOrigins: [assetOrigin] });
 
   useEffect(() => {
@@ -165,13 +177,7 @@ export function Profile() {
             const company = employer.companyName
               || `${employer.firstName || ""} ${employer.lastName || ""}`.trim()
               || t("profile.acceptedTab.employerFallback");
-            const companyLogo = company
-              .split(/\s+/)
-              .filter(Boolean)
-              .map((part: string) => part[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase() || "E";
+            const companyLogo = initialsOf(company, "E");
             return {
               id: application._id,
               title: job.title || t("profile.acceptedTab.untitledJob"),
@@ -203,6 +209,7 @@ export function Profile() {
     };
   }, [t]);
 
+  const profileUserId: string | undefined = (profileUser as any)?.id || (profileUser as any)?._id;
   const displayName = profileUser ? `${profileUser.firstName || ""} ${profileUser.lastName || ""}`.trim() : "";
   const location = profileUser?.city || t("profile.locationNotSet");
   const initials = displayName
@@ -251,6 +258,16 @@ export function Profile() {
       ? String(value)
       : formatDate(date, { month: "short", year: "numeric" });
   };
+
+  const portfolioItems = workExperiences.flatMap((experience) =>
+    (experience.media || []).map((media) => ({
+      id: media._id || media.url,
+      url: toAbsoluteAssetUrl(media.url),
+      alt: media.originalName || experience.title,
+      title: experience.title,
+      company: experience.company,
+    })),
+  ).filter((item): item is typeof item & { url: string } => Boolean(item.url));
 
   const acceptedStatusLabel = (status: AcceptedWork["status"]) =>
     status === "Completed" ? t("profile.acceptedTab.status.completed") : t("profile.acceptedTab.status.inProgress");
@@ -308,14 +325,43 @@ export function Profile() {
               </div>
             </div>
 
-            <button
-              onClick={handleEditProfile}
-              className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[12px] hover:opacity-90 transition-all flex items-center gap-2 mb-2"
-            >
-              <Edit className="w-4 h-4" />
-              {t("profile.editProfile")}
-            </button>
+            <div className="mb-2 flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleEditProfile}
+                className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[12px] hover:opacity-90 transition-all flex min-h-11 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+              >
+                <Edit className="w-4 h-4" />
+                {t("profile.editProfile")}
+              </button>
+              {profileUserId ? (
+                <button
+                  onClick={() => navigate(`${ROUTES.publicProfile(profileUserId)}?viewAs=worker`)}
+                  className="bg-white text-[#1C4D8D] font-semibold px-6 py-3 rounded-[12px] ring-1 ring-[#1C4D8D]/30 hover:bg-[#1C4D8D]/[0.06] transition-all flex min-h-11 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  {t("profile.publicView")}
+                </button>
+              ) : null}
+            </div>
           </div>
+        </div>
+      </div>
+
+      {/* Stat row -- real fields already on the profile, matching the same tile
+          shape PublicProfile.tsx uses so a worker's own view and their public
+          view read consistently. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+          <p className="mb-1 text-xs text-[#64748B]">{t("profile.overviewTab.totalExperience")}</p>
+          <p className="text-xl font-bold text-[#0F172A]">{totalExperience}</p>
+        </div>
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+          <p className="mb-1 text-xs text-[#64748B]">{t("profile.overviewTab.jobsCompleted")}</p>
+          <p className="text-xl font-bold text-[#0F172A]">{projectsCompleted}</p>
+        </div>
+        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
+          <p className="mb-1 text-xs text-[#64748B]">{t("profile.overviewTab.successRate")}</p>
+          <p className="text-xl font-bold text-[#0F172A]">{successRate}</p>
         </div>
       </div>
 
@@ -339,43 +385,22 @@ export function Profile() {
 
       {/* Tabs */}
       <div className="bg-white rounded-[16px] border border-[#e2e8f0] shadow-sm">
-        <div className="flex border-b border-[#e2e8f0]">
-          <button
-            onClick={() => setActiveTab("overview")}
-            className={`flex items-center gap-2 px-6 py-4 text-[15px] font-medium transition-all ${
-              activeTab === "overview"
-                ? "text-[#1C4D8D] border-b-2 border-[#1C4D8D]"
-                : "text-[#64748b] hover:text-[#1e293b]"
-            }`}
-          >
-            <User className="w-4 h-4" />
-            {t("profile.tabs.overview")}
-          </button>
-          <button
-            onClick={() => setActiveTab("skills")}
-            className={`flex items-center gap-2 px-6 py-4 text-[15px] font-medium transition-all ${
-              activeTab === "skills"
-                ? "text-[#1C4D8D] border-b-2 border-[#1C4D8D]"
-                : "text-[#64748b] hover:text-[#1e293b]"
-            }`}
-          >
-            <Award className="w-4 h-4" />
-            {t("profile.tabs.skills")}
-          </button>
-          <button
-            onClick={() => setActiveTab("accepted")}
-            className={`flex items-center gap-2 px-6 py-4 text-[15px] font-medium transition-all ${
-              activeTab === "accepted"
-                ? "text-[#1C4D8D] border-b-2 border-[#1C4D8D]"
-                : "text-[#64748b] hover:text-[#1e293b]"
-            }`}
-          >
-            <Award className="w-4 h-4" />
-            {t("profile.tabs.accepted")}
-          </button>
+        <div className="border-b border-[#e2e8f0] px-4 pt-4">
+          <SettingsTabList
+            ariaLabel={t("profile.tabs.overview")}
+            idPrefix="worker-profile"
+            options={[
+              { id: "overview" as const, label: t("profile.tabs.overview") },
+              { id: "skills" as const, label: t("profile.tabs.skills") },
+              { id: "portfolio" as const, label: t("profile.tabs.portfolio") },
+              { id: "accepted" as const, label: t("profile.tabs.accepted") },
+            ]}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
         </div>
 
-        <div className="p-8">
+        <div className="p-8" id={`worker-profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`worker-profile-tab-${activeTab}`}>
           {/* Overview Tab */}
           {activeTab === "overview" && (
             <div className="space-y-6">
@@ -550,14 +575,33 @@ export function Profile() {
                   <div className="space-y-3">
                     {workExperiences.map((item, index) => (
                       <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-5">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] bg-[#DBEAFE]">
-                          <Briefcase className="h-5 w-5 text-[#1C4D8D]" />
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[13px] font-bold text-white">
+                          {initialsOf(item.company, "?")}
                         </div>
                         <div className="min-w-0">
                           <p className="text-[15px] font-semibold text-[#1E293B]">{item.title}</p>
                           <p className="text-[13px] text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
                           <p className="mt-1 text-[12px] text-[#64748B]">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
                           {item.description ? <p className="mt-3 whitespace-pre-line text-[13px] leading-relaxed text-[#475569]">{item.description}</p> : null}
+                          {item.media?.length ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {item.media.map((media) => {
+                                const mediaUrl = toAbsoluteAssetUrl(media.url);
+                                if (!mediaUrl) return null;
+                                return (
+                                  <a
+                                    key={media._id || media.url}
+                                    href={mediaUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="block h-16 w-16 overflow-hidden rounded-lg border border-[#E2E8F0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                  >
+                                    <img src={mediaUrl} alt={media.originalName || item.title} className="h-full w-full object-cover" />
+                                  </a>
+                                );
+                              })}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     ))}
@@ -602,6 +646,52 @@ export function Profile() {
                   <Award className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
                   <p className="text-[14px] text-[#64748b] mb-4">{t("profile.skillsTab.noSkillsTitle")}</p>
                   <p className="text-[12px] text-[#94a3b8]">{t("profile.skillsTab.noSkillsHint")}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Portfolio Tab */}
+          {activeTab === "portfolio" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-[20px] font-semibold text-[#1e293b]">{t("profile.portfolioTab.heading")}</h2>
+                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                  {t("profile.skillsTab.manage")}
+                </button>
+              </div>
+              {portfolioItems.length ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                  {portfolioItems.map((item) => (
+                    <a
+                      key={item.id}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group block overflow-hidden rounded-[12px] border border-[#E2E8F0] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                    >
+                      <div className="aspect-square overflow-hidden bg-[#F1F5F9]">
+                        <img src={item.url} alt={item.alt} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                      </div>
+                      <div className="p-2">
+                        <p className="truncate text-[12px] font-semibold text-[#1E293B]">{item.title}</p>
+                        <p className="truncate text-[11px] text-[#64748B]">{item.company}</p>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[16px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] py-12 text-center">
+                  <Images className="mx-auto mb-3 h-10 w-10 text-[#94A3B8]" />
+                  <p className="text-[14px] text-[#64748b] mb-3">{t("profile.portfolioTab.empty")}</p>
+                  <p className="mb-4 text-[12px] text-[#94a3b8]">{t("profile.portfolioTab.emptyHint")}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)}
+                    className="bg-[#1C4D8D] text-white font-semibold py-2 px-4 rounded-[10px] hover:opacity-90 transition-all text-[13px]"
+                  >
+                    {t("profile.portfolioTab.manage")}
+                  </button>
                 </div>
               )}
             </div>

@@ -6,7 +6,6 @@ import { NavBar } from "./NavBar";
 import { webUi } from "../styles/webUi";
 import { useAuth } from "../contexts/AuthContext";
 import { ResponsiveBottomNavigation } from "./ResponsiveBottomNavigation";
-import { AdminDevRoleSwitcher } from "./admin/AdminDevRoleSwitcher";
 
 export function DashboardLayout() {
   const { t } = useTranslation("common");
@@ -101,7 +100,6 @@ export function DashboardLayout() {
         </main>
         {!isAdminView ? <ResponsiveBottomNavigation /> : null}
       </div>
-      {isAdminView ? <AdminDevRoleSwitcher /> : null}
     </div>
   );
 }
