@@ -31,7 +31,7 @@ import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../li
 import monitor from "../lib/monitor.js";
 
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
-const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
+const PASSWORD_RESET_ACCOUNT_NOT_FOUND_MESSAGE = "Email address not found. Please register first before resetting your password.";
 const APP_NAME = "MicroJobs";
 const PASSWORD_RESET_EMAIL_FROM = `${APP_NAME} <noreply@yourdomain.com>`;
 const OTP_EXPIRY_MINUTES = 5;
@@ -1030,7 +1030,7 @@ export async function requestPasswordResetOtp(req, res) {
 
         const user = await User.findOne({ email: normalizedEmail }).select("firstName username email");
         if (!user) {
-            return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+            return res.status(404).json({ message: PASSWORD_RESET_ACCOUNT_NOT_FOUND_MESSAGE });
         }
 
         const { code } = await issueOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, user: user._id });
@@ -1056,7 +1056,7 @@ export async function requestPasswordResetOtp(req, res) {
             html: emailContent.html,
         });
 
-        return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+        return res.status(200).json({ message: "Reset code sent to your email." });
     } catch (error) {
         console.error("Request password reset OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";

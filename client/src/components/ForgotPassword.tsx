@@ -58,7 +58,9 @@ export function ForgotPassword() {
       setEmail(normalizedEmail);
       setStep("code");
     } catch (error: any) {
-      toast.error(error?.message || t("forgotPassword.toast.sendCodeFailed"));
+      toast.error(error?.status === 404
+        ? t("forgotPassword.toast.accountNotFound")
+        : error?.message || t("forgotPassword.toast.sendCodeFailed"));
     } finally {
       setIsLoading(false);
     }

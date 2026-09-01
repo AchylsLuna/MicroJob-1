@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNavigationContainerRef, DefaultTheme, NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -167,6 +167,7 @@ function VerifyEmailScreen() {
 function ForgotPasswordScreen() {
   const navigation = useNavigation();
   const toast = useToast();
+  const { t } = useTranslation('auth');
   return (
     <ForgotPass
       onBack={async () => {
@@ -181,7 +182,11 @@ function ForgotPasswordScreen() {
           body: JSON.stringify({ email: normalizedEmail }),
         }, 'Unable to request password reset.');
         if (!result.ok) {
-          toast.error(`${result.message || 'Unable to request password reset.'} (HTTP ${result.status})`);
+          if (result.status === 404) {
+            Alert.alert(t('forgotPass.accountNotFoundTitle'), t('forgotPass.toast.accountNotFound'));
+          } else {
+            toast.error(`${result.message || 'Unable to request password reset.'} (HTTP ${result.status})`);
+          }
           return;
         }
         await AsyncStorage.setItem('pending_reset_email', normalizedEmail);
