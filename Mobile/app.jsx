@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNavigationContainerRef, DefaultTheme, NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -56,6 +56,25 @@ const EmployerStack = createNativeStackNavigator();
 const WorkerTab = createBottomTabNavigator();
 const EmployerTab = createBottomTabNavigator();
 const navigationRef = createNavigationContainerRef();
+
+const resetLinkPrefixes = ['microjobs://', 'https://m1cro-job.vercel.app'];
+
+const parseResetLinkUrl = (linkUrl) => {
+  if (!linkUrl) return null;
+
+  try {
+    const parsed = new URL(linkUrl);
+    const path = String(parsed.pathname || '').replace(/\/+$/, '');
+    const hasResetPath = path === '/reset-password' || path === 'reset-password';
+    if (!hasResetPath) return null;
+    const code = parsed.searchParams.get('code') || parsed.searchParams.get('otp') || parsed.searchParams.get('token') || '';
+    const email = parsed.searchParams.get('email') || parsed.searchParams.get('user') || '';
+    if (!code && !email) return null;
+    return { code, email };
+  } catch (error) {
+    return null;
+  }
+};
 
 const hiddenTabs = {
   headerShown: false,
@@ -901,6 +920,53 @@ function RootApp() {
     ...DefaultTheme,
     colors: { ...DefaultTheme.colors, background: tokens.colors.signedInCanvas, primary: tokens.colors.brand, card: tokens.colors.contentSurface },
   }), []);
+  const linking = useMemo(() => ({
+    prefixes: resetLinkPrefixes,
+    config: {
+      screens: {
+        CreatePass: 'reset-password',
+        ForgotPassword: 'forgot-password',
+        SignIn: 'sign-in',
+        SignUp: 'sign-up',
+      },
+    },
+  }), []);
+
+  const handleResetDeepLink = useCallback((deepLinkUrl) => {
+    const parsed = parseResetLinkUrl(deepLinkUrl);
+    if (!parsed) return;
+
+    const resetParams = { email: parsed.email || '', code: parsed.code || '' };
+    if (!resetParams.email && !resetParams.code) return;
+
+    try {
+      if (navigationRef.isReady()) {
+        navigationRef.navigate('CreatePass', resetParams);
+      }
+    } catch (error) {
+      navigationRef.reset({ index: 0, routes: [{ name: 'SignIn' }, { name: 'CreatePass', params: resetParams }] });
+    }
+  }, []);
+
+  useEffect(() => {
+    const onUrl = ({ url }) => {
+      if (url) handleResetDeepLink(url);
+    };
+
+    const subscription = Linking.addEventListener('url', onUrl);
+    let isMounted = true;
+
+    Linking.getInitialURL().then((initialUrl) => {
+      if (!isMounted || !initialUrl) return;
+      handleResetDeepLink(initialUrl);
+    }).catch(() => undefined);
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, [handleResetDeepLink]);
+
   React.useEffect(() => {
     const data = session.pendingNotificationData;
     if (!data || !session.isReady || !session.isAuthenticated || !navigationReady || !navigationRef.isReady()) return;
@@ -939,7 +1005,7 @@ function RootApp() {
       onTouchStart={() => session.registerActivity()}
     >
       <StatusBar style="dark" />
-      <NavigationContainer ref={navigationRef} theme={navigationTheme} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
+      <NavigationContainer ref={navigationRef} theme={navigationTheme} linking={linking} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
         <AppNavigator />
       </NavigationContainer>
       <SessionOverlays />

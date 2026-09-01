@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
@@ -14,7 +14,7 @@ type Props = {
 };
 
 export default function CreatePass({ onBackToLogin, onReset, verifiedCode = '' }: Props) {
-  const [code, setCode] = useState(verifiedCode);
+  const [code, setCode] = useState(() => String(verifiedCode || '').replace(/\D/g, '').slice(0, 6));
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -22,6 +22,10 @@ export default function CreatePass({ onBackToLogin, onReset, verifiedCode = '' }
   const [errors, setErrors] = useState<{ code?: string; password?: string; confirm?: string }>({});
   const [loading, setLoading] = useState(false);
   const { t } = useTranslation('auth');
+
+  useEffect(() => {
+    setCode(String(verifiedCode || '').replace(/\D/g, '').slice(0, 6));
+  }, [verifiedCode]);
 
   const submit = async () => {
     const next: typeof errors = {};
