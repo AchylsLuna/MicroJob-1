@@ -31,7 +31,115 @@ import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../li
 import monitor from "../lib/monitor.js";
 
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
-const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
+const PASSWORD_RESET_ACCOUNT_NOT_FOUND_MESSAGE = "Email address not found. Please register first before resetting your password.";
+const APP_NAME = "MicroJobs";
+const PASSWORD_RESET_EMAIL_FROM = `${APP_NAME} <noreply@yourdomain.com>`;
+const OTP_EXPIRY_MINUTES = 5;
+
+const escapeHtml = (value = "") => String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const getFrontendResetUrl = (email, code) => {
+    const encodedEmail = String(email || "");
+    const encodedCode = String(code || "");
+    const baseOrigin = (
+        process.env.APP_RESET_URL ||
+        process.env.MOBILE_RESET_URL ||
+        process.env.FRONTEND_URL ||
+        process.env.WEB_ORIGIN ||
+        process.env.CLIENT_ORIGIN ||
+        process.env.ORIGIN ||
+        "http://localhost:8082"
+    ).replace(/\/$/, "");
+    const resetUrl = new URL(
+        /^https?:\/\//i.test(baseOrigin) ? baseOrigin : `https://${baseOrigin}`
+    );
+    if (!resetUrl.pathname.endsWith("/reset-password")) {
+        resetUrl.pathname = `${resetUrl.pathname.replace(/\/$/, "")}/reset-password`;
+    }
+    resetUrl.searchParams.set("email", encodedEmail);
+    resetUrl.searchParams.set("code", encodedCode);
+    resetUrl.searchParams.set("token", encodedCode);
+    return resetUrl.toString();
+};
+
+const buildPasswordResetEmail = ({ username, expiryMinutes, resetUrl }) => {
+    const safeUsername = escapeHtml(username || "there");
+    const safeResetUrl = escapeHtml(resetUrl || "");
+    const safeExpiryMinutes = Number(expiryMinutes || OTP_EXPIRY_MINUTES) || OTP_EXPIRY_MINUTES;
+    const hostedLogoUrl = escapeHtml(process.env.EMAIL_LOGO_URL || "");
+    const logoMarkup = hostedLogoUrl
+        ? `<img src="${hostedLogoUrl}" alt="${APP_NAME}" width="56" height="56" style="display:block;max-width:56px;height:56px;border-radius:14px;" />`
+        : `<div role="img" aria-label="${APP_NAME}" style="width:56px;height:56px;border-radius:14px;background:#1c4d8d;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:56px;font-weight:700;text-align:center;">M</div>`;
+    const subject = `${APP_NAME}: ${username || "there"} Password Reset`;
+    const text = [
+        `${APP_NAME}: ${username || "there"} Password Reset`,
+        `We have received a request to reset the password for your account ${username || "there"}.`,
+        "Here is your password reset link:",
+        resetUrl || "",
+        `This code expires in ${safeExpiryMinutes} minutes.`,
+        `- Team ${APP_NAME}`,
+    ].join("\n\n");
+    const html = `
+        <div style="margin:0;padding:32px 16px;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#16375d;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #dfeaf8;border-radius:18px;overflow:hidden;">
+                <tr>
+                    <td style="padding:24px 28px 0;">
+                        <div style="border:1px solid #1c4d8d;border-radius:14px;background:#f8fbff;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td align="center" style="padding:18px 20px;">
+                                        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                            <tr>
+                                                <td style="padding-right:12px;">
+                                                    ${logoMarkup}
+                                                </td>
+                                                <td style="font-family:Arial,Helvetica,sans-serif;font-size:28px;line-height:1.2;font-weight:700;color:#1c4d8d;letter-spacing:0.3px;">
+                                                    ${APP_NAME}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:28px 32px 12px;">
+                        <p style="margin:0 0 18px;font-size:17px;line-height:1.6;color:#1d3557;">
+                            We have received a request to reset the password for your account <strong>${safeUsername}</strong>.
+                        </p>
+                        <p style="margin:0 0 18px;font-size:17px;line-height:1.6;color:#1d3557;">
+                            Here is your password reset link:
+                        </p>
+                        <div style="margin:0 auto 18px;text-align:center;">
+                            <a href="${safeResetUrl}" style="display:inline-block;background:#1c4d8d;color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 24px;border-radius:999px;line-height:1.2;">Confirm Password Reset</a>
+                        </div>
+                        <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#44607b;text-align:center;">
+                            This code expires in ${safeExpiryMinutes} minutes.
+                        </p>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:0 32px 28px;">
+                        <p style="margin:0;font-size:15px;line-height:1.6;color:#0f2954;font-style:italic;">- Team ${APP_NAME}</p>
+                    </td>
+                </tr>
+            </table>
+        </div>
+    `;
+
+    return {
+        subject,
+        text,
+        html,
+    };
+};
 
 const TERMINAL_APPLICATION_STATUSES = ["Rejected", "Withdrawn", "Hired"];
 async function removeStoredUploads(values) {
@@ -920,9 +1028,9 @@ export async function requestPasswordResetOtp(req, res) {
             return res.status(400).json({ message: "Email is required." });
         }
 
-        const user = await User.findOne({ email: normalizedEmail }).select("firstName email");
+        const user = await User.findOne({ email: normalizedEmail }).select("firstName username email");
         if (!user) {
-            return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+            return res.status(404).json({ message: PASSWORD_RESET_ACCOUNT_NOT_FOUND_MESSAGE });
         }
 
         const { code } = await issueOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, user: user._id });
@@ -932,27 +1040,23 @@ export async function requestPasswordResetOtp(req, res) {
             return res.status(500).json({ message: "Email service is not configured." });
         }
 
-        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
-        const displayName = user.firstName || "there";
-        const subject = "MicroJobs password reset code";
-        const text = `Hi ${displayName},\n\nUse this code to reset your MicroJobs password: ${code}\n\nThis code expires in 5 minutes. If you did not request this, you can ignore this message.`;
-        const html = `
-            <p>Hi ${displayName},</p>
-            <p>Use this code to reset your MicroJobs password:</p>
-            <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
-            <p>This code expires in 5 minutes.</p>
-            <p>If you did not request this, you can ignore this message.</p>
-        `;
-
-        await transporter.sendMail({
-            from: `MicroJobs <${fromAddress}>`,
-            to: normalizedEmail,
-            subject,
-            text,
-            html,
+        const username = user.username || user.firstName || normalizedEmail.split("@")[0];
+        const resetUrl = getFrontendResetUrl(normalizedEmail, code);
+        const emailContent = buildPasswordResetEmail({
+            username,
+            expiryMinutes: OTP_EXPIRY_MINUTES,
+            resetUrl,
         });
 
-        return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
+        await transporter.sendMail({
+            from: PASSWORD_RESET_EMAIL_FROM,
+            to: normalizedEmail,
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
+        });
+
+        return res.status(200).json({ message: "Reset code sent to your email." });
     } catch (error) {
         console.error("Request password reset OTP error:", error);
         const detail = error?.message ? ` ${error.message}` : "";

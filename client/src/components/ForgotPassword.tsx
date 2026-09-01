@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, Lock, Mail, ShieldCheck } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
@@ -13,6 +13,7 @@ type RecoveryStep = "email" | "code" | "password" | "success";
 export function ForgotPassword() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
+  const location = useLocation();
   const { requestPasswordReset, verifyPasswordResetCode, resetPassword } = useAuth();
   const [step, setStep] = useState<RecoveryStep>("email");
   const [email, setEmail] = useState("");
@@ -24,6 +25,25 @@ export function ForgotPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const passwordStrength = getPasswordStrength(newPassword);
   const passwordsMismatch = Boolean(confirmPassword) && newPassword !== confirmPassword;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const emailParam = params.get("email");
+    const codeParam = params.get("code");
+
+    if (emailParam) {
+      const normalizedEmail = normalizeEmail(emailParam);
+      if (normalizedEmail) {
+        setEmail(normalizedEmail);
+        localStorage.setItem("pending_reset_email", normalizedEmail);
+      }
+    }
+
+    if (codeParam && /^\d{6}$/.test(codeParam)) {
+      setCode(codeParam);
+      setStep("code");
+    }
+  }, [location.search]);
 
   const sendCode = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -38,7 +58,9 @@ export function ForgotPassword() {
       setEmail(normalizedEmail);
       setStep("code");
     } catch (error: any) {
-      toast.error(error?.message || t("forgotPassword.toast.sendCodeFailed"));
+      toast.error(error?.status === 404
+        ? t("forgotPassword.toast.accountNotFound")
+        : error?.message || t("forgotPassword.toast.sendCodeFailed"));
     } finally {
       setIsLoading(false);
     }

@@ -9,6 +9,9 @@ const expo = {
     backgroundColor: '#F7F8FA',
   },
   scheme: 'microjobs',
+  linking: {
+    prefixes: ['microjobs://', 'https://m1cro-job.vercel.app'],
+  },
   plugins: [
     '@react-native-community/datetimepicker',
     'expo-font',
@@ -24,6 +27,16 @@ const expo = {
   android: {
     package: 'com.bananas1.mobile',
     versionCode: 1,
+    intentFilters: [{
+      action: 'VIEW',
+      autoVerify: true,
+      data: [{
+        scheme: 'https',
+        host: 'm1cro-job.vercel.app',
+        pathPrefix: '/reset-password',
+      }],
+      category: ['BROWSABLE', 'DEFAULT'],
+    }],
     adaptiveIcon: {
       foregroundImage: './assets/icon.png',
       backgroundColor: '#FFFFFF',
@@ -33,6 +46,7 @@ const expo = {
     bundleIdentifier: 'com.bananas1.mobile',
     buildNumber: '1',
     supportsTablet: true,
+    associatedDomains: ['applinks:m1cro-job.vercel.app'],
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
