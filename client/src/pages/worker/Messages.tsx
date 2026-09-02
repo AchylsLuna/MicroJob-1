@@ -17,15 +17,12 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { io, Socket } from "socket.io-client";
 import { ROUTES } from "../../utils/routes";
 import { isStaffConversation } from "../../utils/staffConversation";
 import { useAuth } from "../../contexts/AuthContext";
+import { useMessaging, conversationIdOf, type Contact, type ChatMessage as Message } from "../../contexts/MessagingContext";
 import { formatDate, getActiveDateLocale } from "../../lib/formatters";
 import {
-  getConversations,
-  getArchivedConversations,
-  getBlockedUsers,
   getConversationWithUser,
   sendMessage,
   editMessage,
@@ -43,46 +40,6 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const TYPING_STALE_MS = 5000;
 // How long after the user stops typing we tell the peer they've stopped.
 const TYPING_STOP_DELAY_MS = 2500;
-
-interface Message {
-  _id: string;
-  sender: { _id: string; firstName?: string; lastName?: string };
-  receiver: { _id: string; firstName?: string; lastName?: string };
-  content: string;
-  createdAt: string;
-  isEdited?: boolean;
-  editedAt?: string;
-  job?: { _id: string; title: string };
-  read?: boolean;
-  clientMessageId?: string;
-  /** Client-only: optimistic send in flight. */
-  pending?: boolean;
-  /** Client-only: optimistic send failed; tap to remove and retry. */
-  failed?: boolean;
-}
-
-interface Contact {
-  conversationId: string;
-  otherUserId: string;
-  otherUserName: string;
-  // Admin/Support accounts are platform staff and expose no public profile.
-  otherUserIsStaff?: boolean;
-  jobId: string | null;
-  jobTitle: string | null;
-  lastMessage: string;
-  lastMessageAt: string;
-  unreadCount?: number;
-}
-
-interface BlockedUser {
-  id?: string;
-  _id?: string;
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-}
-
-type RealtimeStatus = "connecting" | "live" | "reconnecting" | "offline";
 
 const getInitials = (name: string): string => {
   const parts = name.split(" ");
@@ -139,20 +96,26 @@ const pickArray = <T,>(...candidates: any[]): T[] => {
   return [];
 };
 
-const getUserName = (user: unknown): string => {
-  if (!user || typeof user !== "object") return "";
-  const record = user as { firstName?: string; lastName?: string };
-  const fullName = `${String(record.firstName || "").trim()} ${String(record.lastName || "").trim()}`.trim();
-  return fullName;
-};
-
 export function Messages() {
   const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const { user } = useAuth();
+  const {
+    contacts,
+    archivedContacts,
+    blockedUsers,
+    realtimeStatus,
+    setContacts,
+    setArchivedContacts,
+    setBlockedUsers,
+    refreshConversations,
+    refreshArchived,
+    refreshBlocked,
+    markConversationRead,
+    subscribe,
+    emit,
+  } = useMessaging();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [archivedContacts, setArchivedContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState("");
@@ -160,7 +123,6 @@ export function Messages() {
   const [editingText, setEditingText] = useState("");
   const [isEditingSaving, setIsEditingSaving] = useState(false);
   const [conversationFilter, setConversationFilter] = useState<"inbox" | "archived" | "blocked">("inbox");
-  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -169,7 +131,6 @@ export function Messages() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
-  const [realtimeStatus, setRealtimeStatus] = useState<RealtimeStatus>("connecting");
   const prefersReducedMotion = useReducedMotion();
   const currentUserId = user?.id || "";
   const listMenuRef = useRef<HTMLDivElement>(null);
@@ -178,10 +139,8 @@ export function Messages() {
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const startChatHandledRef = useRef(false);
   const prefilledDraftHandledRef = useRef(false);
-  const socketRef = useRef<Socket | null>(null);
   const selectedContactRef = useRef<Contact | null>(null);
   const selectionRequestRef = useRef(0);
-  const loadConversationsRef = useRef<() => Promise<void>>(async () => undefined);
   const typingStopTimeoutRef = useRef<number | null>(null);
   const typingActiveRef = useRef(false);
   const peerTypingClearTimeoutRef = useRef<number | null>(null);
@@ -194,6 +153,23 @@ export function Messages() {
     supportStartUserId && String(otherUserId) === String(supportStartUserId)
       ? t("messages.adminSupportName")
       : fallbackName, [supportStartUserId, t]);
+
+  // MessagingContext is shared and i18n-free, so it stores whatever name the
+  // API or socket payload carried. Resolve display names here, where `t` and
+  // the Support-Center context exist: an admin thread reached from Support
+  // shows "Support Agent" rather than the staff member's real name, and a
+  // payload that arrived without a populated sender/receiver falls back to
+  // "User" instead of rendering a blank row.
+  const namedContacts = useMemo(
+    () => contacts.map((contact) => ({
+      ...contact,
+      otherUserName: supportDisplayNameFor(
+        contact.otherUserId,
+        contact.otherUserName || t("messages.userFallback"),
+      ),
+    })),
+    [contacts, supportDisplayNameFor, t],
+  );
 
   useEffect(() => {
     selectedContactRef.current = selectedContact;
@@ -208,9 +184,7 @@ export function Messages() {
     selectedContactRef.current = contact;
     setSelectedContact(contact);
     setShowMoreMenu(false);
-    setContacts((prev) => prev.map((item) => (
-      item.conversationId === contact.conversationId ? { ...item, unreadCount: 0 } : item
-    )));
+    markConversationRead(contact.conversationId);
 
     try {
       const response: any = await getConversationWithUser(contact.otherUserId, contact.jobId || undefined);
@@ -238,40 +212,45 @@ export function Messages() {
       toast.error(error.message || t("messages.toast.loadMessagesFailed"));
       setMessages([]);
     }
-  }, [t]);
+  }, [t, markConversationRead]);
+
+  // Fetches the inbox and, if nothing is selected yet and the URL isn't
+  // steering toward a specific recipient (Support, a job inquiry), opens the
+  // first conversation. Uses the freshly fetched array rather than the
+  // `contacts` state to avoid a race with a same-tick selection from the URL
+  // effect below; `selectedContactRef` (not React state) is the guard because
+  // it updates synchronously.
+  const loadConversations = useCallback(async () => {
+    setLoading(true);
+    try {
+      const requestedStartUserId = searchParams.get("startUser");
+      const fetched = await refreshConversations();
+      if (fetched.length > 0 && !selectedContactRef.current && !requestedStartUserId) {
+        void handleSelectContact(fetched[0]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [refreshConversations, searchParams, handleSelectContact]);
 
   useEffect(() => {
-    loadArchivedConversations();
-    loadBlockedUsers();
-    void loadConversationsRef.current();
+    void refreshArchived();
+    void refreshBlocked();
+    void loadConversations();
+    // Intentionally re-runs only when the signed-in user changes, matching the
+    // page's original one-time-per-session load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUserId]);
 
+  // The shared socket connection lives in MessagingContext (one per user, not
+  // one per page, since leaving this route used to tear the connection down
+  // entirely). This effect only reacts to the events that affect the *open
+  // thread* — the conversation list itself is already kept in sync by the
+  // provider.
   useEffect(() => {
     if (!currentUserId) return;
 
-    const apiBase = import.meta.env.VITE_API_BASE as string | undefined;
-    const proxyTarget = import.meta.env.VITE_API_PROXY_TARGET as string | undefined;
-    const explicitSocketUrl = import.meta.env.VITE_SOCKET_URL as string | undefined;
-    const derivedFromApiBase = apiBase && /^https?:\/\//.test(apiBase)
-      ? apiBase.replace(/\/api\/?$/, "")
-      : undefined;
-    const socketUrl = explicitSocketUrl || proxyTarget || derivedFromApiBase || window.location.origin;
-    const socket = io(socketUrl, {
-      withCredentials: true,
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: 8,
-      reconnectionDelayMax: 10_000,
-    });
-    socketRef.current = socket;
-    setRealtimeStatus("connecting");
-
-    const synchronizeAfterConnect = () => {
-      setRealtimeStatus("live");
-      socket.emit("register", currentUserId);
-      void loadConversationsRef.current();
-      void loadArchivedConversations();
-      void loadBlockedUsers();
+    const resyncOpenThread = () => {
       const activeContact = selectedContactRef.current;
       if (!activeContact) return;
       void getConversationWithUser(activeContact.otherUserId, activeContact.jobId || undefined)
@@ -289,20 +268,12 @@ export function Messages() {
           // The polling safety net retries transient reconnect failures.
         });
     };
-    socket.on("connect", synchronizeAfterConnect);
-    socket.on("connect_error", () => setRealtimeStatus("offline"));
-    socket.on("reconnect_attempt", () => setRealtimeStatus("reconnecting"));
-    socket.on("disconnect", () => setRealtimeStatus("reconnecting"));
 
-    const handleIncomingMessage = (incoming: any) => {
-      const message = incoming?.data || incoming;
+    const handleIncomingMessage = (message: any) => {
       const senderId = String(message?.sender?._id || message?.sender || "");
       const receiverId = String(message?.receiver?._id || message?.receiver || "");
       const otherUserId = senderId === currentUserId ? receiverId : senderId;
       const messageJobId = message?.job?._id || message?.job || null;
-      const conversationId = `${otherUserId}::${messageJobId || "general"}`;
-      const senderName = getUserName(message?.sender);
-      const receiverName = getUserName(message?.receiver);
       const activeContact = selectedContactRef.current;
       const isCurrentConversation = Boolean(
         activeContact &&
@@ -310,56 +281,34 @@ export function Messages() {
         (activeContact.jobId || "") === (messageJobId || ""),
       );
       const isFromSelf = senderId === currentUserId;
+      if (!isCurrentConversation) return;
 
-      setContacts((prev) => {
-        const existing = prev.find((item) => item.conversationId === conversationId);
-        const resolvedName = isFromSelf
-          ? receiverName || existing?.otherUserName || t("messages.userFallback")
-          : senderName || existing?.otherUserName || t("messages.userFallback");
-        const otherUserName = supportDisplayNameFor(otherUserId, resolvedName);
-        const updated: Contact = {
-          conversationId,
-          otherUserId,
-          otherUserName,
-          otherUserIsStaff: isStaffConversation(
-            { otherUserIsStaff: existing?.otherUserIsStaff, otherUserId },
-            supportStartUserId,
-          ),
-          jobId: messageJobId,
-          jobTitle: message?.job?.title || existing?.jobTitle || null,
-          lastMessage: message?.content || existing?.lastMessage || "",
-          lastMessageAt: message?.createdAt || new Date().toISOString(),
-          unreadCount: isFromSelf || isCurrentConversation ? 0 : (existing?.unreadCount || 0) + 1,
-        };
-        const filtered = prev.filter((item) => item.conversationId !== conversationId);
-        return [updated, ...filtered];
-      });
-      setArchivedContacts((prev) => prev.filter((item) => item.conversationId !== conversationId));
-
-      if (isCurrentConversation) {
-        setMessages((prev) => {
-          const normalizedId = String(message?._id || "");
-          if (normalizedId && prev.some((item) => item._id === normalizedId)) return prev;
-          const incomingClientId = message?.clientMessageId ? String(message.clientMessageId) : null;
-          if (incomingClientId) {
-            const optimisticIndex = prev.findIndex((item) => item.pending && item.clientMessageId === incomingClientId);
-            if (optimisticIndex !== -1) {
-              const next = [...prev];
-              next[optimisticIndex] = message as Message;
-              return next;
-            }
+      setMessages((prev) => {
+        const normalizedId = String(message?._id || "");
+        if (normalizedId && prev.some((item) => item._id === normalizedId)) return prev;
+        const incomingClientId = message?.clientMessageId ? String(message.clientMessageId) : null;
+        if (incomingClientId) {
+          const optimisticIndex = prev.findIndex((item) => item.pending && item.clientMessageId === incomingClientId);
+          if (optimisticIndex !== -1) {
+            const next = [...prev];
+            next[optimisticIndex] = message as Message;
+            return next;
           }
-          return [...prev, message as Message];
-        });
-        if (!isFromSelf) void markMessagesAsRead(otherUserId, messageJobId || undefined).catch(() => undefined);
-        setPeerTyping(false);
+        }
+        return [...prev, message as Message];
+      });
+      // The provider counts every inbound message as unread; this thread is on
+      // screen, so clear its badge rather than letting it tick up for a message
+      // the user is reading right now.
+      if (!isFromSelf) {
+        markConversationRead(activeContact!.conversationId);
+        void markMessagesAsRead(otherUserId, messageJobId || undefined).catch(() => undefined);
       }
+      setPeerTyping(false);
     };
 
-    const handleMessageEdited = (incoming: any) => {
-      const message = (incoming?.data || incoming) as Message;
+    const handleMessageEdited = (message: any) => {
       if (!message?._id) return;
-
       setMessages((prev) =>
         prev.map((item) =>
           item._id === message._id
@@ -372,30 +321,9 @@ export function Messages() {
             : item
         )
       );
-
-      const senderId = String((message as any)?.sender?._id || (message as any)?.sender || "");
-      const receiverId = String((message as any)?.receiver?._id || (message as any)?.receiver || "");
-      const otherUserId = senderId === currentUserId ? receiverId : senderId;
-      const messageJobId = (message as any)?.job?._id || (message as any)?.job || null;
-      const conversationId = `${otherUserId}::${messageJobId || "general"}`;
-
-      const patchPreview = (prev: Contact[]) =>
-        prev.map((contact) =>
-          contact.conversationId === conversationId
-            ? {
-                ...contact,
-                lastMessage: message.content,
-                lastMessageAt: message.editedAt || message.createdAt || new Date().toISOString(),
-              }
-            : contact
-        );
-
-      setContacts((prev) => patchPreview(prev));
-      setArchivedContacts((prev) => patchPreview(prev));
     };
 
-    const handleMessagesRead = (incoming: any) => {
-      const payload = incoming?.data || incoming;
+    const handleMessagesRead = (payload: any) => {
       const readerId = String(payload?.readerId || "");
       const activeContact = selectedContactRef.current;
       if (!readerId || !activeContact || activeContact.otherUserId !== readerId) return;
@@ -406,8 +334,7 @@ export function Messages() {
       );
     };
 
-    const handlePeerTyping = (incoming: any) => {
-      const payload = incoming?.data || incoming;
+    const handlePeerTyping = (payload: any) => {
       const fromUserId = String(payload?.fromUserId || "");
       const activeContact = selectedContactRef.current;
       if (!activeContact || fromUserId !== activeContact.otherUserId) return;
@@ -423,14 +350,10 @@ export function Messages() {
       }
     };
 
-    const handleConversationDeleted = (incoming: any) => {
-      const payload = incoming?.data || incoming;
+    const handleConversationDeleted = (payload: any) => {
       const otherUserId = String(payload?.otherUserId || "");
-      const jobId = payload?.jobId || null;
       if (!otherUserId) return;
-      const conversationId = `${otherUserId}::${jobId || "general"}`;
-      setContacts((current) => current.filter((contact) => contact.conversationId !== conversationId));
-      setArchivedContacts((current) => current.filter((contact) => contact.conversationId !== conversationId));
+      const conversationId = conversationIdOf(otherUserId, payload?.jobId || null);
       const activeContact = selectedContactRef.current;
       if (activeContact?.conversationId === conversationId) {
         selectedContactRef.current = null;
@@ -439,35 +362,22 @@ export function Messages() {
       }
     };
 
-    socket.on("new_message", handleIncomingMessage);
-    socket.on("new_message_echo", handleIncomingMessage);
-    socket.on("message_edited", handleMessageEdited);
-    socket.on("messages_read", handleMessagesRead);
-    socket.on("peer_typing", handlePeerTyping);
-    socket.on("conversation_deleted", handleConversationDeleted);
+    const unsubscribers = [
+      subscribe("connect", resyncOpenThread),
+      subscribe("new_message", handleIncomingMessage),
+      subscribe("new_message_echo", handleIncomingMessage),
+      subscribe("message_edited", handleMessageEdited),
+      subscribe("messages_read", handleMessagesRead),
+      subscribe("peer_typing", handlePeerTyping),
+      subscribe("conversation_deleted", handleConversationDeleted),
+    ];
+    return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
+  }, [currentUserId, subscribe, markConversationRead]);
 
-    return () => {
-      socket.off("connect", synchronizeAfterConnect);
-      socket.off("connect_error");
-      socket.off("reconnect_attempt");
-      socket.off("disconnect");
-      socket.off("new_message", handleIncomingMessage);
-      socket.off("new_message_echo", handleIncomingMessage);
-      socket.off("message_edited", handleMessageEdited);
-      socket.off("messages_read", handleMessagesRead);
-      socket.off("peer_typing", handlePeerTyping);
-      socket.off("conversation_deleted", handleConversationDeleted);
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [currentUserId, supportDisplayNameFor, supportStartUserId, t]);
-
-  // A single, slower safety net now that the socket does the real-time work —
-  // covers a dropped connection between the "connect" resync and the next one.
+  // A single, slower safety net for the open thread only — the conversation
+  // list has its own poll inside MessagingContext.
   useEffect(() => {
     const interval = window.setInterval(() => {
-      void loadConversationsRef.current();
-      void loadArchivedConversations();
       if (!selectedContact) return;
       getConversationWithUser(selectedContact.otherUserId, selectedContact.jobId || undefined)
         .then((response: any) => {
@@ -509,8 +419,8 @@ export function Messages() {
       source === "job-details" ||
       (Boolean(draft) && Boolean(startUserId) && Boolean(startJobId));
 
-    if (contactId && contacts.length > 0 && selectedContact?.conversationId !== contactId) {
-      const match = contacts.find((contact) => contact.conversationId === contactId);
+    if (contactId && namedContacts.length > 0 && selectedContact?.conversationId !== contactId) {
+      const match = namedContacts.find((contact) => contact.conversationId === contactId);
       if (match) {
         startChatHandledRef.current = true;
         handleSelectContact(match);
@@ -549,7 +459,7 @@ export function Messages() {
       nextParams.delete("source");
       setSearchParams(nextParams, { replace: true });
     }
-  }, [searchParams, contacts, setSearchParams, supportDisplayNameFor, selectedContact?.conversationId, t, handleSelectContact]);
+  }, [searchParams, namedContacts, setSearchParams, supportDisplayNameFor, selectedContact?.conversationId, t, handleSelectContact]);
 
   useEffect(() => {
     // Close menu when clicking outside
@@ -585,74 +495,6 @@ export function Messages() {
     if (typingStopTimeoutRef.current) window.clearTimeout(typingStopTimeoutRef.current);
     if (peerTypingClearTimeoutRef.current) window.clearTimeout(peerTypingClearTimeoutRef.current);
   }, [selectedContact?.conversationId]);
-
-  const loadConversations = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response: any = await getConversations();
-      const conversationsArray = pickArray<Contact>(
-        response?.conversations,
-        response?.data?.conversations,
-        response?.meta?.conversations,
-        response?.data,
-        response
-      );
-      const namedConversations = conversationsArray.map((contact) => ({
-        ...contact,
-        otherUserName: supportDisplayNameFor(contact.otherUserId, contact.otherUserName || t("messages.userFallback")),
-      }));
-      const archivedSet = new Set(archivedContacts.map((contact) => contact.conversationId));
-      const inboxOnly = namedConversations.filter((contact) => !archivedSet.has(contact.conversationId));
-      setContacts(inboxOnly);
-
-      // A URL-selected recipient (Support or a job inquiry) must win over the
-      // inbox default. Without this guard, the first employer conversation can
-      // race the Support Center navigation and overwrite the selected admin.
-      const requestedStartUserId = searchParams.get("startUser");
-      if (inboxOnly.length > 0 && !selectedContactRef.current && !requestedStartUserId) {
-        handleSelectContact(inboxOnly[0]);
-      }
-    } catch (error: any) {
-      console.error('Failed to load conversations:', error);
-      toast.error(error.message || t("messages.toast.loadConversationsFailed"));
-      setContacts([]); // Ensure contacts is set to empty array on error
-    } finally {
-      setLoading(false);
-    }
-  }, [archivedContacts, searchParams, supportDisplayNameFor, t, handleSelectContact]);
-  loadConversationsRef.current = loadConversations;
-
-  const loadArchivedConversations = async () => {
-    try {
-      const response: any = await getArchivedConversations();
-      const archivedArray = pickArray<Contact>(
-        response?.archived,
-        response?.data?.archived,
-        response?.meta?.archived,
-        response?.data,
-        response
-      );
-      setArchivedContacts(archivedArray);
-    } catch {
-      setArchivedContacts([]);
-    }
-  };
-
-  const loadBlockedUsers = async () => {
-    try {
-      const response: any = await getBlockedUsers();
-      const users = pickArray<BlockedUser>(
-        response?.blocked,
-        response?.data?.blocked,
-        response?.meta?.blocked,
-        response?.data,
-        response,
-      );
-      setBlockedUsers(users);
-    } catch {
-      setBlockedUsers([]);
-    }
-  };
 
   const canEditMessage = (message: Message) => {
     if (!currentUserId || message.sender._id !== currentUserId) return false;
@@ -712,8 +554,8 @@ export function Messages() {
   };
 
   const emitTyping = (isTyping: boolean) => {
-    if (!selectedContact || !socketRef.current) return;
-    socketRef.current.emit('typing', {
+    if (!selectedContact) return;
+    emit('typing', {
       toUserId: selectedContact.otherUserId,
       jobId: selectedContact.jobId || null,
       isTyping,
@@ -813,7 +655,7 @@ export function Messages() {
       setSelectedContact(null);
       setMessages([]);
       setConversationFilter("archived");
-      await Promise.all([loadArchivedConversations(), loadBlockedUsers()]);
+      await Promise.all([refreshArchived(), refreshBlocked()]);
     } catch (error: any) {
       toast.error(error.message || t("messages.toast.blockFailed"));
     }
@@ -830,7 +672,7 @@ export function Messages() {
       const archivedConversationId = `${selectedContact.otherUserId}::${selectedContact.jobId || "general"}`;
       setContacts((prev) => prev.filter((contact) => contact.conversationId !== archivedConversationId));
 
-      await loadArchivedConversations();
+      await refreshArchived();
 
       // Remove from contacts list and reload
       await loadConversations();
@@ -852,7 +694,7 @@ export function Messages() {
       const conversationId = `${selectedContact.otherUserId}::${selectedContact.jobId || "general"}`;
       setArchivedContacts((prev) => prev.filter((contact) => contact.conversationId !== conversationId));
       await loadConversations();
-      await loadArchivedConversations();
+      await refreshArchived();
       setConversationFilter("inbox");
     } catch (error: any) {
       toast.error(error.message || t("messages.toast.unarchiveFailed"));
@@ -892,10 +734,10 @@ export function Messages() {
     setConversationFilter(next);
     setShowListMenu(false);
     if (next === "archived" || next === "blocked") {
-      await loadArchivedConversations();
+      await refreshArchived();
     }
     if (next === "blocked") {
-      await loadBlockedUsers();
+      await refreshBlocked();
     }
     selectedContactRef.current = null;
     setSelectedContact(null);
@@ -965,8 +807,8 @@ export function Messages() {
         ? blockedContacts
         : showArchived
           ? archivedContacts
-          : contacts.filter((contact) => !archivedSet.has(contact.conversationId)),
-    [archivedContacts, archivedSet, blockedContacts, contacts, showArchived, showBlocked],
+          : namedContacts.filter((contact) => !archivedSet.has(contact.conversationId)),
+    [archivedContacts, archivedSet, blockedContacts, namedContacts, showArchived, showBlocked],
   );
   const canInjectSelectedContact =
     selectedContact &&

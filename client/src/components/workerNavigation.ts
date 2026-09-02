@@ -6,7 +6,6 @@ export type WorkerNavigationItem = {
 };
 
 export const workerPrimaryNavigation: WorkerNavigationItem[] = [
-  { label: "Dashboard", path: ROUTES.worker.dashboard },
   { label: "Find Jobs", path: ROUTES.worker.findJobs },
   { label: "Applied Jobs", path: ROUTES.worker.appliedJobs },
   { label: "Messages", path: ROUTES.worker.messages },

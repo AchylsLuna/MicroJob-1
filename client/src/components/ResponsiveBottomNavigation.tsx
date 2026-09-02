@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ComponentType } from "react";
+import { type ComponentType } from "react";
 import {
   Bell,
   BriefcaseBusiness,
@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { getConversations } from "../services/api";
+import { useMessaging } from "../contexts/MessagingContext";
 import { useNotifications } from "../contexts/NotificationContext";
 import {
   activeNavigationItem,
@@ -39,28 +39,8 @@ export function ResponsiveBottomNavigation() {
   const mode: AccountMode = user?.accountType === "employer" ? "employer" : "worker";
   const items = navigationForMode(mode);
   const activeItem = activeNavigationItem(location.pathname, items);
-  const [unreadMessages, setUnreadMessages] = useState(0);
+  const { unreadTotal: unreadMessages } = useMessaging();
   const { unreadCount: unreadNotifications } = useNotifications();
-
-  const refreshBadges = useCallback(async () => {
-    const [conversationsResult] = await Promise.allSettled([getConversations()]);
-    if (conversationsResult.status === "fulfilled") {
-      const conversations = Array.isArray(conversationsResult.value) ? conversationsResult.value : [];
-      setUnreadMessages(conversations.reduce((total, conversation) =>
-        total + Number(conversation?.unreadCount || conversation?.unread || 0), 0));
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshBadges();
-    const refresh = () => void refreshBadges();
-    window.addEventListener("notification-refresh", refresh);
-    window.addEventListener("messages-refresh", refresh);
-    return () => {
-      window.removeEventListener("notification-refresh", refresh);
-      window.removeEventListener("messages-refresh", refresh);
-    };
-  }, [location.pathname, mode, refreshBadges]);
 
   const initials = `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase() || "U";
 

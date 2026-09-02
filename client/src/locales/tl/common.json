@@ -19,7 +19,7 @@
   },
   "navbar": {
     "openNavigationMenu": "Buksan ang navigation menu",
-    "workerDashboardAria": "Dashboard ng manggagawa sa MicroJobs",
+    "workerHomeAria": "MicroJobs home",
     "workerPrimaryNavigationAria": "Pangunahing navigation ng manggagawa",
     "quickLinks": "Mabilisang link",
     "quickLinksHint": "Buksan ang ibang bahagi ng iyong workspace.",
@@ -61,7 +61,6 @@
       "settings": "Mga Setting"
     },
     "pages": {
-      "workerHome": { "title": "Home" },
       "findJobs": { "title": "Maghanap ng Trabaho", "searchPlaceholder": "Maghanap ng trabaho..." },
       "appliedJobs": { "title": "Mga Inaplayang Trabaho" },
       "messages": { "title": "Mga Mensahe" },

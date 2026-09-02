@@ -1,7 +1,6 @@
 const normalize = (value: unknown) => String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
 
 const aliases: Record<string, string> = {
-  dashboard: 'home',
   jobs: 'jobs',
   findjobs: 'jobs',
   jobdetails: 'jobs',

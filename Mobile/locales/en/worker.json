@@ -268,46 +268,6 @@
       "updatePassword": "Update Password"
     }
   },
-  "dashboard": {
-    "headerTitle": "Home",
-    "apiFallback": {
-      "loadCategoriesFailed": "Failed to load categories.",
-      "loadJobsFailed": "Failed to load jobs.",
-      "loadRecommendedFailed": "Failed to load recommended jobs.",
-      "loadProfileFailed": "Failed to load profile."
-    },
-    "search": {
-      "accessibilityLabel": "Search local jobs, skills, or employers",
-      "title": "Search local jobs",
-      "subtitle": "Skills, employers, or job titles"
-    },
-    "resumeCard": {
-      "title": "Upload your resume",
-      "subtitle": "Get matched with local employers across your community.",
-      "uploadAccessibility": "Upload CV or resume",
-      "uploadButton": "Upload resume"
-    },
-    "sections": {
-      "categories": "Job Categories",
-      "browseAll": "Browse all",
-      "matchingSkills": "Jobs Matching Your Skills",
-      "recentInArea": "Recent in Your Area"
-    },
-    "category": {
-      "accessibilityLabel_one": "Browse {{name}}, {{count}} local opening",
-      "accessibilityLabel_other": "Browse {{name}}, {{count}} local openings"
-    },
-    "state": {
-      "locationTitle": "Set your work location",
-      "locationMessage": "Add your city or municipality to see nearby opportunities.",
-      "locationAction": "Open settings",
-      "unavailableTitle": "Jobs are unavailable",
-      "unavailableAction": "Try again",
-      "emptyTitle": "No recent jobs yet",
-      "emptyMessage": "New opportunities in your area will appear here.",
-      "emptyAction": "Explore jobs"
-    }
-  },
   "deleteAccount": {
     "headerTitle": "Delete Account",
     "headerSubtitle": "Soft delete with blocker checks",
@@ -573,9 +533,7 @@
       "title": "Successful!",
       "message": "Congratulations, your application has been sent. Good luck!",
       "findJobsButton": "Find more jobs",
-      "findJobsAccessibility": "Find more jobs",
-      "backHomeButton": "Back to home",
-      "backHomeAccessibility": "Back to home"
+      "findJobsAccessibility": "Find more jobs"
     },
     "common": {
       "notAvailable": "N/A",

@@ -6,6 +6,7 @@ import { NavBar } from "./NavBar";
 import { webUi } from "../styles/webUi";
 import { useAuth } from "../contexts/AuthContext";
 import { ResponsiveBottomNavigation } from "./ResponsiveBottomNavigation";
+import { MessageDock } from "./messaging/MessageDock";
 
 export function DashboardLayout() {
   const { t } = useTranslation("common");
@@ -99,6 +100,7 @@ export function DashboardLayout() {
           <Outlet />
         </main>
         {!isAdminView ? <ResponsiveBottomNavigation /> : null}
+        <MessageDock />
       </div>
     </div>
   );

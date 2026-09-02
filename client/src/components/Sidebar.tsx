@@ -82,7 +82,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const workerMenuItems: MenuItem[] = [
     ...workerPrimaryNavigation
-      .filter((item) => item.path !== ROUTES.worker.dashboard && item.path !== ROUTES.worker.messages)
+      .filter((item) => item.path !== ROUTES.worker.messages)
       .map((item) => ({
         ...item,
         icon: item.path === ROUTES.worker.findJobs ? "find-jobs" : "applied-jobs",
@@ -244,12 +244,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     return startsWithPath(location.pathname, path);
   };
 
+  // Workers have no dashboard; the button that uses this is gated to
+  // non-worker roles, and the profile card sends workers to their profile.
   const dashboardPath =
-    effectiveRole === "admin"
-      ? ROUTES.admin.dashboard
-      : effectiveRole === "employer"
-      ? ROUTES.employer.dashboard
-      : ROUTES.worker.dashboard;
+    effectiveRole === "admin" ? ROUTES.admin.dashboard : ROUTES.employer.dashboard;
 
   const roleLabel =
     effectiveRole === "employer"
@@ -323,13 +321,15 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       <nav className="dashboard-sidebar-nav min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 [@media(max-height:700px)]:space-y-0" aria-label={`${roleLabel} menu`}>
         <div className="space-y-1.5 pb-3 [@media(max-height:700px)]:space-y-0 [@media(max-height:700px)]:pb-0">
-          <button
-            onClick={() => navigate(dashboardPath)}
-            className={getNavButtonClass(isPathActive(dashboardPath))}
-            title={isCollapsed ? "Dashboard" : ""}
-          >
-            {(mobile || !isCollapsed) && <span>Dashboard</span>}
-          </button>
+          {effectiveRole !== "user" && (
+            <button
+              onClick={() => navigate(dashboardPath)}
+              className={getNavButtonClass(isPathActive(dashboardPath))}
+              title={isCollapsed ? "Dashboard" : ""}
+            >
+              {(mobile || !isCollapsed) && <span>Dashboard</span>}
+            </button>
+          )}
 
           {effectiveRole === "admin" && renderMenuButton(adminMessagesItem)}
 

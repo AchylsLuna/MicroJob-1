@@ -5,7 +5,7 @@ The API and MongoDB data are authoritative on both platforms. Local web and Expo
 | Shared feature | Canonical API | Web | Native mobile | Refresh behavior |
 | --- | --- | --- | --- | --- |
 | Session, profile, role and Both mode | `/api/auth/*` | Connected | Connected | Startup verification and profile refresh |
-| Worker dashboard and job discovery | `/api/jobs/*`, `/api/categories/*`, `/api/applications/user` | Connected | Connected | Pull/navigation refresh and mutation invalidation |
+| Worker job discovery | `/api/jobs/*`, `/api/categories/*`, `/api/applications/user` | Connected | Connected | Pull/navigation refresh and mutation invalidation |
 | Employer jobs and hiring capacity | `/api/jobs/mine`, `/api/jobs/*` | Connected | Connected | Job mutation invalidation |
 | Applications and interviews | `/api/applications/*` | Connected | Connected | Application/job/notification invalidation |
 | Formal offers and Confirm Hire | `/api/applications/:id/offers`, `/api/job-offers/*` | API compatible | Connected | Application/job/wallet refresh |

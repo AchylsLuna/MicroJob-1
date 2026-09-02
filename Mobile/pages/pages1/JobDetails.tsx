@@ -200,11 +200,6 @@ export default function JobDetails({
     onTabPress?.('Jobs');
   };
 
-  const handleBackToHome = () => {
-    setShowSuccess(false);
-    onTabPress?.('Home');
-  };
-
   const applyForJob = async () => {
     if (!jobDetails?._id) return;
     if (hasApplied) return;
@@ -297,9 +292,6 @@ export default function JobDetails({
             </Text>
             <TouchableOpacity style={styles.findJobsBtn} onPress={handleFindMoreJobs} accessibilityRole="button" accessibilityLabel={t('jobDetails.success.findJobsAccessibility')}>
               <Text style={styles.findJobsBtnText}>{t('jobDetails.success.findJobsButton')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleBackToHome} accessibilityRole="button" accessibilityLabel={t('jobDetails.success.backHomeAccessibility')}>
-              <Text style={styles.backToHomeText}>{t('jobDetails.success.backHomeButton')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -703,10 +695,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: tokens.colors.surface,
-  },
-  backToHomeText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
   },
 });

@@ -87,10 +87,10 @@ export function TopUpSuccess() {
             Go to E-Wallet
           </button>
           <Link
-            to={ROUTES.worker.dashboard}
+            to={ROUTES.worker.findJobs}
             className="px-4 py-2 rounded-lg border border-[#D1D5DB] text-[#111827] text-[14px] font-medium hover:bg-[#F9FAFB] transition"
           >
-            Back to Dashboard
+            Find Jobs
           </Link>
         </div>
       </div>

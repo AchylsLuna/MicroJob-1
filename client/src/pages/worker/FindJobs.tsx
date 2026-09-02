@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { MapPin, Search, SlidersHorizontal } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, MapPin, Search, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
@@ -8,8 +8,11 @@ import { getCategories, getJobs, getProfile, updateJobPreferences } from "../../
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../contexts/AuthContext";
+import { useMediaQuery } from "../../hooks/useMediaQuery";
 import { Button, StatusState } from "../../components/ui";
-import { JobCard } from "../../components/job/JobCard";
+import { JobListRow } from "../../components/job/JobListRow";
+import { JobDetailPanel } from "../../components/job/JobDetailPanel";
+import { FilterPill, type FilterOption } from "../../components/job/FilterPill";
 import { toJobCardData } from "../../components/job/jobCardModel";
 import { formatCurrency } from "../../lib/formatters";
 
@@ -43,6 +46,21 @@ function getSortLabels(t: TFunction): Record<"recent" | "salary" | "applicants" 
     nearest: t("findJobs.sort.options.nearest"),
   };
 }
+
+// Job type filter values line up with getJobTypeLabel's output below; labels
+// are pulled from jobDetails.jobTypeLabels so this filter and the job detail
+// page never drift into two different translations of the same job type.
+const JOB_TYPE_FILTER_OPTIONS: Array<{ value: Job["type"]; labelKey: string }> = [
+  { value: "Short-term", labelKey: "shortTerm" },
+  { value: "Side hustle", labelKey: "sideHustle" },
+  { value: "Recruiting", labelKey: "recruiting" },
+  { value: "Full-Time", labelKey: "fullTime" },
+  { value: "Part-Time", labelKey: "partTime" },
+  { value: "Contract", labelKey: "contract" },
+  { value: "Project Work", labelKey: "projectWork" },
+];
+
+const MIN_PAY_OPTIONS = [100, 200, 500, 1000];
 
 interface ApiJob {
   _id: string;
@@ -94,6 +112,15 @@ export function FindJobs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
   const selectedCategory = searchParams.get("category") || "";
+  const datePosted = searchParams.get("datePosted") || "";
+  const jobTypeFilter = useMemo(
+    () => (searchParams.get("type") || "").split(",").filter(Boolean) as Job["type"][],
+    [searchParams],
+  );
+  const minPay = searchParams.get("minPay") || "";
+  const fewApplicantsOnly = searchParams.get("fewApplicants") === "1";
+  const selectedJobId = searchParams.get("jobId") || "";
+  const isLargeScreen = useMediaQuery("(min-width: 1024px)");
   const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -111,6 +138,9 @@ export function FindJobs() {
   const [preferredCategoryIds, setPreferredCategoryIds] = useState<string[]>([]);
   const [jobPreferenceText, setJobPreferenceText] = useState("");
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
+  const preferencesRef = useRef<HTMLDivElement>(null);
+  const preferencesTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -329,14 +359,26 @@ export function FindJobs() {
     saved: savedJobIds.has(job.id),
   }));
 
-  // Search only. Locality is a ranking signal, not a filter — the worker's city
-  // decides the *order* (see the "nearest" sort and locationScore), never which
-  // jobs exist. Filtering here previously hid every out-of-city job, and showed
-  // an empty page to anyone who had not set a city at all.
+  // Search plus the four filter pills. Locality is never a filter here — the
+  // worker's city only decides ranking (see the "nearest" sort and
+  // locationScore below) — filtering on it previously hid every out-of-city
+  // job and showed an empty page to anyone without a city set.
   const filteredJobs = jobsWithSavedState.filter((job) => {
-    if (!searchQuery) return true;
-    const combined = `${job.title} ${job.company} ${job.category}`.toLowerCase();
-    return combined.includes(searchQuery);
+    if (searchQuery) {
+      const combined = `${job.title} ${job.company} ${job.category}`.toLowerCase();
+      if (!combined.includes(searchQuery)) return false;
+    }
+    if (datePosted) {
+      // postedDaysAgo is day-granularity (floor), so "past 24 hours" means
+      // "posted today" rather than a rolling 24-hour window.
+      if (datePosted === "24h" && job.postedDaysAgo > 0) return false;
+      if (datePosted === "week" && job.postedDaysAgo > 7) return false;
+      if (datePosted === "month" && job.postedDaysAgo > 30) return false;
+    }
+    if (jobTypeFilter.length > 0 && !jobTypeFilter.includes(job.type)) return false;
+    if (minPay && parseSalaryValue(job.salary) < Number(minPay)) return false;
+    if (fewApplicantsOnly && job.applicants >= 10) return false;
+    return true;
   });
 
   // Sort jobs
@@ -358,6 +400,44 @@ export function FindJobs() {
   const workerCity = workerLocation.city.trim();
   const workerLocationLabel = workerCity || t("findJobs.hero.setCityLabel");
 
+  const updateSearchParam = useCallback((key: string, value: string | null, options?: { replace?: boolean }) => {
+    const next = new URLSearchParams(searchParams);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setSearchParams(next, options);
+  }, [searchParams, setSearchParams]);
+
+  // Keeps ?jobId in sync with the visible results: defaults to the first
+  // result once jobs load, and re-points to the new first result whenever a
+  // filter/sort change removes whatever was selected. Only the split-pane
+  // layout has somewhere to show it, so below `lg` we leave the URL alone
+  // rather than selecting a job into a pane nobody can see.
+  useEffect(() => {
+    if (isLoading || !isLargeScreen) return;
+    if (sortedJobs.length === 0) {
+      if (selectedJobId) updateSearchParam("jobId", null, { replace: true });
+      return;
+    }
+    if (!sortedJobs.some((job) => job.id === selectedJobId)) {
+      // A falsy id would make updateSearchParam delete ?jobId instead of
+      // setting it, and this effect would immediately run again — a render
+      // loop. Skip rather than spin.
+      const firstId = sortedJobs[0]?.id;
+      if (firstId) updateSearchParam("jobId", firstId, { replace: true });
+    }
+    // sortedJobs is a new array every render; keying off its id sequence
+    // avoids re-running this effect on every keystroke elsewhere on the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortedJobs.map((job) => job.id).join(","), isLoading, selectedJobId, isLargeScreen]);
+
+  const handleJobPress = (jobId: string) => {
+    if (isLargeScreen) {
+      updateSearchParam("jobId", jobId);
+    } else {
+      navigate(ROUTES.worker.jobDetails(jobId));
+    }
+  };
+
   const savePreferences = async () => {
     setSavingPreferences(true);
     try {
@@ -367,6 +447,7 @@ export function FindJobs() {
       });
       toast.success(t("findJobs.toast.preferencesSaved"));
       setReloadKey((value) => value + 1);
+      setShowPreferences(false);
     } catch (error: any) {
       toast.error(error?.message || t("findJobs.toast.preferencesSaveFailed"));
     } finally {
@@ -374,8 +455,54 @@ export function FindJobs() {
     }
   };
 
+  useEffect(() => {
+    if (!showPreferences) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (preferencesRef.current && !preferencesRef.current.contains(event.target as Node)) setShowPreferences(false);
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowPreferences(false);
+        preferencesTriggerRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showPreferences]);
+
+  const dateOptions: FilterOption[] = [
+    { value: "24h", label: t("findJobs.filters.datePosted.past24Hours") },
+    { value: "week", label: t("findJobs.filters.datePosted.pastWeek") },
+    { value: "month", label: t("findJobs.filters.datePosted.pastMonth") },
+  ];
+  const jobTypeOptions: FilterOption[] = JOB_TYPE_FILTER_OPTIONS.map((option) => ({
+    value: option.value,
+    label: t(`jobDetails.jobTypeLabels.${option.labelKey}`),
+  }));
+  const minPayOptions: FilterOption[] = MIN_PAY_OPTIONS.map((amount) => ({
+    value: String(amount),
+    label: t("findJobs.filters.minimumPay.option", { amount: formatCurrency(amount, { maximumFractionDigits: 0 }) }),
+  }));
+
+  const activeFilterCount =
+    (datePosted ? 1 : 0) + (jobTypeFilter.length > 0 ? 1 : 0) + (minPay ? 1 : 0) + (fewApplicantsOnly ? 1 : 0);
+  const preferencesActive = preferredCategoryIds.length > 0 || jobPreferenceText.trim().length > 0;
+
+  const clearAllFilters = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("datePosted");
+    next.delete("type");
+    next.delete("minPay");
+    next.delete("fewApplicants");
+    setSearchParams(next);
+  };
+
   return (
-    <div className="mx-auto w-full max-w-[1440px] space-y-6 font-sans">
+    <div className="mx-auto w-full max-w-[1440px] space-y-4 font-sans">
       <section className="relative overflow-hidden rounded-3xl bg-[#1C4D8D] px-5 py-7 text-white shadow-[0_14px_36px_rgba(28,77,141,0.18)] sm:px-8 lg:px-10" aria-labelledby="job-search-heading">
         <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-blue-400/10" aria-hidden="true" />
         <div className="relative max-w-4xl">
@@ -395,12 +522,7 @@ export function FindJobs() {
             <input
               type="search"
               value={searchParams.get("q") || ""}
-              onChange={(event) => {
-                const next = new URLSearchParams(searchParams);
-                if (event.target.value) next.set("q", event.target.value);
-                else next.delete("q");
-                setSearchParams(next);
-              }}
+              onChange={(event) => updateSearchParam("q", event.target.value || null)}
               placeholder={t("findJobs.hero.searchPlaceholder")}
               className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500"
             />
@@ -409,12 +531,7 @@ export function FindJobs() {
             <span className="sr-only">{t("findJobs.hero.categoryFilterAria")}</span>
             <select
               value={selectedCategory}
-              onChange={(event) => {
-                const next = new URLSearchParams(searchParams);
-                if (event.target.value) next.set("category", event.target.value);
-                else next.delete("category");
-                setSearchParams(next);
-              }}
+              onChange={(event) => updateSearchParam("category", event.target.value || null)}
               className="h-14 w-full rounded-xl border-0 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">{t("findJobs.hero.allCategories")}</option>
@@ -438,58 +555,82 @@ export function FindJobs() {
         </aside>
       )}
 
-      <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3">
-          <div>
-            <p className="text-sm font-bold text-slate-900">{t("findJobs.preferences.title")}</p>
-            <p className="mt-0.5 text-xs text-slate-500">{t("findJobs.preferences.subtitle")}</p>
-          </div>
-          <span className="shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:hidden">{t("findJobs.preferences.manage")}</span>
-          <span className="hidden shrink-0 text-xs font-semibold text-[#1C4D8D] group-open:inline">{t("findJobs.preferences.close")}</span>
-        </summary>
-        <div className="border-t border-slate-100 px-5 pb-5 pt-4">
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => {
-              const selected = preferredCategoryIds.includes(category._id);
-              return (
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterPill mode="radio" label={t("findJobs.filters.datePosted.label")} options={dateOptions} value={datePosted} onApply={(value) => updateSearchParam("datePosted", value || null)} />
+        <FilterPill mode="checkbox" label={t("findJobs.filters.jobType.label")} options={jobTypeOptions} value={jobTypeFilter} onApply={(values) => updateSearchParam("type", values.length ? values.join(",") : null)} />
+        <FilterPill mode="radio" label={t("findJobs.filters.minimumPay.label")} options={minPayOptions} value={minPay} onApply={(value) => updateSearchParam("minPay", value || null)} />
+        <FilterPill mode="toggle" label={t("findJobs.filters.fewApplicants.label")} value={fewApplicantsOnly} onApply={(value) => updateSearchParam("fewApplicants", value ? "1" : null)} />
+
+        <div className="relative" ref={preferencesRef}>
+          <button
+            ref={preferencesTriggerRef}
+            type="button"
+            onClick={() => setShowPreferences((prev) => !prev)}
+            aria-haspopup="menu"
+            aria-expanded={showPreferences}
+            className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${
+              preferencesActive ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]" : "border-slate-300 text-slate-700 hover:border-slate-400"
+            }`}
+          >
+            {t("findJobs.preferences.title")}
+            <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showPreferences ? "rotate-180" : ""}`} aria-hidden="true" />
+          </button>
+          {showPreferences ? (
+            <div role="menu" aria-label={t("findJobs.preferences.title")} className="fixed left-4 right-4 top-[auto] z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:w-96">
+              <p className="text-xs text-slate-500">{t("findJobs.preferences.subtitle")}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {categories.map((category) => {
+                  const selected = preferredCategoryIds.includes(category._id);
+                  return (
+                    <button
+                      key={`preferred-${category._id}`}
+                      type="button"
+                      onClick={() => setPreferredCategoryIds((current) =>
+                        selected ? current.filter((id) => id !== category._id) : [...current, category._id]
+                      )}
+                      aria-pressed={selected}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        selected
+                          ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]"
+                          : "border-slate-200 text-slate-600 hover:border-slate-300"
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <label htmlFor="job-preferences" className="sr-only">{t("findJobs.preferences.keywordsLabel")}</label>
+                <input
+                  id="job-preferences"
+                  value={jobPreferenceText}
+                  onChange={(event) => setJobPreferenceText(event.target.value)}
+                  placeholder={t("findJobs.preferences.keywordsPlaceholder")}
+                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
+                />
                 <button
-                  key={`preferred-${category._id}`}
                   type="button"
-                  onClick={() => setPreferredCategoryIds((current) =>
-                    selected ? current.filter((id) => id !== category._id) : [...current, category._id]
-                  )}
-                  aria-pressed={selected}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    selected
-                      ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]"
-                      : "border-slate-200 text-slate-600 hover:border-slate-300"
-                  }`}
+                  onClick={savePreferences}
+                  disabled={savingPreferences}
+                  className="min-h-11 rounded-xl bg-[#1C4D8D] px-5 text-sm font-bold text-white transition hover:bg-[#163F75] disabled:opacity-50"
                 >
-                  {category.name}
+                  {savingPreferences ? t("findJobs.preferences.saving") : t("findJobs.preferences.save")}
                 </button>
-              );
-            })}
-          </div>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-            <label htmlFor="job-preferences" className="sr-only">{t("findJobs.preferences.keywordsLabel")}</label>
-            <input
-              id="job-preferences"
-              value={jobPreferenceText}
-              onChange={(event) => setJobPreferenceText(event.target.value)}
-              placeholder={t("findJobs.preferences.keywordsPlaceholder")}
-              className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
-            />
-            <button
-              type="button"
-              onClick={savePreferences}
-              disabled={savingPreferences}
-              className="min-h-11 rounded-xl bg-[#1C4D8D] px-5 text-sm font-bold text-white transition hover:bg-[#163F75] disabled:opacity-50"
-            >
-              {savingPreferences ? t("findJobs.preferences.saving") : t("findJobs.preferences.save")}
-            </button>
-          </div>
+              </div>
+            </div>
+          ) : null}
         </div>
-      </details>
+
+        {activeFilterCount > 0 ? (
+          <>
+            <span className="text-[13px] text-slate-400">{t("findJobs.filters.activeCount", { count: activeFilterCount })}</span>
+            <button type="button" onClick={clearAllFilters} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+              {t("findJobs.filters.clearAll")}
+            </button>
+          </>
+        ) : null}
+      </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -526,29 +667,38 @@ export function FindJobs() {
       )}
 
       {!isLoading && !loadError && sortedJobs.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {sortedJobs.map((job, index) => (
-            <JobCard
-              key={job.id}
-              job={toJobCardData({
-                id: job.id,
-                title: job.title,
-                company: job.company,
-                location: job.location,
-                type: job.type,
-                salary: getSalaryDisplay(job.salary),
-                categoryId: job.categoryId,
-                categoryName: job.category,
-                skills: job.skills,
-                urgent: job.urgent,
-              })}
-              variant="list"
-              saved={job.saved}
-              index={index}
-              onPress={() => navigate(ROUTES.worker.jobDetails(job.id))}
-              onToggleSave={() => handleSaveJob(job.id)}
-            />
-          ))}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+          <div className="space-y-1">
+            {sortedJobs.map((job, index) => (
+              <JobListRow
+                key={job.id}
+                job={toJobCardData({
+                  id: job.id,
+                  title: job.title,
+                  company: job.company,
+                  location: job.location,
+                  type: job.type,
+                  salary: getSalaryDisplay(job.salary),
+                  categoryId: job.categoryId,
+                  categoryName: job.category,
+                  skills: job.skills,
+                  urgent: job.urgent,
+                })}
+                selected={isLargeScreen && job.id === selectedJobId}
+                saved={job.saved}
+                index={index}
+                onPress={() => handleJobPress(job.id)}
+                onToggleSave={() => handleSaveJob(job.id)}
+              />
+            ))}
+          </div>
+
+          {/* Gated on isLargeScreen, not just `hidden lg:block`: a CSS-hidden
+              panel still mounts and fetches the job, so on a phone every
+              filter change would fire a request for a pane nobody can see. */}
+          <div className="hidden lg:block lg:sticky lg:top-4 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
+            {isLargeScreen && selectedJobId ? <JobDetailPanel jobId={selectedJobId} compact /> : null}
+          </div>
         </div>
       )}
     </div>

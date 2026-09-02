@@ -51,91 +51,6 @@
       "showAll": "Ipakita Lahat ng Aplikasyon"
     }
   },
-  "dashboard": {
-    "eyebrow": "Workspace ng manggagawa",
-    "title": "Buod ng trabaho",
-    "subtitle": "Subaybayan ang mga aplikasyon at maghanap ng susunod na oportunidad.",
-    "myApplications": "Aking mga aplikasyon",
-    "findJobs": "Maghanap ng trabaho",
-    "search": {
-      "title": "Maghanap ng lokal na trabaho",
-      "subtitle": "Kasanayan, employer, o pamagat ng trabaho"
-    },
-    "resumePrompt": {
-      "title": "I-upload ang iyong resume",
-      "subtitle": "Ma-match sa mga lokal na employer sa iyong komunidad.",
-      "button": "I-upload ang resume"
-    },
-    "categories": {
-      "title": "Mga Kategorya ng Trabaho",
-      "seeAll": "Tingnan lahat"
-    },
-    "locationPrompt": {
-      "title": "Itakda ang lokasyon ng iyong trabaho",
-      "subtitle": "Idagdag ang iyong lungsod o munisipyo para makita ang mga malapit na oportunidad.",
-      "button": "Buksan ang mga setting"
-    },
-    "stats": {
-      "applications": {
-        "title": "Mga Aplikasyon",
-        "helper": "Lahat ng naisumiteng aplikasyon"
-      },
-      "interviews": {
-        "title": "Mga Interview",
-        "helper": "Naka-iskedyul o nakumpletong interview"
-      },
-      "hired": {
-        "title": "Nakuha",
-        "helper": "Matagumpay na aplikasyon"
-      }
-    },
-    "profileStrength": {
-      "title": "Lakas ng profile",
-      "readyMessage": "Handa na ang iyong profile para sa mga employer.",
-      "incompleteMessage": "Ang kumpletong profile ay nagpapabuti sa job matching.",
-      "percentComplete": "{{percent}}% kumpleto",
-      "viewProfile": "Tingnan ang profile",
-      "completeProfile": "Kumpletuhin ang profile"
-    },
-    "recentActivities": {
-      "title": "Mga Kamakailang Aktibidad",
-      "seeAll": "Tingnan lahat",
-      "empty": "Wala pang aktibidad — mag-apply sa isang trabaho para makita ang mga update dito.",
-      "browseJobs": "Mag-browse ng trabaho",
-      "justNow": "Ngayon lang"
-    },
-    "recommendedJobs": {
-      "title": "Mga Inirerekomendang Trabaho",
-      "seeAll": "Tingnan lahat",
-      "empty": "Walang available na trabaho sa ngayon. Bumalik ulit mamaya!",
-      "browseAll": "Tingnan lahat ng trabaho"
-    },
-    "toast": {
-      "statsLoadFailed": "Hindi na-load ang mga estadistika ng dashboard.",
-      "jobsLoadFailed": "Hindi na-load ang mga inirerekomendang trabaho."
-    },
-    "statusMap": {
-      "applied": "Naisumite ang aplikasyon",
-      "shortlisted": "Na-shortlist ang aplikasyon",
-      "interviewScheduled": "Naka-iskedyul ang interview",
-      "interviewed": "Nakumpleto ang interview",
-      "offerSent": "Natanggap ang alok",
-      "hired": "Tinanggap ang aplikasyon",
-      "rejected": "Tinanggihan ang aplikasyon",
-      "withdrawn": "Binawi ang aplikasyon",
-      "pending": "Naisumite ang aplikasyon",
-      "reviewed": "Nasuri ang aplikasyon",
-      "terms": "Natanggap ang alok",
-      "default": "Na-update ang aplikasyon"
-    },
-    "activityText": "{{status}} para sa {{jobTitle}}",
-    "jobFallback": "isang trabaho",
-    "company": "Kompanya",
-    "locationFallback": "Hindi tinukoy ang lokasyon",
-    "fullTime": "Full-time",
-    "categoryFallback": "Kategorya",
-    "matchLevelFallback": "Potensyal na match"
-  },
   "notifications": {
     "tabs": {
       "all": "Lahat",
@@ -290,7 +205,30 @@
       "salaryMinimum": "{{salary}} minimum"
     },
     "nearest": "Pinakamalapit sa {{city}}",
-    "nationwide": "Iba pang lugar sa Pilipinas"
+    "nationwide": "Iba pang lugar sa Pilipinas",
+    "filters": {
+      "reset": "I-reset",
+      "showResults": "Ipakita ang resulta",
+      "clearAll": "Alisin lahat",
+      "activeCount_one": "{{count}} filter",
+      "activeCount_other": "{{count}} na filter",
+      "datePosted": {
+        "label": "Petsa ng pag-post",
+        "past24Hours": "Nakaraang 24 oras",
+        "pastWeek": "Nakaraang linggo",
+        "pastMonth": "Nakaraang buwan"
+      },
+      "jobType": {
+        "label": "Uri ng trabaho"
+      },
+      "minimumPay": {
+        "label": "Minimum na sahod",
+        "option": "{{amount}}+ minimum"
+      },
+      "fewApplicants": {
+        "label": "Wala pang 10 aplikante"
+      }
+    }
   },
   "jobDetails": {
     "backToJobs": "Bumalik sa mga trabaho",
@@ -565,6 +503,15 @@
     "editing": {
       "cancel": "Kanselahin",
       "save": "I-save"
+    },
+    "dock": {
+      "title": "Mga Mensahe",
+      "expandAria": "Buksan ang mga mensahe",
+      "collapseAria": "I-collapse ang mga mensahe",
+      "backAria": "Bumalik sa mga usapan",
+      "emptyInbox": "Wala pang mga usapan.",
+      "composerPlaceholder": "Sumulat ng mensahe…",
+      "openFullView": "Buksan ang buong view"
     }
   },
   "profile": {

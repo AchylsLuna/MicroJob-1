@@ -111,23 +111,25 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     .join(", ");
 
   const pageMeta: PageMeta = (() => {
-    if (isExactPath(ROUTES.worker.dashboard, ROUTES.legacyDashboard.root)) {
-      return {
-        title: t("navbar.pages.workerHome.title"),
-        subtitle: localArea || t("navbar.setLocalArea"),
-        subtitleAction: `${ROUTES.worker.settings}?tab=personal`,
-        homeContext: true,
-      };
-    }
-
+    // Find Jobs is the worker's home now that the worker dashboard is gone, so
+    // it carries the home chrome (local-area subtitle) as well as its own search.
+    // The legacy /dashboard root must stay an *exact* match: isPath is a prefix
+    // test, so listing it there would shadow every /dashboard/* route below.
     if (
+      isExactPath(ROUTES.legacyDashboard.root) ||
       isPath(
         ROUTES.worker.findJobs,
         ROUTES.legacyDashboard.findJobs,
         ROUTES.legacyShortcuts.findJobs,
       )
     ) {
-      return { title: t("navbar.pages.findJobs.title"), search: { placeholder: t("navbar.pages.findJobs.searchPlaceholder"), mode: "query" as const } };
+      return {
+        title: t("navbar.pages.findJobs.title"),
+        subtitle: localArea || t("navbar.setLocalArea"),
+        subtitleAction: `${ROUTES.worker.settings}?tab=personal`,
+        homeContext: true,
+        search: { placeholder: t("navbar.pages.findJobs.searchPlaceholder"), mode: "query" as const },
+      };
     }
 
     if (isPath(ROUTES.worker.appliedJobs, ROUTES.legacyDashboard.appliedJobs, ROUTES.legacyShortcuts.appliedJobs)) {
@@ -490,7 +492,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
     switchAccountType(nextType);
     setShowUserMenu(false);
 
-    const targetRoute = nextType === "employer" ? ROUTES.employer.dashboard : ROUTES.worker.dashboard;
+    const targetRoute = nextType === "employer" ? ROUTES.employer.dashboard : ROUTES.worker.findJobs;
     navigate(targetRoute);
   };
 
@@ -539,8 +541,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
           </button>
           {isWorkerView && (
             <MicroJobsLogo
-              onClick={() => navigate(ROUTES.worker.dashboard)}
-              ariaLabel={t("navbar.workerDashboardAria")}
+              onClick={() => navigate(ROUTES.worker.findJobs)}
+              ariaLabel={t("navbar.workerHomeAria")}
               className="hidden min-h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 lg:flex"
             />
           )}

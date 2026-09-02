@@ -7,13 +7,12 @@ import type { WorkerTab } from './tabNavigation';
 
 type Props = { activeTab?: string; onTabPress?: (tab: string) => void; messageBadgeCount?: number };
 
-export default function Navigation({ activeTab = 'Home', onTabPress, messageBadgeCount }: Props) {
+export default function Navigation({ activeTab = 'Jobs', onTabPress, messageBadgeCount }: Props) {
   const { t } = useTranslation('common');
   const session = useAppSession();
   const unread = typeof messageBadgeCount === 'number' ? messageBadgeCount : session.unreadMessageCount;
   const initials = session.navigationProfileInitials;
   const items = useMemo<CompactNavigationItem<WorkerTab>[]>(() => [
-    { key: 'Home', label: t('workerNav.home'), icon: 'home-outline', activeIcon: 'home' },
     { key: 'Jobs', label: t('workerNav.jobs'), icon: 'briefcase-outline', activeIcon: 'briefcase' },
     { key: 'EWallet', label: t('workerNav.eWallet'), icon: 'wallet-outline', activeIcon: 'wallet' },
     { key: 'Messages', label: t('workerNav.messages'), icon: 'chatbubble-outline', activeIcon: 'chatbubble', badge: unread },

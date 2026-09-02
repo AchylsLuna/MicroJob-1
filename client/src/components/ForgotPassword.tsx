@@ -58,9 +58,9 @@ export function ForgotPassword() {
       setEmail(normalizedEmail);
       setStep("code");
     } catch (error: any) {
-      toast.error(error?.status === 404
-        ? t("forgotPassword.toast.accountNotFound")
-        : error?.message || t("forgotPassword.toast.sendCodeFailed"));
+      // The server answers identically whether or not the address is
+      // registered, so there is no "account not found" case to branch on here.
+      toast.error(error?.message || t("forgotPassword.toast.sendCodeFailed"));
     } finally {
       setIsLoading(false);
     }

@@ -51,91 +51,6 @@
       "showAll": "Show All Applications"
     }
   },
-  "dashboard": {
-    "eyebrow": "Worker workspace",
-    "title": "Work overview",
-    "subtitle": "Track applications and find your next opportunity.",
-    "myApplications": "My applications",
-    "findJobs": "Find jobs",
-    "search": {
-      "title": "Search local jobs",
-      "subtitle": "Skills, employers, or job titles"
-    },
-    "resumePrompt": {
-      "title": "Upload your resume",
-      "subtitle": "Get matched with local employers across your community.",
-      "button": "Upload resume"
-    },
-    "categories": {
-      "title": "Job Categories",
-      "seeAll": "Browse all"
-    },
-    "locationPrompt": {
-      "title": "Set your work location",
-      "subtitle": "Add your city or municipality to see nearby opportunities.",
-      "button": "Open settings"
-    },
-    "stats": {
-      "applications": {
-        "title": "Applications",
-        "helper": "All submitted applications"
-      },
-      "interviews": {
-        "title": "Interviews",
-        "helper": "Scheduled or completed interviews"
-      },
-      "hired": {
-        "title": "Hired",
-        "helper": "Successful applications"
-      }
-    },
-    "profileStrength": {
-      "title": "Profile strength",
-      "readyMessage": "Your profile is ready for employers.",
-      "incompleteMessage": "A complete profile improves job matching.",
-      "percentComplete": "{{percent}}% complete",
-      "viewProfile": "View profile",
-      "completeProfile": "Complete profile"
-    },
-    "recentActivities": {
-      "title": "Recent Activities",
-      "seeAll": "View all",
-      "empty": "No activity yet — apply to a job to see updates here.",
-      "browseJobs": "Browse jobs",
-      "justNow": "Just now"
-    },
-    "recommendedJobs": {
-      "title": "Recommended Jobs",
-      "seeAll": "View all",
-      "empty": "No jobs available at the moment. Check back later!",
-      "browseAll": "Browse all jobs"
-    },
-    "toast": {
-      "statsLoadFailed": "Failed to load dashboard stats.",
-      "jobsLoadFailed": "Failed to load recommended jobs."
-    },
-    "statusMap": {
-      "applied": "Application submitted",
-      "shortlisted": "Application shortlisted",
-      "interviewScheduled": "Interview scheduled",
-      "interviewed": "Interview completed",
-      "offerSent": "Offer received",
-      "hired": "Application accepted",
-      "rejected": "Application rejected",
-      "withdrawn": "Application withdrawn",
-      "pending": "Application submitted",
-      "reviewed": "Application reviewed",
-      "terms": "Offer received",
-      "default": "Application updated"
-    },
-    "activityText": "{{status}} for {{jobTitle}}",
-    "jobFallback": "a job",
-    "company": "Company",
-    "locationFallback": "Location not specified",
-    "fullTime": "Full-time",
-    "categoryFallback": "Category",
-    "matchLevelFallback": "Potential match"
-  },
   "notifications": {
     "tabs": {
       "all": "All",
@@ -290,7 +205,30 @@
       "salaryMinimum": "{{salary}} minimum"
     },
     "nearest": "Nearest in {{city}}",
-    "nationwide": "Elsewhere in the Philippines"
+    "nationwide": "Elsewhere in the Philippines",
+    "filters": {
+      "reset": "Reset",
+      "showResults": "Show results",
+      "clearAll": "Clear all",
+      "activeCount_one": "{{count}} filter",
+      "activeCount_other": "{{count}} filters",
+      "datePosted": {
+        "label": "Date posted",
+        "past24Hours": "Past 24 hours",
+        "pastWeek": "Past week",
+        "pastMonth": "Past month"
+      },
+      "jobType": {
+        "label": "Job type"
+      },
+      "minimumPay": {
+        "label": "Minimum pay",
+        "option": "{{amount}}+ minimum"
+      },
+      "fewApplicants": {
+        "label": "Under 10 applicants"
+      }
+    }
   },
   "jobDetails": {
     "backToJobs": "Back to jobs",
@@ -565,6 +503,15 @@
     "editing": {
       "cancel": "Cancel",
       "save": "Save"
+    },
+    "dock": {
+      "title": "Messaging",
+      "expandAria": "Open messaging",
+      "collapseAria": "Collapse messaging",
+      "backAria": "Back to conversations",
+      "emptyInbox": "No conversations yet.",
+      "composerPlaceholder": "Write a message…",
+      "openFullView": "Open full view"
     }
   },
   "profile": {

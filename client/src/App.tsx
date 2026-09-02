@@ -36,7 +36,6 @@ const PublicProfile = lazy(() => import("./pages/shared/PublicProfile").then((mo
 const NotificationsRouter = lazy(() => import("./pages/NotificationsRouter"));
 const SupportRouter = lazy(() => import("./pages/SupportRouter"));
 
-const WorkerDashboard = lazy(() => import("./pages/worker/Dashboard").then((module) => ({ default: module.Dashboard })));
 const FindJobs = lazy(() => import("./pages/worker/FindJobs").then((module) => ({ default: module.FindJobs })));
 const AppliedJobs = lazy(() => import("./pages/worker/AppliedJobs"));
 const SavedJobs = lazy(() => import("./pages/worker/SavedJobs").then((module) => ({ default: module.SavedJobs })));
@@ -285,7 +284,6 @@ const App: React.FC = () => {
 
         <Route element={<SidebarLayout />}>
           <Route element={<RoleRoute requiredRole="patient" />}>
-            <Route path={ROUTES.worker.dashboard} element={<WorkerDashboard />} />
             <Route path={ROUTES.worker.findJobs} element={<FindJobs />} />
             <Route path={ROUTES.worker.appliedJobs} element={<AppliedJobs />} />
             <Route path={ROUTES.worker.savedJobs} element={<SavedJobs />} />

@@ -23,7 +23,6 @@ export const ROUTES = {
   support: "/support",
 
   worker: {
-    dashboard: "/worker/dashboard",
     findJobs: "/worker/find-jobs",
     appliedJobs: "/worker/applied-jobs",
     savedJobs: "/worker/saved-jobs",

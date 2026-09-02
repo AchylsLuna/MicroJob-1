@@ -31,7 +31,11 @@ import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../li
 import monitor from "../lib/monitor.js";
 
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
-const PASSWORD_RESET_ACCOUNT_NOT_FOUND_MESSAGE = "Email address not found. Please register first before resetting your password.";
+// One message for every outcome of a password-reset request. Distinct replies
+// per outcome let an unauthenticated caller confirm which emails are
+// registered (OWASP ASVS 3.2.2) — the same reason AuthController's login
+// returns one generic "incorrect credentials" string.
+const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
 const APP_NAME = "MicroJobs";
 const PASSWORD_RESET_EMAIL_FROM = `${APP_NAME} <noreply@yourdomain.com>`;
 const OTP_EXPIRY_MINUTES = 5;
@@ -1029,38 +1033,46 @@ export async function requestPasswordResetOtp(req, res) {
         }
 
         const user = await User.findOne({ email: normalizedEmail }).select("firstName username email");
-        if (!user) {
-            return res.status(404).json({ message: PASSWORD_RESET_ACCOUNT_NOT_FOUND_MESSAGE });
+
+        // Every path below returns the same 200 + generic message. An unknown
+        // address simply skips the OTP and the email; the caller cannot tell
+        // that apart from a successful send, so the endpoint is not an
+        // account-existence oracle. Failures are logged, never reflected back.
+        if (user) {
+            try {
+                const { code } = await issueOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, user: user._id });
+
+                const transporter = getEmailTransporter();
+                if (!transporter) {
+                    console.error("Password reset requested but SMTP is not configured.");
+                } else {
+                    const username = user.username || user.firstName || normalizedEmail.split("@")[0];
+                    const resetUrl = getFrontendResetUrl(normalizedEmail, code);
+                    const emailContent = buildPasswordResetEmail({
+                        username,
+                        expiryMinutes: OTP_EXPIRY_MINUTES,
+                        resetUrl,
+                    });
+
+                    await transporter.sendMail({
+                        from: PASSWORD_RESET_EMAIL_FROM,
+                        to: normalizedEmail,
+                        subject: emailContent.subject,
+                        text: emailContent.text,
+                        html: emailContent.html,
+                    });
+                }
+            } catch (sendError) {
+                // Swallowed deliberately: surfacing this would reveal that the
+                // account exists. The user sees the same message either way.
+                console.error("Request password reset OTP send error:", sendError);
+            }
         }
 
-        const { code } = await issueOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, user: user._id });
-
-        const transporter = getEmailTransporter();
-        if (!transporter) {
-            return res.status(500).json({ message: "Email service is not configured." });
-        }
-
-        const username = user.username || user.firstName || normalizedEmail.split("@")[0];
-        const resetUrl = getFrontendResetUrl(normalizedEmail, code);
-        const emailContent = buildPasswordResetEmail({
-            username,
-            expiryMinutes: OTP_EXPIRY_MINUTES,
-            resetUrl,
-        });
-
-        await transporter.sendMail({
-            from: PASSWORD_RESET_EMAIL_FROM,
-            to: normalizedEmail,
-            subject: emailContent.subject,
-            text: emailContent.text,
-            html: emailContent.html,
-        });
-
-        return res.status(200).json({ message: "Reset code sent to your email." });
+        return res.status(200).json({ message: PASSWORD_RESET_GENERIC_MESSAGE });
     } catch (error) {
         console.error("Request password reset OTP error:", error);
-        const detail = error?.message ? ` ${error.message}` : "";
-        return res.status(500).json({ message: `Failed to send password reset OTP.${detail}`.trim() });
+        return res.status(500).json({ message: "Failed to send password reset OTP." });
     }
 }
 

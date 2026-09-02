@@ -10,13 +10,14 @@ export type RoleNavigationItem = {
   nestedPaths?: string[];
 };
 
+// Workers have no dashboard, so Jobs is both the first tab and their home —
+// it absorbs the notifications route the old "home" tab used to highlight.
 export const workerBottomNavigation: RoleNavigationItem[] = [
-  { id: "home", label: "Home", path: ROUTES.worker.dashboard, exactPaths: [ROUTES.worker.notifications] },
   {
     id: "jobs",
     label: "Jobs",
     path: ROUTES.worker.findJobs,
-    exactPaths: [ROUTES.worker.appliedJobs, ROUTES.worker.savedJobs],
+    exactPaths: [ROUTES.worker.appliedJobs, ROUTES.worker.savedJobs, ROUTES.worker.notifications],
     nestedPaths: [ROUTES.worker.jobDetailsPattern.replace("/:jobId", "")],
   },
   { id: "wallet", label: "E-Wallet", path: ROUTES.worker.eWallet },
@@ -37,9 +38,6 @@ export const employerBottomNavigation: RoleNavigationItem[] = [
     exactPaths: [ROUTES.employer.settings, ROUTES.employer.support, ROUTES.employer.eWallet],
   },
 ];
-
-export const dashboardPathForMode = (mode: AccountMode) =>
-  mode === "employer" ? ROUTES.employer.dashboard : ROUTES.worker.dashboard;
 
 export const settingsPathForMode = (mode: AccountMode) =>
   mode === "employer" ? ROUTES.employer.settings : ROUTES.worker.settings;

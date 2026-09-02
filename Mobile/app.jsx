@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createNavigationContainerRef, DefaultTheme, NavigationContainer, useNavigation, useRoute } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -16,7 +16,6 @@ import VerifyEmail from './pages/verifyEmail';
 import ForgotPass from './pages/forgotPass';
 import CreatePass from './pages/createPass';
 import PassChanged from './pages/passChanged';
-import Dashboard from './pages/pages1/dashboard';
 import Jobs from './pages/pages1/Jobs';
 import JobDetails from './pages/pages1/JobDetails';
 import SavedJobs from './pages/pages1/SavedJobs';
@@ -167,7 +166,6 @@ function VerifyEmailScreen() {
 function ForgotPasswordScreen() {
   const navigation = useNavigation();
   const toast = useToast();
-  const { t } = useTranslation('auth');
   return (
     <ForgotPass
       onBack={async () => {
@@ -182,11 +180,9 @@ function ForgotPasswordScreen() {
           body: JSON.stringify({ email: normalizedEmail }),
         }, 'Unable to request password reset.');
         if (!result.ok) {
-          if (result.status === 404) {
-            Alert.alert(t('forgotPass.accountNotFoundTitle'), t('forgotPass.toast.accountNotFound'));
-          } else {
-            toast.error(`${result.message || 'Unable to request password reset.'} (HTTP ${result.status})`);
-          }
+          // The server answers identically whether or not the address is
+          // registered, so there is no "account not found" case to branch on.
+          toast.error(`${result.message || 'Unable to request password reset.'} (HTTP ${result.status})`);
           return;
         }
         await AsyncStorage.setItem('pending_reset_email', normalizedEmail);
@@ -280,37 +276,6 @@ function useEmployerTabNavigation() {
   }, [navigation]);
 }
 
-function WorkerHomeScreen() {
-  const navigation = useNavigation();
-  const workerTabPress = useWorkerTabNavigation();
-  const session = useAppSession();
-  const toast = useToast();
-  const localArea = [session.user?.city, session.user?.province].map((value) => String(value || '').trim()).filter(Boolean).join(', ');
-  return (
-    <Dashboard
-      activeTab="Home"
-      onTabPress={workerTabPress}
-      onNavigateToJobs={() => navigation.navigate('Jobs')}
-      onSelectCategory={(categoryId) => navigation.navigate('Jobs', { initialCategory: categoryId })}
-      onUploadResume={() => navigation.navigate('Profile', { initialAction: 'resume', actionNonce: Date.now() })}
-      onOpenSettings={() => navigation.navigate('WorkerAccountInformation', { initialSection: 'location' })}
-      onViewJobDetails={(job) => navigation.navigate('WorkerJobDetails', { job })}
-      onSaveJob={async (job) => {
-        try {
-          await session.toggleSavedJob(job);
-        } catch (error) {
-          toast.error(error?.message || 'Failed to update saved jobs.');
-        }
-      }}
-      savedJobIds={session.savedJobIds}
-      onOpenNotifications={() => navigation.navigate('WorkerNotifications')}
-      notificationBadgeCount={session.workerNotificationUnreadCount}
-      messageBadgeCount={session.unreadMessageCount}
-      headerSubtitle={localArea || 'Set your local area'}
-    />
-  );
-}
-
 function WorkerJobsScreen() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -398,11 +363,9 @@ function WorkerProfileScreen() {
 }
 
 function WorkerTabsNavigator() {
-  // Workers enter on Jobs, mirroring the web post-auth landing — browsing
-  // work is why they opened the app; Home stays one tab away.
+  // Workers have no dashboard — Jobs is their home, mirroring the web client.
   return (
     <WorkerTab.Navigator screenOptions={hiddenTabs} initialRouteName="Jobs">
-      <WorkerTab.Screen name="Home" component={WorkerHomeScreen} />
       <WorkerTab.Screen name="Jobs" component={WorkerJobsScreen} />
       <WorkerTab.Screen name="EWallet" component={WorkerEWalletScreen} />
       <WorkerTab.Screen name="Messages" component={WorkerMessagesScreen} />
@@ -499,7 +462,7 @@ function WorkerNotificationsScreen() {
   };
   return (
     <NotificationsInbox
-      activeTab="Home"
+      activeTab="Jobs"
       onTabPress={workerTabPress}
       liveNotifications={session.workerNotifications}
       messageBadgeCount={session.unreadMessageCount}

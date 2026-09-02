@@ -15,7 +15,7 @@ type Props = {
 };
 
 export default function NotificationsInbox({
-  activeTab = 'Home', onTabPress, liveNotifications = [], messageBadgeCount = 0,
+  activeTab = 'Jobs', onTabPress, liveNotifications = [], messageBadgeCount = 0,
   onDismissLiveNotification, onBack, onOpenNotification = () => undefined,
 }: Props) {
   const feed = useNotificationFeed(liveNotifications, onDismissLiveNotification);

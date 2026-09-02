@@ -43,11 +43,6 @@ if (!/subtitleIcon/.test(signedInHeader) || !/onSubtitlePress/.test(signedInHead
   failures.push('Signed-in header: local Home context and location action are missing');
 }
 
-const dashboardSource = fs.readFileSync(path.join(projectRoot, 'pages/pages1/dashboard.tsx'), 'utf8');
-if (!/onSelectCategory/.test(dashboardSource) || !/onUploadResume/.test(dashboardSource)) {
-  failures.push('dashboard.tsx: category and resume cards are not connected to focused actions');
-}
-
 for (const file of ['components/navigation.tsx', 'components/employerNavigation.tsx']) {
   const source = fs.readFileSync(path.join(projectRoot, file), 'utf8');
   if (/profileInitials\s*=\s*['"]JD['"]/.test(source)) {
@@ -98,7 +93,6 @@ if (!/navigateToRoleTab/.test(appSource) || /onTabPress=\{\(tab\)\s*=>\s*navigat
 }
 
 for (const file of [
-  'pages/pages1/dashboard.tsx',
   'pages/pages1/Jobs.tsx',
   'pages/pages1/AppliedJobs.tsx',
   'pages/pages1/SavedJobs.tsx',

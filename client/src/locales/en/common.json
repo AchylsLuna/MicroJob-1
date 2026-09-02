@@ -19,7 +19,7 @@
   },
   "navbar": {
     "openNavigationMenu": "Open navigation menu",
-    "workerDashboardAria": "MicroJobs worker dashboard",
+    "workerHomeAria": "MicroJobs home",
     "workerPrimaryNavigationAria": "Worker primary navigation",
     "quickLinks": "Quick links",
     "quickLinksHint": "Open another part of your workspace.",
@@ -61,7 +61,6 @@
       "settings": "Settings"
     },
     "pages": {
-      "workerHome": { "title": "Home" },
       "findJobs": { "title": "Find Jobs", "searchPlaceholder": "Search jobs..." },
       "appliedJobs": { "title": "Applied Jobs" },
       "messages": { "title": "Messages" },

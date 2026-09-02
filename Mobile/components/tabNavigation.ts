@@ -1,6 +1,6 @@
 import { CommonActions, type NavigationProp, type ParamListBase } from '@react-navigation/native';
 
-export const WORKER_TABS = ['Home', 'Jobs', 'EWallet', 'Messages', 'Profile'] as const;
+export const WORKER_TABS = ['Jobs', 'EWallet', 'Messages', 'Profile'] as const;
 export const EMPLOYER_TABS = ['Home', 'Applications', 'Post Job', 'Messages', 'Profile'] as const;
 
 export type WorkerTab = (typeof WORKER_TABS)[number];

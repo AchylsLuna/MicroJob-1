@@ -268,46 +268,6 @@
       "updatePassword": "I-update ang Password"
     }
   },
-  "dashboard": {
-    "headerTitle": "Home",
-    "apiFallback": {
-      "loadCategoriesFailed": "Hindi na-load ang mga kategorya.",
-      "loadJobsFailed": "Hindi na-load ang mga trabaho.",
-      "loadRecommendedFailed": "Hindi na-load ang mga inirekomendang trabaho.",
-      "loadProfileFailed": "Hindi na-load ang profile."
-    },
-    "search": {
-      "accessibilityLabel": "Maghanap ng lokal na trabaho, kasanayan, o employer",
-      "title": "Maghanap ng lokal na trabaho",
-      "subtitle": "Kasanayan, employer, o pamagat ng trabaho"
-    },
-    "resumeCard": {
-      "title": "I-upload ang iyong resume",
-      "subtitle": "Ma-match sa mga lokal na employer sa iyong komunidad.",
-      "uploadAccessibility": "I-upload ang CV o resume",
-      "uploadButton": "I-upload ang resume"
-    },
-    "sections": {
-      "categories": "Mga Kategorya ng Trabaho",
-      "browseAll": "Tingnan lahat",
-      "matchingSkills": "Mga Trabahong Bagay sa Iyong Kasanayan",
-      "recentInArea": "Kamakailan sa Iyong Lugar"
-    },
-    "category": {
-      "accessibilityLabel_one": "I-browse ang {{name}}, {{count}} lokal na bakante",
-      "accessibilityLabel_other": "I-browse ang {{name}}, {{count}} lokal na bakante"
-    },
-    "state": {
-      "locationTitle": "Itakda ang iyong lokasyon ng trabaho",
-      "locationMessage": "Idagdag ang iyong lungsod o munisipyo para makita ang mga malapit na oportunidad.",
-      "locationAction": "Buksan ang settings",
-      "unavailableTitle": "Hindi available ang mga trabaho",
-      "unavailableAction": "Subukan muli",
-      "emptyTitle": "Wala pang kamakailang trabaho",
-      "emptyMessage": "Lalabas dito ang mga bagong oportunidad sa iyong lugar.",
-      "emptyAction": "Tuklasin ang mga trabaho"
-    }
-  },
   "deleteAccount": {
     "headerTitle": "Burahin ang Account",
     "headerSubtitle": "Soft delete na may mga blocker check",
@@ -573,9 +533,7 @@
       "title": "Matagumpay!",
       "message": "Binabati kita, naipadala na ang iyong aplikasyon. Good luck!",
       "findJobsButton": "Maghanap pa ng trabaho",
-      "findJobsAccessibility": "Maghanap pa ng trabaho",
-      "backHomeButton": "Bumalik sa home",
-      "backHomeAccessibility": "Bumalik sa home"
+      "findJobsAccessibility": "Maghanap pa ng trabaho"
     },
     "common": {
       "notAvailable": "N/A",

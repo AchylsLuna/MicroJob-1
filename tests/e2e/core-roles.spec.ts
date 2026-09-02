@@ -82,7 +82,7 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
       await expect(page.getByRole("complementary", { name: "Primary navigation" })).toHaveCount(0);
       const navigation = page.getByRole("navigation", { name: "Worker primary navigation" });
       await expect(navigation).toBeVisible();
-      await expect(page.getByRole("button", { name: "MicroJobs worker dashboard" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "MicroJobs home" })).toBeVisible();
       const mainBounds = await page.locator("main").boundingBox();
       expect(mainBounds?.x).toBe(0);
       expect(await navigation.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
@@ -104,7 +104,6 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await page.setViewportSize({ width: 375, height: 900 });
   const workerBottomNavigation = page.getByRole("navigation", { name: "Worker mobile navigation" });
   for (const target of [
-    { label: "Home", path: "/worker/dashboard" },
     { label: "Jobs", path: "/worker/find-jobs" },
     { label: "E-Wallet", path: "/worker/e-wallet" },
     { label: "Messages", path: "/worker/messages" },
@@ -115,14 +114,14 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     await expect(workerBottomNavigation.getByRole("tab", { name: target.label })).toHaveAttribute("aria-selected", "true");
     await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
   }
-  await page.goto("/worker/dashboard");
+  await page.goto("/worker/find-jobs");
   const workerLocalArea = page.getByRole("button", { name: /Quezon City.*Open Philippine location settings/i });
   await expect(workerLocalArea).toBeVisible();
   await workerLocalArea.click();
   await expect(page).toHaveURL(/\/worker\/settings\?tab=personal/);
   await expect(page.getByLabel("First name")).toBeVisible();
-  await workerBottomNavigation.getByRole("tab", { name: "Home" }).click();
-  await expect(page).toHaveURL(/\/worker\/dashboard/);
+  await workerBottomNavigation.getByRole("tab", { name: "Jobs" }).click();
+  await expect(page).toHaveURL(/\/worker\/find-jobs/);
   await page.goto("/worker/saved-jobs");
   await expect(workerBottomNavigation.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
   await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
@@ -130,9 +129,9 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await expect(page.getByRole("navigation", { name: "Worker mobile navigation" })).toBeVisible();
   await expect(workerBottomNavigation.getByRole("tab", { name: "Profile" })).toHaveAttribute("aria-selected", "true");
   await expect(workerBottomNavigation.locator('[role="tab"][aria-selected="true"]')).toHaveCount(1);
-  await page.getByRole("tab", { name: "Home" }).click();
-  await page.waitForURL(/\/worker\/dashboard/);
-  await expect(page.getByRole("tab", { name: "Home" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "Jobs" }).click();
+  await page.waitForURL(/\/worker\/find-jobs/);
+  await expect(page.getByRole("tab", { name: "Jobs" })).toHaveAttribute("aria-selected", "true");
   await page.goto("/settings?tab=privacy");
   await expect(page).toHaveURL(/\/worker\/settings\?tab=privacy/);
   await page.goto("/worker/find-jobs");
@@ -141,14 +140,7 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await expect(page).toHaveURL(/q=designer/);
   await expect(page.getByLabel("Sort jobs")).toBeVisible();
   await page.setViewportSize({ width: 1024, height: 900 });
-  await page.goto("/worker/dashboard");
-  const categorySection = page.locator("section").filter({ has: page.getByRole("heading", { name: "Job Categories" }) });
-  const firstCategory = categorySection.getByRole("button").filter({ hasNotText: "Browse all" }).first();
-  if (await firstCategory.count()) {
-    await firstCategory.click();
-    await expect(page).toHaveURL(/\/worker\/find-jobs\?category=/);
-    await page.goto("/worker/dashboard");
-  }
+  await page.goto("/worker/find-jobs");
   await expect(page.getByTestId("header-context-action")).toHaveCount(0);
   const moreButton = page.getByRole("button", { name: "More" });
   await moreButton.click();
@@ -160,7 +152,7 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
   await page.getByRole("menuitem", { name: "Saved Jobs" }).click();
   await page.waitForURL(/\/worker\/saved-jobs/);
   await expect(page.getByRole("button", { name: "More" })).toHaveAttribute("aria-expanded", "false");
-  await page.goto("/worker/dashboard");
+  await page.goto("/worker/find-jobs");
   const notificationsButton = page.locator('button[aria-label^="Notifications"]');
   await notificationsButton.click();
   await expect(page.getByRole("menu", { name: "Notifications" })).toBeVisible();
@@ -359,7 +351,7 @@ test("notification menu loads unread data and marks all as read", async ({ page 
     await route.continue();
   });
 
-  await page.goto("/worker/dashboard");
+  await page.goto("/worker/find-jobs");
   const notificationButton = page.locator('button[aria-label^="Notifications"]');
   await expect(notificationButton).toHaveAttribute("aria-label", /1 unread/);
   await notificationButton.click();

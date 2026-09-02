@@ -198,7 +198,7 @@ export function EmployerDashboard() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (user?.accountType === "worker") navigate(ROUTES.worker.dashboard, { replace: true });
+    if (user?.accountType === "worker") navigate(ROUTES.worker.findJobs, { replace: true });
   }, [navigate, user?.accountType]);
 
   useEffect(() => {

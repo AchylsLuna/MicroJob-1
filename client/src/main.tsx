@@ -5,6 +5,7 @@ import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
 import { NotificationProvider } from "./contexts/NotificationContext";
+import { MessagingProvider } from "./contexts/MessagingContext";
 import { LanguageProvider } from "./hooks/useLanguage";
 import "./i18n";
 
@@ -17,7 +18,9 @@ root.render(
     <LanguageProvider>
       <AuthProvider>
         <NotificationProvider>
-          <App />
+          <MessagingProvider>
+            <App />
+          </MessagingProvider>
         </NotificationProvider>
       </AuthProvider>
     </LanguageProvider>

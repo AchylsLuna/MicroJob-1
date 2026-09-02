@@ -148,21 +148,21 @@ export function SignIn() {
           </div>
 
           <div className="space-y-4">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px]">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.verified.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signIn.hero.features.verified.description")}</p>
               </div>
             </div>
 
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px]">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.quality.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signIn.hero.features.quality.description")}</p>
               </div>
             </div>
 
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px] border border-white/20">
+            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px]">
               <div>
                 <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.growth.title")}</h3>
                 <p className="text-[14px] opacity-80">{t("signIn.hero.features.growth.description")}</p>
