@@ -40,29 +40,44 @@ export const issueLoginOtpChallenge = async (user, includePhone = false) => {
   });
   const otpToken = createLoginOtpChallengeToken(String(user._id), challenge.challengeId, includePhone);
 
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  const userLabel = String(user._id).slice(-6);
+
   const transporter = getEmailTransporter();
   if (!transporter) {
-    if (process.env.NODE_ENV === 'production') {
+    if (!isDevelopment) {
       throw new Error('Email service is not configured.');
     }
-    console.warn(`SMTP is not configured. Development login OTP generated for user …${String(user._id).slice(-6)}.`);
+    console.warn(`SMTP is not configured. Development login OTP for user …${userLabel}: ${code}`);
     return { otpToken, code };
   }
 
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   const displayName = user.firstName || 'there';
-  await transporter.sendMail({
-    from: `MicroJobs <${fromAddress}>`,
-    to: user.email,
-    subject: 'MicroJobs login verification code',
-    text: `Hi ${displayName},\n\nUse this code to continue logging in to MicroJobs: ${code}\n\nThis code expires in 5 minutes.`,
-    html: `
-      <p>Hi ${displayName},</p>
-      <p>Use this code to continue logging in to MicroJobs:</p>
-      <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
-      <p>This code expires in 5 minutes.</p>
-    `,
-  });
+  try {
+    await transporter.sendMail({
+      from: `MicroJobs <${fromAddress}>`,
+      to: user.email,
+      subject: 'MicroJobs login verification code',
+      text: `Hi ${displayName},\n\nUse this code to continue logging in to MicroJobs: ${code}\n\nThis code expires in 5 minutes.`,
+      html: `
+        <p>Hi ${displayName},</p>
+        <p>Use this code to continue logging in to MicroJobs:</p>
+        <p style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${code}</p>
+        <p>This code expires in 5 minutes.</p>
+      `,
+    });
+  } catch (error) {
+    // In development a bounced or filtered email must not lock the developer out.
+    if (!isDevelopment) throw error;
+    console.warn(`Login OTP email failed for user …${userLabel} (${error.message}). Code: ${code}`);
+    return { otpToken, code };
+  }
+
+  if (isDevelopment) {
+    console.info(`Development login OTP for user …${userLabel}: ${code}`);
+    return { otpToken, code };
+  }
 
   return { otpToken };
 };
