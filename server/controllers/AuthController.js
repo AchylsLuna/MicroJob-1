@@ -160,7 +160,7 @@ const loginUser = async (req, res) => {
         return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
       }
       includePhone = true;
-      user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed');
+      user = await User.findOne({ phoneNumber: normalizedPhone }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil');
     } else {
       const loginInput = String(emailOrUsername || '').trim();
       if (!loginInput) {
@@ -171,7 +171,7 @@ const loginUser = async (req, res) => {
           { email: normalizeEmail(loginInput) },
           { username: normalizeUsername(loginInput) },
         ],
-      }).select('+passwordHashed');
+      }).select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil');
     }
 
     // One generic message for both "no such account" and "wrong password".
@@ -188,9 +188,24 @@ const loginUser = async (req, res) => {
       await bcrypt.compare(password, ENUMERATION_TIMING_HASH);
       return sendError(res, 401, invalidMessage);
     }
-    if (!(await user.validatePassword(password))) {
+    // Checked after the account lookup but before bcrypt, so a locked account
+    // costs an attacker the same round trip as any other rejection. The reply
+    // is deliberately `invalidMessage` rather than a "your account is locked"
+    // string: a distinct message would confirm the account exists, undoing the
+    // enumeration defense the timing hash above exists to provide. The lock
+    // lifts on its own (see lib/loginLockout.js), so a genuine user who
+    // mistyped their password gets back in by waiting rather than by asking
+    // support.
+    if (user.isLoginLocked()) {
       return sendError(res, 401, invalidMessage);
     }
+
+    if (!(await user.validatePassword(password))) {
+      await user.registerFailedLogin();
+      return sendError(res, 401, invalidMessage);
+    }
+
+    await user.clearLoginLock();
 
     if (user.status === 'pending') {
       return sendError(res, 401, 'Please verify your email before signing in.');

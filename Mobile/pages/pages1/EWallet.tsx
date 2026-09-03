@@ -30,7 +30,6 @@ type EWalletProps = {
   onOpenNotifications?: () => void;
   notificationBadgeCount?: number;
   messageBadgeCount?: number;
-  onOpenInvoiceChat?: (target: { id: string; name?: string }) => void;
 };
 
 type WalletTransaction = {
@@ -119,7 +118,6 @@ export default function EWallet({
   onOpenNotifications,
   notificationBadgeCount = 0,
   messageBadgeCount = 0,
-  onOpenInvoiceChat,
 }: EWalletProps) {
   const scrollViewRef = useRef<NativeScrollView>(null);
   const payoutIdempotencyKeyRef = useRef<string | null>(null);
@@ -129,8 +127,7 @@ export default function EWallet({
   const [isPayoutFormExpanded, setIsPayoutFormExpanded] = useState(false);
   const [isQrVisible, setIsQrVisible] = useState(false);
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  const [invoices, setInvoices] = useState<any[]>([]);
-  const [collapsedSections, setCollapsedSections] = useState({ invoices: false, transactions: false, withdrawals: false });
+  const [collapsedSections, setCollapsedSections] = useState({ transactions: false, withdrawals: false });
   const [isBalanceHidden, setIsBalanceHidden] = useState(false);
   const [walletSummary, setWalletSummary] = useState({ credited: 0, spent: 0, pending: 0, transactionCount: 0 });
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
@@ -170,7 +167,7 @@ export default function EWallet({
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) return;
 
-      const [profileResult, walletResult, payoutsResult, invoicesResult] = await Promise.all([
+      const [profileResult, walletResult, payoutsResult] = await Promise.all([
         apiRequest(`${API_URL}/auth/me`, {
           headers: { Authorization: `Bearer ${token}` },
         }, t('eWallet.apiFallback.loadProfileFailed')),
@@ -180,7 +177,6 @@ export default function EWallet({
         apiRequest(`${API_URL}/payment/payout-requests`, {
           headers: { Authorization: `Bearer ${token}` },
         }, t('eWallet.apiFallback.loadPayoutsFailed')),
-        apiRequest(`${API_URL}/payment/qr-requests?mode=worker`, { headers: { Authorization: `Bearer ${token}` } }, t('eWallet.apiFallback.loadInvoicesFailed')),
       ]);
 
       const failedResult = [profileResult, walletResult, payoutsResult].find((result) => !result.ok);
@@ -218,7 +214,6 @@ export default function EWallet({
       } else {
         setPayoutRequests([]);
       }
-      if (invoicesResult.ok) setInvoices(asList<any>((asObject<any>(invoicesResult.data) || asObject<any>(invoicesResult.raw))?.requests || invoicesResult.raw, ['requests']));
 
       if (showFeedback) {
         if (currentWorkerBalance <= 0) {
@@ -343,16 +338,6 @@ export default function EWallet({
     setIsPayoutFormExpanded((expanded) => !expanded);
   };
 
-  const replaceInvoice = async (item: any) => {
-    try {
-      const token = await AsyncStorage.getItem('auth_token');
-      const result = await apiRequest(`${API_URL}/payment/qr-requests`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ jobId: item?.preview?.job?.id, replace: true }) }, t('eWallet.apiFallback.replaceInvoiceFailed'));
-      if (!result.ok) throw new Error(result.message);
-      const payload = asObject<any>(result.data) || asObject<any>(result.raw) || {};
-      setSelectedInvoiceId(payload.requestId || null); setIsQrVisible(true);
-      await refreshWalletData();
-    } catch (caught: any) { toast.error(caught?.message || t('eWallet.apiFallback.replaceInvoiceFailed')); }
-  };
   const toggleSection = (section: keyof typeof collapsedSections) => setCollapsedSections((current) => ({ ...current, [section]: !current[section] }));
 
   return (

@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { MAX_FAILED_ATTEMPTS, getLockDurationMs, isLockActive } from '../lib/loginLockout.js';
 
 const UserSchema = new mongoose.Schema(
   {
@@ -395,6 +396,24 @@ const UserSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Failed-login lockout state -- see server/lib/loginLockout.js for the
+    // policy these three interpret. All are `select: false` so they never ride
+    // along into an API response through a read that omits .select().
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
+    loginLockCount: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+      select: false,
+    },
   },
   { timestamps: true, versionKey: false }
 );
@@ -406,6 +425,46 @@ UserSchema.methods.setPassword = async function setPassword(password) {
 UserSchema.methods.validatePassword = async function validatePassword(password) {
   if (!this.passwordHashed) return false;
   return bcrypt.compare(password, this.passwordHashed);
+};
+
+UserSchema.methods.isLoginLocked = function isLoginLocked() {
+  return isLockActive(this.lockUntil);
+};
+
+/**
+ * Records one failed attempt. On reaching the threshold it applies a lock whose
+ * length escalates with how many times this account has already been locked,
+ * and resets the attempt counter so the next lock needs a fresh run of
+ * failures. Returns true when this call was the one that locked the account.
+ */
+UserSchema.methods.registerFailedLogin = async function registerFailedLogin() {
+  this.failedLoginAttempts = (this.failedLoginAttempts || 0) + 1;
+
+  let lockedNow = false;
+  if (this.failedLoginAttempts >= MAX_FAILED_ATTEMPTS) {
+    this.loginLockCount = (this.loginLockCount || 0) + 1;
+    this.lockUntil = new Date(Date.now() + getLockDurationMs(this.loginLockCount));
+    this.failedLoginAttempts = 0;
+    lockedNow = true;
+  }
+
+  await this.save();
+  return lockedNow;
+};
+
+/**
+ * Clears every lockout counter after a genuine sign-in, including the
+ * escalation count -- a user who proves they own the account should not carry
+ * a longer penalty into their next typo.
+ */
+UserSchema.methods.clearLoginLock = async function clearLoginLock() {
+  if (!this.failedLoginAttempts && !this.loginLockCount && !this.lockUntil) {
+    return;
+  }
+  this.failedLoginAttempts = 0;
+  this.loginLockCount = 0;
+  this.lockUntil = null;
+  await this.save();
 };
 
 export default mongoose.model('User', UserSchema);

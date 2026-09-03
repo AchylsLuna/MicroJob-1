@@ -23,12 +23,10 @@ import { useToast } from '../../contexts/ToastContext';
 import PhoneVerificationCard from '../../components/account/PhoneVerificationCard';
 import {
   PROFILE_LIMITS,
-  isValidOptionalProfileUrl,
   isValidProfileName,
   isValidProfilePhone,
   normalizeProfileName,
   normalizeProfilePhone,
-  normalizeProfileUrl,
   validateMobileAvatar,
   validateProfileUrl,
 } from '../../lib/profileValidation';

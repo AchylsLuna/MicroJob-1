@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import Session from '../models/Session.js';
+import User from '../models/User.js';
 import { getJwtSecret } from './jwtSecret.js';
 
 export const isAdminRole = (role = '') => {
@@ -37,7 +38,6 @@ export const getAuthContextFromRequest = async (req) => {
             return null;
         }
 
-        const role = String(decoded?.role || '');
         const sessionId = decoded?.sessionId;
         if (sessionId) {
             const session = await Session.findById(sessionId).select('user active expiresAt');
@@ -52,7 +52,20 @@ export const getAuthContextFromRequest = async (req) => {
             }
         }
 
-        return { id: String(userId), role };
+        // Read the role from the database rather than the token. UploadRoute
+        // gates resumes and KYC documents on isAdminRole(authContext.role), and
+        // a token minted before a demotion stays valid for its full 15-minute
+        // TTL -- long enough to pull files the account should no longer see.
+        const account = await User.findById(userId).select('role staffRole status');
+        if (!account || account.status !== 'active') {
+            return null;
+        }
+
+        return {
+            id: String(userId),
+            role: account.role,
+            staffRole: account.staffRole ?? null,
+        };
     } catch {
         return null;
     }

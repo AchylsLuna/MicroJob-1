@@ -512,9 +512,28 @@ export async function handleWebhook(req, res) {
       return res.status(400).send('Webhook Error: timestamp invalid or expired');
     }
 
-    const payloadString = `${timestamp}.${JSON.stringify(req.body)}`;
-    const expectedSignature = crypto.createHmac('sha256', webhookSecret || '').update(payloadString).digest('hex');
-    if (signature !== expectedSignature) {
+    // PayMongo signs the exact bytes it sent, so the HMAC must be computed over
+    // the raw request buffer (captured in app.js). JSON.stringify(req.body)
+    // cannot stand in for it: the global sanitize middleware strips keys that
+    // start with `$` or contain `.` from req.body before this handler runs, and
+    // re-serializing is not guaranteed to reproduce the original byte sequence
+    // even when nothing was stripped. Getting this wrong rejects genuine
+    // webhooks, which silently means paid top-ups never credit.
+    const rawBody = req.rawBody;
+    if (!rawBody?.length) {
+      return res.status(400).send('Webhook Error: missing raw body');
+    }
+
+    const payloadString = `${timestamp}.${rawBody.toString('utf8')}`;
+    const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(payloadString).digest('hex');
+    // Constant-time compare so the valid signature cannot be recovered byte by
+    // byte from response timing.
+    const providedDigest = Buffer.from(String(signature), 'utf8');
+    const expectedDigest = Buffer.from(expectedSignature, 'utf8');
+    if (
+      providedDigest.length !== expectedDigest.length ||
+      !crypto.timingSafeEqual(providedDigest, expectedDigest)
+    ) {
       return res.status(400).send('Webhook Error: Invalid signature');
     }
 

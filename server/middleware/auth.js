@@ -53,7 +53,7 @@ const verifyToken = async (req, res, next) => {
             }
         }
 
-        const authoritativeUser = await User.findById(tokenUserId).select('role status');
+        const authoritativeUser = await User.findById(tokenUserId).select('role staffRole status');
         if (!authoritativeUser || authoritativeUser.status !== 'active') {
             await Session.updateOne(
                 { _id: sessionId, active: true },
@@ -67,7 +67,13 @@ const verifyToken = async (req, res, next) => {
             id: tokenUserId,
             userId: tokenUserId,
             sessionId,
+            // Both of these come from the database, not the token, and are set
+            // after the spread so a forged claim can never override them. The
+            // admin permission matrix reads staffRole (see lib/adminPermissions.js);
+            // when it was missing here, every admin fell through to the
+            // admin_team fallback and staff sub-roles went unenforced.
             role: authoritativeUser.role,
+            staffRole: authoritativeUser.staffRole ?? null,
         };
         next();
     } catch (error) {

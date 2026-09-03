@@ -13,6 +13,30 @@ export const buildAuthRateLimitKey = (req) => {
   return `auth:${ip}:${account}`;
 };
 
+/**
+ * Keys on the target account alone, deliberately omitting the IP that
+ * buildAuthRateLimitKey folds in. That IP component means one address gets a
+ * fresh bucket for every account it names -- fine against a single account
+ * hammered from one machine, useless against password spraying across many
+ * accounts, and useless against a botnet spreading attempts on one account.
+ * Chain this alongside the per-IP limiter so both ceilings apply.
+ *
+ * Falls back to the IP when no identifier is supplied, so malformed requests
+ * get their own bucket instead of sharing one global key that any caller could
+ * exhaust for everyone.
+ */
+export const buildAccountRateLimitKey = (req) => {
+  const body = req.body || {};
+  const identifier = String(
+    body.emailOrUsername || body.email || body.username || body.phoneNumber || ''
+  ).trim().toLowerCase();
+
+  if (identifier) {
+    return `account:${identifier}`;
+  }
+  return `account-ip:${ipKeyGenerator(req.ip || req.connection?.remoteAddress || 'unknown')}`;
+};
+
 export const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -92,6 +116,22 @@ export const loginLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: buildAuthRateLimitKey,
+});
+
+/**
+ * Per-account ceiling for the login entry points, chained after loginLimiter.
+ * Lower than the per-IP allowance because it is scoped to one account: a real
+ * person signing in does not need ten tries per quarter hour, while an attacker
+ * spraying a stolen credential list is stopped at the account no matter how
+ * many addresses they come from.
+ */
+export const accountLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'Too many login attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: buildAccountRateLimitKey,
 });
 
 export const qrSettlementLimiter = rateLimit({

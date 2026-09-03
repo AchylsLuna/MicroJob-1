@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { requirePermission } from '../../middleware/admin.js';
 
+/**
+ * NOTE: every `user` below is hand-built, so these tests exercise the
+ * permission matrix in isolation and say nothing about whether the request
+ * pipeline actually populates `staffRole`. It did not, for a while: verifyToken
+ * omitted the field entirely and every admin silently collapsed to the
+ * admin_team fallback while this file stayed green. The end-to-end coverage
+ * that catches that lives in tests/middleware/authStaffRole.test.js -- add
+ * wiring-level assertions there, not here.
+ */
+
 const response = () => ({
   statusCode: 200,
   payload: null,

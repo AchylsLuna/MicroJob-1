@@ -61,7 +61,13 @@ app.use((req, res, next) => {
 });
 
 app.use(morgan(isProduction ? ':method :status :response-time ms' : 'dev'));
-app.use(express.json({ limit: '1mb' }));
+// The raw buffer is kept because PaymentController's PayMongo webhook must
+// verify an HMAC over the exact bytes that were signed. req.body is parsed and
+// then rewritten by the sanitize middleware below, so it cannot stand in.
+app.use(express.json({
+	limit: '1mb',
+	verify: (req, res, buffer) => { req.rawBody = buffer; },
+}));
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(sanitize);

@@ -46,6 +46,7 @@ import {
   verificationPhoneSendLimiter,
   verificationPhoneConfirmLimiter,
   loginLimiter,
+  accountLoginLimiter,
 } from '../lib/rateLimiters.js';
 import {
   getVerificationStatus,
@@ -77,10 +78,14 @@ router.post('/password-change/request', verifyToken, passwordChangeLimiter, requ
 router.post('/password-change/confirm', verifyToken, passwordChangeLimiter, changePasswordWithOtp);
 router.post('/password/initial-change', verifyToken, passwordChangeLimiter, changeInitialPassword);
 
-router.post('/login', loginLimiter, loginUser);
-router.post('/login/mfa', loginLimiter, loginMfa);
-router.post('/login/otp/verify', loginLimiter, loginOtpVerify);
-router.post('/login/otp/resend', loginLimiter, loginOtpResend);
+// Two ceilings on every login entry point: loginLimiter caps attempts per
+// IP+account pair, accountLoginLimiter caps them per account regardless of
+// source address. The pair closes both password spraying and distributed
+// credential stuffing -- see lib/rateLimiters.js.
+router.post('/login', loginLimiter, accountLoginLimiter, loginUser);
+router.post('/login/mfa', loginLimiter, accountLoginLimiter, loginMfa);
+router.post('/login/otp/verify', loginLimiter, accountLoginLimiter, loginOtpVerify);
+router.post('/login/otp/resend', loginLimiter, accountLoginLimiter, loginOtpResend);
 
 router.post('/refresh', protectRefresh, refreshSession);
 router.get('/sessions', verifyToken, listSessions);

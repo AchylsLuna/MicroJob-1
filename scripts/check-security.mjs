@@ -54,6 +54,11 @@ const allowedAdvisories = new Set([
   1139510,
   1138808,
   1138809,
+  // decode-uri-component, reached only through Expo's bundled `query-string`.
+  // Moderate DoS on malformed percent-encoded input; npm offers no
+  // non-breaking fix. Build tooling, not runtime app code -- the installed
+  // app never feeds it untrusted input. Reassess with the Expo SDK upgrade.
+  1147955,
 ]);
 const mobileFindings = Object.entries(mobile.vulnerabilities || {});
 const unexpectedPackages = mobileFindings
