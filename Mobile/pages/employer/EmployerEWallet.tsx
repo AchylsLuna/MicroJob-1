@@ -35,6 +35,7 @@ type EmployerEWalletProps = {
 };
 
 const PENDING_TOPUP_KEY = 'pending_topup_checkout_employer';
+const TOPUP_FEE_PERCENT = 2.5;
 
 type WalletTransaction = {
   id: string;
@@ -43,6 +44,8 @@ type WalletTransaction = {
   amount: number;
   status: 'Completed' | 'Pending' | 'Cancelled' | 'Failed';
   direction: 'credit' | 'debit' | 'neutral';
+  fee?: number;
+  subtitle?: string;
 };
 
 const getPartyId = (party: any) => String(
@@ -83,6 +86,8 @@ export default function EmployerEWallet({
 
   const parsedTopupAmount = Number(String(topupAmount || '').replace(/[^0-9.]/g, ''));
   const canCreatePayment = !isCreatingPayment && Number.isFinite(parsedTopupAmount) && parsedTopupAmount >= 100;
+  const topupFee = Number((parsedTopupAmount * TOPUP_FEE_PERCENT / 100).toFixed(2));
+  const topupTotal = Number((parsedTopupAmount + topupFee).toFixed(2));
 
   const formatDate = useCallback((value?: string) => {
     if (!value) return '—';
@@ -97,7 +102,13 @@ export default function EmployerEWallet({
 
   const mapTxToUi = useCallback((tx: any, userId: string): WalletTransaction => {
     const type = String(tx?.type || '').toUpperCase();
-    const defaultTitle = type ? type.replace(/_/g, ' ') : t('employerEWallet.transactions.defaultTitle');
+    const typeLabels: Record<string, string> = {
+      TOP_UP: t('employerEWallet.transactions.topUp'),
+      ESCROW: t('employerEWallet.transactions.escrow'),
+      PAYOUT: t('employerEWallet.transactions.payout'),
+      REFUND: t('employerEWallet.transactions.refund'),
+    };
+    const defaultTitle = typeLabels[type] || t('employerEWallet.transactions.defaultTitle');
     const rawStatus = String(tx?.status || 'PENDING').toUpperCase();
     const status: WalletTransaction['status'] = rawStatus === 'COMPLETED'
       ? 'Completed'
@@ -118,8 +129,10 @@ export default function EmployerEWallet({
     return {
       id: String(tx?._id || tx?.id || `${Date.now()}-${Math.random()}`),
       title: String(tx?.label || defaultTitle),
+      subtitle: Number(tx?.meta?.processingFee || 0) > 0 ? `Processing fee: ${php(Number(tx.meta.processingFee))}` : undefined,
       date: formatDate(tx?.createdAt),
       amount: Number(tx?.amount || 0),
+      fee: Number(tx?.meta?.processingFee || 0),
       status,
       direction,
     };
@@ -411,6 +424,11 @@ export default function EmployerEWallet({
           <View>
           <Text style={styles.cardTitle}>{t('employerEWallet.topup.cardTitle')}</Text>
           <Text style={styles.cardSubtitle}>{t('employerEWallet.topup.cardSubtitle')}</Text>
+          <View style={styles.breakdown}>
+            <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerEWallet.topup.depositAmount')}</Text><Text style={styles.breakdownValue}>{php(parsedTopupAmount)}</Text></View>
+            <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerEWallet.topup.processingFee')}</Text><Text style={styles.breakdownValue}>{php(topupFee)}</Text></View>
+            <View style={styles.breakdownTotal}><Text style={styles.breakdownTotalLabel}>{t('employerEWallet.topup.totalAmountCharged')}</Text><Text style={styles.breakdownTotalValue}>{php(topupTotal)}</Text></View>
+          </View>
 
           <View style={styles.formField}>
             <Text style={styles.inputLabel}>{t('employerEWallet.topup.inputLabel')}</Text>
@@ -463,7 +481,7 @@ export default function EmployerEWallet({
           {transactions.length === 0 ? (
             <WalletEmpty title={t('employerEWallet.transactions.emptyTitle')} body={t('employerEWallet.transactions.emptyBody')} />
           ) : (
-            transactions.map((txn) => <WalletTransactionRow key={txn.id} title={txn.title} amount={`${txn.direction === 'credit' ? '+' : txn.direction === 'debit' ? '-' : ''}${php(txn.amount)}`} date={txn.date} status={txn.status} direction={txn.direction} />)
+            transactions.map((txn) => <WalletTransactionRow key={txn.id} title={txn.title} subtitle={txn.subtitle} amount={`${txn.direction === 'credit' ? '+' : txn.direction === 'debit' ? '-' : ''}${php(txn.amount)}`} date={txn.date} status={txn.status} direction={txn.direction} />)
           )}
         </WalletSection>
         </>}
@@ -499,6 +517,21 @@ const styles = StyleSheet.create({
     color: tokens.colors.textMuted,
     fontSize: 12,
   },
+  breakdown: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: tokens.radius.md,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surfaceMuted,
+    gap: 6,
+  },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  breakdownLabel: { color: tokens.colors.textMuted, fontSize: 12 },
+  breakdownValue: { color: tokens.colors.text, fontSize: 12, fontWeight: '700' },
+  breakdownTotal: { marginTop: 3, paddingTop: 7, borderTopWidth: 1, borderTopColor: tokens.colors.border, flexDirection: 'row', justifyContent: 'space-between' },
+  breakdownTotalLabel: { color: tokens.colors.text, fontSize: 12, fontWeight: '800' },
+  breakdownTotalValue: { color: tokens.colors.brandDark, fontSize: 12, fontWeight: '800' },
   formField: {
     marginTop: 12,
   },

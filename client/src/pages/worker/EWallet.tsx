@@ -28,6 +28,7 @@ const toAmount = (value: unknown) => {
   const amount = Number(value);
   return Number.isFinite(amount) ? amount : 0;
 };
+const TOPUP_FEE_PERCENT = 2.5;
 
 const getPartyId = (party: PaymentTransaction["sender"] | PaymentTransaction["receiver"]) => {
   if (!party) return "";
@@ -62,6 +63,32 @@ const txLabel = (t: TFunction, tx: PaymentTransaction) => {
       return t("eWallet.txLabel.refund");
     default:
       return t("eWallet.txLabel.transaction");
+  }
+};
+
+const txTypeLabel = (t: TFunction, type: PaymentTransaction["type"]) => {
+  switch (type) {
+    case "TOP_UP":
+      return t("eWallet.txLabel.topUp");
+    case "ESCROW":
+      return t("eWallet.txLabel.escrow");
+    case "PAYOUT":
+      return t("eWallet.txLabel.payout");
+    case "REFUND":
+      return t("eWallet.txLabel.refund");
+    default:
+      return t("eWallet.txLabel.transaction");
+  }
+};
+
+const linkedEntityLabel = (t: TFunction, value?: string | null) => {
+  switch (String(value || "").toLowerCase()) {
+    case "wallet_topup":
+      return t("eWallet.linkedEntity.walletTopUp");
+    case "job":
+      return t("eWallet.linkedEntity.job");
+    default:
+      return value ? value.replace(/_/g, " ") : "-";
   }
 };
 
@@ -108,6 +135,8 @@ export function EWallet() {
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
   const [topUpAmount, setTopUpAmount] = useState("");
+  const topUpFee = Number((toAmount(topUpAmount) * TOPUP_FEE_PERCENT / 100).toFixed(2));
+  const topUpTotal = Number((toAmount(topUpAmount) + topUpFee).toFixed(2));
   const [employerBalance, setEmployerBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
@@ -642,7 +671,7 @@ export function EWallet() {
                   <tr key={tx._id} className="border-b border-[#F3F4F6] align-top">
                     <td className="py-3 pr-4">
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-[11px] font-semibold bg-[#1C4D8D]/[0.06] text-[#1C4D8D]">
-                        {tx.type}
+                        {txTypeLabel(t, tx.type)}
                       </span>
                     </td>
                     <td className="py-3 pr-4">
@@ -653,13 +682,14 @@ export function EWallet() {
                     <td className="py-3 pr-4 text-[#111827]">{txLabel(t, tx)}</td>
                     <td className={`py-3 pr-4 font-semibold ${amountClass}`}>
                       {amountPrefix}{formatCurrency(toAmount(tx.amount))}
+                      {tx.meta?.processingFee ? <div className="text-[11px] font-normal text-[#6B7280]">Fee: {formatCurrency(toAmount(tx.meta.processingFee))}</div> : null}
                     </td>
                     <td className="py-3 pr-4 text-[#6B7280]">
                       <div>{tx.reference || "-"}</div>
                       {tx.providerReference ? <div className="text-[11px] text-[#9CA3AF]">{tx.providerReference}</div> : null}
                     </td>
                     <td className="py-3 pr-4 text-[#6B7280]">
-                      {tx.relatedEntityType || tx.balanceTarget || "-"}
+                      {linkedEntityLabel(t, tx.relatedEntityType || tx.balanceTarget)}
                     </td>
                     <td className="py-3 text-[#6B7280]">{formatDate(tx.createdAt)}</td>
                   </tr>
@@ -693,6 +723,11 @@ export function EWallet() {
             <p className="text-[13px] text-[#6B7280] mb-6">
               {t("eWallet.topUpModal.description")}
             </p>
+            <div className="rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] p-3 mb-6 text-[13px] text-[#374151] space-y-1">
+              <div className="flex justify-between"><span>{t("eWallet.topUpModal.depositAmount")}</span><span>{formatCurrency(toAmount(topUpAmount))}</span></div>
+              <div className="flex justify-between"><span>{t("eWallet.topUpModal.processingFee")}</span><span>{formatCurrency(topUpFee)}</span></div>
+              <div className="flex justify-between font-semibold text-[#111827] pt-1 border-t border-[#E2E8F0]"><span>{t("eWallet.topUpModal.totalAmountCharged")}</span><span>{formatCurrency(topUpTotal)}</span></div>
+            </div>
 
             <div className="flex items-center gap-2 justify-end">
               <button

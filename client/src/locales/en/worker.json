@@ -331,6 +331,10 @@
       "refund": "Refund",
       "transaction": "Transaction"
     },
+    "linkedEntity": {
+      "walletTopUp": "Wallet deposit",
+      "job": "Job payment"
+    },
     "payoutStatus": {
       "requested": "requested",
       "approved": "approved",
@@ -429,6 +433,9 @@
       "title": "Top Up",
       "amountLabel": "Amount (PHP)",
       "description": "Employer funding is the only top-up flow here. Worker accounts withdraw from earned balance instead.",
+      "depositAmount": "Deposit Amount",
+      "processingFee": "Processing Fee (2.5%)",
+      "totalAmountCharged": "Total Amount Charged",
       "cancel": "Cancel",
       "proceed": "Proceed to Checkout",
       "redirecting": "Redirecting..."

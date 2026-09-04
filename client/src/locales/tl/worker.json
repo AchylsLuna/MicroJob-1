@@ -331,6 +331,10 @@
       "refund": "Refund",
       "transaction": "Transaksyon"
     },
+    "linkedEntity": {
+      "walletTopUp": "Deposit sa wallet",
+      "job": "Bayad sa trabaho"
+    },
     "payoutStatus": {
       "requested": "hiniling",
       "approved": "aprubado",

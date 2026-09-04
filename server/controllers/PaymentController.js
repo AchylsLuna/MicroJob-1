@@ -17,6 +17,32 @@ const TOPUP_TARGET = {
   WORKER: 'WORKER',
   BOTH: 'BOTH',
 };
+const TOPUP_FEE_PERCENT = 3;
+
+const getTopUpBreakdown = (depositAmount) => {
+  const amount = Number(depositAmount);
+  const processingFee = Number((amount * TOPUP_FEE_PERCENT / 100).toFixed(2));
+  return {
+    depositAmount: Number(amount.toFixed(2)),
+    processingFee,
+    totalAmountCharged: Number((amount + processingFee).toFixed(2)),
+  };
+};
+
+const getDepositFromChargedAmount = (chargedAmount) => {
+  const total = Number(chargedAmount);
+  const estimatedDeposit = Number((total / (1 + TOPUP_FEE_PERCENT / 100)).toFixed(2));
+  const breakdown = getTopUpBreakdown(estimatedDeposit);
+  if (breakdown.totalAmountCharged !== Number(total.toFixed(2))) {
+    throw new Error('Payment amount does not match the expected top-up fee');
+  }
+  return breakdown;
+};
+
+const isRetryableTopUpConflict = (error) =>
+  error?.code === 112 ||
+  error?.codeName === 'WriteConflict' ||
+  /write conflict|transient transaction/i.test(String(error?.message || ''));
 
 const canTopUpEmployerWallet = (role) => {
   const normalizedRole = String(role || '').toLowerCase();
@@ -114,7 +140,7 @@ const createXenditCheckout = async ({ amount, referenceNumber, target, user }) =
   };
 };
 
-async function applyTopUpToUser({ user, amount, target, reference, source, checkoutId = null, actor = null }) {
+async function applyTopUpToUser({ user, amount, target, reference, source, checkoutId = null, actor = null, processingFee = 0, totalAmountCharged = null, attempt = 0 }) {
   const normalizedTarget = normalizeTarget(target);
   const numericAmount = Number(amount);
 
@@ -184,6 +210,9 @@ async function applyTopUpToUser({ user, amount, target, reference, source, check
           source,
           checkout_id: checkoutId || null,
           target: normalizedTarget,
+          depositAmount: numericAmount,
+          processingFee: Number(processingFee || 0),
+          totalAmountCharged: Number(totalAmountCharged || numericAmount),
         },
         actor: actor || null,
       },
@@ -207,6 +236,21 @@ async function applyTopUpToUser({ user, amount, target, reference, source, check
   } catch (err) {
     try { await session.abortTransaction(); } catch (e) {}
     session.endSession();
+    if (attempt < 3 && isRetryableTopUpConflict(err)) {
+      await new Promise((resolve) => setTimeout(resolve, 100 * (attempt + 1)));
+      return applyTopUpToUser({
+        user,
+        amount,
+        target,
+        reference,
+        source,
+        checkoutId,
+        actor,
+        processingFee,
+        totalAmountCharged,
+        attempt: attempt + 1,
+      });
+    }
     throw err;
   }
 }
@@ -400,6 +444,7 @@ export async function createTopUpSession(req, res) {
     if (!canTopUpEmployerWallet(requestingUser.role)) {
       return res.status(403).json({ message: 'Only employer accounts can top up wallets' });
     }
+    const breakdown = getTopUpBreakdown(parsedAmount);
 
     let effectiveTarget = TOPUP_TARGET.EMPLOYER;
     if (target && String(target).toUpperCase() !== TOPUP_TARGET.EMPLOYER) {
@@ -423,7 +468,7 @@ export async function createTopUpSession(req, res) {
 
     try {
       const xenditCheckout = await createXenditCheckout({
-        amount: parsedAmount,
+        amount: breakdown.totalAmountCharged,
         referenceNumber,
         target: effectiveTarget,
         user: requestingUser,
@@ -435,13 +480,14 @@ export async function createTopUpSession(req, res) {
           referenceNumber,
           checkoutId: xenditCheckout.checkoutId,
           provider: xenditCheckout.provider,
+          ...breakdown,
         });
       }
     } catch (xenditError) {
       console.warn('Xendit top-up init failed, falling back to PayMongo:', xenditError?.response?.data || xenditError?.message || xenditError);
     }
 
-    const amountInCentavos = Math.round(parsedAmount * 100);
+    const amountInCentavos = Math.round(breakdown.totalAmountCharged * 100);
     if (!process.env.PAYMONGO_SECRET_KEY) {
       console.error('PAYMONGO_SECRET_KEY not configured');
       return res.status(500).json({ message: 'Payment provider not configured' });
@@ -474,6 +520,7 @@ export async function createTopUpSession(req, res) {
       referenceNumber,
       checkoutId: checkout.id,
       provider: 'paymongo',
+      ...breakdown,
     });
   } catch (error) {
     console.error('PayMongo Error:', error.response?.data || error.message || error);
@@ -569,13 +616,21 @@ export async function handleWebhook(req, res) {
           return res.status(200).send('Already processed');
         }
 
+        let breakdown;
+        try {
+          breakdown = getDepositFromChargedAmount(amountAdded);
+        } catch {
+          return res.status(400).send('Webhook Error: payment amount does not match the expected top-up fee');
+        }
         const topUpResult = await applyTopUpToUser({
           user,
-          amount: amountAdded,
+          amount: breakdown.depositAmount,
           target,
           reference: referenceNumber,
           source: 'paymongo',
           checkoutId,
+          processingFee: breakdown.processingFee,
+          totalAmountCharged: breakdown.totalAmountCharged,
         });
         if (topUpResult.created) {
           await sendReceiptWithoutBlockingPayment(topUpResult.transaction._id, user._id, 'Top-up');
@@ -660,9 +715,15 @@ export async function confirmTopUp(req, res) {
           return res.status(400).json({ message: 'Payment not completed yet' });
         }
 
-        const amountAdded = Number(invoice.paid_amount || invoice.amount || 0);
-        if (!Number.isFinite(amountAdded) || amountAdded <= 0) {
+        const amountCharged = Number(invoice.paid_amount || invoice.amount || 0);
+        if (!Number.isFinite(amountCharged) || amountCharged <= 0) {
           return res.status(400).json({ message: 'No payment found for this checkout' });
+        }
+        let breakdown;
+        try {
+          breakdown = getDepositFromChargedAmount(amountCharged);
+        } catch {
+          return res.status(400).json({ message: 'Payment amount does not match the expected top-up fee' });
         }
 
         const user = await User.findById(refUserId);
@@ -670,12 +731,14 @@ export async function confirmTopUp(req, res) {
 
         const topUpResult = await applyTopUpToUser({
           user,
-          amount: amountAdded,
+          amount: breakdown.depositAmount,
           target: normalizeTarget(refParts[2] || TOPUP_TARGET.EMPLOYER),
           reference: ref,
           source: 'xendit',
           checkoutId: invoice.id || maybeXenditCheckoutId,
           actor: user._id,
+          processingFee: breakdown.processingFee,
+          totalAmountCharged: breakdown.totalAmountCharged,
         });
 
         await monitor.audit({
@@ -683,7 +746,7 @@ export async function confirmTopUp(req, res) {
           action: 'confirm_topup',
           ip: req.ip || null,
           userAgent: req.get('user-agent'),
-          amount: amountAdded,
+          amount: breakdown.depositAmount,
           status: 'success',
           meta: { target: topUpResult.target, ref, provider: 'xendit' },
         });
@@ -731,13 +794,19 @@ export async function confirmTopUp(req, res) {
     if (!Types.ObjectId.isValid(refUserId)) return res.status(400).json({ message: 'Invalid reference user id' });
     if (refUserId !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized to confirm this top-up' });
 
-    let amountAdded = 0;
-    if (attrs.payments && attrs.payments.length > 0) amountAdded = attrs.payments[0].attributes.amount / 100;
-    else if (attrs.line_items && attrs.line_items.length > 0) amountAdded = attrs.line_items[0].amount / 100;
-    if (amountAdded <= 0) {
+    let amountCharged = 0;
+    if (attrs.payments && attrs.payments.length > 0) amountCharged = attrs.payments[0].attributes.amount / 100;
+    else if (attrs.line_items && attrs.line_items.length > 0) amountCharged = attrs.line_items[0].amount / 100;
+    if (amountCharged <= 0) {
       await monitor.audit({ actor: req.user?.id || null, action: 'confirm_no_amount', ip: req.ip || null, userAgent: req.get('user-agent'), status: 'failed', meta: { ref } });
       await monitor.recordFailure({ key: 'confirm_no_amount', userId: req.user?.id, ip: req.ip || null, reason: 'no_amount' });
       return res.status(400).json({ message: 'No payment found for this checkout' });
+    }
+    let breakdown;
+    try {
+      breakdown = getDepositFromChargedAmount(amountCharged);
+    } catch {
+      return res.status(400).json({ message: 'Payment amount does not match the expected top-up fee' });
     }
 
     const user = await User.findById(refUserId);
@@ -745,12 +814,14 @@ export async function confirmTopUp(req, res) {
 
     const topUpResult = await applyTopUpToUser({
       user,
-      amount: amountAdded,
+      amount: breakdown.depositAmount,
       target: normalizeTarget(refParts[2] || TOPUP_TARGET.EMPLOYER),
       reference: ref,
       source: 'paymongo',
       checkoutId: checkout.id,
       actor: user._id,
+      processingFee: breakdown.processingFee,
+      totalAmountCharged: breakdown.totalAmountCharged,
     });
 
     await monitor.audit({
@@ -758,7 +829,7 @@ export async function confirmTopUp(req, res) {
       action: 'confirm_topup',
       ip: req.ip || null,
       userAgent: req.get('user-agent'),
-      amount: amountAdded,
+      amount: breakdown.depositAmount,
       status: 'success',
       meta: { target: topUpResult.target, ref, provider: 'paymongo' },
     });
