@@ -981,7 +981,7 @@ export function removePaymentMethod(paymentMethodId: string) {
 }
 
 export function createTopUpSession(payload: { amount: number; target?: PaymentTarget }) {
-  return request<{ checkoutUrl: string; referenceNumber: string; checkoutId: string }>(
+  return request<{ checkoutUrl: string; referenceNumber: string; checkoutId: string; depositAmount: number; processingFee: number; totalAmountCharged: number }>(
     '/payment/topup',
     { method: 'POST', body: payload },
   );

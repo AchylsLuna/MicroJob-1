@@ -146,6 +146,9 @@
       "accordionSubtitle": "Minimum na PHP 100 sa pamamagitan ng secure checkout.",
       "cardTitle": "Mag-top Up sa Wallet",
       "cardSubtitle": "Magdagdag ng pondo ng employer sa pamamagitan ng secure na payment page.",
+      "depositAmount": "Halaga ng Deposit",
+      "processingFee": "Processing Fee (2.5%)",
+      "totalAmountCharged": "Kabuuang Sisingilin",
       "inputLabel": "Halaga ng Top Up (PHP)",
       "inputAccessibilityLabel": "Halaga ng top up sa piso",
       "submitButton": "Gumawa ng Top Up"
@@ -168,6 +171,10 @@
       "emptyTitle": "Wala pang transaksyon",
       "emptyBody": "Lalabas dito ang mga top-up, pagpopondo ng trabaho, at refund.",
       "defaultTitle": "Transaksyon"
+      ,"topUp": "Deposit sa wallet"
+      ,"escrow": "Bayad sa trabaho"
+      ,"payout": "Pag-withdraw sa wallet"
+      ,"refund": "Refund"
     },
     "toast": {
       "invalidAmount": "Maglagay ng valid na halaga ng top up (minimum PHP 100).",

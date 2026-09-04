@@ -146,6 +146,9 @@
       "accordionSubtitle": "Minimum PHP 100 through secure checkout.",
       "cardTitle": "Top Up Wallet",
       "cardSubtitle": "Add employer funds through the secure payment page.",
+      "depositAmount": "Deposit Amount",
+      "processingFee": "Processing Fee (2.5%)",
+      "totalAmountCharged": "Total Amount Charged",
       "inputLabel": "Top Up Amount (PHP)",
       "inputAccessibilityLabel": "Top up amount in Philippine pesos",
       "submitButton": "Create Top Up"
@@ -168,6 +171,10 @@
       "emptyTitle": "No transactions yet",
       "emptyBody": "Top-ups, job funding, and refunds will appear here.",
       "defaultTitle": "Transaction"
+      ,"topUp": "Wallet deposit"
+      ,"escrow": "Job payment"
+      ,"payout": "Wallet withdrawal"
+      ,"refund": "Refund"
     },
     "toast": {
       "invalidAmount": "Enter a valid top-up amount.",
