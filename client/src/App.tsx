@@ -15,20 +15,19 @@ import { Toaster } from "./lib/toast";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { getDefaultDashboardPath, isAdmin, isEmployer } from "./utils/dashboardRoutes";
 import { ROUTES } from "./utils/routes";
+import { CookieConsent } from "./components/CookieConsent";
 
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 30 * 1000;
 
-const CookiePolicy = lazy(() => import("./components/CookiePolicy").then((module) => ({ default: module.CookiePolicy })));
 const ForgotPassword = lazy(() => import("./components/ForgotPassword").then((module) => ({ default: module.ForgotPassword })));
 const JobDetails = lazy(() => import("./components/JobDetails").then((module) => ({ default: module.JobDetails })));
 const InitialPasswordChange = lazy(() => import("./components/InitialPasswordChange").then((module) => ({ default: module.InitialPasswordChange })));
 const LandingPage = lazy(() => import("./components/LandingPage").then((module) => ({ default: module.LandingPage })));
-const PrivacyPolicy = lazy(() => import("./components/PrivacyPolicy").then((module) => ({ default: module.PrivacyPolicy })));
 const Settings = lazy(() => import("./components/Settings").then((module) => ({ default: module.Settings })));
 const SignIn = lazy(() => import("./components/SignIn").then((module) => ({ default: module.SignIn })));
 const SignUp = lazy(() => import("./components/SignUp").then((module) => ({ default: module.SignUp })));
-const TermsAndConditions = lazy(() => import("./components/TermsAndConditions").then((module) => ({ default: module.TermsAndConditions })));
+const LegalPage = lazy(() => import("./components/LegalPage").then((module) => ({ default: module.LegalPage })));
 const EmailVerification = lazy(() => import("./pages/emailVerification"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const TopUpSuccess = lazy(() => import("./pages/TopUpSuccess").then((module) => ({ default: module.TopUpSuccess })));
@@ -264,6 +263,7 @@ const App: React.FC = () => {
     <Router>
       <InactivityHandler />
       <Toaster position="top-right" />
+      <CookieConsent />
       <Suspense fallback={<RouteLoading />}>
       <Routes>
         <Route path={ROUTES.home} element={<LandingPage />} />
@@ -278,9 +278,12 @@ const App: React.FC = () => {
         <Route path={ROUTES.forgotPassword} element={<ForgotPassword />} />
         <Route path={ROUTES.resetPassword} element={<PreserveRedirect to={ROUTES.forgotPassword} />} />
         <Route path={ROUTES.changeInitialPassword} element={<InitialPasswordChange />} />
-        <Route path={ROUTES.terms} element={<TermsAndConditions />} />
-        <Route path={ROUTES.privacy} element={<PrivacyPolicy />} />
-        <Route path={ROUTES.cookiePolicy} element={<CookiePolicy />} />
+        <Route path={ROUTES.legal} element={<LegalPage />} />
+        {/* The three documents merged into one page; these paths stay so old
+            links and bookmarks keep resolving. */}
+        <Route path={ROUTES.terms} element={<Navigate to={ROUTES.legalDoc("terms")} replace />} />
+        <Route path={ROUTES.privacy} element={<Navigate to={ROUTES.legalDoc("privacy")} replace />} />
+        <Route path={ROUTES.cookiePolicy} element={<Navigate to={ROUTES.legalDoc("cookies")} replace />} />
 
         <Route element={<SidebarLayout />}>
           <Route element={<RoleRoute requiredRole="patient" />}>

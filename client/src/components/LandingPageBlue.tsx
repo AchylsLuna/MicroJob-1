@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Briefcase, ChevronRight, MapPin, Menu, Search, X } from "lucide-react";
+import { ArrowRight, Briefcase, ChevronRight, MapPin, Menu, Pause, Play, Search, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
@@ -7,22 +7,11 @@ import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { getCategories, getJobs } from "../services/api";
+import { openCookiePreferences } from "../lib/cookieConsent";
+import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 
 type LandingCategory = { _id: string; name: string };
 type HeroIntent = "work" | "hire";
-
-const toAbsoluteAssetUrl = (value?: string): string | null => {
-  if (!value) return null;
-  if (/^https?:\/\//i.test(value)) return value;
-  if (value.startsWith("/uploads/")) {
-    const apiBase = import.meta.env.VITE_API_BASE || "/api";
-    const origin = apiBase.startsWith("http")
-      ? apiBase.replace(/\/api\/?$/, "")
-      : window.location.origin;
-    return `${origin}${value}`;
-  }
-  return value;
-};
 
 // Animated Counter Component
 function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
@@ -50,35 +39,6 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
   return <span>{count}{suffix}</span>;
 }
 
-// Floating Particle Component
-function FloatingParticles() {
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {[...Array(20)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-white/20 rounded-full"
-          initial={{
-            x: Math.random() * window.innerWidth,
-            y: Math.random() * window.innerHeight,
-          }}
-          animate={{
-            x: Math.random() * window.innerWidth,
-            y: Math.random() * window.innerHeight,
-            scale: [1, 1.5, 1],
-            opacity: [0.3, 0.6, 0.3],
-          }}
-          transition={{
-            duration: Math.random() * 10 + 10,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export function LandingPageBlue() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
@@ -93,8 +53,8 @@ export function LandingPageBlue() {
     company: string;
     location: string;
     salary: string;
-    color: string;
-    icon: string;
+    /** The job's own photo if the employer uploaded one, else their avatar. */
+    image: string | null;
   }>>([]);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
   const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
@@ -108,12 +68,21 @@ export function LandingPageBlue() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navMenuRef = useRef<HTMLDivElement>(null);
 
+  // Hero image slot. Null renders the blank placeholder; set it to a path
+  // under /media/ (e.g. "/media/hero-team.webp") to show a real photo.
+  const heroPhoto: string | null = null;
+
+  // "How it works" keeps its own intent so reading about hiring doesn't
+  // silently retarget the hero's search box, and vice versa.
+  const [howItWorksIntent, setHowItWorksIntent] = useState<HeroIntent>("hire");
+  const demoVideoRef = useRef<HTMLVideoElement>(null);
+  const [isDemoPlaying, setIsDemoPlaying] = useState(false);
+
   const getJobsPath = isAuthenticated
     ? user?.accountType === "employer"
       ? ROUTES.employer.jobs
       : ROUTES.worker.findJobs
     : ROUTES.signIn;
-  const startJourneyPath = getJobsPath;
 
   useEffect(() => {
     let isMounted = true;
@@ -251,29 +220,26 @@ export function LandingPageBlue() {
 
   useEffect(() => {
     let isMounted = true;
+    // Browsing is open to everyone: GET /jobs runs behind optionalAuth on the
+    // server, so signed-out visitors get the nationwide list. Applying is what
+    // requires an account — that gate lives on the card CTA below.
     const loadLandingJobs = async () => {
-      if (!isAuthenticated) {
-        setJobCards([]);
-        setJobsLoadError('Sign in and set your city to see verified local opportunities.');
-        return;
-      }
       setIsJobsLoading(true);
       setJobsLoadError(null);
       try {
         const data = await getJobs({ limit: 6, city: user?.city || undefined });
         if (!isMounted) return;
-        if (Array.isArray(data) && data.length > 0) {
-          setJobCards(
-            data.slice(0, 6).map((job: any) => ({
-              title: job.title || "Job Title",
-              company: getCompanyName(job),
-              location: job.location || "Location not specified",
-              salary: formatJobSalary(job.salary),
-              color: "bg-[#1C4D8D]/[0.08]",
-              icon: "💼",
-            })),
-          );
-        }
+        setJobCards(
+          (Array.isArray(data) ? data : []).slice(0, 6).map((job: any) => ({
+            title: job.title || "Job Title",
+            company: getCompanyName(job),
+            location: job.location || "Location not specified",
+            salary: formatJobSalary(job.salary),
+            // The posted job photo wins; otherwise fall back to whoever posted
+            // it. Both arrive on the public payload via PUBLIC_JOB_POSTER_SELECT.
+            image: toAbsoluteAssetUrl(job.image) || toAbsoluteAssetUrl(job.jobPoster?.avatarUrl),
+          })),
+        );
       } catch (error: any) {
         if (!isMounted) return;
         setJobsLoadError(error?.message || "Unable to load jobs yet.");
@@ -287,61 +253,78 @@ export function LandingPageBlue() {
     };
   }, [formatJobSalary, isAuthenticated, user?.city]);
 
-  const steps = [
-    {
-      number: "01",
-      title: "Create Your Profile",
-      description: "Set up a comprehensive profile that showcases your skills, experience, and career goals. Make a lasting impression on potential employers.",
-    },
-    {
-      number: "02",
-      title: "Discover Opportunities",
-      description: "Explore a diverse range of job listings tailored to match your expertise. Our AI-powered matching helps you discover the perfect opportunities.",
-    },
-    {
-      number: "03",
-      title: "Apply and Thrive",
-      description: "Submit your applications with confidence and track your progress. Connect with top employers and take the next step in your career journey.",
-    },
-  ];
+  /**
+   * "How it works" media are real recordings and screenshots of this app, taken
+   * against a throwaway database — see `public/media/how-it-works/`. The first
+   * card of each intent carries the video; the other two are stills.
+   */
+  const howItWorksSteps = useMemo(
+    () =>
+      howItWorksIntent === "hire"
+        ? [
+            {
+              title: "Posting a job is always free",
+              description:
+                "Describe the work, pick a category, and set the pay. Publishing costs nothing — you only move money when you fund the job.",
+              video: "/media/how-it-works/how-it-works-hire.mp4",
+              poster: "/media/how-it-works/how-it-works-hire-poster.webp",
+              mediaLabel: "Screen recording: creating a job post in MicroJobs, from the empty form to the published listing.",
+              action: "Post a job",
+            },
+            {
+              title: "Review applicants and hire",
+              description:
+                "Applications land on a board you can move by stage. Shortlist, schedule an interview, and message candidates without leaving the page.",
+              image: "/media/how-it-works/hire-2-applications.webp",
+              mediaLabel: "The employer applications board, with an applicant in the Applied column.",
+            },
+            {
+              title: "Pay when the work is done",
+              description:
+                "Pay is held in escrow the moment you post, and released to the worker's e-wallet once you accept the finished job.",
+              image: "/media/how-it-works/hire-3-wallet.webp",
+              mediaLabel: "The employer e-wallet, showing the balance and a completed escrow transaction.",
+            },
+          ]
+        : [
+            {
+              title: "Finding work is always free",
+              description:
+                "Search jobs near you, compare guaranteed pay, and apply in one tap. Browsing and applying never cost you anything.",
+              video: "/media/how-it-works/how-it-works-work.mp4",
+              poster: "/media/how-it-works/how-it-works-work-poster.webp",
+              mediaLabel: "Screen recording: searching for a job in MicroJobs, opening it, and applying.",
+              action: "Find jobs",
+            },
+            {
+              title: "Track every application",
+              description:
+                "Follow each application from submitted to hired, with interview schedules and employer messages in the same tracker.",
+              image: "/media/how-it-works/work-2-applied.webp",
+              mediaLabel: "The worker application tracker, showing a submitted application.",
+            },
+            {
+              title: "Get paid to your e-wallet",
+              description:
+                "Accepted work releases straight from escrow to your worker balance. Withdraw to your bank or e-wallet whenever you want.",
+              image: "/media/how-it-works/work-3-wallet.webp",
+              mediaLabel: "The worker e-wallet, showing a balance built from completed job payments.",
+            },
+          ],
+    [howItWorksIntent],
+  );
 
-  const heroTeamCards = [
-    {
-      name: "Ashriel Mejia",
-      role: "Project Manager",
-      status: "Employer",
-      statusKind: "employer",
-      delay: 0.2,
-    },
-    {
-      name: "Jonas Enriquez",
-      role: "Full Stack Developer",
-      status: "Finding Work",
-      statusKind: "worker",
-      delay: 0.35,
-    },
-    {
-      name: "Nicholas Gonzales",
-      role: "Backend Developer",
-      status: "Finding Work",
-      statusKind: "worker",
-      delay: 0.5,
-    },
-    {
-      name: "Elijah Vinluan",
-      role: "Front-end Developer",
-      status: "Finding Work",
-      statusKind: "worker",
-      delay: 0.65,
-    },
-    {
-      name: "Winona Gamba",
-      role: "Documentator",
-      status: "Finding Work",
-      statusKind: "worker",
-      delay: 0.8,
-    },
-  ] as const;
+  const toggleDemoPlayback = useCallback(() => {
+    const video = demoVideoRef.current;
+    if (!video) return;
+    // onPlay/onPause below own the button's label, so the two never disagree
+    // if playback is interrupted by the browser rather than by this click.
+    if (video.paused) {
+      void video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-white overflow-hidden">
@@ -633,56 +616,36 @@ export function LandingPageBlue() {
               className="relative"
               style={{ scale }}
             >
-              <div className="relative flex min-h-[540px] w-full flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-[#EAF1FB] p-4 shadow-[0_28px_70px_rgba(15,41,84,0.18)] sm:min-h-0 sm:aspect-square sm:p-6 lg:p-7">
-                <div aria-hidden="true" className="absolute -right-20 -top-24 h-72 w-72 rounded-full bg-[#1C4D8D]/10 blur-3xl" />
-                <div aria-hidden="true" className="absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-[#7DB8F4]/20 blur-3xl" />
-
-                {/* Illustrated local marketplace community */}
-                <div className="relative z-10 flex flex-1 items-end justify-center pt-2">
-                  <motion.div
+              {/* PLACEHOLDER HERO IMAGE — deliberately blank.
+                  Set `heroPhoto` to a path under /media/ to fill the slot; the
+                  grey block swaps to the image with no other change needed. No
+                  real person's photo should go in here until it is cleared with
+                  them, and note that client/public is served to anyone. */}
+              <div className="relative w-full overflow-hidden rounded-[32px] border border-slate-200 bg-[#EAF1FB] p-4 shadow-[0_28px_70px_rgba(15,41,84,0.18)] sm:p-6 lg:p-7">
+                {heroPhoto ? (
+                  <img
+                    src={heroPhoto}
+                    alt=""
+                    className="aspect-[4/3] w-full rounded-[20px] object-cover"
+                  />
+                ) : (
+                  <div
                     aria-hidden="true"
-                    className="absolute bottom-3 left-[8%] right-[8%] h-12 rounded-[50%] bg-[#0F2954]/12 blur-xl"
-                    animate={prefersReducedMotion ? undefined : { scaleX: [1, 0.94, 1], opacity: [0.45, 0.3, 0.45] }}
-                    transition={prefersReducedMotion ? undefined : { duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                    className="aspect-[4/3] w-full rounded-[20px] border border-slate-200 bg-slate-100"
                   />
-                  <motion.img
-                    src={toAbsoluteAssetUrl("/team/illustrations/community-conversation.png") || undefined}
-                    alt="Five Filipino professionals talking together: Ashriel the employer with Jonas, Nicholas, Elijah, and Winona finding work"
-                    className="relative z-10 mx-auto h-[270px] w-full object-contain object-bottom drop-shadow-[0_16px_18px_rgba(15,41,84,0.2)] sm:h-[315px]"
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 16, scale: 0.97 }}
-                    animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: [0, -3, 0], scale: 1 }}
-                    transition={prefersReducedMotion ? { duration: 0 } : { opacity: { duration: 0.5 }, scale: { duration: 0.5 }, y: { delay: 0.5, duration: 5, repeat: Infinity, ease: "easeInOut" } }}
-                  />
-                </div>
+                )}
 
-                <div className="relative z-20 -mt-1 px-1 pb-2 sm:px-2">
-                  <div className="mb-3 text-center">
-                    <p className="text-[12px] font-extrabold text-[#0F2954] sm:text-sm">Meet your local network</p>
-                    <p className="mt-0.5 text-[9px] text-slate-500 sm:text-[10px]">People ready to hire, connect, and work</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-3 gap-y-3 sm:grid-cols-3 sm:gap-x-4 sm:gap-y-4">
-                  {heroTeamCards.map((member) => (
-                    <motion.article
-                      key={member.name}
-                      initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      whileHover={prefersReducedMotion ? undefined : { y: -2 }}
-                      transition={prefersReducedMotion ? { duration: 0 } : { delay: member.delay, duration: 0.35 }}
-                      aria-label={`${member.name}, ${member.role}, ${member.status}`}
-                      className="min-w-0 px-1 text-center"
-                    >
-                      <p className="truncate text-[10px] font-bold leading-tight text-[#0F2954] sm:text-[11px]">{member.name}</p>
-                      <p className="mt-1 truncate text-[8px] leading-snug text-slate-500 sm:text-[9px]">{member.role}</p>
-                      <p className={`mt-1 text-[8px] font-bold sm:text-[9px] ${member.statusKind === "employer" ? "text-[#0F2954]" : "text-[#1C4D8D]"}`}>
-                        {member.status}
-                      </p>
-                    </motion.article>
-                  ))}
-                  </div>
-                </div>
-
-                {/* Floating Particles */}
-                <FloatingParticles />
+                {/* Attribution is a stand-in too — replace with that person's
+                    details once the photo above is filled in. */}
+                <figure className="mt-4 rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,41,84,0.08)] sm:mt-5 sm:p-5">
+                  <blockquote className="text-[13px] font-semibold leading-snug text-[#0F2954] sm:text-[15px]">
+                    &ldquo;We built MicroJobs so finding real work near you doesn&rsquo;t depend on
+                    who you already know.&rdquo;
+                  </blockquote>
+                  <p className="mt-1.5 text-[11px] text-slate-500 sm:text-[12px]">
+                    Team member &middot; Micro Jobs
+                  </p>
+                </figure>
               </div>
             </motion.div>
           </div>
@@ -850,77 +813,108 @@ export function LandingPageBlue() {
         </div>
       </section>
 
-      {/* Three Steps Section with Parallax */}
-      <section className="relative scroll-mt-24 overflow-hidden bg-[#1C4D8D] px-6 py-20" id="help">
-        <FloatingParticles />
-        
-        <motion.div 
-          className="absolute top-10 left-10 w-32 h-32 bg-white rounded-full blur-3xl"
-          animate={{ x: [0, 100, 0], y: [0, 50, 0] }}
-          transition={{ duration: 20, repeat: Infinity }}
-        />
-        <motion.div 
-          className="absolute bottom-10 right-10 w-40 h-40 bg-white rounded-full blur-3xl"
-          animate={{ x: [0, -100, 0], y: [0, -50, 0] }}
-          transition={{ duration: 15, repeat: Infinity }}
-        />
+      {/* How it works — one intent at a time. The toggle swaps the copy and the
+          media together, so the section never explains both sides at once. */}
+      <section className="scroll-mt-24 border-t border-slate-100 bg-white px-6 py-20" id="help">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-[36px] font-bold text-gray-900">How it works</h2>
 
-        <div className="max-w-7xl mx-auto relative z-10">
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-[36px] font-bold text-white mb-2">
-              Your Micro Jobs Journey in
-            </h2>
-            <p className="text-[36px] font-bold text-white">Three Simple Steps</p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {steps.map((step, index) => (
-              <motion.div 
-                key={index}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.2 }}
-                whileHover={{ y: -10, rotateY: 5 }}
-                className="bg-white/95 backdrop-blur-sm rounded-[24px] p-8 hover:bg-white transition-all shadow-xl"
-              >
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  whileInView={{ scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.2 + 0.3, type: "spring", stiffness: 200 }}
-                  className="mb-4 text-[48px] font-bold text-[#1C4D8D]"
+            <div
+              className="inline-flex self-start rounded-full border border-slate-200 bg-white p-1 md:self-auto"
+              role="group"
+              aria-label="Show how MicroJobs works"
+            >
+              {(["hire", "work"] as const).map((intent) => (
+                <button
+                  key={intent}
+                  type="button"
+                  onClick={() => setHowItWorksIntent(intent)}
+                  aria-pressed={howItWorksIntent === intent}
+                  className={`min-h-11 rounded-full px-6 text-[14px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
+                    howItWorksIntent === intent
+                      ? "bg-[#1C4D8D] text-white"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
                 >
-                  {step.number}
-                </motion.div>
-                <h3 className="text-[20px] font-bold text-gray-900 mb-3">{step.title}</h3>
-                <p className="text-[14px] text-gray-600 leading-relaxed">{step.description}</p>
-              </motion.div>
-            ))}
+                  {intent === "hire" ? "For hiring" : "For finding work"}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: 0.8 }}
-            className="mt-12 text-center"
-          >
-            <motion.button
-              whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => navigate(startJourneyPath)}
-              className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
-            >
-              Start Your Journey
-              <ArrowRight className="w-5 h-5" />
-            </motion.button>
-          </motion.div>
+          <div className="mt-12 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-3">
+            {howItWorksSteps.map((step, index) => (
+              <motion.article
+                key={`${howItWorksIntent}-${step.title}`}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.25 }}
+                transition={{
+                  duration: prefersReducedMotion ? 0 : 0.24,
+                  delay: prefersReducedMotion ? 0 : index * 0.04,
+                }}
+              >
+                <div className="relative aspect-[8/5] overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50">
+                  {step.video ? (
+                    <>
+                      <video
+                        ref={demoVideoRef}
+                        // Remounting on intent change restarts the right clip
+                        // instead of leaving the previous one mid-scrub.
+                        key={howItWorksIntent}
+                        className="h-full w-full object-cover"
+                        src={step.video}
+                        poster={step.poster}
+                        aria-label={step.mediaLabel}
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        autoPlay={!prefersReducedMotion}
+                        onPlay={() => setIsDemoPlaying(true)}
+                        onPause={() => setIsDemoPlaying(false)}
+                      />
+                      <button
+                        type="button"
+                        onClick={toggleDemoPlayback}
+                        aria-label={isDemoPlaying ? "Pause the demo" : "Play the demo"}
+                        className="absolute bottom-4 right-4 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#1C4D8D] shadow-md transition hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                      >
+                        {isDemoPlaying ? (
+                          <Pause className="h-4 w-4" aria-hidden />
+                        ) : (
+                          <Play className="h-4 w-4" aria-hidden />
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <img
+                      src={step.image}
+                      alt={step.mediaLabel}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-cover object-top"
+                    />
+                  )}
+                </div>
+
+                <h3 className="mt-6 text-[22px] font-bold text-gray-900">{step.title}</h3>
+                <p className="mt-3 text-[15px] leading-relaxed text-gray-600">{step.description}</p>
+
+                {step.action ? (
+                  <button
+                    type="button"
+                    onClick={() => goToSearch({ intent: howItWorksIntent })}
+                    className="brand-primary-interactive mt-6 inline-flex min-h-11 items-center gap-2 rounded-full px-7 text-[15px] font-semibold transition hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                  >
+                    {step.action}
+                    <ArrowRight className="h-4 w-4" aria-hidden />
+                  </button>
+                ) : null}
+              </motion.article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -955,13 +949,25 @@ export function LandingPageBlue() {
                 className="bg-white rounded-[24px] p-6 border border-gray-100 hover:shadow-xl transition-all cursor-pointer group"
               onClick={() => navigate(getJobsPath)}
               >
-                <motion.div 
-                  whileHover={{ scale: 1.1, rotate: 10 }}
-                  className={`w-16 h-16 rounded-[16px] ${job.color} flex items-center justify-center text-[32px] mb-4 shadow-lg`}
-                >
-                  {job.icon}
-                </motion.div>
-                
+                {/* Real imagery only — the job's photo, or the employer's
+                    profile picture. Neither present falls back to their
+                    initial rather than a generic icon. */}
+                {job.image ? (
+                  <img
+                    src={job.image}
+                    alt=""
+                    loading="lazy"
+                    className="mb-4 h-16 w-16 rounded-[16px] border border-slate-200 object-cover"
+                  />
+                ) : (
+                  <div
+                    aria-hidden="true"
+                    className="mb-4 flex h-16 w-16 items-center justify-center rounded-[16px] bg-[#1C4D8D] text-[24px] font-bold text-white"
+                  >
+                    {job.company.trim().charAt(0).toUpperCase() || "M"}
+                  </div>
+                )}
+
                 <h3 className="text-[18px] font-bold text-gray-900 mb-2 group-hover:opacity-80 transition-colors">{job.title}</h3>
                 
                 <div className="flex items-center gap-2 text-[13px] text-gray-600 mb-1">
@@ -974,17 +980,37 @@ export function LandingPageBlue() {
                   <span>{job.location}</span>
                 </div>
                 
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-gray-100">
                   <span className="text-[16px] font-bold text-gray-900">{job.salary}</span>
-                  <motion.button
-                    whileHover={{ scale: 1.2, rotate: 90 }}
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => navigate(getJobsPath)}
-                    aria-label={`View ${job.title}`}
-                    className="w-10 h-10 rounded-full bg-[#1C4D8D] flex items-center justify-center text-white group-hover:shadow-lg transition-all"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </motion.button>
+                  {/* Anyone can read the listing; applying needs an account, so
+                      signed-out visitors get an explicit sign-up CTA rather than
+                      a chevron that dumps them on a login wall. */}
+                  {isAuthenticated ? (
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(getJobsPath);
+                      }}
+                      aria-label={`View ${job.title}`}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1C4D8D] text-white transition-all group-hover:shadow-lg"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </motion.button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(`${ROUTES.signUp}?role=worker`);
+                      }}
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#1C4D8D] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    >
+                      Sign up to apply
+                      <ChevronRight className="h-4 w-4" aria-hidden />
+                    </button>
+                  )}
                 </div>
               </motion.div>
             ))}
@@ -992,8 +1018,15 @@ export function LandingPageBlue() {
 
           {!isJobsLoading && jobCards.length === 0 ? (
             <div className="mx-auto max-w-xl rounded-2xl border border-[#1C4D8D]/15 bg-white p-6 text-center text-sm text-slate-600">
-              {jobsLoadError || 'No jobs are available in your city yet.'}
+              {jobsLoadError || 'No jobs are available right now. Please check back soon.'}
             </div>
+          ) : null}
+
+          {!isAuthenticated && jobCards.length > 0 ? (
+            <p className="mx-auto mt-8 max-w-2xl text-center text-[14px] leading-6 text-slate-600">
+              Browsing jobs is free and open to everyone. Create an account and finish
+              verification to apply, message employers, and get paid through escrow.
+            </p>
           ) : null}
 
           <motion.div 
@@ -1013,37 +1046,41 @@ export function LandingPageBlue() {
         </div>
       </section>
 
-      {/* Successful Hires Section */}
+      {/* Team Section
+          PLACEHOLDER CONTENT — the photo slots are deliberately empty and the
+          names/roles/quotes below are stand-ins. Fill each `photo` with a path
+          under /media/ once real images are approved, and no real name should
+          go in here until it is cleared with the person. */}
       <section className="bg-slate-50 px-6 py-20">
         <div className="max-w-7xl mx-auto">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-[36px] font-bold text-gray-900 mb-2">Meet Some of Our</h2>
+            <h2 className="text-[36px] font-bold text-gray-900 mb-2">Meet the team behind</h2>
             <p className="text-[36px] font-bold text-[#1C4D8D]">
-              Successful Hires
+              Micro Jobs
             </p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {[
               {
-                name: "Aisha M.",
-                role: "HR Professional",
-                status: "Successfully hired",
-                text: '"Micro Jobs connected me with an HR opportunity in my local community. The application process was clear, quick, and easy to follow."'
+                name: "Team member",
+                role: "Add role",
+                photo: null as string | null,
+                text: '"We wanted work near you to be easy to find, whether you are hiring for an afternoon or looking for your next shift."',
               },
               {
-                name: "David K.",
-                role: "Software Engineer",
-                status: "Successfully hired",
-                text: '"I found a software engineering role that matched my skills and location. Micro Jobs helped me move from application to hiring with confidence."'
-              }
-            ].map((testimonial, index) => (
-              <motion.div 
+                name: "Team member",
+                role: "Add role",
+                photo: null as string | null,
+                text: '"Every job is funded before it goes live, so the pay is real and the person doing the work actually gets it."',
+              },
+            ].map((member, index) => (
+              <motion.div
                 key={index}
                 initial={{ opacity: 0, x: index === 0 ? -50 : 50 }}
                 whileInView={{ opacity: 1, x: 0 }}
@@ -1051,13 +1088,27 @@ export function LandingPageBlue() {
                 whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.2)" }}
                 className="bg-white/80 backdrop-blur-sm rounded-[24px] p-8 shadow-lg border border-white/50"
               >
-                <div className="mb-5">
-                  <p className="text-[17px] font-bold text-[#0F2954]">{testimonial.name}</p>
-                  <p className="mt-1 text-[13px] text-gray-600">Hired as {testimonial.role}</p>
-                  <p className="mt-1 text-[12px] font-semibold text-[#1C4D8D]">{testimonial.status}</p>
+                <div className="mb-5 flex items-center gap-4">
+                  {member.photo ? (
+                    <img
+                      src={member.photo}
+                      alt=""
+                      loading="lazy"
+                      className="h-16 w-16 shrink-0 rounded-[16px] object-cover"
+                    />
+                  ) : (
+                    <div
+                      aria-hidden="true"
+                      className="h-16 w-16 shrink-0 rounded-[16px] border border-slate-200 bg-slate-100"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[17px] font-bold text-[#0F2954]">{member.name}</p>
+                    <p className="mt-1 text-[13px] text-gray-600">{member.role}</p>
+                  </div>
                 </div>
                 <p className="text-[14px] text-gray-600 leading-relaxed">
-                  {testimonial.text}
+                  {member.text}
                 </p>
               </motion.div>
             ))}
@@ -1184,7 +1235,7 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate(ROUTES.terms)}
+                    onClick={() => navigate(ROUTES.legalDoc("terms"))}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Terms of Service
@@ -1193,7 +1244,7 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate(ROUTES.privacy)}
+                    onClick={() => navigate(ROUTES.legalDoc("privacy"))}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Privacy Policy
@@ -1202,10 +1253,21 @@ export function LandingPageBlue() {
                 <li>
                   <button
                     type="button"
-                    onClick={() => navigate(ROUTES.cookiePolicy)}
+                    onClick={() => navigate(ROUTES.legalDoc("cookies"))}
                     className="text-[13px] text-gray-400 hover:text-white transition-colors"
                   >
                     Cookie Policy
+                  </button>
+                </li>
+                <li>
+                  {/* Reopens the consent dialog after a choice has been made —
+                      otherwise the decision would be irreversible. */}
+                  <button
+                    type="button"
+                    onClick={openCookiePreferences}
+                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                  >
+                    Your privacy choices
                   </button>
                 </li>
               </ul>

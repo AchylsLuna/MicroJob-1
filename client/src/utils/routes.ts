@@ -12,6 +12,10 @@ export const ROUTES = {
   forgotPassword: "/forgot-password",
   resetPassword: "/reset-password",
   changeInitialPassword: "/change-initial-password",
+  // One page holds all three documents; the individual paths below are kept as
+  // redirects so existing links and bookmarks still resolve.
+  legal: "/legal",
+  legalDoc: (doc: "terms" | "privacy" | "cookies") => `/legal?doc=${doc}`,
   terms: "/terms",
   privacy: "/privacy",
   cookiePolicy: "/cookie-policy",

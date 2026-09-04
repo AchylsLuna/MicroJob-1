@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import { Mail, Lock, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -9,9 +8,16 @@ import { getPostSignInPath } from "../utils/authRedirects";
 import { isCredentialLoginError } from "../utils/authSession";
 import { isValidEmail, normalizeEmail } from "../lib/authValidation";
 import { ROUTES } from "../utils/routes";
-import { MicroJobsLogo } from "./MicroJobsLogo";
 import { OTPVerification } from "./OTPVerification";
 import { MfaLoginForm } from "./auth/MfaLoginForm";
+import {
+  AuthShell,
+  authFieldClass,
+  authLabelClass,
+  authPrimaryButtonClass,
+} from "./auth/AuthShell";
+import { AuthDivider, GoogleButton } from "./auth/GoogleButton";
+import { PasswordField } from "./auth/PasswordField";
 
 export function SignIn() {
   const { t } = useTranslation("auth");
@@ -130,165 +136,93 @@ export function SignIn() {
   };
 
   return (
-    <main className="min-h-screen bg-[#1C4D8D] flex items-center justify-center px-6 py-10 lg:py-14">
-      <div className="w-full max-w-[1200px] grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        {/* Left Side - Branding */}
-        <div className="text-white space-y-8 flex flex-col justify-start">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3 mb-6">
-              <MicroJobsLogo variant="light" className="[&>span]:text-[32px] [&>span]:font-bold" />
-            </div>
-            
-            <h2 className="text-[28px] font-bold leading-tight whitespace-pre-line">
-              {t("signIn.hero.title")}
-            </h2>
-            <p className="text-[16px] opacity-90 leading-relaxed">
-              {t("signIn.hero.subtitle")}
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px]">
-              <div>
-                <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.verified.title")}</h3>
-                <p className="text-[14px] opacity-80">{t("signIn.hero.features.verified.description")}</p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px]">
-              <div>
-                <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.quality.title")}</h3>
-                <p className="text-[14px] opacity-80">{t("signIn.hero.features.quality.description")}</p>
-              </div>
-            </div>
-
-            <div className="p-4 bg-white/10 backdrop-blur-sm rounded-[16px]">
-              <div>
-                <h3 className="text-[16px] font-semibold mb-1">{t("signIn.hero.features.growth.title")}</h3>
-                <p className="text-[14px] opacity-80">{t("signIn.hero.features.growth.description")}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side - Sign In Form */}
-        <div className="bg-white rounded-[24px] shadow-2xl p-8 lg:p-10 self-start">
-          {successMessage ? (
-            <div className="mb-6 rounded-[16px] border border-[#86efac] bg-[#f0fdf4] p-4 text-[#166534]">
+    <>
+      <AuthShell
+        title={t("signIn.title")}
+        subtitle={t("signIn.subtitle")}
+        backTo={ROUTES.home}
+        backLabel={t("signIn.backToHome")}
+        banner={
+          successMessage ? (
+            <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
               <p className="font-semibold">{t("signIn.successBanner.title")}</p>
               <p className="text-[14px]">{successMessage}</p>
             </div>
-          ) : null}
-
-          {/* Back Button */}
-          <button
-            onClick={() => navigate(ROUTES.home)}
-            className="flex items-center gap-2 text-[14px] text-[#6B7280] hover:text-[#1C4D8D] font-medium mb-6 transition-colors group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            {t("signIn.backToHome")}
-          </button>
-
-          <div className="mb-8">
-            <h1 className="text-[28px] font-bold text-[#111827] mb-2">{t("signIn.title")}</h1>
-            <p className="text-[14px] text-[#6B7280]">{t("signIn.subtitle")}</p>
-          </div>
-
-          <form onSubmit={handleSignIn} className="space-y-5">
-            {/* Email */}
-            <div>
-              <label htmlFor="signin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                {t("signIn.form.emailLabel")}
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
-                <input
-                  id="signin-email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={t("signIn.form.emailPlaceholder")}
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-4 py-3.5 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Password */}
-            <div>
-              <label htmlFor="signin-password" className="text-[14px] font-medium text-[#111827] mb-2 block">
-                {t("signIn.form.passwordLabel")}
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
-                <input
-                  id="signin-password"
-                  ref={passwordInputRef}
-                  type={showPassword ? "text" : "password"}
-                  placeholder={t("signIn.form.passwordPlaceholder")}
-                  autoComplete="current-password"
-                  autoCorrect="off"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-12 py-3.5 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                />
-                <button
-                  type="button"
-                  aria-label={showPassword ? t("signIn.form.hidePassword") : t("signIn.form.showPassword")}
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280]"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 rounded border-[#E5E7EB] text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D] cursor-pointer"
-                />
-                <span className="text-[14px] text-[#6B7280]">{t("signIn.form.rememberMe")}</span>
-              </label>
-              <button
-                type="button"
-                onClick={handleForgotPassword}
-                className="text-[14px] text-[#1C4D8D] hover:opacity-80 font-medium"
-              >
-                {t("signIn.form.forgotPassword")}
-              </button>
-            </div>
-
-            {/* Sign In Button */}
+          ) : null
+        }
+        footer={
+          <>
+            {t("signIn.signUpPrompt.text")}{" "}
             <button
-              type="submit"
-              className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
+              type="button"
+              onClick={() => navigate(ROUTES.signUp)}
+              className="font-semibold text-[#1C4D8D] hover:opacity-80"
             >
-              {isLoading ? t("signIn.form.submitLoading") : t("signIn.form.submit")}
+              {t("signIn.signUpPrompt.action")}
             </button>
+          </>
+        }
+      >
+        <GoogleButton />
 
-          </form>
-
-          {/* Sign Up Link */}
-          <div className="mt-6 text-center">
-            <p className="text-[14px] text-[#6B7280]">
-              {t("signIn.signUpPrompt.text")}{" "}
-              <button
-                onClick={() => navigate(ROUTES.signUp)}
-                className="text-[#1C4D8D] hover:opacity-80 font-semibold"
-              >
-                {t("signIn.signUpPrompt.action")}
-              </button>
-            </p>
-          </div>
+        <div className="my-6">
+          <AuthDivider />
         </div>
-      </div>
+
+        <form onSubmit={handleSignIn} className="space-y-5" noValidate>
+          <div>
+            <label htmlFor="signin-email" className={authLabelClass}>
+              {t("signIn.form.emailLabel")}
+            </label>
+            <input
+              id="signin-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder={t("signIn.form.emailPlaceholder")}
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              className={authFieldClass}
+            />
+          </div>
+
+          <PasswordField
+            id="signin-password"
+            label={t("signIn.form.passwordLabel")}
+            placeholder={t("signIn.form.passwordPlaceholder")}
+            autoComplete="current-password"
+            inputRef={passwordInputRef}
+            visible={showPassword}
+            onToggle={() => setShowPassword((current) => !current)}
+            showLabel={t("signIn.form.showPassword")}
+            hideLabel={t("signIn.form.hidePassword")}
+          />
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-5 w-5 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+              />
+              <span className="text-[14px] text-slate-600">{t("signIn.form.rememberMe")}</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80"
+            >
+              {t("signIn.form.forgotPassword")}
+            </button>
+          </div>
+
+          <button type="submit" className={authPrimaryButtonClass}>
+            {isLoading ? t("signIn.form.submitLoading") : t("signIn.form.submit")}
+          </button>
+        </form>
+      </AuthShell>
 
       {showOTP && (
         <OTPVerification
@@ -313,7 +247,6 @@ export function SignIn() {
           </div>
         </div>
       )}
-
-    </main>
+    </>
   );
 }
