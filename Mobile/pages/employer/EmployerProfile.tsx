@@ -287,7 +287,7 @@ export default function EmployerProfile({
           </View>
         </View>
 
-        <EmployerAccordion title={t('employerProfile.readiness.accordionTitle')} subtitle={t('employerProfile.readiness.accordionSubtitle')} icon="shield-checkmark-outline" badge={`${completionRate}%`} expanded={expandedSection === 'readiness'} onToggle={() => setExpandedSection((section) => section === 'readiness' ? null : 'readiness')}>
+        <EmployerAccordion title={t('employerProfile.readiness.accordionTitle')} subtitle={t('employerProfile.readiness.accordionSubtitle')} badge={`${completionRate}%`} expanded={expandedSection === 'readiness'} onToggle={() => setExpandedSection((section) => section === 'readiness' ? null : 'readiness')}>
         <View style={styles.progressContent}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t('employerProfile.readiness.sectionTitle')}</Text>
@@ -312,7 +312,7 @@ export default function EmployerProfile({
         </View>
         </EmployerAccordion>
 
-        <EmployerAccordion title={t('employerProfile.identity.accordionTitle')} subtitle={t('employerProfile.identity.accordionSubtitle')} icon="business-outline" expanded={expandedSection === 'identity'} onToggle={() => setExpandedSection((section) => section === 'identity' ? null : 'identity')}>
+        <EmployerAccordion title={t('employerProfile.identity.accordionTitle')} subtitle={t('employerProfile.identity.accordionSubtitle')} expanded={expandedSection === 'identity'} onToggle={() => setExpandedSection((section) => section === 'identity' ? null : 'identity')}>
         <View pointerEvents="none">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t('employerProfile.identity.sectionTitle')}</Text>
@@ -359,7 +359,7 @@ export default function EmployerProfile({
         </View>
         </EmployerAccordion>
 
-        <EmployerAccordion title={t('employerProfile.contact.accordionTitle')} subtitle={city || t('employerProfile.contact.accordionSubtitleFallback')} icon="location-outline" expanded={expandedSection === 'contact'} onToggle={() => setExpandedSection((section) => section === 'contact' ? null : 'contact')}>
+        <EmployerAccordion title={t('employerProfile.contact.accordionTitle')} subtitle={city || t('employerProfile.contact.accordionSubtitleFallback')} expanded={expandedSection === 'contact'} onToggle={() => setExpandedSection((section) => section === 'contact' ? null : 'contact')}>
         <View pointerEvents="none">
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>{t('employerProfile.contact.sectionTitle')}</Text>
@@ -411,7 +411,7 @@ export default function EmployerProfile({
           <Text style={styles.saveButtonText}>{t('employerProfile.editButton')}</Text>
         </TouchableOpacity>
 
-        <EmployerAccordion title={t('employerProfile.reviews.accordionTitle')} subtitle={t('employerProfile.reviews.accordionSubtitle')} icon="star-outline" expanded={expandedSection === 'reviews'} onToggle={() => setExpandedSection((section) => section === 'reviews' ? null : 'reviews')}>
+        <EmployerAccordion title={t('employerProfile.reviews.accordionTitle')} subtitle={t('employerProfile.reviews.accordionSubtitle')} expanded={expandedSection === 'reviews'} onToggle={() => setExpandedSection((section) => section === 'reviews' ? null : 'reviews')}>
         <ProfileReviewsLoader
           profileOwnerId={profileId}
           profileOwnerName={employerName}

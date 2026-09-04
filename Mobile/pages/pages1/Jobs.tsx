@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
-import TabTopNav from '../../components/TabTopNav';
+import { useAppSession } from '../../contexts/AppSessionContext';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { apiRequest, asList, asObject } from '../../lib/api';
@@ -81,6 +81,23 @@ export default function Jobs(props: JobsProps) {
   const [jobPreferenceText, setJobPreferenceText] = useState('');
   const [showMatchingPreferences, setShowMatchingPreferences] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
+  const [showFilterSheet, setShowFilterSheet] = useState(false);
+
+  const session = useAppSession();
+  const firstName = String(session.user?.firstName || '').trim() || t('jobs.home.fallbackName');
+
+  const activeFilterCount = useMemo(() => (
+    (selectedCategory !== 'All' ? 1 : 0) +
+    (selectedJobType !== 'All' ? 1 : 0) +
+    (dateFilter !== 'all' ? 1 : 0)
+  ), [selectedCategory, selectedJobType, dateFilter]);
+
+  const resetFilters = useCallback(() => {
+    setSelectedCategory('All');
+    setSelectedJobType('All');
+    setDateFilter('all');
+    setCustomDateRange({ start: null, end: null });
+  }, []);
 
   const jobTypeOptions = useMemo(() => ([
     { value: 'All', label: t('jobs.jobTypes.all') },
@@ -359,14 +376,28 @@ export default function Jobs(props: JobsProps) {
 
   return (
     <View style={styles.container}>
-      <TabTopNav
-        title={t('jobs.headerTitle')}
-        showNotifications
-        onOpenNotifications={onOpenNotifications}
-        notificationBadgeCount={notificationBadgeCount}
-      />
-
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={styles.header}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.greeting} numberOfLines={1}>{t('jobs.home.greeting', { name: firstName })}</Text>
+            <Text style={styles.headline}>{t('jobs.home.headline')}</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={onOpenNotifications}
+            accessibilityRole="button"
+            accessibilityLabel={t('jobs.home.notificationsAccessibility')}
+          >
+            <Ionicons name="notifications-outline" size={20} color={tokens.colors.onCanvas} />
+            {notificationBadgeCount > 0 ? (
+              <View style={styles.headerBadge}>
+                <Text style={styles.headerBadgeText}>{notificationBadgeCount > 99 ? '99+' : notificationBadgeCount}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.searchRow}>
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
           <TextInput
@@ -386,15 +417,19 @@ export default function Jobs(props: JobsProps) {
           ) : null}
         </View>
 
-        <View style={styles.toolbarRow}>
-          <TouchableOpacity style={styles.toolbarButton} onPress={() => fetchJobs()} accessibilityRole="button" accessibilityLabel={t('jobs.toolbar.refreshAccessibility')}>
-            <Ionicons name="refresh-outline" size={15} color={tokens.colors.textMuted} />
-            <Text style={styles.toolbarButtonText}>{t('jobs.toolbar.refreshLabel')}</Text>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFilterSheet(true)}
+            accessibilityRole="button"
+            accessibilityLabel={activeFilterCount > 0 ? t('jobs.filters.activeAccessibility', { count: activeFilterCount }) : t('jobs.filters.openAccessibility')}
+          >
+            <Ionicons name="options-outline" size={20} color={tokens.colors.onBrand} />
+            {activeFilterCount > 0 ? (
+              <View style={styles.filterCountBadge}>
+                <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+              </View>
+            ) : null}
           </TouchableOpacity>
-
-          <View style={styles.toolbarButtonMuted}>
-            <Text style={styles.toolbarButtonText}>{t('jobs.toolbar.sortedByRelevance')}</Text>
-          </View>
         </View>
 
         <View style={styles.quickActionsRow}>
@@ -408,6 +443,101 @@ export default function Jobs(props: JobsProps) {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>{t('jobs.sections.recent')}</Text>
+          <Text style={styles.sectionCount}>{t('jobs.jobsAvailable', { count: filteredJobs.length })}</Text>
+        </View>
+
+        {nearestJobs.length > 0 ? (
+          <View style={styles.nearestCard}>
+            <Text style={styles.nearestTitle}>{t('jobs.nearest.title')}</Text>
+            <View style={styles.nearestList}>
+              {nearestJobs.map((job) => (
+                <TouchableOpacity
+                  key={`near-${job._id}`}
+                  style={styles.nearestItem}
+                  onPress={() => onViewDetails?.(job)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('jobs.nearest.viewAccessibility', { title: job.title, location: job.location })}
+                >
+                  <Ionicons name="navigate-outline" size={14} color={tokens.colors.brand} />
+                  <Text numberOfLines={1} style={styles.nearestText}>
+                    {job.title} - {job.location}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+
+        {isLoading ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={tokens.colors.brand} />
+          </View>
+        ) : null}
+
+        <View style={styles.jobsList}>
+          {filteredJobs.map((job) => {
+            const canMessageEmployer = Boolean(
+              job.jobPoster &&
+                currentUserId &&
+                !(
+                  (typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) ||
+                  (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))
+                ),
+            );
+            return (
+              <JobCard
+                key={job._id}
+                job={toJobCardData(job)}
+                variant="list"
+                saved={savedJobIds.includes(job._id)}
+                onPress={() => onViewDetails?.(job)}
+                onToggleSave={() => handleToggleSave(job)}
+                footerSlot={
+                  canMessageEmployer ? (
+                    <TouchableOpacity
+                      style={styles.messageEmployerButton}
+                      onPress={(e: any) => {
+                        e?.stopPropagation?.();
+                        handleMessageEmployer(job);
+                      }}
+                    >
+                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={tokens.colors.onBrand} />
+                      <Text style={styles.messageEmployerButtonText}>{t('jobs.jobCard.messageEmployerButton')}</Text>
+                    </TouchableOpacity>
+                  ) : null
+                }
+              />
+            );
+          })}
+        </View>
+      </ScrollView>
+
+      <Navigation activeTab={externalActiveTab || 'Jobs'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
+      <Modal
+        visible={showFilterSheet}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowFilterSheet(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>{t('jobs.filters.title')}</Text>
+              <TouchableOpacity
+                style={styles.sheetCloseButton}
+                onPress={() => setShowFilterSheet(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('jobs.filters.close')}
+              >
+                <Ionicons name="close" size={20} color={tokens.colors.onCanvas} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
         <View style={styles.preferencesCard}>
           <TouchableOpacity style={styles.preferencesHeader} onPress={() => setShowMatchingPreferences((value) => !value)}>
             <View style={styles.preferencesHeadingCopy}>
@@ -558,78 +688,28 @@ export default function Jobs(props: JobsProps) {
             </TouchableOpacity>
           ))}
         </ScrollView>
-
-        <Text style={styles.jobsCount}>{t('jobs.jobsAvailable', { count: filteredJobs.length })}</Text>
-
-        {nearestJobs.length > 0 ? (
-          <View style={styles.nearestCard}>
-            <Text style={styles.nearestTitle}>{t('jobs.nearest.title')}</Text>
-            <View style={styles.nearestList}>
-              {nearestJobs.map((job) => (
-                <TouchableOpacity
-                  key={`near-${job._id}`}
-                  style={styles.nearestItem}
-                  onPress={() => onViewDetails?.(job)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('jobs.nearest.viewAccessibility', { title: job.title, location: job.location })}
-                >
-                  <Ionicons name="navigate-outline" size={14} color={tokens.colors.brand} />
-                  <Text numberOfLines={1} style={styles.nearestText}>
-                    {job.title} - {job.location}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            </ScrollView>
+            <View style={styles.sheetFooter}>
+              <TouchableOpacity
+                style={styles.sheetResetButton}
+                onPress={resetFilters}
+                accessibilityRole="button"
+                accessibilityLabel={t('jobs.filters.reset')}
+              >
+                <Text style={styles.sheetResetText}>{t('jobs.filters.reset')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sheetApplyButton}
+                onPress={() => setShowFilterSheet(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('jobs.filters.apply')}
+              >
+                <Text style={styles.sheetApplyText}>{t('jobs.filters.apply')}</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        ) : null}
-
-        {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
-
-        {isLoading ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator color={tokens.colors.brand} />
-          </View>
-        ) : null}
-
-        <View style={styles.jobsList}>
-          {filteredJobs.map((job) => {
-            const canMessageEmployer = Boolean(
-              job.jobPoster &&
-                currentUserId &&
-                !(
-                  (typeof job.jobPoster === 'string' && job.jobPoster === currentUserId) ||
-                  (typeof job.jobPoster === 'object' && (job.jobPoster._id === currentUserId || job.jobPoster.id === currentUserId))
-                ),
-            );
-            return (
-              <JobCard
-                key={job._id}
-                job={toJobCardData(job)}
-                variant="list"
-                saved={savedJobIds.includes(job._id)}
-                onPress={() => onViewDetails?.(job)}
-                onToggleSave={() => handleToggleSave(job)}
-                footerSlot={
-                  canMessageEmployer ? (
-                    <TouchableOpacity
-                      style={styles.messageEmployerButton}
-                      onPress={(e: any) => {
-                        e?.stopPropagation?.();
-                        handleMessageEmployer(job);
-                      }}
-                    >
-                      <Ionicons name="chatbubble-ellipses-outline" size={14} color={tokens.colors.onBrand} />
-                      <Text style={styles.messageEmployerButtonText}>{t('jobs.jobCard.messageEmployerButton')}</Text>
-                    </TouchableOpacity>
-                  ) : null
-                }
-              />
-            );
-          })}
         </View>
-      </ScrollView>
-
-      <Navigation activeTab={externalActiveTab || 'Jobs'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
+      </Modal>
     </View>
   );
 }
@@ -637,47 +717,138 @@ export default function Jobs(props: JobsProps) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
   scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: tokens.layout.tabBarClearance, gap: 14 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: tokens.spacing.sm,
+    paddingTop: tokens.spacing.sm,
+  },
+  headerCopy: { flex: 1, gap: 2 },
+  greeting: { fontSize: 26, fontWeight: '800', color: tokens.colors.onCanvas, lineHeight: 32 },
+  headline: { fontSize: 26, fontWeight: '800', color: tokens.colors.onCanvas, lineHeight: 32 },
+  headerIconButton: {
+    width: tokens.controls.minimumTouch,
+    height: tokens.controls.minimumTouch,
+    borderRadius: tokens.controls.minimumTouch / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surface,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.danger,
+    borderWidth: 1,
+    borderColor: tokens.colors.surface,
+  },
+  headerBadgeText: { color: tokens.colors.white, fontSize: 9, fontWeight: '800' },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm },
   searchContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: tokens.colors.surface,
-    borderRadius: 14,
+    borderRadius: tokens.radius.md,
     borderWidth: 1,
     borderColor: tokens.colors.border,
     paddingHorizontal: 14,
-    height: 50,
+    height: 52,
     gap: 10,
   },
   searchInput: { flex: 1, fontSize: 14, color: tokens.colors.text },
-  toolbarRow: {
+  filterButton: {
+    width: 52,
+    height: 52,
+    borderRadius: tokens.radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.brand,
+  },
+  filterCountBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.warning,
+  },
+  filterCountText: { color: tokens.colors.brandDark, fontSize: 9, fontWeight: '800' },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: tokens.colors.onCanvas },
+  sectionCount: { fontSize: 12, fontWeight: '600', color: tokens.colors.textMuted },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,41,84,0.45)' },
+  sheet: {
+    maxHeight: '88%',
+    backgroundColor: tokens.colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: tokens.spacing.sm,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: tokens.colors.border,
+    marginBottom: tokens.spacing.sm,
+  },
+  sheetHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 10,
+    paddingHorizontal: tokens.layout.gutter,
+    paddingBottom: tokens.spacing.sm,
   },
-  toolbarButton: {
-    flexDirection: 'row',
+  sheetTitle: { fontSize: 18, fontWeight: '800', color: tokens.colors.onCanvas },
+  sheetCloseButton: {
+    width: tokens.controls.minimumTouch,
+    height: tokens.controls.minimumTouch,
+    borderRadius: tokens.controls.minimumTouch / 2,
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: tokens.colors.surface,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
   },
-  toolbarButtonMuted: {
-    marginLeft: 'auto',
+  sheetBody: { paddingHorizontal: tokens.layout.gutter, paddingBottom: tokens.spacing.lg, gap: 14 },
+  sheetFooter: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: tokens.colors.surface,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
+    gap: tokens.spacing.sm,
+    paddingHorizontal: tokens.layout.gutter,
+    paddingTop: tokens.spacing.sm,
+    paddingBottom: tokens.spacing.xl,
+    borderTopWidth: 1,
+    borderTopColor: tokens.colors.border,
   },
-  toolbarButtonText: { fontSize: 12, color: tokens.colors.textMuted, fontWeight: '600' },
+  sheetResetButton: {
+    paddingHorizontal: tokens.spacing.xl,
+    height: tokens.controls.buttonHeight,
+    borderRadius: tokens.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.surfaceMuted,
+  },
+  sheetResetText: { fontSize: 15, fontWeight: '700', color: tokens.colors.onCanvasMuted },
+  sheetApplyButton: {
+    flex: 1,
+    height: tokens.controls.buttonHeight,
+    borderRadius: tokens.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colors.brand,
+  },
+  sheetApplyText: { fontSize: 15, fontWeight: '800', color: tokens.colors.onBrand },
   quickActionsRow: {
     flexDirection: 'row',
     gap: 10,
@@ -749,12 +920,6 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: tokens.colors.onBrand,
-  },
-  jobsCount: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: tokens.colors.text,
-    marginTop: 4,
   },
   nearestCard: {
     marginTop: 4,

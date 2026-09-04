@@ -66,7 +66,7 @@
     },
     "header": { "title": "Home" },
     "banner": { "title": "Hiring operations", "detail": "Manage local job posts, candidates, conversations, and secured employer funds." },
-    "metrics": { "activeJobs": "Active jobs", "applicants": "Applicants", "workersHired": "Workers hired" },
+    "metrics": { "activeJobs": "Active jobs", "applicants": "Applicants", "workersHired": "Workers hired", "totalJobs": "Total Jobs", "avgRating": "AVG. rating", "remainingVacancy": "Remaining Vacancy", "reviewCount": "{{count}} reviews" },
     "quickOperations": { "title": "Quick operations" },
     "actions": { "postJob": "Post a job", "reviewApplicants": "Review applicants", "messages": "Messages", "employerWallet": "Employer wallet" },
     "openings": { "title": "Your job openings" },
@@ -76,6 +76,7 @@
     "badges": { "urgent": "Urgent" },
     "status": { "available": "Available" },
     "card": {
+      "applied": "{{count}} Applied",
       "positions": "Positions: {{hired}}/{{needed}}",
       "view": "View",
       "edit": "Edit",

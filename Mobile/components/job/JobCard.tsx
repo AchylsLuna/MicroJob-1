@@ -34,7 +34,7 @@ function BookmarkButton({ saved, onToggleSave, tone = 'default' }: { saved?: boo
     >
       <Ionicons
         name={saved ? 'bookmark' : 'bookmark-outline'}
-        size={16}
+        size={tone === 'onFill' ? 16 : 19}
         color={saved ? tokens.colors.brand : tone === 'onFill' ? tokens.colors.onBrand : tokens.colors.textMuted}
       />
     </AnimatedPressable>
@@ -99,52 +99,81 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
   }
 
   // variant === 'list'
+  const visibleSkills = job.skills.slice(0, 3);
+  const overflowSkills = job.skills.length - visibleSkills.length;
+  const hasSalary = job.salaryLabel !== 'Not set';
+
   return (
     <AnimatedPressable containerStyle={[styles.listCard, style]} onPress={onPress} accessibilityRole="button" accessibilityLabel={`View ${job.title}${job.location ? ` in ${job.location}` : ''}`}>
       <View style={styles.listInner}>
         <View style={styles.listHeader}>
           <CategoryTile category={{ id: job.categoryId, name: job.categoryName }} size="md" />
           <View style={styles.listInfo}>
-            <View style={styles.titleRow}>
-              <Text style={styles.listTitle} numberOfLines={1}>{job.title}</Text>
-              {job.urgent ? (
-                <View style={styles.urgentBadgeInline}>
-                  <Text style={styles.urgentText}>Urgent</Text>
-                </View>
-              ) : null}
-            </View>
+            <Text style={styles.listTitle} numberOfLines={2}>{job.title}</Text>
             <Text style={styles.listPoster} numberOfLines={1}>{job.posterName}</Text>
-            {showMatch && typeof job.matchPercentage === 'number' ? (
-              <Text style={styles.listMatch}>{job.matchPercentage}% Match{job.matchLevel ? ` · ${job.matchLevel}` : ''}</Text>
-            ) : null}
           </View>
-          <BookmarkButton saved={saved} onToggleSave={onToggleSave} />
+          {job.postedLabel ? <Text style={styles.postedLabel}>{job.postedLabel}</Text> : null}
         </View>
 
-        {job.skills.length > 0 ? (
-          <View style={styles.jobTags}>
-            {job.skills.slice(0, 3).map((skill, index) => (
-              <View key={index} style={styles.tag}>
-                <Text style={styles.tagText}>{skill}</Text>
+        <View style={styles.badgeRow}>
+          {job.jobType ? (
+            <View style={styles.typeBadge}>
+              <Text style={styles.typeBadgeText} numberOfLines={1}>{job.jobType.toUpperCase()}</Text>
+            </View>
+          ) : null}
+          {job.urgent ? (
+            <View style={styles.urgentBadgeInline}>
+              <Text style={styles.urgentTextInline}>URGENT</Text>
+            </View>
+          ) : null}
+          {showMatch && typeof job.matchPercentage === 'number' ? (
+            <View style={styles.matchPill}>
+              <Ionicons name="star" size={11} color={tokens.colors.brand} />
+              <Text style={styles.matchPillText}>{job.matchPercentage}%</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {job.location || hasSalary || visibleSkills.length > 0 ? (
+          <View style={styles.detailPanel}>
+            {job.location ? (
+              <View style={styles.detailRow}>
+                <Ionicons name="location-outline" size={15} color={tokens.colors.textMuted} />
+                <Text style={styles.detailText} numberOfLines={1}>{job.location}</Text>
               </View>
-            ))}
+            ) : null}
+            {hasSalary ? (
+              <View style={styles.detailRow}>
+                <Ionicons name="cash-outline" size={15} color={tokens.colors.textMuted} />
+                <Text style={styles.detailSalary} numberOfLines={1}>{job.salaryLabel}</Text>
+              </View>
+            ) : null}
+
+            {visibleSkills.length > 0 ? (
+              <>
+                <View style={styles.detailDivider} />
+                <View style={styles.jobTags}>
+                  {visibleSkills.map((skill, index) => (
+                    <View key={index} style={styles.tag}>
+                      <Text style={styles.tagText} numberOfLines={1}>{skill}</Text>
+                    </View>
+                  ))}
+                  {overflowSkills > 0 ? (
+                    <View style={styles.tagOverflow}>
+                      <Text style={styles.tagOverflowText}>+{overflowSkills}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </>
+            ) : null}
           </View>
         ) : null}
 
-        <View style={styles.listFooter}>
-          <View style={styles.listMetaRow}>
-            <View style={styles.metaPill}>
-              <Ionicons name="time-outline" size={12} color={tokens.colors.textMuted} />
-              <Text style={styles.jobMetaText}>{job.jobType}</Text>
-            </View>
-            {job.location ? (
-              <View style={styles.metaPill}>
-                <Ionicons name="location-outline" size={12} color={tokens.colors.textMuted} />
-                <Text style={styles.jobMetaText} numberOfLines={1}>{job.location}</Text>
-              </View>
-            ) : null}
+        <View style={styles.actionRow}>
+          <BookmarkButton saved={saved} onToggleSave={onToggleSave} />
+          <View style={styles.applyButton}>
+            <Text style={styles.applyButtonText}>View Job</Text>
           </View>
-          <Text style={styles.listSalary}>{job.salaryLabel}</Text>
         </View>
         {footerSlot}
       </View>
@@ -172,8 +201,8 @@ const styles = StyleSheet.create({
   matchPillText: { color: tokens.colors.brand, fontSize: 11, fontWeight: '800' },
 
   // Shared
-  bookmarkBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.surfaceMuted },
-  bookmarkBtnOnFill: { backgroundColor: 'rgba(255,255,255,0.88)' },
+  bookmarkBtn: { width: tokens.controls.minimumTouch, height: tokens.controls.minimumTouch, borderRadius: tokens.controls.minimumTouch / 2, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border },
+  bookmarkBtnOnFill: { width: 32, height: 32, borderRadius: 16, borderWidth: 0, backgroundColor: 'rgba(255,255,255,0.88)' },
   urgentBadge: { position: 'absolute', top: tokens.spacing.sm, left: tokens.spacing.sm, paddingHorizontal: 8, paddingVertical: 3, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.danger },
   urgentBadgeInline: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.dangerSoft },
   urgentText: { color: tokens.colors.onBrand, fontSize: 10, fontWeight: '800' },
@@ -184,17 +213,27 @@ const styles = StyleSheet.create({
   jobMetaText: { color: tokens.colors.textMuted, fontSize: 12 },
 
   // List
-  listCard: { width: '100%', borderRadius: tokens.radius.lg, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border, ...tokens.shadow.card },
+  listCard: { width: '100%', borderRadius: 22, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border, ...tokens.shadow.card },
   listInner: { width: '100%', padding: tokens.spacing.md, gap: tokens.spacing.sm },
   listHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: tokens.spacing.sm },
   listInfo: { flex: 1, gap: 2 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs },
-  listTitle: { flex: 1, color: tokens.colors.text, fontSize: 15, fontWeight: '800' },
-  listPoster: { color: tokens.colors.textMuted, fontSize: 12 },
-  listMatch: { color: tokens.colors.brand, fontSize: 11, fontWeight: '700', marginTop: 1 },
-  listFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: tokens.spacing.sm },
-  listMetaRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm, flex: 1 },
-  listSalary: { color: tokens.colors.brand, fontSize: 13, fontWeight: '800' },
+  listTitle: { color: tokens.colors.text, fontSize: 17, fontWeight: '800', lineHeight: 22 },
+  listPoster: { color: tokens.colors.textMuted, fontSize: 13 },
+  postedLabel: { color: tokens.colors.textSubtle, fontSize: 11, fontWeight: '600' },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: tokens.spacing.xs },
+  typeBadge: { paddingHorizontal: 11, paddingVertical: 5, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.warningSoft },
+  typeBadgeText: { color: '#92610A', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  urgentTextInline: { color: tokens.colors.danger, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  detailPanel: { borderRadius: tokens.radius.md, backgroundColor: tokens.colors.brandSoft, padding: tokens.spacing.md, gap: tokens.spacing.xs },
+  detailRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.xs },
+  detailText: { flex: 1, color: tokens.colors.onCanvas, fontSize: 13, fontWeight: '600' },
+  detailSalary: { flex: 1, color: tokens.colors.brandDark, fontSize: 14, fontWeight: '800' },
+  detailDivider: { height: 1, backgroundColor: tokens.colors.brandMuted, marginVertical: tokens.spacing.xs },
+  tagOverflow: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.brandMuted },
+  tagOverflowText: { color: tokens.colors.textMuted, fontSize: 11, fontWeight: '700' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm },
+  applyButton: { flex: 1, height: tokens.controls.compactHeight, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' },
+  applyButtonText: { color: tokens.colors.onBrand, fontSize: 15, fontWeight: '800' },
 
   // Compact
   compactCard: { width: '100%', borderRadius: tokens.radius.md, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border },

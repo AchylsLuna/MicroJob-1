@@ -95,6 +95,7 @@ export default function SavedJobs({
             salaryLabel: formatMinimumPay(job.salary),
             skills: job.tags,
             urgent: false,
+            postedLabel: '',
           };
           return (
             <JobCard

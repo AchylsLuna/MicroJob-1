@@ -25,6 +25,9 @@ import careerGrowthArtwork from '../assets/onboarding-career-growth.png';
 import useReducedMotion from '../hooks/useReducedMotion';
 import { motion } from '../theme/motion';
 
+const DOT_SIZE = 8;
+const DOT_ACTIVE_WIDTH = 32;
+
 type OnboardingSlide = {
   id: string;
   eyebrow: string;
@@ -97,6 +100,9 @@ export default function OnboardingCarouselScreen({
   const isCompactHeight = usableHeight < 700 || metrics.largeText;
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const scrollX = useRef(new Animated.Value(activeIndex * width)).current;
+  // The dots widen the active pill, which is a layout property and therefore cannot be
+  // driven by the native-driver scrollX. This tracks the settled page index instead.
+  const dotProgress = useRef(new Animated.Value(activeIndex)).current;
   const previousIndexRef = useRef(activeIndex);
   const selectedIndexRef = useRef(activeIndex);
 
@@ -133,6 +139,14 @@ export default function OnboardingCarouselScreen({
     selectedIndexRef.current = activeIndex;
     flatListRef.current?.scrollToIndex({ index: activeIndex, animated: !reducedMotion });
   }, [activeIndex, reducedMotion]);
+
+  useEffect(() => {
+    const animation = reducedMotion
+      ? Animated.timing(dotProgress, { toValue: activeIndex, duration: motion.duration.instant, useNativeDriver: false })
+      : Animated.spring(dotProgress, { toValue: activeIndex, useNativeDriver: false, ...motion.spring });
+    animation.start();
+    return () => animation.stop();
+  }, [activeIndex, dotProgress, reducedMotion]);
 
   useEffect(() => {
     const currentIndex = previousIndexRef.current;
@@ -264,10 +278,20 @@ export default function OnboardingCarouselScreen({
       <View style={[styles.footer, isCompactHeight && styles.footerCompact, { width: panelWidth }]}>
         <View style={styles.dots} accessibilityLabel={t('onboarding.slideProgressA11y', { current: activeIndex + 1, total: slides.length })} accessibilityLiveRegion="polite">
           {slides.map((_, dotIndex) => {
-            const dotInputRange = [(dotIndex - 1) * width, dotIndex * width, (dotIndex + 1) * width];
-            const dotScaleX = reducedMotion ? (dotIndex === activeIndex ? 4 : 1) : scrollX.interpolate({ inputRange: dotInputRange, outputRange: [1, 4, 1], extrapolate: 'clamp' });
-            const dotOpacity = scrollX.interpolate({ inputRange: dotInputRange, outputRange: [0.28, 1, 0.28], extrapolate: 'clamp' });
-            return <Animated.View key={dotIndex} style={[styles.dot, { opacity: dotOpacity, transform: [{ scaleX: dotScaleX }] }]} />;
+            const dotInputRange = [dotIndex - 1, dotIndex, dotIndex + 1];
+            // Animating width (not scaleX) keeps the pill inside its own layout slot, so a
+            // widened active dot pushes its neighbours along instead of covering them.
+            const dotWidth = dotProgress.interpolate({
+              inputRange: dotInputRange,
+              outputRange: [DOT_SIZE, DOT_ACTIVE_WIDTH, DOT_SIZE],
+              extrapolate: 'clamp',
+            });
+            const dotOpacity = dotProgress.interpolate({
+              inputRange: dotInputRange,
+              outputRange: [0.28, 1, 0.28],
+              extrapolate: 'clamp',
+            });
+            return <Animated.View key={dotIndex} style={[styles.dot, { width: dotWidth, opacity: dotOpacity }]} />;
           })}
         </View>
 
@@ -470,8 +494,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dot: {
-    width: 8,
-    height: 8,
+    height: DOT_SIZE,
     borderRadius: 999,
     backgroundColor: AUTH_COLORS.primary,
   },

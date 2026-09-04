@@ -66,7 +66,7 @@
     },
     "header": { "title": "Home" },
     "banner": { "title": "Mga operasyon sa pag-hire", "detail": "Pamahalaan ang mga lokal na job post, kandidato, pag-uusap, at naka-secure na pondo ng employer." },
-    "metrics": { "activeJobs": "Aktibong trabaho", "applicants": "Mga Aplikante", "workersHired": "Na-hire na manggagawa" },
+    "metrics": { "activeJobs": "Aktibong trabaho", "applicants": "Mga Aplikante", "workersHired": "Na-hire na manggagawa", "totalJobs": "Kabuuang Trabaho", "avgRating": "Average rating", "remainingVacancy": "Natitirang Bakante", "reviewCount": "{{count}} na review" },
     "quickOperations": { "title": "Mabilisang operasyon" },
     "actions": { "postJob": "Mag-post ng trabaho", "reviewApplicants": "Suriin ang mga aplikante", "messages": "Mga Mensahe", "employerWallet": "Wallet ng employer" },
     "openings": { "title": "Iyong mga bukas na trabaho" },
@@ -76,6 +76,7 @@
     "badges": { "urgent": "Urgent" },
     "status": { "available": "Available" },
     "card": {
+      "applied": "{{count}} ang nag-apply",
       "positions": "Mga Posisyon: {{hired}}/{{needed}}",
       "view": "Tingnan",
       "edit": "I-edit",

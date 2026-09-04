@@ -37,6 +37,12 @@ export const tokens = {
     warningSoft: '#FEF3C7',
     infoSoft: '#E0F2FE',
     white: '#FFFFFF',
+    // Floating glass navigation bar. The bar blurs whatever scrolls behind it, so
+    // these stay translucent; the tint only lifts contrast over busy backgrounds.
+    navGlass: 'rgba(255,255,255,0.62)',
+    navGlassBorder: 'rgba(255,255,255,0.75)',
+    navMutedIcon: '#5A6474',
+    navSheen: 'rgba(255,255,255,0.85)',
   },
   radius: {
     sm: 10,
@@ -66,7 +72,9 @@ export const tokens = {
     gutter: 16,
     gutterWide: 20,
     sectionGap: 16,
-    tabBarClearance: 24,
+    // The floating glass tab bar overlays content, so scrollable screens must clear
+    // its height (62) plus its wrapper padding and the home-indicator inset.
+    tabBarClearance: 104,
     contentMaxWidth: 720,
   },
   controls: {

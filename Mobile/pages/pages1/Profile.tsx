@@ -4,6 +4,7 @@ import {
   Alert,
   Image,
   Linking,
+  Modal,
   Platform,
   RefreshControl,
   StyleSheet,
@@ -30,6 +31,9 @@ import { useToast } from '../../contexts/ToastContext';
 import { calculateProfileCompletion } from '../../lib/profileCompletion';
 import { validateMobileAvatar } from '../../lib/profileValidation';
 import ProfileReviewsLoader from '../../components/reviews/ProfileReviewsLoader';
+import StatTile from '../../components/ui/StatTile';
+import useReviewSummary from '../../hooks/useReviewSummary';
+import { useAppSession } from '../../contexts/AppSessionContext';
 
 type ProfileProps = {
   activeTab?: string;
@@ -72,6 +76,8 @@ export default function Profile({
   initialAction,
   actionNonce,
 }: ProfileProps) {
+  const session = useAppSession();
+  const [showReviews, setShowReviews] = useState(false);
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [editingExperience, setEditingExperience] = useState<(ExperienceDraft & { id: string }) | null>(null);
   const [showAddCV, setShowAddCV] = useState(false);
@@ -315,6 +321,9 @@ export default function Profile({
   const locationLabel = [profile?.city, profile?.province, profile?.country].filter(Boolean).join(', ') || 'Location not set';
   const jobsApplied = typeof profile?.jobsApplied === 'number' ? profile.jobsApplied : 0;
   const jobsCompleted = typeof profile?.projectsCompleted === 'number' ? profile.projectsCompleted : 0;
+
+  const profileUserId = String(profile?.id || profile?._id || session.user?.id || session.user?._id || '');
+  const { averageRating, totalReviews } = useReviewSummary(profileUserId, 'worker');
 
   const resumeUrl = profile?.resumeUrl || profile?.cvUrl || '';
   const resumeCandidate = resumeUrl
@@ -763,14 +772,26 @@ export default function Profile({
         </View>
 
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{jobsApplied}</Text>
-            <Text style={styles.statLabel}>Applied</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{jobsCompleted}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </View>
+          {/* The rating tile is the entry point to the full ratings breakdown. */}
+          <TouchableOpacity
+            style={styles.statTileTap}
+            onPress={() => setShowReviews(true)}
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel={totalReviews > 0
+              ? `Average rating ${averageRating.toFixed(1)} from ${totalReviews} reviews. View ratings and reviews`
+              : 'No reviews yet. View ratings and reviews'}
+          >
+            <StatTile
+              label="AVG. rating"
+              value={totalReviews > 0 ? averageRating.toFixed(1) : '—'}
+              icon="star"
+              iconColor={tokens.colors.warning}
+              caption={totalReviews > 0 ? `${totalReviews} reviews` : 'No reviews yet'}
+            />
+          </TouchableOpacity>
+          <StatTile label="Completed" value={jobsCompleted} />
+          <StatTile label="Applied" value={jobsApplied} />
         </View>
 
         <View style={styles.section}>
@@ -962,12 +983,40 @@ export default function Profile({
           </View>
         </View>
 
-        <ProfileReviewsLoader
-          profileOwnerId={String(profile?._id || profile?.id || '')}
-          profileOwnerName={displayName}
-          viewAs="worker"
-        />
       </ScrollView>
+
+      {/* Ratings live behind the AVG. rating tile so the profile itself stays short. */}
+      <Modal
+        visible={showReviews}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowReviews(false)}
+      >
+        <View style={styles.sheetBackdrop}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            {/* No title here: ProfileReviews renders its own "Ratings & Reviews" heading. */}
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity
+                style={styles.sheetCloseButton}
+                onPress={() => setShowReviews(false)}
+                accessibilityRole="button"
+                accessibilityLabel="Close ratings and reviews"
+              >
+                <Ionicons name="close" size={20} color={tokens.colors.onCanvas} />
+              </TouchableOpacity>
+            </View>
+            {/* ProfileReviews renders a plain View and expects a scrolling parent. */}
+            <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              <ProfileReviewsLoader
+                profileOwnerId={profileUserId}
+                profileOwnerName={displayName}
+                viewAs="worker"
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Navigation
         activeTab={activeTab || 'Profile'}
@@ -1270,30 +1319,41 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
-  statCard: {
-    flex: 1,
-    minHeight: 92,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
+  statTileTap: { flex: 1, minWidth: 0 },
+  sheetBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,41,84,0.45)' },
+  sheet: {
+    maxHeight: '88%',
     backgroundColor: tokens.colors.surface,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: tokens.spacing.sm,
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: tokens.colors.border,
+    marginBottom: tokens.spacing.sm,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    paddingHorizontal: tokens.layout.gutter,
+    paddingBottom: tokens.spacing.sm,
+  },
+  sheetCloseButton: {
+    width: tokens.controls.minimumTouch,
+    height: tokens.controls.minimumTouch,
+    borderRadius: tokens.controls.minimumTouch / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    backgroundColor: tokens.colors.surfaceMuted,
   },
-  statValue: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: tokens.colors.text,
-    letterSpacing: -0.5,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: '#64748B',
-    fontWeight: '600',
-  },
+  sheetBody: { paddingHorizontal: tokens.layout.gutter, paddingBottom: tokens.spacing.xxl },
   section: {
     gap: 12,
   },

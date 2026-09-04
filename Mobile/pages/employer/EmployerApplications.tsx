@@ -495,11 +495,6 @@ export default function EmployerApplications({
               <Text style={styles.eyebrow}>{t('employerApplications.selectedJobEyebrow')}</Text>
               <Text style={styles.selectedTitle}>{selectedJob.title}</Text>
               <View style={styles.metaLine}>
-                <Ionicons
-                  name="location-outline"
-                  size={15}
-                  color={tokens.colors.textMuted}
-                />
                 <Text style={styles.metaText}>
                   {selectedJob.location || t('employerApplications.locationNotSet')}
                 </Text>
@@ -1689,21 +1684,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 5,
   },
-  metaText: { flex: 1, color: tokens.colors.onBrandMuted, fontSize: 12 },
+  metaText: { flex: 1, color: tokens.colors.onBrandMuted, fontSize: 13, lineHeight: 18 },
   summaryRow: { marginTop: 15, flexDirection: "row", gap: 8 },
   summary: {
     flex: 1,
-    minHeight: 66,
-    padding: 9,
+    minHeight: 72,
+    justifyContent: "center",
+    padding: 11,
     borderRadius: 13,
-    backgroundColor: "rgba(255,255,255,.12)",
+    backgroundColor: "rgba(255,255,255,.16)",
   },
-  summaryValue: { color: tokens.colors.white, fontSize: 18, fontWeight: "900" },
+  summaryValue: { color: tokens.colors.white, fontSize: 22, fontWeight: "900" },
   summaryLabel: {
     marginTop: 3,
     color: tokens.colors.onBrandMuted,
-    fontSize: 9,
-    lineHeight: 12,
+    fontSize: 11,
+    lineHeight: 15,
     fontWeight: "700",
   },
   stageTabs: { paddingVertical: 2, gap: 7 },
@@ -1793,7 +1789,7 @@ const styles = StyleSheet.create({
   pillBlue: { backgroundColor: tokens.colors.brandSoft },
   pillGold: { backgroundColor: tokens.colors.warningSoft },
   pillText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: "800",
     color: tokens.colors.onCanvasMuted,
   },

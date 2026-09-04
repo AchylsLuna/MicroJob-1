@@ -13,7 +13,7 @@ export default function Navigation({ activeTab = 'Jobs', onTabPress, messageBadg
   const unread = typeof messageBadgeCount === 'number' ? messageBadgeCount : session.unreadMessageCount;
   const initials = session.navigationProfileInitials;
   const items = useMemo<CompactNavigationItem<WorkerTab>[]>(() => [
-    { key: 'Jobs', label: t('workerNav.jobs'), icon: 'briefcase-outline', activeIcon: 'briefcase' },
+    { key: 'Jobs', label: t('workerNav.jobs'), icon: 'home-outline', activeIcon: 'home' },
     { key: 'EWallet', label: t('workerNav.eWallet'), icon: 'wallet-outline', activeIcon: 'wallet' },
     { key: 'Messages', label: t('workerNav.messages'), icon: 'chatbubble-outline', activeIcon: 'chatbubble', badge: unread },
     { key: 'Profile', label: t('workerNav.profile'), icon: 'person-outline', activeIcon: 'person', profileInitials: initials },

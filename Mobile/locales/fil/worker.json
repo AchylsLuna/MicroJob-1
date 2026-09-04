@@ -446,6 +446,7 @@
       "paymentMethods": "Mga Paraan ng Pagbabayad",
       "personalInformation": "Personal na Impormasyon",
       "resumeDocuments": "Resume at Mga Dokumento",
+      "manageWithdrawals": "Pamahalaan ang Withdrawal",
       "changePassword": "Baguhin ang Password",
       "twoFactorAuth": "Two-Factor Authentication",
       "notificationInbox": "Notification Inbox",
@@ -467,6 +468,14 @@
       "subtitle": "Pamahalaan ang profile, seguridad, suporta, at mga kontrol ng account."
     },
     "modeCard": {
+      "toggleTitle": {
+        "toHire": "Lumipat sa Hire Mode",
+        "toWorker": "Lumipat sa Worker Mode"
+      },
+      "toggleHint": {
+        "toHire": "Mag-post ng trabaho at suriin ang mga aplikante.",
+        "toWorker": "Maghanap ng trabaho at mag-apply."
+      },
       "sectionLabel": "MODE NG ACCOUNT",
       "employerModeTitle": "Employer Mode",
       "workerModeTitle": "Worker Mode",
@@ -494,6 +503,21 @@
     }
   },
   "jobDetails": {
+    "reviews": {
+      "unavailable": "Walang review para sa employer na ito."
+    },
+    "chips": {
+      "closes": "Magsasara {{date}}"
+    },
+    "share": {
+      "message": "{{title}} — {{pay}}, {{location}}. Mag-apply sa MicroJobs."
+    },
+    "tabs": {
+      "description": "Deskripsyon",
+      "company": "Kompanya",
+      "review": "Review"
+    },
+    "headerTitle": "Detalye ng Trabaho",
     "titleFallback": "Detalye ng Trabaho",
     "urgentBadge": "Agaran",
     "stats": {
@@ -510,6 +534,10 @@
       "rating": "Rating {{stars}}/5 • {{percentage}}% na tagumpay"
     },
     "actions": {
+      "backAccessibility": "Bumalik",
+      "readMore": "Magbasa pa",
+      "readLess": "Bawasan",
+      "shareAccessibility": "Ibahagi ang trabahong ito",
       "viewProfile": "Tingnan ang Profile",
       "viewProfileAccessibility": "Tingnan ang profile ng employer",
       "saveLabel": "I-save ang trabaho",
@@ -525,6 +553,7 @@
       "messageAccessibility": "Mensahihan ang employer"
     },
     "sections": {
+      "aboutRole": "Tungkol sa trabahong ito",
       "skills": "Kinakailangang kasanayan",
       "description": "Paglalarawan",
       "requirements": "Mga Kinakailangan"
@@ -554,6 +583,21 @@
     }
   },
   "jobs": {
+    "filters": {
+      "open": "Mga Filter",
+      "openAccessibility": "Buksan ang mga filter ng trabaho",
+      "title": "Mga Filter",
+      "close": "Isara ang mga filter",
+      "reset": "I-reset",
+      "apply": "Ipakita ang resulta",
+      "activeAccessibility": "{{count}} na filter ang nakaapply"
+    },
+    "home": {
+      "greeting": "Kumusta {{name}},",
+      "headline": "Hanapin ang susunod mong trabaho",
+      "notificationsAccessibility": "Buksan ang mga abiso",
+      "fallbackName": "kaibigan"
+    },
     "headerTitle": "Mga Trabaho",
     "search": {
       "placeholder": "Maghanap ng trabaho",
@@ -579,6 +623,7 @@
       "saveButton": "I-save ang mga kagustuhan sa pagtutugma"
     },
     "sections": {
+      "recent": "Mga Bagong Trabaho",
       "deadline": "Deadline",
       "categories": "Mga Kategorya",
       "jobType": "Uri ng Trabaho"

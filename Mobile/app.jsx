@@ -384,6 +384,7 @@ function WorkerJobDetailsScreen() {
   return (
     <JobDetails
       job={job}
+      onBack={() => navigation.goBack()}
       onSaveJob={async (targetJob) => {
         try {
           await session.toggleSavedJob(targetJob || job);
@@ -485,6 +486,7 @@ function WorkerSettingsScreen() {
       onNavigateChangePassword={() => navigation.navigate('WorkerChangePassword')}
       onNavigateNotifications={() => navigation.navigate('WorkerNotifications')}
       onNavigateLocation={() => navigation.navigate('WorkerLocationServices')}
+      onNavigateWithdrawals={() => navigation.navigate('WorkerTabs', { screen: 'EWallet' })}
       onNavigateMfa={() => navigation.navigate('WorkerMfa')}
       onNavigateAbout={() => navigation.navigate('WorkerAbout')}
       onNavigateDeleteAccount={() => navigation.navigate('WorkerDeleteAccount')}

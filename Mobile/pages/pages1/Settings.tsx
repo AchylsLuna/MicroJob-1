@@ -12,6 +12,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useFocusEffect } from '@react-navigation/native';
 import ConfirmModal from '../../components/ConfirmModal';
 import { EmployerAccordion } from '../../components/employer/EmployerUI';
+import MenuCard, { type MenuCardItem } from '../../components/ui/MenuCard';
 
 type SettingsProps = {
   onBack?: () => void;
@@ -26,20 +27,14 @@ type SettingsProps = {
   onNavigateDeleteAccount?: () => void;
   onNavigateSupport?: () => void;
   onNavigatePaymentMethods?: () => void;
+  onNavigateWithdrawals?: () => void;
   currentRole?: 'worker' | 'employer' | 'both';
   canSwitchAccountMode?: boolean;
   onSwitchAccountMode?: (role: 'worker' | 'employer') => Promise<boolean>;
   isSwitchingAccountMode?: boolean;
 };
 
-type SettingsItem = {
-  title: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-  iconColor: string;
-  iconBackground: string;
-  onPress?: () => void;
-  danger?: boolean;
-};
+type SettingsItem = MenuCardItem;
 
 export default function Settings({
   onBack,
@@ -54,6 +49,7 @@ export default function Settings({
   onNavigateDeleteAccount,
   onNavigateSupport,
   onNavigatePaymentMethods,
+  onNavigateWithdrawals,
   currentRole = 'worker',
   canSwitchAccountMode = false,
   onSwitchAccountMode,
@@ -213,6 +209,13 @@ export default function Settings({
           iconColor: tokens.colors.brand,
           iconBackground: '#EAF2FF',
         },
+        {
+          title: t('settings.menu.manageWithdrawals'),
+          onPress: onNavigateWithdrawals,
+          icon: 'wallet-outline',
+          iconColor: tokens.colors.brand,
+          iconBackground: '#EAF2FF',
+        },
       ];
 
   const securityMenus: SettingsItem[] = [
@@ -260,28 +263,9 @@ export default function Settings({
     },
   ];
 
-  const renderMenuCard = (items: SettingsItem[]) => {
-    return (
-      <View style={styles.menuCard}>
-        {items.map((item, index) => (
-          <View key={item.title}>
-            <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.88}>
-              <View style={styles.menuLeft}>
-                <View style={[styles.iconWrap, { backgroundColor: item.iconBackground }]}>
-                  <Ionicons name={item.icon} size={22} color={item.iconColor} />
-                </View>
-                <Text style={[styles.menuTitle, item.danger && styles.menuTitleDanger]}>{item.title}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={22} color="#C0C8D4" />
-            </TouchableOpacity>
-            {index < items.length - 1 ? <View style={styles.divider} /> : null}
-          </View>
-        ))}
-      </View>
-    );
-  };
-  const renderSettingsSection = (key: 'account' | 'security' | 'preferences' | 'support', title: string, icon: React.ComponentProps<typeof Ionicons>['name'], items: SettingsItem[]) => isEmployer ? (
-    <EmployerAccordion title={title} icon={icon} expanded={expandedEmployerSection === key} onToggle={() => setExpandedEmployerSection((section) => section === key ? null : key)}>
+  const renderMenuCard = (items: SettingsItem[]) => <MenuCard items={items} />;
+  const renderSettingsSection = (key: 'account' | 'security' | 'preferences' | 'support', title: string, items: SettingsItem[]) => isEmployer ? (
+    <EmployerAccordion title={title} expanded={expandedEmployerSection === key} onToggle={() => setExpandedEmployerSection((section) => section === key ? null : key)}>
       {renderMenuCard(items)}
     </EmployerAccordion>
   ) : <><Text style={styles.sectionLabel}>{title.toUpperCase()}</Text>{renderMenuCard(items)}</>;
@@ -330,28 +314,32 @@ export default function Settings({
           <>
             <Text style={styles.sectionLabel}>{t('settings.modeCard.sectionLabel')}</Text>
             <View style={styles.modeCard}>
-              <View style={styles.modeIcon}><Ionicons name={isEmployer ? 'business-outline' : 'person-outline'} size={22} color={tokens.colors.brand} /></View>
               <View style={styles.modeCopy}>
-                <Text style={styles.modeTitle}>{isEmployer ? t('settings.modeCard.employerModeTitle') : t('settings.modeCard.workerModeTitle')}</Text>
-                <Text style={styles.modeDescription}>{t('settings.modeCard.description')}</Text>
+                <Text style={styles.modeTitle}>
+                  {isEmployer ? t('settings.modeCard.toggleTitle.toWorker') : t('settings.modeCard.toggleTitle.toHire')}
+                </Text>
+                <Text style={styles.modeDescription}>
+                  {isEmployer ? t('settings.modeCard.toggleHint.toWorker') : t('settings.modeCard.toggleHint.toHire')}
+                </Text>
               </View>
-              <TouchableOpacity
-                style={[styles.modeSwitchButton, isSwitchingAccountMode && styles.modeSwitchButtonDisabled]}
-                onPress={() => setRequestedMode(isEmployer ? 'worker' : 'employer')}
+              <Switch
+                value={isEmployer}
+                onValueChange={() => setRequestedMode(isEmployer ? 'worker' : 'employer')}
                 disabled={isSwitchingAccountMode}
-                accessibilityRole="button"
+                trackColor={{ false: tokens.colors.border, true: tokens.colors.brand }}
+                thumbColor={tokens.colors.white}
+                ios_backgroundColor={tokens.colors.border}
+                accessibilityRole="switch"
                 accessibilityLabel={isEmployer ? t('settings.modeCard.switchAccessibility.toWorker') : t('settings.modeCard.switchAccessibility.toEmployer')}
-                accessibilityState={{ disabled: isSwitchingAccountMode, busy: isSwitchingAccountMode }}
-              >
-                <Text style={styles.modeSwitchText}>{isEmployer ? t('settings.modeCard.switchLabel.toWorker') : t('settings.modeCard.switchLabel.toEmployer')}</Text>
-              </TouchableOpacity>
+                accessibilityState={{ checked: isEmployer, disabled: isSwitchingAccountMode }}
+              />
             </View>
           </>
         ) : null}
 
-        {renderSettingsSection('account', t('settings.sections.account'), 'business-outline', accountMenus)}
+        {renderSettingsSection('account', t('settings.sections.account'), accountMenus)}
 
-        {renderSettingsSection('security', t('settings.sections.security'), 'shield-checkmark-outline', securityMenus)}
+        {renderSettingsSection('security', t('settings.sections.security'), securityMenus)}
 
         {isEmployer ? (
           <>
@@ -375,9 +363,9 @@ export default function Settings({
           </>
         ) : null}
 
-        {renderSettingsSection('preferences', t('settings.sections.preferences'), 'options-outline', preferencesMenus)}
+        {renderSettingsSection('preferences', t('settings.sections.preferences'), preferencesMenus)}
 
-        {renderSettingsSection('support', t('settings.sections.supportInfo'), 'help-buoy-outline', supportMenus)}
+        {renderSettingsSection('support', t('settings.sections.supportInfo'), supportMenus)}
 
         <View style={styles.footerActionsWrap}>{renderMenuCard(accountActions)}</View>
       </ScrollView>
@@ -548,46 +536,7 @@ const styles = StyleSheet.create({
     color: '#97A1B2',
   },
   modeCard: { minHeight: 104, borderRadius: 24, borderWidth: 1, borderColor: tokens.colors.brandMuted, backgroundColor: tokens.colors.surface, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, ...tokens.shadow.card },
-  modeIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: tokens.colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
   modeCopy: { flex: 1, minWidth: 0 }, modeTitle: { fontSize: 16, fontWeight: '800', color: tokens.colors.brandDark }, modeDescription: { marginTop: 3, fontSize: 11, lineHeight: 16, color: tokens.colors.textMuted },
-  modeSwitchButton: { minHeight: 44, minWidth: 72, maxWidth: 136, paddingHorizontal: 12, borderRadius: 14, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' }, modeSwitchButtonDisabled: { opacity: 0.55 }, modeSwitchText: { color: tokens.colors.white, fontSize: 12, fontWeight: '800', textAlign: 'center' },
-  menuCard: {
-    backgroundColor: tokens.colors.surface,
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E5EAF1',
-    ...tokens.shadow.card,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    minHeight: 84,
-  },
-  menuLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  iconWrap: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuTitle: { fontSize: 17, fontWeight: '700', color: '#1F2937', flexShrink: 1 },
-  menuTitleDanger: { color: tokens.colors.danger },
-  divider: {
-    height: 1,
-    backgroundColor: '#ECEFF5',
-    marginLeft: 74,
-  },
   footerActionsWrap: {
     marginTop: 10,
   },

@@ -7,7 +7,7 @@ import PushDevice from "../models/PushDevice.js";
 import SavedJob from "../models/SavedJob.js";
 import Notification from "../models/Notification.js";
 import { getPublicProfileAccessError } from "../lib/staffProfileVisibility.js";
-import { getEmailTransporter } from "../lib/emailTransporter.js";
+import { getEmailTransporter, getMailFrom } from "../lib/emailTransporter.js";
 import { disconnectSession } from "../lib/socket.js";
 import { deleteStoredUpload } from "../lib/uploadStore.js";
 import {
@@ -37,7 +37,11 @@ const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 // returns one generic "incorrect credentials" string.
 const PASSWORD_RESET_GENERIC_MESSAGE = "If the email is registered, a reset code has been sent.";
 const APP_NAME = "MicroJobs";
-const PASSWORD_RESET_EMAIL_FROM = `${APP_NAME} <noreply@yourdomain.com>`;
+const getPasswordResetEmailFrom = () => {
+    const address = getMailFrom();
+    // Already a display-name form such as "MicroJobs <no-reply@example.com>".
+    return address.includes('<') ? address : `${APP_NAME} <${address}>`;
+};
 const OTP_EXPIRY_MINUTES = 5;
 
 const escapeHtml = (value = "") => String(value)
@@ -942,7 +946,7 @@ export async function sendOtp(req, res) {
             });
         }
 
-        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const fromAddress = getMailFrom();
         const displayName = user?.firstName || "there";
         const subject = "MicroJobs email verification";
         const text = `Hi ${displayName},\n\nUse this code to verify your email for MicroJobs: ${code}\n\nIf you did not request this, you can ignore this message.`;
@@ -1055,7 +1059,7 @@ export async function requestPasswordResetOtp(req, res) {
                     });
 
                     await transporter.sendMail({
-                        from: PASSWORD_RESET_EMAIL_FROM,
+                        from: getPasswordResetEmailFrom(),
                         to: normalizedEmail,
                         subject: emailContent.subject,
                         text: emailContent.text,
@@ -1165,7 +1169,7 @@ export async function requestPasswordChangeOtp(req, res) {
             return res.status(200).json({ message: "OTP generated for development.", code });
         }
 
-        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const fromAddress = getMailFrom();
         const displayName = user.firstName || "there";
         const subject = "MicroJobs password change verification";
         const text = `Hi ${displayName},\n\nUse this code to continue changing your MicroJobs password: ${code}\n\nThis code expires in 5 minutes. If you did not request this, please secure your account immediately.`;

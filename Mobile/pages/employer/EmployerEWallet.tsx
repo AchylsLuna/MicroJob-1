@@ -407,7 +407,7 @@ export default function EmployerEWallet({
           { label: t('employerEWallet.metrics.pending'), value: isBalanceHidden ? '•••' : php(walletSummary.pending), icon: 'time-outline' },
         ]} />
 
-        <EmployerAccordion title={t('employerEWallet.topup.accordionTitle')} subtitle={t('employerEWallet.topup.accordionSubtitle')} icon="add-circle-outline" expanded={isTopupExpanded} onToggle={() => setIsTopupExpanded((expanded) => !expanded)}>
+        <EmployerAccordion title={t('employerEWallet.topup.accordionTitle')} subtitle={t('employerEWallet.topup.accordionSubtitle')} expanded={isTopupExpanded} onToggle={() => setIsTopupExpanded((expanded) => !expanded)}>
           <View>
           <Text style={styles.cardTitle}>{t('employerEWallet.topup.cardTitle')}</Text>
           <Text style={styles.cardSubtitle}>{t('employerEWallet.topup.cardSubtitle')}</Text>
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   invoiceList: { gap: 9 },
   invoiceCard: { minHeight: 76, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: tokens.colors.border, borderRadius: 15, padding: 12, backgroundColor: tokens.colors.surface },
-  invoiceCopy: { flex: 1, minWidth: 0 }, invoiceTitle: { color: tokens.colors.brandDark, fontSize: 14, fontWeight: '900' }, invoiceMeta: { marginTop: 3, color: tokens.colors.textMuted, fontSize: 11 }, invoiceStatus: { marginTop: 5, alignSelf: 'flex-start', color: tokens.colors.textMuted, fontSize: 9, fontWeight: '900', letterSpacing: 0.7 }, invoiceStatusActive: { color: tokens.colors.success },
+  invoiceCopy: { flex: 1, minWidth: 0 }, invoiceTitle: { color: tokens.colors.brandDark, fontSize: 14, fontWeight: '900' }, invoiceMeta: { marginTop: 3, color: tokens.colors.textMuted, fontSize: 11 }, invoiceStatus: { marginTop: 5, alignSelf: 'flex-start', color: tokens.colors.textMuted, fontSize: 11, fontWeight: '900', letterSpacing: 0.7 }, invoiceStatusActive: { color: tokens.colors.success },
   reviewButton: { minHeight: 44, justifyContent: 'center', borderRadius: 12, paddingHorizontal: 14, backgroundColor: tokens.colors.brand }, reviewButtonDisabled: { backgroundColor: tokens.colors.textSubtle }, reviewButtonText: { color: tokens.colors.onBrand, fontSize: 12, fontWeight: '900' },
   cardTitle: {
     color: tokens.colors.brandDark,

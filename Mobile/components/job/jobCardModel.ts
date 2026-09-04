@@ -1,4 +1,5 @@
 import { formatMinimumPay } from '../../lib/jobCompensation';
+import { formatNotificationTime } from '../../lib/notifications';
 
 // The various screens (dashboard, Jobs, SavedJobs, AppliedJobs, employer job posts)
 // each declare their own slightly-different local `Job` type. Rather than unify
@@ -15,6 +16,8 @@ export type JobCardData = {
   salaryLabel: string;
   skills: string[];
   urgent: boolean;
+  /** Relative posting age, e.g. "2d ago". Empty when the job has no createdAt. */
+  postedLabel: string;
   matchPercentage?: number;
   matchLevel?: string;
 };
@@ -52,6 +55,7 @@ export function toJobCardData(job: RawJob): JobCardData {
     salaryLabel: formatMinimumPay(job.salary),
     skills: job.skills || [],
     urgent: Boolean(job.urgent),
+    postedLabel: job.createdAt ? formatNotificationTime(job.createdAt) : '',
     matchPercentage: job.match?.percentage,
     matchLevel: job.match?.level,
   };

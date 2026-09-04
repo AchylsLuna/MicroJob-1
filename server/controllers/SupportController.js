@@ -3,7 +3,7 @@ import { getWebOrigin } from '../lib/runtimeConfig.js';
 import User from '../models/User.js';
 import { createNotification } from '../lib/notificationService.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
-import { getEmailTransporter } from '../lib/emailTransporter.js';
+import { getEmailTransporter, getMailFrom } from '../lib/emailTransporter.js';
 
 const getUserId = (req) => req.user?.id || req.user?.userId || null;
 const getRole = (req) => {
@@ -65,7 +65,7 @@ const notifyAdminsByEmail = async ({ ticket, requester, eventType = 'created' })
   const requesterRole = String(requester?.role || 'user').toLowerCase();
   const subjectPrefix = eventType === 'reply' ? 'Support ticket reply' : 'New support ticket';
   const mailSubject = `[MicroJobs] ${subjectPrefix}: ${ticket.subject}`;
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const from = getMailFrom();
   const ticketId = String(ticket._id || '');
   const appBase = getWebOrigin();
   const ticketUrl = `${String(appBase).replace(/\/$/, '')}/admin/support`;

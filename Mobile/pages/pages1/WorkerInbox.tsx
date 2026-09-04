@@ -73,6 +73,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    // The glass tab bar floats above content; keep the chat input clear of it.
+    paddingBottom: tokens.layout.tabBarClearance,
     backgroundColor: tokens.colors.background,
   },
 });

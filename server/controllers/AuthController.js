@@ -222,7 +222,6 @@ const loginUser = async (req, res) => {
       return sendSuccess(res, 200, 'OTP verification required', {
         otpRequired: true,
         otpToken: loginOtp.otpToken,
-        ...(loginOtp.code && process.env.NODE_ENV !== 'production' ? { code: loginOtp.code } : {}),
       });
     }
 
@@ -419,7 +418,6 @@ const loginOtpResend = async (req, res) => {
     return sendSuccess(res, 200, 'OTP resent', {
       otpRequired: true,
       otpToken: renewed.otpToken,
-      ...(renewed.code && process.env.NODE_ENV !== 'production' ? { code: renewed.code } : {}),
     });
   } catch (e) {
     console.error('Login OTP resend error:', e);

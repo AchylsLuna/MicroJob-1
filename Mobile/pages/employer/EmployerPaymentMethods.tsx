@@ -235,7 +235,7 @@ export default function EmployerPaymentMethods({ onBack }: { onBack?: () => void
           </TouchableOpacity>
         </View>
 
-        <EmployerAccordion title={t('employerPaymentMethods.form.accordionTitle')} subtitle={t('employerPaymentMethods.form.accordionSubtitle')} icon="card-outline" expanded={isFormOpen} onToggle={() => setIsFormOpen((value) => !value)}>
+        <EmployerAccordion title={t('employerPaymentMethods.form.accordionTitle')} subtitle={t('employerPaymentMethods.form.accordionSubtitle')} expanded={isFormOpen} onToggle={() => setIsFormOpen((value) => !value)}>
           <View>
             <Text style={styles.cardTitle}>{t('employerPaymentMethods.form.cardTitle')}</Text>
             <Text style={styles.helper}>

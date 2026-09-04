@@ -1,6 +1,6 @@
 import Transaction from '../models/Transaction.js';
 import User from '../models/User.js';
-import { getEmailTransporter } from '../lib/emailTransporter.js';
+import { getEmailTransporter, getMailFrom } from '../lib/emailTransporter.js';
 
 const escapeHtml = (value) => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -89,7 +89,7 @@ export async function sendPaymentReceiptEmail({ transactionId, userId }) {
       <td style="padding: 9px 0; color: #52606d; width: 42%;">${escapeHtml(label)}</td>
       <td style="padding: 9px 0; color: #102a43; font-weight: 600; word-break: break-word;">${escapeHtml(value)}</td>
     </tr>`).join('');
-  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const fromAddress = getMailFrom();
 
   await transporter.sendMail({
     from: `MicroJobs <${fromAddress}>`,

@@ -446,6 +446,7 @@
       "paymentMethods": "Payment Methods",
       "personalInformation": "Personal Information",
       "resumeDocuments": "Resume & Documents",
+      "manageWithdrawals": "Manage Withdrawals",
       "changePassword": "Change Password",
       "twoFactorAuth": "Two-Factor Authentication",
       "notificationInbox": "Notification Inbox",
@@ -467,6 +468,14 @@
       "subtitle": "Manage profile, security, support, and account controls."
     },
     "modeCard": {
+      "toggleTitle": {
+        "toHire": "Switch to Hire Mode",
+        "toWorker": "Switch to Worker Mode"
+      },
+      "toggleHint": {
+        "toHire": "Post jobs and review applicants.",
+        "toWorker": "Find jobs and send applications."
+      },
       "sectionLabel": "ACCOUNT MODE",
       "employerModeTitle": "Employer Mode",
       "workerModeTitle": "Worker Mode",
@@ -494,6 +503,21 @@
     }
   },
   "jobDetails": {
+    "reviews": {
+      "unavailable": "Reviews are unavailable for this employer."
+    },
+    "chips": {
+      "closes": "Closes {{date}}"
+    },
+    "share": {
+      "message": "{{title}} — {{pay}}, {{location}}. Apply on MicroJobs."
+    },
+    "tabs": {
+      "description": "Description",
+      "company": "Company",
+      "review": "Review"
+    },
+    "headerTitle": "Job Detail",
     "titleFallback": "Job Details",
     "urgentBadge": "Urgent",
     "stats": {
@@ -510,6 +534,10 @@
       "rating": "Rating {{stars}}/5 • {{percentage}}% success"
     },
     "actions": {
+      "backAccessibility": "Go back",
+      "readMore": "Read more",
+      "readLess": "Read less",
+      "shareAccessibility": "Share this job",
       "viewProfile": "View Profile",
       "viewProfileAccessibility": "View employer profile",
       "saveLabel": "Saved job",
@@ -525,6 +553,7 @@
       "messageAccessibility": "Message employer"
     },
     "sections": {
+      "aboutRole": "About this role",
       "skills": "Must have skills",
       "description": "Description",
       "requirements": "Requirements"
@@ -554,6 +583,21 @@
     }
   },
   "jobs": {
+    "filters": {
+      "open": "Filters",
+      "openAccessibility": "Open job filters",
+      "title": "Filters",
+      "close": "Close filters",
+      "reset": "Reset",
+      "apply": "Show results",
+      "activeAccessibility": "{{count}} filters applied"
+    },
+    "home": {
+      "greeting": "Hi {{name}},",
+      "headline": "Find your next job",
+      "notificationsAccessibility": "Open notifications",
+      "fallbackName": "there"
+    },
     "headerTitle": "Jobs",
     "search": {
       "placeholder": "Search jobs",
@@ -579,6 +623,7 @@
       "saveButton": "Save matching preferences"
     },
     "sections": {
+      "recent": "Recent Jobs",
       "deadline": "Deadline",
       "categories": "Categories",
       "jobType": "Job Type"

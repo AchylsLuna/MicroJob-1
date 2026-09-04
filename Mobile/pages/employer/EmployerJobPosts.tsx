@@ -22,7 +22,12 @@ import { useToast } from '../../contexts/ToastContext';
 import { apiRequest, asList } from '../../lib/api';
 import { tokens } from '../../theme/tokens';
 import { formatMinimumPay } from '../../lib/jobCompensation';
-import { EmployerAction, EmployerInlineState, EmployerMetric, EmployerModeBanner } from '../../components/employer/EmployerUI';
+import { formatNotificationTime } from '../../lib/notifications';
+import { EmployerAction, EmployerInlineState, EmployerModeBanner } from '../../components/employer/EmployerUI';
+import StatTile from '../../components/ui/StatTile';
+import AnimatedPressable from '../../components/ui/AnimatedPressable';
+import useReviewSummary from '../../hooks/useReviewSummary';
+import { useAppSession } from '../../contexts/AppSessionContext';
 
 type JobItem = {
   _id: string;
@@ -84,13 +89,19 @@ export default function EmployerJobPosts({
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [balanceErrorMessage, setBalanceErrorMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const session = useAppSession();
+  const employerId = String(session.user?.id || session.user?._id || '');
+  const { averageRating, totalReviews } = useReviewSummary(employerId, 'employer');
   const mountedRef = useRef(true);
   const fetchInFlightRef = useRef(false);
   const actionInFlightRef = useRef(false);
 
-  const totalApplicants = jobs.reduce((sum, job) => sum + (job.applicants?.length || 0), 0);
   const activeJobs = jobs.filter((job) => ['Available', 'In Progress'].includes(String(job.status || 'Available'))).length;
-  const filledPositions = jobs.reduce((sum, job) => sum + Number(job.hiredCount || 0), 0);
+  // Seats still open across every posting; never negative if someone over-hires.
+  const remainingVacancy = jobs.reduce(
+    (sum, job) => sum + Math.max(0, Number(job.positionsNeeded || 1) - Number(job.hiredCount || 0)),
+    0,
+  );
 
   const fetchJobs = useCallback(async () => {
     if (fetchInFlightRef.current) return;
@@ -236,14 +247,33 @@ export default function EmployerJobPosts({
         refreshControl={<RefreshControl refreshing={loading && jobs.length > 0} onRefresh={() => void fetchJobs()} tintColor={tokens.colors.brand} />}
         ListHeaderComponent={<>
         <EmployerModeBanner title={t('jobPosts.banner.title')} detail={t('jobPosts.banner.detail')} />
-        <View style={styles.metricRow}>
-          <EmployerMetric icon="briefcase-outline" value={activeJobs} label={t('jobPosts.metrics.activeJobs')} />
-          <EmployerMetric icon="people-outline" value={totalApplicants} label={t('jobPosts.metrics.applicants')} tone="amber" />
-          <EmployerMetric icon="checkmark-circle-outline" value={filledPositions} label={t('jobPosts.metrics.workersHired')} tone="green" />
+        <View style={styles.statGrid}>
+          <StatTile label={t('jobPosts.metrics.activeJobs')} value={activeJobs} />
+          <StatTile label={t('jobPosts.metrics.totalJobs')} value={jobs.length} />
         </View>
+        <View style={styles.statGrid}>
+          <StatTile
+            label={t('jobPosts.metrics.avgRating')}
+            value={totalReviews > 0 ? averageRating.toFixed(1) : '—'}
+            icon="star"
+            iconColor={tokens.colors.warning}
+            caption={totalReviews > 0 ? t('jobPosts.metrics.reviewCount', { count: totalReviews }) : undefined}
+          />
+          <StatTile label={t('jobPosts.metrics.remainingVacancy')} value={remainingVacancy} />
+        </View>
+
+        <AnimatedPressable
+          containerStyle={styles.postJobButton}
+          onPress={onPostJob}
+          disabled={!onPostJob}
+          accessibilityRole="button"
+          accessibilityLabel={t('jobPosts.actions.postJob')}
+        >
+          <Text style={styles.postJobButtonText}>{t('jobPosts.actions.postJob')}</Text>
+        </AnimatedPressable>
+
         <Text style={styles.operationsTitle}>{t('jobPosts.quickOperations.title')}</Text>
         <View style={styles.operationsGrid}>
-          <EmployerAction icon="add-circle-outline" label={t('jobPosts.actions.postJob')} onPress={onPostJob} disabled={!onPostJob} tone="primary" />
           <EmployerAction icon="people-outline" label={t('jobPosts.actions.reviewApplicants')} onPress={onOpenApplications} disabled={!onOpenApplications} />
           <EmployerAction icon="chatbubbles-outline" label={t('jobPosts.actions.messages')} onPress={onOpenMessages} disabled={!onOpenMessages} />
           <EmployerAction icon="wallet-outline" label={t('jobPosts.actions.employerWallet')} onPress={onOpenWallet} disabled={!onOpenWallet} />
@@ -296,11 +326,14 @@ export default function EmployerJobPosts({
             </View>
 
             <View style={styles.footerRow}>
+              <Text style={styles.appliedText}>
+                {t('jobPosts.card.applied', { count: job.applicants?.length || 0 })}
+              </Text>
               <Text style={styles.footerText}>
                 {t('jobPosts.card.positions', { hired: job.hiredCount || 0, needed: job.positionsNeeded || 1 })}
               </Text>
               <Text style={styles.footerText}>
-                {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : ''}
+                {job.createdAt ? formatNotificationTime(job.createdAt) : ''}
               </Text>
             </View>
 
@@ -513,6 +546,15 @@ function DetailSection({ title, value, values }: { title: string; value?: string
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
   scroll: { paddingHorizontal: tokens.layout.gutterWide, paddingTop: tokens.layout.sectionGap, paddingBottom: tokens.layout.tabBarClearance + 16 },
+  statGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  postJobButton: {
+    minHeight: tokens.controls.buttonHeight,
+    justifyContent: 'center',
+    borderRadius: tokens.radius.pill,
+    backgroundColor: tokens.colors.brand,
+    marginBottom: tokens.spacing.md,
+  },
+  postJobButtonText: { color: tokens.colors.onBrand, fontSize: 16, fontWeight: '800' },
   metricRow: { marginTop: 14, marginBottom: 16, flexDirection: 'row', gap: 9 },
   operationsTitle: { marginBottom: 10, color: tokens.colors.brandDark, fontSize: 17, fontWeight: '900' },
   operationsGrid: { marginBottom: 18, gap: 9 },
@@ -577,6 +619,7 @@ const styles = StyleSheet.create({
   },
   jobType: { color: tokens.colors.brand, fontWeight: '700', fontSize: 12 },
   salary: { color: '#16a34a', fontWeight: '700', fontSize: 12 },
+  appliedText: { color: tokens.colors.brand, fontSize: 12, fontWeight: '800' },
   footerRow: {
     marginTop: 16,
     flexDirection: 'row',

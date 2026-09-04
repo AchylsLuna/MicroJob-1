@@ -11,7 +11,6 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 export function EmployerModeBanner({ title, detail }: { title: string; detail: string }) {
   return (
     <View style={styles.banner}>
-      <View style={styles.bannerIcon}><Ionicons name="business" size={20} color={tokens.colors.onBrand} /></View>
       <View style={styles.bannerCopy}>
         <Text style={styles.eyebrow}>EMPLOYER MODE</Text>
         <Text style={styles.bannerTitle}>{title}</Text>
@@ -77,7 +76,7 @@ function AccordionBody({ children }: { children: React.ReactNode }) {
 export function EmployerAccordion({
   title,
   subtitle,
-  icon = 'layers-outline',
+  icon,
   expanded,
   onToggle,
   children,
@@ -103,7 +102,8 @@ export function EmployerAccordion({
         accessibilityState={{ expanded }}
       >
         <View style={styles.accordionHeaderRow}>
-          <View style={styles.accordionIcon}><Ionicons name={icon} size={19} color={tokens.colors.brand} /></View>
+          {/* Decorative only: pass an icon just when the title alone is ambiguous. */}
+          {icon ? <View style={styles.accordionIcon}><Ionicons name={icon} size={19} color={tokens.colors.brand} /></View> : null}
           <View style={styles.accordionCopy}>
             <View style={styles.titleRow}>
               <Text style={styles.accordionTitle}>{title}</Text>
@@ -132,7 +132,6 @@ export function EmployerInlineState({ icon = 'information-circle-outline', title
 
 const styles = StyleSheet.create({
   banner: { flexDirection: 'row', gap: 12, borderRadius: tokens.radius.lg, padding: tokens.spacing.md, backgroundColor: tokens.colors.brandDark, overflow: 'hidden', ...tokens.shadow.card },
-  bannerIcon: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.14)' },
   bannerCopy: { flex: 1 }, eyebrow: { color: tokens.colors.onBrandMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1.3 },
   bannerTitle: { marginTop: 2, color: tokens.colors.onBrand, fontSize: 18, fontWeight: '900' },
   bannerDetail: { marginTop: 4, color: tokens.colors.onBrandMuted, fontSize: 12, lineHeight: 18 },

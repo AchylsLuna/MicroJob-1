@@ -511,7 +511,7 @@ export default function EmployerPostJob({
           </View>
           <EmployerModeBanner title={isEditing ? 'Update opportunity' : 'Create an opportunity'} detail="Clear details help local workers understand the job and your secured pay." />
 
-          <EmployerAccordion title="Opportunity basics" subtitle="Title, category, work details, skills, and guaranteed pay." icon="document-text-outline" expanded={expandedSection === 'basics'} onToggle={() => setExpandedSection((section) => section === 'basics' ? null : 'basics')}>
+          <EmployerAccordion title="Opportunity basics" subtitle="Title, category, work details, skills, and guaranteed pay." expanded={expandedSection === 'basics'} onToggle={() => setExpandedSection((section) => section === 'basics' ? null : 'basics')}>
 
           <Text style={styles.label}>Job Title</Text>
           <TextInput
@@ -625,7 +625,7 @@ export default function EmployerPostJob({
           </Text>
           </EmployerAccordion>
 
-          <EmployerAccordion title="Philippine work location" subtitle={composeLocation(formData) || 'Province, city or municipality, and barangay'} icon="location-outline" expanded={expandedSection === 'location'} onToggle={() => setExpandedSection((section) => section === 'location' ? null : 'location')}>
+          <EmployerAccordion title="Philippine work location" subtitle={composeLocation(formData) || 'Province, city or municipality, and barangay'} expanded={expandedSection === 'location'} onToggle={() => setExpandedSection((section) => section === 'location' ? null : 'location')}>
 
           <Text style={styles.label}>Location Type</Text>
           <View style={styles.chipRow}>
@@ -797,7 +797,7 @@ export default function EmployerPostJob({
           <Text style={styles.helperText}>Location preview: {composeLocation(formData) || 'Select province, city, and barangay'}</Text>
           </EmployerAccordion>
 
-          <EmployerAccordion title="Pay and hiring" subtitle="Workers needed, opportunity type, deadline, and urgency." icon="people-outline" expanded={expandedSection === 'hiring'} onToggle={() => setExpandedSection((section) => section === 'hiring' ? null : 'hiring')}>
+          <EmployerAccordion title="Pay and hiring" subtitle="Workers needed, opportunity type, deadline, and urgency." expanded={expandedSection === 'hiring'} onToggle={() => setExpandedSection((section) => section === 'hiring' ? null : 'hiring')}>
 
           <Text style={styles.label}>Workers Needed</Text>
           <TextInput
@@ -838,13 +838,25 @@ export default function EmployerPostJob({
 
           <Text style={styles.label}>Application Deadline</Text>
           <View style={styles.deadlineRow}>
-            <TouchableOpacity style={styles.deadlineButton} onPress={() => setShowDatePicker(true)}>
-              <Text style={styles.deadlineText}>
+            <TouchableOpacity
+              style={[styles.deadlineButton, deadlineDate && styles.deadlineButtonFilled]}
+              onPress={() => setShowDatePicker(true)}
+              accessibilityRole="button"
+              accessibilityLabel={deadlineDate ? `Deadline date, ${deadlineDate.toLocaleDateString()}. Change` : 'Set deadline date'}
+            >
+              <Text style={styles.deadlineCaption}>Date</Text>
+              <Text style={[styles.deadlinePlaceholder, deadlineDate && styles.deadlineValue]} numberOfLines={1}>
                 {deadlineDate ? deadlineDate.toLocaleDateString() : 'Select date'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.deadlineButton} onPress={() => setShowTimePicker(true)}>
-              <Text style={styles.deadlineText}>
+            <TouchableOpacity
+              style={[styles.deadlineButton, deadlineTime && styles.deadlineButtonFilled]}
+              onPress={() => setShowTimePicker(true)}
+              accessibilityRole="button"
+              accessibilityLabel={deadlineTime ? `Deadline time, ${deadlineTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Change` : 'Set deadline time'}
+            >
+              <Text style={styles.deadlineCaption}>Time</Text>
+              <Text style={[styles.deadlinePlaceholder, deadlineTime && styles.deadlineValue]} numberOfLines={1}>
                 {deadlineTime
                   ? deadlineTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                   : 'Select time'}
@@ -869,8 +881,20 @@ export default function EmployerPostJob({
           />
 
           <View style={styles.urgentRow}>
-            <Text style={styles.urgentLabel}>Mark as urgent</Text>
-            <Switch value={isUrgent} onValueChange={setIsUrgent} />
+            <View style={styles.urgentCopy}>
+              <Text style={styles.urgentLabel}>Mark as urgent</Text>
+              <Text style={styles.urgentHint}>Highlights this post so workers see it first.</Text>
+            </View>
+            <Switch
+              value={isUrgent}
+              onValueChange={setIsUrgent}
+              trackColor={{ false: tokens.colors.border, true: tokens.colors.brand }}
+              thumbColor={tokens.colors.white}
+              ios_backgroundColor={tokens.colors.border}
+              accessibilityRole="switch"
+              accessibilityLabel="Mark as urgent"
+              accessibilityState={{ checked: isUrgent }}
+            />
           </View>
           </EmployerAccordion>
 
@@ -1044,23 +1068,39 @@ const styles = StyleSheet.create({
   },
   deadlineRow: { flexDirection: 'row', gap: 10 },
   deadlineButton: {
-    minHeight: 52,
+    minHeight: 62,
     flex: 1,
-    backgroundColor: tokens.colors.surfaceMuted,
+    justifyContent: 'center',
+    gap: 2,
+    backgroundColor: tokens.colors.surface,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
+    paddingVertical: 10,
   },
-  deadlineText: { color: tokens.colors.text, fontSize: 13, fontWeight: '600' },
+  // A chosen value gets a brand-tinted field so a set deadline is obvious at a glance.
+  deadlineButtonFilled: { backgroundColor: tokens.colors.brandSoft, borderColor: tokens.colors.brandMuted },
+  deadlineCaption: { color: tokens.colors.textMuted, fontSize: 11, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase' },
+  deadlinePlaceholder: { color: tokens.colors.textSubtle, fontSize: 15, fontWeight: '600' },
+  deadlineValue: { color: tokens.colors.brandDark, fontWeight: '800' },
   urgentRow: {
     minHeight: 52,
     marginTop: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: tokens.spacing.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    backgroundColor: tokens.colors.surface,
   },
-  urgentLabel: { fontSize: 14, color: tokens.colors.text, fontWeight: '600' },
+  urgentCopy: { flex: 1, gap: 2 },
+  urgentLabel: { fontSize: 14, color: tokens.colors.text, fontWeight: '700' },
+  urgentHint: { fontSize: 12, color: tokens.colors.textMuted, lineHeight: 16 },
   submitButtonDisabled: { opacity: 0.6 },
   submitButtonText: { color: tokens.colors.surface, fontSize: 15, fontWeight: '700' },
   errorCard: {
