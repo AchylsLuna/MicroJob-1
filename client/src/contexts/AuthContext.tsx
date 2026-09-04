@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import {
   loginUser,
+  googleLogin as googleLoginRequest,
   verifyLoginMfa,
   registerUser,
   sendOtp,
@@ -59,6 +60,7 @@ export interface User {
   jobPosition?: string;
   about?: string;
   avatarUrl?: string;
+  authProvider?: "password" | "google";
   resumeUrl?: string;
   employerBalance?: number;
   workerBalance?: number;
@@ -115,6 +117,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean }) => Promise<LoginResult>;
+  googleSignIn: (credential: string, role?: "hire" | "work" | "both") => Promise<User>;
   mfaChallenge: MfaChallenge | null;
   verifyMfaLogin: (code: string, options?: { suppressToast?: boolean }) => Promise<User>;
   cancelMfaLogin: () => void;
@@ -339,6 +342,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       website: apiUser.website,
       jobPosition: apiUser.jobPosition,
       avatarUrl: apiUser.avatarUrl,
+      authProvider: apiUser.authProvider === "google" ? "google" : "password",
       passwordChangeRequired: Boolean(apiUser.passwordChangeRequired),
       createdAt: new Date().toISOString(),
     };
@@ -666,6 +670,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const googleSignIn = async (credential: string, role: "hire" | "work" | "both" = "both") => {
+    if (!credential.trim()) throw new Error("Google sign-in was cancelled.");
+    setIsLoading(true);
+    try {
+      const response = await googleLoginRequest({ credential, role });
+      const loggedInUser = completeLogin(response, "");
+      toast.success(`Welcome, ${loggedInUser.firstName}!`);
+      return loggedInUser;
+    } catch (error: any) {
+      throw new Error(error?.message || "Google sign-in failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const verifyMfaLogin = async (code: string, options?: { suppressToast?: boolean }) => {
     if (!mfaChallenge) throw new Error("MFA challenge expired. Please sign in again.");
     const normalizedCode = code.trim();
@@ -801,6 +820,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isLoading,
         login,
+        googleSignIn,
         mfaChallenge,
         verifyMfaLogin,
         cancelMfaLogin,

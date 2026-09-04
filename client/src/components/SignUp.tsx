@@ -22,6 +22,7 @@ import {
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 
 const SIGN_UP_DRAFT_KEY = "signup_draft_v1";
 
@@ -38,7 +39,7 @@ type SignUpDraft = {
 export function SignUp() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
-  const { register, isAuthenticated, user } = useAuth();
+  const { register, googleSignIn, isAuthenticated, user } = useAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -198,6 +199,18 @@ export function SignUp() {
       }
     } finally {
       submitInFlightRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleSignUp = async (credential: string) => {
+    setIsSubmitting(true);
+    try {
+      const role = userType === "employer" ? "hire" : userType === "worker" ? "work" : "both";
+      await googleSignIn(credential, role);
+    } catch (error: any) {
+      toast.error(error?.message || t("signUp.toast.googleFailed"));
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -541,6 +554,12 @@ export function SignUp() {
                   {isSubmitting ? t("signUp.form.submitLoading") : t("signUp.form.submit")}
                 </button>
               </form>
+                <div className="my-6 flex items-center gap-3 text-[12px] text-[#9CA3AF]">
+                  <span className="h-px flex-1 bg-[#E5E7EB]" />
+                  <span>{t("signUp.form.orContinueWith")}</span>
+                  <span className="h-px flex-1 bg-[#E5E7EB]" />
+                </div>
+                <GoogleSignInButton onCredential={handleGoogleSignUp} disabled={isSubmitting} />
             </div>
 
             <div className="mt-4 text-center">

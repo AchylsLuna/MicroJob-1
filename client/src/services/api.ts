@@ -382,9 +382,14 @@ async function request<T>(
     if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession })) {
       handleInvalidSession();
     }
-    const error = new Error(message) as Error & { status?: number; code?: string };
+    const error = new Error(message) as Error & {
+      status?: number;
+      code?: string;
+      blockers?: Array<{ code: string; message: string; count: number }>;
+    };
     error.status = res.status;
     if (typeof data?.code === 'string') error.code = data.code;
+    if (Array.isArray(data?.blockers)) error.blockers = data.blockers;
     throw error;
   }
   return data as T;
@@ -397,6 +402,10 @@ export function registerUser(payload: { username?: string; firstName?: string; l
 
 export function loginUser(payload: { emailOrUsername: string; password: string }) {
   return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
+}
+
+export function googleLogin(payload: { credential: string; role?: string }) {
+  return request<LoginResponse>('/auth/google', { method: 'POST', body: payload });
 }
 
 export function verifyLoginMfa(payload: { mfaToken: string; code: string }) {

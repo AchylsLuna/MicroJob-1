@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
@@ -32,6 +33,8 @@ import {
 } from '../lib/mfaHelpers.js';
 import { getOtpChallenge, verifyOtpChallenge } from '../lib/otpChallenges.js';
 import { SELF_SERVICE_ROLES } from './SessionController.js';
+
+const googleClient = new OAuth2Client();
 
 const registerUser = async (req, res) => {
   try {
@@ -253,6 +256,97 @@ const loginUser = async (req, res) => {
   }
 };
 
+const googleLogin = async (req, res) => {
+  try {
+    const credential = String(req.body?.credential || '').trim();
+    if (!credential) {
+      return sendError(res, 400, 'Google credential is required.');
+    }
+
+    const clientId = String(process.env.GOOGLE_CLIENT_ID || '').trim();
+    if (!clientId) {
+      console.error('Google login is not configured: GOOGLE_CLIENT_ID is missing.');
+      return sendError(res, 503, 'Google sign-in is not configured.');
+    }
+
+    let ticket;
+    try {
+      ticket = await googleClient.verifyIdToken({ idToken: credential, audience: clientId });
+    } catch {
+      return sendError(res, 401, 'Google sign-in could not be verified. Please try again.');
+    }
+
+    const payload = ticket.getPayload();
+    const googleId = String(payload?.sub || '').trim();
+    const email = normalizeEmail(payload?.email);
+    if (!googleId || !email || payload?.email_verified !== true) {
+      return sendError(res, 401, 'Google sign-in returned an unverified account.');
+    }
+
+    const requestedRole = SELF_SERVICE_ROLES.has(req.body?.role) ? req.body.role : 'both';
+    let user = await User.findOne({ $or: [{ googleId }, { email }] }).select('+googleId');
+
+    if (user?.status === 'disabled') {
+      return sendError(res, 401, 'Account is disabled. Contact an admin.');
+    }
+    if (user?.status === 'deleted') {
+      return sendError(res, 401, 'Account has been deleted.');
+    }
+
+    if (!user) {
+      const displayName = normalizeDisplayName(payload.name || '');
+      const nameParts = displayName.split(' ').filter(Boolean);
+      const firstName = normalizeName(payload.given_name || nameParts[0] || 'Google');
+      const lastName = normalizeName(payload.family_name || nameParts.slice(1).join(' ') || 'User');
+      user = new User({
+        firstName,
+        lastName,
+        email,
+        googleId,
+        authProvider: 'google',
+        role: requestedRole,
+        status: 'active',
+        verification: { emailVerified: true },
+      });
+      await user.setPassword(crypto.randomBytes(32).toString('hex'));
+      await user.save();
+    } else {
+      if (!user.googleId) user.googleId = googleId;
+      if (user.authProvider !== 'google') user.authProvider = 'google';
+      user.verification = {
+        ...(user.verification?.toObject?.() || user.verification || {}),
+        emailVerified: true,
+      };
+      if (user.status === 'pending') {
+        user.status = 'active';
+      }
+      await user.save();
+    }
+
+    const authSession = await createSessionWithTokens(req, user);
+    const csrfToken = crypto.randomBytes(24).toString('hex');
+    setSessionCookies(res, {
+      refreshToken: authSession.refreshToken,
+      sessionId: authSession.sessionId,
+      accessToken: authSession.accessToken,
+      accessTokenExpiresAt: authSession.accessTokenExpiresAt,
+      expiresAt: authSession.expiresAt,
+      csrfToken,
+    });
+
+    return sendSuccess(res, 200, 'Google login successful', {
+      ...buildAuthTokensPayload(req, authSession),
+      user: buildLoginPayload(user),
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      return sendError(res, 409, 'This Google account is already linked to another account.');
+    }
+    console.error('Google login error:', error);
+    return sendError(res, 500, 'Server error during Google sign-in.');
+  }
+};
+
 const loginMfa = async (req, res) => {
   try {
     const { mfaToken, code } = req.body || {};
@@ -428,6 +522,7 @@ const loginOtpResend = async (req, res) => {
 export {
   registerUser,
   loginUser,
+  googleLogin,
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
@@ -435,6 +530,7 @@ export {
 export default {
   registerUser,
   loginUser,
+  googleLogin,
   loginMfa,
   loginOtpVerify,
   loginOtpResend,

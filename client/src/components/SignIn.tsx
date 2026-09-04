@@ -12,12 +12,13 @@ import { ROUTES } from "../utils/routes";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { OTPVerification } from "./OTPVerification";
 import { MfaLoginForm } from "./auth/MfaLoginForm";
+import { GoogleSignInButton } from "./GoogleSignInButton";
 
 export function SignIn() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
+  const { login, googleSignIn, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
   const landingPath = getPostAuthLandingPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -127,6 +128,17 @@ export function SignIn() {
 
   const handleForgotPassword = () => {
     navigate(ROUTES.forgotPassword);
+  };
+
+  const handleGoogleSignIn = async (credential: string) => {
+    setIsLoading(true);
+    try {
+      await googleSignIn(credential);
+    } catch (error: any) {
+      toast.error(error?.message || t("signIn.toast.googleFailed"));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -274,6 +286,13 @@ export function SignIn() {
             </button>
 
           </form>
+
+          <div className="my-6 flex items-center gap-3 text-[12px] text-[#9CA3AF]">
+            <span className="h-px flex-1 bg-[#E5E7EB]" />
+            <span>{t("signIn.form.orContinueWith")}</span>
+            <span className="h-px flex-1 bg-[#E5E7EB]" />
+          </div>
+          <GoogleSignInButton onCredential={handleGoogleSignIn} disabled={isLoading} />
 
           {/* Sign Up Link */}
           <div className="mt-6 text-center">

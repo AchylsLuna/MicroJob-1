@@ -33,7 +33,16 @@ export function DeleteAccountCard() {
       toast.success(t("settings.deleteAccount.toast.deleteSuccess"));
       window.location.assign("/sign-in");
     } catch (error: any) {
-      toast.error(error?.message || t("settings.deleteAccount.toast.deleteFailed"));
+      const blockers = error?.blockers as Array<{ message?: string; count?: number }> | undefined;
+      if (blockers?.length) {
+        toast.error(
+          `${error?.message || t("settings.deleteAccount.toast.deleteFailed")} ${blockers
+            .map((blocker) => `${blocker.message || "Unresolved requirement"}${blocker.count ? ` (${blocker.count})` : ""}`)
+            .join(" ")}`
+        );
+      } else {
+        toast.error(error?.message || t("settings.deleteAccount.toast.deleteFailed"));
+      }
     } finally {
       setIsDeleting(false);
     }

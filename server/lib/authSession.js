@@ -157,5 +157,6 @@ export const buildLoginPayload = (user, includePhone = false) => {
     website: user.website,
     jobPosition: user.jobPosition,
     passwordChangeRequired: Boolean(user.passwordChangeRequired),
+    authProvider: user.authProvider || 'password',
   };
 };

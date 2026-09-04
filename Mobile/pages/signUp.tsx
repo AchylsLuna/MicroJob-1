@@ -5,11 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
+import { GOOGLE_CLIENT_ID } from '../config';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri, ResponseType, useAuthRequest } from 'expo-auth-session';
 import { apiRequest } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
 import AuthStepCard from '../components/auth/AuthStepCard';
-import { AuthButton, AuthField, PasswordChecklist } from '../components/auth/AuthControls';
+import { AuthButton, AuthField, GoogleAuthButton, PasswordChecklist } from '../components/auth/AuthControls';
 import { AUTH_COLORS } from '../theme/authTheme';
 import {
   isValidEmail,
@@ -25,6 +28,13 @@ type Props = { onBack: () => void; onNavigateToSignIn: () => void; onNavigateToV
 type Errors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirm', string>>;
 
 export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify }: Props) {
+  WebBrowser.maybeCompleteAuthSession();
+  const [googleRequest, , promptGoogle] = useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+    responseType: ResponseType.IdToken,
+    scopes: ['openid', 'profile', 'email'],
+    redirectUri: makeRedirectUri({ scheme: 'microjobs' }),
+  }, { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' });
   const { t } = useTranslation('auth');
   const roles = useMemo<Array<{ value: Role; title: string; subtitle: string; icon: keyof typeof Feather.glyphMap }>>(() => [
     { value: 'work', title: t('signUp.roles.work.title'), subtitle: t('signUp.roles.work.subtitle'), icon: 'user' },
@@ -110,6 +120,34 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
     finally { setLoading(false); }
   };
 
+  const handleGoogleSignUp = async () => {
+    if (!GOOGLE_CLIENT_ID || !googleRequest) {
+      toast.error('Google sign-up is not configured.');
+      return;
+    }
+    const result = await promptGoogle();
+    if (result.type !== 'success' || !result.params?.id_token) return;
+    setLoading(true);
+    try {
+      const response = await apiRequest(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: result.params.id_token, role }),
+      }, 'Google sign-up failed.');
+      const data = (response.data || response.raw) as any;
+      if (!response.ok || !data?.token || !data?.user) throw new Error(response.message);
+      await AsyncStorage.setItem('auth_token', data.token);
+      if (data.refreshToken) await AsyncStorage.setItem('auth_refresh_token', data.refreshToken);
+      await AsyncStorage.setItem('auth_user', JSON.stringify(data.user));
+      toast.success(t('signUp.toast.accountCreated'));
+      onNavigateToSignIn();
+    } catch (error: any) {
+      toast.error(error?.message || 'Google sign-up failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return <AuthScreenLayout
     title={t('signUp.title')}
     subtitle={step === 1 ? t('signUp.subtitleStep1') : step === 2 ? t('signUp.subtitleStep2') : t('signUp.subtitleStep3')}
@@ -139,6 +177,10 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
         <AuthButton label={t('signUp.createAccount')} onPress={submit} loading={loading} />
       </> : null}
     </AuthStepCard>
+    <View style={styles.googleSection}>
+      <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>or continue with</Text><View style={styles.dividerLine} /></View>
+      <GoogleAuthButton onPress={handleGoogleSignUp} loading={loading} disabled={!googleRequest} />
+    </View>
     <View style={styles.signInRow}>
       <Text style={styles.muted}>{t('signUp.alreadyHaveAccount')}</Text>
       <TouchableOpacity
@@ -158,6 +200,10 @@ const styles = StyleSheet.create({
   progressTrack: { height: 7, backgroundColor: AUTH_COLORS.blueControlSurface, borderRadius: 4, marginBottom: 18, overflow: 'hidden' },
   progressFill: { height: 7, backgroundColor: AUTH_COLORS.primary, borderRadius: 4 },
   card: { marginBottom: 18 },
+  googleSection: { marginBottom: 16 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: AUTH_COLORS.cardBorder },
+  dividerText: { color: AUTH_COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
   role: { minHeight: 76, borderWidth: 1, borderColor: AUTH_COLORS.cardBorder, borderRadius: 14, padding: 12, marginBottom: 12, flexDirection: 'row', alignItems: 'center' },
   roleSelected: { borderColor: AUTH_COLORS.primary, backgroundColor: '#EFF6FF' },
   roleIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EAF1FB', alignItems: 'center', justifyContent: 'center' },

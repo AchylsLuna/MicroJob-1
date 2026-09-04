@@ -51,6 +51,25 @@ export function AuthButton({ label, onPress, loading = false, disabled = false, 
   </TouchableOpacity>;
 }
 
+export function GoogleAuthButton({ onPress, loading = false, disabled = false }: {
+  onPress?: () => void; loading?: boolean; disabled?: boolean;
+}) {
+  const blocked = loading || disabled;
+  return <TouchableOpacity
+    style={[styles.googleButton, blocked ? styles.disabled : null]}
+    onPress={onPress}
+    disabled={blocked}
+    accessibilityRole="button"
+    accessibilityLabel="Continue with Google"
+    accessibilityState={{ disabled: blocked, busy: loading }}
+  >
+    {loading ? <ActivityIndicator color={AUTH_COLORS.googleBlue} /> : <>
+      <Text style={styles.googleMark}>G</Text>
+      <Text style={styles.googleButtonText}>Continue with Google</Text>
+    </>}
+  </TouchableOpacity>;
+}
+
 export function PasswordChecklist({ password, confirm }: { password: string; confirm?: string }) {
   const checks = getPasswordChecks(password);
   const rules = [
@@ -84,6 +103,9 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.55 },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center', flexShrink: 1 },
   secondaryButtonText: { color: AUTH_COLORS.primary },
+  googleButton: { minHeight: 54, borderRadius: 14, borderWidth: 1, borderColor: AUTH_COLORS.googleBorder, backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, gap: 10 },
+  googleMark: { color: AUTH_COLORS.googleBlue, fontSize: 20, fontWeight: '800' },
+  googleButtonText: { color: AUTH_COLORS.textPrimary, fontSize: 15, fontWeight: '700' },
   checklist: { backgroundColor: '#F8FAFC', padding: 13, borderRadius: 12, marginBottom: 14 },
   rule: { flexDirection: 'row', alignItems: 'flex-start', marginVertical: 3 },
   ruleText: { color: AUTH_COLORS.textSecondary, fontSize: 12, marginLeft: 8, flex: 1, flexShrink: 1 },
