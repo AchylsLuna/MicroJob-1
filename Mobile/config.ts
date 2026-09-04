@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const envApiUrl = process.env.EXPO_PUBLIC_API_URL;
+export const GOOGLE_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || '';
 const envSocketUrl = process.env.EXPO_PUBLIC_SOCKET_URL;
 const envSocketPath = process.env.EXPO_PUBLIC_SOCKET_PATH;
 const envApiSource = process.env.EXPO_PUBLIC_API_SOURCE;

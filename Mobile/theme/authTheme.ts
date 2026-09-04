@@ -53,6 +53,8 @@ export const AUTH_COLORS = {
   placeholderLight: '#94A3B8',
   linkLight: '#1C4D8D',
   linkAccent: '#1C4D8D',
+  googleBlue: '#4285F4',
+  googleBorder: '#DADCE0',
   success: '#22C55E',
   warning: '#ff9f1c',
   danger: '#f15c5c',

@@ -36,6 +36,7 @@ export default function DeleteAccount({ onBack, onDeleted }: DeleteAccountProps)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const toast = useToast();
 
+
   const handleDeleteAccount = async () => {
     if (!currentPassword) {
       setErrorMessage(t('deleteAccount.errors.passwordRequired'));
@@ -59,7 +60,7 @@ export default function DeleteAccount({ onBack, onDeleted }: DeleteAccountProps)
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          currentPassword,
+        currentPassword,
           confirm: confirmText.trim().toUpperCase(),
         }),
       }, t('deleteAccount.apiFallback.deleteFailed'));

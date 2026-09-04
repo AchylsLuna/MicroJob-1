@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { API_URL } from '../config';
+import { API_URL, GOOGLE_CLIENT_ID } from '../config';
 import ScrollView from '../components/ui/SmoothScrollView';
 import CanvasBackButton from '../components/ui/CanvasBackButton';
 import MicroJobsLogo from '../components/auth/MicroJobsLogo';
@@ -19,7 +19,10 @@ import AsyncStorage from '../lib/storage';
 import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri, ResponseType, useAuthRequest } from 'expo-auth-session';
 import { AUTH_COLORS, clamp, getAuthMetrics } from '../theme/authTheme';
+import { GoogleAuthButton } from '../components/auth/AuthControls';
 import { useToast } from '../contexts/ToastContext';
 import { isValidEmail, normalizeEmail } from '../lib/authValidation';
 
@@ -36,6 +39,13 @@ export default function SignIn({
   onNavigateToVerify?: (params?: { mode?: 'emailVerification' | 'loginOtp'; email?: string; otpToken?: string }) => void;
   onLogin?: () => void;
 }) {
+  WebBrowser.maybeCompleteAuthSession();
+  const [googleRequest, , promptGoogle] = useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+    responseType: ResponseType.IdToken,
+    scopes: ['openid', 'profile', 'email'],
+    redirectUri: makeRedirectUri({ scheme: 'microjobs' }),
+  }, { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' });
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
   const metrics = getAuthMetrics(screenWidth, screenHeight, fontScale);
@@ -78,6 +88,33 @@ export default function SignIn({
     if (/disabled|deleted/.test(normalizedMessage)) return t('signIn.toast.accountUnavailable');
     if (status === 401 || /incorrect|invalid credentials|password/.test(normalizedMessage)) return t('signIn.toast.incorrectPassword');
     return message && !/https?:\/\//i.test(message) ? message : t('signIn.toast.signInFailed');
+  };
+
+  const handleGoogleSignIn = async () => {
+    if (!GOOGLE_CLIENT_ID || !googleRequest) {
+      toast.error('Google sign-in is not configured.');
+      return;
+    }
+    const result = await promptGoogle();
+    if (result.type !== 'success' || !result.params?.id_token) {
+      if (result.type !== 'cancel' && result.type !== 'dismiss') toast.error('Google sign-in failed.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const response = await apiRequest(`${API_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential: result.params.id_token }),
+      }, 'Google sign-in failed.');
+      const data = asObject<any>(response.data) || asObject<any>(response.raw) || {};
+      if (!response.ok || !data.token || !data.user) throw new Error(response.message);
+      await continueAfterPrimaryAuth(data.token, data.user, data.refreshToken);
+    } catch (error: any) {
+      toast.error(error?.message || 'Google sign-in failed.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const continueAfterPrimaryAuth = async (token: string, user: any, refreshToken?: string) => {
@@ -353,6 +390,11 @@ export default function SignIn({
             )}
           </TouchableOpacity>
 
+          <View style={styles.googleSection}>
+            <View style={styles.divider}><View style={styles.dividerLine} /><Text style={styles.dividerText}>or continue with</Text><View style={styles.dividerLine} /></View>
+            <GoogleAuthButton onPress={handleGoogleSignIn} loading={isLoading} disabled={!googleRequest} />
+          </View>
+
           <View style={styles.bottomRow}>
             <Text style={[styles.bottomText, { fontSize: helperFontSize }]}>
               {t('signIn.noAccount')}
@@ -505,4 +547,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     flexShrink: 1,
   },
+  googleSection: { marginTop: 2, marginBottom: 16 },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: AUTH_COLORS.cardBorder },
+  dividerText: { color: AUTH_COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
 });
