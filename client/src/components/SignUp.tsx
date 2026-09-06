@@ -22,14 +22,16 @@ import {
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import {
+  AuthDivider,
   AuthShell,
   authFieldClass,
   authFieldErrorClass,
   authLabelClass,
   authPrimaryButtonClass,
 } from "./auth/AuthShell";
-import { AuthDivider, GoogleButton } from "./auth/GoogleButton";
 import { PasswordField } from "./auth/PasswordField";
+import { GoogleSignInButton } from "./GoogleSignInButton";
+import { googleSignInConfigured } from "../lib/googleAuth";
 import { RoleChooser, type SignUpRole } from "./auth/RoleChooser";
 
 const SIGN_UP_DRAFT_KEY = "signup_draft_v1";
@@ -50,7 +52,7 @@ const isSignUpRole = (value: unknown): value is SignUpRole =>
 export function SignUp() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
-  const { register, isAuthenticated, user } = useAuth();
+  const { register, googleSignIn, isAuthenticated, user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [formData, setFormData] = useState({
     fullName: "",
@@ -140,6 +142,21 @@ export function SignUp() {
       return;
     }
     setFormData({ ...formData, [field]: value });
+  };
+
+  // Google accounts skip the form entirely, so the role chosen in step 1 is the
+  // only signal for which kind of account to create. Same hire/work/both wire
+  // values AuthContext.register uses.
+  const handleGoogleSignUp = async (credential: string) => {
+    setIsSubmitting(true);
+    try {
+      const role = selectedRole === "employer" ? "hire" : selectedRole === "worker" ? "work" : "both";
+      await googleSignIn(credential, role);
+    } catch (error: any) {
+      toast.error(error?.message || t("signUp.toast.googleFailed"));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -272,11 +289,14 @@ export function SignUp() {
           </button>
         </div>
 
-        <GoogleButton />
-
-        <div className="my-6">
-          <AuthDivider />
-        </div>
+        {googleSignInConfigured ? (
+          <>
+            <GoogleSignInButton onCredential={handleGoogleSignUp} disabled={isSubmitting} />
+            <div className="my-6">
+              <AuthDivider label={t("signUp.form.orContinueWith")} />
+            </div>
+          </>
+        ) : null}
 
         <form onSubmit={handleSignUp} className="space-y-5" noValidate>
           <div>

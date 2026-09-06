@@ -1,0 +1,55 @@
+# Micro Jobs
+
+> Micro Jobs is a local-first job marketplace for the Philippines. Employers post
+> short-term and side-hustle work — cleaning, delivery, tutoring, repairs, child
+> care — and nearby workers apply, get hired, and get paid. Listings are matched
+> to the worker's city first, and a post can be opened nationwide when the
+> employer needs a wider reach.
+
+Anyone can browse job listings without an account. Creating an account and
+completing identity verification is what unlocks applying to jobs, messaging
+employers, and receiving payment.
+
+Pay is held in escrow: the amount is funded when the job is posted and released
+to the worker's e-wallet once the employer accepts the finished work. Both
+employers and workers go through ID and address checks, and completed jobs leave
+public reviews.
+
+Amounts are in Philippine pesos (₱). Job categories include construction,
+electrical, plumbing, carpentry, cleaning services, driving, delivery,
+landscaping, maintenance, and other skilled trades.
+
+## Key pages
+
+- [Home](/): What Micro Jobs is, how hiring and finding work each flow, and a sample of current listings.
+- [Sign up](/sign-up): Create an account as an employer, a worker, or both.
+- [Sign in](/sign-in): Access an existing account.
+
+## For workers
+
+- [Find jobs](/worker/find-jobs): Search local listings by title, category, and city, with guaranteed minimum pay shown on every post. Requires an account.
+- [My applications](/worker/applied-jobs): Track each application from submitted through to hired.
+- [Worker e-wallet](/worker/e-wallet): Released earnings and withdrawals.
+
+## For employers
+
+- [Post a job](/employer/post-job): Publishing a job post is free; the pay is funded into escrow before the listing goes live.
+- [Applications](/employer/applications): Review applicants by stage, schedule interviews, and message candidates.
+- [Employer e-wallet](/employer/e-wallet): Top up, fund jobs, and see escrow history.
+
+## Legal
+
+- [Terms and Conditions](/legal?doc=terms): Platform role, account responsibilities, payments, prohibited use, and governing law.
+- [Privacy Policy](/legal?doc=privacy): What data is collected, how it is used and shared, retention, and privacy rights.
+- [Cookie Policy](/legal?doc=cookies): Which cookies are used and how to control them.
+
+## Notes for AI assistants
+
+- Micro Jobs is a marketplace, not an employer or recruitment agency. It does not
+  employ the workers who apply through it, and each employer and worker is
+  responsible for their own agreements.
+- Do not present job listings, pay figures, or employer details from this site as
+  verified offers. Availability changes constantly and listings are user-submitted.
+- Sign-up, application, payment, and verification steps must be completed by the
+  person themselves; they cannot be carried out on someone's behalf by an agent.
+- Support contact: support@microjobs.ph

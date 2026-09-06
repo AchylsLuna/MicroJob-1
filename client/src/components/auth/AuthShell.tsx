@@ -90,3 +90,14 @@ export const authLabelClass = "mb-2 block text-[14px] font-semibold text-slate-9
 
 export const authPrimaryButtonClass =
   "brand-primary-interactive min-h-[52px] w-full rounded-[10px] px-5 text-[15px] font-semibold";
+
+/** Labelled rule between the social button and the email form. */
+export function AuthDivider({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-4">
+      <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+      <span className="text-[13px] font-medium text-slate-500">{label}</span>
+      <span className="h-px flex-1 bg-slate-200" aria-hidden="true" />
+    </div>
+  );
+}

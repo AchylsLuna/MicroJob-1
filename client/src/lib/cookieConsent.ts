@@ -61,12 +61,18 @@ export function readConsent(): CookieConsent | null {
   }
 }
 
+/** Fired whenever the stored decision changes, so gated scripts can react. */
+export const COOKIE_CONSENT_CHANGED_EVENT = "microjobs:cookie-consent-changed";
+
 export function writeConsent(consent: CookieConsent): void {
   try {
     localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify(consent));
   } catch {
     // Storage unavailable; the banner will simply ask again next visit.
   }
+  // Announce even if persistence failed — the choice still applies to this
+  // page view, and analytics must switch off immediately either way.
+  window.dispatchEvent(new Event(COOKIE_CONSENT_CHANGED_EVENT));
 }
 
 /** Lets the footer link reopen the preference centre from anywhere. */

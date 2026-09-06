@@ -100,8 +100,8 @@ export default function OnboardingCarouselScreen({
   const isCompactHeight = usableHeight < 700 || metrics.largeText;
   const flatListRef = useRef<FlatList<OnboardingSlide>>(null);
   const scrollX = useRef(new Animated.Value(activeIndex * width)).current;
-  // The dots widen the active pill, which is a layout property and therefore cannot be
-  // driven by the native-driver scrollX. This tracks the settled page index instead.
+  // Tracks the settled page index separately from the native-driver scrollX so the
+  // pagination pill can animate on its own native-driver timeline.
   const dotProgress = useRef(new Animated.Value(activeIndex)).current;
   const previousIndexRef = useRef(activeIndex);
   const selectedIndexRef = useRef(activeIndex);
@@ -142,8 +142,8 @@ export default function OnboardingCarouselScreen({
 
   useEffect(() => {
     const animation = reducedMotion
-      ? Animated.timing(dotProgress, { toValue: activeIndex, duration: motion.duration.instant, useNativeDriver: false })
-      : Animated.spring(dotProgress, { toValue: activeIndex, useNativeDriver: false, ...motion.spring });
+      ? Animated.timing(dotProgress, { toValue: activeIndex, duration: motion.duration.instant, useNativeDriver: true })
+      : Animated.spring(dotProgress, { toValue: activeIndex, useNativeDriver: true, ...motion.spring });
     animation.start();
     return () => animation.stop();
   }, [activeIndex, dotProgress, reducedMotion]);
@@ -279,11 +279,11 @@ export default function OnboardingCarouselScreen({
         <View style={styles.dots} accessibilityLabel={t('onboarding.slideProgressA11y', { current: activeIndex + 1, total: slides.length })} accessibilityLiveRegion="polite">
           {slides.map((_, dotIndex) => {
             const dotInputRange = [dotIndex - 1, dotIndex, dotIndex + 1];
-            // Animating width (not scaleX) keeps the pill inside its own layout slot, so a
-            // widened active dot pushes its neighbours along instead of covering them.
-            const dotWidth = dotProgress.interpolate({
+            // Every dot reserves a fixed DOT_ACTIVE_WIDTH layout slot; the active state is
+            // expressed purely as a native-driver transform so nothing reflows.
+            const dotScale = dotProgress.interpolate({
               inputRange: dotInputRange,
-              outputRange: [DOT_SIZE, DOT_ACTIVE_WIDTH, DOT_SIZE],
+              outputRange: [DOT_SIZE / DOT_ACTIVE_WIDTH, 1, DOT_SIZE / DOT_ACTIVE_WIDTH],
               extrapolate: 'clamp',
             });
             const dotOpacity = dotProgress.interpolate({
@@ -291,7 +291,12 @@ export default function OnboardingCarouselScreen({
               outputRange: [0.28, 1, 0.28],
               extrapolate: 'clamp',
             });
-            return <Animated.View key={dotIndex} style={[styles.dot, { width: dotWidth, opacity: dotOpacity }]} />;
+            return (
+              <Animated.View
+                key={dotIndex}
+                style={[styles.dot, { opacity: dotOpacity, transform: [{ scaleX: dotScale }] }]}
+              />
+            );
           })}
         </View>
 
@@ -491,9 +496,9 @@ const styles = StyleSheet.create({
   dots: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
   },
   dot: {
+    width: DOT_ACTIVE_WIDTH,
     height: DOT_SIZE,
     borderRadius: 999,
     backgroundColor: AUTH_COLORS.primary,

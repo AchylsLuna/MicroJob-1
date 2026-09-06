@@ -11,19 +11,21 @@ import { ROUTES } from "../utils/routes";
 import { OTPVerification } from "./OTPVerification";
 import { MfaLoginForm } from "./auth/MfaLoginForm";
 import {
+  AuthDivider,
   AuthShell,
   authFieldClass,
   authLabelClass,
   authPrimaryButtonClass,
 } from "./auth/AuthShell";
-import { AuthDivider, GoogleButton } from "./auth/GoogleButton";
 import { PasswordField } from "./auth/PasswordField";
+import { GoogleSignInButton } from "./GoogleSignInButton";
+import { googleSignInConfigured } from "../lib/googleAuth";
 
 export function SignIn() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
+  const { login, googleSignIn, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
   const landingPath = getPostAuthLandingPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -131,6 +133,17 @@ export function SignIn() {
     }
   };
 
+  const handleGoogleSignIn = async (credential: string) => {
+    setIsLoading(true);
+    try {
+      await googleSignIn(credential);
+    } catch (error: any) {
+      toast.error(error?.message || t("signIn.toast.googleFailed"));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleForgotPassword = () => {
     navigate(ROUTES.forgotPassword);
   };
@@ -163,11 +176,14 @@ export function SignIn() {
           </>
         }
       >
-        <GoogleButton />
-
-        <div className="my-6">
-          <AuthDivider />
-        </div>
+        {googleSignInConfigured ? (
+          <>
+            <GoogleSignInButton onCredential={handleGoogleSignIn} disabled={isLoading} />
+            <div className="my-6">
+              <AuthDivider label={t("signIn.form.orContinueWith")} />
+            </div>
+          </>
+        ) : null}
 
         <form onSubmit={handleSignIn} className="space-y-5" noValidate>
           <div>

@@ -3,7 +3,7 @@ import http from 'http';
 import app from './app.js';
 import { allowInMemoryMongo, allowedOrigins, config, isProduction } from './config/env.js';
 import { connectDB, closeDB } from './lib/db.js';
-import { ensureDevDemoUser, ensureDevSuperAdmin } from './lib/devSeed.js';
+import { seedDevAccounts } from './lib/devSeed.js';
 import JobView from './models/JobView.js';
 import { validateProductionRuntime } from './lib/runtimeConfig.js';
 import { ensureRuntimeData } from './lib/runtimeData.js';
@@ -38,8 +38,7 @@ export const startServer = async () => {
     // could double-count views while the index is still being created.
     await JobView.init();
 
-    await ensureDevSuperAdmin({ isProduction });
-    await ensureDevDemoUser({ isProduction });
+    await seedDevAccounts({ isProduction });
     await ensureRuntimeData();
 
     initSocket(server, { allowedOrigins });

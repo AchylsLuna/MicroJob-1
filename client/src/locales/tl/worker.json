@@ -433,6 +433,9 @@
       "title": "Mag-top Up",
       "amountLabel": "Halaga (PHP)",
       "description": "Ang pagpopondo ng employer lamang ang top-up flow dito. Ang mga account ng manggagawa ay nag-wi-withdraw mula sa nakitang balanse.",
+      "depositAmount": "Halaga ng Deposito",
+      "processingFee": "Bayad sa Pagproseso (2.5%)",
+      "totalAmountCharged": "Kabuuang Sisingiling Halaga",
       "cancel": "Kanselahin",
       "proceed": "Magpatuloy sa Checkout",
       "redirecting": "Nire-redirect..."

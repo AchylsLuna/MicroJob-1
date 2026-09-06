@@ -2,6 +2,11 @@ import User from '../models/User.js';
 
 const truthy = (value = '') => ['1', 'true', 'yes'].includes(String(value).toLowerCase());
 
+// Seeding upserts by email in one atomic findOneAndUpdate rather than
+// findOne() + save(). Besides being idempotent, this keeps startup working on a
+// database whose _id values were imported as strings: save() would re-query by
+// the ObjectId it hydrated and match nothing, throwing DocumentNotFoundError.
+// See scripts/migrateStringIdsToObjectIds.js for repairing such a database.
 export const ensureDevSuperAdmin = async ({ isProduction }) => {
     if (isProduction || !truthy(process.env.AUTO_SEED_SUPERADMIN ?? 'false')) {
         return;
@@ -15,38 +20,24 @@ export const ensureDevSuperAdmin = async ({ isProduction }) => {
         return;
     }
 
-    let user = await User.findOne({ email });
-    if (!user) {
-        user = new User({
-            email,
-            firstName: 'Super',
-            lastName: 'Admin',
-            role: 'superadmin',
-            status: 'active',
-        });
-        await user.setPassword(password);
-        await user.save();
-        console.log(`Dev superadmin seeded: ${email}`);
-        return;
+    const existed = await User.exists({ email });
+
+    const set = { role: 'superadmin', status: 'active' };
+    const setOnInsert = { email, firstName: 'Super', lastName: 'Admin' };
+
+    if (!existed) {
+        setOnInsert.passwordHashed = await User.hashPassword(password);
+    } else if (resetPassword) {
+        set.passwordHashed = await User.hashPassword(password);
     }
 
-    let changed = false;
-    if (user.role !== 'superadmin') {
-        user.role = 'superadmin';
-        changed = true;
-    }
-    if (user.status !== 'active') {
-        user.status = 'active';
-        changed = true;
-    }
-    if (resetPassword) {
-        await user.setPassword(password);
-        changed = true;
-    }
-    if (changed) {
-        await user.save();
-        console.log(`Dev superadmin normalized: ${email}`);
-    }
+    await User.findOneAndUpdate(
+        { email },
+        { $set: set, $setOnInsert: setOnInsert },
+        { upsert: true, setDefaultsOnInsert: true }
+    );
+
+    console.log(existed ? `Dev superadmin normalized: ${email}` : `Dev superadmin seeded: ${email}`);
 };
 
 export const ensureDevDemoUser = async ({ isProduction }) => {
@@ -67,46 +58,45 @@ export const ensureDevDemoUser = async ({ isProduction }) => {
         return;
     }
 
-    let user = await User.findOne({ email });
-    if (!user) {
-        user = new User({
-            email,
-            firstName: 'Demo',
-            lastName: 'User',
-            role,
-            status: 'active',
-            city,
-            province,
-        });
-        await user.setPassword(password);
-        await user.save();
-        console.log(`Dev demo user seeded: ${email}`);
-        return;
+    const existing = await User.findOne({ email }).select('city province').lean();
+
+    const set = { role, status: 'active' };
+    const setOnInsert = { email, firstName: 'Demo', lastName: 'User' };
+
+    // City/province are only filled in when blank, so a dev editing the demo
+    // account's address does not get it overwritten on every restart.
+    if (city && !existing?.city) {
+        set.city = city;
+    }
+    if (province && !existing?.province) {
+        set.province = province;
     }
 
-    let changed = false;
-    if (user.role !== role) {
-        user.role = role;
-        changed = true;
+    if (!existing) {
+        setOnInsert.passwordHashed = await User.hashPassword(password);
+    } else if (resetPassword) {
+        set.passwordHashed = await User.hashPassword(password);
     }
-    if (user.status !== 'active') {
-        user.status = 'active';
-        changed = true;
-    }
-    if (!user.city && city) {
-        user.city = city;
-        changed = true;
-    }
-    if (!user.province && province) {
-        user.province = province;
-        changed = true;
-    }
-    if (resetPassword) {
-        await user.setPassword(password);
-        changed = true;
-    }
-    if (changed) {
-        await user.save();
-        console.log(`Dev demo user normalized: ${email}`);
+
+    await User.findOneAndUpdate(
+        { email },
+        { $set: set, $setOnInsert: setOnInsert },
+        { upsert: true, setDefaultsOnInsert: true }
+    );
+
+    console.log(existing ? `Dev demo user normalized: ${email}` : `Dev demo user seeded: ${email}`);
+};
+
+/**
+ * Seeds every dev convenience account. These accounts are a local nicety, so a
+ * failure here is reported and stepped over rather than being allowed to stop
+ * the server from serving.
+ */
+export const seedDevAccounts = async ({ isProduction }) => {
+    try {
+        await ensureDevSuperAdmin({ isProduction });
+        await ensureDevDemoUser({ isProduction });
+    } catch (error) {
+        console.error('Dev account seeding failed (continuing startup):', error);
     }
 };

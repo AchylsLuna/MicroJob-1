@@ -1,6 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { Analytics } from "@vercel/analytics/react";
+import { ConsentGatedAnalytics } from "./components/ConsentGatedAnalytics";
 import "./index.css";
 import App from "./App";
 import { AuthProvider } from "./hooks/useAuth";
@@ -24,6 +24,6 @@ root.render(
         </NotificationProvider>
       </AuthProvider>
     </LanguageProvider>
-    <Analytics />
+    <ConsentGatedAnalytics />
   </React.StrictMode>,
 );

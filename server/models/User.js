@@ -429,8 +429,12 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true, versionKey: false }
 );
 
+UserSchema.statics.hashPassword = async function hashPassword(password) {
+  return bcrypt.hash(password, 10);
+};
+
 UserSchema.methods.setPassword = async function setPassword(password) {
-  this.passwordHashed = await bcrypt.hash(password, 10);
+  this.passwordHashed = await this.constructor.hashPassword(password);
 };
 
 UserSchema.methods.validatePassword = async function validatePassword(password) {

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { X, Mail, RefreshCw } from "lucide-react";
+import { X, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
@@ -212,13 +212,8 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
           <X className="w-6 h-6" />
         </button>
 
-        {/* Icon */}
-        <div className="w-16 h-16 rounded-full bg-[#1C4D8D] flex items-center justify-center mx-auto mb-6">
-          <Mail className="w-8 h-8 text-white" />
-        </div>
-
         {/* Header */}
-        <h2 className="text-[28px] font-bold text-[#111827] text-center mb-3">
+        <h2 className="text-[28px] font-bold text-[#111827] text-center mt-2 mb-3">
           {t("otpVerification.title")}
         </h2>
         <p className="text-[14px] text-[#6B7280] text-center mb-8">
