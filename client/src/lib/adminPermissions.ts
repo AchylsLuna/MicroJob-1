@@ -3,9 +3,11 @@
  *
  * IMPORTANT: this is **UI enforcement only**. It hides links, pages, and
  * controls so each staff role sees a coherent app — it is *not* a security
- * boundary. The server currently has no concept of these roles and does not
- * check them, so anyone who can reach the API can still call it directly.
- * Treat this as presentation until the same matrix is enforced server-side.
+ * boundary. The real boundary is `server/lib/adminPermissions.js`, whose
+ * matrix this file mirrors exactly; admin routes gate on `requirePermission`
+ * from `server/middleware/admin.js`. The two matrices are hand-synced — there
+ * is no shared package between client/ and server/ — so any permission added
+ * here must be added there too, or the UI will offer a control the API denies.
  *
  * Nothing outside this module should hardcode a staff role name. Gate on a
  * permission via `useAdminPermissions().can(...)` instead, so adding a role

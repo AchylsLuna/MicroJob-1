@@ -34,10 +34,14 @@ router.use(requireAdmin);
 // docs/frontend-only-scope.md §7 and middleware/adminAuditLog.js.
 router.use(adminAuditLog);
 
-router.get('/stats', getAdminStats);
+// /stats mixes user, job, category, and financial aggregates
+// (completedPayoutVolume, totalTransactions, pendingPayouts) into one
+// summary, so it is gated like the other cross-cutting view: analytics.view.
+router.get('/stats', requirePermission('analytics.view'), getAdminStats);
 router.get('/users', requirePermission('users.view'), getAdminUserList);
 router.get('/jobs', requirePermission('jobs.view'), getAdminJobs);
-router.get('/categories', getAdminCategories);
+// Category taxonomy is job metadata, so it shares jobs.view.
+router.get('/categories', requirePermission('jobs.view'), getAdminCategories);
 router.get('/wallets', requirePermission('finance.transactions.view'), getAdminWalletStats);
 router.get('/recent-payouts', requirePermission('finance.payouts.review'), getAdminRecentPayouts);
 router.get('/transactions', requirePermission('finance.transactions.view'), getAdminTransactions);

@@ -53,3 +53,29 @@ test('platform config routes are superadmin-only', () => {
 test('a legacy admin with no sub-role still cannot reach superadmin-only routes', () => {
   assert.equal(run(requireSuperadmin, { role: 'admin', staffRole: null }).passed, false);
 });
+
+/**
+ * Regression guard: /admin/stats and /admin/categories used to sit behind
+ * requireAdmin alone, so every staff sub-role — including moderator and
+ * support_staff, which the matrix withholds analytics.view from — could read
+ * platform-wide financial aggregates (completedPayoutVolume, pendingPayouts,
+ * totalTransactions) via /stats. See server/routes/AdminRoute.js.
+ */
+test('only analytics.view holders may read the platform stats summary', () => {
+  const gate = requirePermission('analytics.view');
+  assert.equal(run(gate, staff('admin_team')).passed, true);
+  assert.equal(run(gate, staff('finance_team')).passed, true);
+  assert.equal(run(gate, staff('analytics_team')).passed, true);
+  assert.equal(run(gate, { role: 'superadmin' }).passed, true);
+  assert.equal(run(gate, staff('moderator')).passed, false);
+  assert.equal(run(gate, staff('support_staff')).passed, false);
+});
+
+test('category taxonomy is gated like other job metadata', () => {
+  const gate = requirePermission('jobs.view');
+  assert.equal(run(gate, staff('admin_team')).passed, true);
+  assert.equal(run(gate, staff('moderator')).passed, true);
+  assert.equal(run(gate, staff('support_staff')).passed, true);
+  assert.equal(run(gate, staff('finance_team')).passed, false);
+  assert.equal(run(gate, staff('analytics_team')).passed, false);
+});

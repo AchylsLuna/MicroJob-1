@@ -36,3 +36,6 @@ Thumbs.db
 graphify-out
 .github
 .vercel
+
+# ShipStudio metadata
+.shipstudio/

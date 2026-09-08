@@ -11,6 +11,7 @@ import {
 import SidebarLayout from "./components/layout/SidebarLayout";
 import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
+import { logoutUser } from "./services/api";
 import { Toaster } from "./lib/toast";
 import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { getDefaultDashboardPath, isAdmin, isEmployer } from "./utils/dashboardRoutes";
@@ -95,10 +96,11 @@ const InactivityHandler: React.FC = () => {
   }, []);
 
   const performLogout = useCallback(() => {
-    fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    }).catch(() => undefined);
+    // Must go through the API client, not a bare fetch: the server enforces
+    // double-submit CSRF on cookie-authenticated writes and /auth/logout is not
+    // in its bypass list, so a request without the x-csrf-token header is
+    // rejected with 403 and the server-side session outlives the idle timeout.
+    logoutUser().catch(() => undefined);
     localStorage.removeItem("auth_user");
     localStorage.removeItem("current_user");
     localStorage.removeItem("auth_token");

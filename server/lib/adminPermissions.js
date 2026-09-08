@@ -3,9 +3,9 @@
  *
  * The client's copy is UI enforcement only (hides links/pages). This copy is
  * the real security boundary — every admin route must gate on `requirePermission`
- * (see server/middleware/adminPermission.js) rather than trust the client to
- * hide the button. Keep the two matrices in sync by hand; there is no shared
- * package between client/ and server/ in this repo.
+ * (see server/middleware/admin.js) rather than trust the client to hide the
+ * button. Keep the two matrices in sync by hand; there is no shared package
+ * between client/ and server/ in this repo.
  */
 
 export const STAFF_ROLES = [

@@ -17,6 +17,15 @@ change to a shared concept usually needs both files edited** — see §5.
 
 ## 0. Working rules — read first
 
+### Frontend-only scope — no backend, no database
+
+Current phase: UI, animation, and client-side routes only. Never create,
+edit, or delete anything in `server/` (API/database) or touch live
+credentials in `server/.env` — this repo's Mongo URI points at a real
+Atlas cluster, not a disposable local DB. Full rules, the exact in-scope
+file list for `client/` and `Mobile/`, and what to do if a task looks like
+it needs a backend change: `docs/frontend-only-scope.md`.
+
 ### Never auto-commit
 
 **Do not commit, stage, or push.** Leave finished work uncommitted in the
@@ -100,8 +109,9 @@ onFill  the icon color that sits on `fill` (was `onGradient`)
 
 The old `to` field is gone — it existed only as the gradient's second stop.
 `onGradient` is likewise gone everywhere, including the `BookmarkButton`
-prop in both `JobCard.tsx` (web `onFill?: boolean`; mobile
-`tone?: 'default' | 'onFill'` with a `bookmarkBtnOnFill` style).
+prop in `Mobile/components/job/JobCard.tsx` (`tone?: 'default' | 'onFill'`
+with a `bookmarkBtnOnFill` style). The web `JobCard.tsx` that carried the
+matching `onFill?: boolean` was deleted with the worker dashboard.
 
 Two things to know before touching this pair:
 
@@ -275,7 +285,8 @@ route-level transitions**. If adding them, wrap the route outlet in
 `App.tsx`, keep to opacity + a ≤8px `y` offset at `0.2s`, and make sure
 they don't fight the lazy-route `RouteLoading` fallback.
 
-Staggered list entrances already exist in `JobCard.tsx`, capped as
+Staggered list entrances already exist in `client/src/components/job/JobListRow.tsx`
+(web) and `Mobile/components/job/JobCard.tsx`, capped as
 `delay: Math.min(index, 8) * 0.04`. **Keep that cap** — uncapped
 `index * delay` makes the 30th card arrive a second late. Reuse the
 existing formula.
@@ -319,9 +330,13 @@ These pairs must change together or the platforms drift:
 |---|---|
 | `client/src/lib/categoryVisuals.ts` | `Mobile/theme/categoryVisuals.ts` |
 | `client/src/components/ui/CategoryTile.tsx` | `Mobile/components/ui/CategoryTile.tsx` |
-| `client/src/components/job/JobCard.tsx` | `Mobile/components/job/JobCard.tsx` |
-| `client/src/components/ui/SectionHeader.tsx` | `Mobile/components/ui/SectionHeader.tsx` |
 | `client/src/components/ui/CalendarPanel.tsx` | `Mobile/components/ui/CalendarSheet.tsx` |
+
+`JobCard.tsx` and `SectionHeader.tsx` used to be mirrored pairs. The web halves
+were deleted with the worker dashboard — web now renders job rows with
+`client/src/components/job/JobListRow.tsx` instead — so the mobile files
+`Mobile/components/job/JobCard.tsx` and `Mobile/components/ui/SectionHeader.tsx`
+are now mobile-only and have no web counterpart to keep in sync.
 
 `categoryVisuals.ts` says so in its own header comment: duplicated rather
 than shared because `client/src` and `Mobile/` are separate npm workspaces
