@@ -55,6 +55,7 @@ const AdminSignIn = lazy(() => import("./pages/admin/AdminSignIn").then((module)
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard").then((module) => ({ default: module.AdminDashboard })));
 const AdminAnalytics = lazy(() => import("./pages/admin/AdminAnalytics").then((module) => ({ default: module.AdminAnalytics })));
 const AdminReports = lazy(() => import("./pages/admin/AdminReports").then((module) => ({ default: module.AdminReports })));
+const AdminBackups = lazy(() => import("./pages/admin/AdminBackups").then((module) => ({ default: module.AdminBackups })));
 const AdminEWalletMonitoring = lazy(() => import("./pages/admin/AdminEWalletMonitoring").then((module) => ({ default: module.AdminEWalletMonitoring })));
 const AdminPayoutRequests = lazy(() => import("./pages/admin/AdminPayoutRequests").then((module) => ({ default: module.AdminPayoutRequests })));
 const AdminJobMonitoring = lazy(() => import("./pages/admin/AdminJobMonitoring").then((module) => ({ default: module.AdminJobMonitoring })));
@@ -328,6 +329,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.admin.support} element={<AdminSupportTickets />} />
             <Route path={ROUTES.admin.analytics} element={<AdminAnalytics />} />
             <Route path={ROUTES.admin.reports} element={<AdminReports />} />
+            <Route path={ROUTES.admin.backups} element={<AdminBackups />} />
             <Route path={ROUTES.admin.eWallet} element={<AdminEWalletMonitoring />} />
             <Route path={ROUTES.admin.payouts} element={<AdminPayoutRequests />} />
             <Route path={ROUTES.admin.jobs} element={<AdminJobMonitoring />} />

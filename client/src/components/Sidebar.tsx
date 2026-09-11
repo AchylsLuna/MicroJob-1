@@ -150,6 +150,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         { icon: "staff-management", label: "Staff Management", path: ROUTES.admin.staffManagement, permission: "staff.view" },
         { icon: "audit-logs", label: "Audit Logs", path: ROUTES.admin.auditLogs, permission: "audit.view" },
         { icon: "security", label: "Security", path: ROUTES.admin.security, permission: "audit.view" },
+        { icon: "backups", label: "Backups & Recovery", path: ROUTES.admin.backups, permission: "audit.view" },
       ],
     },
     {
