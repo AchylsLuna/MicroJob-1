@@ -1,28 +1,28 @@
 import { useState, useRef, useEffect } from "react";
 import { X, RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
-import { ROUTES } from "../utils/routes";
 
 interface OTPVerificationProps {
   onClose: () => void;
   email: string;
+  // "signin" drives login-OTP verification (server-issued challenge, trusted
+  // device option) instead of the signup email-verification flow.
+  mode?: "signup" | "signin";
 }
 
-export function OTPVerification({ onClose, email }: OTPVerificationProps) {
+export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerificationProps) {
   const { t } = useTranslation("auth");
-  const navigate = useNavigate();
-  const { verifyOTP, resendOTP, pendingVerification } = useAuth();
+  const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyInFlightRef = useRef(false);
   const [isResending, setIsResending] = useState(false);
   const resendInFlightRef = useRef(false);
   const [countdown, setCountdown] = useState(60);
+  const [rememberDevice, setRememberDevice] = useState(true);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const verificationFlow = pendingVerification?.flow || (localStorage.getItem("pending_verification_flow") === "signup" ? "signup" : "signin");
 
   useEffect(() => {
     // Focus first input on mount
@@ -131,8 +131,18 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
     }
     verifyInFlightRef.current = true;
     setIsVerifying(true);
-    
+
     try {
+      if (mode === "signin") {
+        const loggedInUser = await verifyLoginOtpCode(otpCode, rememberDevice, { suppressToast: true });
+        const destination =
+          sessionStorage.getItem("post_verify_redirect") || getPostAuthLandingPath(loggedInUser);
+        sessionStorage.removeItem("post_verify_redirect");
+        // Use hard redirect immediately to avoid route-guard/modal state races.
+        window.location.replace(destination);
+        return;
+      }
+
       const success = await verifyOTP(otpCode);
       let nextUser: unknown = null;
       try {
@@ -150,14 +160,9 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
       );
 
       if (success || (hasSessionUser && nextUser && typeof nextUser === "object")) {
-        if (verificationFlow === "signup") {
-          sessionStorage.removeItem("post_verify_redirect");
-          navigate(ROUTES.signIn, {
-            replace: true,
-            state: { message: t("otpVerification.toast.emailVerifiedSuccess") },
-          });
-          return;
-        }
+        // Signup verification now lands straight in the app instead of
+        // bouncing back to sign-in for a second login + OTP -- the server
+        // already minted a session when the code was verified.
         const computedDestination = getPostAuthLandingPath(
           nextUser && typeof nextUser === "object" ? (nextUser as any) : null,
         );
@@ -187,7 +192,11 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
     setCountdown(60);
 
     try {
-      await resendOTP();
+      if (mode === "signin") {
+        await resendLoginOtpCode();
+      } else {
+        await resendOTP();
+      }
     } finally {
       resendInFlightRef.current = false;
       setIsResending(false);
@@ -243,6 +252,21 @@ export function OTPVerification({ onClose, email }: OTPVerificationProps) {
             />
           ))}
         </div>
+
+        {mode === "signin" && (
+          <label className="mb-6 flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={rememberDevice}
+              onChange={(e) => setRememberDevice(e.target.checked)}
+              disabled={isVerifying}
+              className="mt-0.5 h-5 w-5 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+            />
+            <span className="text-[14px] text-[#374151]">
+              {t("otpVerification.trustDevice")}
+            </span>
+          </label>
+        )}
 
         {/* Verify Button */}
         <button

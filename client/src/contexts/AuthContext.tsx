@@ -5,6 +5,8 @@ import {
   loginUser,
   googleLogin as googleLoginRequest,
   verifyLoginMfa,
+  verifyLoginOtp,
+  resendLoginOtp,
   registerUser,
   sendOtp,
   verifyOtp,
@@ -112,6 +114,11 @@ type MfaChallenge = {
   email: string;
 };
 
+type LoginOtpChallenge = {
+  otpToken: string;
+  email: string;
+};
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -121,6 +128,10 @@ interface AuthContextType {
   mfaChallenge: MfaChallenge | null;
   verifyMfaLogin: (code: string, options?: { suppressToast?: boolean }) => Promise<User>;
   cancelMfaLogin: () => void;
+  loginOtpChallenge: LoginOtpChallenge | null;
+  verifyLoginOtpCode: (code: string, rememberDevice: boolean, options?: { suppressToast?: boolean }) => Promise<User>;
+  resendLoginOtpCode: () => Promise<void>;
+  cancelLoginOtp: () => void;
   register: (
     email: string,
     password: string,
@@ -304,6 +315,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     flow?: "signup" | "signin";
   } | null>(null);
   const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
+  // Held in React state rather than localStorage: this token is a bearer
+  // credential that lets whoever has it complete the login, so it should not
+  // outlive the tab or be readable by anything that can read localStorage.
+  const [loginOtpChallenge, setLoginOtpChallenge] = useState<LoginOtpChallenge | null>(null);
 
   const completeLogin = (response: any, fallbackEmail: string) => {
     const { user: apiUser } = getAuthPayload(response);
@@ -528,17 +543,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error("Invalid verification response from server.");
       }
 
-      if (verificationFlow === "signup") {
-        localStorage.removeItem("pending_account_preference");
-        localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
-        localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
-        localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
-        setPendingVerification(null);
-        setIsLoading(false);
-        toast.success("Email verified successfully.");
-        return true;
-      }
-
+      // Signup verification mints a full session server-side (see
+      // UserController.verifyOtp), so it is handled identically to the
+      // sign-in flow below rather than discarded and re-requested via a
+      // second login + OTP.
       const role = normalizeRole(getRoleCandidate(apiUser));
       const preferredAccount = accountPreference ?? normalizePreference(getPreferenceCandidate(apiUser));
       const { accountType, accountOptions } = normalizeAccount(role, preferredAccount);
@@ -590,7 +598,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setPendingVerification(null);
 
       setIsLoading(false);
-      toast.success("Verification successful!");
+      toast.success(verificationFlow === "signup" ? "Email verified successfully." : "Verification successful!");
       return true;
     } catch (error: any) {
       sessionStorage.removeItem(POST_VERIFY_REDIRECT_KEY);
@@ -626,7 +634,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const normalizedEmail = email.trim().toLowerCase();
 
     try {
-      const response = await loginUser({ emailOrUsername: normalizedEmail, password });
+      const response = await loginUser({
+        emailOrUsername: normalizedEmail,
+        password,
+        requireOtp: options?.requireOtp,
+      });
       const container = getResponseContainer(response);
       if (container?.mfaRequired) {
         const token = String(container.mfaToken || "");
@@ -636,20 +648,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { status: "mfa_required", method };
       }
 
-      const { user: apiUser } = getAuthPayload(response);
-      if (!apiUser) throw new Error("Invalid login response from server.");
-
-      if (options?.requireOtp) {
-        const verificationEmail = String(apiUser.email || normalizedEmail).toLowerCase().trim();
-        const verificationName = `${apiUser.firstName || ""} ${apiUser.lastName || ""}`.trim() || "User";
-
-        await sendOtp({ email: verificationEmail });
-        setPendingVerification({ email: verificationEmail, name: verificationName, flow: "signin" });
-        localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, verificationEmail);
-        localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, verificationName);
-        localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signin");
-        localStorage.removeItem("pending_account_preference");
-
+      // otpRequired comes from the server -- it decides whether this login
+      // needs a code (e.g. the device isn't already trusted), regardless of
+      // what the caller asked for. Options.requireOtp only controls whether
+      // the client offers OTP at all; it can't force the server to skip it.
+      if (container?.otpRequired) {
+        const otpToken = String(container.otpToken || "");
+        if (!otpToken) throw new Error("Invalid OTP challenge from server.");
+        setLoginOtpChallenge({ otpToken, email: normalizedEmail });
         setIsLoading(false);
         if (!options?.suppressToast) {
           toast.success("OTP sent to your email!");
@@ -703,6 +709,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const cancelMfaLogin = () => setMfaChallenge(null);
+
+  const verifyLoginOtpCode = async (
+    code: string,
+    rememberDevice: boolean,
+    options?: { suppressToast?: boolean },
+  ) => {
+    if (!loginOtpChallenge) throw new Error("OTP challenge expired. Please sign in again.");
+    const normalizedCode = code.trim();
+    if (!normalizedCode) throw new Error("Enter the code sent to your email.");
+    setIsLoading(true);
+    try {
+      const response = await verifyLoginOtp({
+        otpToken: loginOtpChallenge.otpToken,
+        code: normalizedCode,
+        rememberDevice,
+      });
+      const loggedInUser = completeLogin(response, loginOtpChallenge.email);
+      setLoginOtpChallenge(null);
+      if (!options?.suppressToast) toast.success(`Welcome back, ${loggedInUser.firstName}!`);
+      return loggedInUser;
+    } catch (error: any) {
+      throw new Error(error?.message || "OTP verification failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendLoginOtpCode = async () => {
+    if (!loginOtpChallenge) throw new Error("OTP challenge expired. Please sign in again.");
+    try {
+      const response = await resendLoginOtp({ otpToken: loginOtpChallenge.otpToken });
+      const container = getResponseContainer(response);
+      const otpToken = String(container?.otpToken || "");
+      if (!otpToken) throw new Error("Invalid OTP challenge from server.");
+      setLoginOtpChallenge((current) => (current ? { ...current, otpToken } : current));
+      toast.success("New OTP sent!");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to resend OTP");
+    }
+  };
+
+  const cancelLoginOtp = () => setLoginOtpChallenge(null);
 
   const logout = (options?: { silent?: boolean }) => {
     try {
@@ -824,6 +872,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         mfaChallenge,
         verifyMfaLogin,
         cancelMfaLogin,
+        loginOtpChallenge,
+        verifyLoginOtpCode,
+        resendLoginOtpCode,
+        cancelLoginOtp,
         register,
         logout,
         switchAccountType,

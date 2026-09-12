@@ -22,6 +22,7 @@ import {
   setSessionCookies,
   normalizeUsername,
   normalizeDisplayName,
+  isNativeAuthRequest,
 } from '../lib/authSession.js';
 import {
   createMfaChallengeToken,
@@ -32,6 +33,12 @@ import {
   verifyMfaCodeForUser,
 } from '../lib/mfaHelpers.js';
 import { getOtpChallenge, verifyOtpChallenge } from '../lib/otpChallenges.js';
+import {
+  issueTrustedDevice,
+  consumeTrustedDevice,
+  setTrustedDeviceCookie,
+  getTrustedDeviceTokenFromRequest,
+} from '../lib/trustedDevice.js';
 import { SELF_SERVICE_ROLES } from './SessionController.js';
 
 const googleClient = new OAuth2Client();
@@ -220,7 +227,18 @@ const loginUser = async (req, res) => {
       return sendError(res, 401, 'Account has been deleted.');
     }
 
+    // A trusted device (see lib/trustedDevice.js) lets a login skip the OTP
+    // challenge below without weakening it: the client always sends
+    // requireOtp:true, so the skip decision is made here, server-side, based
+    // on a token the server itself issued after a prior OTP verification --
+    // never on anything the client merely claims.
+    let trustedDevice = null;
     if (requireOtp) {
+      const deviceToken = getTrustedDeviceTokenFromRequest(req);
+      trustedDevice = await consumeTrustedDevice({ token: deviceToken, userId: user._id });
+    }
+
+    if (requireOtp && !trustedDevice) {
       const loginOtp = await issueLoginOtpChallenge(user, includePhone);
       return sendSuccess(res, 200, 'OTP verification required', {
         otpRequired: true,
@@ -248,8 +266,20 @@ const loginUser = async (req, res) => {
       csrfToken,
     });
 
+    if (trustedDevice) {
+      setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+    }
+
     const userPayload = buildLoginPayload(user, includePhone);
-    return sendSuccess(res, 200, 'Login successful', { ...buildAuthTokensPayload(req, authSession), user: userPayload });
+    return sendSuccess(res, 200, 'Login successful', {
+      ...buildAuthTokensPayload(req, authSession),
+      // Native has no persistent cookie jar across app restarts, so the
+      // rotated token travels in the body the same way refreshToken does.
+      ...(trustedDevice && isNativeAuthRequest(req)
+        ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+        : {}),
+      user: userPayload,
+    });
   } catch (error) {
     console.error('Login error:', error);
     return sendError(res, 500, 'Server error during login');
@@ -470,8 +500,23 @@ const loginOtpVerify = async (req, res) => {
       csrfToken,
     });
 
+    let trustedDevice = null;
+    if (req.body?.rememberDevice) {
+      trustedDevice = await issueTrustedDevice(user, {
+        ip: req.ip || req.headers['x-forwarded-for'] || '',
+        label: req.get('User-Agent') || '',
+      });
+      setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+    }
+
     const payload = buildLoginPayload(user, includePhone);
-    return sendSuccess(res, 200, 'Login successful', { ...buildAuthTokensPayload(req, authSession), user: payload });
+    return sendSuccess(res, 200, 'Login successful', {
+      ...buildAuthTokensPayload(req, authSession),
+      ...(trustedDevice && isNativeAuthRequest(req)
+        ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+        : {}),
+      user: payload,
+    });
   } catch (e) {
     console.error('Login OTP verify error:', e);
     return sendError(res, 500, 'Server error');

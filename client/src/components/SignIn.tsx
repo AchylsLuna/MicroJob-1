@@ -25,7 +25,7 @@ export function SignIn() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, googleSignIn, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin } = useAuth();
+  const { login, googleSignIn, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin, cancelLoginOtp } = useAuth();
   const landingPath = getPostAuthLandingPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -243,7 +243,11 @@ export function SignIn() {
       {showOTP && (
         <OTPVerification
           email={email}
-          onClose={() => setShowOTP(false)}
+          mode="signin"
+          onClose={() => {
+            cancelLoginOtp();
+            setShowOTP(false);
+          }}
         />
       )}
 

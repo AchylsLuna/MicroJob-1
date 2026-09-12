@@ -15,6 +15,8 @@ import {
   revokeSession,
   revokeAllSessions,
   cleanupInactiveSessions,
+  getTrustedDevices,
+  revokeTrustedDevice,
   getVerificationStatus,
   requestPhoneVerificationOtp,
   confirmPhoneVerificationOtp,
@@ -226,6 +228,13 @@ interface SessionInfo {
   lastActive: string;
 }
 
+interface TrustedDeviceInfo {
+  id: string;
+  device: string;
+  createdAt: string;
+  lastActive: string;
+}
+
 type PersonalInfoState = {
   firstName: string;
   lastName: string;
@@ -349,6 +358,9 @@ export function Settings() {
 
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+
+  const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceInfo[]>([]);
+  const [isLoadingTrustedDevices, setIsLoadingTrustedDevices] = useState(false);
 
   const [verificationStepsData, setVerificationStepsData] = useState<VerificationStep[]>([]);
   const [verificationCompletionPercent, setVerificationCompletionPercent] = useState(0);
@@ -516,6 +528,30 @@ export function Settings() {
       }
     };
     loadSessions();
+  }, [activeTab]);
+
+  // Load trusted devices when privacy tab is active
+  useEffect(() => {
+    if (activeTab !== "privacy") return;
+    const loadTrustedDevices = async () => {
+      setIsLoadingTrustedDevices(true);
+      try {
+        const response = await getTrustedDevices();
+        const devicesData = response?.devices || [];
+        const mapped = devicesData.map((d: any) => ({
+          id: d._id,
+          device: d.label || "Unknown device",
+          createdAt: d.createdAt ? new Date(d.createdAt).toLocaleString() : "Unknown",
+          lastActive: d.lastUsedAt ? new Date(d.lastUsedAt).toLocaleString() : "Unknown",
+        }));
+        setTrustedDevices(mapped);
+      } catch (error: any) {
+        console.error("Failed to load trusted devices:", error);
+      } finally {
+        setIsLoadingTrustedDevices(false);
+      }
+    };
+    loadTrustedDevices();
   }, [activeTab]);
 
   // Load verification status when privacy tab is active
@@ -1249,6 +1285,17 @@ export function Settings() {
       window.location.href = "/sign-in";
     } catch (error: any) {
       toast.error(error?.message || "Failed to revoke all sessions");
+    }
+  };
+
+  const handleRevokeTrustedDevice = async (deviceId: string) => {
+    try {
+      await revokeTrustedDevice(deviceId);
+      setTrustedDevices((prev) => prev.filter((d) => d.id !== deviceId));
+      toast.success("Trusted device revoked. It will need a code to sign in again.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to revoke trusted device");
+      console.error("Revoke trusted device error:", error);
     }
   };
 
@@ -2367,6 +2414,48 @@ export function Settings() {
                             >
                               {session.current ? "Current session" : "Signed in"}
                             </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+
+              <Card>
+                <h3 className="text-base font-semibold text-slate-900 mb-2">Trusted Devices</h3>
+                <p className="text-[13px] text-slate-500 mb-4">
+                  Devices you chose to trust skip the email code on sign-in for 30 days. Revoke any you don't recognize.
+                </p>
+                <div className="space-y-4">
+                  {isLoadingTrustedDevices ? (
+                    <p className="text-[13px] text-slate-500">Loading trusted devices...</p>
+                  ) : trustedDevices.length === 0 ? (
+                    <p className="text-[13px] text-slate-500">No trusted devices.</p>
+                  ) : (
+                    trustedDevices.map((device, index) => (
+                      <div key={device.id} className="border border-slate-200 rounded-[12px] p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <p className="text-[13px] font-semibold text-slate-900">Device {index + 1}</p>
+                          <button
+                            onClick={() => handleRevokeTrustedDevice(device.id)}
+                            className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-[12px] font-medium transition-colors"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[12px] text-slate-500">Device Details</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{device.device}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-slate-500">Trusted since</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{device.createdAt}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-slate-500">Last used</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{device.lastActive}</p>
                           </div>
                         </div>
                       </div>

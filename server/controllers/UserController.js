@@ -25,7 +25,8 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 import { getReviewSummary } from "../lib/reviewSummary.js";
-import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies } from "../lib/authSession.js";
+import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest } from "../lib/authSession.js";
+import { issueTrustedDevice, setTrustedDeviceCookie, clearTrustedDevicesForUser } from "../lib/trustedDevice.js";
 import crypto from "node:crypto";
 import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../lib/otpChallenges.js";
 import monitor from "../lib/monitor.js";
@@ -181,6 +182,9 @@ async function revokeSessions(userId, exceptSessionId) {
         );
         sessionIds.forEach((sessionId) => disconnectSession(sessionId));
     }
+    // A password change means any device that was trusted under the old
+    // password should have to prove itself with OTP again.
+    await clearTrustedDevicesForUser(userId);
 }
 
 async function getDeletionBlockers(userId) {
@@ -459,6 +463,7 @@ export async function changeInitialPassword(req, res) {
             { user: user._id, active: true, ...(currentSessionId ? { _id: { $ne: currentSessionId } } : {}) },
             { $set: { active: false, endedAt: new Date() } },
         );
+        await clearTrustedDevicesForUser(user._id);
         return res.status(200).json({ message: "Password changed successfully." });
     } catch (error) {
         console.error("Initial password change error:", error);
@@ -1008,9 +1013,20 @@ export async function verifyOtp(req, res) {
             csrfToken: crypto.randomBytes(24).toString("hex"),
         });
 
+        // The device that just completed signup verification is trusted
+        // immediately, so the very next login on it skips a second OTP.
+        const trustedDevice = await issueTrustedDevice(user, {
+            ip: req.ip || req.headers["x-forwarded-for"] || "",
+            label: req.get("User-Agent") || "",
+        });
+        setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+
         return res.status(200).json({
             message: "Email verified and login successful.",
             ...buildAuthTokensPayload(req, authSession),
+            ...(isNativeAuthRequest(req)
+                ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+                : {}),
             user: {
                 id: user._id,
                 firstName: user.firstName,

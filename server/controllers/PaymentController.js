@@ -92,7 +92,7 @@ async function sendReceiptWithoutBlockingPayment(transactionId, userId, eventNam
   }
 }
 
-const createXenditCheckout = async ({ amount, referenceNumber, target, user }) => {
+const createXenditCheckout = async ({ amount, referenceNumber, target, user, req }) => {
   const xenditSecret = process.env.XENDIT_SECRET_KEY;
   const directLink = process.env.XENDIT_PAYMENT_LINK_URL;
 
@@ -112,8 +112,8 @@ const createXenditCheckout = async ({ amount, referenceNumber, target, user }) =
     external_id: referenceNumber,
     amount: Number(amount),
     description: `MicroJobs wallet top-up (${target})`,
-    success_redirect_url: `${getWebOrigin()}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
-    failure_redirect_url: `${getWebOrigin()}/wallet`,
+    success_redirect_url: `${getWebOrigin(req)}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
+    failure_redirect_url: `${getWebOrigin(req)}/employer/e-wallet`,
     currency: 'PHP',
     customer: {
       given_names: user?.firstName || 'MicroJobs',
@@ -472,6 +472,7 @@ export async function createTopUpSession(req, res) {
         referenceNumber,
         target: effectiveTarget,
         user: requestingUser,
+        req,
       });
 
       if (xenditCheckout?.checkoutUrl) {
@@ -507,8 +508,8 @@ export async function createTopUpSession(req, res) {
             payment_method_types: ['gcash'],
             line_items: [{ currency: 'PHP', amount: amountInCentavos, name: 'E-Wallet Top Up', quantity: 1 }],
             reference_number: referenceNumber,
-            success_url: `${getWebOrigin()}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
-            cancel_url: `${getWebOrigin()}/wallet`,
+            success_url: `${getWebOrigin(req)}/topup-success?ref=${encodeURIComponent(referenceNumber)}`,
+            cancel_url: `${getWebOrigin(req)}/employer/e-wallet`,
           },
         },
       },

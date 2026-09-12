@@ -24,6 +24,7 @@ import { WalletBalanceCard, WalletEmpty, WalletError, WalletMetrics, WalletSecti
 import { php } from '../../components/wallet/walletFormat';
 import { EmployerQrScannerModal } from '../../components/wallet/WalletQrFlow';
 import { EmployerAccordion, EmployerModeBanner } from '../../components/employer/EmployerUI';
+import { PENDING_TOPUP_STORAGE_KEY } from '../../lib/pendingPayment';
 
 type EmployerEWalletProps = {
   onBack?: () => void;
@@ -34,7 +35,7 @@ type EmployerEWalletProps = {
   notificationBadgeCount?: number;
 };
 
-const PENDING_TOPUP_KEY = 'pending_topup_checkout_employer';
+const PENDING_TOPUP_KEY = PENDING_TOPUP_STORAGE_KEY;
 const TOPUP_FEE_PERCENT = 2.5;
 
 type WalletTransaction = {

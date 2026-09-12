@@ -163,6 +163,12 @@ export default function SignIn({
     setIsLoading(true);
 
     try {
+      // A prior OTP verification on this device may have left a trusted-device
+      // token in secure storage; sending it back lets the server skip the OTP
+      // challenge again below. Native has no persistent cookie jar across app
+      // restarts, so this fallback is required here even though web can rely
+      // on the cookie the server also sets.
+      const trustedDeviceToken = await AsyncStorage.getItem('trusted_device_token');
       const result = await apiRequest(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -172,6 +178,7 @@ export default function SignIn({
           emailOrUsername: normalizedEmail,
           password,
           requireOtp: true,
+          ...(trustedDeviceToken ? { trustedDeviceToken } : {}),
         }),
       }, t('signIn.toast.signInFailed'));
 
@@ -184,6 +191,7 @@ export default function SignIn({
       const nextMfaToken = responseData?.mfaToken || responseRaw?.mfaToken;
       const nextOtpRequired = Boolean(responseData?.otpRequired || responseRaw?.otpRequired);
       const nextOtpToken = responseData?.otpToken || responseRaw?.otpToken;
+      const rotatedTrustedDeviceToken = responseData?.trustedDeviceToken || responseRaw?.trustedDeviceToken;
 
       if (result.ok && nextMfaRequired && nextMfaToken) {
         setRequiresMfa(true);
@@ -193,6 +201,9 @@ export default function SignIn({
       } else if (result.ok && nextOtpRequired && nextOtpToken) {
         onNavigateToVerify?.({ mode: 'loginOtp', email: normalizedEmail, otpToken: nextOtpToken });
       } else if (result.ok && token) {
+        if (rotatedTrustedDeviceToken) {
+          await AsyncStorage.setItem('trusted_device_token', String(rotatedTrustedDeviceToken));
+        }
         await continueAfterPrimaryAuth(token, user, refreshToken);
       } else {
         const serverMessage = result.message || '';

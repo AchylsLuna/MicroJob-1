@@ -79,10 +79,24 @@ export type MfaChallengeResponse = {
   method?: string;
   message?: string;
 };
+export type LoginOtpChallengeResponse = {
+  otpRequired: true;
+  otpToken: string;
+  message?: string;
+};
 export type LoginResponse =
   | AuthResponse
   | MfaChallengeResponse
-  | { data: AuthResponse | MfaChallengeResponse; message?: string };
+  | LoginOtpChallengeResponse
+  | { data: AuthResponse | MfaChallengeResponse | LoginOtpChallengeResponse; message?: string };
+export type TrustedDevice = {
+  _id: string;
+  label?: string;
+  ip?: string;
+  createdAt?: string;
+  lastUsedAt?: string;
+  expiresAt?: string;
+};
 export type WorkExperienceMedia = {
   _id?: string;
   url: string;
@@ -301,28 +315,46 @@ throw new Error(import.meta.env.DEV
   return { res, data };
 }
 
+// The refresh endpoint rotates the refresh token and rejects reuse of the old
+// one. Without this guard, several requests hitting a 401 at the same moment
+// (e.g. a page that fans out on load) would each call refresh independently;
+// only the first would succeed and the rest would be told the token was
+// "already used", logging the user out of a session that was actually fine.
+// Sharing one in-flight promise means concurrent callers see the same result.
+let refreshInFlight: Promise<boolean> | null = null;
+
 async function tryRefreshSession() {
-  const csrfToken = getCsrfToken();
-  if (!csrfToken) return false;
+  if (refreshInFlight) return refreshInFlight;
 
-  const refreshCandidates = buildApiCandidates('/auth/refresh');
-  for (const url of refreshCandidates) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-      });
-      if (response.ok) return true;
-    } catch {
-      // Try the next refresh candidate on network failure.
+  refreshInFlight = (async () => {
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) return false;
+
+    const refreshCandidates = buildApiCandidates('/auth/refresh');
+    for (const url of refreshCandidates) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': csrfToken,
+          },
+        });
+        if (response.ok) return true;
+      } catch {
+        // Try the next refresh candidate on network failure.
+      }
     }
-  }
 
-  return false;
+    return false;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
 }
 
 function buildQuery(params?: QueryParams) {
@@ -361,25 +393,29 @@ async function request<T>(
 
   let { res, data } = await performRequest(path, method, headers, body, isFormData, options.signal);
 
-  if (!res.ok) {
-    const canAttemptRefresh =
-      res.status === 401 &&
-      hasLocalSession &&
-      !AUTH_PATHS_WITHOUT_REFRESH.has(normalizedPath);
+  const canAttemptRefresh =
+    !res.ok &&
+    res.status === 401 &&
+    hasLocalSession &&
+    !AUTH_PATHS_WITHOUT_REFRESH.has(normalizedPath);
+  let refreshSucceeded = false;
 
-    if (canAttemptRefresh) {
-      const refreshed = await tryRefreshSession();
-      if (refreshed) {
-        const retryResult = await performRequest(path, method, headers, body, isFormData, options.signal);
-        res = retryResult.res;
-        data = retryResult.data;
-      }
+  if (canAttemptRefresh) {
+    refreshSucceeded = await tryRefreshSession();
+    if (refreshSucceeded) {
+      const retryResult = await performRequest(path, method, headers, body, isFormData, options.signal);
+      res = retryResult.res;
+      data = retryResult.data;
     }
   }
 
   if (!res.ok) {
     const message = data?.message || 'Request failed';
-    if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession })) {
+    // Only treat this as an invalid session if we never refreshed, or the
+    // refresh itself failed. A successful refresh whose retry still 401s is
+    // some other problem, not an expired session -- don't force a logout.
+    const refreshFailed = canAttemptRefresh ? !refreshSucceeded : true;
+    if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession, refreshFailed })) {
       handleInvalidSession();
     }
     const error = new Error(message) as Error & {
@@ -400,8 +436,22 @@ export function registerUser(payload: { username?: string; firstName?: string; l
   return request<AuthResponse>('/auth/register', { method: 'POST', body: payload });
 }
 
-export function loginUser(payload: { emailOrUsername: string; password: string }) {
+export function loginUser(payload: { emailOrUsername: string; password: string; requireOtp?: boolean }) {
   return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
+}
+
+export function verifyLoginOtp(payload: { otpToken: string; code: string; rememberDevice?: boolean }) {
+  return request<AuthResponse | { data: AuthResponse }>('/auth/login/otp/verify', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function resendLoginOtp(payload: { otpToken: string }) {
+  return request<LoginOtpChallengeResponse | { data: LoginOtpChallengeResponse }>('/auth/login/otp/resend', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export function googleLogin(payload: { credential: string; role?: string }) {
@@ -891,6 +941,14 @@ export function revokeAllSessions() {
 
 export function cleanupInactiveSessions() {
   return request<{ message: string; deletedCount: number }>('/auth/sessions/cleanup', { method: 'POST' });
+}
+
+export function getTrustedDevices() {
+  return request<{ devices: TrustedDevice[] }>('/auth/trusted-devices', { method: 'GET' });
+}
+
+export function revokeTrustedDevice(deviceId: string) {
+  return request('/auth/trusted-devices/' + deviceId, { method: 'DELETE' });
 }
 
 // Verification APIs

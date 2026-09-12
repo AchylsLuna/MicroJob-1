@@ -26,6 +26,8 @@ import {
   revokeSession,
   revokeAllSessions,
   cleanupSessions,
+  listTrustedDevices,
+  revokeTrustedDevice,
   adminListSessions,
   logout,
 } from '../controllers/SessionController.js';
@@ -94,6 +96,8 @@ router.get('/sessions', verifyToken, listSessions);
 router.delete('/sessions/:id', verifyToken, revokeSession);
 router.delete('/sessions', verifyToken, revokeAllSessions);
 router.post('/sessions/cleanup', verifyToken, cleanupSessions);
+router.get('/trusted-devices', verifyToken, listTrustedDevices);
+router.delete('/trusted-devices/:id', verifyToken, revokeTrustedDevice);
 router.get('/admin/sessions/:userId', verifyToken, adminListSessions);
 
 router.get('/mfa/status', verifyToken, getMfaStatus);
