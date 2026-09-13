@@ -8,6 +8,7 @@ import { issueOtpChallenge } from './otpChallenges.js';
 
 export const MFA_LOGIN_PURPOSE = 'mfa-login';
 export const LOGIN_OTP_PURPOSE = 'login-otp';
+export const LOGIN_METHOD_SELECTION_PURPOSE = 'login-method-selection';
 export const MFA_METHOD = 'authenticator';
 export const MFA_CHALLENGE_TTL = '1m';
 export const LOGIN_OTP_CHALLENGE_TTL = '5m';
@@ -21,6 +22,13 @@ export const createMfaChallengeToken = (userId, includePhone = false) =>
     { userId, purpose: MFA_LOGIN_PURPOSE, includePhone: Boolean(includePhone) },
     getJwtSecret(),
     { expiresIn: MFA_CHALLENGE_TTL }
+  );
+
+export const createLoginMethodSelectionToken = (userId, includePhone = false) =>
+  jwt.sign(
+    { userId, purpose: LOGIN_METHOD_SELECTION_PURPOSE, includePhone: Boolean(includePhone) },
+    getJwtSecret(),
+    { expiresIn: LOGIN_OTP_CHALLENGE_TTL }
   );
 
 export const createLoginOtpChallengeToken = (userId, challengeId, includePhone = false) =>

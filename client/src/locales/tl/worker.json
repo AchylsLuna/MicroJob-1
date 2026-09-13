@@ -202,7 +202,9 @@
     "card": {
       "categoryFallback": "Pangkalahatan",
       "locationFallback": "Walang tinukoy na lokasyon",
-      "salaryMinimum": "{{salary}} minimum"
+      "salaryMinimum": "{{salary}} minimum",
+      "alreadyApplied": "Nakapag-apply na",
+      "applicationRejected": "Tinanggihan ang Aplikasyon"
     },
     "nearest": "Pinakamalapit sa {{city}}",
     "nationwide": "Iba pang lugar sa Pilipinas",
@@ -241,6 +243,8 @@
     "adminReadOnly": "Read-only admin view. Gamitin ang Admin Job Monitoring para tanggalin ang trabahong ito.",
     "applicationSubmitted": "Naisumite ang Aplikasyon",
     "applyNow": "Mag-apply Ngayon",
+    "viewJob": "Tingnan ang Trabaho",
+    "applicationRejected": "Tinanggihan ang Aplikasyon",
     "messageEmployerLabel": "Mensahe sa employer",
     "deadlineNotSpecified": "Hindi tinukoy",
     "jobTypeLabels": {

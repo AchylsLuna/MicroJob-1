@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { getCategories, getJobs, getProfile, updateJobPreferences } from "../../services/api";
+import { getCategories, getJobs, getProfile, getUserApplications, updateJobPreferences } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../contexts/AuthContext";
@@ -31,6 +31,7 @@ interface Job {
   skills: string[];
   urgent: boolean;
   deadline?: string;
+  applicationStatus?: string | null;
 }
 
 // Sort-order labels shown in the sort dropdown and in the "sorted by ..."
@@ -76,6 +77,7 @@ interface ApiJob {
   skills?: string[];
   urgent?: boolean;
   deadline?: string;
+  applicationStatus?: string | null;
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
 }
 
@@ -124,6 +126,7 @@ export function FindJobs() {
   const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [applicationStatuses, setApplicationStatuses] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "salary" | "applicants" | "nearest">("nearest");
@@ -258,6 +261,7 @@ export function FindJobs() {
       skills: job.skills || [],
       urgent: Boolean(job.urgent),
       deadline: job.deadline,
+      applicationStatus: job.applicationStatus,
     };
   }, [t]);
 
@@ -314,15 +318,27 @@ export function FindJobs() {
       setIsLoading(true);
       setLoadError(null);
       try {
-        const data = await getJobs({
+        const [data, applications] = await Promise.all([
+          getJobs({
           search: searchQuery || undefined,
           category: selectedCategory || undefined,
           city: workerLocation.city.trim(),
           excludeOwn: true,
-        });
+          }),
+          getUserApplications(),
+        ]);
         if (!isMounted) return;
         const mapped = Array.isArray(data) ? data.map(mapApiJob) : [];
         setJobs(mapped);
+        const nextStatuses: Record<string, string> = {};
+        if (Array.isArray(applications)) {
+          applications.forEach((application: any) => {
+            const jobId = String(application?.job?._id || application?.job?.id || application?.job || "");
+            const status = String(application?.status || "").trim();
+            if (jobId && status) nextStatuses[jobId] = status;
+          });
+        }
+        setApplicationStatuses(nextStatuses);
       } catch (error: any) {
         if (!isMounted) return;
         setLoadError(error?.message || t("findJobs.toast.loadJobsFailed"));
@@ -336,6 +352,12 @@ export function FindJobs() {
       isMounted = false;
     };
   }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob, t]);
+
+  useEffect(() => {
+    const refreshOnFocus = () => setReloadKey((value) => value + 1);
+    window.addEventListener("focus", refreshOnFocus);
+    return () => window.removeEventListener("focus", refreshOnFocus);
+  }, []);
 
   const parseSalaryValue = (value: string | number) => {
     if (typeof value === "number") {
@@ -434,7 +456,8 @@ export function FindJobs() {
     if (isLargeScreen) {
       updateSearchParam("jobId", jobId);
     } else {
-      navigate(ROUTES.worker.jobDetails(jobId));
+      const detailsUrl = `${window.location.origin}${ROUTES.worker.jobDetails(jobId)}`;
+      window.open(detailsUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -686,6 +709,7 @@ export function FindJobs() {
                 })}
                 selected={isLargeScreen && job.id === selectedJobId}
                 saved={job.saved}
+                applicationStatus={applicationStatuses[job.id]}
                 index={index}
                 onPress={() => handleJobPress(job.id)}
                 onToggleSave={() => handleSaveJob(job.id)}
@@ -697,7 +721,9 @@ export function FindJobs() {
               panel still mounts and fetches the job, so on a phone every
               filter change would fire a request for a pane nobody can see. */}
           <div className="hidden lg:block lg:sticky lg:top-4 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
-            {isLargeScreen && selectedJobId ? <JobDetailPanel jobId={selectedJobId} compact /> : null}
+            {isLargeScreen && selectedJobId ? (
+              <JobDetailPanel jobId={selectedJobId} compact action="view" />
+            ) : null}
           </div>
         </div>
       )}

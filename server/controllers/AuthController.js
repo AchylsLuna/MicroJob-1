@@ -25,6 +25,8 @@ import {
 } from '../lib/authSession.js';
 import {
   createMfaChallengeToken,
+  createLoginMethodSelectionToken,
+  LOGIN_METHOD_SELECTION_PURPOSE,
   issueLoginOtpChallenge,
   LOGIN_OTP_PURPOSE,
   MFA_LOGIN_PURPOSE,
@@ -229,11 +231,11 @@ const loginUser = async (req, res) => {
     }
 
     if (user.mfaEnabled) {
-      const mfaToken = createMfaChallengeToken(String(user._id), includePhone);
-      return sendSuccess(res, 200, 'MFA verification required', {
-        mfaRequired: true,
-        mfaToken,
-        method: user.mfaMethod || MFA_METHOD,
+      const selectionToken = createLoginMethodSelectionToken(String(user._id), includePhone);
+      return sendSuccess(res, 200, 'Choose a verification method', {
+        methodSelectionRequired: true,
+        selectionToken,
+        methods: ['mfa', 'gmail_otp'],
       });
     }
 
@@ -253,6 +255,42 @@ const loginUser = async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     return sendError(res, 500, 'Server error during login');
+  }
+};
+
+const selectLoginMethod = async (req, res) => {
+  try {
+    const { selectionToken, method } = req.body || {};
+    if (!selectionToken || !['mfa', 'gmail_otp'].includes(method)) {
+      return sendError(res, 400, 'A valid verification method is required.');
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(String(selectionToken), getJwtSecret());
+    } catch {
+      return sendError(res, 401, 'Login verification selection expired. Please sign in again.');
+    }
+    if (decoded?.purpose !== LOGIN_METHOD_SELECTION_PURPOSE || !decoded?.userId) {
+      return sendError(res, 401, 'Invalid login verification selection.');
+    }
+    const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (!user || !user.mfaEnabled) return sendError(res, 401, 'Two-factor authentication is not enabled.');
+    if (user.status !== 'active') return sendError(res, 401, 'This account cannot sign in.');
+
+    if (method === 'mfa') {
+      const mfaToken = createMfaChallengeToken(String(user._id), Boolean(decoded.includePhone));
+      return sendSuccess(res, 200, 'MFA verification required', {
+        mfaRequired: true, mfaToken, method: user.mfaMethod || MFA_METHOD,
+      });
+    }
+
+    const loginOtp = await issueLoginOtpChallenge(user, Boolean(decoded.includePhone));
+    return sendSuccess(res, 200, 'OTP verification required', {
+      otpRequired: true, otpToken: loginOtp.otpToken, email: user.email,
+    });
+  } catch (error) {
+    console.error('Login method selection error:', error);
+    return sendError(res, 500, 'Unable to start login verification.');
   }
 };
 
@@ -522,6 +560,7 @@ const loginOtpResend = async (req, res) => {
 export {
   registerUser,
   loginUser,
+  selectLoginMethod,
   googleLogin,
   loginMfa,
   loginOtpVerify,
@@ -530,6 +569,7 @@ export {
 export default {
   registerUser,
   loginUser,
+  selectLoginMethod,
   googleLogin,
   loginMfa,
   loginOtpVerify,

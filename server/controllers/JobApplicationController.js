@@ -299,6 +299,9 @@ export const applyForJob = async (req, res) => {
 
     const existingApplication = await JobApplication.findOne({ job: jobId, applicant: userId });
     if (existingApplication) {
+      if (existingApplication.status === 'Rejected') {
+        return sendError(res, 400, 'Application rejected. You cannot apply for this job again.');
+      }
       return sendError(res, 400, 'You have already applied for this job');
     }
 

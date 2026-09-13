@@ -3,8 +3,11 @@ import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import {
   loginUser,
+  selectLoginMethod as selectLoginMethodRequest,
   googleLogin as googleLoginRequest,
   verifyLoginMfa,
+  verifyLoginOtp,
+  resendLoginOtp,
   registerUser,
   sendOtp,
   verifyOtp,
@@ -104,11 +107,17 @@ export interface User {
 export type LoginResult =
   | { status: "authenticated"; user: User }
   | { status: "otp_required" }
-  | { status: "mfa_required"; method: string };
+  | { status: "mfa_required"; method: string }
+  | { status: "method_selection_required" };
 
 type MfaChallenge = {
   token: string;
   method: string;
+  email: string;
+};
+
+type LoginMethodSelection = {
+  token: string;
   email: string;
 };
 
@@ -119,6 +128,8 @@ interface AuthContextType {
   login: (email: string, password: string, options?: { suppressToast?: boolean; requireOtp?: boolean }) => Promise<LoginResult>;
   googleSignIn: (credential: string, role?: "hire" | "work" | "both") => Promise<User>;
   mfaChallenge: MfaChallenge | null;
+  loginMethodSelection: LoginMethodSelection | null;
+  selectLoginMethod: (method: "mfa" | "gmail_otp") => Promise<LoginResult>;
   verifyMfaLogin: (code: string, options?: { suppressToast?: boolean }) => Promise<User>;
   cancelMfaLogin: () => void;
   register: (
@@ -304,6 +315,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     flow?: "signup" | "signin";
   } | null>(null);
   const [mfaChallenge, setMfaChallenge] = useState<MfaChallenge | null>(null);
+  const [loginMethodSelection, setLoginMethodSelection] = useState<LoginMethodSelection | null>(null);
+  const [loginOtpToken, setLoginOtpToken] = useState<string | null>(null);
 
   const completeLogin = (response: any, fallbackEmail: string) => {
     const { user: apiUser } = getAuthPayload(response);
@@ -522,7 +535,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         : undefined;
 
     try {
-      const response = await verifyOtp({ email: verificationEmail, code: otp });
+      const response = loginOtpToken
+        ? await verifyLoginOtp({ otpToken: loginOtpToken, code: otp })
+        : await verifyOtp({ email: verificationEmail, code: otp });
       const { user: apiUser } = getAuthPayload(response);
       if (!apiUser) {
         throw new Error("Invalid verification response from server.");
@@ -534,6 +549,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
         localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
         setPendingVerification(null);
+        setLoginOtpToken(null);
         setIsLoading(false);
         toast.success("Email verified successfully.");
         return true;
@@ -588,6 +604,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
       setPendingVerification(null);
+      setLoginOtpToken(null);
 
       setIsLoading(false);
       toast.success("Verification successful!");
@@ -610,7 +627,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      await sendOtp({ email: verificationEmail });
+      if (loginOtpToken) {
+        const renewed = await resendLoginOtp({ otpToken: loginOtpToken });
+        setLoginOtpToken(renewed.otpToken);
+      } else {
+        await sendOtp({ email: verificationEmail });
+      }
       toast.success("New OTP sent!");
     } catch (error: any) {
       toast.error(error?.message || "Failed to resend OTP");
@@ -634,6 +656,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const method = String(container.method || "authenticator");
         setMfaChallenge({ token, method, email: normalizedEmail });
         return { status: "mfa_required", method };
+      }
+      if (container?.methodSelectionRequired) {
+        const token = String(container.selectionToken || "");
+        if (!token) throw new Error("Invalid login method selection challenge.");
+        setLoginMethodSelection({ token, email: normalizedEmail });
+        return { status: "method_selection_required" };
       }
 
       const { user: apiUser } = getAuthPayload(response);
@@ -670,6 +698,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const selectLoginMethod = async (method: "mfa" | "gmail_otp"): Promise<LoginResult> => {
+    if (!loginMethodSelection) throw new Error("Login method selection expired. Please sign in again.");
+    setIsLoading(true);
+    try {
+      const response = await selectLoginMethodRequest({
+        selectionToken: loginMethodSelection.token,
+        method,
+      });
+      const container = getResponseContainer(response);
+      if (container?.mfaRequired) {
+        const token = String(container.mfaToken || "");
+        if (!token) throw new Error("Invalid MFA challenge from server.");
+        setLoginMethodSelection(null);
+        setMfaChallenge({
+          token,
+          method: String(container.method || "authenticator"),
+          email: loginMethodSelection.email,
+        });
+        return { status: "mfa_required", method: String(container.method || "authenticator") };
+      }
+      if (container?.otpRequired) {
+        const otpToken = String(container.otpToken || "");
+        if (!otpToken) throw new Error("Invalid email OTP challenge from server.");
+        setLoginMethodSelection(null);
+        setLoginOtpToken(otpToken);
+        setPendingVerification({
+          email: String(container.email || loginMethodSelection.email),
+          name: "User",
+          flow: "signin",
+        });
+        return { status: "otp_required" };
+      }
+      throw new Error("Invalid login verification response.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const googleSignIn = async (credential: string, role: "hire" | "work" | "both" = "both") => {
     if (!credential.trim()) throw new Error("Google sign-in was cancelled.");
     setIsLoading(true);
@@ -702,7 +768,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const cancelMfaLogin = () => setMfaChallenge(null);
+  const cancelMfaLogin = () => {
+    setMfaChallenge(null);
+    setLoginMethodSelection(null);
+    setLoginOtpToken(null);
+    setPendingVerification(null);
+  };
 
   const logout = (options?: { silent?: boolean }) => {
     try {
@@ -713,6 +784,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setPendingVerification(null);
     setMfaChallenge(null);
+    setLoginMethodSelection(null);
+    setLoginOtpToken(null);
     localStorage.removeItem(CURRENT_USER_KEY);
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -822,6 +895,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         googleSignIn,
         mfaChallenge,
+        loginMethodSelection,
+        selectLoginMethod,
         verifyMfaLogin,
         cancelMfaLogin,
         register,

@@ -79,10 +79,17 @@ export type MfaChallengeResponse = {
   method?: string;
   message?: string;
 };
+export type LoginMethodSelectionResponse = {
+  methodSelectionRequired: true;
+  selectionToken: string;
+  methods: Array<"mfa" | "gmail_otp">;
+  message?: string;
+};
 export type LoginResponse =
   | AuthResponse
   | MfaChallengeResponse
-  | { data: AuthResponse | MfaChallengeResponse; message?: string };
+  | LoginMethodSelectionResponse
+  | { data: AuthResponse | MfaChallengeResponse | LoginMethodSelectionResponse; message?: string };
 export type WorkExperienceMedia = {
   _id?: string;
   url: string;
@@ -402,6 +409,24 @@ export function registerUser(payload: { username?: string; firstName?: string; l
 
 export function loginUser(payload: { emailOrUsername: string; password: string }) {
   return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
+}
+
+export function selectLoginMethod(payload: { selectionToken: string; method: "mfa" | "gmail_otp" }) {
+  return request<LoginResponse>('/auth/login/method', { method: 'POST', body: payload });
+}
+
+export function verifyLoginOtp(payload: { otpToken: string; code: string }) {
+  return request<AuthResponse | { data: AuthResponse }>('/auth/login/otp/verify', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function resendLoginOtp(payload: { otpToken: string }) {
+  return request<{ otpRequired: true; otpToken: string }>('/auth/login/otp/resend', {
+    method: 'POST',
+    body: payload,
+  });
 }
 
 export function googleLogin(payload: { credential: string; role?: string }) {

@@ -2,11 +2,13 @@ import { Bookmark, Clock, MapPin } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { CategoryTile } from "../ui/CategoryTile";
 import type { JobCardData } from "./jobCardModel";
+import { useTranslation } from "react-i18next";
 
 type Props = {
   job: JobCardData;
   selected?: boolean;
   saved?: boolean;
+  applicationStatus?: string;
   onPress: () => void;
   onToggleSave?: () => void;
   index?: number;
@@ -18,7 +20,8 @@ type Props = {
  * with it the taller grid-cell `JobCard`) is gone; mobile still has its own
  * `JobCard` for the same data shape.
  */
-export function JobListRow({ job, selected, saved, onPress, onToggleSave, index = 0 }: Props) {
+export function JobListRow({ job, selected, saved, applicationStatus, onPress, onToggleSave, index = 0 }: Props) {
+  const { t } = useTranslation("worker");
   const prefersReducedMotion = useReducedMotion();
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -63,6 +66,21 @@ export function JobListRow({ job, selected, saved, onPress, onToggleSave, index 
           ) : null}
         </div>
         <p className="mt-1 text-[13px] font-bold text-slate-950">{job.salaryLabel}</p>
+        {applicationStatus ? (
+          <div className={`mt-2 rounded-lg px-2.5 py-2 text-[11px] font-bold ${
+            applicationStatus === "Rejected"
+              ? "bg-red-50 text-red-700"
+              : "bg-emerald-50 text-emerald-700"
+          }`}>
+            <span className="block">
+              {applicationStatus === "Applied"
+                ? t("findJobs.card.alreadyApplied")
+                : applicationStatus === "Rejected"
+                  ? t("findJobs.card.applicationRejected")
+                  : applicationStatus}
+            </span>
+          </div>
+        ) : null}
       </div>
       {onToggleSave ? (
         <button

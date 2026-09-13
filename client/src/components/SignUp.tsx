@@ -36,8 +36,14 @@ import { RoleChooser, type SignUpRole } from "./auth/RoleChooser";
 
 const SIGN_UP_DRAFT_KEY = "signup_draft_v1";
 
-// Passwords are deliberately absent: the draft is mirrored into sessionStorage
-// on every keystroke, and plaintext credentials do not belong there.
+// Passwords are kept only for the lifetime of this SPA session so navigating
+// to a legal document does not discard them. They are never persisted.
+let inMemoryPasswordDraft = {
+  password: "",
+  confirmPassword: "",
+};
+
+// Non-sensitive fields are mirrored into sessionStorage on every keystroke.
 type SignUpDraft = {
   fullName: string;
   email: string;
@@ -58,8 +64,8 @@ export function SignUp() {
     fullName: "",
     email: "",
     phone: "",
-    password: "",
-    confirmPassword: "",
+    password: inMemoryPasswordDraft.password,
+    confirmPassword: inMemoryPasswordDraft.confirmPassword,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -124,6 +130,13 @@ export function SignUp() {
     sessionStorage.setItem(SIGN_UP_DRAFT_KEY, JSON.stringify(draft));
   }, [isDraftHydrated, formData.fullName, formData.email, formData.phone, selectedRole, agreeToTerms]);
 
+  useEffect(() => {
+    inMemoryPasswordDraft = {
+      password: formData.password,
+      confirmPassword: formData.confirmPassword,
+    };
+  }, [formData.password, formData.confirmPassword]);
+
   // Redirect to dashboard if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
@@ -142,6 +155,12 @@ export function SignUp() {
       return;
     }
     setFormData({ ...formData, [field]: value });
+    if (field === "password" || field === "confirmPassword") {
+      inMemoryPasswordDraft = {
+        ...inMemoryPasswordDraft,
+        [field]: value,
+      };
+    }
   };
 
   // Google accounts skip the form entirely, so the role chosen in step 1 is the
@@ -206,6 +225,7 @@ export function SignUp() {
       setIsSubmitting(true);
       await register(normalizedEmail, formData.password, normalizedFullName, selectedRole ?? "both", normalizedPhone);
       sessionStorage.removeItem(SIGN_UP_DRAFT_KEY);
+      inMemoryPasswordDraft = { password: "", confirmPassword: "" };
       toast.success(t("signUp.toast.registrationSuccess"));
       setShowOTP(true);
     } catch (error: any) {
