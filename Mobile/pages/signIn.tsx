@@ -74,6 +74,8 @@ export default function SignIn({
   const [mfaCode, setMfaCode] = useState('');
   const [mfaToken, setMfaToken] = useState('');
   const [requiresMfa, setRequiresMfa] = useState(false);
+  const [selectionToken, setSelectionToken] = useState('');
+  const [requiresMethodSelection, setRequiresMethodSelection] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
@@ -194,8 +196,13 @@ export default function SignIn({
       const nextOtpRequired = Boolean(responseData?.otpRequired || responseRaw?.otpRequired);
       const nextOtpToken = responseData?.otpToken || responseRaw?.otpToken;
       const rotatedTrustedDeviceToken = responseData?.trustedDeviceToken || responseRaw?.trustedDeviceToken;
+      const nextSelectionToken = responseData?.selectionToken || responseRaw?.selectionToken;
 
-      if (result.ok && nextMfaRequired && nextMfaToken) {
+      if (result.ok && responseData?.methodSelectionRequired && nextSelectionToken) {
+        setSelectionToken(nextSelectionToken);
+        setRequiresMethodSelection(true);
+        toast.info(t('signIn.toast.methodSelection'));
+      } else if (result.ok && nextMfaRequired && nextMfaToken) {
         setRequiresMfa(true);
         setMfaToken(nextMfaToken);
         setMfaCode('');
@@ -219,6 +226,42 @@ export default function SignIn({
       }
     } catch (error: any) {
       console.error('Login error:', error);
+      toast.error(t('signIn.toast.networkError'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSelectMethod = async (method: 'mfa' | 'gmail_otp') => {
+    if (!selectionToken) {
+      toast.error(t('signIn.toast.startSignInFirst'));
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const result = await apiRequest(`${API_URL}/auth/login/method`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ selectionToken, method }),
+      }, t('signIn.toast.signInFailed'));
+      const data = asObject<any>(result.data) || {};
+      if (!result.ok) {
+        toast.error(result.message || t('signIn.toast.signInFailed'));
+        return;
+      }
+      setRequiresMethodSelection(false);
+      setSelectionToken('');
+      if (data.mfaRequired && data.mfaToken) {
+        setRequiresMfa(true);
+        setMfaToken(data.mfaToken);
+        setMfaCode('');
+        toast.info(t('signIn.toast.mfaChallenge'));
+      } else if (data.otpRequired && data.otpToken) {
+        onNavigateToVerify?.({ mode: 'loginOtp', email: normalizeEmail(email), otpToken: data.otpToken });
+      } else {
+        toast.error(t('signIn.toast.signInFailed'));
+      }
+    } catch {
       toast.error(t('signIn.toast.networkError'));
     } finally {
       setIsLoading(false);
@@ -359,7 +402,17 @@ export default function SignIn({
           </View>
           {errors.password ? <Text style={styles.inlineError}>{errors.password}</Text> : null}
 
-          {requiresMfa ? (
+          {requiresMethodSelection ? (
+            <View style={styles.methodSelection}>
+              <Text style={styles.mfaHelpText}>{t('signIn.methodSelectionTitle')}</Text>
+              <TouchableOpacity style={styles.methodButton} onPress={() => handleSelectMethod('mfa')} disabled={isLoading}>
+                <Text style={styles.methodButtonText}>{t('signIn.methodSelectionMfa')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.methodButtonSecondary} onPress={() => handleSelectMethod('gmail_otp')} disabled={isLoading}>
+                <Text style={styles.methodButtonSecondaryText}>{t('signIn.methodSelectionGmail')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : requiresMfa ? (
             <>
               <View style={[styles.inputContainer, { minHeight: fieldHeight, borderRadius: fieldRadius }]}>
                 <Feather name="shield" size={fieldIconSize} color={AUTH_COLORS.textMuted} />
@@ -583,4 +636,42 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: AUTH_COLORS.cardBorder },
   dividerText: { color: AUTH_COLORS.textSecondary, fontSize: 12, fontWeight: '600' },
+  // Method-selection panel (shown when the server returns methodSelectionRequired)
+  methodSelection: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.inputLightBorder,
+    backgroundColor: AUTH_COLORS.inputLight,
+    padding: 14,
+    marginBottom: 12,
+    gap: 10,
+  },
+  methodButton: {
+    minHeight: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: AUTH_COLORS.primary,
+    paddingHorizontal: 16,
+  },
+  methodButtonText: {
+    color: AUTH_COLORS.primaryText,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  methodButtonSecondary: {
+    minHeight: 48,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: AUTH_COLORS.inputLightBorder,
+    backgroundColor: AUTH_COLORS.cardLight,
+    paddingHorizontal: 16,
+  },
+  methodButtonSecondaryText: {
+    color: AUTH_COLORS.linkAccent,
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

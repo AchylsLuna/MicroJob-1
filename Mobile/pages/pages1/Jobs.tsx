@@ -29,6 +29,7 @@ export type Job = {
   deadline?: string;
   category?: { _id: string; name: string } | string;
   jobPoster?: { _id?: string; id?: string; firstName?: string; lastName?: string; email?: string };
+  applicationStatus?: string | null;
 };
 
 type DateFilterPreset = 'all' | '7' | '30' | 'custom';
@@ -151,9 +152,6 @@ export default function Jobs(props: JobsProps) {
   const filteredJobs = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return jobs.filter((job) => {
-      // Exclude jobs already applied to
-      if (appliedJobIds.includes(job._id)) return false;
-
       if (deadlineRange && deadlineRange.start && deadlineRange.end) {
         if (!job.deadline) return false;
         const deadlineDate = new Date(job.deadline);
@@ -197,8 +195,16 @@ export default function Jobs(props: JobsProps) {
       }, t('jobs.apiFallback.loadApplicationsFailed'));
       if (result.ok) {
         const applications = asList<any>(result.raw, ['applications']);
-        const jobIds = applications.map((app: any) => app.job?._id).filter(Boolean);
-        setAppliedJobIds(jobIds);
+        const statuses = applications.reduce<Record<string, string>>((acc, app: any) => {
+          const jobId = app.job?._id || app.job;
+          if (jobId && app.status) acc[String(jobId)] = String(app.status);
+          return acc;
+        }, {});
+        setAppliedJobIds(Object.keys(statuses));
+        setJobs((current) => current.map((job) => ({
+          ...job,
+          applicationStatus: job.applicationStatus || statuses[job._id] || null,
+        })));
       }
     } catch (error) {
       console.error('Failed to load applied jobs:', error);

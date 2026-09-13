@@ -15,6 +15,7 @@ import {
 import {
   registerUser,
   loginUser,
+  selectLoginMethod,
   googleLogin,
   loginMfa,
   loginOtpVerify,
@@ -87,6 +88,7 @@ router.post('/password/initial-change', verifyToken, passwordChangeLimiter, chan
 // source address. The pair closes both password spraying and distributed
 // credential stuffing -- see lib/rateLimiters.js.
 router.post('/login', loginLimiter, accountLoginLimiter, loginUser);
+router.post('/login/method', loginLimiter, accountLoginLimiter, selectLoginMethod);
 router.post('/google', loginLimiter, googleLogin);
 router.post('/login/mfa', loginLimiter, accountLoginLimiter, loginMfa);
 router.post('/login/otp/verify', loginLimiter, accountLoginLimiter, loginOtpVerify);

@@ -39,6 +39,19 @@ const getDiscoveryCity = (req) => resolveDiscoveryCity({
 const withProximity = (jobs, locality) =>
     jobs.map((job) => ({ ...serializePublicJob(job), proximity: proximityOf(job, locality) }));
 
+const withApplicationStatus = async (jobs, requesterId) => {
+    if (!requesterId || !jobs.length) return jobs;
+    const applications = await JobApplication.find({
+        applicant: requesterId,
+        job: { $in: jobs.map((job) => job._id) },
+    }).select('job status').lean();
+    const statusByJobId = new Map(applications.map((application) => [String(application.job), application.status]));
+    return jobs.map((job) => ({
+        ...job,
+        applicationStatus: statusByJobId.get(String(job._id)) || null,
+    }));
+};
+
 
 export async function getJobList(req, res) {
     try {
@@ -78,7 +91,8 @@ export async function getJobList(req, res) {
             .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
             .sort({ createdAt: -1 })
             .lean();
-        res.status(200).json(withProximity(sortByProximity(jobs, discovery), discovery));
+        const jobsWithApplicationStatus = await withApplicationStatus(jobs, getRequesterId(req));
+        res.status(200).json(withProximity(sortByProximity(jobsWithApplicationStatus, discovery), discovery));
     } catch (error) {
         console.error('Get jobs error:', error);
         res.status(500).json({message: "Failed to get jobs.", error: error.message});
@@ -121,6 +135,14 @@ export async function getJobDetails(req, res){
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
+        const serializedJob = serializePublicJob(job);
+        if (getRequesterId(req)) {
+            const application = await JobApplication.findOne({
+                job: job._id,
+                applicant: getRequesterId(req),
+            }).select('status').lean();
+            serializedJob.applicationStatus = application?.status || null;
+        }
         // Fire and forget: a view is analytics, and must never delay or fail the
         // job detail response. recordJobView swallows its own errors.
         void recordJobView(job, {
@@ -128,7 +150,7 @@ export async function getJobDetails(req, res){
             ip: req.ip || null,
             userAgent: req.get?.('user-agent') || null,
         });
-        res.status(200).json(serializePublicJob(job));
+        res.status(200).json(serializedJob);
     } catch (error) {
         console.error('Get job details error:', error);
         res.status(500).json({message: "Failed to get job details.", error: error.message});

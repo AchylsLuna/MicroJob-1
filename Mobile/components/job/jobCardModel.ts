@@ -20,6 +20,7 @@ export type JobCardData = {
   postedLabel: string;
   matchPercentage?: number;
   matchLevel?: string;
+  applicationStatus?: string | null;
 };
 
 type RawJob = {
@@ -35,6 +36,7 @@ type RawJob = {
   category?: { _id: string; name: string } | string;
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
   match?: { percentage?: number; level?: string };
+  applicationStatus?: string | null;
 };
 
 export function toJobCardData(job: RawJob): JobCardData {
@@ -58,5 +60,6 @@ export function toJobCardData(job: RawJob): JobCardData {
     postedLabel: job.createdAt ? formatNotificationTime(job.createdAt) : '',
     matchPercentage: job.match?.percentage,
     matchLevel: job.match?.level,
+    applicationStatus: job.applicationStatus || null,
   };
 }
