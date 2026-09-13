@@ -23,7 +23,28 @@
     },
     "statusFieldLabel": "Status",
     "toast": {
-      "loadFailed": "Failed to load applications."
+      "loadFailed": "Failed to load applications.",
+      "offerActionFailed": "That action failed. Try again.",
+      "offerAccepted": "Offer accepted.",
+      "workSubmitted": "Work submitted for review."
+    },
+    "offerPanel": {
+      "title": "You received an offer of {{amount}}",
+      "accept": "Accept {{amount}}",
+      "decline": "Decline"
+    },
+    "confirmAcceptOffer": {
+      "title": "Accept Offer",
+      "description": "Accept the {{amount}} offer? The employer will confirm the hire next.",
+      "confirm": "Accept Offer"
+    },
+    "confirmDeclineOffer": {
+      "title": "Decline Offer",
+      "description": "Decline the {{amount}} offer? This cannot be undone.",
+      "confirm": "Decline Offer"
+    },
+    "submitWork": {
+      "button": "Submit finished work"
     },
     "card": {
       "unavailableJob": "Unavailable job",

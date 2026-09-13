@@ -23,7 +23,28 @@
     },
     "statusFieldLabel": "Status",
     "toast": {
-      "loadFailed": "Hindi na-load ang mga aplikasyon."
+      "loadFailed": "Hindi na-load ang mga aplikasyon.",
+      "offerActionFailed": "Nabigo ang aksyon na iyon. Subukan muli.",
+      "offerAccepted": "Tinanggap ang alok.",
+      "workSubmitted": "Naisumite ang trabaho para sa pagsusuri."
+    },
+    "offerPanel": {
+      "title": "Nakatanggap ka ng alok na {{amount}}",
+      "accept": "Tanggapin ang {{amount}}",
+      "decline": "Tanggihan"
+    },
+    "confirmAcceptOffer": {
+      "title": "Tanggapin ang Alok",
+      "description": "Tanggapin ang {{amount}} na alok? Kukumpirmahin ng employer ang pag-hire sunod.",
+      "confirm": "Tanggapin ang Alok"
+    },
+    "confirmDeclineOffer": {
+      "title": "Tanggihan ang Alok",
+      "description": "Tanggihan ang {{amount}} na alok? Hindi na ito maibabalik.",
+      "confirm": "Tanggihan ang Alok"
+    },
+    "submitWork": {
+      "button": "Isumite ang natapos na trabaho"
     },
     "card": {
       "unavailableJob": "Hindi available na trabaho",

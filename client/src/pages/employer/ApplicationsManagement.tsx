@@ -20,18 +20,28 @@ import { toast } from "../../lib/toast";
 import {
   getEmployerApplications,
   hideEmployerApplication,
+  restoreEmployerApplication,
   scheduleInterview,
   updateApplicationStatus,
   updateInterview,
   getEligibleReviews,
+  createJobOffer,
+  cancelJobOffer,
+  confirmOfferHire,
+  authorizePayment,
+  requestChanges as requestWorkChanges,
+  settlePayment,
   type ApplicationStatus,
   type ReviewEligibilityItem,
+  type JobOffer,
 } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
 import { DateField } from "../../components/ui/DateField";
-import { formatDateTime } from "../../lib/formatters";
+import { formatCurrency, formatDateTime } from "../../lib/formatters";
+import { ConfirmDialog } from "../../components/ui/index";
+import { OfferActions } from "../../components/job/OfferActions";
 
 // Converts between the "YYYY-MM-DD" date portion of scheduleForm.scheduledAt
 // (a "YYYY-MM-DDTHH:mm" string, same shape <input type="datetime-local"> used)
@@ -79,7 +89,13 @@ type EmployerApplication = {
     title: string;
     company?: string;
     location?: string;
+    salary?: number;
   };
+  offer?: JobOffer | null;
+  agreedAmount?: number;
+  workStatus?: string;
+  paymentStatus?: string;
+  employerHidden?: boolean;
   applicant: {
     _id: string;
     firstName?: string;
@@ -176,21 +192,37 @@ function ApplicationCard({
   onToggleSelected,
   onStatusChange,
   onHide,
+  onRestore,
   onScheduleInterview,
   onOpenProfile,
   onMessage,
   reviewEligibility,
   onRate,
+  offerBusy,
+  onSendOffer,
+  onCancelOffer,
+  onConfirmHire,
+  onAuthorizePayment,
+  onReleasePayment,
+  onRequestChanges,
 }: {
   application: EmployerApplication;
   selected: boolean;
   onToggleSelected: (applicationId: string) => void;
   onStatusChange: (applicationId: string, status: ApplicationStatus) => void;
   onHide: (applicationId: string) => void;
+  onRestore: (applicationId: string) => void;
   onScheduleInterview: (application: EmployerApplication) => void;
   onOpenProfile: (application: EmployerApplication) => void;
   onMessage: (application: EmployerApplication) => void;
   reviewEligibility?: ReviewEligibilityItem;
+  offerBusy: boolean;
+  onSendOffer: (application: EmployerApplication, amount: number) => void;
+  onCancelOffer: (application: EmployerApplication) => void;
+  onConfirmHire: (application: EmployerApplication) => void;
+  onAuthorizePayment: (application: EmployerApplication) => void;
+  onReleasePayment: (application: EmployerApplication) => void;
+  onRequestChanges: (application: EmployerApplication, reason: string) => void;
   onRate: (application: EmployerApplication) => void;
 }) {
   const { t } = useTranslation("employer");
@@ -198,7 +230,11 @@ function ApplicationCard({
   const resumeUrl = toAbsoluteAssetUrl(application.applicant?.resumeUrl || application.applicant?.resume);
 
   return (
-    <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-4 shadow-sm space-y-4">
+    <div
+      className={`rounded-[16px] border p-4 shadow-sm space-y-4 ${
+        application.employerHidden ? "border-[#E5E7EB] bg-[#F8FAFC] opacity-75 ring-1 ring-[#E5E7EB]" : "border-[#E5E7EB] bg-white"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <button
           type="button"
@@ -223,9 +259,16 @@ function ApplicationCard({
             </div>
           </div>
         </div>
-        <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[application.status]}`}>
-          {getStatusLabel(t, application.status)}
-        </span>
+        <div className="flex flex-col items-end gap-1.5">
+          <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusClasses[application.status]}`}>
+            {getStatusLabel(t, application.status)}
+          </span>
+          {application.employerHidden ? (
+            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#F3F4F6] text-[#6B7280]">
+              {t("applicationsManagement.card.hiddenBadge")}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
@@ -291,6 +334,17 @@ function ApplicationCard({
           ))}
         </select>
 
+        <OfferActions
+          application={application}
+          busy={offerBusy}
+          onSendOffer={(amount) => onSendOffer(application, amount)}
+          onCancelOffer={() => onCancelOffer(application)}
+          onConfirmHire={() => onConfirmHire(application)}
+          onAuthorizePayment={() => onAuthorizePayment(application)}
+          onReleasePayment={() => onReleasePayment(application)}
+          onRequestChanges={(reason) => onRequestChanges(application, reason)}
+        />
+
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -300,14 +354,25 @@ function ApplicationCard({
             <Calendar className="w-4 h-4" />
             {application.nextInterview ? t("applicationsManagement.card.reschedule") : t("applicationsManagement.card.schedule")}
           </button>
-          <button
-            type="button"
-            onClick={() => onHide(application._id)}
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12px] font-semibold text-[#B91C1C]"
-          >
-            <Eye className="w-4 h-4" />
-            {t("applicationsManagement.card.hide")}
-          </button>
+          {application.employerHidden ? (
+            <button
+              type="button"
+              onClick={() => onRestore(application._id)}
+              className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-3 py-2 text-[12px] font-semibold text-[#1C4D8D]"
+            >
+              <Eye className="w-4 h-4" />
+              {t("applicationsManagement.card.restore")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onHide(application._id)}
+              className="inline-flex items-center justify-center gap-2 rounded-[10px] border border-[#FECACA] bg-[#FEF2F2] px-3 py-2 text-[12px] font-semibold text-[#B91C1C]"
+            >
+              <Eye className="w-4 h-4" />
+              {t("applicationsManagement.card.hide")}
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -360,6 +425,7 @@ export function ApplicationsManagement() {
   const [statusFilter, setStatusFilter] = useState<"all" | ApplicationStatus>("all");
   const [jobFilter, setJobFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [includeHidden, setIncludeHidden] = useState(false);
   const [applications, setApplications] = useState<EmployerApplication[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -376,6 +442,14 @@ export function ApplicationsManagement() {
   const [isScheduling, setIsScheduling] = useState(false);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [offerBusyId, setOfferBusyId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    run: () => Promise<void>;
+  } | null>(null);
 
   const loadApplications = useCallback(async () => {
     setIsLoading(true);
@@ -386,6 +460,7 @@ export function ApplicationsManagement() {
           ...(statusFilter !== "all" ? { status: statusFilter } : {}),
           ...(jobFilter !== "all" ? { jobId: jobFilter } : {}),
           ...(searchTerm.trim() ? { search: searchTerm.trim() } : {}),
+          ...(includeHidden ? { includeHidden: "true" } : {}),
         }),
         getEligibleReviews().catch(() => null),
       ]);
@@ -399,7 +474,7 @@ export function ApplicationsManagement() {
     } finally {
       setIsLoading(false);
     }
-  }, [jobFilter, searchTerm, statusFilter, t]);
+  }, [includeHidden, jobFilter, searchTerm, statusFilter, t]);
 
   useEffect(() => {
     const timer = window.setTimeout(loadApplications, 250);
@@ -455,6 +530,18 @@ export function ApplicationsManagement() {
     setSelectedIds((current) => current.filter((id) => !succeeded.includes(id)));
     if (succeeded.length) toast.success(t("applicationsManagement.toast.hiddenCount", { count: succeeded.length }));
     if (failed) toast.error(t("applicationsManagement.toast.hideFailedCount", { count: failed }));
+  };
+
+  const handleRestoreApplications = async (applicationIds: string[]) => {
+    if (applicationIds.length === 0) return;
+    const results = await Promise.allSettled(applicationIds.map((applicationId) => restoreEmployerApplication(applicationId)));
+    const succeeded = applicationIds.filter((_, index) => results[index].status === "fulfilled");
+    const failed = applicationIds.length - succeeded.length;
+    setApplications((current) =>
+      current.map((item) => (succeeded.includes(item._id) ? { ...item, employerHidden: false } : item)),
+    );
+    if (succeeded.length) toast.success(t("applicationsManagement.toast.restoredCount", { count: succeeded.length }));
+    if (failed) toast.error(t("applicationsManagement.toast.restoreFailedCount", { count: failed }));
   };
 
   const handleBulkStatusChange = async () => {
@@ -569,6 +656,88 @@ export function ApplicationsManagement() {
     }
   };
 
+  const runOfferAction = async (applicationId: string, action: () => Promise<unknown>, successMessage?: string) => {
+    setOfferBusyId(applicationId);
+    try {
+      await action();
+      await loadApplications();
+      if (successMessage) toast.success(successMessage);
+    } catch (error: any) {
+      toast.error(error?.message || t("applicationsManagement.toast.offerActionFailed"));
+    } finally {
+      setOfferBusyId(null);
+    }
+  };
+
+  const handleSendOffer = (application: EmployerApplication, amount: number) => {
+    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
+    const minimum = Number(application.job.salary || 0);
+    setConfirmAction({
+      title: t("applicationsManagement.confirmOffer.title"),
+      description: t("applicationsManagement.confirmOffer.description", {
+        name,
+        amount: formatCurrency(amount),
+        minimum: formatCurrency(minimum),
+        escrow: formatCurrency(Math.max(0, amount - minimum)),
+      }),
+      confirmLabel: t("applicationsManagement.confirmOffer.confirm"),
+      run: () => runOfferAction(application._id, () => createJobOffer(application._id, amount), t("applicationsManagement.toast.offerSent")),
+    });
+  };
+
+  const handleCancelOffer = (application: EmployerApplication) => {
+    if (!application.offer) return;
+    const offer = application.offer;
+    setConfirmAction({
+      title: t("applicationsManagement.confirmCancelOffer.title"),
+      description: t("applicationsManagement.confirmCancelOffer.description", { amount: formatCurrency(offer.amount) }),
+      confirmLabel: t("applicationsManagement.confirmCancelOffer.confirm"),
+      destructive: true,
+      run: () => runOfferAction(application._id, () => cancelJobOffer(offer.id)),
+    });
+  };
+
+  const handleConfirmHire = (application: EmployerApplication) => {
+    if (!application.offer) return;
+    const offer = application.offer;
+    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
+    setConfirmAction({
+      title: t("applicationsManagement.confirmHire.title"),
+      description: t("applicationsManagement.confirmHire.description", { name, amount: formatCurrency(offer.amount) }),
+      confirmLabel: t("applicationsManagement.confirmHire.confirm"),
+      run: () => runOfferAction(application._id, () => confirmOfferHire(offer.id), t("applicationsManagement.toast.workerHired")),
+    });
+  };
+
+  // Authorizing payment and requesting changes don't move money or lock in a
+  // hire, so -- matching the mobile reference implementation -- they fire
+  // directly instead of going through the confirm dialog.
+  const handleAuthorizePayment = (application: EmployerApplication) => {
+    void runOfferAction(application._id, () => authorizePayment(application._id));
+  };
+
+  const handleReleasePayment = (application: EmployerApplication) => {
+    const name = getApplicantName(application, t("applicationsManagement.card.applicantFallback"));
+    const amount = application.agreedAmount || application.job.salary;
+    setConfirmAction({
+      title: t("applicationsManagement.confirmPay.title"),
+      description: t("applicationsManagement.confirmPay.description", { name, amount: formatCurrency(amount) }),
+      confirmLabel: t("applicationsManagement.confirmPay.confirm"),
+      run: () => runOfferAction(application._id, () => settlePayment(application._id), t("applicationsManagement.toast.workerPaid")),
+    });
+  };
+
+  const handleRequestChanges = (application: EmployerApplication, reason: string) => {
+    void runOfferAction(application._id, () => requestWorkChanges(application._id, reason));
+  };
+
+  const handleConfirmDialogConfirm = () => {
+    if (!confirmAction) return;
+    const action = confirmAction;
+    setConfirmAction(null);
+    void action.run();
+  };
+
   return (
     <div className="ui-page">
       <div className="ui-card p-6 space-y-5">
@@ -638,6 +807,16 @@ export function ApplicationsManagement() {
             ))}
           </select>
         </div>
+
+        <label className="flex w-fit cursor-pointer items-center gap-2 text-[13px] font-medium text-[#475569]">
+          <input
+            type="checkbox"
+            checked={includeHidden}
+            onChange={(event) => setIncludeHidden(event.target.checked)}
+            className="h-4 w-4 rounded border-[#CBD5E1] text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+          />
+          {t("applicationsManagement.filters.showHidden")}
+        </label>
 
         {selectedIds.length > 0 ? (
           <div className="rounded-[14px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] px-4 py-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
@@ -730,11 +909,19 @@ export function ApplicationsManagement() {
                         onToggleSelected={handleToggleSelected}
                         onStatusChange={handleStatusChange}
                         onHide={(applicationId) => handleHideApplications([applicationId])}
+                        onRestore={(applicationId) => handleRestoreApplications([applicationId])}
                         onScheduleInterview={handleOpenSchedule}
                         onOpenProfile={handleOpenProfile}
                         onMessage={handleMessage}
                         reviewEligibility={reviewEligibility[application._id]}
                         onRate={handleRateWorker}
+                        offerBusy={offerBusyId === application._id}
+                        onSendOffer={handleSendOffer}
+                        onCancelOffer={handleCancelOffer}
+                        onConfirmHire={handleConfirmHire}
+                        onAuthorizePayment={handleAuthorizePayment}
+                        onReleasePayment={handleReleasePayment}
+                        onRequestChanges={handleRequestChanges}
                       />
                     </motion.div>
                   ))
@@ -863,6 +1050,15 @@ export function ApplicationsManagement() {
       {ratingTarget ? (
         <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={loadApplications} />
       ) : null}
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction?.title || ""}
+        description={confirmAction?.description || ""}
+        confirmLabel={confirmAction?.confirmLabel}
+        destructive={confirmAction?.destructive}
+        onConfirm={handleConfirmDialogConfirm}
+        onClose={() => setConfirmAction(null)}
+      />
 
       {scheduleTarget ? (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">

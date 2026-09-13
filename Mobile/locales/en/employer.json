@@ -456,7 +456,8 @@
       "actionFailed": "Unable to complete this action.",
       "updateCandidateFailed": "Unable to update candidate.",
       "scheduleInterviewFailed": "Unable to schedule interview.",
-      "removeFailed": "Unable to remove application."
+      "removeFailed": "Unable to remove application.",
+      "restoreFailed": "Unable to restore application."
     },
     "toast": {
       "candidateMoved": "Candidate moved to {{status}}.",
@@ -512,7 +513,8 @@
       "appliedRecently": "recently",
       "matchPercent": "{{percent}}% match",
       "ratingValue": "{{rating}} ★",
-      "nextInterview": "Next {{date}}"
+      "nextInterview": "Next {{date}}",
+      "hidden": "Hidden"
     },
     "actions": {
       "viewProfile": "View Profile",
@@ -552,6 +554,7 @@
     },
     "rejectCandidate": "Reject Candidate",
     "removeFromList": "Remove from employer list",
+    "restoreToList": "Restore to list",
     "confirm": {
       "reject": {
         "title": "Reject candidate?",

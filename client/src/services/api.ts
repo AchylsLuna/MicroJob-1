@@ -713,6 +713,69 @@ export function updateInterview(
   return request(`/applications/${applicationId}/interviews/${interviewId}`, { method: 'PATCH', body: payload });
 }
 
+export function restoreEmployerApplication(applicationId: string) {
+  return request(`/applications/${applicationId}/employer/restore`, { method: 'PATCH' });
+}
+
+// Job offer APIs
+export type JobOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'hired';
+
+export type JobOffer = {
+  id: string;
+  applicationId: string;
+  jobId: string;
+  employerId: string;
+  workerId: string;
+  amount: number;
+  status: JobOfferStatus;
+  createdAt?: string;
+  acceptedAt?: string | null;
+};
+
+export function createJobOffer(applicationId: string, amount: number) {
+  return request<{ offer: JobOffer }>(`/applications/${applicationId}/offers`, {
+    method: 'POST',
+    body: { amount },
+  });
+}
+
+export function respondToJobOffer(offerId: string, action: 'accept' | 'reject') {
+  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/respond`, {
+    method: 'POST',
+    body: { action },
+  });
+}
+
+export function cancelJobOffer(offerId: string) {
+  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/cancel`, { method: 'POST' });
+}
+
+export function confirmOfferHire(offerId: string) {
+  return request<{ offer: JobOffer; application: any }>(`/job-offers/${offerId}/confirm-hire`, { method: 'POST' });
+}
+
+// Hire work & payment APIs
+export function authorizePayment(applicationId: string) {
+  return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST' });
+}
+
+export function submitWork(applicationId: string) {
+  return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST' });
+}
+
+export function requestChanges(applicationId: string, reason: string) {
+  return request<{ application: any }>(`/applications/${applicationId}/work/request-changes`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+export function settlePayment(applicationId: string) {
+  return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
+    method: 'POST',
+  });
+}
+
 // User APIs
 export function getUserList() {
   return request<any[]>('/users/userlist', { method: 'GET' });

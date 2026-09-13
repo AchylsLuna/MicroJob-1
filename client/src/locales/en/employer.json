@@ -201,7 +201,8 @@
       "stageAriaLabel": "Filter applications by stage",
       "allStages": "All stages",
       "jobAriaLabel": "Filter applications by job",
-      "allJobs": "All jobs"
+      "allJobs": "All jobs",
+      "showHidden": "Show hidden"
     },
     "status": {
       "applied": "Applied",
@@ -251,6 +252,8 @@
       "reschedule": "Reschedule",
       "schedule": "Schedule",
       "hide": "Hide",
+      "restore": "Restore",
+      "hiddenBadge": "Hidden",
       "profile": "Profile",
       "message": "Message",
       "viewResume": "View Resume",
@@ -293,7 +296,57 @@
       "interviewDateRequired": "Interview date and time are required.",
       "interviewRescheduled": "Interview rescheduled.",
       "interviewScheduledSuccess": "Interview scheduled.",
-      "interviewSaveFailed": "Failed to save interview schedule."
+      "interviewSaveFailed": "Failed to save interview schedule.",
+      "offerSent": "Offer sent.",
+      "workerHired": "Worker hired.",
+      "workerPaid": "Worker paid.",
+      "offerActionFailed": "That action failed. Try again.",
+      "restoredCount_one": "{{count}} application restored.",
+      "restoredCount_other": "{{count}} applications restored.",
+      "restoreFailedCount_one": "{{count}} application could not be restored. Try again.",
+      "restoreFailedCount_other": "{{count}} applications could not be restored. Try again."
+    },
+    "offerPanel": {
+      "title": "Send a formal offer",
+      "guaranteedMinimum": "Guaranteed minimum: {{amount}}",
+      "amountPlaceholder": "Offer amount",
+      "reviewOffer": "Review Offer",
+      "additionalEscrow": "Additional {{amount}} will be held in escrow."
+    },
+    "offerActive": {
+      "accepted": "Offer accepted",
+      "awaiting": "Offer awaiting response",
+      "escrowBacked": "{{amount}} held in escrow",
+      "confirmHire": "Confirm Hire",
+      "cancelOffer": "Cancel Offer"
+    },
+    "hiredPanel": {
+      "title": "Hired",
+      "summary": "{{amount}} agreed · Work: {{workStatus}} · Payment: {{paymentStatus}}",
+      "authorizePayment": "Authorize Payment",
+      "approveAndPay": "Approve & Pay",
+      "requestChanges": "Request Changes",
+      "changeReasonPlaceholder": "What needs to change?"
+    },
+    "confirmOffer": {
+      "title": "Send Formal Offer",
+      "description": "Send {{name}} an offer of {{amount}} (minimum {{minimum}}, {{escrow}} additional escrow)?",
+      "confirm": "Send Offer"
+    },
+    "confirmCancelOffer": {
+      "title": "Cancel Offer",
+      "description": "Cancel the {{amount}} offer? Any additional escrow will be refunded to your balance.",
+      "confirm": "Cancel Offer"
+    },
+    "confirmHire": {
+      "title": "Confirm Hire",
+      "description": "Confirm hiring {{name}} for {{amount}}? This reserves the position and secures escrow.",
+      "confirm": "Confirm Hire"
+    },
+    "confirmPay": {
+      "title": "Approve & Pay",
+      "description": "Release {{amount}} to {{name}}'s wallet? This cannot be undone.",
+      "confirm": "Approve & Pay"
     },
     "scheduleModal": {
       "updateTitle": "Update Interview",
@@ -436,6 +489,7 @@
       "reopen": "Reopen",
       "markDoneTooltipBlocked": "Move at least one worker application to Hired first",
       "markDoneTooltip": "Mark done and auto-pay workers from escrow",
+      "markDoneBlockedHelper": "You need at least one hired worker, and that worker must submit finished work, before you can mark this job done.",
       "marking": "Marking...",
       "markAsDone": "Mark as Done",
       "deleteTooltip": "Delete this job",
