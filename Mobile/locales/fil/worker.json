@@ -1,4 +1,13 @@
 {
+  "guestJobs": {
+    "title": "Tingnan ang mga Trabaho",
+    "subtitle": "Mag-sign in para mag-apply, mag-save, o magmensahe sa mga employer.",
+    "searchPlaceholder": "Maghanap ng trabaho",
+    "signInButton": "Mag-sign In",
+    "signUpButton": "Mag-sign Up",
+    "empty": "Walang nakitang trabaho.",
+    "loadFailed": "Hindi ma-load ang mga trabaho. Pakisubukan ulit."
+  },
   "about": {
     "headerTitle": "Tungkol",
     "headerSubtitle": "Impormasyon ng platform",

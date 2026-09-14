@@ -185,7 +185,35 @@
       "confirm": "I-delete ang trabaho"
     },
     "profileIncomplete": {
-      "toast": "Idagdag ang pangalan ng kompanya at logo sa Settings bago mag-post ng trabaho."
+      "toast": "Magdagdag ng profile photo sa Settings bago mag-post ng trabaho."
+    },
+    "wizard": {
+      "stepAria": "Hakbang {{step}} ng {{total}}: {{title}}",
+      "steps": {
+        "job": {
+          "title": "Ang trabaho",
+          "subtitle": "Pangalanan, kategoryahin, at ilarawan ang gawain."
+        },
+        "whereWhen": {
+          "title": "Saan at kailan",
+          "subtitle": "Itakda ang lokasyon, uri ng oportunidad, at deadline."
+        },
+        "payReview": {
+          "title": "Bayad at review",
+          "subtitle": "Itakda ang bayad, magdagdag ng opsyonal na detalye, at kumpirmahin."
+        }
+      },
+      "back": "Bumalik",
+      "next": "Susunod",
+      "summary": {
+        "title": "Suriin bago mag-post",
+        "job": "Trabaho",
+        "category": "Kategorya",
+        "location": "Lokasyon",
+        "jobType": "Uri",
+        "deadline": "Deadline",
+        "positions": "Bilang ng posisyon"
+      }
     }
   },
   "applicationsManagement": {

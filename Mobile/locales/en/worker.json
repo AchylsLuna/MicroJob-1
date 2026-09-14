@@ -1,4 +1,13 @@
 {
+  "guestJobs": {
+    "title": "Browse Jobs",
+    "subtitle": "Sign in to apply, save, or message employers.",
+    "searchPlaceholder": "Search jobs",
+    "signInButton": "Sign In",
+    "signUpButton": "Sign Up",
+    "empty": "No jobs found.",
+    "loadFailed": "Unable to load jobs. Please try again."
+  },
   "about": {
     "headerTitle": "About",
     "headerSubtitle": "Platform information",

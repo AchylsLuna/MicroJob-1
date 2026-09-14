@@ -290,7 +290,7 @@ export function Profile() {
         {/* Profile Info */}
         <div className="px-8 pb-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between -mt-16">
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:gap-6">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:gap-6">
               {/* Avatar */}
               {safeAvatarUrl ? (
                 <img
@@ -305,7 +305,7 @@ export function Profile() {
               )}
 
               {/* Name and Title */}
-              <div className="pb-2">
+              <div className="pb-2 sm:mt-[70px]">
                 <div className="flex items-center gap-3 mb-1">
                   <h1 className="text-[28px] font-bold text-[#1e293b]">
                     {profileData.name}

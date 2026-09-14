@@ -532,6 +532,49 @@
       "cancel": "Cancel",
       "save": "Save"
     },
+    "offerCard": {
+      "eyebrow": "Job offer",
+      "fallbackTitle": "Job offer",
+      "escrowHint": "Backed by escrow until the job is confirmed done.",
+      "accept": "Accept",
+      "decline": "Decline",
+      "cancel": "Cancel offer",
+      "confirmHire": "Confirm hire",
+      "status": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Declined",
+        "cancelled": "Cancelled",
+        "hired": "Hired"
+      },
+      "confirmAccept": {
+        "title": "Accept offer",
+        "description": "Accept the {{amount}} offer? The employer will confirm the hire next.",
+        "confirm": "Accept offer"
+      },
+      "confirmDecline": {
+        "title": "Decline offer",
+        "description": "Decline the {{amount}} offer? This cannot be undone.",
+        "confirm": "Decline offer"
+      },
+      "confirmCancel": {
+        "title": "Cancel offer",
+        "description": "Cancel this job offer? The worker will be notified and the escrowed amount will be refunded.",
+        "confirm": "Cancel offer"
+      },
+      "confirmHireDialog": {
+        "title": "Confirm hire",
+        "description": "Confirm this hire? The worker will be marked as hired for this job.",
+        "confirm": "Confirm hire"
+      },
+      "toast": {
+        "accepted": "Offer accepted.",
+        "declined": "Offer declined.",
+        "cancelled": "Offer cancelled.",
+        "hired": "Hire confirmed.",
+        "actionFailed": "That action failed. Try again."
+      }
+    },
     "dock": {
       "title": "Messaging",
       "expandAria": "Open messaging",

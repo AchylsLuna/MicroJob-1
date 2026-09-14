@@ -16,8 +16,11 @@ import VerifyEmail from './pages/verifyEmail';
 import ForgotPass from './pages/forgotPass';
 import CreatePass from './pages/createPass';
 import PassChanged from './pages/passChanged';
+import LegalDocument from './pages/legalDocument';
+import { isLegalDocId } from './lib/legalDocuments';
 import Jobs from './pages/pages1/Jobs';
 import JobDetails from './pages/pages1/JobDetails';
+import GuestJobs from './pages/GuestJobs';
 import SavedJobs from './pages/pages1/SavedJobs';
 import AppliedJobs from './pages/pages1/AppliedJobs';
 import Profile from './pages/pages1/Profile';
@@ -123,9 +126,34 @@ function SignInScreen() {
       onNavigateToSignUp={() => navigation.navigate('SignUp')}
       onNavigateToForgot={() => navigation.navigate('ForgotPassword')}
       onNavigateToVerify={(params) => navigation.navigate('VerifyEmail', params || {})}
+      onNavigateToGuestBrowse={() => navigation.navigate('GuestJobs')}
       onLogin={async () => {
         await handleAuthSuccess();
       }}
+    />
+  );
+}
+
+function GuestJobsScreen() {
+  const navigation = useNavigation();
+  return (
+    <GuestJobs
+      onViewDetails={(job) => navigation.navigate('GuestJobDetails', { job })}
+      onNavigateToSignIn={() => navigation.navigate('SignIn')}
+      onNavigateToSignUp={() => navigation.navigate('SignUp')}
+    />
+  );
+}
+
+function GuestJobDetailsScreen() {
+  const route = useRoute();
+  const navigation = useNavigation();
+  const job = route.params?.job || null;
+  return (
+    <JobDetails
+      job={job}
+      onBack={() => navigation.goBack()}
+      onRequireSignIn={() => navigation.navigate('SignIn')}
     />
   );
 }
@@ -137,6 +165,19 @@ function SignUpScreen() {
       onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })}
       onNavigateToSignIn={() => navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] })}
       onNavigateToVerify={(email) => navigation.navigate('VerifyEmail', { mode: 'emailVerification', email, origin: 'signup' })}
+      onNavigateToLegal={(docId) => navigation.navigate('LegalDocument', { docId })}
+    />
+  );
+}
+
+function LegalDocumentScreen() {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const routeParams = route?.params || {};
+  return (
+    <LegalDocument
+      initialDocId={isLegalDocId(routeParams.docId) ? routeParams.docId : 'terms'}
+      onBack={() => navigation.canGoBack() ? navigation.goBack() : navigation.reset({ index: 0, routes: [{ name: 'SignUp' }] })}
     />
   );
 }
@@ -254,6 +295,9 @@ function AuthNavigator() {
       <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
       <AuthStack.Screen name="SignIn" component={SignInScreen} />
       <AuthStack.Screen name="SignUp" component={SignUpScreen} />
+      <AuthStack.Screen name="LegalDocument" component={LegalDocumentScreen} />
+      <AuthStack.Screen name="GuestJobs" component={GuestJobsScreen} />
+      <AuthStack.Screen name="GuestJobDetails" component={GuestJobDetailsScreen} />
       <AuthStack.Screen name="VerifyEmail" component={VerifyEmailScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <AuthStack.Screen name="CreatePass" component={CreatePassScreen} />
@@ -614,6 +658,8 @@ function EmployerPostJobScreen() {
     <EmployerPostJob
       onPosted={() => navigateToEmployerTab(navigation, 'Home')}
       onOpenWallet={() => navigation.navigate('EmployerEWallet')}
+      onOpenProfile={() => navigation.navigate('EmployerAccountInformation', { initialSection: 'profile' })}
+      currentUser={session.user}
       jobToEdit={route.params?.jobToEdit || null}
       activeTab="Post Job"
       onTabPress={employerTabPress}

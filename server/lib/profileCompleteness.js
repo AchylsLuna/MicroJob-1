@@ -8,13 +8,12 @@
 
 export function getEmployerProfileRequirementError(user) {
   const missing = [];
-  if (!String(user?.companyName || '').trim()) missing.push('companyName');
   if (!String(user?.avatarUrl || '').trim()) missing.push('avatarUrl');
   if (!missing.length) return null;
   return {
     status: 409,
     code: 'EMPLOYER_PROFILE_INCOMPLETE',
-    message: 'Add your company name and logo before posting a job.',
+    message: 'Add a profile photo before posting a job.',
     missing,
   };
 }

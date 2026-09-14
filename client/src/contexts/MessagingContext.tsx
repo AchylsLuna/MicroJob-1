@@ -8,6 +8,27 @@ import {
   getConversations,
 } from '../services/api';
 
+/**
+ * Mirrors `server/models/Message.js`'s `attachment` subdocument. `jobOffer`
+ * arrives populated (an object with at least `status`/`amount`) on the
+ * initial fetch and socket payload alike -- see `JobOfferController.js:49`,
+ * which populates `attachment.jobOffer` with `status amount acceptedAt
+ * resolvedAt` before emitting. It can still show up as a bare id string in
+ * edge cases (e.g. a stale cache), so callers must not assume it is always
+ * an object.
+ */
+export interface ChatMessageAttachment {
+  type?: 'settlement_request' | 'job_offer';
+  jobOffer?: { _id: string; status: string; amount?: number; acceptedAt?: string; resolvedAt?: string } | string;
+  application?: string;
+  jobTitle?: string;
+  offerAmount?: number;
+  settlementRequest?: unknown;
+  qrImageName?: string;
+  totalAmount?: number;
+  expiresAt?: string;
+}
+
 export interface ChatMessage {
   _id: string;
   sender: { _id: string; firstName?: string; lastName?: string };
@@ -23,6 +44,7 @@ export interface ChatMessage {
   pending?: boolean;
   /** Client-only: optimistic send failed; tap to remove and retry. */
   failed?: boolean;
+  attachment?: ChatMessageAttachment;
 }
 
 export interface Contact {

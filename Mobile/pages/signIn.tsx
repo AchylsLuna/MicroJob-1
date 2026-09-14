@@ -31,12 +31,14 @@ export default function SignIn({
   onNavigateToSignUp,
   onNavigateToForgot,
   onNavigateToVerify,
+  onNavigateToGuestBrowse,
   onLogin,
 }: {
   onBack: () => void;
   onNavigateToSignUp?: () => void;
   onNavigateToForgot?: () => void;
   onNavigateToVerify?: (params?: { mode?: 'emailVerification' | 'loginOtp'; email?: string; otpToken?: string }) => void;
+  onNavigateToGuestBrowse?: () => void;
   onLogin?: () => void;
 }) {
   WebBrowser.maybeCompleteAuthSession();
@@ -416,6 +418,19 @@ export default function SignIn({
               </Text>
             </TouchableOpacity>
           </View>
+
+          {onNavigateToGuestBrowse ? (
+            <TouchableOpacity
+              style={styles.guestBrowseButton}
+              onPress={onNavigateToGuestBrowse}
+              accessibilityRole="button"
+              accessibilityLabel={t('signIn.browseGuestA11y')}
+            >
+              <Text style={[styles.bottomLink, { fontSize: helperFontSize }]}>
+                {t('signIn.browseGuest')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -557,6 +572,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     flexShrink: 1,
+  },
+  guestBrowseButton: {
+    alignItems: 'center',
+    marginTop: 14,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   googleSection: { marginTop: 2, marginBottom: 16 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },

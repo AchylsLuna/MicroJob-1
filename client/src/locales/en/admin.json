@@ -443,7 +443,8 @@
       "title": "Delete user",
       "description": "Delete {{name}}? Their account will be anonymized and they will lose access. Accounts with active balances, payouts, jobs, or applications cannot be deleted.",
       "fallbackName": "this user",
-      "confirmLabel": "Delete user"
+      "confirmLabel": "Delete user",
+      "blockedPrefix": "This account can't be deleted yet:"
     },
     "rejectDialog": {
       "title": "Reject verification document",

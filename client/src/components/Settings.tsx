@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle, XCircle, type LucideIcon } from "lucide-react";
+import { Eye, EyeOff, Upload, Trash2, CheckCircle2, ChevronDown, Clock, Circle, XCircle, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { toAbsoluteAssetUrl } from "../lib/assetUrl";
@@ -81,14 +81,17 @@ const mapTabParam = (value: string | null): TabType | null => {
   if (value === "account") return "account";
   if (value === "privacy") return "privacy";
   if (value === "payments" || value === "payment-methods") return "payments";
-  if (["personal", "experience", "resume", "cv"].includes(value)) return "account";
-  if (["security", "verification"].includes(value)) return "privacy";
+  // "verification" used to land on Security & Privacy, but the phone
+  // verification action it was meant to reach now lives on Account →
+  // Personal Information, next to the phone number field itself.
+  if (["personal", "experience", "resume", "cv", "verification"].includes(value)) return "account";
+  if (value === "security") return "privacy";
   return null;
 };
 
 const mapAccountTab = (value: string | null): AccountTab | null => {
   if (!value) return null;
-  if (value === "personal") return "personal";
+  if (value === "personal" || value === "verification") return "personal";
   if (value === "experience") return "experience";
   if (value === "resume") return "resume";
   if (value === "cv") return "resume";
@@ -273,6 +276,7 @@ const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): Pers
 
 export function Settings() {
   const { t: tAuth } = useTranslation("auth");
+  const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = mapTabParam(searchParams.get("tab")) ?? "account";
@@ -385,6 +389,7 @@ export function Settings() {
 
   const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
   const isProfileVerified = verificationStepsData.length > 0 && completedSteps === verificationStepsData.length;
+  const phoneVerificationStatus = verificationStepsData.find((step) => step.id === "phone")?.status;
 
   const selectedProvince = provinceOptions.find(
     (item) => item.name.toLowerCase() === personalInfo.province.trim().toLowerCase(),
@@ -1495,21 +1500,25 @@ export function Settings() {
                               </button>
                             </div>
                           ) : null}
+                          <p className="text-[12px] text-slate-500">Type to search, or pick from the list.</p>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                               <label htmlFor="settings-province" className="text-[14px] font-medium text-slate-600 mb-2 block">Province</label>
-                              <input
-                                id="settings-province"
-                                list="settings-province-options"
-                                value={personalInfo.province}
-                                maxLength={PROFILE_LIMITS.province}
-                                autoComplete="address-level1"
-                                disabled={isLoadingLocationData || Boolean(locationDataError)}
-                                aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
-                                onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
-                                placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-province"
+                                  list="settings-province-options"
+                                  value={personalInfo.province}
+                                  maxLength={PROFILE_LIMITS.province}
+                                  autoComplete="address-level1"
+                                  disabled={isLoadingLocationData || Boolean(locationDataError)}
+                                  aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
+                                  onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
+                                  placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                />
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                              </div>
                               <datalist id="settings-province-options">
                                 {provinceOptions.map((province) => <option key={province.code} value={province.name} />)}
                               </datalist>
@@ -1517,18 +1526,21 @@ export function Settings() {
 
                             <div>
                               <label htmlFor="settings-city" className="text-[14px] font-medium text-slate-600 mb-2 block">City / Municipality</label>
-                              <input
-                                id="settings-city"
-                                list="settings-city-options"
-                                value={personalInfo.city}
-                                maxLength={PROFILE_LIMITS.city}
-                                autoComplete="address-level2"
-                                disabled={!selectedProvince || Boolean(locationDataError)}
-                                aria-invalid={Boolean(personalInfo.city) && !selectedCity}
-                                onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
-                                placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-city"
+                                  list="settings-city-options"
+                                  value={personalInfo.city}
+                                  maxLength={PROFILE_LIMITS.city}
+                                  autoComplete="address-level2"
+                                  disabled={!selectedProvince || Boolean(locationDataError)}
+                                  aria-invalid={Boolean(personalInfo.city) && !selectedCity}
+                                  onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
+                                  placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                />
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                              </div>
                               <datalist id="settings-city-options">
                                 {filteredCityOptions.map((city) => <option key={city.code} value={city.name} />)}
                               </datalist>
@@ -1536,18 +1548,21 @@ export function Settings() {
 
                             <div>
                               <label htmlFor="settings-barangay" className="text-[14px] font-medium text-slate-600 mb-2 block">Barangay</label>
-                              <input
-                                id="settings-barangay"
-                                list="settings-barangay-options"
-                                value={personalInfo.barangay}
-                                maxLength={PROFILE_LIMITS.barangay}
-                                disabled={!selectedCity || isLoadingBarangays || Boolean(barangayDataError)}
-                                aria-invalid={Boolean(personalInfo.barangay) && !selectedBarangay}
-                                aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
-                                onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
-                                placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-barangay"
+                                  list="settings-barangay-options"
+                                  value={personalInfo.barangay}
+                                  maxLength={PROFILE_LIMITS.barangay}
+                                  disabled={!selectedCity || isLoadingBarangays || Boolean(barangayDataError)}
+                                  aria-invalid={Boolean(personalInfo.barangay) && !selectedBarangay}
+                                  aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
+                                  onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
+                                  placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                />
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                              </div>
                               <datalist id="settings-barangay-options">
                                 {barangayOptions.map((barangay) => <option key={barangay.code} value={barangay.name} />)}
                               </datalist>
@@ -1571,19 +1586,24 @@ export function Settings() {
                             </div>
                             <div>
                               <label htmlFor="settings-address" className="text-[14px] font-medium text-slate-600 mb-2 block">Address / Place</label>
-                              <input
-                                id="settings-address"
-                                type="text"
-                                list="settings-address-options"
-                                value={personalInfo.address}
-                                maxLength={PROFILE_LIMITS.address}
-                                autoComplete="street-address"
-                                aria-invalid={profileErrorField === "address"}
-                                aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
-                                onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
-                                placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-address"
+                                  type="text"
+                                  list="settings-address-options"
+                                  value={personalInfo.address}
+                                  maxLength={PROFILE_LIMITS.address}
+                                  autoComplete="street-address"
+                                  aria-invalid={profileErrorField === "address"}
+                                  aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
+                                  onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
+                                  placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                />
+                                {addressSuggestions.length > 0 ? (
+                                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                                ) : null}
+                              </div>
                             </div>
                           </div>
 
@@ -1612,6 +1632,64 @@ export function Settings() {
                               placeholder="e.g., 0917 123 4567"
                               className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             />
+                            {/* Verification lives here, next to the field it verifies, instead of
+                                on the Security & Privacy tab — a worker typing their number had no
+                                reason to expect the "Send code" action to be on a different tab. */}
+                            {phoneVerificationStatus === "complete" ? (
+                              <p className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700">
+                                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                Phone number verified
+                              </p>
+                            ) : personalInfo.phone.trim() ? (
+                              <div className="mt-3 space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleRequestPhoneCode}
+                                    disabled={isSendingPhoneCode}
+                                    className={verificationActionClass}
+                                  >
+                                    {isSendingPhoneCode
+                                      ? "Sending..."
+                                      : phoneCodeRequested
+                                        ? "Resend code"
+                                        : "Send verification code"}
+                                  </button>
+                                  {phoneCodeHint && (
+                                    <span className="text-xs text-slate-600">{phoneCodeHint}</span>
+                                  )}
+                                </div>
+                                {phoneCodeRequested && (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      autoComplete="one-time-code"
+                                      aria-label="Phone verification code"
+                                      maxLength={6}
+                                      value={phoneVerificationCode}
+                                      onChange={(event) =>
+                                        setPhoneVerificationCode(
+                                          event.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                                        )
+                                      }
+                                      placeholder="Enter 6-digit code"
+                                      className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={handleConfirmPhoneCode}
+                                      disabled={isConfirmingPhoneCode}
+                                      className={verificationSecondaryActionClass}
+                                    >
+                                      {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-[12px] text-slate-500">Save your phone number first to verify it.</p>
+                            )}
                           </div>
                           <div>
                             <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-slate-600 mb-2 block">Email</label>
@@ -1784,16 +1862,18 @@ export function Settings() {
                         </>
                       )}
 
-                      <button
-                        type="submit"
-                        disabled={isProfileSaving || isProfileLoading}
-                        aria-busy={isProfileSaving || isProfileLoading}
-                        className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
-                          isProfileSaving || isProfileLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
-                        }`}
-                      >
-                        {isProfileSaving ? "Saving..." : isProfileLoading ? "Loading..." : "Save changes"}
-                      </button>
+                      <div className="sticky bottom-0 z-10 -mx-6 mt-6 border-t border-slate-200 bg-white px-6 py-4">
+                        <button
+                          type="submit"
+                          disabled={isProfileSaving || isProfileLoading}
+                          aria-busy={isProfileSaving || isProfileLoading}
+                          className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
+                            isProfileSaving || isProfileLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                          }`}
+                        >
+                          {isProfileSaving ? tCommon("settings.saving") : isProfileLoading ? tCommon("loading") : tCommon("settings.saveChanges")}
+                        </button>
+                      </div>
                 </form>
 
                 <div className="mt-6">
@@ -2589,53 +2669,20 @@ export function Settings() {
                                             </button>
                                           )}
 
+                                          {/* The send/confirm-code action now lives on the Account tab,
+                                              right next to the phone number field itself — see
+                                              settings-phone above. This step keeps its status only. */}
                                           {step.id === "phone" && step.status !== "complete" && (
-                                            <div className="mt-3 space-y-2">
-                                              <div className="flex flex-wrap items-center gap-2">
-                                                <button
-                                                  type="button"
-                                                  onClick={handleRequestPhoneCode}
-                                                  disabled={isSendingPhoneCode}
-                                                  className={verificationActionClass}
-                                                >
-                                                  {isSendingPhoneCode
-                                                    ? "Sending..."
-                                                    : phoneCodeRequested
-                                                      ? "Resend code"
-                                                      : "Send verification code"}
-                                                </button>
-                                                {phoneCodeHint && (
-                                                  <span className="text-xs text-slate-600">{phoneCodeHint}</span>
-                                                )}
-                                              </div>
-                                              {phoneCodeRequested && (
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                  <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    autoComplete="one-time-code"
-                                                    aria-label="Phone verification code"
-                                                    maxLength={6}
-                                                    value={phoneVerificationCode}
-                                                    onChange={(event) =>
-                                                      setPhoneVerificationCode(
-                                                        event.target.value.replace(/[^\d]/g, "").slice(0, 6)
-                                                      )
-                                                    }
-                                                    placeholder="Enter 6-digit code"
-                                                    className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
-                                                  />
-                                                  <button
-                                                    type="button"
-                                                    onClick={handleConfirmPhoneCode}
-                                                    disabled={isConfirmingPhoneCode}
-                                                    className={verificationSecondaryActionClass}
-                                                  >
-                                                    {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setActiveTab("account");
+                                                setAccountTab("personal");
+                                              }}
+                                              className={verificationActionClass}
+                                            >
+                                              Verify in Account settings
+                                            </button>
                                           )}
 
                                           {step.id === "identity" && needsAction && (

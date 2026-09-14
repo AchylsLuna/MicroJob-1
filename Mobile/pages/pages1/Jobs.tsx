@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
+import { Animated, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
@@ -12,6 +12,7 @@ import JobCard from '../../components/job/JobCard';
 import { toJobCardData } from '../../components/job/jobCardModel';
 import CalendarSheet from '../../components/ui/CalendarSheet';
 import { isDateDisabled, type DateRange } from '../../lib/calendarModel';
+import useHideOnScroll from '../../hooks/useHideOnScroll';
 import { useTranslation } from 'react-i18next';
 
 type Category = { _id: string; name: string };
@@ -85,6 +86,7 @@ export default function Jobs(props: JobsProps) {
 
   const session = useAppSession();
   const firstName = String(session.user?.firstName || '').trim() || t('jobs.home.fallbackName');
+  const { onScroll, onHeaderLayout, headerStyle, headerHeight } = useHideOnScroll();
 
   const activeFilterCount = useMemo(() => (
     (selectedCategory !== 'All' ? 1 : 0) +
@@ -376,7 +378,7 @@ export default function Jobs(props: JobsProps) {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <Animated.View style={[styles.headerWrap, headerStyle]} onLayout={onHeaderLayout}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
             <Text style={styles.greeting} numberOfLines={1}>{t('jobs.home.greeting', { name: firstName })}</Text>
@@ -396,7 +398,14 @@ export default function Jobs(props: JobsProps) {
             ) : null}
           </TouchableOpacity>
         </View>
+      </Animated.View>
 
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + 8 }]}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
+      >
         <View style={styles.searchRow}>
         <View style={styles.searchContainer}>
           <Ionicons name="search-outline" size={18} color={tokens.colors.textSubtle} />
@@ -717,12 +726,22 @@ export default function Jobs(props: JobsProps) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.background },
   scroll: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: tokens.layout.tabBarClearance, gap: 14 },
+  headerWrap: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    backgroundColor: tokens.colors.background,
+    paddingHorizontal: 16,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: tokens.spacing.sm,
     paddingTop: tokens.spacing.sm,
+    paddingBottom: tokens.spacing.sm,
   },
   headerCopy: { flex: 1, gap: 2 },
   greeting: { fontSize: 26, fontWeight: '800', color: tokens.colors.onCanvas, lineHeight: 32 },

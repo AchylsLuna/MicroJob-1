@@ -29,6 +29,8 @@ type Category = { _id: string; name: string };
 type PostJobProps = {
   onPosted?: () => void;
   onOpenWallet?: () => void;
+  onOpenProfile?: () => void;
+  currentUser?: { avatarUrl?: string } | null;
   jobToEdit?: any;
   activeTab?: string;
   onTabPress?: (tab: string) => void;
@@ -113,6 +115,8 @@ const composeLocation = (form: FormData) =>
 export default function EmployerPostJob({
   onPosted,
   onOpenWallet,
+  onOpenProfile,
+  currentUser,
   jobToEdit,
   activeTab,
   onTabPress,
@@ -165,6 +169,17 @@ export default function EmployerPostJob({
 
   const isEditing = Boolean(jobToEdit?._id);
   const hasInsufficientBalanceError = /(?:insufficient|not have enough) balance/i.test(errorMessage);
+  // Mirrors the server's own gate (getEmployerProfileRequirementError) so an
+  // incomplete profile is caught before the form is filled out, not as a raw
+  // error after submitting. The server enforces this regardless.
+  const hasCompleteProfile = Boolean(currentUser?.avatarUrl?.trim?.() ?? currentUser?.avatarUrl);
+  const [showProfileIncompleteModal, setShowProfileIncompleteModal] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing && !hasCompleteProfile) {
+      setShowProfileIncompleteModal(true);
+    }
+  }, [isEditing, hasCompleteProfile]);
 
   useEffect(() => {
     if (!jobToEdit) return;
@@ -358,6 +373,10 @@ export default function EmployerPostJob({
   }, [categories, categoryQuery]);
 
   const handleSubmit = async () => {
+    if (!isEditing && !hasCompleteProfile) {
+      setShowProfileIncompleteModal(true);
+      return;
+    }
     setSubmitting(true);
     setErrorMessage('');
     try {
@@ -511,7 +530,7 @@ export default function EmployerPostJob({
           </View>
           <EmployerModeBanner title={isEditing ? 'Update opportunity' : 'Create an opportunity'} detail="Clear details help local workers understand the job and your secured pay." />
 
-          <EmployerAccordion title="Opportunity basics" subtitle="Title, category, work details, skills, and guaranteed pay." expanded={expandedSection === 'basics'} onToggle={() => setExpandedSection((section) => section === 'basics' ? null : 'basics')}>
+          <EmployerAccordion title="The job" subtitle="Title, category, work details, skills, and guaranteed pay." expanded={expandedSection === 'basics'} onToggle={() => setExpandedSection((section) => section === 'basics' ? null : 'basics')}>
 
           <Text style={styles.label}>Job Title</Text>
           <TextInput
@@ -625,7 +644,7 @@ export default function EmployerPostJob({
           </Text>
           </EmployerAccordion>
 
-          <EmployerAccordion title="Philippine work location" subtitle={composeLocation(formData) || 'Province, city or municipality, and barangay'} expanded={expandedSection === 'location'} onToggle={() => setExpandedSection((section) => section === 'location' ? null : 'location')}>
+          <EmployerAccordion title="Where" subtitle={composeLocation(formData) || 'Province, city or municipality, and barangay'} expanded={expandedSection === 'location'} onToggle={() => setExpandedSection((section) => section === 'location' ? null : 'location')}>
 
           <Text style={styles.label}>Location Type</Text>
           <View style={styles.chipRow}>
@@ -797,7 +816,7 @@ export default function EmployerPostJob({
           <Text style={styles.helperText}>Location preview: {composeLocation(formData) || 'Select province, city, and barangay'}</Text>
           </EmployerAccordion>
 
-          <EmployerAccordion title="Pay and hiring" subtitle="Workers needed, opportunity type, deadline, and urgency." expanded={expandedSection === 'hiring'} onToggle={() => setExpandedSection((section) => section === 'hiring' ? null : 'hiring')}>
+          <EmployerAccordion title="When & how" subtitle="Workers needed, opportunity type, deadline, and urgency." expanded={expandedSection === 'hiring'} onToggle={() => setExpandedSection((section) => section === 'hiring' ? null : 'hiring')}>
 
           <Text style={styles.label}>Workers Needed</Text>
           <TextInput
@@ -963,6 +982,48 @@ export default function EmployerPostJob({
                 accessibilityLabel="Top up employer wallet"
               >
                 <Text style={styles.balanceModalPrimaryText}>Top up wallet</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showProfileIncompleteModal}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowProfileIncompleteModal(false)}
+      >
+        <View style={styles.balanceModalBackdrop}>
+          <View
+            style={styles.balanceModalCard}
+            accessibilityRole="alert"
+            accessibilityLabel="Profile photo required"
+          >
+            <View style={styles.balanceModalIcon}>
+              <Text style={styles.balanceModalIconText}>!</Text>
+            </View>
+            <Text style={styles.balanceModalTitle}>Add a profile photo</Text>
+            <Text style={styles.balanceModalMessage}>Add a profile photo before posting a job.</Text>
+            <View style={styles.balanceModalActions}>
+              <TouchableOpacity
+                style={styles.balanceModalSecondaryButton}
+                onPress={() => setShowProfileIncompleteModal(false)}
+                accessibilityRole="button"
+              >
+                <Text style={styles.balanceModalSecondaryText}>Not now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.balanceModalPrimaryButton}
+                onPress={() => {
+                  setShowProfileIncompleteModal(false);
+                  onOpenProfile?.();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Add a profile photo"
+              >
+                <Text style={styles.balanceModalPrimaryText}>Add photo</Text>
               </TouchableOpacity>
             </View>
           </View>

@@ -161,7 +161,7 @@ export function Profile() {
         <div className="h-[100px] bg-[#1C4D8D]"></div>
         <div className="px-8 pb-6">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between -mt-16">
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:gap-6">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:gap-6">
               {safeAvatarUrl ? (
                 <img
                   src={safeAvatarUrl}
@@ -173,7 +173,7 @@ export function Profile() {
                   <span className="text-white font-bold text-[48px]">{initials}</span>
                 </div>
               )}
-              <div className="pb-2">
+              <div className="pb-2 sm:mt-[70px]">
                 <h1 className="text-[28px] font-bold text-[#1e293b] mb-1">{displayName}</h1>
                 <div className="flex flex-wrap items-center gap-4 text-[14px] text-[#64748b]">
                   <div className="flex items-center gap-1.5">

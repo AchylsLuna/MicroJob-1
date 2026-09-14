@@ -532,6 +532,49 @@
       "cancel": "Kanselahin",
       "save": "I-save"
     },
+    "offerCard": {
+      "eyebrow": "Job offer",
+      "fallbackTitle": "Job offer",
+      "escrowHint": "May escrow protection hanggang matapos at kumpirmahin ang trabaho.",
+      "accept": "Tanggapin",
+      "decline": "Tanggihan",
+      "cancel": "Kanselahin ang offer",
+      "confirmHire": "Kumpirmahin ang hire",
+      "status": {
+        "pending": "Naghihintay",
+        "accepted": "Tinanggap",
+        "rejected": "Tinanggihan",
+        "cancelled": "Nakansela",
+        "hired": "Na-hire"
+      },
+      "confirmAccept": {
+        "title": "Tanggapin ang offer",
+        "description": "Tanggapin ang {{amount}} offer? Kukumpirmahin ng employer ang hire kasunod nito.",
+        "confirm": "Tanggapin ang offer"
+      },
+      "confirmDecline": {
+        "title": "Tanggihan ang offer",
+        "description": "Tanggihan ang {{amount}} offer? Hindi na ito maibabalik.",
+        "confirm": "Tanggihan ang offer"
+      },
+      "confirmCancel": {
+        "title": "Kanselahin ang offer",
+        "description": "Kanselahin ang job offer na ito? Aabisuhan ang worker at mai-refund ang naka-escrow na halaga.",
+        "confirm": "Kanselahin ang offer"
+      },
+      "confirmHireDialog": {
+        "title": "Kumpirmahin ang hire",
+        "description": "Kumpirmahin ang hire na ito? Mamarkahan ang worker bilang na-hire para sa trabahong ito.",
+        "confirm": "Kumpirmahin ang hire"
+      },
+      "toast": {
+        "accepted": "Tinanggap ang offer.",
+        "declined": "Tinanggihan ang offer.",
+        "cancelled": "Nakansela ang offer.",
+        "hired": "Nakumpirma ang hire.",
+        "actionFailed": "Hindi natapos ang aksyon. Subukan muli."
+      }
+    },
     "dock": {
       "title": "Mga Mensahe",
       "expandAria": "Buksan ang mga mensahe",

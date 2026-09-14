@@ -21,6 +21,9 @@ export const ROUTES = {
   cookiePolicy: "/cookie-policy",
 
   settings: "/settings",
+  // Read-only job search for signed-out visitors — same list FindJobs renders
+  // for workers, minus the worker-only actions (Apply/Save redirect to sign-in).
+  publicJobs: "/jobs",
   publicProfilePattern: "/profiles/:userId",
   publicProfile: (userId: string) => `/profiles/${userId}`,
   notifications: "/notifications",

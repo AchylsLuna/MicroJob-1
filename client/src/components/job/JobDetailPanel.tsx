@@ -211,6 +211,12 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
 
   const handleApply = async () => {
     if (!job?._id) return;
+    // Signed-out visitors reach this panel via the public /jobs route — send
+    // them to sign in first, then back to exactly this job.
+    if (!user) {
+      navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
     // Mirrors the server's own gate (getWorkerProfileRequirementError) so a
     // worker with no photo yet is sent straight to the fix rather than a
     // generic "application failed" toast — the server enforces this
@@ -236,6 +242,10 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
 
   const handleSave = async () => {
     if (!job?._id) return;
+    if (!user) {
+      navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
     try {
       const nextSaved = await toggleSavedJob(job._id);
       setIsSaved(nextSaved);
@@ -248,6 +258,10 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
   const handleMessageEmployer = async () => {
     if (!job?._id) {
       toast.error(t("jobDetails.toast.jobInfoMissing"));
+      return;
+    }
+    if (!user) {
+      navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
     if (startingInquiry) return;

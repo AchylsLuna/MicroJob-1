@@ -22,12 +22,18 @@ import {
   parseFullName,
 } from '../lib/authValidation';
 import { isStrongPassword } from '../lib/passwordPolicy';
+import type { LegalDocId } from '../lib/legalDocuments';
 
 type Role = 'hire' | 'work' | 'both';
-type Props = { onBack: () => void; onNavigateToSignIn: () => void; onNavigateToVerify: (email: string) => void };
+type Props = {
+  onBack: () => void;
+  onNavigateToSignIn: () => void;
+  onNavigateToVerify: (email: string) => void;
+  onNavigateToLegal: (docId: LegalDocId) => void;
+};
 type Errors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'confirm', string>>;
 
-export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify }: Props) {
+export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify, onNavigateToLegal }: Props) {
   WebBrowser.maybeCompleteAuthSession();
   const [googleRequest, , promptGoogle] = useAuthRequest({
     clientId: GOOGLE_CLIENT_ID,
@@ -50,6 +56,7 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
   const [confirm, setConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [errors, setErrors] = useState<Errors>({});
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -100,6 +107,10 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
     setErrors(next);
     if (Object.keys(next).length) {
       toast.error(!password || !confirm ? t('signUp.toast.requiredFields') : Object.values(next)[0]);
+      return;
+    }
+    if (!agreeToTerms) {
+      toast.error(t('signUp.errors.termsRequired'));
       return;
     }
     const name = parseFullName(fullName);
@@ -174,6 +185,28 @@ export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify 
         <AuthField label={t('signUp.passwordLabel')} icon="lock" placeholder={t('signUp.passwordPlaceholder')} value={password} onChangeText={(v) => { setPassword(v); setErrors((e) => ({ ...e, password: undefined })); }} error={errors.password} secure revealed={showPassword} onToggleReveal={() => setShowPassword(!showPassword)} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
         <AuthField label={t('signUp.confirmPasswordLabel')} icon="lock" placeholder={t('signUp.confirmPasswordPlaceholder')} value={confirm} onChangeText={(v) => { setConfirm(v); setErrors((e) => ({ ...e, confirm: undefined })); }} error={errors.confirm} secure revealed={showConfirm} onToggleReveal={() => setShowConfirm(!showConfirm)} autoCapitalize="none" autoComplete="new-password" textContentType="newPassword" />
         <PasswordChecklist password={password} confirm={confirm} />
+        <View style={styles.termsRow}>
+          <TouchableOpacity
+            style={styles.termsCheckbox}
+            onPress={() => setAgreeToTerms((value) => !value)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: agreeToTerms }}
+            accessibilityLabel={t('signUp.terms.checkboxA11y')}
+          >
+            <Feather
+              name={agreeToTerms ? 'check-square' : 'square'}
+              size={20}
+              color={agreeToTerms ? AUTH_COLORS.primary : AUTH_COLORS.textTertiary}
+            />
+          </TouchableOpacity>
+          <Text style={styles.termsText}>
+            {t('signUp.terms.prefix')}
+            <Text style={styles.termsLink} onPress={() => onNavigateToLegal('terms')}>{t('signUp.terms.termsLink')}</Text>
+            {t('signUp.terms.middle')}
+            <Text style={styles.termsLink} onPress={() => onNavigateToLegal('privacy')}>{t('signUp.terms.privacyLink')}</Text>
+            {t('signUp.terms.suffix')}
+          </Text>
+        </View>
         <AuthButton label={t('signUp.createAccount')} onPress={submit} loading={loading} />
       </> : null}
     </AuthStepCard>
@@ -209,6 +242,10 @@ const styles = StyleSheet.create({
   roleIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#EAF1FB', alignItems: 'center', justifyContent: 'center' },
   roleIconSelected: { backgroundColor: AUTH_COLORS.primary },
   roleCopy: { flex: 1, minWidth: 0, marginHorizontal: 12 }, roleTitle: { fontWeight: '700', color: AUTH_COLORS.textPrimary, fontSize: 15, flexShrink: 1 }, roleSubtitle: { color: AUTH_COLORS.textSecondary, fontSize: 12, marginTop: 3, flexShrink: 1 },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, marginBottom: 6 },
+  termsCheckbox: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  termsText: { flex: 1, color: AUTH_COLORS.textSecondary, fontSize: 13, lineHeight: 19, paddingTop: 12 },
+  termsLink: { color: AUTH_COLORS.primary, fontWeight: '700' },
   signInRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', minHeight: 56, backgroundColor: AUTH_COLORS.blueControlSurface, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
   signInLinkTap: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   muted: { color: AUTH_COLORS.onBlueMuted, fontSize: 14, fontWeight: '600', textAlign: 'center', flexShrink: 1 },

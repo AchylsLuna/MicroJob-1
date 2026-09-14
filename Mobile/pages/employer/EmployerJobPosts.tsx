@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Modal,
   Platform,
@@ -27,6 +28,7 @@ import { EmployerAction, EmployerInlineState, EmployerModeBanner } from '../../c
 import StatTile from '../../components/ui/StatTile';
 import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import useReviewSummary from '../../hooks/useReviewSummary';
+import useHideOnScroll from '../../hooks/useHideOnScroll';
 import { useAppSession } from '../../contexts/AppSessionContext';
 
 type JobItem = {
@@ -92,6 +94,7 @@ export default function EmployerJobPosts({
   const session = useAppSession();
   const employerId = String(session.user?.id || session.user?._id || '');
   const { averageRating, totalReviews } = useReviewSummary(employerId, 'employer');
+  const { onScroll, onHeaderLayout, headerStyle, headerHeight } = useHideOnScroll();
   const mountedRef = useRef(true);
   const fetchInFlightRef = useRef(false);
   const actionInFlightRef = useRef(false);
@@ -233,17 +236,21 @@ export default function EmployerJobPosts({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title={t('jobPosts.header.title')} subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
+      <Animated.View style={[styles.headerWrap, headerStyle]} onLayout={onHeaderLayout}>
+        <TabTopNav title={t('jobPosts.header.title')} subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
+      </Animated.View>
 
       <FlatList
         data={jobs}
         keyExtractor={(job) => job._id}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + tokens.layout.sectionGap }]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         initialNumToRender={7}
         maxToRenderPerBatch={7}
         windowSize={7}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={loading && jobs.length > 0} onRefresh={() => void fetchJobs()} tintColor={tokens.colors.brand} />}
         ListHeaderComponent={<>
         <EmployerModeBanner title={t('jobPosts.banner.title')} detail={t('jobPosts.banner.detail')} />
@@ -545,6 +552,7 @@ function DetailSection({ title, value, values }: { title: string; value?: string
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
+  headerWrap: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   scroll: { paddingHorizontal: tokens.layout.gutterWide, paddingTop: tokens.layout.sectionGap, paddingBottom: tokens.layout.tabBarClearance + 16 },
   statGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   postJobButton: {

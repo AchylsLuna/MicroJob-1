@@ -443,7 +443,8 @@
       "title": "Tanggalin ang user",
       "description": "Tanggalin si {{name}}? Ia-anonymize ang kanilang account at mawawalan sila ng access. Hindi matatanggal ang mga account na may aktibong balanse, payout, trabaho, o aplikasyon.",
       "fallbackName": "user na ito",
-      "confirmLabel": "Tanggalin ang user"
+      "confirmLabel": "Tanggalin ang user",
+      "blockedPrefix": "Hindi pa matatanggal ang account na ito:"
     },
     "rejectDialog": {
       "title": "Tanggihan ang verification document",
