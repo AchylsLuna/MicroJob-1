@@ -9,6 +9,7 @@ import {
   isValidName,
   isValidPhone,
   NAME_VALIDATION_MESSAGE,
+  FULL_NAME_REQUIRED_MESSAGE,
   normalizeName,
   normalizeEmail,
   normalizePhone,
@@ -27,6 +28,7 @@ import {
 import {
   createMfaChallengeToken,
   issueLoginOtpChallenge,
+  getTestLoginOtpCode,
   LOGIN_OTP_PURPOSE,
   MFA_LOGIN_PURPOSE,
   MFA_METHOD,
@@ -64,7 +66,10 @@ const registerUser = async (req, res) => {
     if (!isStrongPassword(password)) {
       return sendError(res, 400, PASSWORD_POLICY_MESSAGE);
     }
-    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+    if (!normalizedPhone) {
+      return sendError(res, 400, 'Phone number is required');
+    }
+    if (!isValidPhone(normalizedPhone)) {
       return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
     }
 
@@ -75,8 +80,14 @@ const registerUser = async (req, res) => {
         return sendError(res, 400, 'Username or full name is required');
       }
       const nameParts = displayUsername.split(' ').filter(Boolean);
-      userFirstName = nameParts[0] || displayUsername;
-      userLastName = nameParts.slice(1).join(' ') || userFirstName;
+      // A single word is not a complete name -- silently mirroring it into both
+      // first and last name would create a "John John" record instead of
+      // rejecting the input, so require at least two parts here.
+      if (nameParts.length < 2) {
+        return sendError(res, 400, FULL_NAME_REQUIRED_MESSAGE);
+      }
+      userFirstName = nameParts[0];
+      userLastName = nameParts.slice(1).join(' ');
     }
 
     userFirstName = normalizeName(userFirstName);
@@ -564,6 +575,23 @@ const loginOtpResend = async (req, res) => {
   }
 };
 
+// Test-only escape hatch for the isolated e2e harness: the login OTP is
+// deliberately never returned in the /login or /login/otp/* API responses
+// (see mfaHelpers.issueLoginOtpChallenge), and the e2e sandbox has no real
+// mailbox to read it from. This is a no-op 404 outside NODE_ENV === 'test',
+// so it never exists as a usable path in development or production.
+const debugLoginOtp = async (req, res) => {
+  if (process.env.NODE_ENV !== 'test') {
+    return sendError(res, 404, 'Not found');
+  }
+  const email = String(req.query?.email || '').toLowerCase().trim();
+  const code = getTestLoginOtpCode(email);
+  if (!code) {
+    return sendError(res, 404, 'No login OTP has been issued for this address.');
+  }
+  return sendSuccess(res, 200, 'ok', { code });
+};
+
 export {
   registerUser,
   loginUser,
@@ -571,6 +599,7 @@ export {
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
+  debugLoginOtp,
 };
 export default {
   registerUser,
@@ -579,4 +608,5 @@ export default {
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
+  debugLoginOtp,
 };

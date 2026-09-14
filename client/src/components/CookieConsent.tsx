@@ -82,7 +82,7 @@ export function CookieConsent() {
     const banner = bannerRef.current;
     if (!bannerVisible || !banner) return;
     const apply = () => {
-      document.body.style.paddingBottom = `${banner.offsetHeight}px`;
+      document.body.style.paddingBottom = `calc(${banner.offsetHeight}px + var(--mobile-bottom-nav-height, 0px))`;
     };
     apply();
     const observer = new ResizeObserver(apply);
@@ -100,7 +100,12 @@ export function CookieConsent() {
           ref={bannerRef}
           role="region"
           aria-label="Cookie consent"
-          className="fixed inset-x-0 bottom-0 z-[90] border-t border-slate-200 bg-white p-4 shadow-[0_-8px_24px_rgba(15,41,84,0.10)] sm:p-5"
+          // Stacks above the mobile bottom tab bar instead of covering it --
+          // that nav publishes its own height via --mobile-bottom-nav-height
+          // (0 on desktop, where it's hidden), so this defaults to the plain
+          // bottom-0 behavior everywhere the bar doesn't exist.
+          style={{ bottom: "var(--mobile-bottom-nav-height, 0px)" }}
+          className="fixed inset-x-0 z-[90] border-t border-slate-200 bg-white p-4 shadow-[0_-8px_24px_rgba(15,41,84,0.10)] sm:p-5"
         >
           <div className="mx-auto flex max-w-5xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <p className="text-[14px] leading-6 text-slate-700">

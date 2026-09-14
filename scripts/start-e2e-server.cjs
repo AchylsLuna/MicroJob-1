@@ -15,6 +15,16 @@ Object.assign(process.env, {
   SUPERADMIN_PASSWORD: "AdminPass123!",
   PORT: apiPort,
   WEB_ORIGIN: `http://127.0.0.1:${clientPort}`,
+  // Blank out any real email provider config a root/server .env might supply --
+  // otherwise dotenv fills these from the developer's real credentials (it
+  // only sets vars that aren't already present) and this "isolated" sandbox
+  // would silently send real emails and never hit the dev/test OTP fallback
+  // the e2e login flow depends on. Same isolation principle as MONGO_URI above.
+  RESEND_API_KEY: "",
+  SMTP_HOST: "",
+  SMTP_PORT: "",
+  SMTP_USER: "",
+  SMTP_PASS: "",
 });
 
 import("../server/index.js").catch((error) => {

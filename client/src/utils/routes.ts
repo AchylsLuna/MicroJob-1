@@ -179,7 +179,3 @@ export const startsWithPath = (pathname: string, prefix: string) => {
 export const matchesAnyPath = (pathname: string, targets: string[]) =>
   targets.some((target) => startsWithPath(pathname, target));
 
-export const isWorkerPath = (pathname: string) => startsWithPath(pathname, WORKER_ROUTE_PREFIX);
-export const isEmployerPath = (pathname: string) => startsWithPath(pathname, EMPLOYER_ROUTE_PREFIX);
-export const isDoctorPath = (pathname: string) => startsWithPath(pathname, DOCTOR_ROUTE_PREFIX);
-export const isAdminPath = (pathname: string) => startsWithPath(pathname, ADMIN_ROUTE_PREFIX);

@@ -170,7 +170,7 @@ export function SignUp() {
       return;
     }
 
-    if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
+    if (!formData.fullName || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
       toast.error(t("validation.invalidInputPrefix", { detail: t("signUp.toast.missingRequiredFieldsDetail") }));
       return;
     }
@@ -185,7 +185,7 @@ export function SignUp() {
       return;
     }
 
-    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+    if (!normalizedPhone || !isValidPhone(normalizedPhone)) {
       toast.error(t("validation.invalidInputPrefix", { detail: getPhoneValidationMessage(t) }));
       return;
     }

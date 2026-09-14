@@ -510,10 +510,6 @@ export function createCategory(payload: { name: string; description?: string }) 
   return request('/categories', { method: 'POST', body: payload });
 }
 
-export function updateCategory(id: string, payload: { name?: string; description?: string }) {
-  return request(`/categories/${id}`, { method: 'PUT', body: payload });
-}
-
 export function deleteCategory(id: string) {
   return request(`/categories/${id}`, { method: 'DELETE' });
 }
@@ -523,16 +519,8 @@ export function getJobs(params?: QueryParams) {
   return request<any[]>(`/jobs${buildQuery(params)}`, { method: 'GET' });
 }
 
-export function getAvailableJobs() {
-  return request<any[]>('/jobs/available', { method: 'GET' });
-}
-
 export function getRecommendedJobs(limit = 12) {
   return request<any[]>(`/jobs/recommended${buildQuery({ limit })}`, { method: 'GET' });
-}
-
-export function getJobByCategory(categoryId: string) {
-  return request<any[]>(`/jobs/category/${categoryId}`, { method: 'GET' });
 }
 
 export function getJobDetails(jobId: string) {
@@ -553,14 +541,6 @@ export function deleteJob(jobId: string) {
 
 export function applyForJob(jobId: string, payload?: { resume?: string; coverLetter?: string }) {
   return request(`/jobs/${jobId}/apply`, { method: 'POST', body: payload });
-}
-
-export function getApplicantsList(jobId: string) {
-  return request(`/jobs/${jobId}/applicants`, { method: 'GET' });
-}
-
-export function selectApplicant(jobId: string, applicantId: string) {
-  return request(`/jobs/${jobId}/select/${applicantId}`, { method: 'PATCH' });
 }
 
 export function changeJobStatus(jobId: string, status: string) {
@@ -777,10 +757,6 @@ export function settlePayment(applicationId: string) {
 }
 
 // User APIs
-export function getUserList() {
-  return request<any[]>('/users/userlist', { method: 'GET' });
-}
-
 export function updateUserStatus(userId: string, status: 'active' | 'pending' | 'disabled') {
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
 }
@@ -967,26 +943,9 @@ export function registerPushDevice(payload: { token: string; deviceName?: string
   return request<{ message: string; device: any }>('/notifications/devices', { method: 'POST', body: payload });
 }
 
-export function removePushDevice(deviceId: string) {
-  return request<{ message: string }>(`/notifications/devices/${deviceId}`, { method: 'DELETE' });
-}
-
 // Social sign-in
 export function googleSignIn(idToken: string) {
   return request<{ token?: string; user?: any; message?: string }>(`/auth/google`, { method: 'POST', body: { idToken } });
-}
-
-// Alerts APIs
-export function getAlerts(params?: QueryParams) {
-  return request<any[]>(`/alerts${buildQuery(params)}`, { method: 'GET' });
-}
-
-export function updateAlertStatus(alertId: string, status: 'open' | 'snoozed' | 'resolved') {
-  return request(`/alerts/${alertId}/status`, { method: 'PATCH', body: { status } });
-}
-
-export function deleteAlert(alertId: string) {
-  return request(`/alerts/${alertId}`, { method: 'DELETE' });
 }
 
 // Sessions APIs
@@ -1040,30 +999,6 @@ export function requestPhoneVerificationOtp() {
 
 export function confirmPhoneVerificationOtp(payload: { code: string }) {
   return request<{ message: string; verified: boolean }>('/auth/verification/phone/confirm', {
-    method: 'POST',
-    body: payload,
-  });
-}
-
-export function uploadIdentityDocument(file: File) {
-  const formData = new FormData();
-  formData.append('document', file);
-  return request<{ message: string; documentUrl: string; status: string }>(
-    '/auth/verification/documents/identity',
-    { method: 'POST', body: formData }
-  );
-}
-
-export function sendPhoneVerificationCode() {
-  return request<{ message: string }>('/verify-phone/send-code', { method: 'POST' });
-}
-
-export function resendPhoneVerificationCode() {
-  return request<{ message: string }>('/verify-phone/resend-code', { method: 'POST' });
-}
-
-export function verifyPhoneVerificationCode(payload: { otp: string }) {
-  return request<{ message: string }>('/verify-phone/verify-code', {
     method: 'POST',
     body: payload,
   });
@@ -1127,10 +1062,6 @@ export function confirmTopUp(payload: { referenceNumber?: string; checkoutId?: s
 
 export function getPaymentTransactions() {
   return request<{ transactions: PaymentTransaction[] }>('/payment/transactions', { method: 'GET' });
-}
-
-export function getPaymentAudit() {
-  return request<{ transactions: PaymentTransaction[] }>('/payment/audit', { method: 'GET' });
 }
 
 export function getPayoutRequests() {

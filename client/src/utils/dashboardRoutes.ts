@@ -10,7 +10,6 @@ export interface DashboardRouteUser {
 /** Workers have no dashboard — Find Jobs is their home. */
 export const WORKER_LANDING_PATH = ROUTES.worker.findJobs;
 export const EMPLOYER_DASHBOARD_PATH = ROUTES.employer.dashboard;
-export const DOCTOR_DASHBOARD_PATH = EMPLOYER_DASHBOARD_PATH;
 export const ADMIN_DASHBOARD_PATH = ROUTES.admin.dashboard;
 
 const getRole = (user?: DashboardRouteUser | null) =>
@@ -100,6 +99,5 @@ export function getPostAuthLandingPath(user?: DashboardRouteUser | null) {
   return WORKER_LANDING_PATH;
 }
 
-// Legacy aliases retained for backward compatibility.
-export const isDoctor = isEmployer;
+// Legacy alias retained for backward compatibility.
 export const isWorker = isPatient;

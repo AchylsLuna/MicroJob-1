@@ -5,9 +5,18 @@ async function signInWorker(page: Page) {
   await page.goto("/sign-in");
   await page.getByPlaceholder("Enter your email").fill("e2e-user@microjobs.local");
   await page.getByPlaceholder("Enter your password").fill("ReviewPass123!");
-  const otpResponse = page.waitForResponse((response) => response.url().includes("/api/auth/otp/send"));
+  // The login OTP is issued synchronously inside POST /auth/login itself (it's
+  // never echoed back to the client in any response, by design -- see
+  // mfaHelpers.issueLoginOtpChallenge), so wait for that request to resolve,
+  // then pull the code from the NODE_ENV=test-only debug endpoint rather than
+  // sniffing network responses for a code that no longer travels over the wire.
+  const loginResponse = page.waitForResponse((response) => response.url().includes("/api/auth/login") && response.request().method() === "POST");
   await page.getByRole("button", { name: /^Sign In$/ }).click();
-  const otp = String((await (await otpResponse).json()).code || "");
+  await loginResponse;
+  const otpResponse = await page.request.get("/api/auth/debug/login-otp?email=e2e-user@microjobs.local");
+  // sendSuccess() nests its payload under `.data` (the client SDK normally
+  // unwraps this; a raw page.request call sees the wire shape directly).
+  const otp = String((await otpResponse.json()).data?.code || "");
   expect(otp).toMatch(/^\d{6}$/);
   const inputs = page.locator('input[maxlength="1"]');
   for (let index = 0; index < otp.length; index += 1) await inputs.nth(index).fill(otp[index]);
@@ -76,8 +85,11 @@ test("worker and employer shells remain responsive and accessible", async ({ pag
     await expect(page.getByRole("button", { name: "Jobs in: Quezon City" })).toBeVisible();
     await expect(page.getByText("Philippines", { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    // /worker/find-jobs is the worker's home page (NavBar.tsx sets
+    // `homeContext: true` for it), which grows the header to 80px to fit a
+    // local-area subtitle row -- every other page keeps the base 64px.
     const headerBounds = await page.locator("header").boundingBox();
-    expect(headerBounds?.height).toBe(64);
+    expect(headerBounds?.height).toBe(80);
     if (width >= 1024) {
       await expect(page.getByRole("complementary", { name: "Primary navigation" })).toHaveCount(0);
       const navigation = page.getByRole("navigation", { name: "Worker primary navigation" });
@@ -263,8 +275,20 @@ test("admin user management is real and responsive", async ({ page }) => {
     expect((await page.locator("header").boundingBox())?.height).toBe(64);
     expect(bounds?.y).toBe(0);
     expect(bounds?.height).toBe(height);
-    expect(await navigation.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true);
-    expect(["auto", "visible"]).toContain(await navigation.evaluate((element) => getComputedStyle(element).overflowY));
+    // The admin menu has grown past what a short viewport can show without
+    // scrolling (16 links across 5 groups) -- Sidebar.tsx deliberately makes
+    // the <nav> internally scrollable for exactly this case, so overflowing
+    // is fine as long as it scrolls rather than clipping content or breaking
+    // layout. Only demand "fits with no scroll" when it actually fits.
+    const navMetrics = await navigation.evaluate((element) => ({
+      overflowing: element.scrollHeight > element.clientHeight,
+      overflowY: getComputedStyle(element).overflowY,
+    }));
+    if (navMetrics.overflowing) {
+      expect(navMetrics.overflowY).toBe("auto");
+    } else {
+      expect(["auto", "visible"]).toContain(navMetrics.overflowY);
+    }
     const navigationTargets = navigation.locator("button");
     for (let index = 0; index < await navigationTargets.count(); index += 1) {
       expect((await navigationTargets.nth(index).boundingBox())?.height).toBeGreaterThanOrEqual(44);
@@ -334,17 +358,25 @@ test("notification menu loads unread data and marks all as read", async ({ page 
       return;
     }
     if (request.method() === "GET") {
+      // listNotifications (server/controllers/NotificationController.js) wraps
+      // its payload as { notifications, unreadCount, nextCursor } -- the
+      // client reads `payload.unreadCount` directly rather than counting
+      // items itself, so a bare array here silently produces 0 unread.
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify([{
-          _id: "507f1f77bcf86cd799439011",
-          type: "system",
-          title: "Profile verified",
-          message: "Your worker profile is ready.",
-          readAt: hasUnreadNotification ? null : new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-        }]),
+        body: JSON.stringify({
+          notifications: [{
+            _id: "507f1f77bcf86cd799439011",
+            type: "system",
+            title: "Profile verified",
+            message: "Your worker profile is ready.",
+            readAt: hasUnreadNotification ? null : new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          }],
+          unreadCount: hasUnreadNotification ? 1 : 0,
+          nextCursor: null,
+        }),
       });
       return;
     }

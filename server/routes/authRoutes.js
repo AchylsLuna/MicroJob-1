@@ -19,6 +19,7 @@ import {
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
+  debugLoginOtp,
 } from '../controllers/AuthController.js';
 import {
   refreshSession,
@@ -90,6 +91,9 @@ router.post('/google', loginLimiter, googleLogin);
 router.post('/login/mfa', loginLimiter, accountLoginLimiter, loginMfa);
 router.post('/login/otp/verify', loginLimiter, accountLoginLimiter, loginOtpVerify);
 router.post('/login/otp/resend', loginLimiter, accountLoginLimiter, loginOtpResend);
+// 404s outside NODE_ENV === 'test' (see AuthController.debugLoginOtp) -- the
+// e2e harness's only way to read a code it can never see in a real response.
+router.get('/debug/login-otp', debugLoginOtp);
 
 router.post('/refresh', protectRefresh, refreshSession);
 router.get('/sessions', verifyToken, listSessions);
