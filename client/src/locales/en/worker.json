@@ -223,7 +223,9 @@
     "card": {
       "categoryFallback": "General",
       "locationFallback": "Location not specified",
-      "salaryMinimum": "{{salary}} minimum"
+      "salaryMinimum": "{{salary}} minimum",
+      "alreadyApplied": "Already Applied",
+      "applicationRejected": "Application Rejected"
     },
     "nearest": "Nearest in {{city}}",
     "nationwide": "Elsewhere in the Philippines",
@@ -262,6 +264,8 @@
     "adminReadOnly": "Read-only admin view. Use Admin Job Monitoring to delete this job.",
     "applicationSubmitted": "Application Submitted",
     "applyNow": "Apply Now",
+    "viewJob": "View Job",
+    "applicationRejected": "Application Rejected",
     "messageEmployerLabel": "Message employer",
     "deadlineNotSpecified": "Not specified",
     "jobTypeLabels": {
@@ -337,7 +341,8 @@
       "employerInfoMissing": "Employer information not available for this job.",
       "startConversationFailed": "Unable to start a conversation with this employer.",
       "employerProfileMissing": "Employer profile is not available for this job.",
-      "profileIncomplete": "Add a profile photo in Settings before applying to jobs."
+      "profileIncomplete": "Add a profile photo in Settings before applying to jobs.",
+      "applicationRejected": "Application rejected. You cannot apply for this job again."
     }
   },
   "eWallet": {

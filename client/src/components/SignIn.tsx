@@ -25,7 +25,18 @@ export function SignIn() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, googleSignIn, isAuthenticated, user, mfaChallenge, verifyMfaLogin, cancelMfaLogin, cancelLoginOtp } = useAuth();
+  const {
+    login,
+    googleSignIn,
+    isAuthenticated,
+    user,
+    mfaChallenge,
+    loginMethodSelection,
+    selectLoginMethod,
+    verifyMfaLogin,
+    cancelMfaLogin,
+    cancelLoginOtp,
+  } = useAuth();
   const landingPath = getPostAuthLandingPath(user);
   const [email, setEmail] = useState("");
   const passwordInputRef = useRef<HTMLInputElement | null>(null);
@@ -99,6 +110,8 @@ export function SignIn() {
       const result = await login(normalizedEmail, password, { suppressToast: true, requireOtp: true });
       if (result.status === "mfa_required") {
         toast.info(t("signIn.toast.mfaCodePrompt"));
+      } else if (result.status === "method_selection_required") {
+        toast.info(t("signIn.toast.methodSelectionPrompt"));
       } else if (result.status === "otp_required") {
         // Stage the bookmarked destination now, before OTP entry -- AuthContext's
         // verifyOTP only fills in the default dashboard when nothing is staged.
@@ -130,6 +143,15 @@ export function SignIn() {
       toast.error(error?.message || t("signIn.toast.mfaVerificationFailed"));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMethodSelection = async (method: "mfa" | "gmail_otp") => {
+    try {
+      const result = await selectLoginMethod(method);
+      if (result.status === "otp_required") setShowOTP(true);
+    } catch (error: any) {
+      toast.error(error?.message || t("signIn.toast.methodSelectionFailed"));
     }
   };
 
@@ -264,6 +286,43 @@ export function SignIn() {
                 setIsLoading(false);
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {loginMethodSelection && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+            <h2 className="text-xl font-bold text-slate-950">{t("signIn.methodSelection.title")}</h2>
+            <p className="mt-2 text-sm leading-5 text-slate-600">{t("signIn.methodSelection.description")}</p>
+            <div className="mt-6 grid gap-3">
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => void handleMethodSelection("mfa")}
+                className="min-h-12 rounded-xl border border-blue-200 bg-blue-50 px-4 text-left font-semibold text-blue-900 hover:bg-blue-100 disabled:opacity-60"
+              >
+                {t("signIn.methodSelection.mfa")}
+              </button>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => void handleMethodSelection("gmail_otp")}
+                className="min-h-12 rounded-xl border border-slate-200 bg-white px-4 text-left font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+              >
+                {t("signIn.methodSelection.gmailOtp")}
+              </button>
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => {
+                  cancelMfaLogin();
+                }}
+                className="min-h-11 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-60"
+              >
+                {t("mfaLoginForm.cancel")}
+              </button>
+            </div>
           </div>
         </div>
       )}

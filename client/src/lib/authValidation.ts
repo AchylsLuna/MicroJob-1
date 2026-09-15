@@ -22,6 +22,10 @@ export function getFullNameValidationMessage(t: TFunction): string {
   return t("validation.fullName");
 }
 
+export function getNamePartValidationMessage(t: TFunction): string {
+  return t("validation.namePart");
+}
+
 export function normalizeEmail(value: string): string {
   return value.trim().toLowerCase();
 }

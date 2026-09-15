@@ -68,6 +68,7 @@ export default function JobDetails({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [hasApplied, setHasApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<string | null>(job?.applicationStatus || null);
   const [showProfile, setShowProfile] = useState(false);
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [employerPreview, setEmployerPreview] = useState<EmployerPreview | null>(null);
@@ -246,7 +247,7 @@ export default function JobDetails({
 
   const applyForJob = async () => {
     if (!jobDetails?._id) return;
-    if (hasApplied) return;
+    if (hasApplied || applicationStatus === 'Rejected') return;
     setIsLoading(true);
     setErrorMessage('');
     try {
@@ -263,8 +264,9 @@ export default function JobDetails({
       setShowSuccess(true);
     } catch (error: any) {
       const message = error?.message || t('jobDetails.apiFallback.applyFailed');
-      if (/already applied/i.test(message)) {
+      if (/already applied|rejected/i.test(message)) {
         setHasApplied(true);
+        if (/rejected/i.test(message)) setApplicationStatus('Rejected');
       }
       setErrorMessage(message);
       toast.error(message);
@@ -286,10 +288,11 @@ export default function JobDetails({
       setJobDetails(data);
 
       const userId = await getCurrentUserId();
-      if (userId) {
+        setApplicationStatus(data?.applicationStatus || null);
+        if (userId) {
         const applicants = Array.isArray(data?.applicants) ? data.applicants : [];
         const alreadyApplied = applicants.some((applicant: any) => resolveApplicantId(applicant) === userId);
-        setHasApplied(alreadyApplied);
+        setHasApplied(Boolean(data?.applicationStatus) || alreadyApplied);
       } else {
         setHasApplied(false);
       }
@@ -548,15 +551,15 @@ export default function JobDetails({
 
       <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, tokens.spacing.md) }]}>
         <TouchableOpacity
-          style={[styles.bottomApplyButton, (isLoading || hasApplied) && styles.bottomApplyButtonDisabled]}
+          style={[styles.bottomApplyButton, (isLoading || hasApplied || applicationStatus === 'Rejected') && styles.bottomApplyButtonDisabled]}
           onPress={handleApply}
-          disabled={isLoading || hasApplied}
+          disabled={isLoading || hasApplied || applicationStatus === 'Rejected'}
           accessibilityRole="button"
-          accessibilityLabel={hasApplied ? t('jobDetails.actions.appliedAccessibility') : t('jobDetails.actions.applyAccessibility')}
-          accessibilityState={{ disabled: isLoading || hasApplied }}
+          accessibilityLabel={applicationStatus === 'Rejected' ? 'Application Rejected' : hasApplied ? t('jobDetails.actions.appliedAccessibility') : t('jobDetails.actions.applyAccessibility')}
+          accessibilityState={{ disabled: isLoading || hasApplied || applicationStatus === 'Rejected' }}
         >
           <Text style={styles.bottomApplyText}>
-            {hasApplied ? t('jobDetails.actions.appliedLabel') : isLoading ? t('jobDetails.actions.applyingLabel') : t('jobDetails.actions.applyLabel')}
+            {applicationStatus === 'Rejected' ? 'Application Rejected' : hasApplied ? t('jobDetails.actions.appliedLabel') : isLoading ? t('jobDetails.actions.applyingLabel') : t('jobDetails.actions.applyLabel')}
           </Text>
         </TouchableOpacity>
       </View>

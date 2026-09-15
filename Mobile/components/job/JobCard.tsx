@@ -175,6 +175,19 @@ function JobCard({ job, variant, saved, onPress, onToggleSave, showMatch = false
             <Text style={styles.applyButtonText}>View Job</Text>
           </View>
         </View>
+        {job.applicationStatus ? (
+          <View style={[
+            styles.applicationStatus,
+            job.applicationStatus === 'Rejected' && styles.applicationStatusRejected,
+          ]}>
+            <Text style={[
+              styles.applicationStatusText,
+              job.applicationStatus === 'Rejected' && styles.applicationStatusRejectedText,
+            ]}>
+              {job.applicationStatus === 'Rejected' ? 'Application Rejected' : 'Already Applied'}
+            </Text>
+          </View>
+        ) : null}
         {footerSlot}
       </View>
     </AnimatedPressable>
@@ -234,6 +247,10 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: tokens.spacing.sm },
   applyButton: { flex: 1, height: tokens.controls.compactHeight, borderRadius: tokens.radius.pill, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' },
   applyButtonText: { color: tokens.colors.onBrand, fontSize: 15, fontWeight: '800' },
+  applicationStatus: { marginTop: tokens.spacing.sm, padding: tokens.spacing.sm, borderRadius: tokens.radius.sm, backgroundColor: tokens.colors.successSoft },
+  applicationStatusRejected: { backgroundColor: tokens.colors.dangerSoft },
+  applicationStatusText: { color: tokens.colors.success, fontSize: 13, fontWeight: '800', textAlign: 'center' },
+  applicationStatusRejectedText: { color: tokens.colors.danger },
 
   // Compact
   compactCard: { width: '100%', borderRadius: tokens.radius.md, backgroundColor: tokens.colors.surface, borderWidth: 1, borderColor: tokens.colors.border },
