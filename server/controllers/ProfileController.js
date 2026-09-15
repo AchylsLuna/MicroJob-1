@@ -17,7 +17,7 @@ import {
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user?.id).select(
-      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin website totalExperience projectsCompleted jobsApplied successRate skills workExperience preferredCategories jobPreferences employerBalance workerBalance hideHiredCandidates verification'
+      'firstName lastName email phoneNumber role status deletedAt redactedAt city country province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName resumeFileName resumeUrl avatarUrl about linkedin website totalExperience projectsCompleted jobsApplied successRate skills workExperience internships certificates preferredCategories jobPreferences employerBalance workerBalance hideHiredCandidates verification'
     ).populate(
       'preferredCategories',
       'name'

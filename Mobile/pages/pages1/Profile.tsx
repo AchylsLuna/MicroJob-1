@@ -23,6 +23,8 @@ import Navigation from '../../components/navigation';
 import TabTopNav from '../../components/TabTopNav';
 import AddCV from './AddCV';
 import AddExperience, { type ExperienceDraft } from './AddExperience';
+import AddInternship, { type InternshipDraft } from './AddInternship';
+import AddCertificate, { type CertificateDraft } from './AddCertificate';
 import { API_URL } from '../../config';
 import { safeExternalUrl } from '../../lib/safeExternalUrl';
 import { apiRequest } from '../../lib/api';
@@ -50,6 +52,26 @@ type ExperienceItem = {
   subtitle: string;
   period?: string;
   description?: string;
+  media?: Array<{ _id?: string; url?: string; originalName?: string }>;
+  raw?: any;
+};
+
+type InternshipItem = {
+  id: string;
+  title: string;
+  subtitle: string;
+  period?: string;
+  description?: string;
+  raw?: any;
+};
+
+type CertificateItem = {
+  id: string;
+  name: string;
+  issuer: string;
+  period?: string;
+  credentialId?: string;
+  credentialUrl?: string;
   raw?: any;
 };
 
@@ -57,6 +79,14 @@ const toMonthInput = (value: unknown) => {
   if (!value) return '';
   const date = new Date(String(value));
   return Number.isNaN(date.getTime()) ? String(value).slice(0, 7) : date.toISOString().slice(0, 7);
+};
+
+const formatMonthLabel = (value: unknown) => {
+  if (!value) return '';
+  const date = new Date(String(value));
+  return Number.isNaN(date.getTime())
+    ? String(value)
+    : date.toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
 };
 
 const getVerificationMimeType = (name: string, provided?: string | null) => {
@@ -80,6 +110,10 @@ export default function Profile({
   const [showReviews, setShowReviews] = useState(false);
   const [showAddExperience, setShowAddExperience] = useState(false);
   const [editingExperience, setEditingExperience] = useState<(ExperienceDraft & { id: string }) | null>(null);
+  const [showAddInternship, setShowAddInternship] = useState(false);
+  const [editingInternship, setEditingInternship] = useState<(InternshipDraft & { id: string }) | null>(null);
+  const [showAddCertificate, setShowAddCertificate] = useState(false);
+  const [editingCertificate, setEditingCertificate] = useState<(CertificateDraft & { id: string }) | null>(null);
   const [showAddCV, setShowAddCV] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -91,6 +125,8 @@ export default function Profile({
   const [isProfileLoading, setIsProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState('');
   const [deletingExperienceId, setDeletingExperienceId] = useState<string | null>(null);
+  const [deletingInternshipId, setDeletingInternshipId] = useState<string | null>(null);
+  const [deletingCertificateId, setDeletingCertificateId] = useState<string | null>(null);
   const [isDeletingResume, setIsDeletingResume] = useState(false);
   const toast = useToast();
 
@@ -387,7 +423,6 @@ export default function Profile({
   const hasVerifiedAddress = verification?.addressVerified === true;
 
   const verifiedCount = verificationItems.filter((item) => item.complete).length;
-  const verificationStrength = Math.round((verifiedCount / verificationItems.length) * 100);
   const isFullyVerified = verifiedCount === verificationItems.length;
   const profileCompletion = calculateProfileCompletion({
     ...profile,
@@ -421,6 +456,7 @@ export default function Profile({
         subtitle: subtitle || 'Professional background',
         period,
         description: entry?.description || '',
+        media: Array.isArray(entry?.media) ? entry.media : [],
         raw: entry,
       };
     };
@@ -449,6 +485,45 @@ export default function Profile({
 
     return [];
   }, [profile, totalExperience]);
+
+  const internshipItems: InternshipItem[] = useMemo(() => {
+    const rawList = Array.isArray(profile?.internships) ? profile.internships : [];
+    return rawList.map((entry: any): InternshipItem | null => {
+      const title = entry?.title || '';
+      const subtitle = [entry?.company, entry?.location].filter(Boolean).join(' • ');
+      const period = [formatMonthLabel(entry?.startDate), entry?.current ? 'Present' : formatMonthLabel(entry?.endDate)].filter(Boolean).join(' – ');
+      if (!title && !subtitle) return null;
+      return {
+        id: String(entry?._id || entry?.id || ''),
+        title: title || 'Internship',
+        subtitle: subtitle || 'Internship',
+        period,
+        description: entry?.description || '',
+        raw: entry,
+      };
+    }).filter(Boolean) as InternshipItem[];
+  }, [profile]);
+
+  const certificateItems: CertificateItem[] = useMemo(() => {
+    const rawList = Array.isArray(profile?.certificates) ? profile.certificates : [];
+    return rawList.map((entry: any): CertificateItem | null => {
+      const name = entry?.name || '';
+      const issuer = entry?.issuer || '';
+      if (!name && !issuer) return null;
+      const period = entry?.expiryDate
+        ? `${formatMonthLabel(entry?.issueDate)} – ${formatMonthLabel(entry?.expiryDate)}`
+        : `${formatMonthLabel(entry?.issueDate)} · No expiry`;
+      return {
+        id: String(entry?._id || entry?.id || ''),
+        name: name || 'Certificate',
+        issuer,
+        period,
+        credentialId: entry?.credentialId || '',
+        credentialUrl: entry?.credentialUrl || '',
+        raw: entry,
+      };
+    }).filter(Boolean) as CertificateItem[];
+  }, [profile]);
 
   const handleOpenResume = async () => {
     const resumeFileName = profile?.resumeFileName || String(resumeUrl || '').split('/').pop();
@@ -515,6 +590,64 @@ export default function Profile({
     Alert.alert('Remove experience?', `${item.title} will be removed from your profile.`, [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: () => void deleteExperience(item.id) },
+    ]);
+  };
+
+  const deleteInternship = async (internshipId: string) => {
+    if (!internshipId) return;
+    try {
+      setDeletingInternshipId(internshipId);
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) throw new Error('Please sign in again.');
+      const result = await apiRequest(
+        `${API_URL}/auth/profile/internships/${encodeURIComponent(internshipId)}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+        'Failed to remove internship.',
+      );
+      if (!result.ok) throw new Error(result.message);
+      await loadProfile();
+      toast.success('Internship removed.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove internship.');
+    } finally {
+      setDeletingInternshipId(null);
+    }
+  };
+
+  const handleDeleteInternship = (item: InternshipItem) => {
+    if (!item.id) return;
+    Alert.alert('Remove internship?', `${item.title} will be removed from your profile.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => void deleteInternship(item.id) },
+    ]);
+  };
+
+  const deleteCertificate = async (certificateId: string) => {
+    if (!certificateId) return;
+    try {
+      setDeletingCertificateId(certificateId);
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) throw new Error('Please sign in again.');
+      const result = await apiRequest(
+        `${API_URL}/auth/profile/certificates/${encodeURIComponent(certificateId)}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+        'Failed to remove certificate.',
+      );
+      if (!result.ok) throw new Error(result.message);
+      await loadProfile();
+      toast.success('Certificate removed.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to remove certificate.');
+    } finally {
+      setDeletingCertificateId(null);
+    }
+  };
+
+  const handleDeleteCertificate = (item: CertificateItem) => {
+    if (!item.id) return;
+    Alert.alert('Remove certificate?', `${item.name} will be removed from your profile.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: () => void deleteCertificate(item.id) },
     ]);
   };
 
@@ -728,6 +861,14 @@ export default function Profile({
           </View>
         </View>
 
+        {/*
+          Verification used to carry its own percentage + progress bar on top
+          of this check row -- both conveying the same "how complete is my
+          account" idea the completeness card above already covers. That
+          score row and second bar are gone; the four-item check row is kept
+          because it's the one thing here that isn't a duplicate -- it says
+          *which* checks remain, not just how many.
+        */}
         <View style={styles.verificationCard}>
           <View style={styles.verificationHeader}>
             <View style={styles.verificationIconWrap}>
@@ -746,15 +887,6 @@ export default function Profile({
                 {isFullyVerified ? 'All account verification checks are complete' : 'Complete the remaining account checks'}
               </Text>
             </View>
-          </View>
-
-          <View style={styles.verificationScoreRow}>
-            <Text style={styles.verificationScoreLabel}>Verification Strength</Text>
-            <Text style={styles.verificationScoreValue}>{verificationStrength}%</Text>
-          </View>
-
-          <View style={styles.progressTrack} accessibilityRole="progressbar" accessibilityLabel="Verification strength" accessibilityValue={{ min: 0, max: 100, now: verificationStrength, text: `${verificationStrength}% complete` }}>
-            <View style={[styles.progressFill, { width: `${verificationStrength}%` }]} />
           </View>
 
           <View style={styles.verificationItemsRow}>
@@ -824,6 +956,28 @@ export default function Profile({
                     </View>
                   ) : null}
                   {item.description ? <Text style={styles.experienceDescription}>{item.description}</Text> : null}
+                  {item.media?.length ? (
+                    <View style={styles.mediaThumbRow}>
+                      {item.media.map((media) => {
+                        const mediaUrl = media.url
+                          ? (media.url.startsWith('http') ? media.url : `${API_ORIGIN}${media.url}`)
+                          : null;
+                        const safeMediaUrl = mediaUrl
+                          ? safeExternalUrl(mediaUrl, { purpose: 'asset', trustedOrigins: [API_ORIGIN] })
+                          : null;
+                        if (!safeMediaUrl) return null;
+                        return (
+                          <Image
+                            key={media._id || media.url}
+                            source={{ uri: safeMediaUrl }}
+                            style={styles.mediaThumb}
+                            accessible
+                            accessibilityLabel={media.originalName || item.title}
+                          />
+                        );
+                      })}
+                    </View>
+                  ) : null}
                 </View>
                 {item.id && item.id !== 'experience-summary' ? (
                   <View style={styles.itemActions}>
@@ -857,6 +1011,151 @@ export default function Profile({
           ) : (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyCardText}>Add your work experience to strengthen your profile.</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Internships</Text>
+            <TouchableOpacity style={styles.sectionAction} onPress={() => {
+              if ((profile?.internships?.length || 0) >= 25) {
+                toast.error('You can add up to 25 internship entries.');
+                return;
+              }
+              setEditingInternship(null);
+              setShowAddInternship(true);
+            }} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Add internship">
+              <Ionicons name="add" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          {internshipItems.length ? (
+            internshipItems.map((item, index) => (
+              <View style={styles.listCard} key={item.id || `${item.title}-${index}`}>
+                <View style={styles.listIconWrap}>
+                  <Ionicons name="school-outline" size={20} color="#111827" />
+                </View>
+                <View style={styles.listContent}>
+                  <Text style={styles.listTitle}>{item.title}</Text>
+                  <Text style={styles.listSubtitle}>{item.subtitle}</Text>
+                  {item.period ? (
+                    <View style={styles.listPeriodPill}>
+                      <Text style={styles.listPeriodText}>{item.period}</Text>
+                    </View>
+                  ) : null}
+                  {item.description ? <Text style={styles.experienceDescription}>{item.description}</Text> : null}
+                </View>
+                <View style={styles.itemActions}>
+                  <TouchableOpacity
+                    style={styles.itemEditButton}
+                    onPress={() => {
+                      setEditingInternship({
+                        id: item.id,
+                        title: item.raw?.title || item.title,
+                        company: item.raw?.company || '',
+                        location: item.raw?.location || '',
+                        startDate: toMonthInput(item.raw?.startDate),
+                        endDate: item.raw?.current ? '' : toMonthInput(item.raw?.endDate),
+                        current: Boolean(item.raw?.current),
+                        description: item.raw?.description || '',
+                      });
+                      setShowAddInternship(true);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Edit ${item.title} internship`}
+                  >
+                    <Ionicons name="create-outline" size={18} color="#1C4D8D" />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.itemDeleteButton} onPress={() => handleDeleteInternship(item)} disabled={deletingInternshipId === item.id} accessibilityRole="button" accessibilityLabel={`Remove ${item.title} internship`}>
+                    {deletingInternshipId === item.id ? <ActivityIndicator size="small" color="#DC2626" /> : <Ionicons name="trash-outline" size={18} color="#DC2626" />}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyCardText}>Add an internship to show employers your training.</Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Certificates</Text>
+            <TouchableOpacity style={styles.sectionAction} onPress={() => {
+              if ((profile?.certificates?.length || 0) >= 25) {
+                toast.error('You can add up to 25 certificates.');
+                return;
+              }
+              setEditingCertificate(null);
+              setShowAddCertificate(true);
+            }} activeOpacity={0.9} accessibilityRole="button" accessibilityLabel="Add certificate">
+              <Ionicons name="add" size={20} color="#64748B" />
+            </TouchableOpacity>
+          </View>
+
+          {certificateItems.length ? (
+            certificateItems.map((item, index) => {
+              const safeCredentialUrl = item.credentialUrl
+                ? safeExternalUrl(item.credentialUrl, { purpose: 'external' })
+                : null;
+              return (
+                <View style={styles.listCard} key={item.id || `${item.name}-${index}`}>
+                  <View style={styles.listIconWrap}>
+                    <Ionicons name="ribbon-outline" size={20} color="#111827" />
+                  </View>
+                  <View style={styles.listContent}>
+                    <Text style={styles.listTitle}>{item.name}</Text>
+                    <Text style={styles.listSubtitle}>{item.issuer}</Text>
+                    {item.period ? (
+                      <View style={styles.listPeriodPill}>
+                        <Text style={styles.listPeriodText}>{item.period}</Text>
+                      </View>
+                    ) : null}
+                    {item.credentialId ? (
+                      <Text style={styles.experienceDescription}>Credential ID: {item.credentialId}</Text>
+                    ) : null}
+                    {safeCredentialUrl ? (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(safeCredentialUrl)}
+                        accessibilityRole="link"
+                        accessibilityLabel={`Verify ${item.name} credential`}
+                      >
+                        <Text style={styles.credentialLink}>Verify credential</Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  <View style={styles.itemActions}>
+                    <TouchableOpacity
+                      style={styles.itemEditButton}
+                      onPress={() => {
+                        setEditingCertificate({
+                          id: item.id,
+                          name: item.raw?.name || item.name,
+                          issuer: item.raw?.issuer || item.issuer,
+                          issueDate: toMonthInput(item.raw?.issueDate),
+                          expiryDate: item.raw?.expiryDate ? toMonthInput(item.raw?.expiryDate) : null,
+                          credentialId: item.raw?.credentialId || '',
+                          credentialUrl: item.raw?.credentialUrl || '',
+                        });
+                        setShowAddCertificate(true);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${item.name} certificate`}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#1C4D8D" />
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.itemDeleteButton} onPress={() => handleDeleteCertificate(item)} disabled={deletingCertificateId === item.id} accessibilityRole="button" accessibilityLabel={`Remove ${item.name} certificate`}>
+                      {deletingCertificateId === item.id ? <ActivityIndicator size="small" color="#DC2626" /> : <Ionicons name="trash-outline" size={18} color="#DC2626" />}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyCardText}>Add a certificate employers can verify.</Text>
             </View>
           )}
         </View>
@@ -1048,6 +1347,60 @@ export default function Profile({
           if (!result.ok) throw new Error(result.message);
           await loadProfile();
           toast.success(editingExperience ? 'Work experience updated.' : 'Work experience added.');
+        }}
+      />
+
+      <AddInternship
+        visible={showAddInternship}
+        initialValue={editingInternship}
+        onClose={() => { setShowAddInternship(false); setEditingInternship(null); }}
+        onAdd={async (data) => {
+          const token = await AsyncStorage.getItem('auth_token');
+          if (!token) throw new Error('Please sign in again.');
+          const result = await apiRequest(
+            editingInternship
+              ? `${API_URL}/auth/profile/internships/${encodeURIComponent(editingInternship.id)}`
+              : `${API_URL}/auth/profile/internships`,
+            {
+              method: editingInternship ? 'PATCH' : 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(data),
+            },
+            editingInternship ? 'Failed to update internship.' : 'Failed to add internship.',
+          );
+          if (!result.ok) throw new Error(result.message);
+          await loadProfile();
+          toast.success(editingInternship ? 'Internship updated.' : 'Internship added.');
+        }}
+      />
+
+      <AddCertificate
+        visible={showAddCertificate}
+        initialValue={editingCertificate}
+        onClose={() => { setShowAddCertificate(false); setEditingCertificate(null); }}
+        onAdd={async (data) => {
+          const token = await AsyncStorage.getItem('auth_token');
+          if (!token) throw new Error('Please sign in again.');
+          const result = await apiRequest(
+            editingCertificate
+              ? `${API_URL}/auth/profile/certificates/${encodeURIComponent(editingCertificate.id)}`
+              : `${API_URL}/auth/profile/certificates`,
+            {
+              method: editingCertificate ? 'PATCH' : 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(data),
+            },
+            editingCertificate ? 'Failed to update certificate.' : 'Failed to add certificate.',
+          );
+          if (!result.ok) throw new Error(result.message);
+          await loadProfile();
+          toast.success(editingCertificate ? 'Certificate updated.' : 'Certificate added.');
         }}
       />
 
@@ -1268,32 +1621,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 22,
   },
-  verificationScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  verificationScoreLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  verificationScoreValue: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: tokens.colors.brand,
-  },
-  progressTrack: {
-    height: 10,
-    borderRadius: 999,
-    backgroundColor: '#DDE7FF',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: tokens.colors.brand,
-  },
   verificationItemsRow: {
     borderTopWidth: 1,
     borderTopColor: '#E5EAF2',
@@ -1430,6 +1757,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: '#475569',
+  },
+  credentialLink: {
+    marginTop: 8,
+    fontSize: 13,
+    fontWeight: '700',
+    color: tokens.colors.brand,
+  },
+  mediaThumbRow: {
+    marginTop: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  mediaThumb: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    backgroundColor: tokens.colors.contentMuted,
   },
   itemDeleteButton: {
     width: 38,

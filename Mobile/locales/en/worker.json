@@ -92,6 +92,91 @@
       "saveFailed": "Could not save work experience."
     }
   },
+  "addInternship": {
+    "modalTitle": {
+      "edit": "Edit internship",
+      "add": "Add internship"
+    },
+    "modalSubtitle": {
+      "edit": "Keep this internship accurate and up to date.",
+      "add": "Internships are shown separately from paid work experience."
+    },
+    "close": "Close",
+    "fields": {
+      "title": "Title *",
+      "titlePlaceholder": "e.g., Marketing Intern",
+      "company": "Company *",
+      "companyPlaceholder": "e.g., Acme Co.",
+      "location": "Location",
+      "locationPlaceholder": "City or Remote",
+      "startDate": "Start date *",
+      "endDate": "End date *",
+      "datePlaceholder": "YYYY-MM"
+    },
+    "current": {
+      "label": "I currently intern here"
+    },
+    "description": {
+      "label": "Description",
+      "placeholder": "Describe your responsibilities and results",
+      "accessibilityLabel": "Internship description"
+    },
+    "characterCount": "{{count}}/{{max}}",
+    "save": {
+      "update": "Update internship",
+      "save": "Save internship"
+    },
+    "errors": {
+      "titleCompanyRequired": "Title and company are required.",
+      "invalidStartDate": "Enter the start date as YYYY-MM.",
+      "invalidEndDate": "Enter the end date as YYYY-MM or mark this as your current internship.",
+      "endBeforeStart": "End date cannot be before start date.",
+      "futureDates": "Internship dates cannot be in the future.",
+      "fieldTooLong": "One or more fields exceed the allowed length.",
+      "saveFailed": "Could not save internship."
+    }
+  },
+  "addCertificate": {
+    "modalTitle": {
+      "edit": "Edit certificate",
+      "add": "Add certificate"
+    },
+    "modalSubtitle": {
+      "edit": "Keep this certificate accurate and up to date.",
+      "add": "Add a license or certification employers can verify."
+    },
+    "close": "Close",
+    "fields": {
+      "name": "Certificate name *",
+      "namePlaceholder": "e.g., AWS Solutions Architect",
+      "issuer": "Issuing organization *",
+      "issuerPlaceholder": "e.g., Amazon Web Services",
+      "issueDate": "Issue date *",
+      "expiryDate": "Expiry date",
+      "datePlaceholder": "YYYY-MM",
+      "credentialId": "Credential ID",
+      "credentialIdPlaceholder": "Optional",
+      "credentialUrl": "Credential URL",
+      "credentialUrlPlaceholder": "https://…"
+    },
+    "noExpiry": {
+      "label": "This certificate does not expire"
+    },
+    "save": {
+      "update": "Update certificate",
+      "save": "Save certificate"
+    },
+    "errors": {
+      "nameIssuerRequired": "Certificate name and issuing organization are required.",
+      "invalidIssueDate": "Enter the issue date as YYYY-MM.",
+      "invalidExpiryDate": "Enter the expiry date as YYYY-MM, or mark this certificate as never expiring.",
+      "expiryBeforeIssue": "Expiry date cannot be before the issue date.",
+      "futureIssueDate": "Issue date cannot be in the future.",
+      "fieldTooLong": "One or more fields exceed the allowed length.",
+      "invalidCredentialUrl": "Credential URL must be a valid https link.",
+      "saveFailed": "Could not save certificate."
+    }
+  },
   "appliedJobs": {
     "headerTitle": "Applied jobs",
     "headerSubtitle_one": "{{count}} total application",

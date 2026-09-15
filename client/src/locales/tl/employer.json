@@ -540,6 +540,10 @@
     "publicView": "Pampublikong Tanaw",
     "locationNotSet": "Hindi pa naitakda ang lokasyon",
     "fallbackName": "Employer",
+    "bio": {
+      "more": "HIGIT PA",
+      "less": "Bawasan"
+    },
     "tabs": {
       "overview": "Pangkalahatang-ideya",
       "jobs": "Mga Trabaho"

@@ -590,9 +590,31 @@
     "locationNotSet": "Hindi itinakda ang lokasyon",
     "retry": "Subukan muli",
     "editProfile": "I-edit ang Profile",
+    "addMore": "+ Magdagdag pa",
+    "bio": {
+      "more": "HIGIT PA",
+      "less": "Bawasan"
+    },
+    "statRow": {
+      "certificates": "Mga Sertipiko",
+      "internships": "Mga Internship"
+    },
+    "internships": {
+      "heading": "Mga Internship",
+      "empty": "Wala pang naidagdag na internship."
+    },
+    "certificates": {
+      "heading": "Mga Sertipiko",
+      "empty": "Wala pang naidagdag na sertipiko.",
+      "noExpiry": "Walang expiry",
+      "credentialId": "Credential ID: {{id}}",
+      "verify": "I-verify ang credential"
+    },
     "tabs": {
       "overview": "Overview",
-      "skills": "Kasanayan at Karanasan",
+      "experience": "Karanasan",
+      "biography": "Talambuhay",
+      "skills": "Kasanayan",
       "accepted": "Tinanggap na Trabaho",
       "portfolio": "Portfolio"
     },
@@ -628,6 +650,7 @@
       "quickStats": "Mabilisang Estadistika",
       "totalExperience": "Kabuuang Karanasan",
       "jobsCompleted": "Nakumpletong Trabaho",
+      "jobsCompletedInline": "{{count}} nakumpleto",
       "jobsApplied": "Inaplayang Trabaho",
       "successRate": "Success Rate"
     },

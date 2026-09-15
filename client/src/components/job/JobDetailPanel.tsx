@@ -393,10 +393,10 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
               </div>
 
               <div className="mt-6">
-                <p className="text-[32px] sm:text-[40px] font-bold text-[#2FA66D] leading-none">
+                <p className="text-[22px] sm:text-[26px] font-bold text-[#2FA66D] leading-none">
                   {salaryDisplay.amount}
                   {salaryDisplay.cadence && (
-                    <span className="text-[18px] font-medium text-[#6B7280] ml-2">{salaryDisplay.cadence}</span>
+                    <span className="text-[14px] font-medium text-[#6B7280] ml-2">{salaryDisplay.cadence}</span>
                   )}
                 </p>
               </div>
@@ -428,7 +428,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                     <button
                       onClick={handleMessageEmployer}
                       disabled={startingInquiry}
-                      className="min-h-12 rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
+                      className="flex min-h-12 items-center justify-center rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
                       title={t("jobDetails.messageEmployerLabel")}
                       aria-label={t("jobDetails.messageEmployerLabel")}
                     >
@@ -436,7 +436,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                     </button>
                     <button
                       onClick={handleSave}
-                      className={`min-h-12 rounded-[14px] border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0 ${
+                      className={`flex min-h-12 items-center justify-center rounded-[14px] border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0 ${
                         isSaved
                           ? "bg-[#1C4D8D] text-white border-[#1C4D8D]"
                           : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"

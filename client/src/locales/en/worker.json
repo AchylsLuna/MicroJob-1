@@ -590,9 +590,31 @@
     "locationNotSet": "Location not set",
     "retry": "Retry",
     "editProfile": "Edit Profile",
+    "addMore": "+ Add more",
+    "bio": {
+      "more": "MORE",
+      "less": "Less"
+    },
+    "statRow": {
+      "certificates": "Certificates",
+      "internships": "Internships"
+    },
+    "internships": {
+      "heading": "Internships",
+      "empty": "No internships added yet."
+    },
+    "certificates": {
+      "heading": "Certificates",
+      "empty": "No certificates added yet.",
+      "noExpiry": "No expiry",
+      "credentialId": "Credential ID: {{id}}",
+      "verify": "Verify credential"
+    },
     "tabs": {
       "overview": "Overview",
-      "skills": "Skills & Experience",
+      "experience": "Experience",
+      "biography": "Biography",
+      "skills": "Skills",
       "accepted": "Accepted Work",
       "portfolio": "Portfolio"
     },
@@ -628,6 +650,7 @@
       "quickStats": "Quick Stats",
       "totalExperience": "Total Experience",
       "jobsCompleted": "Jobs Completed",
+      "jobsCompletedInline": "{{count}} completed",
       "jobsApplied": "Jobs Applied",
       "successRate": "Success Rate"
     },

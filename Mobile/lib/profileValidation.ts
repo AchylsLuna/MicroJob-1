@@ -15,6 +15,14 @@ export const PROFILE_LIMITS = {
   experienceCompany: 120,
   experienceLocation: 120,
   experienceDescription: 1000,
+  internshipTitle: 100,
+  internshipCompany: 120,
+  internshipLocation: 120,
+  internshipDescription: 1000,
+  certificateName: 120,
+  certificateIssuer: 120,
+  certificateCredentialId: 80,
+  certificateCredentialUrl: 500,
 } as const;
 
 export const MAX_PROFILE_UPLOAD_BYTES = 5 * 1024 * 1024;

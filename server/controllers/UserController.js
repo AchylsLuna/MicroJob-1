@@ -297,6 +297,11 @@ export async function anonymizeAndDeleteUser(userId) {
     user.totalExperience = undefined;
     user.skills = [];
     user.workExperience = [];
+    // Credentials are personal data like the fields above -- clearing them here
+    // is what keeps anonymization complete rather than leaving an identifiable
+    // trail of employers, schools, and credential IDs on a deleted account.
+    user.internships = [];
+    user.certificates = [];
     user.verification = {
         emailVerified: false,
         phoneVerified: false,
@@ -761,7 +766,7 @@ export async function updateProfile(req, res) {
             returnDocument: "after",
             runValidators: true,
         }).select(
-            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName avatarUrl resumeUrl resumeFileName about linkedin website totalExperience skills workExperience projectsCompleted jobsApplied successRate hideHiredCandidates verification"
+            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName avatarUrl resumeUrl resumeFileName about linkedin website totalExperience skills workExperience internships certificates projectsCompleted jobsApplied successRate hideHiredCandidates verification"
         );
 
         if (!user) {
@@ -825,7 +830,7 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience jobsApplied projectsCompleted successRate hideHiredCandidates"
+            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience internships certificates jobsApplied projectsCompleted successRate hideHiredCandidates"
         );
 
         if (!user) {
@@ -881,6 +886,12 @@ export async function getPublicProfile(req, res) {
                 avatarUrl: user.avatarUrl,
                 skills: Array.isArray(user.skills) ? user.skills : [],
                 workExperience: Array.isArray(user.workExperience) ? user.workExperience : [],
+                // Credentials are deliberately public: they exist to be shown to
+                // employers, and the "Public View" of a profile is where that
+                // happens. Same defensive [] default as the two above so the
+                // client never has to guard against undefined.
+                internships: Array.isArray(user.internships) ? user.internships : [],
+                certificates: Array.isArray(user.certificates) ? user.certificates : [],
             },
             rating: {
                 viewAs: viewer,

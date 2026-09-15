@@ -657,6 +657,10 @@
     "publicView": "Public View",
     "locationNotSet": "Location not set",
     "fallbackName": "Employer",
+    "bio": {
+      "more": "MORE",
+      "less": "Less"
+    },
     "tabs": {
       "overview": "Overview",
       "jobs": "Jobs"

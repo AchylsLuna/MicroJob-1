@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Mail, Phone, MapPin, Edit, Eye, Globe, Linkedin, ExternalLink, Briefcase, RefreshCw, Users } from "lucide-react";
+import { Mail, Phone, Edit, Eye, Globe, Linkedin, ExternalLink, Briefcase, RefreshCw, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../contexts/AuthContext";
@@ -9,6 +9,8 @@ import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { formatDate } from "../../lib/formatters";
 import { SettingsTabList } from "../../components/settings/SettingsTabList";
+import { ProfileHeader } from "../../components/profile/ProfileHeader";
+import { Button, StatTile } from "../../components/ui";
 
 interface EmployerJob {
   _id: string;
@@ -156,82 +158,46 @@ export function Profile() {
         </div>
       )}
 
-      {/* Header Card */}
-      <div className="bg-white rounded-[20px] border border-[#e2e8f0] shadow-sm overflow-hidden">
-        <div className="h-[100px] bg-[#1C4D8D]"></div>
-        <div className="px-8 pb-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between -mt-16">
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:gap-6">
-              {safeAvatarUrl ? (
-                <img
-                  src={safeAvatarUrl}
-                  alt={displayName}
-                  className="w-32 h-32 rounded-[20px] border-4 border-white shadow-lg object-cover"
-                />
-              ) : (
-                <div className="w-32 h-32 rounded-[20px] bg-[#F59E0B] border-4 border-white shadow-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-[48px]">{initials}</span>
-                </div>
-              )}
-              <div className="pb-2 sm:mt-[70px]">
-                <h1 className="text-[28px] font-bold text-[#1e293b] mb-1">{displayName}</h1>
-                <div className="flex flex-wrap items-center gap-4 text-[14px] text-[#64748b]">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4" />
-                    {location}
-                  </div>
-                  {profileUser?.email ? (
-                    <div className="flex items-center gap-1.5">
-                      <Mail className="w-4 h-4" />
-                      {profileUser.email}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-2 flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleEditProfile}
-                className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[12px] hover:opacity-90 transition-all flex min-h-11 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+      <ProfileHeader
+        name={displayName}
+        location={location}
+        email={profileUser?.email}
+        avatarUrl={safeAvatarUrl}
+        initials={initials}
+        bio={profileUser?.about}
+        moreLabel={t("profile.bio.more")}
+        lessLabel={t("profile.bio.less")}
+        actions={
+          <>
+            <Button onClick={handleEditProfile}>
+              <Edit className="h-4 w-4" aria-hidden="true" />
+              {t("profile.editProfile")}
+            </Button>
+            {profileUserId ? (
+              <Button
+                onClick={() => navigate(`${ROUTES.publicProfile(profileUserId)}?viewAs=employer`)}
+                className="!bg-white !text-[#1C4D8D] ring-1 ring-[#1C4D8D]/30 hover:!bg-[#1C4D8D]/[0.06]"
               >
-                <Edit className="w-4 h-4" />
-                {t("profile.editProfile")}
-              </button>
-              {profileUserId ? (
-                <button
-                  onClick={() => navigate(`${ROUTES.publicProfile(profileUserId)}?viewAs=employer`)}
-                  className="bg-white text-[#1C4D8D] font-semibold px-6 py-3 rounded-[12px] ring-1 ring-[#1C4D8D]/30 hover:bg-[#1C4D8D]/[0.06] transition-all flex min-h-11 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  {t("profile.publicView")}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
+                <Eye className="h-4 w-4" aria-hidden="true" />
+                {t("profile.publicView")}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
       {/* Stat row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-          <p className="mb-1 text-xs text-[#64748B]">{t("profile.statRow.yearsInBusiness")}</p>
-          <p className="text-xl font-bold text-[#0F172A]">{profileUser?.totalExperience || t("profile.overviewTab.notSet")}</p>
-        </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-          <p className="mb-1 text-xs text-[#64748B]">{t("profile.statRow.jobsPosted")}</p>
-          <p className="text-xl font-bold text-[#0F172A]">{profileLoading ? "—" : jobsPosted}</p>
-        </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-          <p className="mb-1 text-xs text-[#64748B]">{t("profile.statRow.successRate")}</p>
-          <p className="text-xl font-bold text-[#0F172A]">{profileLoading ? "—" : employerSuccessRate}</p>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <StatTile label={t("profile.statRow.yearsInBusiness")} value={profileUser?.totalExperience || t("profile.overviewTab.notSet")} />
+        <StatTile label={t("profile.statRow.jobsPosted")} value={profileLoading ? "—" : jobsPosted} />
+        <StatTile label={t("profile.statRow.successRate")} value={profileLoading ? "—" : employerSuccessRate} />
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-[16px] border border-[#e2e8f0] shadow-sm">
-        <div className="border-b border-[#e2e8f0] px-4 pt-4">
+      <div className="rounded-[14px] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-6">
           <SettingsTabList
+            variant="underline"
             ariaLabel={t("profile.tabs.overview")}
             idPrefix="employer-profile"
             options={[
@@ -243,56 +209,66 @@ export function Profile() {
           />
         </div>
 
-        <div className="p-8" id={`employer-profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`employer-profile-tab-${activeTab}`}>
+        <div className="p-6 sm:p-8" id={`employer-profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`employer-profile-tab-${activeTab}`}>
           {activeTab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2 space-y-6">
                 <div>
-                  <h2 className="text-[20px] font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.companyDescription")}</h2>
-                  <p className="text-[14px] text-[#475569] leading-relaxed">
+                  <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.companyDescription")}</h2>
+                  <p className="text-[14px] leading-6 text-slate-600">
                     {profileUser?.about || t("profile.overviewTab.aboutFallback")}
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <h2 className="text-[16px] font-semibold text-[#1e293b]">{t("profile.overviewTab.contactInfo")}</h2>
-                <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                  <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center shrink-0">
-                    <Mail className="w-5 h-5 text-[#1C4D8D]" />
+              <div>
+                <h2 className="mb-3 text-[15px] font-bold text-[#0F172A]">{t("profile.overviewTab.contactInfo")}</h2>
+                <dl className="divide-y divide-slate-100 border-y border-slate-100">
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                      <Mail className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                      {t("profile.overviewTab.email")}
+                    </dt>
+                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                      {profileUser?.email
+                        ? <a href={`mailto:${profileUser.email}`} className="break-all hover:text-[#1C4D8D]">{profileUser.email}</a>
+                        : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                    </dd>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.email")}</p>
-                    {profileUser?.email ? <a href={`mailto:${profileUser.email}`} className="text-[14px] font-medium text-[#1e293b] hover:text-[#1C4D8D] break-all">{profileUser.email}</a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                      <Phone className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                      {t("profile.overviewTab.phone")}
+                    </dt>
+                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                      {profileUser?.phoneNumber
+                        ? <a href={`tel:${profileUser.phoneNumber}`} className="hover:text-[#1C4D8D]">{profileUser.phoneNumber}</a>
+                        : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                    </dd>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                  <div className="w-10 h-10 rounded-[10px] bg-[#dcfce7] flex items-center justify-center shrink-0">
-                    <Phone className="w-5 h-5 text-[#16a34a]" />
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                      <Linkedin className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                      {t("profile.overviewTab.linkedin")}
+                    </dt>
+                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                      {safeLinkedinUrl
+                        ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                        : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                    </dd>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.phone")}</p>
-                    {profileUser?.phoneNumber ? <a href={`tel:${profileUser.phoneNumber}`} className="text-[14px] font-medium text-[#1e293b] hover:text-[#1C4D8D]">{profileUser.phoneNumber}</a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
+                  <div className="flex items-baseline justify-between gap-4 py-2.5">
+                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                      <Globe className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                      {t("profile.overviewTab.website")}
+                    </dt>
+                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                      {safeWebsiteUrl
+                        ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                        : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                    </dd>
                   </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                  <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center shrink-0">
-                    <Linkedin className="w-5 h-5 text-[#0a66c2]" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.linkedin")}</p>
-                    {safeLinkedinUrl ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[14px] font-medium text-[#1e293b] hover:text-[#0A66C2]">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" /></a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                  <div className="w-10 h-10 rounded-[10px] bg-[#f3e8ff] flex items-center justify-center shrink-0">
-                    <Globe className="w-5 h-5 text-[#9333ea]" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.website")}</p>
-                    {safeWebsiteUrl ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[14px] font-medium text-[#1e293b] hover:text-[#9333EA]">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" /></a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
-                  </div>
-                </div>
+                </dl>
               </div>
             </div>
           )}

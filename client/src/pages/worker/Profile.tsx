@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   Mail,
   Phone,
-  MapPin,
   Award,
   Download,
   Edit,
@@ -21,12 +20,20 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useAuth } from "../../contexts/AuthContext";
-import { getProfile, getUserApplications, type WorkExperience } from "../../services/api";
+import {
+  getProfile,
+  getUserApplications,
+  type Certificate,
+  type Internship,
+  type WorkExperience,
+} from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 import { SettingsTabList } from "../../components/settings/SettingsTabList";
+import { ProfileHeader } from "../../components/profile/ProfileHeader";
+import { Button, StatTile } from "../../components/ui";
 
 interface Skill {
   id: string;
@@ -69,7 +76,7 @@ const formatAcceptedDate = (t: TFunction, value?: string) => {
 export function Profile() {
   const navigate = useNavigate();
   const { t } = useTranslation("worker");
-  const [activeTab, setActiveTab] = useState<"overview" | "skills" | "accepted" | "portfolio">("overview");
+  const [activeTab, setActiveTab] = useState<"experience" | "biography" | "skills" | "accepted" | "portfolio">("experience");
   const { user, updateProfile: updateAuthProfile } = useAuth();
   const [profileUser, setProfileUser] = useState(user);
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -79,6 +86,8 @@ export function Profile() {
   const [successRate, setSuccessRate] = useState("0%");
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([]);
+  const [internships, setInternships] = useState<Internship[]>([]);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
   const [profileReloadKey, setProfileReloadKey] = useState(0);
@@ -108,6 +117,8 @@ export function Profile() {
       if (user.successRate) setSuccessRate(user.successRate);
       setResumeUrl(user.resumeUrl || null);
       setWorkExperiences(user.workExperience || []);
+      setInternships(user.internships || []);
+      setCertificates(user.certificates || []);
     }
   }, [user]);
 
@@ -151,6 +162,8 @@ export function Profile() {
         if (profile.successRate) setSuccessRate(profile.successRate);
         setResumeUrl(profile.resumeUrl || null);
         setWorkExperiences(Array.isArray(profile.workExperience) ? profile.workExperience : []);
+        setInternships(Array.isArray(profile.internships) ? profile.internships : []);
+        setCertificates(Array.isArray(profile.certificates) ? profile.certificates : []);
       } catch (error) {
         if (isMounted) setProfileError(error instanceof Error ? error.message : "Failed to load profile.");
       } finally {
@@ -282,90 +295,45 @@ export function Profile() {
           </button>
         </div>
       )}
-      {/* Header Card */}
-      <div className="bg-white rounded-[20px] border border-[#e2e8f0] shadow-sm overflow-hidden">
-        {/* Cover Photo */}
-        <div className="h-[100px] bg-[#1C4D8D]"></div>
-
-        {/* Profile Info */}
-        <div className="px-8 pb-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between -mt-16">
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-start sm:gap-6">
-              {/* Avatar */}
-              {safeAvatarUrl ? (
-                <img
-                  src={safeAvatarUrl}
-                  alt={displayName}
-                  className="w-32 h-32 rounded-[20px] border-4 border-white shadow-lg object-cover"
-                />
-              ) : (
-                <div className="w-32 h-32 rounded-[20px] bg-[#F59E0B] border-4 border-white shadow-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-[48px]">{initials}</span>
-                </div>
-              )}
-
-              {/* Name and Title */}
-              <div className="pb-2 sm:mt-[70px]">
-                <div className="flex items-center gap-3 mb-1">
-                  <h1 className="text-[28px] font-bold text-[#1e293b]">
-                    {profileData.name}
-                  </h1>
-                </div>
-                <p className="text-[16px] text-[#64748b] mb-2">{profileData.title}</p>
-                <div className="flex flex-wrap items-center gap-4 text-[14px] text-[#64748b]">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-4 h-4" />
-                    {profileData.location}
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Mail className="w-4 h-4" />
-                    {profileData.email}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-2 flex flex-wrap items-center gap-3">
-              <button
-                onClick={handleEditProfile}
-                className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[12px] hover:opacity-90 transition-all flex min-h-11 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+      <ProfileHeader
+        name={profileData.name}
+        title={profileData.title}
+        location={profileData.location}
+        email={profileData.email}
+        avatarUrl={safeAvatarUrl}
+        initials={initials}
+        bio={profileData.about}
+        moreLabel={t("profile.bio.more")}
+        lessLabel={t("profile.bio.less")}
+        actions={
+          <>
+            <Button onClick={handleEditProfile}>
+              <Edit className="h-4 w-4" aria-hidden="true" />
+              {t("profile.editProfile")}
+            </Button>
+            {profileUserId ? (
+              <Button
+                onClick={() => navigate(`${ROUTES.publicProfile(profileUserId)}?viewAs=worker`)}
+                className="!bg-white !text-[#1C4D8D] ring-1 ring-[#1C4D8D]/30 hover:!bg-[#1C4D8D]/[0.06]"
               >
-                <Edit className="w-4 h-4" />
-                {t("profile.editProfile")}
-              </button>
-              {profileUserId ? (
-                <button
-                  onClick={() => navigate(`${ROUTES.publicProfile(profileUserId)}?viewAs=worker`)}
-                  className="bg-white text-[#1C4D8D] font-semibold px-6 py-3 rounded-[12px] ring-1 ring-[#1C4D8D]/30 hover:bg-[#1C4D8D]/[0.06] transition-all flex min-h-11 items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  {t("profile.publicView")}
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
+                <Eye className="h-4 w-4" aria-hidden="true" />
+                {t("profile.publicView")}
+              </Button>
+            ) : null}
+          </>
+        }
+      />
+
+      {/* Stat row -- every value here is schema-backed. Certificates and
+          internships are counts of real entries, not self-reported numbers. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatTile label={t("profile.overviewTab.totalExperience")} value={totalExperience} />
+        <StatTile label={t("profile.statRow.certificates")} value={certificates.length} />
+        <StatTile label={t("profile.statRow.internships")} value={internships.length} />
+        <StatTile label={t("profile.overviewTab.successRate")} value={successRate} />
       </div>
 
-      {/* Stat row -- real fields already on the profile, matching the same tile
-          shape PublicProfile.tsx uses so a worker's own view and their public
-          view read consistently. */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-          <p className="mb-1 text-xs text-[#64748B]">{t("profile.overviewTab.totalExperience")}</p>
-          <p className="text-xl font-bold text-[#0F172A]">{totalExperience}</p>
-        </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-          <p className="mb-1 text-xs text-[#64748B]">{t("profile.overviewTab.jobsCompleted")}</p>
-          <p className="text-xl font-bold text-[#0F172A]">{projectsCompleted}</p>
-        </div>
-        <div className="rounded-xl border border-[#E2E8F0] bg-white p-4">
-          <p className="mb-1 text-xs text-[#64748B]">{t("profile.overviewTab.successRate")}</p>
-          <p className="text-xl font-bold text-[#0F172A]">{successRate}</p>
-        </div>
-      </div>
-
-      <div className="rounded-[16px] border border-[#BFDBFE] bg-[#EFF6FF] p-5">
+      <div className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.completeness.title")}</p>
@@ -384,13 +352,15 @@ export function Profile() {
       </div>
 
       {/* Tabs */}
-      <div className="bg-white rounded-[16px] border border-[#e2e8f0] shadow-sm">
-        <div className="border-b border-[#e2e8f0] px-4 pt-4">
+      <div className="rounded-[14px] border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-6">
           <SettingsTabList
-            ariaLabel={t("profile.tabs.overview")}
+            variant="underline"
+            ariaLabel={t("profile.tabs.experience")}
             idPrefix="worker-profile"
             options={[
-              { id: "overview" as const, label: t("profile.tabs.overview") },
+              { id: "experience" as const, label: t("profile.tabs.experience") },
+              { id: "biography" as const, label: t("profile.tabs.biography") },
               { id: "skills" as const, label: t("profile.tabs.skills") },
               { id: "portfolio" as const, label: t("profile.tabs.portfolio") },
               { id: "accepted" as const, label: t("profile.tabs.accepted") },
@@ -400,85 +370,76 @@ export function Profile() {
           />
         </div>
 
-        <div className="p-8" id={`worker-profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`worker-profile-tab-${activeTab}`}>
-          {/* Overview Tab */}
-          {activeTab === "overview" && (
+        <div className="p-6 sm:p-8" id={`worker-profile-panel-${activeTab}`} role="tabpanel" aria-labelledby={`worker-profile-tab-${activeTab}`}>
+          {/* Biography Tab — about, contact, and CV. The Skills list and Quick
+              Stats blocks that used to live here were removed: both duplicated
+              content already shown in the Skills tab and the stat row above. */}
+          {activeTab === "biography" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column - About & Contact */}
-                <div className="lg:col-span-2 space-y-6">
+                <div className="lg:col-span-2 space-y-8">
                   {/* About Section */}
                   <div>
-                    <h2 className="text-[20px] font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.aboutMe")}</h2>
-                    <p className="text-[14px] text-[#475569] leading-relaxed">{profileData.about}</p>
+                    <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.aboutMe")}</h2>
+                    <p className="text-[14px] leading-6 text-slate-600">{profileData.about}</p>
                   </div>
 
                   {/* Contact Information */}
                   <div>
-                    <h2 className="text-[20px] font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.contactInfo")}</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                        <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center">
-                          <Mail className="w-5 h-5 text-[#1C4D8D]" />
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.email")}</p>
-                          {profileUser?.email ? <a href={`mailto:${profileUser.email}`} className="text-[14px] font-medium text-[#1e293b] hover:text-[#1C4D8D] break-all">{profileData.email}</a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
-                        </div>
+                    <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.contactInfo")}</h2>
+                    {/* A plain divided list rather than four bordered cards with
+                        colored icon chips -- same four facts, a quarter of the
+                        visual weight. */}
+                    <dl className="divide-y divide-slate-100 border-y border-slate-100">
+                      <div className="flex items-baseline justify-between gap-4 py-2.5">
+                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                          <Mail className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                          {t("profile.overviewTab.email")}
+                        </dt>
+                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                          {profileUser?.email
+                            ? <a href={`mailto:${profileUser.email}`} className="break-all hover:text-[#1C4D8D]">{profileData.email}</a>
+                            : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                        </dd>
                       </div>
 
-                      <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                        <div className="w-10 h-10 rounded-[10px] bg-[#dcfce7] flex items-center justify-center">
-                          <Phone className="w-5 h-5 text-[#16a34a]" />
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.phone")}</p>
-                          {profileUser?.phoneNumber ? <a href={`tel:${profileUser.phoneNumber}`} className="text-[14px] font-medium text-[#1e293b] hover:text-[#1C4D8D]">{profileData.phone}</a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
-                        </div>
+                      <div className="flex items-baseline justify-between gap-4 py-2.5">
+                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                          <Phone className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                          {t("profile.overviewTab.phone")}
+                        </dt>
+                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                          {profileUser?.phoneNumber
+                            ? <a href={`tel:${profileUser.phoneNumber}`} className="hover:text-[#1C4D8D]">{profileData.phone}</a>
+                            : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                        </dd>
                       </div>
 
-                      <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                        <div className="w-10 h-10 rounded-[10px] bg-[#1C4D8D]/10 flex items-center justify-center">
-                          <Linkedin className="w-5 h-5 text-[#0a66c2]" />
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.linkedin")}</p>
-                          {safeLinkedinUrl ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[14px] font-medium text-[#1e293b] hover:text-[#0A66C2]">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" /></a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
-                        </div>
+                      <div className="flex items-baseline justify-between gap-4 py-2.5">
+                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                          <Linkedin className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                          {t("profile.overviewTab.linkedin")}
+                        </dt>
+                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                          {safeLinkedinUrl
+                            ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                            : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                        </dd>
                       </div>
 
-                      <div className="flex items-center gap-3 p-4 bg-[#f8fafc] rounded-[12px] border border-[#e2e8f0]">
-                        <div className="w-10 h-10 rounded-[10px] bg-[#f3e8ff] flex items-center justify-center">
-                          <Globe className="w-5 h-5 text-[#9333ea]" />
-                        </div>
-                        <div>
-                          <p className="text-[12px] text-[#64748b] mb-0.5">{t("profile.overviewTab.website")}</p>
-                          {safeWebsiteUrl ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-[14px] font-medium text-[#1e293b] hover:text-[#9333EA]">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" /></a> : <p className="text-[14px] text-[#64748B]">{t("profile.overviewTab.notSet")}</p>}
-                        </div>
+                      <div className="flex items-baseline justify-between gap-4 py-2.5">
+                        <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                          <Globe className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                          {t("profile.overviewTab.website")}
+                        </dt>
+                        <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                          {safeWebsiteUrl
+                            ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                            : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
+                        </dd>
                       </div>
-                    </div>
-                  </div>
-
-                  {/* Skills */}
-                  <div>
-                    <h2 className="text-[20px] font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.skills")}</h2>
-                    <div className="space-y-3">
-                      {skills.length > 0 ? (
-                        skills.map((skill) => (
-                          <div
-                            key={skill.id}
-                            className="rounded-[12px] border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.08] px-4 py-3"
-                          >
-                            <p className="text-[14px] font-semibold text-[#1C4D8D]">{skill.name}</p>
-                            <p className="mt-1 text-[13px] text-[#475569]">
-                              {skill.description?.trim() || t("profile.overviewTab.noDescriptionAdded")}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <span className="text-[13px] text-[#94a3b8]">{t("profile.overviewTab.noSkillsShort")}</span>
-                      )}
-                    </div>
+                    </dl>
                   </div>
                 </div>
 
@@ -531,26 +492,17 @@ export function Profile() {
                     )}
                   </div>
 
-                  {/* Quick Stats */}
-                  <div className="bg-white border border-[#e2e8f0] rounded-[16px] p-6">
-                    <h3 className="text-[18px] font-semibold text-[#1e293b] mb-4">{t("profile.overviewTab.quickStats")}</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[14px] text-[#64748b]">{t("profile.overviewTab.totalExperience")}</span>
-                        <span className="text-[16px] font-bold text-[#1e293b]">{totalExperience}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[14px] text-[#64748b]">{t("profile.overviewTab.jobsCompleted")}</span>
-                        <span className="text-[16px] font-bold text-[#10b981]">{projectsCompleted}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[14px] text-[#64748b]">{t("profile.overviewTab.jobsApplied")}</span>
-                        <span className="text-[16px] font-bold text-[#1C4D8D]">{jobsApplied}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[14px] text-[#64748b]">{t("profile.overviewTab.successRate")}</span>
-                        <span className="text-[16px] font-bold text-[#10b981]">{successRate}</span>
-                      </div>
+                  {/* The old "Quick Stats" card lived here and repeated Total
+                      Experience / Jobs Completed / Success Rate verbatim from
+                      the stat row above it. Removed rather than restyled --
+                      one source for a number beats two that can disagree. */}
+                  <div className="rounded-[14px] border border-slate-200 p-5">
+                    <h3 className="mb-3 text-[15px] font-bold text-[#0F172A]">{t("profile.overviewTab.jobsApplied")}</h3>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-[24px] font-bold text-[#1C4D8D]">{jobsApplied}</span>
+                      <span className="text-[13px] text-slate-500">
+                        {t("profile.overviewTab.jobsCompletedInline", { count: projectsCompleted })}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -558,31 +510,35 @@ export function Profile() {
             </div>
           )}
 
-          {/* Skills & Experience Tab */}
-          {activeTab === "skills" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-[20px] font-semibold text-[#1e293b]">{t("profile.skillsTab.heading")}</h2>
-                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">{t("profile.skillsTab.manage")}</button>
-              </div>
-
-              <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-[16px] font-semibold text-[#1E293B]">{t("profile.skillsTab.workHistory")}</h3>
-                  <span className="text-[12px] text-[#64748B]">{t("profile.skillsTab.entry", { count: workExperiences.length })}</span>
+          {/* Experience Tab -- work history, internships, and certificates.
+              Work history used to share the "Skills" tab with the skills grid,
+              which buried it under a label that didn't describe it. */}
+          {activeTab === "experience" && (
+            <div className="space-y-10">
+              <section>
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <h2 className="text-[17px] font-bold text-[#0F172A]">
+                    {t("profile.skillsTab.workHistory")}
+                    <span className="ml-2 text-[13px] font-medium text-slate-400">
+                      {t("profile.skillsTab.entry", { count: workExperiences.length })}
+                    </span>
+                  </h2>
+                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                    {t("profile.addMore")}
+                  </button>
                 </div>
                 {workExperiences.length ? (
                   <div className="space-y-3">
                     {workExperiences.map((item, index) => (
-                      <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-5">
+                      <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-[14px] border border-slate-200 p-5">
                         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[13px] font-bold text-white">
                           {initialsOf(item.company, "?")}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[15px] font-semibold text-[#1E293B]">{item.title}</p>
-                          <p className="text-[13px] text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                          <p className="mt-1 text-[12px] text-[#64748B]">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
-                          {item.description ? <p className="mt-3 whitespace-pre-line text-[13px] leading-relaxed text-[#475569]">{item.description}</p> : null}
+                          <p className="text-[15px] font-semibold text-[#0F172A]">{item.title}</p>
+                          <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                          <p className="mt-1 text-[12px] text-slate-400">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
+                          {item.description ? <p className="mt-3 whitespace-pre-line text-[13px] leading-6 text-slate-600">{item.description}</p> : null}
                           {item.media?.length ? (
                             <div className="mt-3 flex flex-wrap gap-2">
                               {item.media.map((media) => {
@@ -594,7 +550,7 @@ export function Profile() {
                                     href={mediaUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="block h-16 w-16 overflow-hidden rounded-lg border border-[#E2E8F0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                    className="block h-16 w-16 overflow-hidden rounded-lg border border-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
                                   >
                                     <img src={mediaUrl} alt={media.originalName || item.title} className="h-full w-full object-cover" />
                                   </a>
@@ -607,45 +563,138 @@ export function Profile() {
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-[16px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] py-8 text-center">
-                    <Briefcase className="mx-auto mb-2 h-8 w-8 text-[#94A3B8]" />
-                    <p className="text-[13px] text-[#64748B]">{t("profile.skillsTab.noWorkHistory")}</p>
+                  <div className="rounded-[14px] border border-dashed border-slate-300 py-8 text-center">
+                    <Briefcase className="mx-auto mb-2 h-8 w-8 text-slate-300" aria-hidden="true" />
+                    <p className="text-[13px] text-slate-500">{t("profile.skillsTab.noWorkHistory")}</p>
                   </div>
                 )}
-              </div>
+              </section>
 
-              {/* Skills List */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-[16px] font-semibold text-[#1E293B]">{t("profile.skillsTab.skillsHeading")}</h3>
-                <span className="text-[12px] text-[#64748B]">{t("profile.skillsTab.skill", { count: skills.length })}</span>
+              <section>
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <h2 className="text-[17px] font-bold text-[#0F172A]">
+                    {t("profile.internships.heading")}
+                    <span className="ml-2 text-[13px] font-medium text-slate-400">
+                      {t("profile.skillsTab.entry", { count: internships.length })}
+                    </span>
+                  </h2>
+                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                    {t("profile.addMore")}
+                  </button>
+                </div>
+                {internships.length ? (
+                  <div className="space-y-3">
+                    {internships.map((item, index) => (
+                      <div key={item._id || item.id || `${item.title}-${index}`} className="flex gap-4 rounded-[14px] border border-slate-200 p-5">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#4988C4] text-[13px] font-bold text-white">
+                          {initialsOf(item.company, "?")}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[15px] font-semibold text-[#0F172A]">{item.title}</p>
+                          <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                          <p className="mt-1 text-[12px] text-slate-400">{formatExperienceDate(item.startDate)} – {item.current ? t("profile.skillsTab.present") : formatExperienceDate(item.endDate)}</p>
+                          {item.description ? <p className="mt-3 whitespace-pre-line text-[13px] leading-6 text-slate-600">{item.description}</p> : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[14px] border border-dashed border-slate-300 py-8 text-center">
+                    <p className="text-[13px] text-slate-500">{t("profile.internships.empty")}</p>
+                  </div>
+                )}
+              </section>
+
+              <section>
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <h2 className="text-[17px] font-bold text-[#0F172A]">
+                    {t("profile.certificates.heading")}
+                    <span className="ml-2 text-[13px] font-medium text-slate-400">
+                      {t("profile.skillsTab.entry", { count: certificates.length })}
+                    </span>
+                  </h2>
+                  <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                    {t("profile.addMore")}
+                  </button>
+                </div>
+                {certificates.length ? (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {certificates.map((item, index) => {
+                      const safeCredentialUrl = safeExternalUrl(item.credentialUrl || "", { purpose: "external" });
+                      return (
+                        <div key={item._id || item.id || `${item.name}-${index}`} className="rounded-[14px] border border-slate-200 p-5">
+                          <p className="text-[15px] font-semibold text-[#0F172A]">{item.name}</p>
+                          <p className="text-[13px] text-slate-600">{item.issuer}</p>
+                          <p className="mt-1 text-[12px] text-slate-400">
+                            {formatExperienceDate(item.issueDate)}
+                            {item.expiryDate
+                              ? ` – ${formatExperienceDate(item.expiryDate)}`
+                              : ` · ${t("profile.certificates.noExpiry")}`}
+                          </p>
+                          {item.credentialId ? (
+                            <p className="mt-2 text-[12px] text-slate-500">
+                              {t("profile.certificates.credentialId", { id: item.credentialId })}
+                            </p>
+                          ) : null}
+                          {safeCredentialUrl ? (
+                            <a
+                              href={safeCredentialUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="mt-2 inline-flex min-h-11 items-center gap-1 text-[13px] font-semibold text-[#1C4D8D] hover:underline"
+                            >
+                              {t("profile.certificates.verify")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                            </a>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-[14px] border border-dashed border-slate-300 py-8 text-center">
+                    <p className="text-[13px] text-slate-500">{t("profile.certificates.empty")}</p>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {/* Skills Tab */}
+          {activeTab === "skills" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-[17px] font-bold text-[#0F172A]">
+                  {t("profile.skillsTab.skillsHeading")}
+                  <span className="ml-2 text-[13px] font-medium text-slate-400">
+                    {t("profile.skillsTab.skill", { count: skills.length })}
+                  </span>
+                </h2>
+                <button type="button" onClick={() => navigate(`${ROUTES.worker.settings}?tab=experience`)} className="min-h-11 shrink-0 text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                  {t("profile.skillsTab.manage")}
+                </button>
               </div>
               {skills.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                   {skills.map((skill) => (
-                    <div
-                      key={skill.id}
-                      className="bg-white border border-[#e2e8f0] rounded-[16px] p-5 hover:shadow-md transition-all"
-                    >
-                      <div>
-                        <h3 className="text-[16px] font-bold text-[#1e293b] mb-1">{skill.name}</h3>
-                        <p className="text-[13px] text-[#64748b] mt-2">
-                          {skill.description?.trim() || t("profile.overviewTab.noDescriptionAdded")}
-                        </p>
-                        {skill.endorsements ? (
-                          <span className="text-[12px] text-[#64748b] flex items-center gap-1 mt-2">
-                            <Award className="w-3 h-3" />
-                            {t("profile.skillsTab.endorsements", { count: skill.endorsements })}
-                          </span>
-                        ) : null}
-                      </div>
+                    <div key={skill.id} className="rounded-[14px] border border-slate-200 p-5">
+                      <h3 className="text-[15px] font-semibold text-[#0F172A]">{skill.name}</h3>
+                      <p className="mt-1 text-[13px] leading-6 text-slate-600">
+                        {skill.description?.trim() || t("profile.overviewTab.noDescriptionAdded")}
+                      </p>
+                      {skill.endorsements ? (
+                        <span className="mt-2 flex items-center gap-1 text-[12px] text-slate-400">
+                          <Award className="h-3 w-3" aria-hidden="true" />
+                          {t("profile.skillsTab.endorsements", { count: skill.endorsements })}
+                        </span>
+                      ) : null}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 bg-[#f8fafc] rounded-[16px] border border-[#e2e8f0]">
-                  <Award className="w-12 h-12 text-[#94a3b8] mx-auto mb-3" />
-                  <p className="text-[14px] text-[#64748b] mb-4">{t("profile.skillsTab.noSkillsTitle")}</p>
-                  <p className="text-[12px] text-[#94a3b8]">{t("profile.skillsTab.noSkillsHint")}</p>
+                <div className="rounded-[14px] border border-dashed border-slate-300 py-12 text-center">
+                  <Award className="mx-auto mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
+                  <p className="text-[14px] text-slate-500">{t("profile.skillsTab.noSkillsTitle")}</p>
+                  <p className="mt-1 text-[12px] text-slate-400">{t("profile.skillsTab.noSkillsHint")}</p>
                 </div>
               )}
             </div>

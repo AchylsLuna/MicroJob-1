@@ -116,6 +116,19 @@ export type WorkExperience = {
   description?: string;
   media?: WorkExperienceMedia[];
 };
+/** Same field set as WorkExperience minus media — see server/models/User.js. */
+export type Internship = Omit<WorkExperience, 'media'>;
+export type Certificate = {
+  _id?: string;
+  id?: string;
+  name: string;
+  issuer: string;
+  issueDate: string;
+  /** null means "does not expire", which is distinct from "unknown". */
+  expiryDate?: string | null;
+  credentialId?: string;
+  credentialUrl?: string;
+};
 export type PaymentTarget = 'EMPLOYER' | 'WORKER' | 'BOTH';
 export type PaymentTransaction = {
   _id: string;
@@ -856,6 +869,46 @@ export function uploadExperienceMedia(experienceId: string, file: File) {
 
 export function deleteExperienceMedia(experienceId: string, mediaId: string) {
   return request<{ workExperience: WorkExperience[] }>(`/auth/profile/experience/${experienceId}/media/${mediaId}`, {
+    method: 'DELETE',
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function addInternship(payload: Omit<Internship, '_id' | 'id'>) {
+  return request<{ internships: Internship[] }>('/auth/profile/internships', {
+    method: 'POST',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function updateInternship(internshipId: string, payload: Partial<Internship>) {
+  return request<{ internships: Internship[] }>(`/auth/profile/internships/${internshipId}`, {
+    method: 'PATCH',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function deleteInternship(internshipId: string) {
+  return request<{ internships: Internship[] }>(`/auth/profile/internships/${internshipId}`, {
+    method: 'DELETE',
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function addCertificate(payload: Omit<Certificate, '_id' | 'id'>) {
+  return request<{ certificates: Certificate[] }>('/auth/profile/certificates', {
+    method: 'POST',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function updateCertificate(certificateId: string, payload: Partial<Certificate>) {
+  return request<{ certificates: Certificate[] }>(`/auth/profile/certificates/${certificateId}`, {
+    method: 'PATCH',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function deleteCertificate(certificateId: string) {
+  return request<{ certificates: Certificate[] }>(`/auth/profile/certificates/${certificateId}`, {
     method: 'DELETE',
   }).then((response: any) => response?.data ?? response);
 }

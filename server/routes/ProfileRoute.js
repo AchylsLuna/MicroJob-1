@@ -23,6 +23,12 @@ import {
   deleteWorkExperience,
   addExperienceMedia,
   deleteExperienceMedia,
+  addInternship,
+  updateInternship,
+  deleteInternship,
+  addCertificate,
+  updateCertificate,
+  deleteCertificate,
 } from '../controllers/skillsController.js';
 import {
   uploadAvatarFile,
@@ -53,5 +59,11 @@ router.patch('/profile/experience/:experienceId', verifyToken, updateWorkExperie
 router.delete('/profile/experience/:experienceId', verifyToken, deleteWorkExperience);
 router.post('/profile/experience/:experienceId/media', verifyToken, uploadExperienceMediaFile, addExperienceMedia);
 router.delete('/profile/experience/:experienceId/media/:mediaId', verifyToken, deleteExperienceMedia);
+router.post('/profile/internships', verifyToken, addInternship);
+router.patch('/profile/internships/:internshipId', verifyToken, updateInternship);
+router.delete('/profile/internships/:internshipId', verifyToken, deleteInternship);
+router.post('/profile/certificates', verifyToken, addCertificate);
+router.patch('/profile/certificates/:certificateId', verifyToken, updateCertificate);
+router.delete('/profile/certificates/:certificateId', verifyToken, deleteCertificate);
 
 export default router;

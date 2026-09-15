@@ -118,6 +118,40 @@ export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) 
   return <span className={join("inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700", className)} {...props} />;
 }
 
+/**
+ * One labelled number in a stat row. Props mirror `Mobile/components/ui/StatTile.tsx`
+ * deliberately, so the same stat reads the same way on both platforms.
+ *
+ * Replaces three byte-identical hand-rolled copies that had drifted into
+ * worker/Profile.tsx, employer/Profile.tsx, and shared/PublicProfile.tsx.
+ */
+export function StatTile({
+  label,
+  value,
+  icon,
+  caption,
+  className,
+}: {
+  label: string;
+  value: string | number;
+  /** Small leading glyph beside the value — pass a sized lucide icon. */
+  icon?: ReactNode;
+  /** Secondary line under the value, e.g. a review count. */
+  caption?: string;
+  className?: string;
+}) {
+  return (
+    <div className={join("rounded-[14px] border border-slate-200 bg-white px-4 py-3", className)}>
+      <p className="truncate text-xs font-semibold text-slate-500">{label}</p>
+      <div className="mt-0.5 flex items-center gap-1.5">
+        {icon}
+        <p className="truncate text-xl font-bold text-[#0F2954]">{value}</p>
+      </div>
+      {caption ? <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{caption}</p> : null}
+    </div>
+  );
+}
+
 export function StatusState({ title, description, action, tone = "neutral" }: { title: string; description?: string; action?: ReactNode; tone?: "neutral" | "error" | "loading" }) {
   const colors = tone === "error" ? "border-red-200 bg-red-50 text-red-900" : "border-slate-200 bg-white text-slate-700";
   return (

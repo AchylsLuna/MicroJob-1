@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import User from '../models/User.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
-import { normalizeExperience } from '../lib/profileValidation.js';
+import { normalizeExperience, normalizeInternship, normalizeCertificate } from '../lib/profileValidation.js';
 import { hasValidAvatarFileSignature, removeUploadFile } from '../middleware/uploadConfig.js';
 
 const MAX_PROFILE_SKILLS = 50;
@@ -9,6 +9,8 @@ const MAX_WORK_EXPERIENCES = 25;
 const MAX_WORK_EXPERIENCE_MEDIA = 6;
 const MAX_SKILL_NAME_LENGTH = 80;
 const MAX_SKILL_DESCRIPTION_LENGTH = 500;
+const MAX_CERTIFICATES = 25;
+const MAX_INTERNSHIPS = 25;
 
 const sendProfileMutationError = (res, error, fallbackMessage) => {
   if (error?.name === 'ValidationError' || error?.name === 'CastError') {
@@ -232,6 +234,170 @@ export const deleteWorkExperience = async (req, res) => {
   }
 };
 
+export const addInternship = async (req, res) => {
+  try {
+    const normalized = normalizeInternship(req.body);
+    if (normalized.error) return sendError(res, 400, normalized.error);
+
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    user.internships = user.internships || [];
+    if (user.internships.length >= MAX_INTERNSHIPS) {
+      return sendError(res, 400, `You can add up to ${MAX_INTERNSHIPS} internship entries`);
+    }
+    const duplicate = user.internships.some((item) =>
+      item.title.toLowerCase() === normalized.value.title.toLowerCase() &&
+      item.company.toLowerCase() === normalized.value.company.toLowerCase() &&
+      item.startDate?.getTime() === normalized.value.startDate.getTime()
+    );
+    if (duplicate) {
+      return sendError(res, 409, 'This internship is already on your profile');
+    }
+    user.internships.push(normalized.value);
+    await user.save();
+
+    return sendSuccess(res, 201, 'Internship added successfully', {
+      internships: user.internships,
+    });
+  } catch (error) {
+    console.error('Add internship error:', error);
+    return sendProfileMutationError(res, error, 'Failed to add internship');
+  }
+};
+
+export const updateInternship = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.internshipId)) {
+      return sendError(res, 400, 'Invalid internship ID');
+    }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    const internship = user.internships?.id(req.params.internshipId);
+    if (!internship) return sendError(res, 404, 'Internship not found');
+
+    const normalized = normalizeInternship({ ...internship.toObject(), ...req.body });
+    if (normalized.error) return sendError(res, 400, normalized.error);
+
+    Object.assign(internship, normalized.value);
+    await user.save();
+
+    return sendSuccess(res, 200, 'Internship updated successfully', {
+      internships: user.internships,
+    });
+  } catch (error) {
+    console.error('Update internship error:', error);
+    return sendProfileMutationError(res, error, 'Failed to update internship');
+  }
+};
+
+export const deleteInternship = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.internshipId)) {
+      return sendError(res, 400, 'Invalid internship ID');
+    }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    const internship = user.internships?.id(req.params.internshipId);
+    if (!internship) return sendError(res, 404, 'Internship not found');
+
+    // No media cleanup here, unlike work experience: internships carry no
+    // media[], so there are no StoredUpload blobs to reclaim.
+    internship.deleteOne();
+    await user.save();
+
+    return sendSuccess(res, 200, 'Internship deleted successfully', {
+      internships: user.internships,
+    });
+  } catch (error) {
+    console.error('Delete internship error:', error);
+    return sendProfileMutationError(res, error, 'Failed to delete internship');
+  }
+};
+
+export const addCertificate = async (req, res) => {
+  try {
+    const normalized = normalizeCertificate(req.body);
+    if (normalized.error) return sendError(res, 400, normalized.error);
+
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    user.certificates = user.certificates || [];
+    if (user.certificates.length >= MAX_CERTIFICATES) {
+      return sendError(res, 400, `You can add up to ${MAX_CERTIFICATES} certificates`);
+    }
+    const duplicate = user.certificates.some((item) =>
+      item.name.toLowerCase() === normalized.value.name.toLowerCase() &&
+      item.issuer.toLowerCase() === normalized.value.issuer.toLowerCase() &&
+      item.issueDate?.getTime() === normalized.value.issueDate.getTime()
+    );
+    if (duplicate) {
+      return sendError(res, 409, 'This certificate is already on your profile');
+    }
+    user.certificates.push(normalized.value);
+    await user.save();
+
+    return sendSuccess(res, 201, 'Certificate added successfully', {
+      certificates: user.certificates,
+    });
+  } catch (error) {
+    console.error('Add certificate error:', error);
+    return sendProfileMutationError(res, error, 'Failed to add certificate');
+  }
+};
+
+export const updateCertificate = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.certificateId)) {
+      return sendError(res, 400, 'Invalid certificate ID');
+    }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    const certificate = user.certificates?.id(req.params.certificateId);
+    if (!certificate) return sendError(res, 404, 'Certificate not found');
+
+    const normalized = normalizeCertificate({ ...certificate.toObject(), ...req.body });
+    if (normalized.error) return sendError(res, 400, normalized.error);
+
+    Object.assign(certificate, normalized.value);
+    await user.save();
+
+    return sendSuccess(res, 200, 'Certificate updated successfully', {
+      certificates: user.certificates,
+    });
+  } catch (error) {
+    console.error('Update certificate error:', error);
+    return sendProfileMutationError(res, error, 'Failed to update certificate');
+  }
+};
+
+export const deleteCertificate = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.certificateId)) {
+      return sendError(res, 400, 'Invalid certificate ID');
+    }
+    const user = await User.findById(req.user?.id);
+    if (!user) return sendError(res, 404, 'User not found');
+
+    const certificate = user.certificates?.id(req.params.certificateId);
+    if (!certificate) return sendError(res, 404, 'Certificate not found');
+
+    certificate.deleteOne();
+    await user.save();
+
+    return sendSuccess(res, 200, 'Certificate deleted successfully', {
+      certificates: user.certificates,
+    });
+  } catch (error) {
+    console.error('Delete certificate error:', error);
+    return sendProfileMutationError(res, error, 'Failed to delete certificate');
+  }
+};
+
 export const addExperienceMedia = async (req, res) => {
   // The upload middleware has already persisted the blob by the time this runs,
   // so every early return below must remove it again or it leaks.
@@ -326,5 +492,11 @@ export default {
   deleteWorkExperience,
   addExperienceMedia,
   deleteExperienceMedia,
+  addInternship,
+  updateInternship,
+  deleteInternship,
+  addCertificate,
+  updateCertificate,
+  deleteCertificate,
   normalizeExperience,
 };

@@ -101,6 +101,28 @@ export interface User {
     description?: string;
     media?: Array<{ _id?: string; url: string; filename?: string; originalName?: string; createdAt?: string }>;
   }>;
+  /** Same shape as workExperience minus media -- see server/models/User.js. */
+  internships?: Array<{
+    _id?: string;
+    id?: string;
+    title: string;
+    company: string;
+    location?: string;
+    startDate: string;
+    endDate?: string | null;
+    current: boolean;
+    description?: string;
+  }>;
+  certificates?: Array<{
+    _id?: string;
+    id?: string;
+    name: string;
+    issuer: string;
+    issueDate: string;
+    expiryDate?: string | null;
+    credentialId?: string;
+    credentialUrl?: string;
+  }>;
 }
 
 export type LoginResult =

@@ -29,7 +29,15 @@ import {
   addProfileSkill,
   updateProfileSkill,
   deleteProfileSkill,
+  addInternship,
+  updateInternship,
+  deleteInternship,
+  addCertificate,
+  updateCertificate,
+  deleteCertificate,
   type WorkExperience,
+  type Internship,
+  type Certificate,
 } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { DeleteAccountCard } from "./settings/DeleteAccountCard";
@@ -222,6 +230,35 @@ const formatExperienceMonth = (value?: string | null) => {
 const mapWorkExperiences = (items: WorkExperience[] = []): WorkExperienceItem[] =>
   items.map((item) => ({ ...item, id: item.id || item._id || "" })).filter((item) => item.id);
 
+type InternshipItem = Internship & { id: string };
+
+const emptyInternshipDraft: Omit<Internship, "_id" | "id"> = {
+  title: "",
+  company: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  current: false,
+  description: "",
+};
+
+const mapInternships = (items: Internship[] = []): InternshipItem[] =>
+  items.map((item) => ({ ...item, id: item.id || item._id || "" })).filter((item) => item.id);
+
+type CertificateItem = Certificate & { id: string };
+
+const emptyCertificateDraft: Omit<Certificate, "_id" | "id"> = {
+  name: "",
+  issuer: "",
+  issueDate: "",
+  expiryDate: "",
+  credentialId: "",
+  credentialUrl: "",
+};
+
+const mapCertificates = (items: Certificate[] = []): CertificateItem[] =>
+  items.map((item) => ({ ...item, id: item.id || item._id || "" })).filter((item) => item.id);
+
 interface SessionInfo {
   id: string;
   current: boolean;
@@ -333,6 +370,20 @@ export function Settings() {
   // entries exist and each has its own independent "Add photo" control.
   const [mediaUploadingId, setMediaUploadingId] = useState<string | null>(null);
   const [mediaDeletingId, setMediaDeletingId] = useState<string | null>(null);
+
+  const [internships, setInternships] = useState<InternshipItem[]>([]);
+  const [internshipDraft, setInternshipDraft] = useState(emptyInternshipDraft);
+  const [editingInternshipId, setEditingInternshipId] = useState<string | null>(null);
+  const [isInternshipSaving, setIsInternshipSaving] = useState(false);
+  const [deleteInternshipTarget, setDeleteInternshipTarget] = useState<InternshipItem | null>(null);
+  const [deletingInternshipId, setDeletingInternshipId] = useState<string | null>(null);
+
+  const [certificates, setCertificates] = useState<CertificateItem[]>([]);
+  const [certificateDraft, setCertificateDraft] = useState(emptyCertificateDraft);
+  const [editingCertificateId, setEditingCertificateId] = useState<string | null>(null);
+  const [isCertificateSaving, setIsCertificateSaving] = useState(false);
+  const [deleteCertificateTarget, setDeleteCertificateTarget] = useState<CertificateItem | null>(null);
+  const [deletingCertificateId, setDeletingCertificateId] = useState<string | null>(null);
 
   const [experienceStats, setExperienceStats] = useState({
     totalExperience: "",
@@ -668,6 +719,12 @@ export function Settings() {
     if (Array.isArray(user.workExperience)) {
       setWorkExperiences(mapWorkExperiences(user.workExperience));
     }
+    if (Array.isArray(user.internships)) {
+      setInternships(mapInternships(user.internships));
+    }
+    if (Array.isArray(user.certificates)) {
+      setCertificates(mapCertificates(user.certificates));
+    }
   }, [user]);
 
   useEffect(() => {
@@ -758,6 +815,8 @@ export function Settings() {
           setSkills(mappedSkills);
         }
         setWorkExperiences(mapWorkExperiences(profile.workExperience || []));
+        setInternships(mapInternships(profile.internships || []));
+        setCertificates(mapCertificates(profile.certificates || []));
         setExperienceStats({
           totalExperience: profile.totalExperience || "",
         });
@@ -1193,6 +1252,189 @@ export function Settings() {
       toast.error(error?.message || "Failed to remove photo.");
     } finally {
       setMediaDeletingId(null);
+    }
+  };
+
+  const resetInternshipEditor = () => {
+    setInternshipDraft(emptyInternshipDraft);
+    setEditingInternshipId(null);
+  };
+
+  const handleSaveInternship = async () => {
+    if (isInternshipSaving) return;
+    if (!internshipDraft.title.trim() || !internshipDraft.company.trim() || !internshipDraft.startDate) {
+      toast.error("Internship title, company, and start date are required.");
+      return;
+    }
+    if (!internshipDraft.current && !internshipDraft.endDate) {
+      toast.error("Add an end date or mark this as your current internship.");
+      return;
+    }
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (internshipDraft.startDate > currentMonth || (!internshipDraft.current && String(internshipDraft.endDate) > currentMonth)) {
+      toast.error("Internship dates cannot be in the future.");
+      return;
+    }
+    if (!internshipDraft.current && internshipDraft.endDate && internshipDraft.endDate < internshipDraft.startDate) {
+      toast.error("End date cannot be before start date.");
+      return;
+    }
+    if (
+      internshipDraft.title.trim().length > PROFILE_LIMITS.internshipTitle ||
+      internshipDraft.company.trim().length > PROFILE_LIMITS.internshipCompany ||
+      (internshipDraft.location?.trim().length || 0) > PROFILE_LIMITS.internshipLocation ||
+      (internshipDraft.description?.trim().length || 0) > PROFILE_LIMITS.internshipDescription
+    ) {
+      toast.error("One or more internship fields exceed the allowed length.");
+      return;
+    }
+    if (!editingInternshipId && internships.length >= 25) {
+      toast.error("You can add up to 25 internship entries.");
+      return;
+    }
+
+    setIsInternshipSaving(true);
+    try {
+      const payload = {
+        ...internshipDraft,
+        title: internshipDraft.title.trim(),
+        company: internshipDraft.company.trim(),
+        location: internshipDraft.location?.trim() || "",
+        description: internshipDraft.description?.trim() || "",
+        endDate: internshipDraft.current ? null : internshipDraft.endDate,
+      };
+      const response = editingInternshipId
+        ? await updateInternship(editingInternshipId, payload)
+        : await addInternship(payload);
+      const nextItems = mapInternships((response as any)?.internships || []);
+      setInternships(nextItems);
+      updateAuthProfile({ internships: nextItems });
+      resetInternshipEditor();
+      toast.success(editingInternshipId ? "Internship updated." : "Internship added.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save internship.");
+    } finally {
+      setIsInternshipSaving(false);
+    }
+  };
+
+  const handleEditInternship = (item: InternshipItem) => {
+    setEditingInternshipId(item.id);
+    setInternshipDraft({
+      title: item.title,
+      company: item.company,
+      location: item.location || "",
+      startDate: toMonthInput(item.startDate),
+      endDate: toMonthInput(item.endDate),
+      current: Boolean(item.current),
+      description: item.description || "",
+    });
+  };
+
+  const handleDeleteInternship = async (id: string) => {
+    if (deletingInternshipId) return;
+    setDeletingInternshipId(id);
+    try {
+      const response = await deleteInternship(id);
+      const nextItems = mapInternships((response as any)?.internships || []);
+      setInternships(nextItems);
+      updateAuthProfile({ internships: nextItems });
+      if (editingInternshipId === id) resetInternshipEditor();
+      setDeleteInternshipTarget(null);
+      toast.success("Internship removed.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to remove internship.");
+    } finally {
+      setDeletingInternshipId(null);
+    }
+  };
+
+  const resetCertificateEditor = () => {
+    setCertificateDraft(emptyCertificateDraft);
+    setEditingCertificateId(null);
+  };
+
+  const handleSaveCertificate = async () => {
+    if (isCertificateSaving) return;
+    if (!certificateDraft.name.trim() || !certificateDraft.issuer.trim() || !certificateDraft.issueDate) {
+      toast.error("Certificate name, issuer, and issue date are required.");
+      return;
+    }
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (certificateDraft.issueDate > currentMonth) {
+      toast.error("Issue date cannot be in the future.");
+      return;
+    }
+    if (certificateDraft.expiryDate && certificateDraft.expiryDate < certificateDraft.issueDate) {
+      toast.error("Expiry date cannot be before the issue date.");
+      return;
+    }
+    if (
+      certificateDraft.name.trim().length > PROFILE_LIMITS.certificateName ||
+      certificateDraft.issuer.trim().length > PROFILE_LIMITS.certificateIssuer ||
+      (certificateDraft.credentialId?.trim().length || 0) > PROFILE_LIMITS.certificateCredentialId ||
+      (certificateDraft.credentialUrl?.trim().length || 0) > PROFILE_LIMITS.certificateCredentialUrl
+    ) {
+      toast.error("One or more certificate fields exceed the allowed length.");
+      return;
+    }
+    if (!editingCertificateId && certificates.length >= 25) {
+      toast.error("You can add up to 25 certificates.");
+      return;
+    }
+
+    setIsCertificateSaving(true);
+    try {
+      const payload = {
+        ...certificateDraft,
+        name: certificateDraft.name.trim(),
+        issuer: certificateDraft.issuer.trim(),
+        credentialId: certificateDraft.credentialId?.trim() || "",
+        credentialUrl: certificateDraft.credentialUrl?.trim() || "",
+        expiryDate: certificateDraft.expiryDate || null,
+      };
+      const response = editingCertificateId
+        ? await updateCertificate(editingCertificateId, payload)
+        : await addCertificate(payload);
+      const nextItems = mapCertificates((response as any)?.certificates || []);
+      setCertificates(nextItems);
+      updateAuthProfile({ certificates: nextItems });
+      resetCertificateEditor();
+      toast.success(editingCertificateId ? "Certificate updated." : "Certificate added.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save certificate.");
+    } finally {
+      setIsCertificateSaving(false);
+    }
+  };
+
+  const handleEditCertificate = (item: CertificateItem) => {
+    setEditingCertificateId(item.id);
+    setCertificateDraft({
+      name: item.name,
+      issuer: item.issuer,
+      issueDate: toMonthInput(item.issueDate),
+      expiryDate: toMonthInput(item.expiryDate),
+      credentialId: item.credentialId || "",
+      credentialUrl: item.credentialUrl || "",
+    });
+  };
+
+  const handleDeleteCertificate = async (id: string) => {
+    if (deletingCertificateId) return;
+    setDeletingCertificateId(id);
+    try {
+      const response = await deleteCertificate(id);
+      const nextItems = mapCertificates((response as any)?.certificates || []);
+      setCertificates(nextItems);
+      updateAuthProfile({ certificates: nextItems });
+      if (editingCertificateId === id) resetCertificateEditor();
+      setDeleteCertificateTarget(null);
+      toast.success("Certificate removed.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to remove certificate.");
+    } finally {
+      setDeletingCertificateId(null);
     }
   };
 
@@ -1891,7 +2133,7 @@ export function Settings() {
                     >
                       <div>
                         <h2 className="text-lg font-semibold text-slate-900">Skills & Experience</h2>
-                        <p className="text-[13px] text-slate-500">Add and manage your skills and expertise.</p>
+                        <p className="text-[13px] text-slate-500">Add and manage your skills, work history, internships, and certificates.</p>
                       </div>
 
                       <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
@@ -2007,6 +2249,153 @@ export function Settings() {
                           </div>
                         )) : (
                           <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No work history added yet.</div>
+                        )}
+                      </div>
+
+                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
+                        <div>
+                          <h3 className="text-base font-semibold text-slate-900">
+                            {editingInternshipId ? "Edit internship" : "Add internship"}
+                          </h3>
+                          <p className="mt-1 text-[13px] text-slate-500">Internships are shown separately from paid work experience on your profile.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="internship-title" className="text-[13px] font-medium text-slate-600 mb-2 block">Title *</label>
+                            <input id="internship-title" value={internshipDraft.title} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Marketing Intern" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="internship-company" className="text-[13px] font-medium text-slate-600 mb-2 block">Company *</label>
+                            <input id="internship-company" value={internshipDraft.company} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Acme Co." className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="internship-location" className="text-[13px] font-medium text-slate-600 mb-2 block">Location</label>
+                            <input id="internship-location" value={internshipDraft.location} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label htmlFor="internship-start" className="text-[13px] font-medium text-slate-600 mb-2 block">Start *</label>
+                              <input id="internship-start" type="month" value={internshipDraft.startDate} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            </div>
+                            <div>
+                              <label htmlFor="internship-end" className="text-[13px] font-medium text-slate-600 mb-2 block">End *</label>
+                              <input id="internship-end" type="month" value={internshipDraft.endDate || ""} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={internshipDraft.current} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
+                          <input type="checkbox" checked={internshipDraft.current} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? "" : prev.endDate }))} className="w-4 h-4" />
+                          I currently intern here
+                        </label>
+
+                        <div>
+                          <label htmlFor="internship-description" className="text-[13px] font-medium text-slate-600 mb-2 block">Description</label>
+                          <textarea id="internship-description" value={internshipDraft.description} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" onClick={handleSaveInternship} disabled={isInternshipSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                            {isInternshipSaving ? "Saving..." : editingInternshipId ? "Save internship" : "Add internship"}
+                          </button>
+                          {editingInternshipId && (
+                            <button type="button" onClick={resetInternshipEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-slate-900">Internships</h3>
+                          <span className="text-[12px] text-slate-500">{internships.length} {internships.length === 1 ? "entry" : "entries"}</span>
+                        </div>
+                        {internships.length ? internships.map((item) => (
+                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[15px] font-semibold text-slate-900">{item.title}</p>
+                              <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                              <p className="mt-1 text-[12px] text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
+                              {item.description ? <p className="mt-3 text-[13px] text-slate-600 whitespace-pre-line">{item.description}</p> : null}
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button type="button" onClick={() => handleEditInternship(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => setDeleteInternshipTarget(item)} aria-label={`Delete ${item.title} internship`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No internships added yet.</div>
+                        )}
+                      </div>
+
+                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
+                        <div>
+                          <h3 className="text-base font-semibold text-slate-900">
+                            {editingCertificateId ? "Edit certificate" : "Add certificate"}
+                          </h3>
+                          <p className="mt-1 text-[13px] text-slate-500">Add licenses or certifications employers can verify.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="certificate-name" className="text-[13px] font-medium text-slate-600 mb-2 block">Certificate name *</label>
+                            <input id="certificate-name" value={certificateDraft.name} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, name: e.target.value }))} maxLength={120} placeholder="e.g., AWS Solutions Architect" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-issuer" className="text-[13px] font-medium text-slate-600 mb-2 block">Issuing organization *</label>
+                            <input id="certificate-issuer" value={certificateDraft.issuer} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issuer: e.target.value }))} maxLength={120} placeholder="e.g., Amazon Web Services" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-issue-date" className="text-[13px] font-medium text-slate-600 mb-2 block">Issue date *</label>
+                            <input id="certificate-issue-date" type="month" value={certificateDraft.issueDate} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issueDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-expiry-date" className="text-[13px] font-medium text-slate-600 mb-2 block">Expiry date</label>
+                            <input id="certificate-expiry-date" type="month" value={certificateDraft.expiryDate || ""} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, expiryDate: e.target.value }))} placeholder="Leave blank if it never expires" className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-credential-id" className="text-[13px] font-medium text-slate-600 mb-2 block">Credential ID</label>
+                            <input id="certificate-credential-id" value={certificateDraft.credentialId} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialId: e.target.value }))} maxLength={80} placeholder="Optional" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-credential-url" className="text-[13px] font-medium text-slate-600 mb-2 block">Credential URL</label>
+                            <input id="certificate-credential-url" type="url" value={certificateDraft.credentialUrl} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialUrl: e.target.value }))} maxLength={500} placeholder="https://…" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" onClick={handleSaveCertificate} disabled={isCertificateSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                            {isCertificateSaving ? "Saving..." : editingCertificateId ? "Save certificate" : "Add certificate"}
+                          </button>
+                          {editingCertificateId && (
+                            <button type="button" onClick={resetCertificateEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-slate-900">Certificates</h3>
+                          <span className="text-[12px] text-slate-500">{certificates.length} {certificates.length === 1 ? "entry" : "entries"}</span>
+                        </div>
+                        {certificates.length ? certificates.map((item) => (
+                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[15px] font-semibold text-slate-900">{item.name}</p>
+                              <p className="text-[13px] text-slate-600">{item.issuer}</p>
+                              <p className="mt-1 text-[12px] text-slate-500">
+                                {formatExperienceMonth(item.issueDate)}
+                                {item.expiryDate ? ` – ${formatExperienceMonth(item.expiryDate)}` : " · No expiry"}
+                              </p>
+                              {item.credentialId ? <p className="mt-1 text-[12px] text-slate-500">Credential ID: {item.credentialId}</p> : null}
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button type="button" onClick={() => handleEditCertificate(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => setDeleteCertificateTarget(item)} aria-label={`Delete ${item.name} certificate`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No certificates added yet.</div>
                         )}
                       </div>
 
@@ -2785,6 +3174,26 @@ export function Settings() {
         pending={Boolean(deletingExperienceId)}
         onClose={() => setDeleteExperienceTarget(null)}
         onConfirm={() => deleteExperienceTarget && handleDeleteExperience(deleteExperienceTarget.id)}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteInternshipTarget)}
+        title="Remove internship"
+        description={`Remove ${deleteInternshipTarget?.title || "this internship"} from your profile?`}
+        confirmLabel="Remove internship"
+        destructive
+        pending={Boolean(deletingInternshipId)}
+        onClose={() => setDeleteInternshipTarget(null)}
+        onConfirm={() => deleteInternshipTarget && handleDeleteInternship(deleteInternshipTarget.id)}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteCertificateTarget)}
+        title="Remove certificate"
+        description={`Remove ${deleteCertificateTarget?.name || "this certificate"} from your profile?`}
+        confirmLabel="Remove certificate"
+        destructive
+        pending={Boolean(deletingCertificateId)}
+        onClose={() => setDeleteCertificateTarget(null)}
+        onConfirm={() => deleteCertificateTarget && handleDeleteCertificate(deleteCertificateTarget.id)}
       />
     </div>
   );
