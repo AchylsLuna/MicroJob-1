@@ -268,6 +268,7 @@ const loginUser = async (req, res) => {
       });
     }
 
+
     const authSession = await createSessionWithTokens(req, user);
     const csrfToken = crypto.randomBytes(24).toString('hex');
     setSessionCookies(res, {
