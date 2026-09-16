@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.controls.minimumTouch / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.colors.surfaceMuted,
+    backgroundColor: 'transparent',
   },
   sheetBody: { paddingHorizontal: tokens.layout.gutter, paddingBottom: tokens.spacing.lg, gap: 14 },
   sheetFooter: {

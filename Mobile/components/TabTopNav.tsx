@@ -223,9 +223,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
+    backgroundColor: 'transparent',
   },
   disabledButton: {
     opacity: 0.55,

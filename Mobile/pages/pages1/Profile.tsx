@@ -1599,7 +1599,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#EAF2FF',
+    backgroundColor: 'transparent',
   },
   verificationTextBlock: {
     flex: 1,
@@ -1678,7 +1678,7 @@ const styles = StyleSheet.create({
     borderRadius: tokens.controls.minimumTouch / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.colors.surfaceMuted,
+    backgroundColor: 'transparent',
   },
   sheetBody: { paddingHorizontal: tokens.layout.gutter, paddingBottom: tokens.spacing.xxl },
   section: {
@@ -1827,8 +1827,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   documentIconWrap: {
-    backgroundColor: '#FFF1F4',
-    borderColor: '#F5CFD9',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   identityCard: {
     borderRadius: 18,
@@ -1843,18 +1843,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   identityIconWrap: {
-    backgroundColor: '#EAF2FF',
-    borderColor: '#D2E3FF',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   identityActionButton: {
     width: 44,
     height: 44,
     borderRadius: 14,
-    backgroundColor: '#EDF4FF',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D9E8FF',
   },
   identityDivider: {
     marginTop: 14,
@@ -1893,7 +1891,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFE9EF',
+    backgroundColor: 'transparent',
   },
   documentActions: {
     flexDirection: 'row',

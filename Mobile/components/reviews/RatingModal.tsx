@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
   headingCopy: { flex: 1 },
   title: { fontSize: 20, fontWeight: '800', color: tokens.colors.text },
   subtitle: { marginTop: 4, fontSize: 13, color: tokens.colors.textMuted },
-  closeButton: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.surfaceMuted },
+  closeButton: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   label: { marginTop: 18, fontSize: 13, fontWeight: '700', color: tokens.colors.text },
   optional: { fontWeight: '400', color: tokens.colors.textSubtle },
   stars: { flexDirection: 'row', gap: 4, marginTop: 8 },

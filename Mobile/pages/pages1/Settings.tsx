@@ -184,14 +184,12 @@ export default function Settings({
           onPress: handleOpenPersonalInfo,
           icon: 'business-outline',
           iconColor: tokens.colors.brand,
-          iconBackground: '#EAF2FF',
         },
         {
           title: t('settings.menu.paymentMethods'),
           onPress: onNavigatePaymentMethods,
           icon: 'card-outline',
           iconColor: tokens.colors.brand,
-          iconBackground: '#EAF2FF',
         },
       ]
     : [
@@ -200,21 +198,18 @@ export default function Settings({
           onPress: handleOpenPersonalInfo,
           icon: 'person-outline',
           iconColor: tokens.colors.brand,
-          iconBackground: '#EAF2FF',
         },
         {
           title: t('settings.menu.resumeDocuments'),
           onPress: handleOpenResumeDocuments,
           icon: 'document-text-outline',
           iconColor: tokens.colors.brand,
-          iconBackground: '#EAF2FF',
         },
         {
           title: t('settings.menu.manageWithdrawals'),
           onPress: onNavigateWithdrawals,
           icon: 'wallet-outline',
           iconColor: tokens.colors.brand,
-          iconBackground: '#EAF2FF',
         },
       ];
 
@@ -224,7 +219,6 @@ export default function Settings({
   ].map((item) => ({
     ...item,
     iconColor: '#0F9D71',
-    iconBackground: '#E9F8F1',
   }));
 
   const preferencesMenus: SettingsItem[] = [
@@ -233,7 +227,6 @@ export default function Settings({
   ].map((item) => ({
     ...item,
     iconColor: '#9333EA',
-    iconBackground: '#F2EAFB',
   }));
 
   const supportMenus: SettingsItem[] = [
@@ -242,7 +235,6 @@ export default function Settings({
   ].map((item) => ({
     ...item,
     iconColor: '#475569',
-    iconBackground: '#EEF2F7',
   }));
 
   const accountActions: SettingsItem[] = [
@@ -251,14 +243,12 @@ export default function Settings({
       onPress: handleLogout,
       icon: 'log-out-outline',
       iconColor: '#475569',
-      iconBackground: tokens.colors.background,
     },
     {
       title: t('settings.menu.deleteAccount'),
       onPress: onNavigateDeleteAccount,
       icon: 'trash-outline',
       iconColor: '#EF4444',
-      iconBackground: '#FEEDED',
       danger: true,
     },
   ];
@@ -401,9 +391,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-    backgroundColor: tokens.colors.surfaceMuted,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },

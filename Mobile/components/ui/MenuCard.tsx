@@ -7,7 +7,6 @@ export type MenuCardItem = {
   title: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   iconColor: string;
-  iconBackground: string;
   onPress?: () => void;
   danger?: boolean;
 };
@@ -29,7 +28,7 @@ export default function MenuCard({ items }: { items: MenuCardItem[] }) {
             accessibilityLabel={item.title}
           >
             <View style={styles.menuLeft}>
-              <View style={[styles.iconWrap, { backgroundColor: item.iconBackground }]}>
+              <View style={styles.iconWrap}>
                 <Ionicons name={item.icon} size={22} color={item.iconColor} />
               </View>
               <Text style={[styles.menuTitle, item.danger && styles.menuTitleDanger]}>{item.title}</Text>
@@ -73,6 +72,7 @@ const styles = StyleSheet.create({
     borderRadius: 23,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
   menuTitle: { fontSize: 17, fontWeight: '700', color: '#1F2937', flexShrink: 1 },
   menuTitleDanger: { color: tokens.colors.danger },

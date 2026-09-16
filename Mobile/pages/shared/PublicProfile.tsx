@@ -538,7 +538,7 @@ const styles = StyleSheet.create({
   },
   ratingBox: {
     flex: 1,
-    backgroundColor: tokens.colors.contentMuted,
+    backgroundColor: 'transparent',
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   statBox: {
     flex: 1,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: 'transparent',
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
