@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "c04f72f3-7949-4d6d-abdd-f09d2c2968d4"
+      }
+    },
+    "android": {
+      "package": "com.bananas1.microjobsMobile"
+    }
+  }
+}
