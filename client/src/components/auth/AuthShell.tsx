@@ -83,8 +83,13 @@ export function AuthShell({
 export const authFieldClass =
   "min-h-[52px] w-full rounded-[10px] border border-slate-300 bg-white px-4 text-[15px] text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/25 disabled:bg-slate-50 disabled:text-slate-500";
 
+// `!` forces these to win over authFieldClass's own border/ring colors
+// regardless of which utility Tailwind happens to emit later in the
+// stylesheet -- without it, appending this after authFieldClass left the
+// error state a coin flip: the border rendered grey even while the field
+// was genuinely invalid.
 export const authFieldErrorClass =
-  "border-red-400 focus:border-red-500 focus:ring-red-500/25";
+  "!border-red-400 focus:!border-red-500 focus:!ring-red-500/25";
 
 export const authLabelClass = "mb-2 block text-[14px] font-semibold text-slate-900";
 

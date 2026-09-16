@@ -14,6 +14,8 @@ import {
   getUserApplications,
   markApplicantApplicationRead,
   markEmployerApplicationRead,
+  respondToJobOffer,
+  submitWork,
   updateApplicationStatus,
   updateJob,
   withdrawApplication,
@@ -71,6 +73,12 @@ export const jobsAPI = {
   ),
   markApplicantRead: async (applicationId: string) => (
     asData(await markApplicantApplicationRead(applicationId))
+  ),
+  respondToJobOffer: async (offerId: string, action: 'accept' | 'reject') => (
+    asData(await respondToJobOffer(offerId, action))
+  ),
+  submitWork: async (applicationId: string) => (
+    asData(await submitWork(applicationId))
   ),
 };
 

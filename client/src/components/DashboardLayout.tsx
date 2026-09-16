@@ -7,12 +7,14 @@ import { webUi } from "../styles/webUi";
 import { useAuth } from "../contexts/AuthContext";
 import { ResponsiveBottomNavigation } from "./ResponsiveBottomNavigation";
 import { MessageDock } from "./messaging/MessageDock";
+import { useHideOnScroll } from "../hooks/useHideOnScroll";
 
 export function DashboardLayout() {
   const { t } = useTranslation("common");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const mobileNavigationRef = useRef<HTMLDivElement>(null);
   const navigationTriggerRef = useRef<HTMLElement | null>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const { user } = useAuth();
   const normalizedRole = String(user?.role || "").toLowerCase();
@@ -24,8 +26,14 @@ export function DashboardLayout() {
   const isAdminView = normalizedRole === "admin" || normalizedRole === "superadmin";
   const isWorkerView = !isEmployerView && !isAdminView;
 
+  const isNavBarHidden = useHideOnScroll(contentRef, { disabled: isMobileSidebarOpen });
+
   useEffect(() => {
     setIsMobileSidebarOpen(false);
+    // A fresh route should always start scrolled to the top, and the top navbar
+    // should be visible there — otherwise a hidden navbar from the previous
+    // page's scroll position would carry over into the new one.
+    contentRef.current?.scrollTo({ top: 0 });
   }, [location.pathname]);
 
   useEffect(() => {
@@ -88,9 +96,10 @@ export function DashboardLayout() {
           </div>
         </div>
       )}
-      <div className={webUi.layout.content}>
+      <div ref={contentRef} className={webUi.layout.content}>
         <NavBar
           isNavigationOpen={isMobileSidebarOpen}
+          isHidden={isNavBarHidden}
           onOpenNavigation={() => {
             navigationTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
             setIsMobileSidebarOpen(true);

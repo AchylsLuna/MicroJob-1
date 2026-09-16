@@ -39,6 +39,13 @@ type JobDetailsProps = {
   activeTab?: string;
   onTabPress?: (tab: string) => void;
   messageBadgeCount?: number;
+  /**
+   * Signed-out visitors reach this screen from the guest browse flow. When set,
+   * Apply/Save/Message check for a stored auth token first and call this instead
+   * of performing the action — mirrors the web JobDetailPanel's `if (!user)` gate.
+   * Authenticated call sites never pass this, so their behavior is unchanged.
+   */
+  onRequireSignIn?: () => void;
 };
 
 export default function JobDetails({
@@ -50,6 +57,7 @@ export default function JobDetails({
   activeTab = 'Jobs',
   onTabPress,
   messageBadgeCount = 0,
+  onRequireSignIn,
 }: JobDetailsProps) {
   const [activeSection, setActiveSection] = useState<'description' | 'company' | 'review'>('description');
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
@@ -85,12 +93,22 @@ export default function JobDetails({
     onTabPress?.(tab);
   };
 
-  const handleSave = () => {
+  const requiresSignIn = async () => {
+    if (!onRequireSignIn) return false;
+    const token = await AsyncStorage.getItem('auth_token');
+    if (token) return false;
+    onRequireSignIn();
+    return true;
+  };
+
+  const handleSave = async () => {
+    if (await requiresSignIn()) return;
     setSaved(!saved);
     onSaveJob?.(job);
   };
 
-  const handleApply = () => {
+  const handleApply = async () => {
+    if (await requiresSignIn()) return;
     applyForJob();
   };
 
@@ -175,6 +193,10 @@ export default function JobDetails({
     try {
       const token = await AsyncStorage.getItem('auth_token');
       if (!token) {
+        if (onRequireSignIn) {
+          onRequireSignIn();
+          return;
+        }
         toast.error(t('jobDetails.toast.signInRequired'));
         return;
       }

@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   stateCard: { minHeight: 230, borderRadius: 20, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 10 },
   skeletonList: { gap: 10 }, skeletonRow: { minHeight: 92, padding: 13, borderRadius: 16, borderWidth: 1, borderColor: tokens.colors.border, backgroundColor: tokens.colors.surface, flexDirection: 'row', alignItems: 'center', gap: 11 },
   skeletonIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: tokens.colors.contentMuted }, skeletonBody: { flex: 1, gap: 8 }, skeletonTitle: { width: '52%', height: 14, borderRadius: 7, backgroundColor: tokens.colors.contentMuted }, skeletonLine: { width: '92%', height: 10, borderRadius: 5, backgroundColor: tokens.colors.contentMuted }, skeletonLineShort: { width: '68%' },
-  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: tokens.colors.contentMuted, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   emptyTitle: { fontSize: 18, fontWeight: '800', color: tokens.colors.text, textAlign: 'center' }, stateText: { fontSize: 13, lineHeight: 19, color: tokens.colors.textMuted, textAlign: 'center' },
   retryButton: { minHeight: 44, paddingHorizontal: 18, borderRadius: 12, backgroundColor: tokens.colors.brand, alignItems: 'center', justifyContent: 'center' }, retryText: { color: tokens.colors.onBrand, fontWeight: '800' },
 });

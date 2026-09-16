@@ -1,10 +1,16 @@
 import type { TFunction } from "i18next";
 import {
-  getFullNameValidationMessage,
+  getNamePartValidationMessage,
   getPhoneValidationMessage,
-  isValidFullName,
   isValidPhone,
 } from "./authValidation";
+
+// Validates a single name part (first or last name) — one or more name words.
+// Allows letters (Unicode), apostrophes, hyphens, and periods.
+const NAME_PART_REGEX = /^[\p{L}][\p{L}'.-]*(?:\s+[\p{L}][\p{L}'.-]*)*$/u;
+function isValidNamePart(value: string): boolean {
+  return NAME_PART_REGEX.test(value.trim());
+}
 
 export const PROFILE_LIMITS = {
   name: 30,
@@ -23,6 +29,14 @@ export const PROFILE_LIMITS = {
   experienceLocation: 120,
   experienceDescription: 1000,
   experienceMediaPerEntry: 6,
+  internshipTitle: 100,
+  internshipCompany: 120,
+  internshipLocation: 120,
+  internshipDescription: 1000,
+  certificateName: 120,
+  certificateIssuer: 120,
+  certificateCredentialId: 80,
+  certificateCredentialUrl: 500,
 } as const;
 
 export const MAX_PROFILE_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -104,11 +118,11 @@ export function validateProfileDetails(
   options: { employer: boolean },
   t: TFunction,
 ): ProfileValidationIssue | null {
-  if (!values.firstName || !isValidFullName(values.firstName)) {
-    return { field: "firstName", message: getFullNameValidationMessage(t) };
+  if (!values.firstName || !isValidNamePart(values.firstName)) {
+    return { field: "firstName", message: getNamePartValidationMessage(t) };
   }
-  if (!values.lastName || !isValidFullName(values.lastName)) {
-    return { field: "lastName", message: getFullNameValidationMessage(t) };
+  if (!values.lastName || !isValidNamePart(values.lastName)) {
+    return { field: "lastName", message: getNamePartValidationMessage(t) };
   }
   if (values.phone && !isValidPhone(values.phone)) {
     return { field: "phone", message: getPhoneValidationMessage(t) };

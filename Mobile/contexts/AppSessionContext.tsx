@@ -16,6 +16,7 @@ import { useToast } from './ToastContext';
 import { subscribeDataRefresh } from '../lib/dataRefresh';
 import { getUserInitials } from '../lib/userIdentity';
 import { registerPushDevice, subscribeNotificationResponses, takeInitialNotificationData, unregisterPushDevice } from '../lib/pushNotifications';
+import { PENDING_TOPUP_STORAGE_KEY } from '../lib/pendingPayment';
 
 type ViewMode = 'worker' | 'employer';
 type BootstrapIssue = {
@@ -263,21 +264,32 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active' && isAuthenticated) {
-        const elapsed = Date.now() - lastActiveAtRef.current;
-        if (elapsed >= IDLE_TIMEOUT_MS) {
-          void logoutRef.current();
-        } else if (elapsed >= IDLE_TIMEOUT_MS - WARNING_DURATION_MS) {
-          setShowIdleWarning(true);
-          scheduleIdleTimers();
-        } else {
-          scheduleIdleTimers();
-        }
+        (async () => {
+          const elapsed = Date.now() - lastActiveAtRef.current;
+          if (elapsed >= IDLE_TIMEOUT_MS) {
+            // A GCash/Xendit top-up backgrounds the app for the checkout; if
+            // it runs past the idle window, treat returning from it as real
+            // activity instead of idle abandonment, so the pending payment
+            // confirmation gets a chance to run before any logout.
+            const hasPendingTopup = await AsyncStorage.getItem(PENDING_TOPUP_STORAGE_KEY);
+            if (hasPendingTopup) {
+              registerActivity(true);
+              return;
+            }
+            void logoutRef.current();
+          } else if (elapsed >= IDLE_TIMEOUT_MS - WARNING_DURATION_MS) {
+            setShowIdleWarning(true);
+            scheduleIdleTimers();
+          } else {
+            scheduleIdleTimers();
+          }
+        })();
       }
     });
     return () => {
       subscription.remove();
     };
-  }, [isAuthenticated, scheduleIdleTimers]);
+  }, [isAuthenticated, registerActivity, scheduleIdleTimers]);
 
   const refreshSavedJobs = useCallback(async () => {
     const token = await AsyncStorage.getItem(AUTH_TOKEN_KEY);

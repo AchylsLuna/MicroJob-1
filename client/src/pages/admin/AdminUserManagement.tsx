@@ -247,7 +247,18 @@ function AdminUserManagementContent() {
       toast.success(t("userManagement.toast.userDeleted", { name: getUserName(deleteTarget) }));
       setDeleteTargetId(null);
     } catch (error: any) {
-      setDeleteError(error?.message || t("userManagement.toast.deleteFailed"));
+      // The server reports exactly what's blocking deletion (balances, open
+      // jobs, active applications, pending payouts) as a structured list
+      // rather than one generic message — surface it so an admin knows what
+      // to resolve instead of just "delete failed".
+      if (Array.isArray(error?.blockers) && error.blockers.length > 0) {
+        const blockerList = error.blockers
+          .map((blocker: { message: string; count: number }) => `${blocker.message} (${blocker.count})`)
+          .join(" ");
+        setDeleteError(`${t("userManagement.deleteDialog.blockedPrefix")} ${blockerList}`);
+      } else {
+        setDeleteError(error?.message || t("userManagement.toast.deleteFailed"));
+      }
     } finally {
       setIsDeleting(false);
     }
@@ -682,7 +693,7 @@ function AdminUserManagementContent() {
               >
                 {t("userManagement.details.close")}
               </button>
-              {canManageUser(selectedUser) && (
+              {canMutateUser(selectedUser) && (
                 <button
                   type="button"
                   onClick={() => {

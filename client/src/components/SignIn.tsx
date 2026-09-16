@@ -35,6 +35,7 @@ export function SignIn() {
     selectLoginMethod,
     verifyMfaLogin,
     cancelMfaLogin,
+    cancelLoginOtp,
   } = useAuth();
   const landingPath = getPostAuthLandingPath(user);
   const [email, setEmail] = useState("");
@@ -264,7 +265,11 @@ export function SignIn() {
       {showOTP && (
         <OTPVerification
           email={email}
-          onClose={() => setShowOTP(false)}
+          mode="signin"
+          onClose={() => {
+            cancelLoginOtp();
+            setShowOTP(false);
+          }}
         />
       )}
 

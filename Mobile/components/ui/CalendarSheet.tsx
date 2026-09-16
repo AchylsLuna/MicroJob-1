@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: tokens.colors.border, marginBottom: tokens.spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: tokens.spacing.lg, paddingBottom: tokens.spacing.sm },
   title: { fontSize: tokens.typography.h3, fontWeight: '800', color: tokens.colors.sectionText },
-  closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.surfaceMuted },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   weekdayRow: {
     flexDirection: 'row',
     paddingHorizontal: tokens.spacing.lg,

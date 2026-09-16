@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { ArrowRight, Bell, ChevronDown, Ellipsis, MapPin, Menu, Search } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -15,9 +16,11 @@ import { workerMoreNavigation, workerPrimaryNavigation } from "./workerNavigatio
 interface NavBarProps {
   isNavigationOpen?: boolean;
   onOpenNavigation?: () => void;
+  /** Hide the navbar (slid up out of view) — set by the scrollable dashboard shell. */
+  isHidden?: boolean;
 }
 
-export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarProps) {
+export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = false }: NavBarProps) {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,6 +29,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const prefersReducedMotion = useReducedMotion();
+  // Never slide the bar away while one of its own menus is open — the popovers
+  // aren't re-anchored to the header's transform, so hiding mid-interaction
+  // would visually detach them from their trigger.
+  const isNavBarHidden = isHidden && !showNotifications && !showUserMenu && !showMoreMenu;
   const notificationState = useNotifications();
   const refreshNotifications = notificationState.refresh;
   const [appliedJobsCount, setAppliedJobsCount] = useState<number>(0);
@@ -526,7 +534,12 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation }: NavBarPro
   const isHeaderMoreActive = headerMoreNavigation.some((item) => isWorkerNavigationActive(item.path));
 
   return (
-    <header className={webUi.navbar.root}>
+    <header
+      className={`${webUi.navbar.root} transform-gpu transition-transform ${
+        prefersReducedMotion ? "duration-[0ms]" : "duration-300 ease-out"
+      } ${isNavBarHidden ? "-translate-y-full" : "translate-y-0"}`}
+    >
+
       <div className={`${webUi.navbar.container} ${pageMeta.homeContext ? "!h-20 !min-h-20" : ""}`}>
         <div className={`flex min-w-0 items-center gap-2 ${isWorkerView ? "lg:gap-7" : ""}`}>
           <button

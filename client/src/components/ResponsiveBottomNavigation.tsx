@@ -1,4 +1,4 @@
-import { type ComponentType } from "react";
+import { type ComponentType, useEffect, useRef } from "react";
 import {
   Bell,
   BriefcaseBusiness,
@@ -44,8 +44,31 @@ export function ResponsiveBottomNavigation() {
 
   const initials = `${user?.firstName?.[0] || ""}${user?.lastName?.[0] || ""}`.toUpperCase() || "U";
 
+  const navRef = useRef<HTMLElement>(null);
+
+  // Published as a CSS variable so CookieConsent's fixed bottom banner can
+  // stack above this bar instead of covering it -- this nav goes to 0 height
+  // via `lg:hidden` on wide viewports, which ResizeObserver reports too, so
+  // the variable self-corrects across breakpoint changes with no coupling
+  // beyond "read this var, default to 0".
+  useEffect(() => {
+    const nav = navRef.current;
+    if (!nav) return;
+    const apply = () => {
+      document.documentElement.style.setProperty("--mobile-bottom-nav-height", `${nav.offsetHeight}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(nav);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--mobile-bottom-nav-height");
+    };
+  }, []);
+
   return (
     <nav
+      ref={navRef}
       aria-label={`${mode === "employer" ? "Employer" : "Worker"} mobile navigation`}
       className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.09)] backdrop-blur lg:hidden"
     >

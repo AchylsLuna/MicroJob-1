@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  BadgeCheck,
   Bookmark,
   Briefcase,
   Building2,
   Calendar,
   CheckCircle2,
+  Clock,
   MapPin,
   MessageCircle,
+  Users,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -31,7 +34,6 @@ type ApiJob = {
   requirements?: string[];
   skills?: string[];
   applicants?: string[];
-  applicationStatus?: string | null;
   jobPoster?: { _id?: string; firstName?: string; lastName?: string; email?: string };
 };
 
@@ -41,6 +43,8 @@ type JobDetailsLocationState = {
 };
 
 type JobTypeKey = "shortTerm" | "sideHustle" | "recruiting" | "partTime" | "contract" | "projectWork" | "fullTime";
+type WorkModeKey = "remote" | "hybrid" | "onSite";
+type ExperienceKey = "senior" | "midLevel" | "entryLevel";
 
 // These keys drive both the badge color lookup (getBadgeClass) and the
 // translated label — comparisons must stay on the stable key, never on the
@@ -55,6 +59,33 @@ const getJobTypeKey = (jobType?: string): JobTypeKey => {
   if (normalized.includes("contract")) return "contract";
   if (normalized.includes("freelance") || normalized.includes("project")) return "projectWork";
   return "fullTime";
+};
+
+const getWorkModeKey = (job?: ApiJob): WorkModeKey => {
+  const source = `${job?.jobType || ""} ${job?.location || ""} ${job?.description || ""}`.toLowerCase();
+  if (source.includes("remote")) return "remote";
+  if (source.includes("hybrid")) return "hybrid";
+  return "onSite";
+};
+
+const getExperienceKey = (job?: ApiJob): ExperienceKey => {
+  const details = `${job?.title || ""} ${(job?.requirements || []).join(" ")}`.toLowerCase();
+  if (/(senior|lead|principal|architect|manager|[5-9]\+?\s*years?)/.test(details)) {
+    return "senior";
+  }
+  if (/(mid|intermediate|[3-4]\+?\s*years?)/.test(details)) {
+    return "midLevel";
+  }
+  return "entryLevel";
+};
+
+const getPostedLabel = (t: TFunction, createdAt?: string) => {
+  if (!createdAt) return t("jobDetails.postedLabel.recently");
+  const created = new Date(createdAt).getTime();
+  if (Number.isNaN(created)) return t("jobDetails.postedLabel.recently");
+  const postedDaysAgo = Math.max(0, Math.floor((Date.now() - created) / (1000 * 60 * 60 * 24)));
+  if (postedDaysAgo === 0) return t("jobDetails.postedLabel.today");
+  return t("jobDetails.postedLabel.daysAgo", { count: postedDaysAgo });
 };
 
 const getSalaryDisplay = (t: TFunction, salary?: string) => {
@@ -75,7 +106,7 @@ const getSalaryDisplay = (t: TFunction, salary?: string) => {
   if (Number.isFinite(numeric) && numeric > 0) {
     return {
       amount: formatCurrency(numeric, { maximumFractionDigits: 0 }),
-      cadence: normalizedCadence,
+      cadence: normalizedCadence || t("jobDetails.salaryCadence.minimumGuaranteed"),
     };
   }
 
@@ -88,10 +119,10 @@ const getSalaryDisplay = (t: TFunction, salary?: string) => {
   return { amount: normalizedText, cadence: "" };
 };
 
-const formatDeadline = (deadline?: string) => {
-  if (!deadline) return null;
+const formatDeadline = (t: TFunction, deadline?: string) => {
+  if (!deadline) return t("jobDetails.deadlineNotSpecified");
   const date = new Date(deadline);
-  if (Number.isNaN(date.getTime())) return null;
+  if (Number.isNaN(date.getTime())) return t("jobDetails.deadlineNotSpecified");
   return formatDate(date);
 };
 
@@ -121,11 +152,9 @@ type Props = {
    *  render inside a narrower host (e.g. the sticky pane in split-pane Find
    *  Jobs) rather than as a full page. */
   compact?: boolean;
-  /** Replaces the apply action when this panel is used as a discovery preview. */
-  action?: "apply" | "view";
 };
 
-export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Props) {
+export function JobDetailPanel({ jobId, compact = false }: Props) {
   const { t } = useTranslation("worker");
   const navigate = useNavigate();
   const location = useLocation();
@@ -151,7 +180,6 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
         if (!isMounted) return;
         const jobData = data as ApiJob;
         setJob(jobData);
-        if (jobData.applicationStatus) setHasApplied(true);
         // Check if the current user has already applied by inspecting the applicants array
         if (user?.id && Array.isArray(jobData.applicants)) {
           const alreadyApplied = jobData.applicants.map(String).includes(String(user.id));
@@ -183,8 +211,10 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
 
   const handleApply = async () => {
     if (!job?._id) return;
-    if (job.applicationStatus === "Rejected") {
-      toast.error(t("jobDetails.toast.applicationRejected"));
+    // Signed-out visitors reach this panel via the public /jobs route — send
+    // them to sign in first, then back to exactly this job.
+    if (!user) {
+      navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
     // Mirrors the server's own gate (getWorkerProfileRequirementError) so a
@@ -210,14 +240,12 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
     }
   };
 
-  const handleViewJob = () => {
-    if (!job?._id) return;
-    const detailsUrl = `${window.location.origin}${ROUTES.worker.jobDetails(job._id)}`;
-    window.open(detailsUrl, "_blank", "noopener,noreferrer");
-  };
-
   const handleSave = async () => {
     if (!job?._id) return;
+    if (!user) {
+      navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
     try {
       const nextSaved = await toggleSavedJob(job._id);
       setIsSaved(nextSaved);
@@ -230,6 +258,10 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
   const handleMessageEmployer = async () => {
     if (!job?._id) {
       toast.error(t("jobDetails.toast.jobInfoMissing"));
+      return;
+    }
+    if (!user) {
+      navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
       return;
     }
     if (startingInquiry) return;
@@ -273,21 +305,24 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
   };
 
   const companyName = job?.jobPoster
-    ? `${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim() || job.jobPoster.email || ""
-    : "";
-  const hasEmployerName = Boolean(
-    job?.jobPoster &&
-      (`${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim() || job.jobPoster.email),
-  );
+    ? `${job.jobPoster.firstName || ""} ${job.jobPoster.lastName || ""}`.trim() || job.jobPoster.email || "MicroJobs"
+    : "MicroJobs";
   const isAdminViewer = ["admin", "superadmin"].includes(String(user?.role || "").toLowerCase());
-  const companyLogo = companyName.charAt(0);
+  const companyLogo = companyName.charAt(0) || "M";
   const jobTypeKey = getJobTypeKey(job?.jobType);
+  const workModeKey = getWorkModeKey(job || undefined);
+  const experienceKey = getExperienceKey(job || undefined);
   const jobTypeLabel = t(`jobDetails.jobTypeLabels.${jobTypeKey}`);
+  const workModeLabel = t(`jobDetails.workModeLabels.${workModeKey}`);
+  const experienceLevel = t(`jobDetails.experienceLevels.${experienceKey}`);
   const salaryDisplay = getSalaryDisplay(t, job?.salary);
-  const skills = (job?.skills || []).map((skill) => skill.trim()).filter(Boolean);
-  const requirements = (job?.requirements || []).map((item) => item.trim()).filter(Boolean);
-  const responsibilities = (job?.responsibilities || []).map((item) => item.trim()).filter(Boolean);
-  const deadlineLabel = formatDeadline(job?.deadline);
+  const fallbackSkills = [
+    t("jobDetails.fallbackSkills.webDevelopment"),
+    t("jobDetails.fallbackSkills.mobileApps"),
+    t("jobDetails.fallbackSkills.cloudInfrastructure"),
+    t("jobDetails.fallbackSkills.devOps"),
+  ];
+  const skills = job?.skills?.length ? job.skills : fallbackSkills;
 
   return (
     <div className="space-y-6 font-sans">
@@ -314,58 +349,57 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
           <div className="space-y-6">
             <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-4 sm:p-8">
               <div className="flex items-start gap-4">
-                {companyLogo ? (
-                  <div className="w-[74px] h-[74px] rounded-[18px] bg-[#E7ECF8] text-[#1C4D8D] flex items-center justify-center text-[36px] font-semibold shrink-0">
-                    {companyLogo}
-                  </div>
-                ) : null}
+                <div className="w-[74px] h-[74px] rounded-[18px] bg-[#E7ECF8] text-[#1C4D8D] flex items-center justify-center text-[36px] font-semibold shrink-0">
+                  {companyLogo}
+                </div>
                 <div className="min-w-0">
                   <h1 className="text-[28px] sm:text-[32px] leading-tight font-bold text-[#0F172A]">{job.title}</h1>
-                  {hasEmployerName ? (
-                    <button
-                      onClick={handleCompanyProfile}
-                      className="mt-2 flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] hover:opacity-80"
-                    >
-                      <Building2 className="w-4 h-4" />
-                      {companyName}
-                    </button>
-                  ) : null}
+                  <button
+                    onClick={handleCompanyProfile}
+                    className="mt-2 flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] hover:opacity-80"
+                  >
+                    <Building2 className="w-4 h-4" />
+                    {companyName}
+                  </button>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[15px] text-[#6B7280]">
-                    {job.location?.trim() ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4" />
-                        {job.location}
-                      </span>
-                    ) : null}
-                    {job?.jobType?.trim() ? (
-                      <>
-                        <span>·</span>
-                        <span className="inline-flex items-center gap-1.5">
-                          <Briefcase className="w-4 h-4" />
-                          {jobTypeLabel}
-                        </span>
-                      </>
-                    ) : null}
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4" />
+                      {job.location || t("jobDetails.locationFallback")}
+                    </span>
+                    <span>·</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Briefcase className="w-4 h-4" />
+                      {jobTypeLabel}
+                    </span>
+                    <span>·</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Clock className="w-4 h-4" />
+                      {getPostedLabel(t, job.createdAt)}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {job?.jobType ? (
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("jobType", jobTypeKey)}`}>
-                    {jobTypeLabel}
-                  </span>
-                </div>
-              ) : null}
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("experience", experienceKey)}`}>
+                  {experienceLevel}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("jobType", jobTypeKey)}`}>
+                  {jobTypeLabel}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("workMode", workModeKey)}`}>
+                  {workModeLabel}
+                </span>
+              </div>
 
-              {job.salary !== undefined && job.salary !== null && String(job.salary).trim() ? <div className="mt-6">
-                <p className="text-[32px] sm:text-[40px] font-bold text-[#2FA66D] leading-none">
+              <div className="mt-6">
+                <p className="text-[22px] sm:text-[26px] font-bold text-[#2FA66D] leading-none">
                   {salaryDisplay.amount}
                   {salaryDisplay.cadence && (
-                    <span className="text-[18px] font-medium text-[#6B7280] ml-2">{salaryDisplay.cadence}</span>
+                    <span className="text-[14px] font-medium text-[#6B7280] ml-2">{salaryDisplay.cadence}</span>
                   )}
                 </p>
-              </div> : null}
+              </div>
 
               <div className="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
                 {isAdminViewer ? (
@@ -374,19 +408,7 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
                   </div>
                 ) : (
                   <>
-                    {action === "view" ? (
-                      <button
-                        type="button"
-                        onClick={handleViewJob}
-                        className="col-span-2 min-h-14 w-full flex-1 rounded-[14px] bg-[#1C4D8D] px-6 py-4 font-semibold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:min-w-[240px]"
-                      >
-                        {t("jobDetails.viewJob")}
-                      </button>
-                    ) : job.applicationStatus === "Rejected" ? (
-                      <div className="col-span-2 w-full rounded-[14px] border border-red-200 bg-red-50 px-6 py-4 text-center text-sm font-semibold text-red-700 sm:min-w-[240px]">
-                        <p>{t("jobDetails.applicationRejected")}</p>
-                      </div>
-                    ) : hasApplied ? (
+                    {hasApplied ? (
                       <button
                         disabled
                         className="col-span-2 flex min-h-14 w-full flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#D1FAE5] px-6 py-4 font-semibold text-[#065F46] sm:min-w-[240px]"
@@ -406,7 +428,7 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
                     <button
                       onClick={handleMessageEmployer}
                       disabled={startingInquiry}
-                      className="min-h-12 rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
+                      className="flex min-h-12 items-center justify-center rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
                       title={t("jobDetails.messageEmployerLabel")}
                       aria-label={t("jobDetails.messageEmployerLabel")}
                     >
@@ -414,7 +436,7 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
                     </button>
                     <button
                       onClick={handleSave}
-                      className={`min-h-12 rounded-[14px] border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0 ${
+                      className={`flex min-h-12 items-center justify-center rounded-[14px] border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0 ${
                         isSaved
                           ? "bg-[#1C4D8D] text-white border-[#1C4D8D]"
                           : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
@@ -430,51 +452,73 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
               </div>
             </section>
 
-            {job.description?.trim() ? <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
+            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
               <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.description")}</h2>
-              <p className="text-[16px] text-[#6B7280] leading-relaxed">{job.description}</p>
-            </section> : null}
+              <p className="text-[16px] text-[#6B7280] leading-relaxed">
+                {job.description || t("jobDetails.sections.noDescription")}
+              </p>
+            </section>
 
-            {responsibilities.length ? <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
+            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
               <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.responsibilities")}</h2>
               <ul className="space-y-3">
-                {responsibilities.map((item) => (
+                {(job.responsibilities?.length ? job.responsibilities : [t("jobDetails.sections.noResponsibilities")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
                     <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
-            </section> : null}
+            </section>
 
-            {requirements.length ? <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
+            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
               <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.requirements")}</h2>
               <ul className="space-y-3">
-                {requirements.map((item) => (
+                {(job.requirements?.length ? job.requirements : [t("jobDetails.sections.noRequirements")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
                     <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
-            </section> : null}
+            </section>
           </div>
 
           <aside className="space-y-6">
-            {deadlineLabel || job?.jobType ? <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
               <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.overview.title")}</h3>
               <div className="space-y-5">
-                {deadlineLabel ? <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-[14px] bg-[#FFF7ED] flex items-center justify-center shrink-0">
                     <Calendar className="w-5 h-5 text-[#EA580C]" />
                   </div>
                   <div>
                     <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.deadline")}</p>
-                    <p className="text-[16px] font-semibold text-[#111827]">{deadlineLabel}</p>
+                    <p className="text-[16px] font-semibold text-[#111827]">{formatDeadline(t, job.deadline)}</p>
                   </div>
-                </div> : null}
+                </div>
 
-                {job?.jobType ? <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-[14px] bg-[#F3E8FF] flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5 text-[#7E22CE]" />
+                  </div>
+                  <div>
+                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.totalApplicants")}</p>
+                    <p className="text-[16px] font-semibold text-[#111827]">{t("jobDetails.overview.applicantsCount", { count: job.applicants?.length || 0 })}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
+                  <div className="w-12 h-12 rounded-[14px] bg-[#DCFCE7] flex items-center justify-center shrink-0">
+                    <BadgeCheck className="w-5 h-5 text-[#15803D]" />
+                  </div>
+                  <div>
+                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.experienceLevel")}</p>
+                    <p className="text-[16px] font-semibold text-[#111827]">{experienceLevel}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3">
                   <div className="w-12 h-12 rounded-[14px] bg-[#1C4D8D]/10 flex items-center justify-center shrink-0">
                     <Briefcase className="w-5 h-5 text-[#1C4D8D]" />
                   </div>
@@ -482,11 +526,11 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
                     <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.jobType")}</p>
                     <p className="text-[16px] font-semibold text-[#111827]">{jobTypeLabel}</p>
                   </div>
-                </div> : null}
+                </div>
               </div>
-            </section> : null}
+            </section>
 
-            {skills.length ? <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
               <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.sections.requiredSkills")}</h3>
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
@@ -498,7 +542,7 @@ export function JobDetailPanel({ jobId, compact = false, action = "apply" }: Pro
                   </span>
                 ))}
               </div>
-            </section> : null}
+            </section>
           </aside>
         </div>
       )}

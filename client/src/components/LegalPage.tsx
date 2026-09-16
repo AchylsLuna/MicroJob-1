@@ -1,10 +1,8 @@
 import { ChevronLeft } from "lucide-react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { LEGAL_INFO } from "../constants/legal";
 import { LEGAL_DOCUMENTS, isLegalDocId, type LegalDocId } from "../constants/legalDocuments";
+import { LegalDocumentBody } from "./LegalDocumentBody";
 import { ROUTES } from "../utils/routes";
-
-const { legalEntity, supportEmail, supportPhone, supportPhoneHref, effectiveDate } = LEGAL_INFO;
 
 /**
  * All three legal documents behind one route, chosen from a side list.
@@ -83,40 +81,7 @@ export function LegalPage() {
           </nav>
 
           <article className="min-w-0 rounded-[24px] border border-[#E5E7EB] bg-white p-6 shadow-sm sm:p-10">
-            <div className="mb-8 border-b border-[#E5E7EB] pb-6">
-              <h1 className="text-[30px] font-bold leading-tight text-[#111827]">{activeDoc.title}</h1>
-              <p className="mt-2 text-[14px] text-[#6B7280]">Effective date: {effectiveDate}</p>
-            </div>
-
-            <div className="space-y-7">
-              {activeDoc.sections.map((section) => (
-                <section key={section.title}>
-                  <h2 className="text-[19px] font-semibold text-[#111827]">{section.title}</h2>
-                  <div className="mt-3 space-y-3">
-                    {section.paragraphs.map((paragraph, index) => (
-                      <p key={index} className="text-[15px] leading-7 text-[#4B5563]">
-                        {paragraph}
-                      </p>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-
-            <div className="mt-8 rounded-xl border border-[#E5E7EB] bg-[#F8FAFC] p-4">
-              <h2 className="text-[15px] font-semibold text-[#111827]">{activeDoc.contactHeading}</h2>
-              {activeDoc.showLegalEntity ? (
-                <p className="mt-2 text-[14px] text-[#4B5563]">{legalEntity}</p>
-              ) : null}
-              <div className="mt-2 flex flex-wrap gap-3 text-[14px]">
-                <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={`mailto:${supportEmail}`}>
-                  {supportEmail}
-                </a>
-                <a className="font-medium text-[#1C4D8D] hover:opacity-80" href={supportPhoneHref}>
-                  {supportPhone}
-                </a>
-              </div>
-            </div>
+            <LegalDocumentBody doc={activeDoc} />
           </article>
         </div>
       </div>

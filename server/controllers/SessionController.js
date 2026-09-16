@@ -1,8 +1,10 @@
 import crypto from 'crypto';
 import Session from '../models/Session.js';
 import User from '../models/User.js';
+import TrustedDevice from '../models/TrustedDevice.js';
 import { disconnectSession } from '../lib/socket.js';
 import { createAccessToken, cookieSecurityOptions, isNativeAuthRequest, SESSION_TTL_MS } from '../lib/authSession.js';
+import { clearTrustedDevicesForUser, listTrustedDevicesForUser } from '../lib/trustedDevice.js';
 import monitor from '../lib/monitor.js';
 
 export const SELF_SERVICE_ROLES = new Set(['hire', 'work', 'both']);
@@ -143,12 +145,14 @@ const revokeAllSessions = async (req, res) => {
       await Session.findByIdAndDelete(req.user.sessionId);
     }
     sessionIds.forEach((sessionId) => disconnectSession(sessionId));
+    await clearTrustedDevicesForUser(req.user.id);
     await monitor.audit({ actor: req.user.id, action: 'sessions_revoked_all', ip: req.ip || null, userAgent: req.get('user-agent'), status: 'success', meta: { count: sessionIds.length } });
 
     res.clearCookie('refreshToken', { ...cookieSecurityOptions, httpOnly: true });
     res.clearCookie('sessionId', { ...cookieSecurityOptions, httpOnly: true });
     res.clearCookie('csrfToken', { ...cookieSecurityOptions, httpOnly: false });
     res.clearCookie('token', { ...cookieSecurityOptions, httpOnly: true });
+    res.clearCookie('trustedDevice', { ...cookieSecurityOptions, httpOnly: true });
     return res.status(200).json({ message: 'All sessions revoked' });
   } catch (err) {
     console.error('Revoke all sessions error', err);
@@ -173,6 +177,31 @@ const cleanupSessions = async (req, res) => {
   } catch (err) {
     console.error('Cleanup sessions error', err);
     return res.status(500).json({ message: 'Failed to cleanup sessions' });
+  }
+};
+
+const listTrustedDevices = async (req, res) => {
+  try {
+    const devices = await listTrustedDevicesForUser(req.user.id);
+    return res.status(200).json({ devices });
+  } catch (err) {
+    console.error('List trusted devices error', err);
+    return res.status(500).json({ message: 'Failed to list trusted devices' });
+  }
+};
+
+const revokeTrustedDevice = async (req, res) => {
+  try {
+    const device = await TrustedDevice.findById(req.params.id);
+    if (!device) return res.status(404).json({ message: 'Trusted device not found' });
+    if (device.user.toString() !== String(req.user.id)) return res.status(403).json({ message: 'Not authorized' });
+
+    await TrustedDevice.findByIdAndDelete(req.params.id);
+    await monitor.audit({ actor: req.user.id, action: 'trusted_device_revoked', ip: req.ip || null, userAgent: req.get('user-agent'), status: 'success', meta: { deviceId: req.params.id } });
+    return res.status(200).json({ message: 'Trusted device revoked' });
+  } catch (err) {
+    console.error('Revoke trusted device error', err);
+    return res.status(500).json({ message: 'Failed to revoke trusted device' });
   }
 };
 
@@ -218,6 +247,8 @@ export {
   revokeSession,
   revokeAllSessions,
   cleanupSessions,
+  listTrustedDevices,
+  revokeTrustedDevice,
   adminListSessions,
   logout,
 };
@@ -227,6 +258,8 @@ export default {
   revokeSession,
   revokeAllSessions,
   cleanupSessions,
+  listTrustedDevices,
+  revokeTrustedDevice,
   adminListSessions,
   logout,
   SELF_SERVICE_ROLES,

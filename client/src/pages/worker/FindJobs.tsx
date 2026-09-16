@@ -3,7 +3,7 @@ import { ChevronDown, MapPin, Search, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getJobs, getProfile, getUserApplications, updateJobPreferences } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
@@ -111,6 +111,7 @@ function getCadenceLabels(t: TFunction): Record<string, string> {
 export function FindJobs() {
   const { t } = useTranslation("worker");
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchQuery = (searchParams.get("q") || "").trim().toLowerCase();
   const selectedCategory = searchParams.get("category") || "";
@@ -182,6 +183,12 @@ export function FindJobs() {
   }, [normalizeToken, workerLocation]);
 
   const handleSaveJob = async (jobId: string) => {
+    // Signed-out visitors on the public /jobs route have nowhere to save a
+    // job to — send them to sign in first, then back to exactly this search.
+    if (!user) {
+      navigate(ROUTES.signIn, { state: { from: `${location.pathname}${location.search}` } });
+      return;
+    }
     try {
       const nextSaved = await toggleSavedJob(jobId);
       toast.success(nextSaved ? t("findJobs.toast.jobSaved") : t("findJobs.toast.jobRemoved"));
@@ -270,6 +277,14 @@ export function FindJobs() {
 
     const loadWorkerLocation = async () => {
       setIsLocationLoaded(false);
+      // Signed-out visitors (the public /jobs route) have no profile to fetch —
+      // skip straight to "loaded" with an empty location so the job list below
+      // isn't gated on a city that will never arrive.
+      if (!user) {
+        setWorkerLocation({ province: "", city: "", barangay: "" });
+        setIsLocationLoaded(true);
+        return;
+      }
       try {
         const profile = await getProfile();
         if (!isMounted) return;
@@ -303,13 +318,17 @@ export function FindJobs() {
     return () => {
       isMounted = false;
     };
-  }, [user?.city]);
+  }, [user]);
 
   useEffect(() => {
     let isMounted = true;
     const loadJobs = async () => {
       if (!isLocationLoaded) return;
-      if (!workerLocation.city.trim()) {
+      // Only a logged-in worker's missing city blocks the list (their location
+      // determines ranking and the empty state points them at Settings).
+      // Signed-out visitors have no city concept at all — they still get the
+      // nationwide, search-driven list.
+      if (user && !workerLocation.city.trim()) {
         setJobs([]);
         setLoadError(null);
         setIsLoading(false);
@@ -322,7 +341,7 @@ export function FindJobs() {
           getJobs({
           search: searchQuery || undefined,
           category: selectedCategory || undefined,
-          city: workerLocation.city.trim(),
+          city: workerLocation.city.trim() || undefined,
           excludeOwn: true,
           }),
           getUserApplications(),
@@ -351,7 +370,13 @@ export function FindJobs() {
     return () => {
       isMounted = false;
     };
-  }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob, t]);
+  }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob, t, user]);
+
+  useEffect(() => {
+    const refreshOnFocus = () => setReloadKey((value) => value + 1);
+    window.addEventListener("focus", refreshOnFocus);
+    return () => window.removeEventListener("focus", refreshOnFocus);
+  }, []);
 
   useEffect(() => {
     const refreshOnFocus = () => setReloadKey((value) => value + 1);

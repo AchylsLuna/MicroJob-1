@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     backgroundColor: tokens.colors.contentSurface,
     ...tokens.shadow.card,
   },
-  emptyIconWrap: { width: 64, height: 64, borderRadius: 20, marginBottom: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.brandSoft },
+  emptyIconWrap: { width: 64, height: 64, borderRadius: 20, marginBottom: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   emptyTitle: { fontSize: 20, fontWeight: '700', color: '#1f2937', marginBottom: 8 },
   emptyText: { fontSize: 14, color: '#6b7280' },
   loadingRow: { paddingVertical: 8 },

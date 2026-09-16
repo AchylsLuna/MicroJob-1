@@ -13,6 +13,16 @@
     "closeLabel": "Isara ang dialog"
   },
   "loading": "Naglo-load...",
+  "settings": {
+    "saveChanges": "I-save ang mga pagbabago",
+    "saving": "Sine-save..."
+  },
+  "publicFindJobs": {
+    "header": {
+      "signIn": "Mag-sign In",
+      "signUp": "Mag-sign Up"
+    }
+  },
   "dashboardLayout": {
     "navigationMenuAria": "Menu ng navigation",
     "closeNavigationMenu": "Isara ang navigation menu"

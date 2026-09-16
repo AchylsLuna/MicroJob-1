@@ -21,13 +21,31 @@ export function isProductionRuntime() {
   return process.env.NODE_ENV === 'production';
 }
 
-export function getWebOrigin() {
+const originFromRequest = (req) => {
+  if (!req) return '';
+  const originHeader = req.headers?.origin;
+  if (originHeader) return trimTrailingSlashes(originHeader);
+  const referer = req.headers?.referer || req.headers?.referrer;
+  if (!referer) return '';
+  try {
+    return trimTrailingSlashes(new URL(referer).origin);
+  } catch {
+    return '';
+  }
+};
+
+// `req` is an optional fallback source, used only when no WEB_ORIGIN-style env
+// var or Vercel URL is configured (e.g. a preview/staging deploy that isn't
+// caught by isProductionRuntime()). Env vars always win when set, so this
+// never overrides an explicit configuration.
+export function getWebOrigin(req) {
   return trimTrailingSlashes(
     process.env.WEB_ORIGIN ||
     process.env.CLIENT_ORIGIN ||
     process.env.FRONTEND_URL ||
     process.env.ORIGIN ||
     getVercelOrigins()[0] ||
+    originFromRequest(req) ||
     (isProductionRuntime() ? '' : LOCAL_WEB_ORIGIN)
   );
 }

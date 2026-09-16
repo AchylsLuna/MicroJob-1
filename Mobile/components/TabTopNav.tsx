@@ -51,23 +51,25 @@ export default function TabTopNav({
       <View style={styles.titleGroup}>
         <AnimatedMicroJobsLogoBadge />
         <View style={styles.titleCopy}>
-          <Text style={styles.topHeaderTitle} numberOfLines={1}>{title}</Text>
-          {employerMode ? <View style={styles.employerPill}><Ionicons name="business-outline" size={11} color={tokens.colors.brand} /><Text style={styles.employerPillText}>Employer Mode</Text></View> : null}
-          {subtitle ? (
-            <TouchableOpacity
-              style={[styles.subtitlePill, !onSubtitlePress && styles.subtitlePillStatic]}
-              onPress={onSubtitlePress}
-              disabled={!onSubtitlePress}
-              activeOpacity={0.82}
-              hitSlop={6}
-              accessibilityRole={onSubtitlePress ? 'button' : undefined}
-              accessibilityLabel={onSubtitlePress ? `${subtitle}. Open Philippine location settings` : undefined}
-            >
-              <Ionicons name={subtitleIcon} size={13} color={tokens.colors.brand} />
-              <Text style={styles.subtitleText} numberOfLines={1}>{subtitle}</Text>
-              {onSubtitlePress ? <Ionicons name="chevron-forward" size={12} color={tokens.colors.brand} /> : null}
-            </TouchableOpacity>
-          ) : null}
+          <View style={styles.titleRow}>
+            <Text style={styles.topHeaderTitle} numberOfLines={1}>{title}</Text>
+            {employerMode ? <View style={styles.employerPill}><Ionicons name="business-outline" size={11} color={tokens.colors.brand} /><Text style={styles.employerPillText}>Employer Mode</Text></View> : null}
+            {subtitle ? (
+              <TouchableOpacity
+                style={[styles.subtitlePill, !onSubtitlePress && styles.subtitlePillStatic]}
+                onPress={onSubtitlePress}
+                disabled={!onSubtitlePress}
+                activeOpacity={0.82}
+                hitSlop={6}
+                accessibilityRole={onSubtitlePress ? 'button' : undefined}
+                accessibilityLabel={onSubtitlePress ? `${subtitle}. Open Philippine location settings` : undefined}
+              >
+                <Ionicons name={subtitleIcon} size={13} color={tokens.colors.brand} />
+                <Text style={styles.subtitleText} numberOfLines={1}>{subtitle}</Text>
+                {onSubtitlePress ? <Ionicons name="chevron-forward" size={12} color={tokens.colors.brand} /> : null}
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
       </View>
 
@@ -157,13 +159,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
-  titleCopy: { flex: 1, minWidth: 0, gap: 4 },
-  employerPill: { minHeight: 24, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: tokens.radius.pill, paddingHorizontal: 8, backgroundColor: tokens.colors.brandSoft },
+  titleCopy: { flex: 1, minWidth: 0 },
+  // Title and the location pill sit in one row, wrapping onto a second line
+  // together (rather than the title stacking directly above the pill) so a
+  // long title's descenders never sit flush against the pill on narrow
+  // screens.
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    rowGap: 6,
+  },
+  employerPill: { minHeight: 24, flexShrink: 0, flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: tokens.radius.pill, paddingHorizontal: 8, backgroundColor: tokens.colors.brandSoft },
   employerPillText: { color: tokens.colors.brand, fontSize: 10, fontWeight: '900' },
   subtitlePill: {
     minHeight: 28,
     maxWidth: '100%',
-    alignSelf: 'flex-start',
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -210,9 +223,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: tokens.colors.surfaceMuted,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
+    backgroundColor: 'transparent',
   },
   disabledButton: {
     opacity: 0.55,

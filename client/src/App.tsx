@@ -35,6 +35,7 @@ const TopUpSuccess = lazy(() => import("./pages/TopUpSuccess").then((module) => 
 const PublicProfile = lazy(() => import("./pages/shared/PublicProfile").then((module) => ({ default: module.PublicProfile })));
 const NotificationsRouter = lazy(() => import("./pages/NotificationsRouter"));
 const SupportRouter = lazy(() => import("./pages/SupportRouter"));
+const PublicFindJobs = lazy(() => import("./pages/PublicFindJobs").then((module) => ({ default: module.PublicFindJobs })));
 
 const FindJobs = lazy(() => import("./pages/worker/FindJobs").then((module) => ({ default: module.FindJobs })));
 const AppliedJobs = lazy(() => import("./pages/worker/AppliedJobs"));
@@ -282,6 +283,7 @@ const App: React.FC = () => {
         <Route path={ROUTES.resetPassword} element={<PreserveRedirect to={ROUTES.forgotPassword} />} />
         <Route path={ROUTES.changeInitialPassword} element={<InitialPasswordChange />} />
         <Route path={ROUTES.legal} element={<LegalPage />} />
+        <Route path={ROUTES.publicJobs} element={<PublicFindJobs />} />
         {/* The three documents merged into one page; these paths stay so old
             links and bookmarks keep resolving. */}
         <Route path={ROUTES.terms} element={<Navigate to={ROUTES.legalDoc("terms")} replace />} />

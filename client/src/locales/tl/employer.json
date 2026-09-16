@@ -185,7 +185,35 @@
       "confirm": "I-delete ang trabaho"
     },
     "profileIncomplete": {
-      "toast": "Idagdag ang pangalan ng kompanya at logo sa Settings bago mag-post ng trabaho."
+      "toast": "Magdagdag ng profile photo sa Settings bago mag-post ng trabaho."
+    },
+    "wizard": {
+      "stepAria": "Hakbang {{step}} ng {{total}}: {{title}}",
+      "steps": {
+        "job": {
+          "title": "Ang trabaho",
+          "subtitle": "Pangalanan, kategoryahin, at ilarawan ang gawain."
+        },
+        "whereWhen": {
+          "title": "Saan at kailan",
+          "subtitle": "Itakda ang lokasyon, uri ng oportunidad, at deadline."
+        },
+        "payReview": {
+          "title": "Bayad at review",
+          "subtitle": "Itakda ang bayad, magdagdag ng opsyonal na detalye, at kumpirmahin."
+        }
+      },
+      "back": "Bumalik",
+      "next": "Susunod",
+      "summary": {
+        "title": "Suriin bago mag-post",
+        "job": "Trabaho",
+        "category": "Kategorya",
+        "location": "Lokasyon",
+        "jobType": "Uri",
+        "deadline": "Deadline",
+        "positions": "Bilang ng posisyon"
+      }
     }
   },
   "applicationsManagement": {
@@ -201,7 +229,8 @@
       "stageAriaLabel": "I-filter ang mga aplikasyon ayon sa yugto",
       "allStages": "Lahat ng Yugto",
       "jobAriaLabel": "I-filter ang mga aplikasyon ayon sa trabaho",
-      "allJobs": "Lahat ng Trabaho"
+      "allJobs": "Lahat ng Trabaho",
+      "showHidden": "Ipakita ang mga itinago"
     },
     "status": {
       "applied": "Nag-apply",
@@ -251,6 +280,8 @@
       "reschedule": "I-reschedule",
       "schedule": "I-iskedyul",
       "hide": "Itago",
+      "restore": "Ibalik",
+      "hiddenBadge": "Itinago",
       "profile": "Profile",
       "message": "Mensahe",
       "viewResume": "Tingnan ang Resume",
@@ -293,7 +324,57 @@
       "interviewDateRequired": "Kailangan ang petsa at oras ng interbyu.",
       "interviewRescheduled": "Na-reschedule ang interbyu.",
       "interviewScheduledSuccess": "Na-iskedyul ang interbyu.",
-      "interviewSaveFailed": "Hindi na-save ang iskedyul ng interbyu."
+      "interviewSaveFailed": "Hindi na-save ang iskedyul ng interbyu.",
+      "offerSent": "Naipadala ang alok.",
+      "workerHired": "Na-hire ang manggagawa.",
+      "workerPaid": "Nabayaran ang manggagawa.",
+      "offerActionFailed": "Nabigo ang aksyon na iyon. Subukan muli.",
+      "restoredCount_one": "{{count}} aplikasyon ang naibalik.",
+      "restoredCount_other": "{{count}} na aplikasyon ang naibalik.",
+      "restoreFailedCount_one": "{{count}} aplikasyon ay hindi maibalik. Subukan muli.",
+      "restoreFailedCount_other": "{{count}} na aplikasyon ay hindi maibalik. Subukan muli."
+    },
+    "offerPanel": {
+      "title": "Magpadala ng pormal na alok",
+      "guaranteedMinimum": "Garantisadong minimum: {{amount}}",
+      "amountPlaceholder": "Halaga ng alok",
+      "reviewOffer": "Suriin ang Alok",
+      "additionalEscrow": "Karagdagang {{amount}} ang ihahawak sa escrow."
+    },
+    "offerActive": {
+      "accepted": "Tinanggap ang alok",
+      "awaiting": "Naghihintay ng tugon ang alok",
+      "escrowBacked": "{{amount}} na nakahawak sa escrow",
+      "confirmHire": "Kumpirmahin ang Pag-hire",
+      "cancelOffer": "Kanselahin ang Alok"
+    },
+    "hiredPanel": {
+      "title": "Na-hire",
+      "summary": "{{amount}} napagkasunduan · Trabaho: {{workStatus}} · Bayad: {{paymentStatus}}",
+      "authorizePayment": "Pahintulutan ang Bayad",
+      "approveAndPay": "Aprubahan at Bayaran",
+      "requestChanges": "Humiling ng Pagbabago",
+      "changeReasonPlaceholder": "Ano ang kailangang baguhin?"
+    },
+    "confirmOffer": {
+      "title": "Magpadala ng Pormal na Alok",
+      "description": "Padalhan si {{name}} ng alok na {{amount}} (minimum {{minimum}}, {{escrow}} karagdagang escrow)?",
+      "confirm": "Ipadala ang Alok"
+    },
+    "confirmCancelOffer": {
+      "title": "Kanselahin ang Alok",
+      "description": "Kanselahin ang {{amount}} na alok? Ang anumang karagdagang escrow ay maibabalik sa iyong balanse.",
+      "confirm": "Kanselahin ang Alok"
+    },
+    "confirmHire": {
+      "title": "Kumpirmahin ang Pag-hire",
+      "description": "Kumpirmahin ang pag-hire kay {{name}} para sa {{amount}}? Ire-reserba nito ang posisyon at sisiguruhin ang escrow.",
+      "confirm": "Kumpirmahin ang Pag-hire"
+    },
+    "confirmPay": {
+      "title": "Aprubahan at Bayaran",
+      "description": "Ilabas ang {{amount}} sa wallet ni {{name}}? Hindi na ito maibabalik.",
+      "confirm": "Aprubahan at Bayaran"
     },
     "scheduleModal": {
       "updateTitle": "I-update ang Interbyu",
@@ -459,6 +540,10 @@
     "publicView": "Pampublikong Tanaw",
     "locationNotSet": "Hindi pa naitakda ang lokasyon",
     "fallbackName": "Employer",
+    "bio": {
+      "more": "HIGIT PA",
+      "less": "Bawasan"
+    },
     "tabs": {
       "overview": "Pangkalahatang-ideya",
       "jobs": "Mga Trabaho"

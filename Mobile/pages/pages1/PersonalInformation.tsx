@@ -709,6 +709,7 @@ export default function PersonalInformation({
 
         <View style={styles.fieldGroup} onLayout={(event) => { sectionOffsets.current.location = event.nativeEvent.layout.y; }}>
           <Text style={styles.label}>Province</Text>
+          <Text style={styles.helperText}>Type to search, or pick from the list.</Text>
           {locationDataError ? (
             <View style={styles.locationErrorRow}>
               <Text style={styles.locationErrorText}>{locationDataError}</Text>
@@ -722,23 +723,26 @@ export default function PersonalInformation({
               </TouchableOpacity>
             </View>
           ) : null}
-          <TextInput
-            style={styles.input}
-            placeholder={isLoadingLocations ? 'Loading provinces...' : 'Type or select province'}
-            value={province}
-            maxLength={PROFILE_LIMITS.province}
-            onChangeText={(value) => {
-              setProvince(value);
-              setCity('');
-              setBarangay('');
-              setShowProvinceOptions(true);
-            }}
-            editable={!isSaving && !locationDataError}
-            onFocus={() => setShowProvinceOptions(true)}
-            placeholderTextColor="#9CA3AF"
-            accessibilityLabel="Province"
-            accessibilityHint="Type to filter province suggestions"
-          />
+          <View style={styles.locationInputWrap}>
+            <TextInput
+              style={[styles.input, styles.locationInput]}
+              placeholder={isLoadingLocations ? 'Loading provinces...' : 'Type or select province'}
+              value={province}
+              maxLength={PROFILE_LIMITS.province}
+              onChangeText={(value) => {
+                setProvince(value);
+                setCity('');
+                setBarangay('');
+                setShowProvinceOptions(true);
+              }}
+              editable={!isSaving && !locationDataError}
+              onFocus={() => setShowProvinceOptions(true)}
+              placeholderTextColor="#9CA3AF"
+              accessibilityLabel="Province"
+              accessibilityHint="Type to filter province suggestions"
+            />
+            <Ionicons name="chevron-down" size={18} color="#9CA3AF" style={styles.locationChevron} />
+          </View>
           {showProvinceOptions && !locationDataError ? (
             <View style={styles.optionsDropdown}>
               <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
@@ -768,22 +772,25 @@ export default function PersonalInformation({
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>City / Municipality</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={!selectedProvince ? 'Select province first' : 'Type or select city'}
-            value={city}
-            maxLength={PROFILE_LIMITS.city}
-            onChangeText={(value) => {
-              setCity(value);
-              setBarangay('');
-              setShowCityOptions(true);
-            }}
-            editable={!isSaving && Boolean(selectedProvince)}
-            onFocus={() => setShowCityOptions(true)}
-            placeholderTextColor="#9CA3AF"
-            accessibilityLabel="City or municipality"
-            accessibilityHint="Type to filter city suggestions"
-          />
+          <View style={styles.locationInputWrap}>
+            <TextInput
+              style={[styles.input, styles.locationInput]}
+              placeholder={!selectedProvince ? 'Select province first' : 'Type or select city'}
+              value={city}
+              maxLength={PROFILE_LIMITS.city}
+              onChangeText={(value) => {
+                setCity(value);
+                setBarangay('');
+                setShowCityOptions(true);
+              }}
+              editable={!isSaving && Boolean(selectedProvince)}
+              onFocus={() => setShowCityOptions(true)}
+              placeholderTextColor="#9CA3AF"
+              accessibilityLabel="City or municipality"
+              accessibilityHint="Type to filter city suggestions"
+            />
+            <Ionicons name="chevron-down" size={18} color="#9CA3AF" style={styles.locationChevron} />
+          </View>
           {showCityOptions && Boolean(selectedProvince) ? (
             <View style={styles.optionsDropdown}>
               <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
@@ -812,21 +819,24 @@ export default function PersonalInformation({
 
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>Barangay</Text>
-          <TextInput
-            style={styles.input}
-            placeholder={!selectedCity ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
-            value={barangay}
-            maxLength={PROFILE_LIMITS.barangay}
-            onChangeText={(value) => {
-              setBarangay(value);
-              setShowBarangayOptions(true);
-            }}
-            editable={!isSaving && Boolean(selectedCity) && !isLoadingBarangays}
-            onFocus={() => setShowBarangayOptions(true)}
-            placeholderTextColor="#9CA3AF"
-            accessibilityLabel="Barangay"
-            accessibilityHint="Type to filter barangay suggestions"
-          />
+          <View style={styles.locationInputWrap}>
+            <TextInput
+              style={[styles.input, styles.locationInput]}
+              placeholder={!selectedCity ? 'Select city first' : isLoadingBarangays ? 'Loading barangays...' : 'Type or select barangay'}
+              value={barangay}
+              maxLength={PROFILE_LIMITS.barangay}
+              onChangeText={(value) => {
+                setBarangay(value);
+                setShowBarangayOptions(true);
+              }}
+              editable={!isSaving && Boolean(selectedCity) && !isLoadingBarangays}
+              onFocus={() => setShowBarangayOptions(true)}
+              placeholderTextColor="#9CA3AF"
+              accessibilityLabel="Barangay"
+              accessibilityHint="Type to filter barangay suggestions"
+            />
+            <Ionicons name="chevron-down" size={18} color="#9CA3AF" style={styles.locationChevron} />
+          </View>
           {showBarangayOptions && Boolean(selectedCity) ? (
             <View style={styles.optionsDropdown}>
               <ScrollView style={styles.optionsScroll} nestedScrollEnabled>
@@ -1162,6 +1172,17 @@ const styles = StyleSheet.create({
   inputReadOnly: {
     color: '#64748B',
     backgroundColor: '#E9EEF5',
+  },
+  locationInputWrap: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  locationInput: {
+    paddingRight: 40,
+  },
+  locationChevron: {
+    position: 'absolute',
+    right: 16,
   },
   helperText: {
     marginTop: 6,

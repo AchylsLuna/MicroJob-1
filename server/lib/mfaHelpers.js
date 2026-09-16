@@ -38,6 +38,15 @@ export const createLoginOtpChallengeToken = (userId, challengeId, includePhone =
     { expiresIn: LOGIN_OTP_CHALLENGE_TTL }
   );
 
+// Test-only: the isolated e2e/test harness runs with no SMTP/Resend
+// credentials and has no mailbox to read from, so it needs a programmatic way
+// to retrieve a code it can never see over the wire (see below). Populated
+// only when NODE_ENV === 'test'; a no-op Map reference in every other
+// environment, and never read from outside that same guard.
+const testLoginOtpCodes = new Map();
+export const getTestLoginOtpCode = (email) =>
+  process.env.NODE_ENV === 'test' ? testLoginOtpCodes.get(String(email || '').toLowerCase().trim()) : undefined;
+
 export const issueLoginOtpChallenge = async (user, includePhone = false) => {
   const email = String(user.email || '').toLowerCase().trim();
   const { challenge, code } = await issueOtpChallenge({
@@ -48,12 +57,23 @@ export const issueLoginOtpChallenge = async (user, includePhone = false) => {
   });
   const otpToken = createLoginOtpChallengeToken(String(user._id), challenge.challengeId, includePhone);
 
-  // Email is the only delivery channel for a login code. The code is never logged
-  // and never returned to the caller: a second factor that travels back in the same
-  // HTTP response it authorises is not a second factor.
+  // Email is the only delivery channel for a login code. The code is never
+  // logged and never returned to the caller in the API response: a second
+  // factor that travels back in the same HTTP response it authorises is not a
+  // second factor. Outside production, a missing transporter degrades instead
+  // of hard-failing every login -- mirroring UserController.sendOtp's existing
+  // dev fallback for the signup OTP -- so local dev keeps working without real
+  // email credentials configured.
   const transporter = getEmailTransporter();
   if (!transporter) {
-    throw new Error('Email service is not configured.');
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('Email service is not configured.');
+    }
+    console.warn(`Email service is not configured. Development login OTP generated for …${email.slice(-6)}.`);
+    if (process.env.NODE_ENV === 'test') {
+      testLoginOtpCodes.set(email, code);
+    }
+    return { otpToken };
   }
 
   const fromAddress = getMailFrom();

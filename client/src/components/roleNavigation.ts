@@ -39,9 +39,6 @@ export const employerBottomNavigation: RoleNavigationItem[] = [
   },
 ];
 
-export const settingsPathForMode = (mode: AccountMode) =>
-  mode === "employer" ? ROUTES.employer.settings : ROUTES.worker.settings;
-
 export const navigationForMode = (mode: AccountMode) =>
   mode === "employer" ? employerBottomNavigation : workerBottomNavigation;
 
@@ -52,7 +49,3 @@ export const isNavigationItemActive = (pathname: string, item: RoleNavigationIte
 
 export const activeNavigationItem = (pathname: string, items: RoleNavigationItem[]) =>
   items.find((item) => isNavigationItemActive(pathname, item));
-
-export const isSettingsPath = (pathname: string) =>
-  [ROUTES.worker.settings, ROUTES.employer.settings, ROUTES.settings, ROUTES.legacyDashboard.settings]
-    .some((candidate) => matchesPath(pathname, candidate));

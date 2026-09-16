@@ -268,7 +268,10 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ otpToken, code: otpCode }),
+            // Mobile has no separate "trust this device" toggle -- a device
+            // that just proved itself with an OTP is trusted so the next
+            // login on it can skip a second one.
+            body: JSON.stringify({ otpToken, code: otpCode, rememberDevice: true }),
           },
           t('verifyEmail.toast.verificationFailedFallback'),
         );
@@ -313,6 +316,10 @@ export default function VerifyEmail({ email: emailProp, mode = 'emailVerificatio
         if (refreshToken) await AsyncStorage.setItem('auth_refresh_token', refreshToken);
         await AsyncStorage.setItem('auth_user', JSON.stringify(user));
         await AsyncStorage.setItem('has_onboarded', 'true');
+      }
+      const trustedDeviceToken = dataPayload?.trustedDeviceToken || rawPayload?.trustedDeviceToken;
+      if (trustedDeviceToken) {
+        await AsyncStorage.setItem('trusted_device_token', String(trustedDeviceToken));
       }
       if (mode === 'emailVerification') {
         await AsyncStorage.removeItem('pending_verification_email');

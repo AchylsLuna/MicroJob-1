@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   Modal,
   Platform,
@@ -27,6 +28,7 @@ import { EmployerAction, EmployerInlineState, EmployerModeBanner } from '../../c
 import StatTile from '../../components/ui/StatTile';
 import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import useReviewSummary from '../../hooks/useReviewSummary';
+import useHideOnScroll from '../../hooks/useHideOnScroll';
 import { useAppSession } from '../../contexts/AppSessionContext';
 
 type JobItem = {
@@ -92,6 +94,7 @@ export default function EmployerJobPosts({
   const session = useAppSession();
   const employerId = String(session.user?.id || session.user?._id || '');
   const { averageRating, totalReviews } = useReviewSummary(employerId, 'employer');
+  const { onScroll, onHeaderLayout, headerStyle, headerHeight } = useHideOnScroll();
   const mountedRef = useRef(true);
   const fetchInFlightRef = useRef(false);
   const actionInFlightRef = useRef(false);
@@ -233,17 +236,21 @@ export default function EmployerJobPosts({
 
   return (
     <View style={styles.container}>
-      <TabTopNav title={t('jobPosts.header.title')} subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
+      <Animated.View style={[styles.headerWrap, headerStyle]} onLayout={onHeaderLayout}>
+        <TabTopNav title={t('jobPosts.header.title')} subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
+      </Animated.View>
 
       <FlatList
         data={jobs}
         keyExtractor={(job) => job._id}
-        contentContainerStyle={styles.scroll}
+        contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + tokens.layout.sectionGap }]}
         showsVerticalScrollIndicator={false}
         removeClippedSubviews={Platform.OS === 'android'}
         initialNumToRender={7}
         maxToRenderPerBatch={7}
         windowSize={7}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         refreshControl={<RefreshControl refreshing={loading && jobs.length > 0} onRefresh={() => void fetchJobs()} tintColor={tokens.colors.brand} />}
         ListHeaderComponent={<>
         <EmployerModeBanner title={t('jobPosts.banner.title')} detail={t('jobPosts.banner.detail')} />
@@ -545,6 +552,7 @@ function DetailSection({ title, value, values }: { title: string; value?: string
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: tokens.colors.signedInCanvas },
+  headerWrap: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
   scroll: { paddingHorizontal: tokens.layout.gutterWide, paddingTop: tokens.layout.sectionGap, paddingBottom: tokens.layout.tabBarClearance + 16 },
   statGrid: { flexDirection: 'row', gap: 10, marginBottom: 10 },
   postJobButton: {
@@ -746,13 +754,13 @@ const styles = StyleSheet.create({
   detailsHeaderCopy: { flex: 1, paddingRight: 12 },
   detailsEyebrow: { color: tokens.colors.brand, fontSize: 11, fontWeight: '800', letterSpacing: 1.2 },
   detailsTitle: { marginTop: 5, color: tokens.colors.text, fontSize: 21, fontWeight: '800' },
-  iconButton: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.surfaceMuted },
+  iconButton: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   detailsScroll: { padding: 18, gap: 12 },
   detailTagRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 2 },
   detailTag: { borderRadius: 999, backgroundColor: tokens.colors.brandSoft, color: tokens.colors.brand, paddingHorizontal: 10, paddingVertical: 5, fontSize: 11, fontWeight: '700' },
   urgentDetailTag: { backgroundColor: '#fee2e2', color: '#b91c1c' },
   detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 4 },
-  detailIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.colors.brandSoft },
+  detailIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   detailCopy: { flex: 1 },
   detailLabel: { color: tokens.colors.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   detailValue: { marginTop: 3, color: tokens.colors.text, fontSize: 14, lineHeight: 20 },

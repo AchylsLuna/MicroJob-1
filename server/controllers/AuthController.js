@@ -9,6 +9,7 @@ import {
   isValidName,
   isValidPhone,
   NAME_VALIDATION_MESSAGE,
+  FULL_NAME_REQUIRED_MESSAGE,
   normalizeName,
   normalizeEmail,
   normalizePhone,
@@ -22,18 +23,26 @@ import {
   setSessionCookies,
   normalizeUsername,
   normalizeDisplayName,
+  isNativeAuthRequest,
 } from '../lib/authSession.js';
 import {
   createMfaChallengeToken,
   createLoginMethodSelectionToken,
   LOGIN_METHOD_SELECTION_PURPOSE,
   issueLoginOtpChallenge,
+  getTestLoginOtpCode,
   LOGIN_OTP_PURPOSE,
   MFA_LOGIN_PURPOSE,
   MFA_METHOD,
   verifyMfaCodeForUser,
 } from '../lib/mfaHelpers.js';
 import { getOtpChallenge, verifyOtpChallenge } from '../lib/otpChallenges.js';
+import {
+  issueTrustedDevice,
+  consumeTrustedDevice,
+  setTrustedDeviceCookie,
+  getTrustedDeviceTokenFromRequest,
+} from '../lib/trustedDevice.js';
 import { SELF_SERVICE_ROLES } from './SessionController.js';
 
 const googleClient = new OAuth2Client();
@@ -59,7 +68,10 @@ const registerUser = async (req, res) => {
     if (!isStrongPassword(password)) {
       return sendError(res, 400, PASSWORD_POLICY_MESSAGE);
     }
-    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+    if (!normalizedPhone) {
+      return sendError(res, 400, 'Phone number is required');
+    }
+    if (!isValidPhone(normalizedPhone)) {
       return sendError(res, 400, PHONE_VALIDATION_MESSAGE);
     }
 
@@ -70,8 +82,14 @@ const registerUser = async (req, res) => {
         return sendError(res, 400, 'Username or full name is required');
       }
       const nameParts = displayUsername.split(' ').filter(Boolean);
-      userFirstName = nameParts[0] || displayUsername;
-      userLastName = nameParts.slice(1).join(' ') || userFirstName;
+      // A single word is not a complete name -- silently mirroring it into both
+      // first and last name would create a "John John" record instead of
+      // rejecting the input, so require at least two parts here.
+      if (nameParts.length < 2) {
+        return sendError(res, 400, FULL_NAME_REQUIRED_MESSAGE);
+      }
+      userFirstName = nameParts[0];
+      userLastName = nameParts.slice(1).join(' ');
     }
 
     userFirstName = normalizeName(userFirstName);
@@ -222,14 +240,6 @@ const loginUser = async (req, res) => {
       return sendError(res, 401, 'Account has been deleted.');
     }
 
-    if (requireOtp) {
-      const loginOtp = await issueLoginOtpChallenge(user, includePhone);
-      return sendSuccess(res, 200, 'OTP verification required', {
-        otpRequired: true,
-        otpToken: loginOtp.otpToken,
-      });
-    }
-
     if (user.mfaEnabled) {
       const selectionToken = createLoginMethodSelectionToken(String(user._id), includePhone);
       return sendSuccess(res, 200, 'Choose a verification method', {
@@ -238,6 +248,26 @@ const loginUser = async (req, res) => {
         methods: ['mfa', 'gmail_otp'],
       });
     }
+
+    // A trusted device (see lib/trustedDevice.js) lets a login skip the OTP
+    // challenge below without weakening it: the client always sends
+    // requireOtp:true, so the skip decision is made here, server-side, based
+    // on a token the server itself issued after a prior OTP verification --
+    // never on anything the client merely claims.
+    let trustedDevice = null;
+    if (requireOtp) {
+      const deviceToken = getTrustedDeviceTokenFromRequest(req);
+      trustedDevice = await consumeTrustedDevice({ token: deviceToken, userId: user._id });
+    }
+
+    if (requireOtp && !trustedDevice) {
+      const loginOtp = await issueLoginOtpChallenge(user, includePhone);
+      return sendSuccess(res, 200, 'OTP verification required', {
+        otpRequired: true,
+        otpToken: loginOtp.otpToken,
+      });
+    }
+
 
     const authSession = await createSessionWithTokens(req, user);
     const csrfToken = crypto.randomBytes(24).toString('hex');
@@ -250,8 +280,20 @@ const loginUser = async (req, res) => {
       csrfToken,
     });
 
+    if (trustedDevice) {
+      setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+    }
+
     const userPayload = buildLoginPayload(user, includePhone);
-    return sendSuccess(res, 200, 'Login successful', { ...buildAuthTokensPayload(req, authSession), user: userPayload });
+    return sendSuccess(res, 200, 'Login successful', {
+      ...buildAuthTokensPayload(req, authSession),
+      // Native has no persistent cookie jar across app restarts, so the
+      // rotated token travels in the body the same way refreshToken does.
+      ...(trustedDevice && isNativeAuthRequest(req)
+        ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+        : {}),
+      user: userPayload,
+    });
   } catch (error) {
     console.error('Login error:', error);
     return sendError(res, 500, 'Server error during login');
@@ -508,8 +550,23 @@ const loginOtpVerify = async (req, res) => {
       csrfToken,
     });
 
+    let trustedDevice = null;
+    if (req.body?.rememberDevice) {
+      trustedDevice = await issueTrustedDevice(user, {
+        ip: req.ip || req.headers['x-forwarded-for'] || '',
+        label: req.get('User-Agent') || '',
+      });
+      setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+    }
+
     const payload = buildLoginPayload(user, includePhone);
-    return sendSuccess(res, 200, 'Login successful', { ...buildAuthTokensPayload(req, authSession), user: payload });
+    return sendSuccess(res, 200, 'Login successful', {
+      ...buildAuthTokensPayload(req, authSession),
+      ...(trustedDevice && isNativeAuthRequest(req)
+        ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+        : {}),
+      user: payload,
+    });
   } catch (e) {
     console.error('Login OTP verify error:', e);
     return sendError(res, 500, 'Server error');
@@ -557,6 +614,23 @@ const loginOtpResend = async (req, res) => {
   }
 };
 
+// Test-only escape hatch for the isolated e2e harness: the login OTP is
+// deliberately never returned in the /login or /login/otp/* API responses
+// (see mfaHelpers.issueLoginOtpChallenge), and the e2e sandbox has no real
+// mailbox to read it from. This is a no-op 404 outside NODE_ENV === 'test',
+// so it never exists as a usable path in development or production.
+const debugLoginOtp = async (req, res) => {
+  if (process.env.NODE_ENV !== 'test') {
+    return sendError(res, 404, 'Not found');
+  }
+  const email = String(req.query?.email || '').toLowerCase().trim();
+  const code = getTestLoginOtpCode(email);
+  if (!code) {
+    return sendError(res, 404, 'No login OTP has been issued for this address.');
+  }
+  return sendSuccess(res, 200, 'ok', { code });
+};
+
 export {
   registerUser,
   loginUser,
@@ -565,6 +639,7 @@ export {
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
+  debugLoginOtp,
 };
 export default {
   registerUser,
@@ -574,4 +649,5 @@ export default {
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
+  debugLoginOtp,
 };

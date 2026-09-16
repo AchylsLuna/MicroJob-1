@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { OTPVerification } from "./OTPVerification";
+import { Dialog } from "./ui";
+import { LegalDocumentBody } from "./LegalDocumentBody";
+import { LEGAL_DOCUMENTS, type LegalDocId } from "../constants/legalDocuments";
 import { toast } from "../lib/toast";
 import { getPasswordStrength, PASSWORD_RULES, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import {
@@ -70,6 +73,7 @@ export function SignUp() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [legalDialogDoc, setLegalDialogDoc] = useState<LegalDocId | null>(null);
   const [showOTP, setShowOTP] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitInFlightRef = useRef(false);
@@ -185,7 +189,7 @@ export function SignUp() {
       return;
     }
 
-    if (!formData.fullName || !formData.email || !formData.password || !formData.confirmPassword) {
+    if (!formData.fullName || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
       toast.error(t("validation.invalidInputPrefix", { detail: t("signUp.toast.missingRequiredFieldsDetail") }));
       return;
     }
@@ -200,7 +204,7 @@ export function SignUp() {
       return;
     }
 
-    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+    if (!normalizedPhone || !isValidPhone(normalizedPhone)) {
       toast.error(t("validation.invalidInputPrefix", { detail: getPhoneValidationMessage(t) }));
       return;
     }
@@ -457,23 +461,32 @@ export function SignUp() {
             />
             {/* The links live inside the <label>, so a click on one would also
                 activate the label and silently flip the consent checkbox.
-                stopPropagation keeps "read the terms" from meaning "I agree". */}
+                stopPropagation keeps "read the terms" from meaning "I agree".
+                Opening a dialog instead of navigating to /legal also means the
+                click never leaves this page, so the password field (deliberately
+                excluded from the sessionStorage draft) never gets wiped. */}
             <label htmlFor="signup-terms" className="text-[13px] leading-6 text-slate-600">
               <Trans
                 t={t}
                 i18nKey="signUp.terms.agreement"
                 components={{
                   terms: (
-                    <Link
-                      to={ROUTES.legalDoc("terms")}
-                      onClick={(event) => event.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setLegalDialogDoc("terms");
+                      }}
                       className="font-medium text-[#1C4D8D] hover:opacity-80"
                     />
                   ),
                   privacy: (
-                    <Link
-                      to={ROUTES.legalDoc("privacy")}
-                      onClick={(event) => event.stopPropagation()}
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setLegalDialogDoc("privacy");
+                      }}
                       className="font-medium text-[#1C4D8D] hover:opacity-80"
                     />
                   ),
@@ -489,6 +502,16 @@ export function SignUp() {
       </AuthShell>
 
       {showOTP && <OTPVerification email={normalizedEmail} onClose={() => setShowOTP(false)} />}
+
+      <Dialog
+        open={legalDialogDoc !== null}
+        title={LEGAL_DOCUMENTS.find((doc) => doc.id === legalDialogDoc)?.title ?? ""}
+        onClose={() => setLegalDialogDoc(null)}
+      >
+        {legalDialogDoc ? (
+          <LegalDocumentBody doc={LEGAL_DOCUMENTS.find((doc) => doc.id === legalDialogDoc)!} hideHeading />
+        ) : null}
+      </Dialog>
     </>
   );
 }

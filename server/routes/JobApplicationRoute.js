@@ -9,6 +9,7 @@ import {
   markEmployerApplicationRead,
   markApplicantApplicationRead,
   hideEmployerApplication,
+  restoreEmployerApplication,
   deleteEmployerApplication,
   scheduleInterview,
   updateInterview,
@@ -29,6 +30,7 @@ router.post('/applications/:applicationId/interviews', authenticateToken, schedu
 router.patch('/applications/:applicationId/interviews/:interviewId', authenticateToken, updateInterview);
 router.patch('/applications/:applicationId/employer/read', authenticateToken, markEmployerApplicationRead);
 router.patch('/applications/:applicationId/employer/remove', authenticateToken, hideEmployerApplication);
+router.patch('/applications/:applicationId/employer/restore', authenticateToken, restoreEmployerApplication);
 router.delete('/applications/:applicationId/employer', authenticateToken, deleteEmployerApplication);
 router.patch('/applications/:applicationId/applicant/read', authenticateToken, markApplicantApplicationRead);
 router.post('/applications/:applicationId/offers', authenticateToken, createJobOffer);

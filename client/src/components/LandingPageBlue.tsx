@@ -148,13 +148,16 @@ export function LandingPageBlue() {
       if (query) params.set("q", query);
       if (options?.categoryId) params.set("category", options.categoryId);
       const search = params.toString();
-      const target = `${ROUTES.worker.findJobs}${search ? `?${search}` : ""}`;
 
       if (!isAuthenticated) {
-        navigate(ROUTES.signIn, { state: { from: target } });
+        // The list itself is public (GET /jobs runs behind optionalAuth) — let
+        // a signed-out visitor browse and search immediately instead of
+        // bouncing them through a sign-in wall first. Apply/Save still gate on
+        // being signed in, right at the point of use.
+        navigate(`${ROUTES.publicJobs}${search ? `?${search}` : ""}`);
         return;
       }
-      navigate(target);
+      navigate(`${ROUTES.worker.findJobs}${search ? `?${search}` : ""}`);
     },
     [heroIntent, isAuthenticated, navigate, user?.accountType],
   );

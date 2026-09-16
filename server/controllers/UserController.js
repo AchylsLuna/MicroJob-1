@@ -25,7 +25,8 @@ import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy
 import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 import { getReviewSummary } from "../lib/reviewSummary.js";
-import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies } from "../lib/authSession.js";
+import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest } from "../lib/authSession.js";
+import { issueTrustedDevice, setTrustedDeviceCookie, clearTrustedDevicesForUser } from "../lib/trustedDevice.js";
 import crypto from "node:crypto";
 import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../lib/otpChallenges.js";
 import monitor from "../lib/monitor.js";
@@ -181,6 +182,9 @@ async function revokeSessions(userId, exceptSessionId) {
         );
         sessionIds.forEach((sessionId) => disconnectSession(sessionId));
     }
+    // A password change means any device that was trusted under the old
+    // password should have to prove itself with OTP again.
+    await clearTrustedDevicesForUser(userId);
 }
 
 async function getDeletionBlockers(userId) {
@@ -293,6 +297,11 @@ export async function anonymizeAndDeleteUser(userId) {
     user.totalExperience = undefined;
     user.skills = [];
     user.workExperience = [];
+    // Credentials are personal data like the fields above -- clearing them here
+    // is what keeps anonymization complete rather than leaving an identifiable
+    // trail of employers, schools, and credential IDs on a deleted account.
+    user.internships = [];
+    user.certificates = [];
     user.verification = {
         emailVerified: false,
         phoneVerified: false,
@@ -459,6 +468,7 @@ export async function changeInitialPassword(req, res) {
             { user: user._id, active: true, ...(currentSessionId ? { _id: { $ne: currentSessionId } } : {}) },
             { $set: { active: false, endedAt: new Date() } },
         );
+        await clearTrustedDevicesForUser(user._id);
         return res.status(200).json({ message: "Password changed successfully." });
     } catch (error) {
         console.error("Initial password change error:", error);
@@ -756,7 +766,7 @@ export async function updateProfile(req, res) {
             returnDocument: "after",
             runValidators: true,
         }).select(
-            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName avatarUrl resumeUrl resumeFileName about linkedin website totalExperience skills workExperience projectsCompleted jobsApplied successRate hideHiredCandidates verification"
+            "firstName lastName email phoneNumber role city province barangay addressType address facebook profilePhotoName jobPosition companyName startDate endDate logoName avatarUrl resumeUrl resumeFileName about linkedin website totalExperience skills workExperience internships certificates projectsCompleted jobsApplied successRate hideHiredCandidates verification"
         );
 
         if (!user) {
@@ -820,7 +830,7 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience jobsApplied projectsCompleted successRate hideHiredCandidates"
+            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience internships certificates jobsApplied projectsCompleted successRate hideHiredCandidates"
         );
 
         if (!user) {
@@ -876,6 +886,12 @@ export async function getPublicProfile(req, res) {
                 avatarUrl: user.avatarUrl,
                 skills: Array.isArray(user.skills) ? user.skills : [],
                 workExperience: Array.isArray(user.workExperience) ? user.workExperience : [],
+                // Credentials are deliberately public: they exist to be shown to
+                // employers, and the "Public View" of a profile is where that
+                // happens. Same defensive [] default as the two above so the
+                // client never has to guard against undefined.
+                internships: Array.isArray(user.internships) ? user.internships : [],
+                certificates: Array.isArray(user.certificates) ? user.certificates : [],
             },
             rating: {
                 viewAs: viewer,
@@ -1008,9 +1024,20 @@ export async function verifyOtp(req, res) {
             csrfToken: crypto.randomBytes(24).toString("hex"),
         });
 
+        // The device that just completed signup verification is trusted
+        // immediately, so the very next login on it skips a second OTP.
+        const trustedDevice = await issueTrustedDevice(user, {
+            ip: req.ip || req.headers["x-forwarded-for"] || "",
+            label: req.get("User-Agent") || "",
+        });
+        setTrustedDeviceCookie(res, trustedDevice.token, trustedDevice.expiresAt);
+
         return res.status(200).json({
             message: "Email verified and login successful.",
             ...buildAuthTokensPayload(req, authSession),
+            ...(isNativeAuthRequest(req)
+                ? { trustedDeviceToken: trustedDevice.token, trustedDeviceExpiresAt: trustedDevice.expiresAt }
+                : {}),
             user: {
                 id: user._id,
                 firstName: user.firstName,

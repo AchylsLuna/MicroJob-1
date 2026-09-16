@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: tokens.colors.brandSoft,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },

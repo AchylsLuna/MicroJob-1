@@ -79,6 +79,11 @@ export type MfaChallengeResponse = {
   method?: string;
   message?: string;
 };
+export type LoginOtpChallengeResponse = {
+  otpRequired: true;
+  otpToken: string;
+  message?: string;
+};
 export type LoginMethodSelectionResponse = {
   methodSelectionRequired: true;
   selectionToken: string;
@@ -88,8 +93,24 @@ export type LoginMethodSelectionResponse = {
 export type LoginResponse =
   | AuthResponse
   | MfaChallengeResponse
+  | LoginOtpChallengeResponse
   | LoginMethodSelectionResponse
-  | { data: AuthResponse | MfaChallengeResponse | LoginMethodSelectionResponse; message?: string };
+  | {
+      data:
+        | AuthResponse
+        | MfaChallengeResponse
+        | LoginOtpChallengeResponse
+        | LoginMethodSelectionResponse;
+      message?: string;
+    };
+export type TrustedDevice = {
+  _id: string;
+  label?: string;
+  ip?: string;
+  createdAt?: string;
+  lastUsedAt?: string;
+  expiresAt?: string;
+};
 export type WorkExperienceMedia = {
   _id?: string;
   url: string;
@@ -108,6 +129,19 @@ export type WorkExperience = {
   current: boolean;
   description?: string;
   media?: WorkExperienceMedia[];
+};
+/** Same field set as WorkExperience minus media — see server/models/User.js. */
+export type Internship = Omit<WorkExperience, 'media'>;
+export type Certificate = {
+  _id?: string;
+  id?: string;
+  name: string;
+  issuer: string;
+  issueDate: string;
+  /** null means "does not expire", which is distinct from "unknown". */
+  expiryDate?: string | null;
+  credentialId?: string;
+  credentialUrl?: string;
 };
 export type PaymentTarget = 'EMPLOYER' | 'WORKER' | 'BOTH';
 export type PaymentTransaction = {
@@ -308,28 +342,46 @@ throw new Error(import.meta.env.DEV
   return { res, data };
 }
 
+// The refresh endpoint rotates the refresh token and rejects reuse of the old
+// one. Without this guard, several requests hitting a 401 at the same moment
+// (e.g. a page that fans out on load) would each call refresh independently;
+// only the first would succeed and the rest would be told the token was
+// "already used", logging the user out of a session that was actually fine.
+// Sharing one in-flight promise means concurrent callers see the same result.
+let refreshInFlight: Promise<boolean> | null = null;
+
 async function tryRefreshSession() {
-  const csrfToken = getCsrfToken();
-  if (!csrfToken) return false;
+  if (refreshInFlight) return refreshInFlight;
 
-  const refreshCandidates = buildApiCandidates('/auth/refresh');
-  for (const url of refreshCandidates) {
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-csrf-token': csrfToken,
-        },
-      });
-      if (response.ok) return true;
-    } catch {
-      // Try the next refresh candidate on network failure.
+  refreshInFlight = (async () => {
+    const csrfToken = getCsrfToken();
+    if (!csrfToken) return false;
+
+    const refreshCandidates = buildApiCandidates('/auth/refresh');
+    for (const url of refreshCandidates) {
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-csrf-token': csrfToken,
+          },
+        });
+        if (response.ok) return true;
+      } catch {
+        // Try the next refresh candidate on network failure.
+      }
     }
-  }
 
-  return false;
+    return false;
+  })();
+
+  try {
+    return await refreshInFlight;
+  } finally {
+    refreshInFlight = null;
+  }
 }
 
 function buildQuery(params?: QueryParams) {
@@ -368,25 +420,29 @@ async function request<T>(
 
   let { res, data } = await performRequest(path, method, headers, body, isFormData, options.signal);
 
-  if (!res.ok) {
-    const canAttemptRefresh =
-      res.status === 401 &&
-      hasLocalSession &&
-      !AUTH_PATHS_WITHOUT_REFRESH.has(normalizedPath);
+  const canAttemptRefresh =
+    !res.ok &&
+    res.status === 401 &&
+    hasLocalSession &&
+    !AUTH_PATHS_WITHOUT_REFRESH.has(normalizedPath);
+  let refreshSucceeded = false;
 
-    if (canAttemptRefresh) {
-      const refreshed = await tryRefreshSession();
-      if (refreshed) {
-        const retryResult = await performRequest(path, method, headers, body, isFormData, options.signal);
-        res = retryResult.res;
-        data = retryResult.data;
-      }
+  if (canAttemptRefresh) {
+    refreshSucceeded = await tryRefreshSession();
+    if (refreshSucceeded) {
+      const retryResult = await performRequest(path, method, headers, body, isFormData, options.signal);
+      res = retryResult.res;
+      data = retryResult.data;
     }
   }
 
   if (!res.ok) {
     const message = data?.message || 'Request failed';
-    if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession })) {
+    // Only treat this as an invalid session if we never refreshed, or the
+    // refresh itself failed. A successful refresh whose retry still 401s is
+    // some other problem, not an expired session -- don't force a logout.
+    const refreshFailed = canAttemptRefresh ? !refreshSucceeded : true;
+    if (isInvalidTokenError({ status: res.status, message, path, hasToken: hasLocalSession, refreshFailed })) {
       handleInvalidSession();
     }
     const error = new Error(message) as Error & {
@@ -407,7 +463,7 @@ export function registerUser(payload: { username?: string; firstName?: string; l
   return request<AuthResponse>('/auth/register', { method: 'POST', body: payload });
 }
 
-export function loginUser(payload: { emailOrUsername: string; password: string }) {
+export function loginUser(payload: { emailOrUsername: string; password: string; requireOtp?: boolean }) {
   return request<LoginResponse>('/auth/login', { method: 'POST', body: payload });
 }
 
@@ -415,7 +471,7 @@ export function selectLoginMethod(payload: { selectionToken: string; method: "mf
   return request<LoginResponse>('/auth/login/method', { method: 'POST', body: payload });
 }
 
-export function verifyLoginOtp(payload: { otpToken: string; code: string }) {
+export function verifyLoginOtp(payload: { otpToken: string; code: string; rememberDevice?: boolean }) {
   return request<AuthResponse | { data: AuthResponse }>('/auth/login/otp/verify', {
     method: 'POST',
     body: payload,
@@ -423,7 +479,7 @@ export function verifyLoginOtp(payload: { otpToken: string; code: string }) {
 }
 
 export function resendLoginOtp(payload: { otpToken: string }) {
-  return request<{ otpRequired: true; otpToken: string }>('/auth/login/otp/resend', {
+  return request<LoginOtpChallengeResponse | { data: LoginOtpChallengeResponse }>('/auth/login/otp/resend', {
     method: 'POST',
     body: payload,
   });
@@ -485,10 +541,6 @@ export function createCategory(payload: { name: string; description?: string }) 
   return request('/categories', { method: 'POST', body: payload });
 }
 
-export function updateCategory(id: string, payload: { name?: string; description?: string }) {
-  return request(`/categories/${id}`, { method: 'PUT', body: payload });
-}
-
 export function deleteCategory(id: string) {
   return request(`/categories/${id}`, { method: 'DELETE' });
 }
@@ -498,16 +550,8 @@ export function getJobs(params?: QueryParams) {
   return request<any[]>(`/jobs${buildQuery(params)}`, { method: 'GET' });
 }
 
-export function getAvailableJobs() {
-  return request<any[]>('/jobs/available', { method: 'GET' });
-}
-
 export function getRecommendedJobs(limit = 12) {
   return request<any[]>(`/jobs/recommended${buildQuery({ limit })}`, { method: 'GET' });
-}
-
-export function getJobByCategory(categoryId: string) {
-  return request<any[]>(`/jobs/category/${categoryId}`, { method: 'GET' });
 }
 
 export function getJobDetails(jobId: string) {
@@ -528,14 +572,6 @@ export function deleteJob(jobId: string) {
 
 export function applyForJob(jobId: string, payload?: { resume?: string; coverLetter?: string }) {
   return request(`/jobs/${jobId}/apply`, { method: 'POST', body: payload });
-}
-
-export function getApplicantsList(jobId: string) {
-  return request(`/jobs/${jobId}/applicants`, { method: 'GET' });
-}
-
-export function selectApplicant(jobId: string, applicantId: string) {
-  return request(`/jobs/${jobId}/select/${applicantId}`, { method: 'PATCH' });
 }
 
 export function changeJobStatus(jobId: string, status: string) {
@@ -688,11 +724,70 @@ export function updateInterview(
   return request(`/applications/${applicationId}/interviews/${interviewId}`, { method: 'PATCH', body: payload });
 }
 
-// User APIs
-export function getUserList() {
-  return request<any[]>('/users/userlist', { method: 'GET' });
+export function restoreEmployerApplication(applicationId: string) {
+  return request(`/applications/${applicationId}/employer/restore`, { method: 'PATCH' });
 }
 
+// Job offer APIs
+export type JobOfferStatus = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'hired';
+
+export type JobOffer = {
+  id: string;
+  applicationId: string;
+  jobId: string;
+  employerId: string;
+  workerId: string;
+  amount: number;
+  status: JobOfferStatus;
+  createdAt?: string;
+  acceptedAt?: string | null;
+};
+
+export function createJobOffer(applicationId: string, amount: number) {
+  return request<{ offer: JobOffer }>(`/applications/${applicationId}/offers`, {
+    method: 'POST',
+    body: { amount },
+  });
+}
+
+export function respondToJobOffer(offerId: string, action: 'accept' | 'reject') {
+  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/respond`, {
+    method: 'POST',
+    body: { action },
+  });
+}
+
+export function cancelJobOffer(offerId: string) {
+  return request<{ offer: JobOffer }>(`/job-offers/${offerId}/cancel`, { method: 'POST' });
+}
+
+export function confirmOfferHire(offerId: string) {
+  return request<{ offer: JobOffer; application: any }>(`/job-offers/${offerId}/confirm-hire`, { method: 'POST' });
+}
+
+// Hire work & payment APIs
+export function authorizePayment(applicationId: string) {
+  return request<{ application: any }>(`/applications/${applicationId}/payment/authorize`, { method: 'POST' });
+}
+
+export function submitWork(applicationId: string) {
+  return request<{ application: any }>(`/applications/${applicationId}/work/submit`, { method: 'POST' });
+}
+
+export function requestChanges(applicationId: string, reason: string) {
+  return request<{ application: any }>(`/applications/${applicationId}/work/request-changes`, {
+    method: 'POST',
+    body: { reason },
+  });
+}
+
+export function settlePayment(applicationId: string) {
+  return request<{ message: string; application: any; job: any }>(`/applications/${applicationId}/payment/settle`, {
+    method: 'POST',
+  });
+}
+
+// User APIs
 export function updateUserStatus(userId: string, status: 'active' | 'pending' | 'disabled') {
   return request(`/users/${userId}/status`, { method: 'PATCH', body: { status } });
 }
@@ -796,6 +891,46 @@ export function deleteExperienceMedia(experienceId: string, mediaId: string) {
   }).then((response: any) => response?.data ?? response);
 }
 
+export function addInternship(payload: Omit<Internship, '_id' | 'id'>) {
+  return request<{ internships: Internship[] }>('/auth/profile/internships', {
+    method: 'POST',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function updateInternship(internshipId: string, payload: Partial<Internship>) {
+  return request<{ internships: Internship[] }>(`/auth/profile/internships/${internshipId}`, {
+    method: 'PATCH',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function deleteInternship(internshipId: string) {
+  return request<{ internships: Internship[] }>(`/auth/profile/internships/${internshipId}`, {
+    method: 'DELETE',
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function addCertificate(payload: Omit<Certificate, '_id' | 'id'>) {
+  return request<{ certificates: Certificate[] }>('/auth/profile/certificates', {
+    method: 'POST',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function updateCertificate(certificateId: string, payload: Partial<Certificate>) {
+  return request<{ certificates: Certificate[] }>(`/auth/profile/certificates/${certificateId}`, {
+    method: 'PATCH',
+    body: payload,
+  }).then((response: any) => response?.data ?? response);
+}
+
+export function deleteCertificate(certificateId: string) {
+  return request<{ certificates: Certificate[] }>(`/auth/profile/certificates/${certificateId}`, {
+    method: 'DELETE',
+  }).then((response: any) => response?.data ?? response);
+}
+
 export function addProfileSkill(payload: { name: string; description?: string }) {
   return request<{ message?: string; data?: { skills?: any[] }; skills?: any[] }>('/auth/profile/skills', {
     method: 'POST',
@@ -879,26 +1014,9 @@ export function registerPushDevice(payload: { token: string; deviceName?: string
   return request<{ message: string; device: any }>('/notifications/devices', { method: 'POST', body: payload });
 }
 
-export function removePushDevice(deviceId: string) {
-  return request<{ message: string }>(`/notifications/devices/${deviceId}`, { method: 'DELETE' });
-}
-
 // Social sign-in
 export function googleSignIn(idToken: string) {
   return request<{ token?: string; user?: any; message?: string }>(`/auth/google`, { method: 'POST', body: { idToken } });
-}
-
-// Alerts APIs
-export function getAlerts(params?: QueryParams) {
-  return request<any[]>(`/alerts${buildQuery(params)}`, { method: 'GET' });
-}
-
-export function updateAlertStatus(alertId: string, status: 'open' | 'snoozed' | 'resolved') {
-  return request(`/alerts/${alertId}/status`, { method: 'PATCH', body: { status } });
-}
-
-export function deleteAlert(alertId: string) {
-  return request(`/alerts/${alertId}`, { method: 'DELETE' });
 }
 
 // Sessions APIs
@@ -916,6 +1034,14 @@ export function revokeAllSessions() {
 
 export function cleanupInactiveSessions() {
   return request<{ message: string; deletedCount: number }>('/auth/sessions/cleanup', { method: 'POST' });
+}
+
+export function getTrustedDevices() {
+  return request<{ devices: TrustedDevice[] }>('/auth/trusted-devices', { method: 'GET' });
+}
+
+export function revokeTrustedDevice(deviceId: string) {
+  return request('/auth/trusted-devices/' + deviceId, { method: 'DELETE' });
 }
 
 // Verification APIs
@@ -944,30 +1070,6 @@ export function requestPhoneVerificationOtp() {
 
 export function confirmPhoneVerificationOtp(payload: { code: string }) {
   return request<{ message: string; verified: boolean }>('/auth/verification/phone/confirm', {
-    method: 'POST',
-    body: payload,
-  });
-}
-
-export function uploadIdentityDocument(file: File) {
-  const formData = new FormData();
-  formData.append('document', file);
-  return request<{ message: string; documentUrl: string; status: string }>(
-    '/auth/verification/documents/identity',
-    { method: 'POST', body: formData }
-  );
-}
-
-export function sendPhoneVerificationCode() {
-  return request<{ message: string }>('/verify-phone/send-code', { method: 'POST' });
-}
-
-export function resendPhoneVerificationCode() {
-  return request<{ message: string }>('/verify-phone/resend-code', { method: 'POST' });
-}
-
-export function verifyPhoneVerificationCode(payload: { otp: string }) {
-  return request<{ message: string }>('/verify-phone/verify-code', {
     method: 'POST',
     body: payload,
   });
@@ -1031,10 +1133,6 @@ export function confirmTopUp(payload: { referenceNumber?: string; checkoutId?: s
 
 export function getPaymentTransactions() {
   return request<{ transactions: PaymentTransaction[] }>('/payment/transactions', { method: 'GET' });
-}
-
-export function getPaymentAudit() {
-  return request<{ transactions: PaymentTransaction[] }>('/payment/audit', { method: 'GET' });
 }
 
 export function getPayoutRequests() {

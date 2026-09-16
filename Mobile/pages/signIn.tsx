@@ -31,12 +31,14 @@ export default function SignIn({
   onNavigateToSignUp,
   onNavigateToForgot,
   onNavigateToVerify,
+  onNavigateToGuestBrowse,
   onLogin,
 }: {
   onBack: () => void;
   onNavigateToSignUp?: () => void;
   onNavigateToForgot?: () => void;
   onNavigateToVerify?: (params?: { mode?: 'emailVerification' | 'loginOtp'; email?: string; otpToken?: string }) => void;
+  onNavigateToGuestBrowse?: () => void;
   onLogin?: () => void;
 }) {
   WebBrowser.maybeCompleteAuthSession();
@@ -165,6 +167,12 @@ export default function SignIn({
     setIsLoading(true);
 
     try {
+      // A prior OTP verification on this device may have left a trusted-device
+      // token in secure storage; sending it back lets the server skip the OTP
+      // challenge again below. Native has no persistent cookie jar across app
+      // restarts, so this fallback is required here even though web can rely
+      // on the cookie the server also sets.
+      const trustedDeviceToken = await AsyncStorage.getItem('trusted_device_token');
       const result = await apiRequest(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: {
@@ -173,6 +181,8 @@ export default function SignIn({
         body: JSON.stringify({
           emailOrUsername: normalizedEmail,
           password,
+          requireOtp: true,
+          ...(trustedDeviceToken ? { trustedDeviceToken } : {}),
         }),
       }, t('signIn.toast.signInFailed'));
 
@@ -185,6 +195,7 @@ export default function SignIn({
       const nextMfaToken = responseData?.mfaToken || responseRaw?.mfaToken;
       const nextOtpRequired = Boolean(responseData?.otpRequired || responseRaw?.otpRequired);
       const nextOtpToken = responseData?.otpToken || responseRaw?.otpToken;
+      const rotatedTrustedDeviceToken = responseData?.trustedDeviceToken || responseRaw?.trustedDeviceToken;
       const nextSelectionToken = responseData?.selectionToken || responseRaw?.selectionToken;
 
       if (result.ok && responseData?.methodSelectionRequired && nextSelectionToken) {
@@ -199,6 +210,9 @@ export default function SignIn({
       } else if (result.ok && nextOtpRequired && nextOtpToken) {
         onNavigateToVerify?.({ mode: 'loginOtp', email: normalizedEmail, otpToken: nextOtpToken });
       } else if (result.ok && token) {
+        if (rotatedTrustedDeviceToken) {
+          await AsyncStorage.setItem('trusted_device_token', String(rotatedTrustedDeviceToken));
+        }
         await continueAfterPrimaryAuth(token, user, refreshToken);
       } else {
         const serverMessage = result.message || '';
@@ -457,6 +471,19 @@ export default function SignIn({
               </Text>
             </TouchableOpacity>
           </View>
+
+          {onNavigateToGuestBrowse ? (
+            <TouchableOpacity
+              style={styles.guestBrowseButton}
+              onPress={onNavigateToGuestBrowse}
+              accessibilityRole="button"
+              accessibilityLabel={t('signIn.browseGuestA11y')}
+            >
+              <Text style={[styles.bottomLink, { fontSize: helperFontSize }]}>
+                {t('signIn.browseGuest')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -598,6 +625,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     flexShrink: 1,
+  },
+  guestBrowseButton: {
+    alignItems: 'center',
+    marginTop: 14,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   googleSection: { marginTop: 2, marginBottom: 16 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },

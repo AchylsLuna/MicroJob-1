@@ -20,6 +20,7 @@ import {
   loginMfa,
   loginOtpVerify,
   loginOtpResend,
+  debugLoginOtp,
 } from '../controllers/AuthController.js';
 import {
   refreshSession,
@@ -27,6 +28,8 @@ import {
   revokeSession,
   revokeAllSessions,
   cleanupSessions,
+  listTrustedDevices,
+  revokeTrustedDevice,
   adminListSessions,
   logout,
 } from '../controllers/SessionController.js';
@@ -90,12 +93,17 @@ router.post('/google', loginLimiter, googleLogin);
 router.post('/login/mfa', loginLimiter, accountLoginLimiter, loginMfa);
 router.post('/login/otp/verify', loginLimiter, accountLoginLimiter, loginOtpVerify);
 router.post('/login/otp/resend', loginLimiter, accountLoginLimiter, loginOtpResend);
+// 404s outside NODE_ENV === 'test' (see AuthController.debugLoginOtp) -- the
+// e2e harness's only way to read a code it can never see in a real response.
+router.get('/debug/login-otp', debugLoginOtp);
 
 router.post('/refresh', protectRefresh, refreshSession);
 router.get('/sessions', verifyToken, listSessions);
 router.delete('/sessions/:id', verifyToken, revokeSession);
 router.delete('/sessions', verifyToken, revokeAllSessions);
 router.post('/sessions/cleanup', verifyToken, cleanupSessions);
+router.get('/trusted-devices', verifyToken, listTrustedDevices);
+router.delete('/trusted-devices/:id', verifyToken, revokeTrustedDevice);
 router.get('/admin/sessions/:userId', verifyToken, adminListSessions);
 
 router.get('/mfa/status', verifyToken, getMfaStatus);

@@ -355,7 +355,29 @@ export const getUserApplications = async (req, res) => {
       JobApplication.find(filter).sort({ updatedAt: -1 })
     );
 
-    return res.status(200).json(applications.map(serializeApplication));
+    const offers = await JobOffer.find({ application: { $in: applications.map((application) => application._id) } })
+      .sort({ createdAt: -1 })
+      .lean();
+    const latestOfferByApplication = new Map();
+    for (const offer of offers) {
+      const applicationId = String(offer.application);
+      if (!latestOfferByApplication.has(applicationId)) latestOfferByApplication.set(applicationId, offer);
+    }
+
+    return res.status(200).json(applications.map((application) => {
+      const value = serializeApplication(application);
+      const latestOffer = latestOfferByApplication.get(String(application._id));
+      return {
+        ...value,
+        offer: latestOffer ? {
+          id: String(latestOffer._id),
+          amount: Number(latestOffer.amount || 0),
+          status: latestOffer.status,
+          createdAt: latestOffer.createdAt,
+          acceptedAt: latestOffer.acceptedAt,
+        } : null,
+      };
+    }));
   } catch (error) {
     console.error('Get user applications error:', error);
     return sendError(res, 500, 'Server error', { error: error.message });
@@ -637,6 +659,26 @@ export const hideEmployerApplication = async (req, res) => {
     });
   } catch (error) {
     console.error('Hide employer application error:', error);
+    return sendError(res, 500, 'Server error', { error: error.message });
+  }
+};
+
+export const restoreEmployerApplication = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const result = await ensureEmployerAccess(applicationId, getUserId(req));
+    if (result.error) return sendError(res, result.status, result.error);
+
+    const application = result.application;
+    application.employerHidden = false;
+    application.employerHiddenAt = null;
+    await application.save();
+
+    return sendSuccess(res, 200, 'Application restored', serializeApplication(application), {
+      application: serializeApplication(application),
+    });
+  } catch (error) {
+    console.error('Restore employer application error:', error);
     return sendError(res, 500, 'Server error', { error: error.message });
   }
 };

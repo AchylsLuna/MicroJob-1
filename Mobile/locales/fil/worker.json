@@ -1,4 +1,13 @@
 {
+  "guestJobs": {
+    "title": "Tingnan ang mga Trabaho",
+    "subtitle": "Mag-sign in para mag-apply, mag-save, o magmensahe sa mga employer.",
+    "searchPlaceholder": "Maghanap ng trabaho",
+    "signInButton": "Mag-sign In",
+    "signUpButton": "Mag-sign Up",
+    "empty": "Walang nakitang trabaho.",
+    "loadFailed": "Hindi ma-load ang mga trabaho. Pakisubukan ulit."
+  },
   "about": {
     "headerTitle": "Tungkol",
     "headerSubtitle": "Impormasyon ng platform",
@@ -81,6 +90,91 @@
       "futureDates": "Hindi maaaring nasa hinaharap ang mga petsa ng karanasan sa trabaho.",
       "fieldTooLong": "May isa o higit pang field na lumampas sa pinapayagang haba.",
       "saveFailed": "Hindi na-save ang karanasan sa trabaho."
+    }
+  },
+  "addInternship": {
+    "modalTitle": {
+      "edit": "I-edit ang internship",
+      "add": "Magdagdag ng internship"
+    },
+    "modalSubtitle": {
+      "edit": "Panatilihing tama at updated ang internship na ito.",
+      "add": "Ang mga internship ay ipinapakita nang hiwalay sa may bayad na karanasan sa trabaho."
+    },
+    "close": "Isara",
+    "fields": {
+      "title": "Titulo *",
+      "titlePlaceholder": "hal., Marketing Intern",
+      "company": "Kompanya *",
+      "companyPlaceholder": "hal., Acme Co.",
+      "location": "Lokasyon",
+      "locationPlaceholder": "Lungsod o Remote",
+      "startDate": "Petsa ng simula *",
+      "endDate": "Petsa ng pagtatapos *",
+      "datePlaceholder": "YYYY-MM"
+    },
+    "current": {
+      "label": "Kasalukuyan akong nag-i-intern dito"
+    },
+    "description": {
+      "label": "Paglalarawan",
+      "placeholder": "Ilarawan ang iyong mga responsibilidad at resulta",
+      "accessibilityLabel": "Paglalarawan ng internship"
+    },
+    "characterCount": "{{count}}/{{max}}",
+    "save": {
+      "update": "I-update ang internship",
+      "save": "I-save ang internship"
+    },
+    "errors": {
+      "titleCompanyRequired": "Kinakailangan ang titulo at kompanya.",
+      "invalidStartDate": "Ilagay ang petsa ng simula bilang YYYY-MM.",
+      "invalidEndDate": "Ilagay ang petsa ng pagtatapos bilang YYYY-MM o markahan ito bilang iyong kasalukuyang internship.",
+      "endBeforeStart": "Hindi maaaring mauna ang petsa ng pagtatapos sa petsa ng simula.",
+      "futureDates": "Hindi maaaring nasa hinaharap ang mga petsa ng internship.",
+      "fieldTooLong": "May isa o higit pang field na lumampas sa pinapayagang haba.",
+      "saveFailed": "Hindi na-save ang internship."
+    }
+  },
+  "addCertificate": {
+    "modalTitle": {
+      "edit": "I-edit ang sertipiko",
+      "add": "Magdagdag ng sertipiko"
+    },
+    "modalSubtitle": {
+      "edit": "Panatilihing tama at updated ang sertipiko na ito.",
+      "add": "Magdagdag ng lisensya o sertipikasyon na maaaring i-verify ng mga employer."
+    },
+    "close": "Isara",
+    "fields": {
+      "name": "Pangalan ng sertipiko *",
+      "namePlaceholder": "hal., AWS Solutions Architect",
+      "issuer": "Nagbigay na organisasyon *",
+      "issuerPlaceholder": "hal., Amazon Web Services",
+      "issueDate": "Petsa ng paglabas *",
+      "expiryDate": "Petsa ng pag-expire",
+      "datePlaceholder": "YYYY-MM",
+      "credentialId": "Credential ID",
+      "credentialIdPlaceholder": "Opsyonal",
+      "credentialUrl": "Credential URL",
+      "credentialUrlPlaceholder": "https://…"
+    },
+    "noExpiry": {
+      "label": "Ang sertipikong ito ay hindi nag-e-expire"
+    },
+    "save": {
+      "update": "I-update ang sertipiko",
+      "save": "I-save ang sertipiko"
+    },
+    "errors": {
+      "nameIssuerRequired": "Kinakailangan ang pangalan ng sertipiko at nagbigay na organisasyon.",
+      "invalidIssueDate": "Ilagay ang petsa ng paglabas bilang YYYY-MM.",
+      "invalidExpiryDate": "Ilagay ang petsa ng pag-expire bilang YYYY-MM, o markahan ang sertipikong ito bilang hindi nag-e-expire.",
+      "expiryBeforeIssue": "Hindi maaaring mauna ang petsa ng pag-expire sa petsa ng paglabas.",
+      "futureIssueDate": "Hindi maaaring nasa hinaharap ang petsa ng paglabas.",
+      "fieldTooLong": "May isa o higit pang field na lumampas sa pinapayagang haba.",
+      "invalidCredentialUrl": "Ang Credential URL ay dapat na valid na https link.",
+      "saveFailed": "Hindi na-save ang sertipiko."
     }
   },
   "appliedJobs": {

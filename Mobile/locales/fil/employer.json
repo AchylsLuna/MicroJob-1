@@ -456,7 +456,8 @@
       "actionFailed": "Hindi makumpleto ang aksyong ito.",
       "updateCandidateFailed": "Hindi ma-update ang kandidato.",
       "scheduleInterviewFailed": "Hindi ma-schedule ang interview.",
-      "removeFailed": "Hindi maalis ang aplikasyon."
+      "removeFailed": "Hindi maalis ang aplikasyon.",
+      "restoreFailed": "Hindi maibalik ang aplikasyon."
     },
     "toast": {
       "candidateMoved": "Inilipat ang kandidato sa {{status}}.",
@@ -512,7 +513,8 @@
       "appliedRecently": "kamakailan lang",
       "matchPercent": "{{percent}}% match",
       "ratingValue": "{{rating}} ★",
-      "nextInterview": "Susunod {{date}}"
+      "nextInterview": "Susunod {{date}}",
+      "hidden": "Itinago"
     },
     "actions": {
       "viewProfile": "Tingnan ang Profile",
@@ -552,6 +554,7 @@
     },
     "rejectCandidate": "Tanggihan ang Kandidato",
     "removeFromList": "Alisin sa listahan ng employer",
+    "restoreToList": "Ibalik sa listahan",
     "confirm": {
       "reject": {
         "title": "Tanggihan ang kandidato?",

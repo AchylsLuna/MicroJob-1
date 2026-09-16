@@ -328,6 +328,98 @@ const UserSchema = new mongoose.Schema(
         },
       },
     ],
+    // Professional credentials shown on the profile alongside workExperience.
+    // Deliberately carries no `media[]`: uploads go through lib/uploadStore.js and
+    // own a deletion/reclaim path, so a second media surface is its own piece of
+    // work rather than a field added here.
+    certificates: [
+      {
+        name: {
+          type: String,
+          trim: true,
+          required: true,
+          maxlength: 120,
+        },
+        issuer: {
+          type: String,
+          trim: true,
+          required: true,
+          maxlength: 120,
+        },
+        issueDate: {
+          type: Date,
+          required: true,
+        },
+        // Null means "does not expire", which is the common case for most
+        // certifications -- distinct from "expiry unknown".
+        expiryDate: {
+          type: Date,
+          default: null,
+        },
+        credentialId: {
+          type: String,
+          trim: true,
+          maxlength: 80,
+          default: '',
+        },
+        credentialUrl: {
+          type: String,
+          trim: true,
+          maxlength: 500,
+          default: '',
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+    // Same field set as workExperience minus `media` -- an internship is a work
+    // entry, so it reuses the proven shape instead of inventing a parallel one.
+    internships: [
+      {
+        title: {
+          type: String,
+          trim: true,
+          required: true,
+          maxlength: 100,
+        },
+        company: {
+          type: String,
+          trim: true,
+          required: true,
+          maxlength: 120,
+        },
+        location: {
+          type: String,
+          trim: true,
+          maxlength: 120,
+          default: '',
+        },
+        startDate: {
+          type: Date,
+          required: true,
+        },
+        endDate: {
+          type: Date,
+          default: null,
+        },
+        current: {
+          type: Boolean,
+          default: false,
+        },
+        description: {
+          type: String,
+          trim: true,
+          maxlength: 1000,
+          default: '',
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
     verification: {
       emailVerified: {
         type: Boolean,

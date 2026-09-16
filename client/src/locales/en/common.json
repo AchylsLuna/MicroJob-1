@@ -13,6 +13,16 @@
     "closeLabel": "Close dialog"
   },
   "loading": "Loading...",
+  "settings": {
+    "saveChanges": "Save changes",
+    "saving": "Saving..."
+  },
+  "publicFindJobs": {
+    "header": {
+      "signIn": "Sign In",
+      "signUp": "Sign Up"
+    }
+  },
   "dashboardLayout": {
     "navigationMenuAria": "Navigation menu",
     "closeNavigationMenu": "Close navigation menu"

@@ -19,9 +19,11 @@ import { toast } from "../../lib/toast";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 import { isStaffConversation } from "../../utils/staffConversation";
+import { isEmployer as checkIsEmployer } from "../../utils/dashboardRoutes";
 import { useAuth } from "../../contexts/AuthContext";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage as Message } from "../../contexts/MessagingContext";
-import { formatDate, getActiveDateLocale } from "../../lib/formatters";
+import { formatCurrency, formatDate, getActiveDateLocale } from "../../lib/formatters";
+import { ConfirmDialog } from "../../components/ui/index";
 import {
   getConversationWithUser,
   sendMessage,
@@ -31,6 +33,9 @@ import {
   archiveConversation,
   deleteConversation,
   markMessagesAsRead,
+  respondToJobOffer,
+  cancelJobOffer,
+  confirmOfferHire,
 } from "../../services/api";
 
 // Consecutive messages from the same sender inside this window collapse into
@@ -96,6 +101,27 @@ const pickArray = <T,>(...candidates: any[]): T[] => {
   return [];
 };
 
+// Keyed lookup (not a template-literal key) so this stays type-safe under
+// i18next's strict key typing, matching the STATUS_LABEL_KEYS pattern used
+// on the worker AppliedJobs page for the same kind of server enum.
+const OFFER_STATUS_LABEL_KEYS: Record<string, string> = {
+  pending: "messages.offerCard.status.pending",
+  accepted: "messages.offerCard.status.accepted",
+  rejected: "messages.offerCard.status.rejected",
+  cancelled: "messages.offerCard.status.cancelled",
+  hired: "messages.offerCard.status.hired",
+};
+
+// `attachment.jobOffer` normally arrives populated (an object), but can be a
+// bare id string in edge cases -- this reads either shape the same way the
+// mobile ChatScreen reference implementation does.
+const getEntityId = (value: unknown): string => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "object") return String((value as { _id?: string; id?: string })._id || (value as { id?: string }).id || "");
+  return String(value);
+};
+
 export function Messages() {
   const { t } = useTranslation("worker");
   const navigate = useNavigate();
@@ -131,8 +157,20 @@ export function Messages() {
   const [deleteTarget, setDeleteTarget] = useState<Contact | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
+  const [offerActionBusyId, setOfferActionBusyId] = useState<string | null>(null);
+  const [offerConfirmAction, setOfferConfirmAction] = useState<{
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    run: () => Promise<void>;
+  } | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const currentUserId = user?.id || "";
+  // This same page is mounted for the worker, employer, AND admin routes
+  // (see App.tsx) -- the job-offer card's actions differ by which side of
+  // the offer the signed-in user is on, not by which route rendered it.
+  const isEmployerUser = checkIsEmployer(user);
   const listMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -760,6 +798,86 @@ export function Messages() {
     }
   };
 
+  // Re-fetches the open thread after an offer action so the card's status
+  // pill/buttons reflect the server's new state. Cheaper than reasoning
+  // about how to patch a nested populated `attachment.jobOffer` by hand,
+  // and matches the mobile reference (`ChatScreen.tsx`'s `fetchMessages()`
+  // after `updateOffer`).
+  const refreshOpenThreadMessages = async () => {
+    if (!selectedContact) return;
+    try {
+      const response: any = await getConversationWithUser(selectedContact.otherUserId, selectedContact.jobId || undefined);
+      const messagesArray = pickArray<Message>(
+        response?.messages,
+        response?.data?.messages,
+        response?.meta?.messages,
+        response?.data,
+        response,
+      );
+      setMessages(messagesArray);
+    } catch {
+      // The socket echo / poll safety net still catches up.
+    }
+  };
+
+  const runOfferAction = async (offerId: string, action: () => Promise<unknown>, successMessage?: string) => {
+    setOfferActionBusyId(offerId);
+    try {
+      await action();
+      await refreshOpenThreadMessages();
+      if (successMessage) toast.success(successMessage);
+    } catch (error: any) {
+      toast.error(error?.message || t("messages.offerCard.toast.actionFailed"));
+    } finally {
+      setOfferActionBusyId(null);
+    }
+  };
+
+  const openAcceptOfferConfirm = (offerId: string, amount: number) => {
+    setOfferConfirmAction({
+      title: t("messages.offerCard.confirmAccept.title"),
+      description: t("messages.offerCard.confirmAccept.description", { amount: formatCurrency(amount) }),
+      confirmLabel: t("messages.offerCard.confirmAccept.confirm"),
+      run: () => runOfferAction(offerId, () => respondToJobOffer(offerId, "accept"), t("messages.offerCard.toast.accepted")),
+    });
+  };
+
+  const openDeclineOfferConfirm = (offerId: string, amount: number) => {
+    setOfferConfirmAction({
+      title: t("messages.offerCard.confirmDecline.title"),
+      description: t("messages.offerCard.confirmDecline.description", { amount: formatCurrency(amount) }),
+      destructive: true,
+      confirmLabel: t("messages.offerCard.confirmDecline.confirm"),
+      run: () => runOfferAction(offerId, () => respondToJobOffer(offerId, "reject"), t("messages.offerCard.toast.declined")),
+    });
+  };
+
+  const openCancelOfferConfirm = (offerId: string) => {
+    setOfferConfirmAction({
+      title: t("messages.offerCard.confirmCancel.title"),
+      description: t("messages.offerCard.confirmCancel.description"),
+      destructive: true,
+      confirmLabel: t("messages.offerCard.confirmCancel.confirm"),
+      run: () => runOfferAction(offerId, () => cancelJobOffer(offerId), t("messages.offerCard.toast.cancelled")),
+    });
+  };
+
+  const openConfirmHireConfirm = (offerId: string) => {
+    setOfferConfirmAction({
+      title: t("messages.offerCard.confirmHireDialog.title"),
+      description: t("messages.offerCard.confirmHireDialog.description"),
+      confirmLabel: t("messages.offerCard.confirmHireDialog.confirm"),
+      run: () => runOfferAction(offerId, () => confirmOfferHire(offerId), t("messages.offerCard.toast.hired")),
+    });
+  };
+
+  const handleOfferConfirmDialogConfirm = () => {
+    if (!offerConfirmAction) return;
+    const action = offerConfirmAction;
+    setOfferConfirmAction(null);
+    void action.run();
+  };
+
   const canViewSelectedProfile =
     Boolean(selectedContact?.otherUserId) && !isStaffConversation(selectedContact, supportStartUserId);
 
@@ -1201,6 +1319,117 @@ export function Messages() {
                       const isEditing = editingMessageId === message._id;
                       const isLastOwn = message._id === lastOwnMessageId;
 
+                      // A job offer arrives as a normal message with a
+                      // structured `attachment` instead of freeform text --
+                      // see server/controllers/JobOfferController.js:44. Only
+                      // the employer ever sends one, so `isOwn` here doubles
+                      // as "I am the employer who sent this offer".
+                      const offerId = getEntityId(message.attachment?.jobOffer);
+                      const isJobOfferMessage = message.attachment?.type === "job_offer" && Boolean(offerId);
+                      if (isJobOfferMessage) {
+                        const offerValue = message.attachment?.jobOffer;
+                        const offerStatus = String(
+                          typeof offerValue === "object" ? offerValue?.status || "pending" : "pending",
+                        ).toLowerCase();
+                        const offerAmount = message.attachment?.offerAmount ?? 0;
+                        const offerBusy = offerActionBusyId === offerId;
+                        const showWorkerActions = !isEmployerUser && !isOwn && offerStatus === "pending";
+                        const showEmployerActions = isEmployerUser && isOwn && ["pending", "accepted"].includes(offerStatus);
+
+                        return (
+                          <motion.div
+                            key={message._id || `message-${index}`}
+                            initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className={`flex gap-3 ${isOwn ? "justify-end" : "justify-start"} ${row.showMeta ? "mt-3" : "mt-0.5"}`}
+                          >
+                            {!isOwn ? (
+                              <div className="w-10 shrink-0">
+                                {row.showMeta ? (
+                                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
+                                    {getInitials(selectedContact.otherUserName)}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            <div className={`flex max-w-[78%] flex-col ${isOwn ? "items-end" : "items-start"}`}>
+                              {row.showMeta ? (
+                                <div className="mb-1 flex items-center gap-2 text-[12px] text-slate-400">
+                                  {!isOwn ? <span className="font-semibold text-slate-700">{selectedContact.otherUserName}</span> : null}
+                                  <span>{formatMessageTime(message.createdAt)}</span>
+                                </div>
+                              ) : null}
+                              <div className={`w-full min-w-[260px] rounded-2xl border p-4 ${isOwn ? "border-[#BFDBFE] bg-[#EAF2FC]" : "border-slate-200 bg-white"}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-[#1C4D8D]">
+                                      {t("messages.offerCard.eyebrow")}
+                                    </p>
+                                    <p className="mt-0.5 truncate text-[14px] font-semibold text-slate-900">
+                                      {message.attachment?.jobTitle || t("messages.offerCard.fallbackTitle")}
+                                    </p>
+                                  </div>
+                                  <span
+                                    className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                                      offerStatus === "pending" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+                                    }`}
+                                  >
+                                    {t(OFFER_STATUS_LABEL_KEYS[offerStatus] || OFFER_STATUS_LABEL_KEYS.pending)}
+                                  </span>
+                                </div>
+                                <div className="mt-3 border-t border-slate-200/70 pt-3">
+                                  <p className="text-[18px] font-bold text-slate-900">{formatCurrency(offerAmount)}</p>
+                                  <p className="mt-0.5 text-[12px] text-slate-500">{t("messages.offerCard.escrowHint")}</p>
+                                </div>
+                                {showWorkerActions ? (
+                                  <div className="mt-3 flex gap-2">
+                                    <button
+                                      type="button"
+                                      disabled={offerBusy}
+                                      onClick={() => openDeclineOfferConfirm(offerId, offerAmount)}
+                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] border border-red-200 px-3 text-[12px] font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {t("messages.offerCard.decline")}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={offerBusy}
+                                      onClick={() => openAcceptOfferConfirm(offerId, offerAmount)}
+                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] bg-[#1C4D8D] px-3 text-[12px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {t("messages.offerCard.accept")}
+                                    </button>
+                                  </div>
+                                ) : null}
+                                {showEmployerActions ? (
+                                  <div className="mt-3 flex gap-2">
+                                    <button
+                                      type="button"
+                                      disabled={offerBusy}
+                                      onClick={() => openCancelOfferConfirm(offerId)}
+                                      className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] border border-[#FECACA] px-3 text-[12px] font-semibold text-[#B91C1C] transition hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {t("messages.offerCard.cancel")}
+                                    </button>
+                                    {offerStatus === "accepted" ? (
+                                      <button
+                                        type="button"
+                                        disabled={offerBusy}
+                                        onClick={() => openConfirmHireConfirm(offerId)}
+                                        className="inline-flex h-9 flex-1 items-center justify-center rounded-[10px] bg-[#1C4D8D] px-3 text-[12px] font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        {t("messages.offerCard.confirmHire")}
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      }
+
                       return (
                         <motion.div
                           key={message._id || `message-${index}`}
@@ -1394,7 +1623,7 @@ export function Messages() {
                   type="button"
                   onClick={() => void handleDeleteConversation()}
                   disabled={isDeleting}
-                  className="inline-flex min-w-28 items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-60"
+                  className="inline-flex min-w-28 items-center justify-center rounded-lg bg-red-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-800 disabled:opacity-60"
                 >
                   {isDeleting ? "Deleting..." : "Delete permanently"}
                 </button>
@@ -1403,6 +1632,16 @@ export function Messages() {
           </motion.div>
         ) : null}
       </AnimatePresence>
+      <ConfirmDialog
+        open={Boolean(offerConfirmAction)}
+        title={offerConfirmAction?.title || ""}
+        description={offerConfirmAction?.description || ""}
+        confirmLabel={offerConfirmAction?.confirmLabel}
+        destructive={offerConfirmAction?.destructive}
+        pending={Boolean(offerActionBusyId)}
+        onConfirm={handleOfferConfirmDialogConfirm}
+        onClose={() => setOfferConfirmAction(null)}
+      />
     </div>
   );
 }

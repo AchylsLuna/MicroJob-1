@@ -10,6 +10,8 @@ export const PHONE_VALIDATION_MESSAGE =
   "Phone number must be a valid Philippine mobile number (09XXXXXXXXX).";
 export const NAME_VALIDATION_MESSAGE =
   "Full name must contain letters only (spaces, apostrophes, hyphens, and periods are allowed).";
+export const FULL_NAME_REQUIRED_MESSAGE =
+  'Full name must include both a first and last name, e.g. "John Dela Cruz".';
 
 export function normalizeEmail(value = "") {
   return String(value).trim().toLowerCase();

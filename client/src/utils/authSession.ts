@@ -31,11 +31,17 @@ export const isInvalidTokenError = ({
   message,
   path,
   hasToken,
+  refreshFailed = true,
 }: {
   status?: number;
   message?: string;
   path?: string;
   hasToken?: boolean;
+  // Whether a session-refresh attempt for this request actually failed.
+  // Defaults to true so callers that don't track refresh outcome keep the
+  // old behavior. When a refresh just succeeded and the retried request
+  // still 401s, that's not an invalid session -- don't force a logout.
+  refreshFailed?: boolean;
 }) => {
   if (status !== 401) return false;
 
@@ -50,8 +56,10 @@ export const isInvalidTokenError = ({
     return true;
   }
 
-  // Protected API returned 401 while we had a token, treat as expired session.
-  return Boolean(hasToken);
+  // Protected API returned 401 while we had a token, treat as expired session
+  // -- unless a refresh we just performed actually succeeded, in which case
+  // this 401 isn't a token problem.
+  return Boolean(hasToken && refreshFailed);
 };
 
 export const isCredentialLoginError = (message?: unknown) =>

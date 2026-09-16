@@ -312,6 +312,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             ref={closeButtonRef}
             type="button"
             onClick={onClose}
+            data-mobile-nav-close="true"
             className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
             aria-label="Close navigation menu"
           >

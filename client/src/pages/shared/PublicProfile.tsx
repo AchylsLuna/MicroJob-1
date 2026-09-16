@@ -5,6 +5,7 @@ import { getPublicProfile, type ReviewSummary } from "../../services/api";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { ProfileReviewsLoader } from "../../components/reviews/ProfileReviewsLoader";
+import { StatTile } from "../../components/ui";
 
 type PublicProfileResponse = {
   profile?: {
@@ -32,6 +33,25 @@ type PublicProfileResponse = {
       current?: boolean;
       description?: string;
       media?: Array<{ _id?: string; url?: string; originalName?: string }>;
+    }>;
+    internships?: Array<{
+      _id?: string;
+      title?: string;
+      company?: string;
+      location?: string;
+      startDate?: string;
+      endDate?: string | null;
+      current?: boolean;
+      description?: string;
+    }>;
+    certificates?: Array<{
+      _id?: string;
+      name?: string;
+      issuer?: string;
+      issueDate?: string;
+      expiryDate?: string | null;
+      credentialId?: string;
+      credentialUrl?: string;
     }>;
   };
   rating?: {
@@ -193,11 +213,11 @@ export function PublicProfile() {
                     <p className="text-sm text-[#334155]">{data.rating?.totalReviews || 0} review{data.rating?.totalReviews === 1 ? "" : "s"}</p>
                   </div>
 
-                  <div className="rounded-xl border border-[#E2E8F0] p-4">
-                    <p className="text-xs text-[#64748B] mb-1">Completed</p>
-                    <p className="text-xl font-bold text-[#0F172A]">{data.rating?.completedCount || 0}</p>
-                    <p className="text-sm text-[#334155]">out of {data.rating?.totalCount || 0} records</p>
-                  </div>
+                  <StatTile
+                    label="Completed"
+                    value={data.rating?.completedCount || 0}
+                    caption={`out of ${data.rating?.totalCount || 0} records`}
+                  />
                 </>
               )}
 
@@ -293,6 +313,56 @@ export function PublicProfile() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            ) : null}
+
+            {viewAs === "worker" && data.profile.internships?.length ? (
+              <div className="rounded-xl border border-[#E2E8F0] p-4">
+                <p className="mb-3 text-xs text-[#64748B]">Internships</p>
+                <div className="space-y-3">
+                  {data.profile.internships.map((item, index) => (
+                    <div key={item._id || `${item.title}-${index}`} className="flex gap-3 rounded-lg bg-[#F8FAFC] p-3">
+                      <Briefcase className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#1C4D8D]" />
+                      <div>
+                        <p className="text-sm font-semibold text-[#0F172A]">{item.title || "Internship"}</p>
+                        <p className="text-xs text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                        <p className="mt-1 text-xs text-[#64748B]">{formatExperienceDate(item.startDate)} – {item.current ? "Present" : formatExperienceDate(item.endDate)}</p>
+                        {item.description ? <p className="mt-2 whitespace-pre-line text-sm text-[#475569]">{item.description}</p> : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {viewAs === "worker" && data.profile.certificates?.length ? (
+              <div className="rounded-xl border border-[#E2E8F0] p-4">
+                <p className="mb-3 text-xs text-[#64748B]">Certificates</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {data.profile.certificates.map((item, index) => {
+                    const safeCredentialUrl = safeExternalUrl(item.credentialUrl || "", { purpose: "external" });
+                    return (
+                      <div key={item._id || `${item.name}-${index}`} className="rounded-lg bg-[#F8FAFC] p-3">
+                        <p className="text-sm font-semibold text-[#0F172A]">{item.name}</p>
+                        <p className="text-xs text-[#475569]">{item.issuer}</p>
+                        <p className="mt-1 text-xs text-[#64748B]">
+                          {formatExperienceDate(item.issueDate)}
+                          {item.expiryDate ? ` – ${formatExperienceDate(item.expiryDate)}` : " · No expiry"}
+                        </p>
+                        {safeCredentialUrl ? (
+                          <a
+                            href={safeCredentialUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#1C4D8D] hover:underline"
+                          >
+                            Verify credential <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                          </a>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ) : null}

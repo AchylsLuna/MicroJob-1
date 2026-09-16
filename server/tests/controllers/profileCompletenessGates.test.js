@@ -55,7 +55,7 @@ beforeEach(async () => {
   await Promise.all([User.deleteMany({}), Job.deleteMany({}), JobApplication.deleteMany({}), Category.deleteMany({})]);
 });
 
-test('createJob rejects an employer with no company name or logo', async () => {
+test('createJob rejects an employer with no logo', async () => {
   const category = await Category.create({ name: 'Cleaning' });
   const employer = await createUser({ role: 'hire', employerBalance: 10000 });
 
@@ -64,15 +64,14 @@ test('createJob rejects an employer with no company name or logo', async () => {
 
   assert.equal(res.statusCode, 409);
   assert.equal(res.payload.code, 'EMPLOYER_PROFILE_INCOMPLETE');
-  assert.deepEqual(res.payload.missing.sort(), ['avatarUrl', 'companyName']);
+  assert.deepEqual(res.payload.missing.sort(), ['avatarUrl']);
   assert.equal(await Job.countDocuments({}), 0, 'no job should be created while the gate blocks');
 });
 
-test('createJob proceeds past the gate for a complete employer profile', async () => {
+test('createJob proceeds past the gate for an employer with a logo but no company name', async () => {
   const category = await Category.create({ name: 'Cleaning' });
   const employer = await createUser({
     role: 'hire',
-    companyName: 'Acme Corp',
     avatarUrl: 'https://example.com/logo.png',
     employerBalance: 10000,
   });
@@ -80,7 +79,7 @@ test('createJob proceeds past the gate for a complete employer profile', async (
   const res = createResponse();
   await createJob({ body: jobPayload(category), user: { id: employer._id.toString(), role: 'hire' } }, res);
 
-  assert.notEqual(res.statusCode, 409, 'a complete profile must not be blocked by the profile gate');
+  assert.notEqual(res.statusCode, 409, 'a logo alone must be enough to pass the profile gate');
   assert.notEqual(res.payload?.code, 'EMPLOYER_PROFILE_INCOMPLETE');
 });
 

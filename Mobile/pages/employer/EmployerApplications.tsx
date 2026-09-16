@@ -77,6 +77,7 @@ type ApplicationItem = {
   workStatus?: string;
   paymentStatus?: string;
   offer?: Offer;
+  employerHidden?: boolean;
 };
 type Stage = "New" | "Shortlisted" | "Interview" | "Offer" | "Hired" | "Closed";
 type ConfirmAction = {
@@ -636,13 +637,16 @@ export default function EmployerApplications({
                       detail: t('employerApplications.confirm.remove.detail'),
                       label: t('employerApplications.confirm.remove.label'),
                       destructive: true,
+                      // Hides the application rather than deleting it -- a hard
+                      // DELETE here would destroy the record (and, for a hired
+                      // worker, its escrow) with no way to recover it.
                       run: async () => {
                         setBusyId(item._id);
                         const token = await AsyncStorage.getItem("auth_token");
                         const result = await apiRequest(
-                          `${API_URL}/applications/${item._id}/employer`,
+                          `${API_URL}/applications/${item._id}/employer/remove`,
                           {
-                            method: "DELETE",
+                            method: "PATCH",
                             headers: token
                               ? { Authorization: `Bearer ${token}` }
                               : undefined,
@@ -655,6 +659,23 @@ export default function EmployerApplications({
                       },
                     })
                   }
+                  onRestore={async () => {
+                    setBusyId(item._id);
+                    const token = await AsyncStorage.getItem("auth_token");
+                    const result = await apiRequest(
+                      `${API_URL}/applications/${item._id}/employer/restore`,
+                      {
+                        method: "PATCH",
+                        headers: token
+                          ? { Authorization: `Bearer ${token}` }
+                          : undefined,
+                      },
+                      t('employerApplications.errors.restoreFailed'),
+                    );
+                    setBusyId(null);
+                    if (!result.ok) toast.error(result.message);
+                    else await load(true);
+                  }}
                   onOffer={() => {
                     const amount = Number(offerAmounts[item._id]);
                     setConfirmAction({
@@ -989,6 +1010,9 @@ function CandidateCard(props: any) {
               tone="gold"
             />
             <Pill text={item.status} tone="neutral" />
+            {item.employerHidden ? (
+              <Pill text={t('employerApplications.candidateCard.hidden')} tone="neutral" />
+            ) : null}
             {item.nextInterview ? (
               <Pill
                 text={t('employerApplications.candidateCard.nextInterview', { date: formatDate(item.nextInterview.scheduledAt, { month: "short", day: "numeric" }) })}
@@ -1186,13 +1210,23 @@ function CandidateCard(props: any) {
               <Text style={styles.rejectText}>{t('employerApplications.rejectCandidate')}</Text>
             </TouchableOpacity>
           ) : null}
-          <TouchableOpacity
-            style={styles.removeButton}
-            disabled={busy}
-            onPress={props.onRemove}
-          >
-            <Text style={styles.removeText}>{t('employerApplications.removeFromList')}</Text>
-          </TouchableOpacity>
+          {item.employerHidden ? (
+            <TouchableOpacity
+              style={styles.removeButton}
+              disabled={busy}
+              onPress={props.onRestore}
+            >
+              <Text style={styles.removeText}>{t('employerApplications.restoreToList')}</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.removeButton}
+              disabled={busy}
+              onPress={props.onRemove}
+            >
+              <Text style={styles.removeText}>{t('employerApplications.removeFromList')}</Text>
+            </TouchableOpacity>
+          )}
           {busy ? (
             <ActivityIndicator
               style={styles.busy}
@@ -1582,9 +1616,6 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 15,
-    borderWidth: 1,
-    borderColor: tokens.colors.border,
-    backgroundColor: tokens.colors.brandSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1623,7 +1654,7 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: tokens.colors.brandSoft,
+    backgroundColor: 'transparent',
   },
   jobCopy: { flex: 1, minWidth: 0 },
   jobTitle: { fontSize: 16, fontWeight: "800", color: tokens.colors.brandDark },
@@ -2044,7 +2075,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 13,
-    backgroundColor: tokens.colors.surfaceMuted,
+    backgroundColor: 'transparent',
     alignItems: "center",
     justifyContent: "center",
   },

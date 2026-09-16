@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, Upload, Trash2, CheckCircle2, Clock, Circle, XCircle, type LucideIcon } from "lucide-react";
+import { Eye, EyeOff, Upload, Trash2, CheckCircle2, ChevronDown, Clock, Circle, XCircle, type LucideIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
 import { toAbsoluteAssetUrl } from "../lib/assetUrl";
@@ -15,6 +15,8 @@ import {
   revokeSession,
   revokeAllSessions,
   cleanupInactiveSessions,
+  getTrustedDevices,
+  revokeTrustedDevice,
   getVerificationStatus,
   requestPhoneVerificationOtp,
   confirmPhoneVerificationOtp,
@@ -27,7 +29,15 @@ import {
   addProfileSkill,
   updateProfileSkill,
   deleteProfileSkill,
+  addInternship,
+  updateInternship,
+  deleteInternship,
+  addCertificate,
+  updateCertificate,
+  deleteCertificate,
   type WorkExperience,
+  type Internship,
+  type Certificate,
 } from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { DeleteAccountCard } from "./settings/DeleteAccountCard";
@@ -79,14 +89,17 @@ const mapTabParam = (value: string | null): TabType | null => {
   if (value === "account") return "account";
   if (value === "privacy") return "privacy";
   if (value === "payments" || value === "payment-methods") return "payments";
-  if (["personal", "experience", "resume", "cv"].includes(value)) return "account";
-  if (["security", "verification"].includes(value)) return "privacy";
+  // "verification" used to land on Security & Privacy, but the phone
+  // verification action it was meant to reach now lives on Account →
+  // Personal Information, next to the phone number field itself.
+  if (["personal", "experience", "resume", "cv", "verification"].includes(value)) return "account";
+  if (value === "security") return "privacy";
   return null;
 };
 
 const mapAccountTab = (value: string | null): AccountTab | null => {
   if (!value) return null;
-  if (value === "personal") return "personal";
+  if (value === "personal" || value === "verification") return "personal";
   if (value === "experience") return "experience";
   if (value === "resume") return "resume";
   if (value === "cv") return "resume";
@@ -217,12 +230,48 @@ const formatExperienceMonth = (value?: string | null) => {
 const mapWorkExperiences = (items: WorkExperience[] = []): WorkExperienceItem[] =>
   items.map((item) => ({ ...item, id: item.id || item._id || "" })).filter((item) => item.id);
 
+type InternshipItem = Internship & { id: string };
+
+const emptyInternshipDraft: Omit<Internship, "_id" | "id"> = {
+  title: "",
+  company: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  current: false,
+  description: "",
+};
+
+const mapInternships = (items: Internship[] = []): InternshipItem[] =>
+  items.map((item) => ({ ...item, id: item.id || item._id || "" })).filter((item) => item.id);
+
+type CertificateItem = Certificate & { id: string };
+
+const emptyCertificateDraft: Omit<Certificate, "_id" | "id"> = {
+  name: "",
+  issuer: "",
+  issueDate: "",
+  expiryDate: "",
+  credentialId: "",
+  credentialUrl: "",
+};
+
+const mapCertificates = (items: Certificate[] = []): CertificateItem[] =>
+  items.map((item) => ({ ...item, id: item.id || item._id || "" })).filter((item) => item.id);
+
 interface SessionInfo {
   id: string;
   current: boolean;
   device: string;
   location: string;
   ip: string;
+  lastActive: string;
+}
+
+interface TrustedDeviceInfo {
+  id: string;
+  device: string;
+  createdAt: string;
   lastActive: string;
 }
 
@@ -264,6 +313,7 @@ const profileToPersonalInfo = (profile: any, previous?: PersonalInfoState): Pers
 
 export function Settings() {
   const { t: tAuth } = useTranslation("auth");
+  const { t: tCommon } = useTranslation("common");
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = mapTabParam(searchParams.get("tab")) ?? "account";
@@ -321,6 +371,20 @@ export function Settings() {
   const [mediaUploadingId, setMediaUploadingId] = useState<string | null>(null);
   const [mediaDeletingId, setMediaDeletingId] = useState<string | null>(null);
 
+  const [internships, setInternships] = useState<InternshipItem[]>([]);
+  const [internshipDraft, setInternshipDraft] = useState(emptyInternshipDraft);
+  const [editingInternshipId, setEditingInternshipId] = useState<string | null>(null);
+  const [isInternshipSaving, setIsInternshipSaving] = useState(false);
+  const [deleteInternshipTarget, setDeleteInternshipTarget] = useState<InternshipItem | null>(null);
+  const [deletingInternshipId, setDeletingInternshipId] = useState<string | null>(null);
+
+  const [certificates, setCertificates] = useState<CertificateItem[]>([]);
+  const [certificateDraft, setCertificateDraft] = useState(emptyCertificateDraft);
+  const [editingCertificateId, setEditingCertificateId] = useState<string | null>(null);
+  const [isCertificateSaving, setIsCertificateSaving] = useState(false);
+  const [deleteCertificateTarget, setDeleteCertificateTarget] = useState<CertificateItem | null>(null);
+  const [deletingCertificateId, setDeletingCertificateId] = useState<string | null>(null);
+
   const [experienceStats, setExperienceStats] = useState({
     totalExperience: "",
   });
@@ -350,6 +414,9 @@ export function Settings() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
+  const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceInfo[]>([]);
+  const [isLoadingTrustedDevices, setIsLoadingTrustedDevices] = useState(false);
+
   const [verificationStepsData, setVerificationStepsData] = useState<VerificationStep[]>([]);
   const [verificationCompletionPercent, setVerificationCompletionPercent] = useState(0);
   const [isLoadingVerification, setIsLoadingVerification] = useState(false);
@@ -373,6 +440,7 @@ export function Settings() {
 
   const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
   const isProfileVerified = verificationStepsData.length > 0 && completedSteps === verificationStepsData.length;
+  const phoneVerificationStatus = verificationStepsData.find((step) => step.id === "phone")?.status;
 
   const selectedProvince = provinceOptions.find(
     (item) => item.name.toLowerCase() === personalInfo.province.trim().toLowerCase(),
@@ -518,6 +586,30 @@ export function Settings() {
     loadSessions();
   }, [activeTab]);
 
+  // Load trusted devices when privacy tab is active
+  useEffect(() => {
+    if (activeTab !== "privacy") return;
+    const loadTrustedDevices = async () => {
+      setIsLoadingTrustedDevices(true);
+      try {
+        const response = await getTrustedDevices();
+        const devicesData = response?.devices || [];
+        const mapped = devicesData.map((d: any) => ({
+          id: d._id,
+          device: d.label || "Unknown device",
+          createdAt: d.createdAt ? new Date(d.createdAt).toLocaleString() : "Unknown",
+          lastActive: d.lastUsedAt ? new Date(d.lastUsedAt).toLocaleString() : "Unknown",
+        }));
+        setTrustedDevices(mapped);
+      } catch (error: any) {
+        console.error("Failed to load trusted devices:", error);
+      } finally {
+        setIsLoadingTrustedDevices(false);
+      }
+    };
+    loadTrustedDevices();
+  }, [activeTab]);
+
   // Load verification status when privacy tab is active
   useEffect(() => {
     if (activeTab !== "privacy" || isAdminRole) return;
@@ -627,6 +719,12 @@ export function Settings() {
     if (Array.isArray(user.workExperience)) {
       setWorkExperiences(mapWorkExperiences(user.workExperience));
     }
+    if (Array.isArray(user.internships)) {
+      setInternships(mapInternships(user.internships));
+    }
+    if (Array.isArray(user.certificates)) {
+      setCertificates(mapCertificates(user.certificates));
+    }
   }, [user]);
 
   useEffect(() => {
@@ -717,6 +815,8 @@ export function Settings() {
           setSkills(mappedSkills);
         }
         setWorkExperiences(mapWorkExperiences(profile.workExperience || []));
+        setInternships(mapInternships(profile.internships || []));
+        setCertificates(mapCertificates(profile.certificates || []));
         setExperienceStats({
           totalExperience: profile.totalExperience || "",
         });
@@ -1155,6 +1255,189 @@ export function Settings() {
     }
   };
 
+  const resetInternshipEditor = () => {
+    setInternshipDraft(emptyInternshipDraft);
+    setEditingInternshipId(null);
+  };
+
+  const handleSaveInternship = async () => {
+    if (isInternshipSaving) return;
+    if (!internshipDraft.title.trim() || !internshipDraft.company.trim() || !internshipDraft.startDate) {
+      toast.error("Internship title, company, and start date are required.");
+      return;
+    }
+    if (!internshipDraft.current && !internshipDraft.endDate) {
+      toast.error("Add an end date or mark this as your current internship.");
+      return;
+    }
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (internshipDraft.startDate > currentMonth || (!internshipDraft.current && String(internshipDraft.endDate) > currentMonth)) {
+      toast.error("Internship dates cannot be in the future.");
+      return;
+    }
+    if (!internshipDraft.current && internshipDraft.endDate && internshipDraft.endDate < internshipDraft.startDate) {
+      toast.error("End date cannot be before start date.");
+      return;
+    }
+    if (
+      internshipDraft.title.trim().length > PROFILE_LIMITS.internshipTitle ||
+      internshipDraft.company.trim().length > PROFILE_LIMITS.internshipCompany ||
+      (internshipDraft.location?.trim().length || 0) > PROFILE_LIMITS.internshipLocation ||
+      (internshipDraft.description?.trim().length || 0) > PROFILE_LIMITS.internshipDescription
+    ) {
+      toast.error("One or more internship fields exceed the allowed length.");
+      return;
+    }
+    if (!editingInternshipId && internships.length >= 25) {
+      toast.error("You can add up to 25 internship entries.");
+      return;
+    }
+
+    setIsInternshipSaving(true);
+    try {
+      const payload = {
+        ...internshipDraft,
+        title: internshipDraft.title.trim(),
+        company: internshipDraft.company.trim(),
+        location: internshipDraft.location?.trim() || "",
+        description: internshipDraft.description?.trim() || "",
+        endDate: internshipDraft.current ? null : internshipDraft.endDate,
+      };
+      const response = editingInternshipId
+        ? await updateInternship(editingInternshipId, payload)
+        : await addInternship(payload);
+      const nextItems = mapInternships((response as any)?.internships || []);
+      setInternships(nextItems);
+      updateAuthProfile({ internships: nextItems });
+      resetInternshipEditor();
+      toast.success(editingInternshipId ? "Internship updated." : "Internship added.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save internship.");
+    } finally {
+      setIsInternshipSaving(false);
+    }
+  };
+
+  const handleEditInternship = (item: InternshipItem) => {
+    setEditingInternshipId(item.id);
+    setInternshipDraft({
+      title: item.title,
+      company: item.company,
+      location: item.location || "",
+      startDate: toMonthInput(item.startDate),
+      endDate: toMonthInput(item.endDate),
+      current: Boolean(item.current),
+      description: item.description || "",
+    });
+  };
+
+  const handleDeleteInternship = async (id: string) => {
+    if (deletingInternshipId) return;
+    setDeletingInternshipId(id);
+    try {
+      const response = await deleteInternship(id);
+      const nextItems = mapInternships((response as any)?.internships || []);
+      setInternships(nextItems);
+      updateAuthProfile({ internships: nextItems });
+      if (editingInternshipId === id) resetInternshipEditor();
+      setDeleteInternshipTarget(null);
+      toast.success("Internship removed.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to remove internship.");
+    } finally {
+      setDeletingInternshipId(null);
+    }
+  };
+
+  const resetCertificateEditor = () => {
+    setCertificateDraft(emptyCertificateDraft);
+    setEditingCertificateId(null);
+  };
+
+  const handleSaveCertificate = async () => {
+    if (isCertificateSaving) return;
+    if (!certificateDraft.name.trim() || !certificateDraft.issuer.trim() || !certificateDraft.issueDate) {
+      toast.error("Certificate name, issuer, and issue date are required.");
+      return;
+    }
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    if (certificateDraft.issueDate > currentMonth) {
+      toast.error("Issue date cannot be in the future.");
+      return;
+    }
+    if (certificateDraft.expiryDate && certificateDraft.expiryDate < certificateDraft.issueDate) {
+      toast.error("Expiry date cannot be before the issue date.");
+      return;
+    }
+    if (
+      certificateDraft.name.trim().length > PROFILE_LIMITS.certificateName ||
+      certificateDraft.issuer.trim().length > PROFILE_LIMITS.certificateIssuer ||
+      (certificateDraft.credentialId?.trim().length || 0) > PROFILE_LIMITS.certificateCredentialId ||
+      (certificateDraft.credentialUrl?.trim().length || 0) > PROFILE_LIMITS.certificateCredentialUrl
+    ) {
+      toast.error("One or more certificate fields exceed the allowed length.");
+      return;
+    }
+    if (!editingCertificateId && certificates.length >= 25) {
+      toast.error("You can add up to 25 certificates.");
+      return;
+    }
+
+    setIsCertificateSaving(true);
+    try {
+      const payload = {
+        ...certificateDraft,
+        name: certificateDraft.name.trim(),
+        issuer: certificateDraft.issuer.trim(),
+        credentialId: certificateDraft.credentialId?.trim() || "",
+        credentialUrl: certificateDraft.credentialUrl?.trim() || "",
+        expiryDate: certificateDraft.expiryDate || null,
+      };
+      const response = editingCertificateId
+        ? await updateCertificate(editingCertificateId, payload)
+        : await addCertificate(payload);
+      const nextItems = mapCertificates((response as any)?.certificates || []);
+      setCertificates(nextItems);
+      updateAuthProfile({ certificates: nextItems });
+      resetCertificateEditor();
+      toast.success(editingCertificateId ? "Certificate updated." : "Certificate added.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to save certificate.");
+    } finally {
+      setIsCertificateSaving(false);
+    }
+  };
+
+  const handleEditCertificate = (item: CertificateItem) => {
+    setEditingCertificateId(item.id);
+    setCertificateDraft({
+      name: item.name,
+      issuer: item.issuer,
+      issueDate: toMonthInput(item.issueDate),
+      expiryDate: toMonthInput(item.expiryDate),
+      credentialId: item.credentialId || "",
+      credentialUrl: item.credentialUrl || "",
+    });
+  };
+
+  const handleDeleteCertificate = async (id: string) => {
+    if (deletingCertificateId) return;
+    setDeletingCertificateId(id);
+    try {
+      const response = await deleteCertificate(id);
+      const nextItems = mapCertificates((response as any)?.certificates || []);
+      setCertificates(nextItems);
+      updateAuthProfile({ certificates: nextItems });
+      if (editingCertificateId === id) resetCertificateEditor();
+      setDeleteCertificateTarget(null);
+      toast.success("Certificate removed.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to remove certificate.");
+    } finally {
+      setDeletingCertificateId(null);
+    }
+  };
+
   const handleRequestPasswordOtp = async () => {
     if (!securityData.currentPassword) {
       toast.error("Please enter your current password");
@@ -1249,6 +1532,17 @@ export function Settings() {
       window.location.href = "/sign-in";
     } catch (error: any) {
       toast.error(error?.message || "Failed to revoke all sessions");
+    }
+  };
+
+  const handleRevokeTrustedDevice = async (deviceId: string) => {
+    try {
+      await revokeTrustedDevice(deviceId);
+      setTrustedDevices((prev) => prev.filter((d) => d.id !== deviceId));
+      toast.success("Trusted device revoked. It will need a code to sign in again.");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to revoke trusted device");
+      console.error("Revoke trusted device error:", error);
     }
   };
 
@@ -1448,21 +1742,25 @@ export function Settings() {
                               </button>
                             </div>
                           ) : null}
+                          <p className="text-[12px] text-slate-500">Type to search, or pick from the list.</p>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
                               <label htmlFor="settings-province" className="text-[14px] font-medium text-slate-600 mb-2 block">Province</label>
-                              <input
-                                id="settings-province"
-                                list="settings-province-options"
-                                value={personalInfo.province}
-                                maxLength={PROFILE_LIMITS.province}
-                                autoComplete="address-level1"
-                                disabled={isLoadingLocationData || Boolean(locationDataError)}
-                                aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
-                                onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
-                                placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-province"
+                                  list="settings-province-options"
+                                  value={personalInfo.province}
+                                  maxLength={PROFILE_LIMITS.province}
+                                  autoComplete="address-level1"
+                                  disabled={isLoadingLocationData || Boolean(locationDataError)}
+                                  aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
+                                  onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
+                                  placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                />
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                              </div>
                               <datalist id="settings-province-options">
                                 {provinceOptions.map((province) => <option key={province.code} value={province.name} />)}
                               </datalist>
@@ -1470,18 +1768,21 @@ export function Settings() {
 
                             <div>
                               <label htmlFor="settings-city" className="text-[14px] font-medium text-slate-600 mb-2 block">City / Municipality</label>
-                              <input
-                                id="settings-city"
-                                list="settings-city-options"
-                                value={personalInfo.city}
-                                maxLength={PROFILE_LIMITS.city}
-                                autoComplete="address-level2"
-                                disabled={!selectedProvince || Boolean(locationDataError)}
-                                aria-invalid={Boolean(personalInfo.city) && !selectedCity}
-                                onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
-                                placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-city"
+                                  list="settings-city-options"
+                                  value={personalInfo.city}
+                                  maxLength={PROFILE_LIMITS.city}
+                                  autoComplete="address-level2"
+                                  disabled={!selectedProvince || Boolean(locationDataError)}
+                                  aria-invalid={Boolean(personalInfo.city) && !selectedCity}
+                                  onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
+                                  placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                />
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                              </div>
                               <datalist id="settings-city-options">
                                 {filteredCityOptions.map((city) => <option key={city.code} value={city.name} />)}
                               </datalist>
@@ -1489,18 +1790,21 @@ export function Settings() {
 
                             <div>
                               <label htmlFor="settings-barangay" className="text-[14px] font-medium text-slate-600 mb-2 block">Barangay</label>
-                              <input
-                                id="settings-barangay"
-                                list="settings-barangay-options"
-                                value={personalInfo.barangay}
-                                maxLength={PROFILE_LIMITS.barangay}
-                                disabled={!selectedCity || isLoadingBarangays || Boolean(barangayDataError)}
-                                aria-invalid={Boolean(personalInfo.barangay) && !selectedBarangay}
-                                aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
-                                onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
-                                placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-barangay"
+                                  list="settings-barangay-options"
+                                  value={personalInfo.barangay}
+                                  maxLength={PROFILE_LIMITS.barangay}
+                                  disabled={!selectedCity || isLoadingBarangays || Boolean(barangayDataError)}
+                                  aria-invalid={Boolean(personalInfo.barangay) && !selectedBarangay}
+                                  aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
+                                  onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
+                                  placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                />
+                                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                              </div>
                               <datalist id="settings-barangay-options">
                                 {barangayOptions.map((barangay) => <option key={barangay.code} value={barangay.name} />)}
                               </datalist>
@@ -1524,19 +1828,24 @@ export function Settings() {
                             </div>
                             <div>
                               <label htmlFor="settings-address" className="text-[14px] font-medium text-slate-600 mb-2 block">Address / Place</label>
-                              <input
-                                id="settings-address"
-                                type="text"
-                                list="settings-address-options"
-                                value={personalInfo.address}
-                                maxLength={PROFILE_LIMITS.address}
-                                autoComplete="street-address"
-                                aria-invalid={profileErrorField === "address"}
-                                aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
-                                onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
-                                placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
-                              />
+                              <div className="relative">
+                                <input
+                                  id="settings-address"
+                                  type="text"
+                                  list="settings-address-options"
+                                  value={personalInfo.address}
+                                  maxLength={PROFILE_LIMITS.address}
+                                  autoComplete="street-address"
+                                  aria-invalid={profileErrorField === "address"}
+                                  aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
+                                  onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
+                                  placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
+                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                />
+                                {addressSuggestions.length > 0 ? (
+                                  <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                                ) : null}
+                              </div>
                             </div>
                           </div>
 
@@ -1565,6 +1874,64 @@ export function Settings() {
                               placeholder="e.g., 0917 123 4567"
                               className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             />
+                            {/* Verification lives here, next to the field it verifies, instead of
+                                on the Security & Privacy tab — a worker typing their number had no
+                                reason to expect the "Send code" action to be on a different tab. */}
+                            {phoneVerificationStatus === "complete" ? (
+                              <p className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700">
+                                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                Phone number verified
+                              </p>
+                            ) : personalInfo.phone.trim() ? (
+                              <div className="mt-3 space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleRequestPhoneCode}
+                                    disabled={isSendingPhoneCode}
+                                    className={verificationActionClass}
+                                  >
+                                    {isSendingPhoneCode
+                                      ? "Sending..."
+                                      : phoneCodeRequested
+                                        ? "Resend code"
+                                        : "Send verification code"}
+                                  </button>
+                                  {phoneCodeHint && (
+                                    <span className="text-xs text-slate-600">{phoneCodeHint}</span>
+                                  )}
+                                </div>
+                                {phoneCodeRequested && (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                      type="text"
+                                      inputMode="numeric"
+                                      autoComplete="one-time-code"
+                                      aria-label="Phone verification code"
+                                      maxLength={6}
+                                      value={phoneVerificationCode}
+                                      onChange={(event) =>
+                                        setPhoneVerificationCode(
+                                          event.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                                        )
+                                      }
+                                      placeholder="Enter 6-digit code"
+                                      className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={handleConfirmPhoneCode}
+                                      disabled={isConfirmingPhoneCode}
+                                      className={verificationSecondaryActionClass}
+                                    >
+                                      {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="mt-2 text-[12px] text-slate-500">Save your phone number first to verify it.</p>
+                            )}
                           </div>
                           <div>
                             <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-slate-600 mb-2 block">Email</label>
@@ -1737,16 +2104,18 @@ export function Settings() {
                         </>
                       )}
 
-                      <button
-                        type="submit"
-                        disabled={isProfileSaving || isProfileLoading}
-                        aria-busy={isProfileSaving || isProfileLoading}
-                        className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
-                          isProfileSaving || isProfileLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
-                        }`}
-                      >
-                        {isProfileSaving ? "Saving..." : isProfileLoading ? "Loading..." : "Save changes"}
-                      </button>
+                      <div className="sticky bottom-0 z-10 -mx-6 mt-6 border-t border-slate-200 bg-white px-6 py-4">
+                        <button
+                          type="submit"
+                          disabled={isProfileSaving || isProfileLoading}
+                          aria-busy={isProfileSaving || isProfileLoading}
+                          className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
+                            isProfileSaving || isProfileLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
+                          }`}
+                        >
+                          {isProfileSaving ? tCommon("settings.saving") : isProfileLoading ? tCommon("loading") : tCommon("settings.saveChanges")}
+                        </button>
+                      </div>
                 </form>
 
                 <div className="mt-6">
@@ -1764,7 +2133,7 @@ export function Settings() {
                     >
                       <div>
                         <h2 className="text-lg font-semibold text-slate-900">Skills & Experience</h2>
-                        <p className="text-[13px] text-slate-500">Add and manage your skills and expertise.</p>
+                        <p className="text-[13px] text-slate-500">Add and manage your skills, work history, internships, and certificates.</p>
                       </div>
 
                       <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
@@ -1880,6 +2249,153 @@ export function Settings() {
                           </div>
                         )) : (
                           <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No work history added yet.</div>
+                        )}
+                      </div>
+
+                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
+                        <div>
+                          <h3 className="text-base font-semibold text-slate-900">
+                            {editingInternshipId ? "Edit internship" : "Add internship"}
+                          </h3>
+                          <p className="mt-1 text-[13px] text-slate-500">Internships are shown separately from paid work experience on your profile.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="internship-title" className="text-[13px] font-medium text-slate-600 mb-2 block">Title *</label>
+                            <input id="internship-title" value={internshipDraft.title} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Marketing Intern" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="internship-company" className="text-[13px] font-medium text-slate-600 mb-2 block">Company *</label>
+                            <input id="internship-company" value={internshipDraft.company} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Acme Co." className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="internship-location" className="text-[13px] font-medium text-slate-600 mb-2 block">Location</label>
+                            <input id="internship-location" value={internshipDraft.location} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label htmlFor="internship-start" className="text-[13px] font-medium text-slate-600 mb-2 block">Start *</label>
+                              <input id="internship-start" type="month" value={internshipDraft.startDate} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            </div>
+                            <div>
+                              <label htmlFor="internship-end" className="text-[13px] font-medium text-slate-600 mb-2 block">End *</label>
+                              <input id="internship-end" type="month" value={internshipDraft.endDate || ""} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={internshipDraft.current} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
+                            </div>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
+                          <input type="checkbox" checked={internshipDraft.current} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? "" : prev.endDate }))} className="w-4 h-4" />
+                          I currently intern here
+                        </label>
+
+                        <div>
+                          <label htmlFor="internship-description" className="text-[13px] font-medium text-slate-600 mb-2 block">Description</label>
+                          <textarea id="internship-description" value={internshipDraft.description} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" onClick={handleSaveInternship} disabled={isInternshipSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                            {isInternshipSaving ? "Saving..." : editingInternshipId ? "Save internship" : "Add internship"}
+                          </button>
+                          {editingInternshipId && (
+                            <button type="button" onClick={resetInternshipEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-slate-900">Internships</h3>
+                          <span className="text-[12px] text-slate-500">{internships.length} {internships.length === 1 ? "entry" : "entries"}</span>
+                        </div>
+                        {internships.length ? internships.map((item) => (
+                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[15px] font-semibold text-slate-900">{item.title}</p>
+                              <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                              <p className="mt-1 text-[12px] text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
+                              {item.description ? <p className="mt-3 text-[13px] text-slate-600 whitespace-pre-line">{item.description}</p> : null}
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button type="button" onClick={() => handleEditInternship(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => setDeleteInternshipTarget(item)} aria-label={`Delete ${item.title} internship`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No internships added yet.</div>
+                        )}
+                      </div>
+
+                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
+                        <div>
+                          <h3 className="text-base font-semibold text-slate-900">
+                            {editingCertificateId ? "Edit certificate" : "Add certificate"}
+                          </h3>
+                          <p className="mt-1 text-[13px] text-slate-500">Add licenses or certifications employers can verify.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="certificate-name" className="text-[13px] font-medium text-slate-600 mb-2 block">Certificate name *</label>
+                            <input id="certificate-name" value={certificateDraft.name} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, name: e.target.value }))} maxLength={120} placeholder="e.g., AWS Solutions Architect" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-issuer" className="text-[13px] font-medium text-slate-600 mb-2 block">Issuing organization *</label>
+                            <input id="certificate-issuer" value={certificateDraft.issuer} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issuer: e.target.value }))} maxLength={120} placeholder="e.g., Amazon Web Services" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-issue-date" className="text-[13px] font-medium text-slate-600 mb-2 block">Issue date *</label>
+                            <input id="certificate-issue-date" type="month" value={certificateDraft.issueDate} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issueDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-expiry-date" className="text-[13px] font-medium text-slate-600 mb-2 block">Expiry date</label>
+                            <input id="certificate-expiry-date" type="month" value={certificateDraft.expiryDate || ""} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, expiryDate: e.target.value }))} placeholder="Leave blank if it never expires" className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-credential-id" className="text-[13px] font-medium text-slate-600 mb-2 block">Credential ID</label>
+                            <input id="certificate-credential-id" value={certificateDraft.credentialId} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialId: e.target.value }))} maxLength={80} placeholder="Optional" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                          <div>
+                            <label htmlFor="certificate-credential-url" className="text-[13px] font-medium text-slate-600 mb-2 block">Credential URL</label>
+                            <input id="certificate-credential-url" type="url" value={certificateDraft.credentialUrl} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialUrl: e.target.value }))} maxLength={500} placeholder="https://…" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                          <button type="button" onClick={handleSaveCertificate} disabled={isCertificateSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                            {isCertificateSaving ? "Saving..." : editingCertificateId ? "Save certificate" : "Add certificate"}
+                          </button>
+                          {editingCertificateId && (
+                            <button type="button" onClick={resetCertificateEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-base font-semibold text-slate-900">Certificates</h3>
+                          <span className="text-[12px] text-slate-500">{certificates.length} {certificates.length === 1 ? "entry" : "entries"}</span>
+                        </div>
+                        {certificates.length ? certificates.map((item) => (
+                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[15px] font-semibold text-slate-900">{item.name}</p>
+                              <p className="text-[13px] text-slate-600">{item.issuer}</p>
+                              <p className="mt-1 text-[12px] text-slate-500">
+                                {formatExperienceMonth(item.issueDate)}
+                                {item.expiryDate ? ` – ${formatExperienceMonth(item.expiryDate)}` : " · No expiry"}
+                              </p>
+                              {item.credentialId ? <p className="mt-1 text-[12px] text-slate-500">Credential ID: {item.credentialId}</p> : null}
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button type="button" onClick={() => handleEditCertificate(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => setDeleteCertificateTarget(item)} aria-label={`Delete ${item.name} certificate`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
+                            </div>
+                          </div>
+                        )) : (
+                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No certificates added yet.</div>
                         )}
                       </div>
 
@@ -2375,6 +2891,48 @@ export function Settings() {
                 </div>
               </Card>
 
+              <Card>
+                <h3 className="text-base font-semibold text-slate-900 mb-2">Trusted Devices</h3>
+                <p className="text-[13px] text-slate-500 mb-4">
+                  Devices you chose to trust skip the email code on sign-in for 30 days. Revoke any you don't recognize.
+                </p>
+                <div className="space-y-4">
+                  {isLoadingTrustedDevices ? (
+                    <p className="text-[13px] text-slate-500">Loading trusted devices...</p>
+                  ) : trustedDevices.length === 0 ? (
+                    <p className="text-[13px] text-slate-500">No trusted devices.</p>
+                  ) : (
+                    trustedDevices.map((device, index) => (
+                      <div key={device.id} className="border border-slate-200 rounded-[12px] p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <p className="text-[13px] font-semibold text-slate-900">Device {index + 1}</p>
+                          <button
+                            onClick={() => handleRevokeTrustedDevice(device.id)}
+                            className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-[12px] font-medium transition-colors"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[12px] text-slate-500">Device Details</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{device.device}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-slate-500">Trusted since</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{device.createdAt}</p>
+                          </div>
+                          <div>
+                            <p className="text-[12px] text-slate-500">Last used</p>
+                            <p className="text-[14px] font-semibold text-slate-900">{device.lastActive}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </Card>
+
               {!isAdminRole && (
                 <Card>
                   <h3 className="text-base font-semibold text-slate-900">Verification</h3>
@@ -2500,53 +3058,20 @@ export function Settings() {
                                             </button>
                                           )}
 
+                                          {/* The send/confirm-code action now lives on the Account tab,
+                                              right next to the phone number field itself — see
+                                              settings-phone above. This step keeps its status only. */}
                                           {step.id === "phone" && step.status !== "complete" && (
-                                            <div className="mt-3 space-y-2">
-                                              <div className="flex flex-wrap items-center gap-2">
-                                                <button
-                                                  type="button"
-                                                  onClick={handleRequestPhoneCode}
-                                                  disabled={isSendingPhoneCode}
-                                                  className={verificationActionClass}
-                                                >
-                                                  {isSendingPhoneCode
-                                                    ? "Sending..."
-                                                    : phoneCodeRequested
-                                                      ? "Resend code"
-                                                      : "Send verification code"}
-                                                </button>
-                                                {phoneCodeHint && (
-                                                  <span className="text-xs text-slate-600">{phoneCodeHint}</span>
-                                                )}
-                                              </div>
-                                              {phoneCodeRequested && (
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                  <input
-                                                    type="text"
-                                                    inputMode="numeric"
-                                                    autoComplete="one-time-code"
-                                                    aria-label="Phone verification code"
-                                                    maxLength={6}
-                                                    value={phoneVerificationCode}
-                                                    onChange={(event) =>
-                                                      setPhoneVerificationCode(
-                                                        event.target.value.replace(/[^\d]/g, "").slice(0, 6)
-                                                      )
-                                                    }
-                                                    placeholder="Enter 6-digit code"
-                                                    className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
-                                                  />
-                                                  <button
-                                                    type="button"
-                                                    onClick={handleConfirmPhoneCode}
-                                                    disabled={isConfirmingPhoneCode}
-                                                    className={verificationSecondaryActionClass}
-                                                  >
-                                                    {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setActiveTab("account");
+                                                setAccountTab("personal");
+                                              }}
+                                              className={verificationActionClass}
+                                            >
+                                              Verify in Account settings
+                                            </button>
                                           )}
 
                                           {step.id === "identity" && needsAction && (
@@ -2649,6 +3174,26 @@ export function Settings() {
         pending={Boolean(deletingExperienceId)}
         onClose={() => setDeleteExperienceTarget(null)}
         onConfirm={() => deleteExperienceTarget && handleDeleteExperience(deleteExperienceTarget.id)}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteInternshipTarget)}
+        title="Remove internship"
+        description={`Remove ${deleteInternshipTarget?.title || "this internship"} from your profile?`}
+        confirmLabel="Remove internship"
+        destructive
+        pending={Boolean(deletingInternshipId)}
+        onClose={() => setDeleteInternshipTarget(null)}
+        onConfirm={() => deleteInternshipTarget && handleDeleteInternship(deleteInternshipTarget.id)}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteCertificateTarget)}
+        title="Remove certificate"
+        description={`Remove ${deleteCertificateTarget?.name || "this certificate"} from your profile?`}
+        confirmLabel="Remove certificate"
+        destructive
+        pending={Boolean(deletingCertificateId)}
+        onClose={() => setDeleteCertificateTarget(null)}
+        onConfirm={() => deleteCertificateTarget && handleDeleteCertificate(deleteCertificateTarget.id)}
       />
     </div>
   );

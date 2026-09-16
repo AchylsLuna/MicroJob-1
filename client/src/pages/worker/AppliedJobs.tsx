@@ -4,9 +4,11 @@ import type { TFunction } from "i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { BriefcaseBusiness, CalendarDays, MapPin, Star } from "lucide-react";
 import { jobsAPI } from "../../services/jobs";
-import { getEligibleReviews, type ApplicationStatus, type ReviewEligibilityItem } from "../../services/api";
+import { getEligibleReviews, type ApplicationStatus, type JobOffer, type ReviewEligibilityItem } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { RatingDialog, type RatingTarget } from "../../components/reviews/RatingDialog";
+import { ConfirmDialog } from "../../components/ui/index";
+import { toast } from "../../lib/toast";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 
 interface JobData {
@@ -27,6 +29,9 @@ interface Application {
   appliedDate: string;
   createdAt?: string;
   job: JobData;
+  offer?: JobOffer | null;
+  workStatus?: string;
+  paymentStatus?: string;
 }
 
 const FILTER_OPTIONS: Array<"All" | ApplicationStatus> = [
@@ -76,6 +81,14 @@ const AppliedJobs: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [reviewEligibility, setReviewEligibility] = useState<Record<string, ReviewEligibilityItem>>({});
   const [ratingTarget, setRatingTarget] = useState<RatingTarget | null>(null);
+  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    destructive?: boolean;
+    run: () => Promise<void>;
+  } | null>(null);
 
   const loadReviewEligibility = async () => {
     try {
@@ -100,23 +113,71 @@ const AppliedJobs: React.FC = () => {
     setSearchParams(next, { replace: true });
   };
 
-  useEffect(() => {
-    const fetchApplications = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const statusParam = selectedFilter === "All" ? undefined : selectedFilter;
-        const response = await jobsAPI.getUserApplications(statusParam);
-        setApplications(response.data || []);
-      } catch (err: any) {
-        setError(err?.response?.data?.message || t("appliedJobs.toast.loadFailed"));
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchApplications = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const statusParam = selectedFilter === "All" ? undefined : selectedFilter;
+      const response = await jobsAPI.getUserApplications(statusParam);
+      setApplications(response.data || []);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || t("appliedJobs.toast.loadFailed"));
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFilter, t]);
+
+  const runOfferAction = async (applicationId: string, action: () => Promise<unknown>, successMessage?: string) => {
+    setActionBusyId(applicationId);
+    try {
+      await action();
+      await fetchApplications();
+      if (successMessage) toast.success(successMessage);
+    } catch (error: any) {
+      toast.error(error?.message || t("appliedJobs.toast.offerActionFailed"));
+    } finally {
+      setActionBusyId(null);
+    }
+  };
+
+  const handleAcceptOffer = (application: Application) => {
+    if (!application.offer) return;
+    const offer = application.offer;
+    setConfirmAction({
+      title: t("appliedJobs.confirmAcceptOffer.title"),
+      description: t("appliedJobs.confirmAcceptOffer.description", { amount: formatCurrency(offer.amount) }),
+      confirmLabel: t("appliedJobs.confirmAcceptOffer.confirm"),
+      run: () => runOfferAction(application._id, () => jobsAPI.respondToJobOffer(offer.id, "accept"), t("appliedJobs.toast.offerAccepted")),
+    });
+  };
+
+  const handleDeclineOffer = (application: Application) => {
+    if (!application.offer) return;
+    const offer = application.offer;
+    setConfirmAction({
+      title: t("appliedJobs.confirmDeclineOffer.title"),
+      description: t("appliedJobs.confirmDeclineOffer.description", { amount: formatCurrency(offer.amount) }),
+      destructive: true,
+      confirmLabel: t("appliedJobs.confirmDeclineOffer.confirm"),
+      run: () => runOfferAction(application._id, () => jobsAPI.respondToJobOffer(offer.id, "reject")),
+    });
+  };
+
+  const handleConfirmDialogConfirm = () => {
+    if (!confirmAction) return;
+    const action = confirmAction;
+    setConfirmAction(null);
+    void action.run();
+  };
+
+  const handleSubmitWork = (application: Application) => {
+    void runOfferAction(application._id, () => jobsAPI.submitWork(application._id), t("appliedJobs.toast.workSubmitted"));
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -241,6 +302,45 @@ const AppliedJobs: React.FC = () => {
                       {application.job?.description || t("appliedJobs.card.descriptionFallback")}
                     </p>
 
+                    {application.status === "Offer Sent" && application.offer?.status === "pending" ? (
+                      <div className="mt-4 rounded-xl border border-[#B8CBE5] bg-[#EAF2FC] p-3">
+                        <p className="text-sm font-semibold text-[#1C4D8D]">
+                          {t("appliedJobs.offerPanel.title", { amount: formatCurrency(application.offer.amount) })}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            disabled={actionBusyId === application._id}
+                            onClick={() => handleAcceptOffer(application)}
+                            className="inline-flex h-10 items-center justify-center rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {t("appliedJobs.offerPanel.accept", { amount: formatCurrency(application.offer.amount) })}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actionBusyId === application._id}
+                            onClick={() => handleDeclineOffer(application)}
+                            className="inline-flex h-10 items-center justify-center rounded-xl border border-red-200 px-4 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {t("appliedJobs.offerPanel.decline")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {application.status === "Hired" && ["In Progress", "Changes Requested"].includes(application.workStatus || "In Progress") ? (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          disabled={actionBusyId === application._id}
+                          onClick={() => handleSubmitWork(application)}
+                          className="inline-flex h-10 items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {t("appliedJobs.submitWork.button")}
+                        </button>
+                      </div>
+                    ) : null}
+
                     <div className="mt-5 flex flex-col gap-4 border-t border-slate-100 pt-4">
                       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-slate-500">
                         <span className="inline-flex items-center gap-1.5">
@@ -335,6 +435,15 @@ const AppliedJobs: React.FC = () => {
       {ratingTarget ? (
         <RatingDialog target={ratingTarget} onClose={() => setRatingTarget(null)} onSubmitted={loadReviewEligibility} />
       ) : null}
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction?.title || ""}
+        description={confirmAction?.description || ""}
+        confirmLabel={confirmAction?.confirmLabel}
+        destructive={confirmAction?.destructive}
+        onConfirm={handleConfirmDialogConfirm}
+        onClose={() => setConfirmAction(null)}
+      />
     </div>
   );
 };

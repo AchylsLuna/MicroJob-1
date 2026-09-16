@@ -506,6 +506,11 @@ export function JobsManagement() {
                   )}
                 </button>
               </div>
+              {!job.hasHired ? (
+                <p className="mt-2 text-[11px] leading-snug text-amber-700">
+                  {t("jobsManagement.card.markDoneBlockedHelper")}
+                </p>
+              ) : null}
               <p className="mt-3 text-[11px] leading-snug text-slate-500">
                 {t("jobsManagement.card.escrowNote")}
               </p>
