@@ -53,6 +53,17 @@ export const getEmailTransporter = () => {
     return null;
   }
 
+  const isGmail = host === 'smtp.gmail.com' || (user && user.endsWith('@gmail.com'));
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
+    });
+  }
+
   const secure = port === 465;
   return nodemailer.createTransport({
     host,
