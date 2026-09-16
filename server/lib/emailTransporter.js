@@ -4,6 +4,23 @@ const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
 export const getMailFrom = () =>
   process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '';
+export const getMailFrom = () => {
+  const configured = String(process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
+  if (process.env.RESEND_API_KEY) {
+    if (!configured || configured.toLowerCase().endsWith('@gmail.com') || configured.includes('http') || configured.includes('vercel.app')) {
+      return 'onboarding@resend.dev';
+    }
+  }
+  return configured;
+};
+
+const normalizeResendSender = (from) => {
+  const raw = String(from || '').trim();
+  if (!raw || raw.toLowerCase().includes('@gmail.com') || raw.includes('http') || raw.includes('vercel.app')) {
+    return 'MicroJobs <onboarding@resend.dev>';
+  }
+  return raw;
+};
 
 // Minimal nodemailer-compatible shim so existing sendMail call sites work unchanged.
 const createResendTransporter = (apiKey) => ({
@@ -12,6 +29,7 @@ const createResendTransporter = (apiKey) => ({
     if (!sender) {
       throw new Error('No sender address configured. Set MAIL_FROM to a Resend-verified address.');
     }
+    const sender = normalizeResendSender(from || getMailFrom());
     const recipients = Array.isArray(to) ? to : [to];
     const response = await fetch(RESEND_ENDPOINT, {
       method: 'POST',
