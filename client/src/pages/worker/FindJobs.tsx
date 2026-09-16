@@ -747,7 +747,7 @@ export function FindJobs() {
               filter change would fire a request for a pane nobody can see. */}
           <div className="hidden lg:block lg:sticky lg:top-4 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto">
             {isLargeScreen && selectedJobId ? (
-              <JobDetailPanel jobId={selectedJobId} compact action="view" />
+              <JobDetailPanel jobId={selectedJobId} compact />
             ) : null}
           </div>
         </div>
