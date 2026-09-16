@@ -87,3 +87,4 @@ export const getEmailTransporter = () => {
     socketTimeout: 8000,
   });
 };
+
