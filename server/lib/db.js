@@ -3,14 +3,24 @@ import mongoose from 'mongoose';
 let inMemoryMongoServer = null;
 
 export const connectDB = async ({ mongoUri, dbName, isProduction, allowInMemoryMongo }) => {
+    if (mongoose.connection.readyState === 1) {
+        return mongoose.connection;
+    }
+    if (mongoose.connection.readyState === 2) {
+        await mongoose.connection.asPromise();
+        return mongoose.connection;
+    }
+
     if (mongoUri) {
         try {
             await mongoose.connect(mongoUri, {
                 dbName,
                 serverSelectionTimeoutMS: 5000,
                 socketTimeoutMS: 45000,
+                maxPoolSize: 10,
             });
             console.log('Connected to DB');
+            return mongoose.connection;
         } catch (dbError) {
             if (isProduction || !allowInMemoryMongo) {
                 throw dbError;

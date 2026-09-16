@@ -59,5 +59,8 @@ export const getEmailTransporter = () => {
     port,
     secure,
     auth: { user, pass },
+    connectionTimeout: 5000,
+    greetingTimeout: 5000,
+    socketTimeout: 8000,
   });
 };

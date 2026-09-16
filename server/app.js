@@ -28,6 +28,11 @@ const ensureDatabaseReady = () => {
 			isProduction,
 			allowInMemoryMongo,
 		}).then(() => ensureRuntimeData()).catch((error) => {
+		}).then(() => {
+			if (!isVercelRuntime) {
+				return ensureRuntimeData();
+			}
+		}).catch((error) => {
 			dbReady = undefined;
 			throw error;
 		});

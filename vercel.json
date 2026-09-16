@@ -1,6 +1,7 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "client/dist",
+  "regions": ["hkg1", "sin1"],
   "headers": [
     {
       "source": "/(.*)",
