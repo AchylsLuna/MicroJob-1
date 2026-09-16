@@ -2,8 +2,6 @@ import nodemailer from 'nodemailer';
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails';
 
-export const getMailFrom = () =>
-  process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '';
 export const getMailFrom = () => {
   const configured = String(process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || '').trim();
   if (process.env.RESEND_API_KEY) {
@@ -25,10 +23,6 @@ const normalizeResendSender = (from) => {
 // Minimal nodemailer-compatible shim so existing sendMail call sites work unchanged.
 const createResendTransporter = (apiKey) => ({
   async sendMail({ from, to, subject, text, html }) {
-    const sender = from || getMailFrom();
-    if (!sender) {
-      throw new Error('No sender address configured. Set MAIL_FROM to a Resend-verified address.');
-    }
     const sender = normalizeResendSender(from || getMailFrom());
     const recipients = Array.isArray(to) ? to : [to];
     const response = await fetch(RESEND_ENDPOINT, {
