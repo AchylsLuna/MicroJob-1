@@ -1,9 +1,5 @@
 import User from '../models/User.js';
-import {
-  PhoneOtpError,
-  sendPhoneVerificationOtp,
-  verifyPhoneVerificationOtp,
-} from '../lib/phoneOtp.js';
+import { sendPhoneCode, verifyPhoneCode } from './PhoneVerificationController.js';
 import {
   removeUploadFile,
   hasValidVerificationFileSignature,
@@ -60,73 +56,11 @@ export const getVerificationStatus = async (req, res) => {
 };
 
 export const sendPhoneVerification = async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select('phoneNumber verification.phoneVerified');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    if (!user.phoneNumber) {
-      return res.status(400).json({ message: 'Please add a phone number in your profile first' });
-    }
-
-    if (user.verification?.phoneVerified) {
-      return res.status(200).json({ message: 'Phone already verified.', verified: true });
-    }
-
-    const otpResult = await sendPhoneVerificationOtp({
-      userId: String(user._id),
-      phoneNumber: user.phoneNumber,
-    });
-
-    return res.status(200).json(otpResult);
-  } catch (err) {
-    if (err instanceof PhoneOtpError) {
-      const retryAfterSec = err?.metadata?.retryAfterSec;
-      if (retryAfterSec) {
-        res.setHeader('Retry-After', String(retryAfterSec));
-      }
-      return res.status(err.statusCode || 400).json({ message: err.message });
-    }
-    console.error('Phone verification error', err);
-    return res.status(500).json({ message: 'Failed to start phone verification' });
-  }
+  return sendPhoneCode(req, res);
 };
 
 export const confirmPhoneVerification = async (req, res) => {
-  try {
-    const { code } = req.body || {};
-    if (!code) {
-      return res.status(400).json({ message: 'Verification code is required.' });
-    }
-
-    const user = await User.findById(req.user.id).select('phoneNumber verification.phoneVerified');
-    if (!user) return res.status(404).json({ message: 'User not found' });
-
-    if (!user.phoneNumber) {
-      return res.status(400).json({ message: 'Please add a phone number in your profile first' });
-    }
-
-    if (user.verification?.phoneVerified) {
-      return res.status(200).json({ message: 'Phone already verified.', verified: true });
-    }
-
-    await verifyPhoneVerificationOtp({
-      userId: String(user._id),
-      phoneNumber: user.phoneNumber,
-      code,
-    });
-
-    user.verification = user.verification || {};
-    user.verification.phoneVerified = true;
-    await user.save();
-
-    return res.status(200).json({ message: 'Phone verification completed', verified: true });
-  } catch (err) {
-    if (err instanceof PhoneOtpError) {
-      return res.status(err.statusCode || 400).json({ message: err.message });
-    }
-    console.error('Phone verification confirm error', err);
-    return res.status(500).json({ message: 'Failed to verify phone' });
-  }
+  return verifyPhoneCode(req, res);
 };
 
 export const uploadAddressDocument = async (req, res) => {

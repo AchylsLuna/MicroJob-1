@@ -20,7 +20,8 @@ import { apiRequest, asObject } from '../lib/api';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri, ResponseType, useAuthRequest } from 'expo-auth-session';
+import { makeRedirectUri, ResponseType } from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
 import { AUTH_COLORS, clamp, getAuthMetrics } from '../theme/authTheme';
 import { GoogleAuthButton } from '../components/auth/AuthControls';
 import { useToast } from '../contexts/ToastContext';
@@ -42,12 +43,12 @@ export default function SignIn({
   onLogin?: () => void;
 }) {
   WebBrowser.maybeCompleteAuthSession();
-  const [googleRequest, , promptGoogle] = useAuthRequest({
+  const [googleRequest, , promptGoogle] = Google.useAuthRequest({
     clientId: GOOGLE_CLIENT_ID,
     responseType: ResponseType.IdToken,
     scopes: ['openid', 'profile', 'email'],
     redirectUri: makeRedirectUri({ scheme: 'microjobs' }),
-  }, { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' });
+  });
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight, fontScale } = useWindowDimensions();
   const metrics = getAuthMetrics(screenWidth, screenHeight, fontScale);

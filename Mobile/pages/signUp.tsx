@@ -7,7 +7,8 @@ import AsyncStorage from '../lib/storage';
 import { API_URL } from '../config';
 import { GOOGLE_CLIENT_ID } from '../config';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri, ResponseType, useAuthRequest } from 'expo-auth-session';
+import { makeRedirectUri, ResponseType } from 'expo-auth-session';
+import * as Google from 'expo-auth-session/providers/google';
 import { apiRequest } from '../lib/api';
 import { useToast } from '../contexts/ToastContext';
 import AuthScreenLayout from '../components/auth/AuthScreenLayout';
@@ -35,12 +36,12 @@ type Errors = Partial<Record<'fullName' | 'email' | 'phone' | 'password' | 'conf
 
 export default function SignUp({ onBack, onNavigateToSignIn, onNavigateToVerify, onNavigateToLegal }: Props) {
   WebBrowser.maybeCompleteAuthSession();
-  const [googleRequest, , promptGoogle] = useAuthRequest({
+  const [googleRequest, , promptGoogle] = Google.useAuthRequest({
     clientId: GOOGLE_CLIENT_ID,
     responseType: ResponseType.IdToken,
     scopes: ['openid', 'profile', 'email'],
     redirectUri: makeRedirectUri({ scheme: 'microjobs' }),
-  }, { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' });
+  });
   const { t } = useTranslation('auth');
   const roles = useMemo<Array<{ value: Role; title: string; subtitle: string; icon: keyof typeof Feather.glyphMap }>>(() => [
     { value: 'work', title: t('signUp.roles.work.title'), subtitle: t('signUp.roles.work.subtitle'), icon: 'user' },

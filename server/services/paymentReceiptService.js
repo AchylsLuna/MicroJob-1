@@ -25,6 +25,36 @@ const formatDate = (value) => {
   }).format(date);
 };
 
+const formatPaymentMethod = (provider) => {
+  const normalized = String(provider || '').trim().toLowerCase();
+  if (normalized === 'paymongo') return 'PayMongo';
+  if (normalized === 'xendit') return 'Xendit';
+  if (normalized === 'xendit-link') return 'Xendit Payment Link';
+  if (normalized === 'dev-webhook') return 'Development payment simulator';
+  return provider || 'Online payment';
+};
+
+const formatStatus = (transaction) =>
+  transaction.type === 'TOP_UP' && transaction.status === 'COMPLETED'
+    ? 'Successful'
+    : transaction.status || 'COMPLETED';
+
+const isRetryableEmailError = (error) => {
+  const statusCode = Number(error?.statusCode || error?.responseCode || 0);
+  if (statusCode === 429 || statusCode >= 500) return true;
+  return [
+    'ECONNRESET',
+    'ECONNREFUSED',
+    'ECONNABORTED',
+    'ETIMEDOUT',
+    'EAI_AGAIN',
+    'ENOTFOUND',
+    'ESOCKET',
+  ].includes(error?.code);
+};
+
+const wait = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
 const getReceiptTitle = (transaction) => {
   if (transaction.type === 'TOP_UP') return 'Wallet top-up receipt';
   if (transaction.type === 'PAYOUT' && transaction.status === 'PENDING') return 'Withdrawal request receipt';
@@ -34,19 +64,23 @@ const getReceiptTitle = (transaction) => {
   return 'Payment receipt';
 };
 
-const getReceiptRows = (transaction) => {
+const getReceiptRows = (transaction, user) => {
   const payout = transaction.payoutRequest;
   const destination = payout?.destinationSnapshot;
   const rows = [
+    ['Account holder', `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Not available'],
+    ['Account ID', String(user._id)],
     ['Receipt number', transaction.reference || String(transaction._id)],
     ['Transaction ID', String(transaction._id)],
-    ['Status', transaction.status || 'COMPLETED'],
+    ['Transaction status', formatStatus(transaction)],
     ['Amount', formatMoney(transaction.amount)],
-    ['Processed', formatDate(transaction.createdAt)],
+    ['Transaction date and time', formatDate(transaction.createdAt)],
   ];
 
   if (transaction.label) rows.push(['Description', transaction.label]);
-  if (transaction.provider) rows.push(['Payment method', transaction.provider]);
+  if (transaction.type === 'TOP_UP' || transaction.provider) {
+    rows.push(['Payment method', formatPaymentMethod(transaction.provider)]);
+  }
   if (transaction.providerReference && transaction.providerReference !== transaction.reference) {
     rows.push(['Provider reference', transaction.providerReference]);
   }
@@ -82,7 +116,7 @@ export async function sendPaymentReceiptEmail({ transactionId, userId }) {
 
   const title = getReceiptTitle(transaction);
   const recipientName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'there';
-  const rows = getReceiptRows(transaction);
+  const rows = getReceiptRows(transaction, user);
   const textRows = rows.map(([label, value]) => `${label}: ${value}`).join('\n');
   const htmlRows = rows.map(([label, value]) => `
     <tr>
@@ -91,7 +125,7 @@ export async function sendPaymentReceiptEmail({ transactionId, userId }) {
     </tr>`).join('');
   const fromAddress = getMailFrom();
 
-  await transporter.sendMail({
+  const message = {
     from: `MicroJobs <${fromAddress}>`,
     to: user.email,
     subject: `MicroJobs ${title}`,
@@ -111,7 +145,24 @@ export async function sendPaymentReceiptEmail({ transactionId, userId }) {
           <p style="margin: 0; color: #52606d; font-size: 13px;">This is an automatically generated receipt from MicroJobs.</p>
         </div>
       </div>`,
-  });
+  };
 
-  return { sent: true, transaction };
+  const maxAttempts = 3;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      await transporter.sendMail(message);
+      return { sent: true, transaction, attempts: attempt };
+    } catch (error) {
+      const retryable = isRetryableEmailError(error);
+      if (!retryable || attempt === maxAttempts) {
+        error.receiptAttempts = attempt;
+        throw error;
+      }
+      // Short exponential backoff for temporary provider/network failures. The
+      // payment has already committed and will not be rolled back if this fails.
+      await wait(250 * (2 ** (attempt - 1)));
+    }
+  }
+
+  return { sent: false, reason: 'delivery_failed' };
 }

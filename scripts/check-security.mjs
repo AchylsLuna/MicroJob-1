@@ -88,7 +88,7 @@ const sourceFiles = trackedFiles.filter((file) =>
 for (const file of sourceFiles) {
   const content = readFileSync(new URL(file, root), 'utf8');
   if (/AC[a-f0-9]{32}/i.test(content) || /SK[a-f0-9]{32}/i.test(content)) {
-    failures.push(`Possible Twilio credential in ${file}.`);
+    failures.push(`Possible messaging-service credential in ${file}.`);
   }
   if (/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(content)) {
     failures.push(`Possible private key in ${file}.`);
@@ -99,16 +99,14 @@ for (const file of sourceFiles) {
 }
 
 const trackedSource = sourceFiles.map((file) => `${file}\n${readFileSync(new URL(file, root), 'utf8')}`).join('\n');
-if (/\/api\/verify-phone/i.test(trackedSource)) failures.push('Legacy /api/verify-phone route is still referenced.');
-if (/PhoneVerification\.js|model\(['"]PhoneVerification/i.test(trackedSource)) failures.push('Plaintext legacy PhoneVerification storage is still referenced.');
-if (/TEXTBEE_/i.test(trackedSource)) failures.push('Obsolete TextBee configuration is still referenced.');
+if (/TWILIO_|api\.twilio\.com/i.test(trackedSource)) failures.push('Removed SMS-provider integration is still referenced.');
 const securityTokenSources = sourceFiles.filter((file) =>
   /^server\/(?:controllers|lib)\//.test(file) && /(?:otp|auth|session|token|mfa)/i.test(file)
 );
 for (const file of securityTokenSources) {
   const content = readFileSync(new URL(file, root), 'utf8');
   if (/Math\.random\s*\(/.test(content)) failures.push(`Non-cryptographic security randomness in ${file}.`);
-  if (/\b(?:otp|challenge)\w*Store\s*=\s*new Map\s*\(/i.test(content) && !/phoneOtp\.js$/.test(file)) {
+  if (/\b(?:otp|challenge)\w*Store\s*=\s*new Map\s*\(/i.test(content)) {
     failures.push(`Process-local OTP challenge storage in ${file}.`);
   }
 }
@@ -120,8 +118,7 @@ if (!/if\s*\(!sessionId\)\s*\{[\s\S]{0,160}status\(401\)/.test(authMiddleware)) 
 run(process.execPath, ['scripts/check-ui-security.mjs']);
 run(process.execPath, [
   '--test',
-  'server/tests/lib/phoneOtp.test.js',
-  'server/tests/lib/legacyPhoneRouteRemoval.test.js',
+  'server/tests/lib/phoneVerificationRestore.test.js',
   'server/tests/middleware/csrf.test.js',
 ]);
 

@@ -27,7 +27,7 @@ const ensureDatabaseReady = () => {
 			dbName: config.DB_NAME,
 			isProduction,
 			allowInMemoryMongo,
-		}).then(() => ensureRuntimeData()).catch((error) => {
+		}).then(() => ensureRuntimeData()).catch(() => {
 		}).then(() => {
 			if (!isVercelRuntime) {
 				return ensureRuntimeData();

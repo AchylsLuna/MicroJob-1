@@ -76,7 +76,6 @@ export default function Jobs(props: JobsProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [appliedJobIds, setAppliedJobIds] = useState<string[]>([]);
   const [workerLocation, setWorkerLocation] = useState({ province: '', city: '', barangay: '' });
   const [locationLoaded, setLocationLoaded] = useState(false);
   const [preferredCategoryIds, setPreferredCategoryIds] = useState<string[]>([]);
@@ -164,7 +163,7 @@ export default function Jobs(props: JobsProps) {
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(query));
     });
-  }, [jobs, searchQuery, appliedJobIds, deadlineRange]);
+  }, [jobs, searchQuery, deadlineRange]);
 
   const nearestJobs = useMemo(
     () =>
@@ -200,7 +199,6 @@ export default function Jobs(props: JobsProps) {
           if (jobId && app.status) acc[String(jobId)] = String(app.status);
           return acc;
         }, {});
-        setAppliedJobIds(Object.keys(statuses));
         setJobs((current) => current.map((job) => ({
           ...job,
           applicationStatus: job.applicationStatus || statuses[job._id] || null,

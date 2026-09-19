@@ -84,11 +84,18 @@ const populateTransactionQuery = (query) =>
 async function sendReceiptWithoutBlockingPayment(transactionId, userId, eventName) {
   try {
     const result = await sendPaymentReceiptEmail({ transactionId, userId });
-    if (!result.sent && result.reason !== 'smtp_unconfigured') {
-      console.warn(`${eventName} completed, but no receipt could be sent: ${result.reason}`);
+    if (!result.sent) {
+      console.warn(`${eventName} completed, but no receipt could be sent`, {
+        reason: result.reason,
+        transactionId: String(transactionId),
+      });
     }
   } catch (error) {
-    console.warn(`${eventName} completed, but the receipt email failed`, error);
+    console.warn(`${eventName} completed, but the receipt email failed`, {
+      transactionId: String(transactionId),
+      attempts: error?.receiptAttempts || 1,
+      message: error?.message || 'Unknown email delivery error',
+    });
   }
 }
 

@@ -22,7 +22,7 @@ import {
     normalizePhone,
 } from "../lib/authValidation.js";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../lib/passwordPolicy.js";
-import { clearPhoneVerificationOtp } from "../lib/phoneOtp.js";
+import { clearPhoneVerificationCode } from "./PhoneVerificationController.js";
 import { getAdminUserCreationError, getAdminUserMutationError } from "../lib/adminUserPolicy.js";
 import { getReviewSummary } from "../lib/reviewSummary.js";
 import { buildAuthTokensPayload, createSessionWithTokens, setSessionCookies, isNativeAuthRequest } from "../lib/authSession.js";
@@ -30,6 +30,7 @@ import { issueTrustedDevice, setTrustedDeviceCookie, clearTrustedDevicesForUser 
 import crypto from "node:crypto";
 import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../lib/otpChallenges.js";
 import monitor from "../lib/monitor.js";
+import { getWebOrigin } from "../lib/runtimeConfig.js";
 
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 // One message for every outcome of a password-reset request. Distinct replies
@@ -52,18 +53,38 @@ const escapeHtml = (value = "") => String(value)
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const getFrontendResetUrl = (email, code) => {
+const isVercelHostname = (hostname = "") => hostname === "vercel.app" || hostname.endsWith(".vercel.app");
+
+const getFrontendResetUrl = (req, email, code) => {
     const encodedEmail = String(email || "");
     const encodedCode = String(code || "");
-    const baseOrigin = (
-        process.env.APP_RESET_URL ||
-        process.env.MOBILE_RESET_URL ||
-        process.env.FRONTEND_URL ||
-        process.env.WEB_ORIGIN ||
-        process.env.CLIENT_ORIGIN ||
-        process.env.ORIGIN ||
-        "http://localhost:8082"
-    ).replace(/\/$/, "");
+    const configuredResetOrigin = String(process.env.APP_RESET_URL || "").trim();
+    const productionVercelOrigin = String(
+        process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL || ""
+    ).trim();
+    let baseOrigin = configuredResetOrigin || getWebOrigin(req) || "http://localhost:8082";
+
+    // A retired preview/alias in APP_RESET_URL produces Vercel's
+    // DEPLOYMENT_NOT_FOUND page. In Vercel production, prefer the project's
+    // canonical production alias when the configured URL is a different
+    // vercel.app hostname. Custom domains remain explicitly configurable.
+    if (configuredResetOrigin && productionVercelOrigin) {
+        try {
+            const configuredUrl = new URL(configuredResetOrigin);
+            const productionUrl = new URL(/^https?:\/\//i.test(productionVercelOrigin)
+                ? productionVercelOrigin
+                : `https://${productionVercelOrigin}`);
+            if (isVercelHostname(configuredUrl.hostname) && configuredUrl.hostname !== productionUrl.hostname) {
+                baseOrigin = productionUrl.origin;
+                console.warn("Ignoring stale APP_RESET_URL Vercel hostname in favor of VERCEL_PROJECT_PRODUCTION_URL.");
+            }
+        } catch {
+            // URL validation below supplies a safe error path for an invalid
+            // configuration without exposing reset details to the requester.
+        }
+    }
+
+    baseOrigin = baseOrigin.replace(/\/$/, "");
     const resetUrl = new URL(
         /^https?:\/\//i.test(baseOrigin) ? baseOrigin : `https://${baseOrigin}`
     );
@@ -322,7 +343,7 @@ export async function anonymizeAndDeleteUser(userId) {
     ]);
     await removeStoredUploads(storedUploads);
 
-    await clearPhoneVerificationOtp(String(userId));
+    await clearPhoneVerificationCode(String(userId));
     await clearOtpChallenges(originalEmailKey);
 
     return user;
@@ -740,7 +761,7 @@ export async function updateProfile(req, res) {
 
         if (phoneChanged) {
             updates["verification.phoneVerified"] = false;
-            await clearPhoneVerificationOtp(String(userId));
+            await clearPhoneVerificationCode(String(userId));
         }
 
         // Auto-calculate job statistics from JobApplication collection
@@ -1078,7 +1099,7 @@ export async function requestPasswordResetOtp(req, res) {
                     console.error("Password reset requested but SMTP is not configured.");
                 } else {
                     const username = user.username || user.firstName || normalizedEmail.split("@")[0];
-                    const resetUrl = getFrontendResetUrl(normalizedEmail, code);
+                    const resetUrl = getFrontendResetUrl(req, normalizedEmail, code);
                     const emailContent = buildPasswordResetEmail({
                         username,
                         expiryMinutes: OTP_EXPIRY_MINUTES,
@@ -1143,7 +1164,8 @@ export async function resetPasswordWithOtp(req, res) {
         const verification = await verifyOtpChallenge({ purpose: "password-reset", subject: normalizedEmail, code: normalizedCode, consume: true });
         if (!verification.ok || !verification.challenge?.verifiedAt) return res.status(400).json({ message: "Reset code not verified, invalid, or expired." });
 
-        const user = await User.findOne({ email: normalizedEmail });
+        const user = await User.findOne({ email: normalizedEmail })
+            .select('+passwordHashed +failedLoginAttempts +loginLockCount +lockUntil');
         if (!user) {
             return res.status(404).json({ message: "User not found." });
         }
@@ -1152,6 +1174,20 @@ export async function resetPasswordWithOtp(req, res) {
         }
 
         await user.setPassword(newPassword);
+        // Completing a password reset from the account's registered inbox is
+        // proof of email ownership. A newly registered user can otherwise
+        // reset their password successfully but remain `pending`, causing the
+        // next correct sign-in to be rejected with a 401.
+        user.verification = {
+            ...(user.verification?.toObject?.() || user.verification || {}),
+            emailVerified: true,
+        };
+        if (user.status === 'pending') user.status = 'active';
+        // A password reset proves control of the registered email. Clear a
+        // lock that may have been triggered by the failed sign-in attempts
+        // which led the user here, otherwise the freshly set password is
+        // rejected with the same generic credentials message until timeout.
+        await user.clearLoginLock();
         await user.save();
         await revokeSessions(user._id);
         await monitor.audit({ actor: user._id, action: "password_reset", ip: req.ip || null, userAgent: req.get?.("user-agent") || null, status: "success" });

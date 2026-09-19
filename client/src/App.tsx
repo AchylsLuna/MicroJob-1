@@ -280,7 +280,7 @@ const App: React.FC = () => {
         <Route path={ROUTES.emailVerification} element={<EmailVerification />} />
         <Route path={ROUTES.topUpSuccess} element={<TopUpSuccess />} />
         <Route path={ROUTES.forgotPassword} element={<ForgotPassword />} />
-        <Route path={ROUTES.resetPassword} element={<PreserveRedirect to={ROUTES.forgotPassword} />} />
+        <Route path={ROUTES.resetPassword} element={<ForgotPassword />} />
         <Route path={ROUTES.changeInitialPassword} element={<InitialPasswordChange />} />
         <Route path={ROUTES.legal} element={<LegalPage />} />
         <Route path={ROUTES.publicJobs} element={<PublicFindJobs />} />

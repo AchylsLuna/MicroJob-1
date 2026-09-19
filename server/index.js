@@ -8,7 +8,6 @@ import JobView from './models/JobView.js';
 import { validateProductionRuntime } from './lib/runtimeConfig.js';
 import { ensureRuntimeData } from './lib/runtimeData.js';
 import { initSocket } from './lib/socket.js';
-import { getPhoneOtpConfigStatus, validatePhoneOtpConfiguration } from './lib/phoneOtp.js';
 
 const server = http.createServer(app);
 let shuttingDown = false;
@@ -16,15 +15,6 @@ let shuttingDown = false;
 export const startServer = async () => {
   try {
     validateProductionRuntime();
-    const phoneOtpStatus = getPhoneOtpConfigStatus();
-    if (!phoneOtpStatus.valid) {
-      if (isProduction) {
-        validatePhoneOtpConfiguration();
-      } else {
-        console.warn(`Phone OTP is disabled until its configuration is fixed: ${phoneOtpStatus.errors.join(' ')}`);
-      }
-    }
-
     await connectDB({
       mongoUri: config.MONGO_URI,
       dbName: config.DB_NAME,
@@ -63,15 +53,11 @@ export const startServer = async () => {
     return server;
   } catch (error) {
     console.error('Server startup failed:', error);
-    if (error?.metadata?.configurationError) {
-      console.error('\nPhone OTP configuration is incomplete. Check TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM_PHONE in server/.env.');
-    } else {
-      console.error('\nTroubleshooting tips:');
-      console.error('1. Check your internet connection');
-      console.error('2. Verify MongoDB Atlas cluster is running');
-      console.error('3. Check if your IP is whitelisted in MongoDB Atlas');
-      console.error('4. Verify the connection string in .env file');
-    }
+    console.error('\nTroubleshooting tips:');
+    console.error('1. Check your internet connection');
+    console.error('2. Verify MongoDB Atlas cluster is running');
+    console.error('3. Check if your IP is whitelisted in MongoDB Atlas');
+    console.error('4. Verify the connection string in .env file');
     process.exitCode = 1;
     throw error;
   }

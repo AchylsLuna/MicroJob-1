@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -30,27 +30,50 @@ export function ForgotPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const processedResetLinkRef = useRef<string | null>(null);
   const passwordStrength = getPasswordStrength(newPassword);
   const passwordsMismatch = Boolean(confirmPassword) && newPassword !== confirmPassword;
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const emailParam = params.get("email");
-    const codeParam = params.get("code");
+    const codeParam = params.get("code") || params.get("token");
 
-    if (emailParam) {
-      const normalizedEmail = normalizeEmail(emailParam);
-      if (normalizedEmail) {
-        setEmail(normalizedEmail);
-        localStorage.setItem("pending_reset_email", normalizedEmail);
-      }
+    const normalizedEmail = normalizeEmail(emailParam || "");
+    const validLinkCode = codeParam && /^\d{6}$/.test(codeParam) ? codeParam : "";
+
+    if (normalizedEmail) {
+      setEmail(normalizedEmail);
+      // The email link can open in a new tab, so establish the same recovery
+      // context that a code requested from this tab would create.
+      localStorage.setItem("pending_reset_email", normalizedEmail);
     }
 
-    if (codeParam && /^\d{6}$/.test(codeParam)) {
-      setCode(codeParam);
-      setStep("code");
-    }
-  }, [location.search]);
+    if (!normalizedEmail || !validLinkCode) return;
+
+    setCode(validLinkCode);
+    const linkKey = `${normalizedEmail}:${validLinkCode}`;
+    if (processedResetLinkRef.current === linkKey) return;
+    processedResetLinkRef.current = linkKey;
+
+    setStep("code");
+    setIsLoading(true);
+    // A reset link already proves possession of the email. Mark its OTP as
+    // verified before showing the password form; the final reset endpoint
+    // intentionally requires this server-side state.
+    void verifyPasswordResetCode(validLinkCode)
+      .then(() => {
+        if (processedResetLinkRef.current !== linkKey) return;
+        setStep("password");
+      })
+      .catch((error: any) => {
+        if (processedResetLinkRef.current !== linkKey) return;
+        toast.error(error?.message || t("forgotPassword.toast.verifyCodeFailed"));
+      })
+      .finally(() => {
+        if (processedResetLinkRef.current === linkKey) setIsLoading(false);
+      });
+  }, [location.search, t, verifyPasswordResetCode]);
 
   const sendCode = async (event?: React.FormEvent) => {
     event?.preventDefault();

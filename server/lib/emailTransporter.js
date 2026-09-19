@@ -42,7 +42,9 @@ const createResendTransporter = (apiKey) => ({
 
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(`Resend rejected the email (${response.status}): ${payload?.message || 'unknown error'}`);
+      const error = new Error(`Resend rejected the email (${response.status}): ${payload?.message || 'unknown error'}`);
+      error.statusCode = response.status;
+      throw error;
     }
     return { messageId: payload?.id, accepted: recipients, rejected: [] };
   },
