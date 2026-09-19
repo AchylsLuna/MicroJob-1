@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import { useTranslation } from "react-i18next";
 import { ClipboardList, FileText, MapPin, WalletCards } from "lucide-react";
 import { DateField } from "../ui/DateField";
@@ -123,7 +124,7 @@ export default function PostJobWizard({
         initial: { opacity: 0, x: 16 },
         animate: { opacity: 1, x: 0 },
         exit: { opacity: 0, x: -16 },
-        transition: { duration: 0.18 },
+        transition: { duration: seconds(motionTokens.duration.fast) },
       };
 
   return (

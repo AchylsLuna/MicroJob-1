@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import { MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -293,7 +294,7 @@ function AdminUserManagementContent() {
                 className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05, duration: 0.3 }}
+                transition={{ delay: index * 0.05, duration: seconds(motionTokens.duration.standard) }}
               >
                 <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}><Icon className="h-5 w-5" aria-hidden="true" /></div>
                 <p className="mt-4 text-sm font-medium text-slate-500">{card.label}</p>
@@ -352,7 +353,7 @@ function AdminUserManagementContent() {
                 className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.04, duration: 0.3 }}
+                transition={{ delay: index * 0.04, duration: seconds(motionTokens.duration.standard) }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0"><p className="font-semibold text-slate-900">{getUserName(user)}</p><p className="truncate text-xs text-slate-600">{user.email}</p></div>
@@ -408,7 +409,7 @@ function AdminUserManagementContent() {
                       className="border-b border-[#F3F4F6] transition-colors hover:bg-slate-50"
                       initial={prefersReducedMotion ? false : { opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.03, duration: 0.25 }}
+                      transition={{ delay: index * 0.03, duration: seconds(motionTokens.duration.enter) }}
                     >
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-3">

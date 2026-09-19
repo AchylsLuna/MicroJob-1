@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
+import { motionTokens, seconds } from "@/constants/motion";
 import { useNavigate } from 'react-router-dom';
 import { Bell, MessageSquare, CheckCircle, Clock, X } from 'lucide-react';
 import { useTranslation } from "react-i18next";
@@ -154,7 +155,7 @@ export default function NotificationsPage() {
             className={`rounded-xl p-4 shadow-sm border transition-colors hover:shadow-md ${!n.read ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100 hover:bg-gray-50'}`}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
+            transition={{ delay: Math.min(index, 8) * 0.04, duration: seconds(motionTokens.duration.standard) }}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3 flex-1">

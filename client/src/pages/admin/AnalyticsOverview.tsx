@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import { Briefcase, DollarSign, TrendingUp, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { AdminJob, AdminUser } from "../../hooks/useAdminData";
@@ -247,7 +248,7 @@ export function AnalyticsOverview({
             className={`${cardClass} hover:-translate-y-0.5`}
             initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05, duration: 0.3 }}
+            transition={{ delay: index * 0.05, duration: seconds(motionTokens.duration.standard) }}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

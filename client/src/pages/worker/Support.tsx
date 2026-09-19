@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import {
   Book,
   ChevronDown,
@@ -432,7 +433,7 @@ export function Support() {
                   className="border border-[#E5E7EB] rounded-[12px] overflow-hidden"
                   initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
+                  transition={{ delay: Math.min(index, 8) * 0.04, duration: seconds(motionTokens.duration.standard) }}
                 >
                   <button
                     onClick={() => setOpenFAQ(openFAQ === faq.id ? null : faq.id)}
@@ -581,7 +582,7 @@ export function Support() {
                       }`}
                       initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
+                      transition={{ delay: Math.min(index, 8) * 0.04, duration: seconds(motionTokens.duration.standard) }}
                     >
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">

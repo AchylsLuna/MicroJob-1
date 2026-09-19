@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowRight, Briefcase, ChevronRight, MapPin, Menu, Pause, Play, Search, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { motionTokens } from "@/constants/motion";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
@@ -342,7 +343,7 @@ export function LandingPageBlue() {
             <motion.div 
               className="flex items-center"
               whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: motionTokens.press.scale }}
             >
               <MicroJobsLogo
                 className="cursor-pointer"
@@ -444,7 +445,7 @@ export function LandingPageBlue() {
             <div className="flex items-center gap-3">
               <motion.button
                 whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: motionTokens.press.scale }}
                 onClick={() => navigate(isAuthenticated ? appEntryPath : ROUTES.signIn)}
                 className="hidden text-[14px] font-semibold text-gray-700 px-5 py-2 rounded-full hover:bg-gray-100 transition-colors sm:inline-flex"
               >
@@ -452,7 +453,7 @@ export function LandingPageBlue() {
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.05, boxShadow: "0 10px 30px rgba(73, 136, 196, 0.3)" }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: motionTokens.press.scale }}
                 onClick={() => navigate(ROUTES.signUp)}
                 className="brand-primary-interactive hidden rounded-full px-6 py-2.5 text-[14px] font-semibold hover:shadow-lg sm:inline-flex"
               >
@@ -991,7 +992,7 @@ export function LandingPageBlue() {
                   {isAuthenticated ? (
                     <motion.button
                       whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.97 }}
+                      whileTap={{ scale: motionTokens.press.scale }}
                       onClick={(event) => {
                         event.stopPropagation();
                         navigate(getJobsPath);
@@ -1164,7 +1165,7 @@ export function LandingPageBlue() {
                 viewport={{ once: true }}
                 transition={{ delay: 0.4 }}
                 whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: motionTokens.press.scale }}
                 onClick={() => navigate(ROUTES.signUp)}
                 className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
               >

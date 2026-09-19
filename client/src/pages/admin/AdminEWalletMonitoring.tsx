@@ -211,13 +211,13 @@ function AdminEWalletMonitoringContent() {
       label: t("eWallet.cards.completedPayouts"),
       value: isLoading ? "—" : walletStats.completedCount,
       icon: <Wallet className="w-6 h-6 text-[#0F766E]" />,
-      accent: "from-[#CCFBF1] to-[#99F6E4]",
+      accent: "bg-[#CCFBF1]",
     },
     {
       label: t("eWallet.cards.completedTotal"),
       value: isLoading ? "—" : formatCurrencyHook(walletStats.completedTotal),
       icon: <DollarSign className="w-6 h-6 text-[#047857]" />,
-      accent: "from-[#D1FAE5] to-[#A7F3D0]",
+      accent: "bg-[#D1FAE5]",
     },
   ];
 
@@ -238,7 +238,7 @@ function AdminEWalletMonitoringContent() {
             className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center justify-between mb-4">
-              <div className={`w-12 h-12 rounded-[12px] bg-gradient-to-br ${card.accent} flex items-center justify-center`}>
+              <div className={`w-12 h-12 rounded-[12px] ${card.accent} flex items-center justify-center`}>
                 {card.icon}
               </div>
             </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import {
   Calendar,
   CheckSquare,
@@ -901,7 +902,7 @@ export function ApplicationsManagement() {
                       key={application._id}
                       initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: Math.min(index, 8) * 0.04, duration: 0.3 }}
+                      transition={{ delay: Math.min(index, 8) * 0.04, duration: seconds(motionTokens.duration.standard) }}
                     >
                       <ApplicationCard
                         application={application}
@@ -965,7 +966,7 @@ export function ApplicationsManagement() {
                     className="border-b border-[#F3F4F6] align-top transition-colors hover:bg-slate-50"
                     initial={prefersReducedMotion ? false : { opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.25 }}
+                    transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.enter) }}
                   >
                     <td className="py-3 pr-4">
                       <button type="button" onClick={() => handleToggleSelected(application._id)} className="text-[#64748B] hover:opacity-80">

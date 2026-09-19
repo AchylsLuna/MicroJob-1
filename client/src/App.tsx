@@ -17,6 +17,9 @@ import { ACTIVITY_EVENT, markActivity } from "./utils/activityTracker";
 import { getDefaultDashboardPath, isAdmin, isEmployer } from "./utils/dashboardRoutes";
 import { ROUTES } from "./utils/routes";
 import { CookieConsent } from "./components/CookieConsent";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "./lib/queryClient";
 
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
 const WARNING_DURATION_MS = 30 * 1000;
@@ -264,6 +267,11 @@ const LegacyJobDetailsRedirect: React.FC = () => {
 
 const App: React.FC = () => {
   return (
+    <ErrorBoundary
+      title="MicroJobs could not load"
+      description="Something went wrong while starting the app. Reloading usually clears it. If it keeps happening, clear your browser cache and sign in again."
+    >
+    <QueryClientProvider client={queryClient}>
     <Router>
       <InactivityHandler />
       <Toaster position="top-right" />
@@ -601,6 +609,8 @@ const App: React.FC = () => {
       </Routes>
       </Suspense>
     </Router>
+    </QueryClientProvider>
+    </ErrorBoundary>
   );
 };
 

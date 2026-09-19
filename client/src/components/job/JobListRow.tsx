@@ -1,5 +1,6 @@
 import { Bookmark, Clock, MapPin } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import { CategoryTile } from "../ui/CategoryTile";
 import type { JobCardData } from "./jobCardModel";
 import { useTranslation } from "react-i18next";
@@ -41,7 +42,7 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
       aria-label={`View ${job.title}${job.location ? ` in ${job.location}` : ""}`}
       initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.2 }}
+      transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.fast) }}
       className={`group flex cursor-pointer items-start gap-3 rounded-xl border-l-2 p-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
         selected ? "border-l-[#1C4D8D] bg-[#EAF1FB]" : "border-l-transparent bg-white hover:bg-slate-50"
       }`}

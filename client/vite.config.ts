@@ -13,6 +13,11 @@ export default defineConfig({
   base: process.env.VITE_BASE_URL || "/",
   resolve: {
     dedupe: ["react", "react-dom"],
+    // Mirrors the "paths" entry in client/tsconfig.json. Existing relative
+    // imports keep working; new and touched files should prefer "@/".
+    alias: {
+      "@": resolve(__dirname, "src"),
+    },
   },
   publicDir: resolve(__dirname, "public"),
   build: {

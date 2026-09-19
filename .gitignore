@@ -39,3 +39,8 @@ graphify-out
 
 # ShipStudio metadata
 .shipstudio/
+
+# Claude Code config, agents, and skills — local tooling, never pushed.
+# Skills live in the Obsidian vault (MicroJobs/Claude Skills), not here.
+.claude/
+.agents/

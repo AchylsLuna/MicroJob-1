@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
@@ -1133,7 +1134,7 @@ export function Messages() {
                     type="button"
                     initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.2 }}
+                    transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.fast) }}
                     onClick={() => {
                       handleSelectContact(contact);
                       setShowListMenu(false);
@@ -1341,7 +1342,7 @@ export function Messages() {
                             key={message._id || `message-${index}`}
                             initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.2 }}
+                            transition={{ duration: seconds(motionTokens.duration.fast) }}
                             className={`flex gap-3 ${isOwn ? "justify-end" : "justify-start"} ${row.showMeta ? "mt-3" : "mt-0.5"}`}
                           >
                             {!isOwn ? (
@@ -1435,7 +1436,7 @@ export function Messages() {
                           key={message._id || `message-${index}`}
                           initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.2 }}
+                          transition={{ duration: seconds(motionTokens.duration.fast) }}
                           className={`flex gap-3 ${isOwn ? "justify-end" : "justify-start"} ${row.showMeta ? "mt-3" : "mt-0.5"}`}
                         >
                           {!isOwn ? (
