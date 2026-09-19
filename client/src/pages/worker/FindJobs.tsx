@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { getCategories, getJobs, getProfile, getUserApplications, updateJobPreferences } from "../../services/api";
+import { getCategories, getProfile, updateJobPreferences } from "../../services/api";
+import { useWorkerJobs } from "../../hooks/queries/useWorkerJobs";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../contexts/AuthContext";
@@ -126,10 +128,6 @@ export function FindJobs() {
   const isLargeScreen = useMediaQuery("(min-width: 1024px)");
   const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [applicationStatuses, setApplicationStatuses] = useState<Record<string, string>>({});
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"recent" | "salary" | "applicants" | "nearest">("nearest");
   const [workerLocation, setWorkerLocation] = useState({
     province: "",
@@ -137,7 +135,6 @@ export function FindJobs() {
     barangay: "",
   });
   const [isLocationLoaded, setIsLocationLoaded] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
   const [categories, setCategories] = useState<Array<{ _id: string; name: string }>>([]);
   const [preferredCategoryIds, setPreferredCategoryIds] = useState<string[]>([]);
   const [jobPreferenceText, setJobPreferenceText] = useState("");
@@ -320,69 +317,40 @@ export function FindJobs() {
     };
   }, [user]);
 
-  useEffect(() => {
-    let isMounted = true;
-    const loadJobs = async () => {
-      if (!isLocationLoaded) return;
-      // Only a logged-in worker's missing city blocks the list (their location
-      // determines ranking and the empty state points them at Settings).
-      // Signed-out visitors have no city concept at all — they still get the
-      // nationwide, search-driven list.
-      if (user && !workerLocation.city.trim()) {
-        setJobs([]);
-        setLoadError(null);
-        setIsLoading(false);
-        return;
-      }
-      setIsLoading(true);
-      setLoadError(null);
-      try {
-        const [data, applications] = await Promise.all([
-          getJobs({
-          search: searchQuery || undefined,
-          category: selectedCategory || undefined,
-          city: workerLocation.city.trim() || undefined,
-          excludeOwn: true,
-          }),
-          getUserApplications(),
-        ]);
-        if (!isMounted) return;
-        const mapped = Array.isArray(data) ? data.map(mapApiJob) : [];
-        setJobs(mapped);
-        const nextStatuses: Record<string, string> = {};
-        if (Array.isArray(applications)) {
-          applications.forEach((application: any) => {
-            const jobId = String(application?.job?._id || application?.job?.id || application?.job || "");
-            const status = String(application?.status || "").trim();
-            if (jobId && status) nextStatuses[jobId] = status;
-          });
-        }
-        setApplicationStatuses(nextStatuses);
-      } catch (error: any) {
-        if (!isMounted) return;
-        setLoadError(error?.message || t("findJobs.toast.loadJobsFailed"));
-        setJobs([]);
-      } finally {
-        if (isMounted) setIsLoading(false);
-      }
-    };
-    loadJobs();
-    return () => {
-      isMounted = false;
-    };
-  }, [isLocationLoaded, workerLocation.city, searchQuery, selectedCategory, reloadKey, mapApiJob, t, user]);
+  // Only a logged-in worker's missing city blocks the list (their location
+  // determines ranking and the empty state points them at Settings).
+  // Signed-out visitors have no city concept at all — they still get the
+  // nationwide, search-driven list.
+  const canLoadJobs = isLocationLoaded && !(user && !workerLocation.city.trim());
 
-  useEffect(() => {
-    const refreshOnFocus = () => setReloadKey((value) => value + 1);
-    window.addEventListener("focus", refreshOnFocus);
-    return () => window.removeEventListener("focus", refreshOnFocus);
-  }, []);
+  const { data: jobsData, isPending, error: jobsError, refetch: refetchJobs } = useWorkerJobs({
+    search: searchQuery,
+    category: selectedCategory,
+    city: workerLocation.city.trim(),
+    enabled: canLoadJobs,
+  });
 
-  useEffect(() => {
-    const refreshOnFocus = () => setReloadKey((value) => value + 1);
-    window.addEventListener("focus", refreshOnFocus);
-    return () => window.removeEventListener("focus", refreshOnFocus);
-  }, []);
+  // A disabled query stays "pending" forever, so gate the loading state on the
+  // query actually being allowed to run.
+  const isLoading = canLoadJobs && isPending;
+  const loadError = jobsError ? (jobsError as Error).message || t("findJobs.toast.loadJobsFailed") : null;
+
+  const jobs = useMemo<Job[]>(
+    () => (Array.isArray(jobsData?.jobs) ? (jobsData.jobs as ApiJob[]).map(mapApiJob) : []),
+    [jobsData?.jobs, mapApiJob],
+  );
+
+  const applicationStatuses = useMemo(() => {
+    const statuses: Record<string, string> = {};
+    if (Array.isArray(jobsData?.applications)) {
+      jobsData.applications.forEach((application: any) => {
+        const jobId = String(application?.job?._id || application?.job?.id || application?.job || "");
+        const status = String(application?.status || "").trim();
+        if (jobId && status) statuses[jobId] = status;
+      });
+    }
+    return statuses;
+  }, [jobsData?.applications]);
 
   const parseSalaryValue = (value: string | number) => {
     if (typeof value === "number") {
@@ -494,7 +462,7 @@ export function FindJobs() {
         jobPreferences: jobPreferenceText.split(",").map((item) => item.trim()).filter(Boolean),
       });
       toast.success(t("findJobs.toast.preferencesSaved"));
-      setReloadKey((value) => value + 1);
+      void refetchJobs();
       setShowPreferences(false);
     } catch (error: any) {
       toast.error(error?.message || t("findJobs.toast.preferencesSaveFailed"));
@@ -702,12 +670,25 @@ export function FindJobs() {
         </label>
       </div>
 
+      {/* Placeholder rows echo the JobListRow layout (category tile, title,
+          meta line) so the list does not reflow when results land. */}
       {isLoading && (
-        <StatusState tone="loading" title={t("findJobs.status.loading.title")} description={t("findJobs.status.loading.description")} />
+        <div role="status" aria-label={t("findJobs.status.loading.title")} className="space-y-2">
+          {[0, 1, 2, 3, 4].map((index) => (
+            <div key={index} className="flex items-start gap-3 rounded-xl border-l-2 border-l-transparent bg-white p-3">
+              <Skeleton className="h-12 w-12 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-2/5" />
+                <Skeleton className="h-3 w-3/5" />
+                <Skeleton className="h-3 w-1/4" />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {loadError && !isLoading && (
-        <StatusState tone="error" title={t("findJobs.status.error.title")} description={loadError} action={<Button onClick={() => setReloadKey((value) => value + 1)}>{t("findJobs.status.error.retry")}</Button>} />
+        <StatusState tone="error" title={t("findJobs.status.error.title")} description={loadError} action={<Button onClick={() => void refetchJobs()}>{t("findJobs.status.error.retry")}</Button>} />
       )}
 
       {!isLoading && !loadError && sortedJobs.length === 0 && (

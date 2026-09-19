@@ -3,7 +3,6 @@ import {
   useEffect,
   useId,
   useRef,
-  type ButtonHTMLAttributes,
   type ComponentPropsWithRef,
   type HTMLAttributes,
   type InputHTMLAttributes,
@@ -14,16 +13,20 @@ import {
 } from "react";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { Pressable, type PressableBaseProps } from "./Pressable";
 
 const join = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 
-export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
+export const Button = forwardRef<HTMLButtonElement, PressableBaseProps>(
   ({ className, type = "button", ...props }, ref) => (
-    <button
+    // Hover is expressed through opacity, not a darker blue: tailwind.config.js
+    // flattens blue-500 through blue-950 to the same value, so the previous
+    // `hover:bg-blue-800` on a `bg-blue-700` base rendered no change at all.
+    <Pressable
       ref={ref}
       type={type}
       className={join(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
       {...props}
@@ -32,9 +35,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
 );
 Button.displayName = "Button";
 
-export const IconButton = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { label: string }>(
+export const IconButton = forwardRef<HTMLButtonElement, PressableBaseProps & { label: string }>(
   ({ className, label, type = "button", ...props }, ref) => (
-    <button
+    <Pressable
       ref={ref}
       type={type}
       aria-label={label}

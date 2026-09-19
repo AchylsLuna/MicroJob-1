@@ -8,6 +8,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { ResponsiveBottomNavigation } from "./ResponsiveBottomNavigation";
 import { MessageDock } from "./messaging/MessageDock";
 import { useHideOnScroll } from "../hooks/useHideOnScroll";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export function DashboardLayout() {
   const { t } = useTranslation("common");
@@ -106,7 +107,12 @@ export function DashboardLayout() {
           }}
         />
         <main className={`${webUi.layout.main} dashboard-scope`}>
-          <Outlet />
+          {/* Keyed on pathname so navigating to another page clears a crash
+              instead of stranding the user on the fallback. The sidebar and nav
+              stay mounted, so they can still navigate their way out. */}
+          <ErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
         {!isAdminView ? <ResponsiveBottomNavigation /> : null}
         <MessageDock />

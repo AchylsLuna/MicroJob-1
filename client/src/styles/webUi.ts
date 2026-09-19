@@ -1,6 +1,6 @@
 export const webUi = {
   layout: {
-    shell: "bg-[#f8fafc] flex h-screen h-[100dvh] w-full overflow-hidden",
+    shell: "bg-[#F7F8FA] flex h-screen h-[100dvh] w-full overflow-hidden",
     content: "h-full min-w-0 flex-1 flex flex-col overflow-y-auto overscroll-contain",
     main: "min-w-0 flex-1 px-4 pb-28 pt-4 sm:px-6 lg:px-8 lg:pb-8 lg:pt-6",
     maxContainer: "mx-auto w-full max-w-[1440px]",
@@ -26,7 +26,7 @@ export const webUi = {
     sectionDivider: "border-slate-200",
   },
   surfaces: {
-    panel: "bg-white rounded-[16px] border border-[#E5E7EB] p-6",
-    softPanel: "bg-white rounded-[16px] border border-[#E5E7EB] p-6",
+    panel: "bg-white rounded-[18px] border border-[#E5E7EB] p-6",
+    softPanel: "bg-white rounded-[18px] border border-[#E5E7EB] p-6",
   },
 } as const;

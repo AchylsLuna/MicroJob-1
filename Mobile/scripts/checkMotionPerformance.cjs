@@ -24,8 +24,8 @@ function inspect(relativePath) {
 for (const root of sourceRoots) visit(root);
 
 const virtualizedScreens = [
-  'pages/pages1/AppliedJobs.tsx',
-  'pages/pages1/SavedJobs.tsx',
+  'pages/worker/AppliedJobs.tsx',
+  'pages/worker/SavedJobs.tsx',
   'pages/employer/EmployerJobPosts.tsx',
 ];
 

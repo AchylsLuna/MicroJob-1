@@ -24,9 +24,21 @@ for (const file of files) {
   if (/numberOfLines\s*=/.test(source)) failures.push(`${file}: truncates authentication text`);
 }
 
-const appSource = fs.readFileSync(path.join(projectRoot, 'app.jsx'), 'utf8');
+// The navigators moved out of app.jsx into navigation/, so these assertions
+// read the navigation layer as a whole rather than a single file.
+const navigationFiles = [
+  'app.jsx',
+  ...fs
+    .readdirSync(path.join(projectRoot, 'navigation'))
+    .filter((entry) => /\.(js|jsx|ts|tsx)$/.test(entry))
+    .map((entry) => path.join('navigation', entry)),
+];
+const appSource = navigationFiles
+  .map((relative) => fs.readFileSync(path.join(projectRoot, relative), 'utf8'))
+  .join('\n');
+
 if (!/gestureEnabled:\s*true/.test(appSource) || !/fullScreenGestureEnabled:\s*true/.test(appSource)) {
-  failures.push('app.jsx: native stack back gestures are not enabled');
+  failures.push('navigation: native stack back gestures are not enabled');
 }
 
 const onboarding = fs.readFileSync(path.join(projectRoot, 'pages/OnboardingCarouselScreen.tsx'), 'utf8');
@@ -75,11 +87,11 @@ if (!/value:\s*['"]work['"]/.test(signUpSource)
   || !/value:\s*['"]both['"]/.test(signUpSource)) {
   failures.push('signUp.tsx: worker, employer, and Both choices are required');
 }
-const settingsSource = fs.readFileSync(path.join(projectRoot, 'pages/pages1/Settings.tsx'), 'utf8');
+const settingsSource = fs.readFileSync(path.join(projectRoot, 'pages/worker/Settings.tsx'), 'utf8');
 if (!/canSwitchAccountMode/.test(settingsSource) || !/settings\.modeCard\.sectionLabel/.test(settingsSource)) {
   failures.push('Settings.tsx: Both-account mode switching is missing');
 }
-for (const file of ['pages/pages1/Profile.tsx', 'pages/employer/EmployerProfile.tsx']) {
+for (const file of ['pages/worker/Profile.tsx', 'pages/employer/EmployerProfile.tsx']) {
   const source = fs.readFileSync(path.join(projectRoot, file), 'utf8');
   if (/showModeSwitch|canSwitchRole|onSwitchRole/.test(source)) failures.push(`${file}: account-mode switching must remain in Settings only`);
 }
@@ -89,14 +101,14 @@ if (!/WORKER_TABS/.test(tabNavigationSource) || !/EMPLOYER_TABS/.test(tabNavigat
   failures.push('tabNavigation.ts: canonical role tabs or parent-aware routing is missing');
 }
 if (!/navigateToRoleTab/.test(appSource) || /onTabPress=\{\(tab\)\s*=>\s*navigation\.navigate\(['"](?:Worker|Employer)Tabs['"]/.test(appSource)) {
-  failures.push('app.jsx: tab presses bypass the canonical role-aware navigator');
+  failures.push('navigation: tab presses bypass the canonical role-aware navigator');
 }
 
 for (const file of [
-  'pages/pages1/Jobs.tsx',
-  'pages/pages1/AppliedJobs.tsx',
-  'pages/pages1/SavedJobs.tsx',
-  'pages/pages1/Profile.tsx',
+  'pages/worker/Jobs.tsx',
+  'pages/worker/AppliedJobs.tsx',
+  'pages/worker/SavedJobs.tsx',
+  'pages/worker/Profile.tsx',
 ]) {
   const source = fs.readFileSync(path.join(projectRoot, file), 'utf8');
   if (/useState\(externalActiveTab|useState\(activeTab\s*\|\|/.test(source)) {

@@ -1,17 +1,16 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ScrollView from '../../components/ui/SmoothScrollView';
-import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
-import { apiRequest, asObject } from '../../lib/api';
+import { usePublicProfile } from '../../hooks/queries/usePublicProfile';
+import Skeleton from '../../components/ui/Skeleton';
 import { tokens } from '../../theme/tokens';
 import ProfileReviewsLoader from '../../components/reviews/ProfileReviewsLoader';
 
@@ -86,64 +85,13 @@ const toAbsoluteAssetUrl = (value?: string): string | null => {
 
 export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileProps) {
   const insets = useSafeAreaInsets();
-  const [data, setData] = useState<PublicProfileResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reloadKey, setReloadKey] = useState(0);
   const headerStyle = [styles.header, { paddingTop: Math.max(insets.top, 10) + 10 }];
 
-  useEffect(() => {
-    let isMounted = true;
-    const load = async (silent = false) => {
-      if (!userId) return;
-      if (!silent) {
-        setIsLoading(true);
-        setError(null);
-      }
-      try {
-        const token = await AsyncStorage.getItem('auth_token');
-        const result = await apiRequest(
-          `${API_URL}/auth/profiles/${userId}?viewAs=${viewAs}`,
-          {
-            headers: {
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-          },
-          'Failed to load profile.'
-        );
-
-        if (!result.ok) {
-          throw new Error(result.message || 'Failed to load profile.');
-        }
-
-        const payload =
-          asObject<PublicProfileResponse>(result.data) ||
-          asObject<PublicProfileResponse>(result.raw);
-
-        if (!payload?.profile) {
-          throw new Error('Profile not found.');
-        }
-
-        if (!isMounted) return;
-        setData(payload);
-      } catch (err: any) {
-        if (!isMounted) return;
-        if (!silent) {
-          setData(null);
-          setError(err?.message || 'Failed to load profile.');
-        }
-      } finally {
-        if (isMounted && !silent) setIsLoading(false);
-      }
-    };
-
-    load();
-    const refreshTimer = setInterval(() => void load(true), 30_000);
-    return () => {
-      isMounted = false;
-      clearInterval(refreshTimer);
-    };
-  }, [userId, viewAs, reloadKey]);
+  const { data, isPending, error: queryError, refetch } = usePublicProfile<PublicProfileResponse>(userId, viewAs);
+  // Only the first load blocks the screen; background polls keep the last good
+  // profile visible instead of flashing a loading state every 30 seconds.
+  const isLoading = Boolean(userId) && isPending;
+  const error = queryError ? (queryError as Error).message || 'Failed to load profile.' : null;
 
   const fullName = useMemo(() => {
     const first = data?.profile?.firstName || '';
@@ -181,9 +129,20 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1C4D8D" />
-          <Text style={styles.loadingText}>Loading profile...</Text>
+        {/* Mirrors the loaded header (avatar + name + meta) so the layout does
+            not jump once the profile arrives. */}
+        <View style={styles.loadingContainer} accessibilityLabel="Loading profile">
+          <View style={styles.skeletonHeader}>
+            <Skeleton style={styles.skeletonAvatar} />
+            <View style={styles.skeletonHeaderCopy}>
+              <Skeleton style={styles.skeletonTitle} />
+              <Skeleton style={styles.skeletonLine} />
+              <Skeleton style={styles.skeletonLineShort} />
+            </View>
+          </View>
+          <Skeleton style={styles.skeletonLine} />
+          <Skeleton style={styles.skeletonLine} />
+          <Skeleton style={styles.skeletonLineShort} />
         </View>
       </View>
     );
@@ -201,10 +160,7 @@ export default function PublicProfile({ userId, viewAs, onBack }: PublicProfileP
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={() => {
-              setError(null);
-              setReloadKey((prev) => prev + 1);
-            }}
+            onPress={() => void refetch()}
           >
             <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
@@ -440,16 +396,19 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
+  // Skeletons sit where the real content will, so the container is top-aligned
+  // rather than centred the way a spinner was.
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 20,
+    gap: 12,
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 14,
-    color: '#64748B',
-  },
+  skeletonHeader: { flexDirection: 'row', gap: 14, marginBottom: 8 },
+  skeletonAvatar: { width: 80, height: 80, borderRadius: 18 },
+  skeletonHeaderCopy: { flex: 1, gap: 8, paddingTop: 4 },
+  skeletonTitle: { width: '55%', height: 20 },
+  skeletonLine: { width: '100%', height: 12 },
+  skeletonLineShort: { width: '60%', height: 12 },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',

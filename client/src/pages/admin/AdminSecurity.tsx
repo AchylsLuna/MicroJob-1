@@ -1,5 +1,6 @@
 import { Shield, ShieldCheck, UserCog, UserMinus } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
@@ -35,7 +36,7 @@ function AdminSecurityContent() {
             className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 transition hover:-translate-y-0.5 hover:shadow-md"
             initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05, duration: 0.3 }}
+            transition={{ delay: index * 0.05, duration: seconds(motionTokens.duration.standard) }}
           >
             <div className={`w-12 h-12 rounded-[12px] ${card.iconBg} flex items-center justify-center mb-4`}>
               <card.icon className={`w-6 h-6 ${card.iconColor}`} />
@@ -68,7 +69,7 @@ function AdminSecurityContent() {
                 className="flex items-center justify-between gap-4 p-3 rounded-[12px] border border-[#F3F4F6] transition-colors hover:bg-slate-50"
                 initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(index, 8) * 0.03, duration: 0.25 }}
+                transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.enter) }}
               >
                 <div>
                   <p className="text-[14px] font-medium text-[#111827]">{activity.subtitle}</p>

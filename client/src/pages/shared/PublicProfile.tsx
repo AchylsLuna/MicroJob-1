@@ -1,7 +1,9 @@
 import { ArrowLeft, Briefcase, MapPin, Star, CheckCircle2, Building2, ExternalLink } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { getPublicProfile, type ReviewSummary } from "../../services/api";
+import { type ReviewSummary } from "../../services/api";
+import { usePublicProfile } from "../../hooks/queries/usePublicProfile";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { ProfileReviewsLoader } from "../../components/reviews/ProfileReviewsLoader";
@@ -85,39 +87,13 @@ export function PublicProfile() {
   const navigate = useNavigate();
   const { userId } = useParams();
   const [searchParams] = useSearchParams();
-  const [data, setData] = useState<PublicProfileResponse | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const viewAs = searchParams.get("viewAs") === "employer" ? "employer" : "worker";
 
-  useEffect(() => {
-    let isMounted = true;
-    const load = async (silent = false) => {
-      if (!userId) return;
-      if (!silent) {
-        setIsLoading(true);
-        setError(null);
-      }
-      try {
-        const response = await getPublicProfile(userId, viewAs);
-        if (!isMounted) return;
-        setData(response as PublicProfileResponse);
-      } catch (err: any) {
-        if (!isMounted) return;
-        if (!silent) setError(err?.message || "Failed to load profile.");
-      } finally {
-        if (isMounted && !silent) setIsLoading(false);
-      }
-    };
-
-    load();
-    const refreshTimer = window.setInterval(() => void load(true), 30_000);
-    return () => {
-      isMounted = false;
-      window.clearInterval(refreshTimer);
-    };
-  }, [userId, viewAs]);
+  const { data, isPending, error: queryError } = usePublicProfile<PublicProfileResponse>(userId, viewAs);
+  // Only the first load blocks the page; background polls keep the last good
+  // profile on screen instead of flashing a loading state every 30 seconds.
+  const isLoading = Boolean(userId) && isPending;
+  const error = queryError ? (queryError as Error).message || "Failed to load profile." : null;
 
   const fullName = useMemo(() => {
     const first = data?.profile?.firstName || "";
@@ -153,7 +129,25 @@ export function PublicProfile() {
       </button>
 
       <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-sm">
-        {isLoading ? <p className="text-[#64748B]">Loading profile...</p> : null}
+        {/* Mirrors the loaded header below (avatar + name + meta lines) so the
+            layout does not jump once the profile arrives. */}
+        {isLoading ? (
+          <div role="status" aria-label="Loading profile" className="space-y-6">
+            <div className="flex items-start gap-4">
+              <Skeleton className="h-20 w-20 rounded-2xl" />
+              <div className="flex-1 space-y-2 pt-1">
+                <Skeleton className="h-6 w-1/2" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-4 w-1/4" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-11/12" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          </div>
+        ) : null}
         {error ? <p className="text-[#B91C1C]">{error}</p> : null}
 
         {!isLoading && !error && data?.profile ? (

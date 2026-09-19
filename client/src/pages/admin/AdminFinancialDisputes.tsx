@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
+import { motionTokens, seconds } from "@/constants/motion";
 import { AlertCircle, CheckCircle2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
@@ -184,7 +185,7 @@ function AdminFinancialDisputesContent() {
                       className="border-b border-slate-100 align-top"
                       initial={prefersReducedMotion ? false : { opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: index * 0.03, duration: 0.25 }}
+                      transition={{ delay: index * 0.03, duration: seconds(motionTokens.duration.enter) }}
                     >
                       <td className="px-3 py-4">
                         <p className="font-semibold text-slate-950">{dispute.subject}</p>
