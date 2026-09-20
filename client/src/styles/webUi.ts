@@ -25,8 +25,12 @@ export const webUi = {
     navButtonIdle: "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
     sectionDivider: "border-slate-200",
   },
-  surfaces: {
-    panel: "bg-white rounded-[18px] border border-[#E5E7EB] p-6",
-    softPanel: "bg-white rounded-[18px] border border-[#E5E7EB] p-6",
-  },
 } as const;
+
+// `surfaces.panel` / `surfaces.softPanel` were removed: both had zero
+// consumers anywhere in client/src, and the two were byte-identical strings,
+// so "soft" promised a variant that did not exist. Anything importing them
+// would also have pulled in a third panel radius -- the codebase is already
+// split between rounded-[16px] (66 uses) and rounded-[14px] (50), and adding
+// an 18px default to that mix was not going to settle it. Pick the radius the
+// neighbouring panels on the same screen already use.

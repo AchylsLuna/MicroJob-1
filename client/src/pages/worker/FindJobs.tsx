@@ -324,6 +324,7 @@ export function FindJobs() {
   const canLoadJobs = isLocationLoaded && !(user && !workerLocation.city.trim());
 
   const { data: jobsData, isPending, error: jobsError, refetch: refetchJobs } = useWorkerJobs({
+    userId: user?.id,
     search: searchQuery,
     category: selectedCategory,
     city: workerLocation.city.trim(),
@@ -671,19 +672,33 @@ export function FindJobs() {
       </div>
 
       {/* Placeholder rows echo the JobListRow layout (category tile, title,
-          meta line) so the list does not reflow when results land. */}
+          meta line) so the list does not reflow when results land. The
+          wrapper mirrors the loaded grid below exactly -- without it the
+          placeholder list spanned the full width on lg+ and then snapped
+          into the 380px column once results arrived. The tile is 44px /
+          rounded-[14px] to match CategoryTile size="sm". */
       {isLoading && (
-        <div role="status" aria-label={t("findJobs.status.loading.title")} className="space-y-2">
-          {[0, 1, 2, 3, 4].map((index) => (
-            <div key={index} className="flex items-start gap-3 rounded-xl border-l-2 border-l-transparent bg-white p-3">
-              <Skeleton className="h-12 w-12 rounded-xl" />
-              <div className="flex-1 space-y-2">
-                <Skeleton className="h-4 w-2/5" />
-                <Skeleton className="h-3 w-3/5" />
-                <Skeleton className="h-3 w-1/4" />
+        <div role="status" aria-label={t("findJobs.status.loading.title")} className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
+          <div className="space-y-1">
+            {[0, 1, 2, 3, 4].map((index) => (
+              <div key={index} className="flex items-start gap-3 rounded-xl border-l-2 border-l-transparent bg-white p-3">
+                <Skeleton className="h-11 w-11 rounded-[14px]" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-4 w-2/5" />
+                  <Skeleton className="h-3 w-3/5" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          {/* Detail-pane placeholder is CSS-only on purpose: the real pane
+              below is gated on isLargeScreen so it never mounts (and never
+              fetches) on a phone. A skeleton has nothing to fetch, so
+              `hidden lg:block` is enough here. */}
+          <div className="hidden lg:block">
+            <Skeleton className="h-[420px] w-full rounded-xl" />
+          </div>
         </div>
       )}
 

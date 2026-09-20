@@ -139,6 +139,11 @@ function RootApp() {
   const language = useLanguage();
   const [showLaunch, setShowLaunch] = useState(true);
   const [navigationReady, setNavigationReady] = useState(false);
+  // Bumped by the error boundary's "Try again": changing the key remounts the
+  // NavigationContainer, which is the only way to actually clear a crashed
+  // screen on native. Without it the boundary re-renders the same broken
+  // subtree and throws again immediately.
+  const [navigatorGeneration, setNavigatorGeneration] = useState(0);
   const navigationTheme = useMemo(() => ({
     ...DefaultTheme,
     colors: { ...DefaultTheme.colors, background: tokens.colors.signedInCanvas, primary: tokens.colors.brand, card: tokens.colors.contentSurface },
@@ -228,8 +233,14 @@ function RootApp() {
       onTouchStart={() => session.registerActivity()}
     >
       <StatusBar style="dark" />
-      <ErrorBoundary>
-        <NavigationContainer ref={navigationRef} theme={navigationTheme} linking={linking} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
+      <ErrorBoundary
+        onReset={() => {
+          setNavigationReady(false);
+          setNavigatorGeneration((generation) => generation + 1);
+        }}
+      >
+        <NavigationContainer key={navigatorGeneration} ref={navigationRef} theme={navigationTheme} linking={linking} onReady={() => setNavigationReady(true)} onStateChange={() => session.registerActivity()}>
+
           <AppNavigator />
         </NavigationContainer>
       </ErrorBoundary>

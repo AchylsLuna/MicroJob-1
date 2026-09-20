@@ -3,6 +3,14 @@ import { getJobs, getUserApplications } from "../../services/api";
 import { queryKey } from "../../lib/queryKeys";
 
 type Params = {
+  /**
+   * The signed-in worker viewing the list, or undefined for a signed-out
+   * visitor. Included in the query key — without it, two different workers
+   * applying the same filters would share one cache entry, and the second
+   * to sign in on a device would see the first worker's application
+   * statuses rendered as their own.
+   */
+  userId?: string;
   search?: string;
   category?: string;
   city?: string;
@@ -26,9 +34,9 @@ type Params = {
  * goes stale while a tab sits in the background, and it replaces two duplicated
  * hand-rolled window focus listeners the page used to register.
  */
-export function useWorkerJobs({ search, category, city, enabled }: Params) {
+export function useWorkerJobs({ userId, search, category, city, enabled }: Params) {
   return useQuery({
-    queryKey: queryKey("jobs", { search, category, city }),
+    queryKey: queryKey("jobs", userId ?? null, { search, category, city }),
     queryFn: async () => {
       const [jobs, applications] = await Promise.all([
         getJobs({

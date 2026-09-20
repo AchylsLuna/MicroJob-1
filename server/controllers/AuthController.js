@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
+import Transaction from '../models/Transaction.js';
 import { sendError, sendSuccess } from '../lib/apiResponse.js';
 import { getJwtSecret } from '../lib/jwtSecret.js';
 import {
@@ -631,6 +632,42 @@ const debugLoginOtp = async (req, res) => {
   return sendSuccess(res, 200, 'ok', { code });
 };
 
+// Test-only escape hatch, same shape and same hard gate as debugLoginOtp
+// above. Funding an employer wallet normally requires a real PayMongo
+// checkout round trip, which the isolated e2e sandbox cannot perform -- so
+// without this the entire offer -> hire -> submit -> settle path is
+// unreachable from an automated test, which is exactly the part of the
+// product most worth covering. Credits the balance directly and records the
+// matching TOP_UP row so the wallet history stays coherent.
+// A no-op 404 outside NODE_ENV === 'test'.
+const debugCreditWallet = async (req, res) => {
+  if (process.env.NODE_ENV !== 'test') {
+    return sendError(res, 404, 'Not found');
+  }
+  const email = String(req.body?.email || '').toLowerCase().trim();
+  const amount = Number(req.body?.amount);
+  if (!email || !Number.isFinite(amount) || amount <= 0) {
+    return sendError(res, 400, 'email and a positive amount are required.');
+  }
+  const user = await User.findOne({ email });
+  if (!user) {
+    return sendError(res, 404, 'No account exists for this address.');
+  }
+  user.employerBalance = (user.employerBalance || 0) + amount;
+  await user.save();
+  await Transaction.create({
+    sender: null,
+    receiver: user._id,
+    amount,
+    type: 'TOP_UP',
+    status: 'COMPLETED',
+    balanceTarget: 'EMPLOYER',
+    label: 'Test harness wallet credit',
+    actor: user._id,
+  });
+  return sendSuccess(res, 200, 'ok', { employerBalance: user.employerBalance });
+};
+
 export {
   registerUser,
   loginUser,
@@ -640,6 +677,7 @@ export {
   loginOtpVerify,
   loginOtpResend,
   debugLoginOtp,
+  debugCreditWallet,
 };
 export default {
   registerUser,
@@ -650,4 +688,5 @@ export default {
   loginOtpVerify,
   loginOtpResend,
   debugLoginOtp,
+  debugCreditWallet,
 };

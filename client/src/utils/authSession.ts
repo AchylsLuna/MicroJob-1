@@ -1,4 +1,5 @@
 import { getSignInRouteForPath } from "./authRedirects";
+import { queryClient } from "../lib/queryClient";
 
 const AUTH_USER_KEY = "auth_user";
 const CURRENT_USER_KEY = "current_user";
@@ -81,6 +82,11 @@ export const handleInvalidSession = () => {
   }
 
   clearAuthStorage();
+  // A same-tab window.location.assign below reloads the page, which already
+  // resets the query cache -- except when we're already on the sign-in path
+  // and skip the reload. Clear explicitly so that case can't leak the
+  // previous session's cached data either.
+  queryClient.clear();
   window.dispatchEvent(new Event("auth_user_updated"));
 
   if (redirectInProgress) {
