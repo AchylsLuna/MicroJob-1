@@ -9,6 +9,7 @@ export type NotificationListItem = {
   createdAt: string;
   readAt: string | null;
   actorName: string;
+  actorId: string;
   icon: ComponentProps<typeof Ionicons>['name'];
   accentColor: string;
   accentBackground: string;
@@ -22,6 +23,8 @@ export type NotificationDestination = 'applications' | 'messages' | 'wallet' | '
 export const resolveNotificationDestination = (item: any): NotificationDestination => {
   const type = String(item?.type || item?.entityType || '').toLowerCase();
   const entityType = String(item?.entityType || '').toLowerCase();
+  // Offers are actioned from the offer card in the participant chat.
+  if (entityType === 'job_offer') return 'messages';
   if (type.includes('message')) return 'messages';
   if (type.includes('application') || type.includes('interview') || type.includes('offer')) return 'applications';
   if (type.includes('payment') || type.includes('payout') || type.includes('invoice') || type.includes('settlement') || entityType === 'payment_request') return 'wallet';
@@ -50,6 +53,12 @@ const getActorName = (item: any): string => {
     if (actor.email) return String(actor.email);
   }
   return '';
+};
+
+const getActorId = (item: any): string => {
+  const actor = item?.actor;
+  if (actor && typeof actor === 'object') return String(actor._id || actor.id || '');
+  return actor ? String(actor) : '';
 };
 
 const getAppearance = (type: string) => {
@@ -84,6 +93,7 @@ const normalizeApplicationPayload = (item: any) => ({
   createdAt: item?.updatedAt || item?.createdAt || FALLBACK_TIMESTAMP(),
   readAt: item?.readAt || null,
   actorName: item?.applicantName || '',
+  actorId: String(item?.applicantId || ''),
 });
 
 export const normalizeNotificationItem = (raw: any): NotificationListItem => {
@@ -98,6 +108,7 @@ export const normalizeNotificationItem = (raw: any): NotificationListItem => {
         createdAt: item?.createdAt || item?.updatedAt || FALLBACK_TIMESTAMP(),
         readAt: item?.readAt || null,
         actorName: getActorName(item),
+        actorId: getActorId(item),
         link: String(item?.link || ''),
         entityType: String(item?.entityType || ''),
         entityId: String(item?.entityId || ''),

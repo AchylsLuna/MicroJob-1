@@ -19,6 +19,7 @@ import ChangePassword from '../pages/worker/ChangePassword';
 import ContactSupport from '../pages/worker/ContactSupport';
 import { useAppSession } from '../contexts/AppSessionContext';
 import { useToast } from '../contexts/ToastContext';
+import { resolveNotificationDestination } from '../lib/notifications';
 import { useWorkerTabNavigation } from './useTabNavigation';
 import { hiddenTabs, stackMotion } from './options';
 
@@ -205,7 +206,10 @@ function WorkerNotificationsScreen() {
   const openNotification = (item) => {
     const destination = resolveNotificationDestination(item);
     if (destination === 'applications') navigation.navigate('WorkerAppliedJobs');
-    else if (destination === 'messages') workerTabPress('Messages');
+    else if (destination === 'messages') {
+      session.setInitialWorkerChatTarget(item.actorId ? { id: item.actorId, name: item.actorName || undefined } : null);
+      workerTabPress('Messages');
+    }
     else if (destination === 'wallet') workerTabPress('EWallet');
     else if (destination === 'support') navigation.navigate('WorkerSupport');
     else if (destination === 'settings') navigation.navigate('WorkerSettings');

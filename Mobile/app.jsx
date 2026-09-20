@@ -202,7 +202,7 @@ function RootApp() {
     }
     const employer = session.viewMode === 'employer';
     const entityId = String(data.entityId || '');
-    const conversationId = String(data.conversationId || data.senderId || '');
+    const conversationId = String(data.conversationId || data.senderId || data.participantId || '');
     if (destination === 'messages') {
       if (employer) session.setInitialEmployerChatTarget(conversationId ? { id: conversationId } : null);
       else session.setInitialWorkerChatTarget(conversationId ? { id: conversationId } : null);

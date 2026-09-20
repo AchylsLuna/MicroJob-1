@@ -18,6 +18,7 @@ import DeleteAccount from '../pages/worker/DeleteAccount';
 import ChangePassword from '../pages/worker/ChangePassword';
 import ContactSupport from '../pages/worker/ContactSupport';
 import { useAppSession } from '../contexts/AppSessionContext';
+import { resolveNotificationDestination } from '../lib/notifications';
 import { useEmployerTabNavigation } from './useTabNavigation';
 import { hiddenTabs, stackMotion } from './options';
 
@@ -109,7 +110,10 @@ function EmployerNotificationsScreen() {
   const openNotification = (item) => {
     const destination = resolveNotificationDestination(item);
     if (destination === 'applications') employerTabPress('Applications');
-    else if (destination === 'messages') employerTabPress('Messages');
+    else if (destination === 'messages') {
+      session.setInitialEmployerChatTarget(item.actorId ? { id: item.actorId, name: item.actorName || undefined } : null);
+      employerTabPress('Messages');
+    }
     else if (destination === 'wallet') navigation.navigate('EmployerEWallet', item?.entityType === 'payment_request' ? { invoiceRequestId: item.entityId } : undefined);
     else if (destination === 'support') navigation.navigate('EmployerSupport');
     else if (destination === 'settings') navigation.navigate('EmployerSettings');
