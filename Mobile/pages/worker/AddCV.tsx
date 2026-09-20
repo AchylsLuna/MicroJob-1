@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { useToast } from '../../contexts/ToastContext';
-import { apiRequest } from '../../lib/api';
 import { uploadFile } from '../../lib/uploadFile';
 import { validateMobileResume } from '../../lib/profileValidation';
 import { Ionicons } from '@expo/vector-icons';

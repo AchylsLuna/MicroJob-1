@@ -676,7 +676,7 @@ export function FindJobs() {
           wrapper mirrors the loaded grid below exactly -- without it the
           placeholder list spanned the full width on lg+ and then snapped
           into the 380px column once results arrived. The tile is 44px /
-          rounded-[14px] to match CategoryTile size="sm". */
+          rounded-[14px] to match CategoryTile size="sm". */}
       {isLoading && (
         <div role="status" aria-label={t("findJobs.status.loading.title")} className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
           <div className="space-y-1">

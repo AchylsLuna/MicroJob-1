@@ -5,7 +5,6 @@ import {
   Image,
   Linking,
   Modal,
-  Platform,
   RefreshControl,
   StyleSheet,
   Text,
@@ -18,7 +17,6 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import Constants from 'expo-constants';
 import Navigation from '../../components/navigation';
 import TabTopNav from '../../components/TabTopNav';
 import AddCV from './AddCV';
@@ -136,49 +134,6 @@ export default function Profile({
   }, [actionNonce, initialAction]);
 
   const API_ORIGIN = API_URL.replace(/\/api$/, '');
-  const apiPort = (() => {
-    try {
-      const parsed = new URL(API_ORIGIN);
-      if (parsed.port) return parsed.port;
-      return parsed.protocol === 'https:' ? '443' : '80';
-    } catch {
-      return '5050';
-    }
-  })();
-  const apiProtocol = (() => {
-    try {
-      return new URL(API_ORIGIN).protocol.replace(':', '');
-    } catch {
-      return 'http';
-    }
-  })();
-
-  const buildApiCandidates = () => {
-    const candidates = new Set<string>([API_URL]);
-
-    const extractHost = (value: unknown): string => {
-      if (typeof value !== 'string' || !value.trim()) return '';
-      return value.replace(/^https?:\/\//, '').split('/')[0].split(':')[0].trim();
-    };
-
-    const hostCandidates = [
-      Constants.expoConfig?.hostUri,
-      (Constants as any).expoGoConfig?.debuggerHost,
-      (Constants.manifest as any)?.debuggerHost,
-      (Constants.manifest2 as any)?.extra?.expoClient?.debuggerHost,
-    ];
-    const detectedHost = hostCandidates.map(extractHost).find(Boolean);
-
-    if (detectedHost) {
-      candidates.add(`${apiProtocol}://${detectedHost}:${apiPort}/api`);
-    }
-
-    if (Platform.OS === 'android' && /localhost|127\.0\.0\.1/.test(API_URL)) {
-      candidates.add(API_URL.replace('localhost', '10.0.2.2').replace('127.0.0.1', '10.0.2.2'));
-    }
-
-    return Array.from(candidates);
-  };
 
   const handleTabPress = (tab: string) => {
     onTabPress?.(tab);
