@@ -18,6 +18,7 @@ import ScrollView from '../../components/ui/SmoothScrollView';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_URL } from '../../config';
 import { apiRequest, asObject } from '../../lib/api';
+import { uploadFile } from '../../lib/uploadFile';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import PhoneVerificationCard from '../../components/account/PhoneVerificationCard';
@@ -325,32 +326,31 @@ export default function PersonalInformation({
 
       const ext = extension;
       const mime = mimeType;
-      const form = new FormData();
-      form.append(
-        'avatar',
-        {
-          uri: asset.uri,
-          name: asset.fileName || `avatar.${ext}`,
-          type: mime,
-        } as any,
-      );
 
       setIsUploadingAvatar(true);
-      const result = await apiRequest(
-        `${API_URL}/auth/profile/avatar`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: form,
-        },
-        'Failed to upload profile picture.',
-      );
+      // Use FileSystem.uploadAsync (native multipart) instead of fetch+FormData.
+      // FormData with a plain { uri, type, name } object is rejected by React Native
+      // 0.79+ Hermes JSI with "Unsupported FormDataPart implementation".
+      const result = await uploadFile({
+        url: `${API_URL}/auth/profile/avatar`,
+        fileUri: asset.uri,
+        fieldName: 'avatar',
+        mimeType: mime,
+        token,
+      });
 
       if (!result.ok) {
-        throw new Error(result.message || 'Failed to upload profile picture.');
+        let errorMsg = 'Failed to upload profile picture.';
+        try {
+          const parsed = result.body ? JSON.parse(result.body) : null;
+          if (parsed?.message) errorMsg = parsed.message;
+        } catch { /* ignore */ }
+        throw new Error(errorMsg);
       }
 
-      const payload = (result.data || result.raw || {}) as any;
+      const payload = (() => {
+        try { return result.body ? JSON.parse(result.body) : {}; } catch { return {}; }
+      })() as any;
       const nextAvatarUrl =
         payload?.data?.avatarUrl ||
         payload?.avatarUrl ||

@@ -28,6 +28,7 @@ import AddCertificate, { type CertificateDraft } from './AddCertificate';
 import { API_URL } from '../../config';
 import { safeExternalUrl } from '../../lib/safeExternalUrl';
 import { apiRequest } from '../../lib/api';
+import { uploadFile } from '../../lib/uploadFile';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import { calculateProfileCompletion } from '../../lib/profileCompletion';
@@ -221,6 +222,7 @@ export default function Profile({
         return;
       }
 
+      // Ensure the URI has the file:// scheme required by FileSystem.uploadAsync.
       let uploadUri = image.uri;
       if (!uploadUri.startsWith('file://') && FileSystem.cacheDirectory) {
         const cachePath = `${FileSystem.cacheDirectory}avatar_upload_${Date.now()}.${extension}`;
@@ -233,57 +235,24 @@ export default function Profile({
         throw new Error('Selected image file is not accessible on this device.');
       }
 
-      const formData = new FormData();
-      const fileName = image.fileName || `profile_${Date.now()}.${extension}`;
-      formData.append('avatar', {
-        uri: uploadUri,
-        type: mimeType,
-        name: fileName,
-      } as any);
+      // Use FileSystem.uploadAsync (native multipart) instead of fetch+FormData.
+      // FormData with a plain { uri, type, name } object is rejected by React Native
+      // 0.79+ Hermes JSI with "Unsupported FormDataPart implementation".
+      const result = await uploadFile({
+        url: `${API_URL}/auth/profile/avatar`,
+        fileUri: uploadUri,
+        fieldName: 'avatar',
+        mimeType,
+        token,
+      });
 
-      const apiCandidates = buildApiCandidates();
-      let uploadSuccess = false;
-      let lastError = 'Network request failed';
-
-      for (const apiBase of apiCandidates) {
-        const controller = new AbortController();
-        const timeoutId = globalThis.setTimeout(() => controller.abort(), 12000);
+      if (!result.ok) {
+        let errorMessage = `Failed to upload image (${result.status})`;
         try {
-          const response = await fetch(`${apiBase}/auth/profile/avatar`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-            signal: controller.signal,
-          });
-
-          const raw = await response.text();
-          let parsed: any = null;
-          try {
-            parsed = raw ? JSON.parse(raw) : null;
-          } catch {
-            parsed = null;
-          }
-
-          if (response.ok) {
-            uploadSuccess = true;
-            break;
-          }
-
-          lastError = parsed?.message || `Failed to upload image (${response.status})`;
-        } catch (err) {
-          lastError = err instanceof Error && err.name === 'AbortError'
-            ? 'The upload took too long. Please try again.'
-            : err instanceof Error ? err.message : String(err);
-          console.log(`Avatar upload failed for ${apiBase}:`, err);
-        } finally {
-          globalThis.clearTimeout(timeoutId);
-        }
-      }
-
-      if (!uploadSuccess) {
-        throw new Error(lastError);
+          const parsed = result.body ? JSON.parse(result.body) : null;
+          if (parsed?.message) errorMessage = parsed.message;
+        } catch { /* ignore parse errors */ }
+        throw new Error(errorMessage);
       }
 
       await loadProfile();
@@ -295,6 +264,8 @@ export default function Profile({
       setIsUploadingAvatar(false);
     }
   };
+
+
 
   const loadProfile = useCallback(async () => {
     setIsProfileLoading(true);
@@ -704,24 +675,25 @@ export default function Profile({
 
       const asset = picked.assets[0];
       const documentName = asset.name || `identity-${Date.now()}.jpg`;
-      const form = new FormData();
-      form.append('document', {
-        uri: asset.uri,
-        name: documentName,
-        type: getVerificationMimeType(documentName, asset.mimeType),
-      } as any);
+      const mimeType = getVerificationMimeType(documentName, asset.mimeType);
 
       setIsUploadingGovernmentId(true);
-      const result = await apiRequest(
-        `${API_URL}/auth/verification/documents/identity`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: form,
-        },
-        'Failed to upload government ID.',
-      );
-      if (!result.ok) throw new Error(result.message);
+      const uploadResult = await uploadFile({
+        url: `${API_URL}/auth/verification/documents/identity`,
+        fileUri: asset.uri,
+        fieldName: 'document',
+        mimeType,
+        token,
+      });
+
+      if (!uploadResult.ok) {
+        let msg = 'Failed to upload government ID.';
+        try {
+          const parsed = uploadResult.body ? JSON.parse(uploadResult.body) : null;
+          if (parsed?.message) msg = parsed.message;
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
 
       toast.success('Government ID uploaded for review.');
       await loadProfile();
@@ -758,24 +730,25 @@ export default function Profile({
 
       const asset = picked.assets[0];
       const documentName = asset.name || `address-${Date.now()}.jpg`;
-      const form = new FormData();
-      form.append('document', {
-        uri: asset.uri,
-        name: documentName,
-        type: getVerificationMimeType(documentName, asset.mimeType),
-      } as any);
+      const mimeType = getVerificationMimeType(documentName, asset.mimeType);
 
       setIsUploadingAddressDocument(true);
-      const result = await apiRequest(
-        `${API_URL}/auth/verification/documents/address`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: form,
-        },
-        'Failed to upload proof of address.',
-      );
-      if (!result.ok) throw new Error(result.message);
+      const uploadResult = await uploadFile({
+        url: `${API_URL}/auth/verification/documents/address`,
+        fileUri: asset.uri,
+        fieldName: 'document',
+        mimeType,
+        token,
+      });
+
+      if (!uploadResult.ok) {
+        let msg = 'Failed to upload proof of address.';
+        try {
+          const parsed = uploadResult.body ? JSON.parse(uploadResult.body) : null;
+          if (parsed?.message) msg = parsed.message;
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
 
       toast.success('Proof of address uploaded for review.');
       await loadProfile();

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  FlatList,
   Modal,
   Platform,
   RefreshControl,
@@ -240,7 +239,7 @@ export default function EmployerJobPosts({
         <TabTopNav title={t('jobPosts.header.title')} subtitle={headerSubtitle} onSubtitlePress={onOpenLocation} homeContext employerMode showNotifications onOpenNotifications={onOpenNotifications} notificationBadgeCount={notificationBadgeCount} />
       </Animated.View>
 
-      <FlatList
+      <Animated.FlatList
         data={jobs}
         keyExtractor={(job) => job._id}
         contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + tokens.layout.sectionGap }]}

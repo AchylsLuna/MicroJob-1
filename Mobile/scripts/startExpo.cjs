@@ -13,8 +13,8 @@ const iosFlags = new Set(['--ios', '-i']);
 const envClientMode = (process.env.EXPO_START_CLIENT || 'go').trim().toLowerCase();
 const envHostMode = (process.env.EXPO_START_HOST || '').trim().toLowerCase();
 
-const supportedExpoSdk = 54;
-const supportedReactNative = '0.81.5';
+const supportedExpoSdk = 57;
+const supportedReactNative = '0.86.3';
 
 function readPackageVersion(packageName) {
   return require(`${packageName}/package.json`).version;
@@ -33,7 +33,7 @@ function assertExpoGoCompatibility() {
   }
 
   console.log(`Expo Go target: SDK ${supportedExpoSdk} (Expo ${expoVersion}, React Native ${reactNativeVersion}).`);
-  console.log('If Expo Go reports an SDK mismatch, update it or install the SDK 54 client from https://expo.dev/go.');
+  console.log('If Expo Go reports an SDK mismatch, update it or install the SDK 57 client from https://expo.dev/go.');
   console.log('Older Expo Go clients can be installed on Android devices/emulators and iOS simulators, but not physical iPhones.');
 }
 

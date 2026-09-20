@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Animated, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
+import { Animated, Platform, ScrollView, View, Text, StyleSheet, TouchableOpacity, TextInput, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Navigation from '../../components/navigation';
-import ScrollView from '../../components/ui/SmoothScrollView';
 import { useAppSession } from '../../contexts/AppSessionContext';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
@@ -404,9 +403,12 @@ export default function Jobs(props: JobsProps) {
         </View>
       </Animated.View>
 
-      <ScrollView
+      <Animated.ScrollView
         contentContainerStyle={[styles.scroll, { paddingTop: headerHeight + 8 }]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+        removeClippedSubviews={Platform.OS === 'android'}
         onScroll={onScroll}
         scrollEventThrottle={16}
       >
@@ -527,7 +529,7 @@ export default function Jobs(props: JobsProps) {
             );
           })}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       <Navigation activeTab={externalActiveTab || 'Jobs'} onTabPress={handleTabPress} messageBadgeCount={messageBadgeCount} />
       <Modal
