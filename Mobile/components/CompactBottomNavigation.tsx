@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     borderColor: tokens.colors.navGlassBorder,
   },
   // Sits under the items so the frosted panel keeps contrast over busy backgrounds.
-  barTint: { ...StyleSheet.absoluteFillObject, backgroundColor: tokens.colors.navGlass },
+  barTint: { ...StyleSheet.absoluteFill, backgroundColor: tokens.colors.navGlass },
   sheen: { position: 'absolute', top: 0, left: 0, right: 0, height: 1, backgroundColor: tokens.colors.navSheen },
   track: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   indicator: {

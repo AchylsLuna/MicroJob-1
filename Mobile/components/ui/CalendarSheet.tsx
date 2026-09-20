@@ -153,9 +153,9 @@ export default function CalendarSheet(props: Props) {
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <View style={StyleSheet.absoluteFillObject} accessibilityViewIsModal>
-        <Animated.View style={[StyleSheet.absoluteFillObject, styles.backdrop, { opacity: backdropOpacity }]}>
-          <Pressable style={StyleSheet.absoluteFillObject} onPress={onClose} accessibilityLabel="Close calendar" accessibilityRole="button" />
+      <View style={StyleSheet.absoluteFill} accessibilityViewIsModal>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, { opacity: backdropOpacity }]}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close calendar" accessibilityRole="button" />
         </Animated.View>
 
         <Animated.View
