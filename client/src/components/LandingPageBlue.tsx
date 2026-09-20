@@ -1198,6 +1198,28 @@ export function LandingPageBlue() {
               <p className="text-[13px] text-gray-400">
                 © 2026 Micro Jobs. All rights reserved.
               </p>
+
+              {/* Points at a specific EAS build, not a Play Store listing --
+                  re-cut and swap this URL/QR when a newer build should be
+                  the one people install. */}
+              <div className="mt-6 flex items-center gap-3">
+                <img
+                  src="/media/app-download/android-qr.png"
+                  alt="QR code to download the MicroJobs Android app"
+                  className="h-20 w-20 rounded-lg bg-white p-1"
+                />
+                <div>
+                  <p className="text-[13px] font-semibold text-white">Download here:</p>
+                  <a
+                    href="https://expo.dev/accounts/bananas1/projects/mobile/builds/ce8b9734-a33d-45cd-9bb1-d0e288a7e809"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                  >
+                    for Android app
+                  </a>
+                </div>
+              </div>
             </motion.div>
 
             <motion.div
