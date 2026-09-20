@@ -17,6 +17,7 @@ import { subscribeDataRefresh } from '../lib/dataRefresh';
 import { getUserInitials } from '../lib/userIdentity';
 import { registerPushDevice, subscribeNotificationResponses, takeInitialNotificationData, unregisterPushDevice } from '../lib/pushNotifications';
 import { PENDING_TOPUP_STORAGE_KEY } from '../lib/pendingPayment';
+import { queryClient } from '../lib/queryClient';
 
 type ViewMode = 'worker' | 'employer';
 type BootstrapIssue = {
@@ -774,6 +775,11 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
 
     disconnectSocket();
     await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, AUTH_USER_KEY, ACTIVE_VIEW_MODE_KEY]);
+    // Both voluntary and invalid-session logout route through here (the
+    // 401 handler above calls the same logout()), so a single clear covers
+    // both paths -- without it the next account signed in on this device
+    // sees the previous user's cached profile/jobs until refetch.
+    queryClient.clear();
     currentUserIdRef.current = null;
     setUser(null);
     setNavigationProfileInitials('U');

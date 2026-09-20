@@ -14,7 +14,7 @@
  * like `shadow` and `navigation`, so those are skipped rather than forced into
  * a shared shape.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -115,6 +115,17 @@ for (const [group, webKey, mobileKey] of COMPARISONS) {
       failures.push(`${group}.${key}: web is ${webValue}, mobile is ${mobileValue}`);
     }
   }
+
+  // The loop above only walks web keys, so until now a key added to mobile and
+  // forgotten on web drifted silently -- the check was one-directional despite
+  // reading as symmetric. These groups are meant to hold the same key set on
+  // both platforms (unlike `colors`, where mobile legitimately has more and
+  // only the shared overlap below is compared).
+  for (const key of Object.keys(mobile)) {
+    if (!(key in web)) {
+      failures.push(`${group}.${key}: defined on mobile but missing on web`);
+    }
+  }
 }
 
 const webColors = readGroup(files.webTokens, "colors") || {};
@@ -138,6 +149,45 @@ if (failures.length) {
       .join("\n")}\n\nUpdate both ${SOURCES.webTokens} and ${SOURCES.mobileTokens} (or the motion files) so they agree.`,
   );
   process.exit(1);
+}
+
+/**
+ * This script compares token *files* to each other. It says nothing about
+ * whether components actually use them, so a web token file with no importers
+ * makes the guarantee latent rather than real -- the values agree, but nothing
+ * on screen is bound to them. That is worth stating out loud, because "token
+ * drift check passed" otherwise reads as "components are on the tokens".
+ *
+ * A warning rather than a failure: the unused file is a known gap being
+ * migrated towards, not a regression to block on.
+ */
+const countImporters = (moduleName) => {
+  const searchRoot = resolve(repoRoot, "client/src");
+  let hits = 0;
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = resolve(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(full);
+      } else if (/\.(ts|tsx)$/.test(entry.name)) {
+        const text = readFileSync(full, "utf8");
+        // Skip the definition itself; count only files importing from it.
+        if (!full.endsWith(`constants/${moduleName}.ts`) && text.includes(`constants/${moduleName}`)) {
+          hits += 1;
+        }
+      }
+    }
+  };
+  walk(searchRoot);
+  return hits;
+};
+
+const unused = ["tokens", "motion"].filter((moduleName) => countImporters(moduleName) === 0);
+if (unused.length) {
+  console.warn(
+    `Note: client/src/constants/${unused.join(", ")} ${unused.length === 1 ? "has" : "have"} no importers, ` +
+      `so this check only proves the file matches mobile — not that any component follows it.`,
+  );
 }
 
 console.log("Design tokens match across web and mobile.");

@@ -249,7 +249,9 @@ test("profile settings support keyboard tabs and accessible validation", async (
   await expect(firstName).not.toHaveValue("");
   await firstName.fill("123");
   await page.getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByRole("alert")).toContainText("Full name");
+  await expect(page.getByRole("alert")).toContainText(
+    "Name must only contain letters, apostrophes, hyphens, and periods.",
+  );
   await expect(firstName).toBeFocused();
   await expect(firstName).toHaveAttribute("aria-invalid", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

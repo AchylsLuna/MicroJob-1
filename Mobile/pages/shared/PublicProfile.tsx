@@ -414,6 +414,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    // The screen's own background is tokens.colors.canvasBlue; errorText's
+    // dark red renders at ~1.3:1 contrast directly on it. A white backing
+    // card (matching the loaded state's `card` style) keeps it readable.
+    margin: 20,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 16,
   },
   errorText: {
     fontSize: 16,

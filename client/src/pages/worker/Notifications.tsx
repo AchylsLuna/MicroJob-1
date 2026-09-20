@@ -126,7 +126,7 @@ export default function NotificationsPage() {
         <div className="flex items-center gap-2 pb-2">
           <button
             onClick={markAll}
-            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-blue-600 transition-colors hover:text-blue-700"
+            className="inline-flex h-10 items-center rounded-lg px-2 text-sm font-semibold text-blue-600 hover:underline"
           >
             {t("notifications.actions.markAllRead")}
           </button>
@@ -198,7 +198,7 @@ export default function NotificationsPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => navigate(n.link)}
-                    className="text-sm text-blue-600 font-semibold hover:text-blue-700"
+                    className="text-sm text-blue-600 font-semibold hover:underline"
                   >
                     {n.type === 'application'
                       ? isEmployerView

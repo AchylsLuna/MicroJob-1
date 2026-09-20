@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Mail, MapPin } from "lucide-react";
 
 /**
@@ -37,10 +37,41 @@ export function ProfileHeader({
   actions?: ReactNode;
 }) {
   const [bioExpanded, setBioExpanded] = useState(false);
+  const [bioNeedsToggle, setBioNeedsToggle] = useState(false);
+  const bioRef = useRef<HTMLParagraphElement | null>(null);
   const trimmedBio = bio?.trim();
-  // ~180 chars is roughly where three lines fill at this column width; below
-  // that the toggle would be a control that visibly does nothing.
-  const bioNeedsToggle = Boolean(trimmedBio && trimmedBio.length > 180);
+
+  /**
+   * Whether the bio actually overflows its three-line clamp is a layout
+   * question, so it is measured rather than guessed. The previous
+   * `length > 180` heuristic was wrong in both directions: a shorter bio on a
+   * narrow column could clamp with no way to reveal the rest (text the user
+   * simply could not reach), while a long-but-wide one showed a toggle that
+   * did nothing.
+   *
+   * Only measured while collapsed. Once expanded the clamp is gone, so
+   * scrollHeight === clientHeight and re-measuring would decide the text no
+   * longer overflows, hiding the control that undoes the expansion.
+   */
+  const measureBioOverflow = useCallback(() => {
+    const element = bioRef.current;
+    if (!element || bioExpanded) return;
+    // +1px guards against sub-pixel line-height rounding reporting a
+    // permanent 1px overflow on text that visually fits.
+    setBioNeedsToggle(element.scrollHeight > element.clientHeight + 1);
+  }, [bioExpanded]);
+
+  useLayoutEffect(measureBioOverflow, [measureBioOverflow, trimmedBio]);
+
+  useEffect(() => {
+    const element = bioRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    // The clamp is width-dependent, so a resize (or a sidebar opening) can
+    // change the answer without the text changing at all.
+    const observer = new ResizeObserver(measureBioOverflow);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [measureBioOverflow]);
 
   return (
     <div className="overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-sm">
@@ -86,7 +117,7 @@ export function ProfileHeader({
 
         {trimmedBio ? (
           <div className="mt-5 max-w-3xl">
-            <p className={`text-[14px] leading-6 text-slate-600 ${bioExpanded ? "" : "line-clamp-3"}`}>
+            <p ref={bioRef} className={`text-[14px] leading-6 text-slate-600 ${bioExpanded ? "" : "line-clamp-3"}`}>
               {trimmedBio}
             </p>
             {bioNeedsToggle ? (
