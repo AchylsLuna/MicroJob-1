@@ -9,6 +9,7 @@ import EmployerNavigation from '../../components/employerNavigation';
 import ScrollView from '../../components/ui/SmoothScrollView';
 import TabTopNav from '../../components/TabTopNav';
 import { apiRequest, asObject } from '../../lib/api';
+import { uploadFile } from '../../lib/uploadFile';
 import { tokens } from '../../theme/tokens';
 import { useToast } from '../../contexts/ToastContext';
 import {
@@ -151,33 +152,32 @@ export default function EmployerProfile({
 
       const ext = extension;
       const mime = mimeType;
-      const form = new FormData();
-      form.append('avatar', {
-        uri: asset.uri,
-        name: asset.fileName || `avatar.${ext}`,
-        type: mime,
-      } as any);
-
       setIsUploadingAvatar(true);
-      const result = await apiRequest(
-        `${API_URL}/auth/profile/avatar`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: form,
-        },
-        t('employerProfile.toast.avatarUploadFailed'),
-      );
 
-      if (!result.ok) {
-        throw new Error(result.message || t('employerProfile.toast.avatarUploadFailed'));
+      // Use FileSystem.uploadAsync (native multipart) instead of fetch+FormData.
+      // FormData with a plain { uri, type, name } object is rejected by React Native
+      // 0.79+ Hermes JSI with "Unsupported FormDataPart implementation".
+      const uploadResult = await uploadFile({
+        url: `${API_URL}/auth/profile/avatar`,
+        fileUri: asset.uri,
+        fieldName: 'avatar',
+        mimeType: mime,
+        token,
+      });
+
+      if (!uploadResult.ok) {
+        let errorMsg = t('employerProfile.toast.avatarUploadFailed');
+        try {
+          const parsed = uploadResult.body ? JSON.parse(uploadResult.body) : null;
+          if (parsed?.message) errorMsg = parsed.message;
+        } catch { /* ignore */ }
+        throw new Error(errorMsg);
       }
 
-      const payload = asObject<any>(result.raw) || {};
-      const dataPayload = asObject<any>(result.data) || {};
-      const nextAvatarUrl = dataPayload?.data?.avatarUrl || payload?.data?.avatarUrl || dataPayload?.avatarUrl;
+      const payload = (() => {
+        try { return uploadResult.body ? JSON.parse(uploadResult.body) : {}; } catch { return {}; }
+      })() as any;
+      const nextAvatarUrl = payload?.data?.avatarUrl || payload?.avatarUrl;
       if (nextAvatarUrl) {
         setAvatarUrl(nextAvatarUrl);
       }

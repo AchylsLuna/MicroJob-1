@@ -7,6 +7,7 @@ import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
 import { useToast } from '../../contexts/ToastContext';
 import { apiRequest } from '../../lib/api';
+import { uploadFile } from '../../lib/uploadFile';
 import { validateMobileResume } from '../../lib/profileValidation';
 import { Ionicons } from '@expo/vector-icons';
 import { tokens } from '../../theme/tokens';
@@ -97,29 +98,33 @@ export default function AddCV({ visible, onClose, onAdd }: AddCVProps) {
         return;
       }
 
-      // Create FormData
-      const formData = new FormData();
-      
-      // For React Native, we need to format the file properly
-      const fileToUpload = {
-        uri: selectedFile.uri,
-        type: selectedFile.mimeType,
-        name: selectedFile.name,
-      } as any;
+      // Upload to server using native FileSystem multipart upload
+      const uploadResult = await uploadFile({
+        url: `${API_URL}/auth/profile/resume`,
+        fileUri: selectedFile.uri,
+        fieldName: 'resume',
+        mimeType: selectedFile.mimeType || 'application/pdf',
+        token,
+      });
 
-      formData.append('resume', fileToUpload);
+      if (!uploadResult.ok) {
+        let msg = t('addCv.apiFallback.uploadFailed');
+        try {
+          const parsed = uploadResult.body ? JSON.parse(uploadResult.body) : null;
+          if (parsed?.message) msg = parsed.message;
+        } catch { /* ignore */ }
+        throw new Error(msg);
+      }
 
-      // Upload to server
-      const result = await apiRequest<{ resumeFileName?: string; resumeUrl?: string }>(
-        `${API_URL}/auth/profile/resume`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData },
-        t('addCv.apiFallback.uploadFailed'),
-      );
+      let data: { resumeFileName?: string; resumeUrl?: string } = {};
+      try {
+        const parsed = uploadResult.body ? JSON.parse(uploadResult.body) : null;
+        data = parsed?.data || parsed || {};
+      } catch { /* ignore */ }
 
-      if (!result.ok) throw new Error(result.message);
       await onAdd?.({
-        resumeFileName: result.data?.resumeFileName || selectedFile.name,
-        resumeUrl: result.data?.resumeUrl,
+        resumeFileName: data.resumeFileName || selectedFile.name,
+        resumeUrl: data.resumeUrl,
       });
       toast.success(t('addCv.toast.uploadSuccess'));
       setSelectedFile(null);

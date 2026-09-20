@@ -76,9 +76,10 @@ export default function CompactBottomNavigation<T extends string>({ items, activ
         <BlurView
           intensity={Platform.OS === 'android' ? 40 : 60}
           tint="light"
-          // Android needs the newer blur implementation; the translucent tint below
-          // keeps the bar legible anywhere real blurring is unavailable.
-          experimentalBlurMethod="dimezisBlurView"
+          // Use the SDK 31+ method so older Android falls back to `none` gracefully
+          // without needing a blurTarget ref. The translucent barTint layer below
+          // keeps the bar legible wherever real blurring is unavailable.
+          blurMethod="dimezisBlurViewSdk31Plus"
           style={styles.bar}
           accessibilityRole="tablist"
         >
