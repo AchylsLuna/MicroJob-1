@@ -32,6 +32,11 @@ export async function getRecommendedJobs(req, res) {
       province: String(worker.province || '').trim(),
     };
 
+    // Scoring happens in memory below, so only a recency window is considered:
+    // the 100 newest candidates, not the whole corpus. A strong match older
+    // than that window cannot surface. That is a deliberate trade against
+    // scoring every open job on every request -- raising it is a performance
+    // decision that wants a benchmark, not an incidental change.
     const jobs = await Job.find(filter)
       .populate('category', 'name')
       .populate('jobPoster', 'firstName lastName companyName avatarUrl')

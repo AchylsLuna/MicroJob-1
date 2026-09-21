@@ -43,3 +43,12 @@ jobs:
 
       - name: Verify application
         run: npm run verify
+
+      # The e2e suite starts its own API and client (see playwright.config.ts
+      # and scripts/start-e2e-*.cjs), so it needs no service wiring here -- only
+      # the browsers, which are not part of npm ci.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: npm run test:e2e

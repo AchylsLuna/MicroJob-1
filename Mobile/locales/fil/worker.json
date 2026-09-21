@@ -749,6 +749,10 @@
     },
     "jobsAvailable_one": "{{count}} Trabahong Available",
     "jobsAvailable_other": "{{count}} Trabahong Available",
+    "recommended": {
+      "title": "Inirerekomenda para sa iyo",
+      "emptyProfileBody": "Idagdag ang iyong mga kasanayan at piniling kategorya para matugma namin ang mga trabaho sa iyong profile."
+    },
     "nearest": {
       "title": "Iminumungkahi Malapit Sa Iyo",
       "viewAccessibility": "Tingnan ang {{title}} malapit sa {{location}}"
@@ -766,6 +770,7 @@
       "loadCategoriesFailed": "Hindi na-load ang mga kategorya.",
       "loadApplicationsFailed": "Hindi na-load ang mga aplikasyon.",
       "loadJobsFailed": "Hindi na-load ang mga trabaho.",
+      "loadRecommendedFailed": "Hindi na-load ang mga inirerekomendang trabaho.",
       "loadProfileLocationFailed": "Hindi na-load ang lokasyon ng profile.",
       "openConversationFailed": "Hindi mabuksan ang usapan sa employer na ito.",
       "saveJobPreferencesFailed": "Hindi na-save ang mga kagustuhan sa trabaho."

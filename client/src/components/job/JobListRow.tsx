@@ -2,6 +2,7 @@ import { Bookmark, Clock, MapPin } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
 import { CategoryTile } from "../ui/CategoryTile";
+import { MatchBadge } from "./MatchBadge";
 import type { JobCardData } from "./jobCardModel";
 import { useTranslation } from "react-i18next";
 
@@ -54,6 +55,13 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
           {job.urgent ? <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 align-middle">Urgent</span> : null}
         </p>
         <p className="mt-0.5 line-clamp-1 text-[12px] text-slate-500">{job.posterName}</p>
+        {/* Only recommendation results carry a match; ordinary search results
+            leave these undefined and render no badge. */}
+        {job.matchLevel && typeof job.matchPercentage === "number" ? (
+          <div className="mt-1.5">
+            <MatchBadge percentage={job.matchPercentage} level={job.matchLevel} />
+          </div>
+        ) : null}
         <div className="mt-1.5 flex items-center gap-3 text-[11px] text-slate-500">
           {job.jobType ? (
             <span className="inline-flex items-center gap-1">

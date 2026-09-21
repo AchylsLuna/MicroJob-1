@@ -6,6 +6,7 @@ import { toast } from "../../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { getCategories, getProfile, updateJobPreferences } from "../../services/api";
 import { useWorkerJobs } from "../../hooks/queries/useWorkerJobs";
+import { useRecommendedJobs } from "../../hooks/queries/useRecommendedJobs";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
@@ -49,6 +50,13 @@ function getSortLabels(t: TFunction): Record<"recent" | "salary" | "applicants" 
     nearest: t("findJobs.sort.options.nearest"),
   };
 }
+
+// Fetched wider than shown so "see more" reveals the rest without a second
+// request. The server clamps this to 50 and defaults to 12.
+const RECOMMENDED_FETCH_LIMIT = 12;
+// Kept small on purpose: the section sits above the real search results, and a
+// tall block of recommendations would push them off the first screen.
+const RECOMMENDED_VISIBLE = 6;
 
 // Job type filter values line up with getJobTypeLabel's output below; labels
 // are pulled from jobDetails.jobTypeLabels so this filter and the job detail
@@ -129,6 +137,7 @@ export function FindJobs() {
   const { user } = useAuth();
   const { savedJobIds, toggleSavedJob } = useSavedJobs();
   const [sortBy, setSortBy] = useState<"recent" | "salary" | "applicants" | "nearest">("nearest");
+  const [showAllRecommended, setShowAllRecommended] = useState(false);
   const [workerLocation, setWorkerLocation] = useState({
     province: "",
     city: "",
@@ -352,6 +361,32 @@ export function FindJobs() {
     }
     return statuses;
   }, [jobsData?.applications]);
+
+  // Recommendations are a separate, supplementary query: they have their own
+  // ranking, ignore the filter pills entirely, and must not disturb the search
+  // results if they fail. See useRecommendedJobs for why it does not retry.
+  const { data: recommendedData, isError: recommendationsFailed } = useRecommendedJobs({
+    userId: user?.id,
+    limit: RECOMMENDED_FETCH_LIMIT,
+    enabled: Boolean(user?.id),
+  });
+
+  const recommendedJobs = useMemo(() => {
+    if (!Array.isArray(recommendedData)) return [];
+    return (recommendedData as Array<ApiJob & { match?: { percentage?: number; level?: string } }>).map((job) => ({
+      ...mapApiJob(job),
+      matchPercentage: Number(job.match?.percentage) || 0,
+      matchLevel: job.match?.level || "",
+    }));
+  }, [recommendedData, mapApiJob]);
+
+  // A worker with an empty profile does not get an empty response -- every job
+  // scores zero and the server falls back to recency. Presenting that as
+  // "recommended for you" would be a lie, so an all-zero result is treated as
+  // "no matches yet" and we ask for the profile data that would fix it.
+  const hasNoRealMatches =
+    recommendedJobs.length > 0 && recommendedJobs.every((job) => job.matchPercentage === 0);
+  const showRecommendations = !recommendationsFailed && recommendedJobs.length > 0;
 
   const parseSalaryValue = (value: string | number) => {
     if (typeof value === "number") {
@@ -651,6 +686,67 @@ export function FindJobs() {
           </>
         ) : null}
       </div>
+
+      {/* Recommendations sit above the search results and are deliberately
+          silent on failure -- see showRecommendations. When the worker has no
+          profile data to match on we show a prompt instead of zero-percent
+          cards dressed up as personalised picks. */}
+      {showRecommendations ? (
+        <section aria-labelledby="recommended-heading" className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 id="recommended-heading" className="text-[15px] font-bold text-slate-950">
+            {t("findJobs.recommended.title")}
+          </h2>
+          {hasNoRealMatches ? (
+            <div className="mt-2">
+              <p className="text-sm text-slate-500">{t("findJobs.recommended.emptyProfileBody")}</p>
+              <Button className="mt-3" onClick={() => navigate(ROUTES.worker.profile)}>
+                {t("findJobs.recommended.emptyProfileAction")}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <p className="mt-1 text-sm text-slate-500">{t("findJobs.recommended.subtitle")}</p>
+              <div className="mt-3 space-y-1">
+                {(showAllRecommended ? recommendedJobs : recommendedJobs.slice(0, RECOMMENDED_VISIBLE)).map((job, index) => (
+                  <JobListRow
+                    key={`recommended-${job.id}`}
+                    job={toJobCardData({
+                      id: job.id,
+                      title: job.title,
+                      company: job.company,
+                      location: job.location,
+                      type: job.type,
+                      salary: getSalaryDisplay(job.salary),
+                      categoryId: job.categoryId,
+                      categoryName: job.category,
+                      skills: job.skills,
+                      urgent: job.urgent,
+                      matchPercentage: job.matchPercentage,
+                      matchLevel: job.matchLevel,
+                    })}
+                    saved={savedJobIds.has(job.id)}
+                    applicationStatus={applicationStatuses[job.id]}
+                    index={index}
+                    onPress={() => handleJobPress(job.id)}
+                    onToggleSave={() => handleSaveJob(job.id)}
+                  />
+                ))}
+              </div>
+              {recommendedJobs.length > RECOMMENDED_VISIBLE ? (
+                <button
+                  type="button"
+                  onClick={() => setShowAllRecommended((previous) => !previous)}
+                  className="mt-2 text-[13px] font-semibold text-[#1C4D8D] hover:underline"
+                >
+                  {showAllRecommended
+                    ? t("findJobs.recommended.showLess")
+                    : t("findJobs.recommended.showAll", { count: recommendedJobs.length })}
+                </button>
+              ) : null}
+            </>
+          )}
+        </section>
+      ) : null}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

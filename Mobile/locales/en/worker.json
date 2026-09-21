@@ -749,6 +749,10 @@
     },
     "jobsAvailable_one": "{{count}} Job Available",
     "jobsAvailable_other": "{{count}} Jobs Available",
+    "recommended": {
+      "title": "Recommended for you",
+      "emptyProfileBody": "Add your skills and preferred categories and we'll match jobs to your profile."
+    },
     "nearest": {
       "title": "Suggested Near You",
       "viewAccessibility": "View {{title}} near {{location}}"
@@ -766,6 +770,7 @@
       "loadCategoriesFailed": "Failed to load categories.",
       "loadApplicationsFailed": "Failed to load applications.",
       "loadJobsFailed": "Failed to load jobs.",
+      "loadRecommendedFailed": "Failed to load recommended jobs.",
       "loadProfileLocationFailed": "Failed to load profile location.",
       "openConversationFailed": "Failed to open a conversation with this employer.",
       "saveJobPreferencesFailed": "Failed to save job preferences."

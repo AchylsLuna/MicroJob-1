@@ -159,6 +159,21 @@
       "cityButtonAriaUnset": "Itakda ang lungsod para sa paghahanap ng trabaho: {{location}}",
       "setCityLabel": "Itakda ang lungsod"
     },
+    "recommended": {
+      "title": "Inirerekomenda para sa iyo",
+      "subtitle": "Itinugma sa iyong mga kasanayan, piniling kategorya at karanasan.",
+      "showAll": "Ipakita ang lahat ng {{count}} rekomendasyon",
+      "showLess": "Ipakita ang mas kaunti",
+      "emptyProfileBody": "Idagdag ang iyong mga kasanayan at piniling kategorya para matugma namin ang mga trabaho sa iyong profile.",
+      "emptyProfileAction": "Kumpletuhin ang iyong profile",
+      "percentage": "{{percentage}}% tugma",
+      "level": {
+        "excellent": "Napakahusay na tugma",
+        "strong": "Malakas na tugma",
+        "good": "Magandang tugma",
+        "potential": "Posibleng tugma"
+      }
+    },
     "locationBanner": {
       "title": "Idagdag ang iyong lungsod para makita muna ang malalapit na trabaho",
       "subtitle": "Nagba-browse ka ng trabaho sa buong bansa. Itakda ang iyong lungsod at ipapakita muna namin ang pinakamalapit.",

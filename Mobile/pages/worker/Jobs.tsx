@@ -29,9 +29,18 @@ export type Job = {
   category?: { _id: string; name: string } | string;
   jobPoster?: { _id?: string; id?: string; firstName?: string; lastName?: string; email?: string };
   applicationStatus?: string | null;
+  /**
+   * Only present on results from /jobs/recommended. The ordinary jobs list
+   * leaves this undefined, which is what keeps the match pill off those cards.
+   */
+  match?: { percentage?: number; level?: string; reasons?: string[] };
 };
 
 type DateFilterPreset = 'all' | '7' | '30' | 'custom';
+
+// The server clamps this to 50 and defaults to 12. Kept modest because the rail
+// scrolls horizontally rather than paginating.
+const RECOMMENDED_FETCH_LIMIT = 8;
 
 type JobsProps = {
   onViewDetails?: (job: Job) => void;
@@ -67,6 +76,7 @@ export default function Jobs(props: JobsProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<Job[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [selectedJobType, setSelectedJobType] = useState<string>('All');
   const [dateFilter, setDateFilter] = useState<DateFilterPreset>('all');
@@ -164,6 +174,11 @@ export default function Jobs(props: JobsProps) {
     });
   }, [jobs, searchQuery, deadlineRange]);
 
+  const hasNoRealMatches = useMemo(
+    () => recommendedJobs.length > 0 && recommendedJobs.every((job) => !job.match?.percentage),
+    [recommendedJobs],
+  );
+
   const nearestJobs = useMemo(
     () =>
       [...filteredJobs]
@@ -205,6 +220,29 @@ export default function Jobs(props: JobsProps) {
       }
     } catch (error) {
       console.error('Failed to load applied jobs:', error);
+    }
+  }, [t]);
+
+  // Deliberately independent of fetchJobs. That one refuses to run without a
+  // city, but recommendations rank nationally and need no location at all, so
+  // keeping them on their own state means a worker who has not set a city yet
+  // still gets something usable instead of only an error.
+  const fetchRecommendedJobs = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('auth_token');
+      if (!token) return;
+      const result = await apiRequest<Job[]>(
+        `${API_URL}/jobs/recommended?limit=${RECOMMENDED_FETCH_LIMIT}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+        t('jobs.apiFallback.loadRecommendedFailed'),
+      );
+      // Supplementary content: on failure the section simply does not render,
+      // rather than pushing an error above the job list.
+      if (result.ok) setRecommendedJobs(asList<Job>(result.raw, ['jobs']));
+      else setRecommendedJobs([]);
+    } catch (error) {
+      console.error('Failed to load recommended jobs:', error);
+      setRecommendedJobs([]);
     }
   }, [t]);
 
@@ -251,6 +289,7 @@ export default function Jobs(props: JobsProps) {
   useEffect(() => {
     fetchCategories();
     fetchAppliedJobs();
+    fetchRecommendedJobs();
     // Load current user ID to prevent messaging self
     const loadCurrentUserId = async () => {
       try {
@@ -264,7 +303,7 @@ export default function Jobs(props: JobsProps) {
       }
     };
     loadCurrentUserId();
-  }, [fetchCategories, fetchAppliedJobs]);
+  }, [fetchCategories, fetchAppliedJobs, fetchRecommendedJobs]);
 
   useEffect(() => {
     const loadWorkerLocation = async () => {
@@ -462,6 +501,37 @@ export default function Jobs(props: JobsProps) {
           <Text style={styles.sectionTitle}>{t('jobs.sections.recent')}</Text>
           <Text style={styles.sectionCount}>{t('jobs.jobsAvailable', { count: filteredJobs.length })}</Text>
         </View>
+
+        {/* A worker with an empty profile still gets results here -- the server
+            scores everything at zero and falls back to recency -- so an
+            all-zero response is shown as a prompt rather than passed off as
+            personalised matches. */}
+        {recommendedJobs.length > 0 ? (
+          <View style={styles.recommendedCard}>
+            <Text style={styles.recommendedTitle}>{t('jobs.recommended.title')}</Text>
+            {hasNoRealMatches ? (
+              <Text style={styles.recommendedEmpty}>{t('jobs.recommended.emptyProfileBody')}</Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.recommendedRail}
+              >
+                {recommendedJobs.map((job) => (
+                  <JobCard
+                    key={`recommended-${job._id}`}
+                    job={toJobCardData(job)}
+                    variant="carousel"
+                    showMatch
+                    saved={savedJobIds.includes(job._id)}
+                    onPress={() => onViewDetails?.(job)}
+                    onToggleSave={() => onToggleSave?.(job)}
+                  />
+                ))}
+              </ScrollView>
+            )}
+          </View>
+        ) : null}
 
         {nearestJobs.length > 0 ? (
           <View style={styles.nearestCard}>
@@ -945,6 +1015,31 @@ const styles = StyleSheet.create({
   },
   filterChipTextActive: {
     color: tokens.colors.onBrand,
+  },
+  // Colours come from theme tokens rather than literals: checkTheme.cjs counts
+  // hardcoded colour values against a budget that currently has no headroom.
+  recommendedCard: {
+    marginTop: 4,
+    backgroundColor: tokens.colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: tokens.colors.border,
+    padding: 10,
+    gap: 8,
+  },
+  recommendedTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: tokens.colors.sectionText,
+  },
+  recommendedEmpty: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: tokens.colors.textMuted,
+  },
+  recommendedRail: {
+    gap: 10,
+    paddingRight: 4,
   },
   nearestCard: {
     marginTop: 4,

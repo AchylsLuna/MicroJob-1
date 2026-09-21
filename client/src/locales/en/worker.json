@@ -159,6 +159,21 @@
       "cityButtonAriaUnset": "Set job search city: {{location}}",
       "setCityLabel": "Set your city"
     },
+    "recommended": {
+      "title": "Recommended for you",
+      "subtitle": "Matched to your skills, preferred categories and experience.",
+      "showAll": "Show all {{count}} recommendations",
+      "showLess": "Show fewer",
+      "emptyProfileBody": "Add your skills and preferred categories and we'll match jobs to your profile.",
+      "emptyProfileAction": "Complete your profile",
+      "percentage": "{{percentage}}% match",
+      "level": {
+        "excellent": "Excellent match",
+        "strong": "Strong match",
+        "good": "Good match",
+        "potential": "Potential match"
+      }
+    },
     "locationBanner": {
       "title": "Add your city to see nearby jobs first",
       "subtitle": "You're browsing jobs nationwide. Set your city and we'll show the nearest ones first.",

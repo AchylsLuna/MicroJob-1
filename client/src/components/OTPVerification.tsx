@@ -253,14 +253,18 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
           ))}
         </div>
 
+        {/* Centred to match the rest of the dialog -- the heading, code boxes,
+            button and resend line are all centre-aligned, so a left-aligned row
+            here was the only thing breaking that axis. `items-center` rather
+            than `items-start` because the label is a single line. */}
         {mode === "signin" && (
-          <label className="mb-6 flex cursor-pointer items-start gap-2.5">
+          <label className="mb-6 flex cursor-pointer items-center justify-center gap-2.5">
             <input
               type="checkbox"
               checked={rememberDevice}
               onChange={(e) => setRememberDevice(e.target.checked)}
               disabled={isVerifying}
-              className="mt-0.5 h-5 w-5 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+              className="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
             />
             <span className="text-[14px] text-[#374151]">
               {t("otpVerification.trustDevice")}
