@@ -505,31 +505,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ? "both"
           : "work";
 
-    // Store pending verification
-    setPendingVerification({ email: normalizedEmail, name: normalizedName, flow: "signup" });
-    localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, normalizedEmail);
-    localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, normalizedName);
-    localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signup");
-    localStorage.setItem("pending_account_preference", accountPreference);
-
     try {
-      try {
-        await registerUser({
-          username: normalizedName,
-          firstName,
-          lastName,
-          email: normalizedEmail,
-          password,
-          phoneNumber: normalizedPhone,
-          role,
-        });
-      } catch (error: any) {
-        const message = String(error?.message || "");
-        const isAlreadyRegistered = /already registered|already exists/i.test(message);
-        if (!isAlreadyRegistered) {
-          throw error;
-        }
-      }
+      // Registration is also the authoritative duplicate-email check. Do not
+      // mark the browser as pending or send an OTP unless it created this
+      // account successfully; otherwise an existing account would receive a
+      // fresh verification code after the user clicked Create Account.
+      await registerUser({
+        username: normalizedName,
+        firstName,
+        lastName,
+        email: normalizedEmail,
+        password,
+        phoneNumber: normalizedPhone,
+        role,
+      });
+
+      setPendingVerification({ email: normalizedEmail, name: normalizedName, flow: "signup" });
+      localStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, normalizedEmail);
+      localStorage.setItem(PENDING_VERIFICATION_NAME_KEY, normalizedName);
+      localStorage.setItem(PENDING_VERIFICATION_FLOW_KEY, "signup");
+      localStorage.setItem("pending_account_preference", accountPreference);
 
       await sendOtp({ email: normalizedEmail });
       toast.success("Verification code sent to your email.");
