@@ -44,4 +44,5 @@ graphify-out
 # Skills live in the Obsidian vault (MicroJobs/Claude Skills), not here.
 .claude/
 .agents/
+.agent/
 skills-lock.json

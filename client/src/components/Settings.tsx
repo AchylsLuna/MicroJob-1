@@ -441,6 +441,10 @@ export function Settings() {
   const completedSteps = verificationStepsData.filter((step) => step.status === "complete").length;
   const isProfileVerified = verificationStepsData.length > 0 && completedSteps === verificationStepsData.length;
   const phoneVerificationStatus = verificationStepsData.find((step) => step.id === "phone")?.status;
+  const savedPhone = normalizePhone(originalPersonalInfoRef.current?.phone || "");
+  const currentPhone = normalizePhone(personalInfo.phone);
+  const phoneHasUnsavedChanges = currentPhone !== savedPhone;
+  const isCurrentPhoneVerified = phoneVerificationStatus === "complete" && !phoneHasUnsavedChanges;
 
   const selectedProvince = provinceOptions.find(
     (item) => item.name.toLowerCase() === personalInfo.province.trim().toLowerCase(),
@@ -902,6 +906,7 @@ export function Settings() {
       toast.error(message);
       return;
     }
+    const phoneChanged = phoneNumber !== normalizePhone(original.phone);
 
     const normalizedLocation = {
       province: personalInfo.province.trim(),
@@ -1016,6 +1021,14 @@ export function Settings() {
         successRate: updated.successRate ?? '0%',
         avatarUrl: updated.avatarUrl,
       });
+      if (phoneChanged) {
+        setPhoneCodeRequested(false);
+        setPhoneVerificationCode("");
+        setPhoneCodeHint(null);
+        setVerificationStepsData((steps) =>
+          steps.map((step) => step.id === "phone" ? { ...step, status: "in-review" } : step),
+        );
+      }
       toast.success("Personal information saved successfully!");
     } catch (error: any) {
       const message = error?.message || "Failed to save personal information.";
@@ -1547,6 +1560,11 @@ export function Settings() {
   };
 
   const handleRequestPhoneCode = async () => {
+    const persistedPhone = normalizePhone(originalPersonalInfoRef.current?.phone || "");
+    if (!persistedPhone || normalizePhone(personalInfo.phone) !== persistedPhone) {
+      toast.error("Save your phone number before requesting a verification code.");
+      return;
+    }
     try {
       setIsSendingPhoneCode(true);
       const response = await requestPhoneVerificationOtp();
@@ -1568,8 +1586,8 @@ export function Settings() {
 
   const handleConfirmPhoneCode = async () => {
     const normalizedCode = phoneVerificationCode.trim();
-    if (!normalizedCode) {
-      toast.error("Enter the verification code");
+    if (!/^\d{6}$/.test(normalizedCode)) {
+      toast.error("Enter the 6-digit verification code");
       return;
     }
     try {
@@ -1877,11 +1895,13 @@ export function Settings() {
                             {/* Verification lives here, next to the field it verifies, instead of
                                 on the Security & Privacy tab — a worker typing their number had no
                                 reason to expect the "Send code" action to be on a different tab. */}
-                            {phoneVerificationStatus === "complete" ? (
+                            {isCurrentPhoneVerified ? (
                               <p className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700">
                                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                                 Phone number verified
                               </p>
+                            ) : phoneHasUnsavedChanges ? (
+                              <p className="mt-2 text-[12px] text-slate-500">Save your phone changes before requesting a verification code.</p>
                             ) : personalInfo.phone.trim() ? (
                               <div className="mt-3 space-y-2">
                                 <div className="flex flex-wrap items-center gap-2">
@@ -1921,7 +1941,7 @@ export function Settings() {
                                     <button
                                       type="button"
                                       onClick={handleConfirmPhoneCode}
-                                      disabled={isConfirmingPhoneCode}
+                                      disabled={isConfirmingPhoneCode || phoneVerificationCode.length !== 6}
                                       className={verificationSecondaryActionClass}
                                     >
                                       {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
