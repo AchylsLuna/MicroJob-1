@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, FlatList, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { tokens } from '../../theme/tokens';
 import { motion } from '../../theme/motion';
 import useReducedMotion from '../../hooks/useReducedMotion';
@@ -57,6 +58,10 @@ function formatFullDate(date: Date, locale: string): string {
 
 export default function CalendarSheet(props: Props) {
   const { open, onClose, minDate, maxDate, monthsToRender = 12, title, footer } = props;
+  // This sheet is drawn by hand inside a statusBarTranslucent Modal, so nothing
+  // reserves the home-indicator strip for it. Without this the primary action
+  // in the footer sits in the gesture bar on notched devices.
+  const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion() === true;
   const translateY = useRef(new Animated.Value(1)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -198,7 +203,7 @@ export default function CalendarSheet(props: Props) {
           />
 
           {footer ? (
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, tokens.spacing.md) }]}>
               {footer.onClear ? (
                 <AnimatedPressable containerStyle={styles.clearBtn} onPress={footer.onClear} accessibilityRole="button" accessibilityLabel={footer.clearLabel || 'Clear'}>
                   <Text style={styles.clearText}>{footer.clearLabel || 'Clear'}</Text>

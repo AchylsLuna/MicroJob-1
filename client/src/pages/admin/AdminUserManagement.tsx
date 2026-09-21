@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
 import { MoreHorizontal, Search, ShieldCheck, UserCheck, UserPlus, Users } from "lucide-react";
@@ -15,6 +16,74 @@ import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
 import { isValidEmail } from "../../lib/authValidation";
 import { updateAdminVerification } from "../../services/api";
+
+const ROW_MENU_WIDTH = 176; // w-44
+const ROW_MENU_GAP = 8; // mt-2
+
+/**
+ * The row-actions menu has to escape the table's scroll container. That wrapper
+ * is `overflow-x-auto` so the table can scroll sideways, but CSS forces the
+ * other axis to `auto` too whenever one axis is not `visible` -- you cannot ask
+ * for horizontal scrolling and vertical overflow at the same time. Measured in
+ * a browser: the menu ran 172px past a 48px-tall row wrapper and was clipped,
+ * and specifying `overflow-y: visible` changed nothing because it computed back
+ * to `auto`.
+ *
+ * So the menu is portaled to the body and positioned from the trigger's rect,
+ * right-aligned to it, flipping above the trigger when it would otherwise run
+ * off the bottom of the viewport.
+ */
+function RowActionsMenu({
+  anchor,
+  children,
+}: {
+  anchor: HTMLElement | null;
+  children: ReactNode;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!anchor) return;
+    const place = () => {
+      const trigger = anchor.getBoundingClientRect();
+      const menuHeight = menuRef.current?.offsetHeight ?? 0;
+      const flipsUp = trigger.bottom + ROW_MENU_GAP + menuHeight > window.innerHeight && trigger.top - menuHeight - ROW_MENU_GAP > 0;
+      setPosition({
+        top: flipsUp ? trigger.top - menuHeight - ROW_MENU_GAP : trigger.bottom + ROW_MENU_GAP,
+        // Right-aligned to the trigger, then clamped so it cannot leave the viewport.
+        left: Math.max(ROW_MENU_GAP, Math.min(trigger.right - ROW_MENU_WIDTH, window.innerWidth - ROW_MENU_WIDTH - ROW_MENU_GAP)),
+      });
+    };
+    place();
+    // A fixed menu does not follow a scrolling page or table, so re-place it.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [anchor]);
+
+  if (typeof document === "undefined" || !anchor) return null;
+
+  return createPortal(
+    <div
+      ref={menuRef}
+      role="menu"
+      className="fixed z-[80] w-44 rounded-[12px] border border-[#E5E7EB] bg-white text-left shadow-lg"
+      style={{
+        top: position?.top ?? 0,
+        left: position?.left ?? 0,
+        // Hidden until measured, so it never flashes at the top-left corner.
+        visibility: position ? "visible" : "hidden",
+      }}
+    >
+      {children}
+    </div>,
+    document.body,
+  );
+}
 
 const toAdminAssetUrl = (value?: string) => {
   if (!value) return "";
@@ -67,6 +136,9 @@ function AdminUserManagementContent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | "privileged" | "work" | "hire" | "both">("all");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  // The menu is portaled out of the row, so it can no longer find its trigger by
+  // walking the DOM -- hold the element itself for positioning and focus return.
+  const [openMenuAnchor, setOpenMenuAnchor] = useState<HTMLButtonElement | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null);
@@ -140,7 +212,10 @@ function AdminUserManagementContent() {
 
   useEffect(() => {
     if (!openMenuId) return;
-    const handleWindowClick = () => setOpenMenuId(null);
+    const handleWindowClick = () => {
+      setOpenMenuId(null);
+      setOpenMenuAnchor(null);
+    };
     window.addEventListener("click", handleWindowClick);
     return () => window.removeEventListener("click", handleWindowClick);
   }, [openMenuId]);
@@ -445,7 +520,12 @@ function AdminUserManagementContent() {
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              setOpenMenuId((prev) => (prev === user._id ? null : user._id));
+                              const trigger = event.currentTarget;
+                              setOpenMenuId((prev) => {
+                                const next = prev === user._id ? null : user._id;
+                                setOpenMenuAnchor(next ? trigger : null);
+                                return next;
+                              });
                             }}
                             className="w-8 h-8 rounded-full flex items-center justify-center text-[#64748B] hover:bg-[#F3F4F6]"
                             aria-label={t("userManagement.table.openActionsAriaLabel")}
@@ -453,9 +533,7 @@ function AdminUserManagementContent() {
                             <MoreHorizontal className="w-4 h-4" />
                           </button>
                           {openMenuId === user._id && (
-                            <div
-                              className="absolute right-0 mt-2 w-44 bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg z-10 text-left"
-                            >
+                            <RowActionsMenu anchor={openMenuAnchor}>
                               {canManageUser(user) && <button
                                 type="button"
                                 onClick={() => {
@@ -468,10 +546,13 @@ function AdminUserManagementContent() {
                               </button>}
                               {canMutateUser(user) && <button
                                 type="button"
-                                onClick={(event) => {
-                                  editMenuTriggerRef.current = event.currentTarget
-                                    .closest(".relative")
-                                    ?.querySelector<HTMLButtonElement>('[aria-label="Open user actions"]') || null;
+                                onClick={() => {
+                                  // Use the captured trigger rather than walking up from the
+                                  // menu: it is portaled to the body, so it has no row
+                                  // ancestor to search, and the old lookup also matched a
+                                  // hardcoded English aria-label that never matched once the
+                                  // label was translated.
+                                  editMenuTriggerRef.current = openMenuAnchor;
                                   openEdit(user);
                                   setOpenMenuId(null);
                                 }}
@@ -526,7 +607,7 @@ function AdminUserManagementContent() {
                               >
                                 {t("userManagement.table.menu.deleteUser")}
                               </button>}
-                            </div>
+                            </RowActionsMenu>
                           )}
                         </div>
                       </td>

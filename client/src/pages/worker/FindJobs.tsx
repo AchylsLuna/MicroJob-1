@@ -572,13 +572,16 @@ export function FindJobs() {
         </aside>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      {/* `relative` is the anchor for the filter dropdowns below sm, where they
+          span the full row instead of hanging off a single pill. */}
+      <div className="relative flex flex-wrap items-center gap-2">
         <FilterPill mode="radio" label={t("findJobs.filters.datePosted.label")} options={dateOptions} value={datePosted} onApply={(value) => updateSearchParam("datePosted", value || null)} />
         <FilterPill mode="checkbox" label={t("findJobs.filters.jobType.label")} options={jobTypeOptions} value={jobTypeFilter} onApply={(values) => updateSearchParam("type", values.length ? values.join(",") : null)} />
         <FilterPill mode="radio" label={t("findJobs.filters.minimumPay.label")} options={minPayOptions} value={minPay} onApply={(value) => updateSearchParam("minPay", value || null)} />
         <FilterPill mode="toggle" label={t("findJobs.filters.fewApplicants.label")} value={fewApplicantsOnly} onApply={(value) => updateSearchParam("fewApplicants", value ? "1" : null)} />
 
-        <div className="relative" ref={preferencesRef}>
+        {/* Same anchoring rule as FilterPill: row-anchored on mobile, pill-anchored from sm up. */}
+        <div className="sm:relative" ref={preferencesRef}>
           <button
             ref={preferencesTriggerRef}
             type="button"
@@ -593,7 +596,7 @@ export function FindJobs() {
             <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showPreferences ? "rotate-180" : ""}`} aria-hidden="true" />
           </button>
           {showPreferences ? (
-            <div role="menu" aria-label={t("findJobs.preferences.title")} className="fixed left-4 right-4 top-[auto] z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:w-96">
+            <div role="menu" aria-label={t("findJobs.preferences.title")} className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-96">
               <p className="text-xs text-slate-500">{t("findJobs.preferences.subtitle")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {categories.map((category) => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '../../lib/storage';
 import { API_URL } from '../../config';
@@ -72,57 +72,75 @@ export default function RatingModal({
 
   return (
     <Modal visible={Boolean(target)} transparent animationType="fade" onRequestClose={close}>
-      <View style={styles.overlay}>
-        <View style={styles.card}>
-          <View style={styles.header}>
-            <View style={styles.headingCopy}>
-              <Text style={styles.title}>Rate {target?.roleLabel}</Text>
-              <Text style={styles.subtitle}>{target?.name} · {target?.jobTitle}</Text>
-            </View>
-            <TouchableOpacity onPress={close} style={styles.closeButton} accessibilityLabel="Close rating dialog">
-              <Ionicons name="close" size={20} color={tokens.colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.label}>Overall rating</Text>
-          <View style={styles.stars}>
-            {[1, 2, 3, 4, 5].map((value) => (
-              <TouchableOpacity key={value} onPress={() => setRating(value)} style={styles.starButton} accessibilityLabel={`${value} stars`}>
-                <Ionicons name={value <= rating ? 'star' : 'star-outline'} size={34} color={value <= rating ? '#F59E0B' : '#CBD5E1'} />
+      {/* The comment field is multiline and the Submit button sits directly
+          below it, so without this the keyboard covers the primary action --
+          RN Modals do not resize for the keyboard on their own. The ScrollView
+          keeps the card reachable when the keyboard leaves it taller than the
+          remaining space. */}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView
+          contentContainerStyle={styles.overlay}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.card}>
+            <View style={styles.header}>
+              <View style={styles.headingCopy}>
+                <Text style={styles.title}>Rate {target?.roleLabel}</Text>
+                <Text style={styles.subtitle}>{target?.name} · {target?.jobTitle}</Text>
+              </View>
+              <TouchableOpacity onPress={close} style={styles.closeButton} accessibilityLabel="Close rating dialog">
+                <Ionicons name="close" size={20} color={tokens.colors.textMuted} />
               </TouchableOpacity>
-            ))}
-          </View>
+            </View>
 
-          <Text style={styles.label}>Written comment <Text style={styles.optional}>(optional)</Text></Text>
-          <TextInput
-            style={styles.input}
-            value={comment}
-            onChangeText={(value) => setComment(value.slice(0, 2000))}
-            placeholder="Optional: share something about your experience."
-            placeholderTextColor={tokens.colors.textSubtle}
-            multiline
-            maxLength={2000}
-            textAlignVertical="top"
-          />
-          <Text style={styles.counter}>{comment.length}/2000</Text>
-          {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Text style={styles.label}>Overall rating</Text>
+            <View style={styles.stars}>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <TouchableOpacity key={value} onPress={() => setRating(value)} style={styles.starButton} accessibilityLabel={`${value} stars`}>
+                  <Ionicons name={value <= rating ? 'star' : 'star-outline'} size={34} color={value <= rating ? '#F59E0B' : '#CBD5E1'} />
+                </TouchableOpacity>
+              ))}
+            </View>
 
-          <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelButton} onPress={close} disabled={submitting}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.submitButton, (!rating || submitting) && styles.disabled]} onPress={submit} disabled={!rating || submitting}>
-              {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Submit rating</Text>}
-            </TouchableOpacity>
+            <Text style={styles.label}>Written comment <Text style={styles.optional}>(optional)</Text></Text>
+            <TextInput
+              style={styles.input}
+              value={comment}
+              onChangeText={(value) => setComment(value.slice(0, 2000))}
+              placeholder="Optional: share something about your experience."
+              placeholderTextColor={tokens.colors.textSubtle}
+              multiline
+              maxLength={2000}
+              textAlignVertical="top"
+            />
+            <Text style={styles.counter}>{comment.length}/2000</Text>
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.cancelButton} onPress={close} disabled={submitting}>
+                <Text style={styles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submitButton, (!rating || submitting) && styles.disabled]} onPress={submit} disabled={!rating || submitting}>
+                {submitting ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.submitText}>Submit rating</Text>}
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)', justifyContent: 'center', padding: 20 },
+  flex: { flex: 1, backgroundColor: 'rgba(15,23,42,0.55)' },
+  // flexGrow, not flex: as a ScrollView contentContainerStyle this must still
+  // centre the card when it is short, but be allowed to grow past the viewport
+  // once the keyboard is up.
+  overlay: { flexGrow: 1, justifyContent: 'center', padding: 20 },
   card: { backgroundColor: tokens.colors.surface, borderRadius: 22, padding: 20 },
   header: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   headingCopy: { flex: 1 },

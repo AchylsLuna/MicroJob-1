@@ -562,6 +562,11 @@ export default function PostJobWizard({
         </motion.div>
       </AnimatePresence>
 
+      {/* The negative bottom offset cancels the scroll container's `py-5`
+          (PostJob.tsx), so the bar rests flush against the modal's bottom edge
+          rather than floating 20px above it. Verified at a short viewport with
+          the body fully scrolled: the buttons stay entirely visible and the bar
+          abuts the last summary row without covering it. Not a stray value. */}
       <div className="sticky -bottom-5 z-10 grid grid-cols-2 gap-3 border-t border-slate-200 bg-white px-1 pb-1 pt-5">
         {step === 0 ? (
           <button

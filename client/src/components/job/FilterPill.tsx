@@ -97,8 +97,11 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
     setOpen(false);
   };
 
+  // The wrapper is deliberately not `relative` below sm: the mobile menu spans
+  // the whole filter row, so it anchors to the row (which is `relative`) rather
+  // than to this pill. From sm up it anchors to the pill itself.
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="sm:relative" ref={containerRef}>
       <button
         ref={triggerRef}
         type="button"
@@ -111,11 +114,16 @@ function PopoverFilterPill(props: RadioProps | CheckboxProps) {
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
 
+      {/* Was `fixed … top-[auto]`, which pinned the menu to the viewport: it
+          stayed put while the page scrolled, drifting away from its pill
+          (measured at 250px of drift after a 250px scroll). `absolute` keeps it
+          anchored. Spanning the row on mobile rather than the pill avoids the
+          right-edge overflow a pill-width menu would cause. */}
       {open ? (
         <div
           role="menu"
           aria-label={label}
-          className="fixed left-4 right-4 top-[auto] z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:absolute sm:left-0 sm:right-auto sm:top-full sm:w-72"
+          className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-72"
         >
           <div className="max-h-72 overflow-y-auto p-2">
             {options.map((option) => {
