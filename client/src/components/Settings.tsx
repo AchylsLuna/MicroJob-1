@@ -69,7 +69,7 @@ import {
   type ProvinceOption,
 } from "../services/philippineLocations";
 
-type TabType = "account" | "privacy" | "payments";
+type TabType = "account" | "verification" | "privacy" | "payments";
 type AccountTab = "personal" | "experience" | "resume";
 
 const accountTabConfig: { id: AccountTab; label: string }[] = [
@@ -80,6 +80,7 @@ const accountTabConfig: { id: AccountTab; label: string }[] = [
 
 const mainTabConfig: { id: TabType; label: string }[] = [
   { id: "account", label: "Account" },
+  { id: "verification", label: "Account Verification" },
   { id: "privacy", label: "Security & Privacy" },
   { id: "payments", label: "Payments" },
 ];
@@ -87,19 +88,17 @@ const mainTabConfig: { id: TabType; label: string }[] = [
 const mapTabParam = (value: string | null): TabType | null => {
   if (!value) return null;
   if (value === "account") return "account";
+  if (value === "verification") return "verification";
   if (value === "privacy") return "privacy";
   if (value === "payments" || value === "payment-methods") return "payments";
-  // "verification" used to land on Security & Privacy, but the phone
-  // verification action it was meant to reach now lives on Account →
-  // Personal Information, next to the phone number field itself.
-  if (["personal", "experience", "resume", "cv", "verification"].includes(value)) return "account";
+  if (["personal", "experience", "resume", "cv"].includes(value)) return "account";
   if (value === "security") return "privacy";
   return null;
 };
 
 const mapAccountTab = (value: string | null): AccountTab | null => {
   if (!value) return null;
-  if (value === "personal" || value === "verification") return "personal";
+  if (value === "personal") return "personal";
   if (value === "experience") return "experience";
   if (value === "resume") return "resume";
   if (value === "cv") return "resume";
@@ -192,6 +191,72 @@ const addressSuggestions = [
   "Near School Zone",
   "Near Business District",
 ];
+
+function ProfilePhotoSelector({
+  avatarUrl,
+  isSubmitting,
+  onUpload,
+  onDelete,
+}: {
+  avatarUrl: string | null;
+  isSubmitting: boolean;
+  onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onDelete: () => void | Promise<void>;
+}) {
+  return (
+    <div>
+      <p className="mb-2 block text-[14px] font-medium text-slate-600">Profile photo</p>
+      {avatarUrl ? (
+        <div className="flex items-center gap-4">
+          <img
+            src={avatarUrl}
+            alt="Profile"
+            className="h-24 w-24 rounded-[12px] border-2 border-slate-200 object-cover"
+          />
+          <div className="flex flex-col gap-2">
+            <label className="flex cursor-pointer items-center gap-2 rounded-[10px] border border-[#1C4D8D] bg-white px-6 py-2 text-[14px] font-semibold text-[#1C4D8D] transition-all hover:bg-[#1C4D8D]/[0.06]">
+              <Upload className="h-4 w-4" />
+              Change photo
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.gif,.webp"
+                onChange={onUpload}
+                disabled={isSubmitting}
+                aria-label="Choose a new profile photo"
+                className="sr-only"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={isSubmitting}
+              aria-busy={isSubmitting}
+              className="rounded-[10px] border border-[#FCA5A5] px-6 py-2 text-[14px] font-medium text-[#EF4444] transition-all hover:bg-[#FEE2E2]"
+            >
+              Remove photo
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex cursor-pointer items-center gap-2 rounded-[10px] bg-[#1C4D8D] px-6 py-3 font-semibold text-white transition-all hover:opacity-90 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
+            <Upload className="h-4 w-4 text-white" />
+            <span className="text-white">Upload your photo</span>
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.png,.gif,.webp"
+              onChange={onUpload}
+              disabled={isSubmitting}
+              aria-label="Choose a profile photo"
+              className="sr-only"
+            />
+          </label>
+          <span className="text-[13px] text-slate-500">(jpg/png format)</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface SkillItem {
   id: string;
@@ -462,9 +527,9 @@ export function Settings() {
     (item) => item.name.toLowerCase() === personalInfo.barangay.trim().toLowerCase(),
   );
 
-  const visibleMainTabs = hasEmployerAccess
-    ? mainTabConfig
-    : mainTabConfig.filter((tab) => tab.id !== "payments");
+  const visibleMainTabs = mainTabConfig.filter(
+    (tab) => (hasEmployerAccess || tab.id !== "payments") && (!isAdminRole || tab.id !== "verification"),
+  );
 
   const visibleAccountTabs = (isAdminRole || isEmployerRole
     ? accountTabConfig.filter((tab) => tab.id === "personal")
@@ -614,9 +679,9 @@ export function Settings() {
     loadTrustedDevices();
   }, [activeTab]);
 
-  // Load verification status when privacy tab is active
+  // Load verification status when the Account Verification tab is active.
   useEffect(() => {
-    if (activeTab !== "privacy" || isAdminRole) return;
+    if (activeTab !== "verification" || isAdminRole) return;
     const loadVerification = async () => {
       setIsLoadingVerification(true);
       try {
@@ -1630,6 +1695,7 @@ export function Settings() {
           <h1 className="ui-page-title mt-1">Settings</h1>
           <p className="ui-page-subtitle">Manage your profile, security, verification, and payment information.</p>
         </div>
+        <LanguageSettingsCard />
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -1694,6 +1760,15 @@ export function Settings() {
                         </div>
                       ) : null}
 
+                      {!isAdminRole && (
+                        <ProfilePhotoSelector
+                          avatarUrl={resolvedAvatarUrl}
+                          isSubmitting={isAvatarSubmitting}
+                          onUpload={handlePhotoUpload}
+                          onDelete={handleDeletePhoto}
+                        />
+                      )}
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                           <label htmlFor="settings-first-name" className="text-[14px] font-medium text-slate-600 mb-2 block">First name</label>
@@ -1703,11 +1778,13 @@ export function Settings() {
                             value={personalInfo.firstName}
                             maxLength={PROFILE_LIMITS.name}
                             required
+                            disabled
+                            aria-readonly="true"
                             autoComplete="given-name"
                             aria-invalid={profileErrorField === "firstName"}
                             aria-describedby={profileErrorField === "firstName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                            className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
                           />
                         </div>
                         <div>
@@ -1718,11 +1795,13 @@ export function Settings() {
                             value={personalInfo.lastName}
                             maxLength={PROFILE_LIMITS.name}
                             required
+                            readOnly
+                            aria-readonly="true"
                             autoComplete="family-name"
                             aria-invalid={profileErrorField === "lastName"}
                             aria-describedby={profileErrorField === "lastName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                            className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
                           />
                         </div>
                       </div>
@@ -1878,11 +1957,18 @@ export function Settings() {
                       {!isAdminRole && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label htmlFor="settings-phone" className="text-[14px] font-medium text-slate-600 mb-2 block">Phone number</label>
+                            <label htmlFor="settings-phone" className="mb-2 block text-[14px] font-medium text-slate-600">
+                              Phone number
+                              <span className={`ml-1 text-[12px] font-semibold ${isCurrentPhoneVerified ? "text-emerald-700" : "text-slate-500"}`}>
+                                ({isCurrentPhoneVerified ? "Phone number verified" : "Phone number not verified"})
+                              </span>
+                            </label>
                             <input
                               id="settings-phone"
                               type="tel"
                               value={personalInfo.phone}
+                              readOnly={isCurrentPhoneVerified}
+                              aria-readonly={isCurrentPhoneVerified}
                               autoComplete="tel"
                               inputMode="tel"
                               aria-invalid={profileErrorField === "phone"}
@@ -1892,66 +1978,6 @@ export function Settings() {
                               placeholder="e.g., 0917 123 4567"
                               className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
                             />
-                            {/* Verification lives here, next to the field it verifies, instead of
-                                on the Security & Privacy tab — a worker typing their number had no
-                                reason to expect the "Send code" action to be on a different tab. */}
-                            {isCurrentPhoneVerified ? (
-                              <p className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold text-emerald-700">
-                                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                Phone number verified
-                              </p>
-                            ) : phoneHasUnsavedChanges ? (
-                              <p className="mt-2 text-[12px] text-slate-500">Save your phone changes before requesting a verification code.</p>
-                            ) : personalInfo.phone.trim() ? (
-                              <div className="mt-3 space-y-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={handleRequestPhoneCode}
-                                    disabled={isSendingPhoneCode}
-                                    className={verificationActionClass}
-                                  >
-                                    {isSendingPhoneCode
-                                      ? "Sending..."
-                                      : phoneCodeRequested
-                                        ? "Resend code"
-                                        : "Send verification code"}
-                                  </button>
-                                  {phoneCodeHint && (
-                                    <span className="text-xs text-slate-600">{phoneCodeHint}</span>
-                                  )}
-                                </div>
-                                {phoneCodeRequested && (
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <input
-                                      type="text"
-                                      inputMode="numeric"
-                                      autoComplete="one-time-code"
-                                      aria-label="Phone verification code"
-                                      maxLength={6}
-                                      value={phoneVerificationCode}
-                                      onChange={(event) =>
-                                        setPhoneVerificationCode(
-                                          event.target.value.replace(/[^\d]/g, "").slice(0, 6)
-                                        )
-                                      }
-                                      placeholder="Enter 6-digit code"
-                                      className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={handleConfirmPhoneCode}
-                                      disabled={isConfirmingPhoneCode || phoneVerificationCode.length !== 6}
-                                      className={verificationSecondaryActionClass}
-                                    >
-                                      {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <p className="mt-2 text-[12px] text-slate-500">Save your phone number first to verify it.</p>
-                            )}
                           </div>
                           <div>
                             <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-slate-600 mb-2 block">Email</label>
@@ -2070,61 +2096,10 @@ export function Settings() {
                             </select>
                           </div>
 
-                          <div>
-                            <p className="text-[14px] font-medium text-slate-600 mb-2 block">Profile photo</p>
-                            {resolvedAvatarUrl ? (
-                              <div className="flex items-center gap-4">
-                                <img
-                                  src={resolvedAvatarUrl}
-                                  alt="Profile"
-                                  className="w-24 h-24 rounded-[12px] object-cover border-2 border-slate-200"
-                                />
-                                <div className="flex flex-col gap-2">
-                                  <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-2 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 text-[14px]">
-                                    <Upload className="w-4 h-4" />
-                                    Change photo
-                                    <input
-                                      type="file"
-                                      accept=".jpg,.jpeg,.png,.gif,.webp"
-                                      onChange={handlePhotoUpload}
-                                      disabled={isAvatarSubmitting}
-                                      aria-label="Choose a new profile photo"
-                                      className="sr-only"
-                                    />
-                                  </label>
-                                  <button
-                                    type="button"
-                                    onClick={handleDeletePhoto}
-                                    disabled={isAvatarSubmitting}
-                                    aria-busy={isAvatarSubmitting}
-                                    className="text-[#EF4444] hover:bg-[#FEE2E2] px-6 py-2 rounded-[10px] transition-all text-[14px] font-medium border border-[#FCA5A5]"
-                                  >
-                                    Remove photo
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="flex flex-wrap items-center gap-4">
-                              <label className="bg-[#1C4D8D] text-white font-semibold px-6 py-3 rounded-[10px] hover:opacity-90 transition-all cursor-pointer flex items-center gap-2 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
-                               <Upload className="w-4 h-4 text-white" />
-                                <span className="text-white">Upload your photo</span>
-                                  <input
-                                       type="file"
-                                       accept=".jpg,.jpeg,.png,.gif,.webp"
-                                        onChange={handlePhotoUpload}
-                                        disabled={isAvatarSubmitting}
-                                         aria-label="Choose a profile photo"
-                                         className="sr-only"
-                                />  
-                                </label>
-                                <span className="text-[13px] text-slate-500">(jpg/png format)</span>
-                              </div>
-                            )}
-                          </div>
                         </>
                       )}
 
-                      <div className="sticky bottom-0 z-10 -mx-6 mt-6 border-t border-slate-200 bg-white px-6 py-4">
+                      <div className="flex justify-end sticky bottom-0 z-10 -mx-6 mt-6 border-t border-slate-200 bg-white px-6 py-4">
                         <button
                           type="submit"
                           disabled={isProfileSaving || isProfileLoading}
@@ -2138,9 +2113,6 @@ export function Settings() {
                       </div>
                 </form>
 
-                <div className="mt-6">
-                  <LanguageSettingsCard />
-                </div>
               </div>
                   )}
 
@@ -2702,13 +2674,15 @@ export function Settings() {
                 </div>
           )}
 
-          {activeTab === "privacy" && (
+          {(activeTab === "privacy" || activeTab === "verification") && (
             <div
-              id="settings-main-panel-privacy"
+              id={`settings-main-panel-${activeTab}`}
               role="tabpanel"
-              aria-labelledby="settings-main-tab-privacy"
+              aria-labelledby={`settings-main-tab-${activeTab}`}
               className="space-y-6"
             >
+              {activeTab === "privacy" && (
+                <>
               <Card>
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
@@ -2952,8 +2926,10 @@ export function Settings() {
                   )}
                 </div>
               </Card>
+                </>
+              )}
 
-              {!isAdminRole && (
+              {activeTab === "verification" && !isAdminRole && (
                 <Card>
                   <h3 className="text-base font-semibold text-slate-900">Verification</h3>
 
@@ -3078,20 +3054,59 @@ export function Settings() {
                                             </button>
                                           )}
 
-                                          {/* The send/confirm-code action now lives on the Account tab,
-                                              right next to the phone number field itself — see
-                                              settings-phone above. This step keeps its status only. */}
-                                          {step.id === "phone" && step.status !== "complete" && (
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                setActiveTab("account");
-                                                setAccountTab("personal");
-                                              }}
-                                              className={verificationActionClass}
-                                            >
-                                              Verify in Account settings
-                                            </button>
+                                          {step.id === "phone" && !isCurrentPhoneVerified && (
+                                            phoneHasUnsavedChanges ? (
+                                              <p className="mt-2 text-[12px] text-slate-500">Save your phone changes before requesting a verification code.</p>
+                                            ) : personalInfo.phone.trim() ? (
+                                              <div className="mt-3 space-y-2">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                  <button
+                                                    type="button"
+                                                    onClick={handleRequestPhoneCode}
+                                                    disabled={isSendingPhoneCode}
+                                                    className={verificationActionClass}
+                                                  >
+                                                    {isSendingPhoneCode
+                                                      ? "Sending..."
+                                                      : phoneCodeRequested
+                                                        ? "Resend code"
+                                                        : "Send verification code"}
+                                                  </button>
+                                                  {phoneCodeHint && (
+                                                    <span className="text-xs text-slate-600">{phoneCodeHint}</span>
+                                                  )}
+                                                </div>
+                                                {phoneCodeRequested && (
+                                                  <div className="flex flex-wrap items-center gap-2">
+                                                    <input
+                                                      type="text"
+                                                      inputMode="numeric"
+                                                      autoComplete="one-time-code"
+                                                      aria-label="Phone verification code"
+                                                      maxLength={6}
+                                                      value={phoneVerificationCode}
+                                                      onChange={(event) =>
+                                                        setPhoneVerificationCode(
+                                                          event.target.value.replace(/[^\d]/g, "").slice(0, 6)
+                                                        )
+                                                      }
+                                                      placeholder="Enter 6-digit code"
+                                                      className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                                    />
+                                                    <button
+                                                      type="button"
+                                                      onClick={handleConfirmPhoneCode}
+                                                      disabled={isConfirmingPhoneCode || phoneVerificationCode.length !== 6}
+                                                      className={verificationSecondaryActionClass}
+                                                    >
+                                                      {isConfirmingPhoneCode ? "Verifying..." : "Confirm code"}
+                                                    </button>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <p className="mt-2 text-[12px] text-slate-500">Save your phone number first to verify it.</p>
+                                            )
                                           )}
 
                                           {step.id === "identity" && needsAction && (
@@ -3170,7 +3185,7 @@ export function Settings() {
                 </Card>
               )}
 
-              <DeleteAccountCard />
+              {activeTab === "privacy" && <DeleteAccountCard />}
             </div>
           )}
 
