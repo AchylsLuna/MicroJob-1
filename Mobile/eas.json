@@ -1,11 +1,16 @@
 {
-  "cli": { "version": ">= 14.0.0" },
+  "cli": {
+    "version": ">= 14.0.0"
+  },
   "build": {
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://m1cro-job.vercel.app/api",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "183222469053-m0bpca15h20tmlfi6ncn2qcu8s85862r.apps.googleusercontent.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://m1cro-job.vercel.app",
+        "EXPO_PUBLIC_SOCKET_PATH": "/socket.io",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "183222469053-m0bpca15h20tmlfi6ncn2qcu8s85862r.apps.googleusercontent.com",
+        "EXPO_PUBLIC_API_TIMEOUT_MS": "30000"
       },
       "android": {
         "buildType": "apk"
@@ -14,7 +19,10 @@
     "production": {
       "env": {
         "EXPO_PUBLIC_API_URL": "https://m1cro-job.vercel.app/api",
-        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "183222469053-m0bpca15h20tmlfi6ncn2qcu8s85862r.apps.googleusercontent.com"
+        "EXPO_PUBLIC_SOCKET_URL": "https://m1cro-job.vercel.app",
+        "EXPO_PUBLIC_SOCKET_PATH": "/socket.io",
+        "EXPO_PUBLIC_GOOGLE_CLIENT_ID": "183222469053-m0bpca15h20tmlfi6ncn2qcu8s85862r.apps.googleusercontent.com",
+        "EXPO_PUBLIC_API_TIMEOUT_MS": "30000"
       },
       "android": {
         "buildType": "app-bundle"
