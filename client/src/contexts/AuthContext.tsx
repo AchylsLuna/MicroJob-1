@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState, useEffect, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "../lib/toast";
+import { queryClient } from "../lib/queryClient";
 import {
   loginUser,
   selectLoginMethod as selectLoginMethodRequest,
@@ -853,6 +854,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
     sessionStorage.removeItem(POST_VERIFY_REDIRECT_KEY);
+    // Evict every cached query. Without this, the next account to sign in
+    // on this browser sees the previous user's cached profile/jobs/etc.
+    // until each query's staleTime lapses and refetches -- a real data leak
+    // between accounts on a shared device, not just a stale-content nit.
+    queryClient.clear();
     if (!options?.silent) {
       toast.success("Logged out successfully");
     }

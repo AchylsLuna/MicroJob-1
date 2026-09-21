@@ -220,7 +220,7 @@ function AdminDashboardContent() {
               <h2 id="recent-jobs-title" className="font-bold text-slate-950">{t("dashboard.recentJobs.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentJobs.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-blue-700 hover:text-blue-900">{t("dashboard.recentJobs.viewAll")}</Link>
+            <Link to={ROUTES.admin.jobs} className="text-sm font-semibold text-blue-700 hover:underline">{t("dashboard.recentJobs.viewAll")}</Link>
           </div>
           <div className="divide-y divide-slate-100">
             {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentJobs.loading")}</p>}
@@ -245,7 +245,7 @@ function AdminDashboardContent() {
               <h2 id="recent-payouts-title" className="font-bold text-slate-950">{t("dashboard.recentPayouts.title")}</h2>
               <p className="mt-1 text-sm text-slate-500">{t("dashboard.recentPayouts.subtitle")}</p>
             </div>
-            <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-blue-700 hover:text-blue-900">{t("dashboard.recentPayouts.viewWallet")}</Link>
+            <Link to={ROUTES.admin.eWallet} className="text-sm font-semibold text-blue-700 hover:underline">{t("dashboard.recentPayouts.viewWallet")}</Link>
           </div>
           <div className="divide-y divide-slate-100">
             {isLoading && <p role="status" className="p-6 text-center text-sm text-slate-500">{t("dashboard.recentPayouts.loading")}</p>}

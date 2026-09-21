@@ -21,6 +21,7 @@ import {
   loginOtpVerify,
   loginOtpResend,
   debugLoginOtp,
+  debugCreditWallet,
 } from '../controllers/AuthController.js';
 import {
   refreshSession,
@@ -96,6 +97,9 @@ router.post('/login/otp/resend', loginLimiter, accountLoginLimiter, loginOtpRese
 // 404s outside NODE_ENV === 'test' (see AuthController.debugLoginOtp) -- the
 // e2e harness's only way to read a code it can never see in a real response.
 router.get('/debug/login-otp', debugLoginOtp);
+// Same gate: credits an employer wallet so the e2e suite can exercise the
+// offer -> hire -> settle path without a real PayMongo checkout.
+router.post('/debug/credit-wallet', debugCreditWallet);
 
 router.post('/refresh', protectRefresh, refreshSession);
 router.get('/sessions', verifyToken, listSessions);

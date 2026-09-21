@@ -22,6 +22,7 @@ import { ROUTES } from "../../utils/routes";
 import { isStaffConversation } from "../../utils/staffConversation";
 import { isEmployer as checkIsEmployer } from "../../utils/dashboardRoutes";
 import { useAuth } from "../../contexts/AuthContext";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage as Message } from "../../contexts/MessagingContext";
 import { formatCurrency, formatDate, getActiveDateLocale } from "../../lib/formatters";
 import { ConfirmDialog } from "../../components/ui/index";
@@ -1015,16 +1016,16 @@ export function Messages() {
         <div className="flex h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="flex w-full flex-col border-r border-slate-100 md:w-[34%] md:min-w-[320px] md:max-w-[460px]">
             <div className="space-y-3 border-b border-slate-100 p-4">
-              <div className="h-7 w-32 animate-pulse rounded bg-slate-100" />
-              <div className="h-11 w-full animate-pulse rounded-full bg-slate-100" />
+              <Skeleton className="h-7 w-32" />
+              <Skeleton className="h-11 w-full rounded-full" />
             </div>
             <div className="space-y-3 p-4">
               {[1, 2, 3, 4].map((i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="h-12 w-12 shrink-0 animate-pulse rounded-full bg-slate-100" />
+                  <Skeleton className="h-12 w-12 shrink-0 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3.5 w-1/2 animate-pulse rounded bg-slate-100" />
-                    <div className="h-3 w-3/4 animate-pulse rounded bg-slate-100" />
+                    <Skeleton className="h-3.5 w-1/2" />
+                    <Skeleton className="h-3 w-3/4" />
                   </div>
                 </div>
               ))}

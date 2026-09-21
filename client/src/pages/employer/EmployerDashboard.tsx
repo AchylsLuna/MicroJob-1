@@ -16,6 +16,7 @@ import { getEmployerApplications, getMyJobs } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 import { useAuth } from "../../contexts/AuthContext";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { formatDate } from "../../lib/formatters";
 
 interface StatCardProps {
@@ -379,11 +380,11 @@ export function EmployerDashboard() {
           {isLoading ? (
             <div className="space-y-4" aria-label={t("employerDashboard.recentActivity.loadingAria")}>
               {[0, 1, 2].map((item) => (
-                <div key={item} className="flex animate-pulse items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-slate-100" />
+                <div key={item} className="flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-full" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-3 w-3/4 rounded bg-slate-100" />
-                    <div className="h-2.5 w-24 rounded bg-slate-100" />
+                    <Skeleton className="h-3 w-3/4" />
+                    <Skeleton className="h-2.5 w-24" />
                   </div>
                 </div>
               ))}

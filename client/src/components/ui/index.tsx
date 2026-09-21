@@ -220,7 +220,7 @@ export function ConfirmDialog({ open, title, description, confirmLabel, cancelLa
       {error ? <p className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</p> : null}
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50" onClick={onClose} disabled={pending}>{resolvedCancelLabel}</Button>
-        <Button className={destructive ? "bg-red-700 hover:bg-red-800" : undefined} onClick={() => void onConfirm()} disabled={pending} aria-busy={pending}>{pending ? t("confirmDialog.pending") : resolvedConfirmLabel}</Button>
+        <Button className={destructive ? "!bg-red-700 hover:!bg-red-800" : undefined} onClick={() => void onConfirm()} disabled={pending} aria-busy={pending}>{pending ? t("confirmDialog.pending") : resolvedConfirmLabel}</Button>
       </div>
     </Dialog>
   );

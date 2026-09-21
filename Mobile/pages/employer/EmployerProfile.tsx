@@ -139,7 +139,7 @@ export default function EmployerProfile({
       }
 
       const asset = picked.assets[0];
-      const { extension, mimeType, error: avatarError } = validateMobileAvatar(asset);
+      const { mimeType, error: avatarError } = validateMobileAvatar(asset);
       if (avatarError) {
         toast.error(avatarError);
         return;
@@ -150,7 +150,6 @@ export default function EmployerProfile({
         return;
       }
 
-      const ext = extension;
       const mime = mimeType;
       setIsUploadingAvatar(true);
 
