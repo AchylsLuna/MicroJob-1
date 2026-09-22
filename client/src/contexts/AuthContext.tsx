@@ -20,6 +20,7 @@ import {
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../lib/passwordPolicy";
 import { normalizeStaffRole, type AdminStaffRole } from "../lib/adminPermissions";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
+import { clearBearerTokens, storeBearerTokens, usesBearerAuthTransport } from "../utils/authTransport";
 import {
   getEmailValidationMessage,
   getFullNameValidationMessage,
@@ -354,6 +355,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loginMethodSelection, setLoginMethodSelection] = useState<LoginMethodSelection | null>(null);
 
   const completeLogin = (response: any, fallbackEmail: string) => {
+    storeBearerTokens(getResponseContainer(response));
     const { user: apiUser } = getAuthPayload(response);
     if (!apiUser) {
       throw new Error("Invalid login response from server.");
@@ -405,12 +407,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const syncSessionFromStorage = () => {
-      // Token storage is deprecated; auth now uses httpOnly cookies.
+      // Legacy localStorage credentials are never used. Azure's optional
+      // bearer transport instead uses sessionStorage, which is tab-scoped.
       localStorage.removeItem(AUTH_TOKEN_KEY);
       localStorage.removeItem(LEGACY_TOKEN_KEY);
 
       const currentUser = localStorage.getItem(AUTH_USER_KEY) || localStorage.getItem(CURRENT_USER_KEY);
-      if (!currentUser) {
+      if (!currentUser || (usesBearerAuthTransport() && !sessionStorage.getItem("microjobs_bearer_access_token"))) {
+        if (usesBearerAuthTransport()) {
+          localStorage.removeItem(AUTH_USER_KEY);
+          localStorage.removeItem(CURRENT_USER_KEY);
+        }
         setUser(null);
       } else {
         try {
@@ -845,6 +852,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(AUTH_USER_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
     localStorage.removeItem(LEGACY_TOKEN_KEY);
+    clearBearerTokens();
     localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
     localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);

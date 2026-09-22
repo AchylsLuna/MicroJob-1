@@ -35,6 +35,11 @@ Thumbs.db
 
 graphify-out
 .github
+!.github/
+!.github/workflows/
+!.github/workflows/azure-static-web-apps.yml
+!.github/workflows/azure-app-service.yml
+server/.github/
 .vercel
 
 # ShipStudio metadata

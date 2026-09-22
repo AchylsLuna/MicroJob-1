@@ -2,6 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 /* eslint-disable react-refresh/only-export-components */
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { getBearerAccessToken, usesBearerAuthTransport } from '../utils/authTransport';
 import {
   getArchivedConversations,
   getBlockedUsers,
@@ -275,7 +276,8 @@ export function MessagingProvider({ children }: { children: ReactNode }) {
     if (!currentUserId) return;
 
     const socket = io(resolveSocketUrl(), {
-      withCredentials: true,
+      withCredentials: !usesBearerAuthTransport(),
+      auth: usesBearerAuthTransport() ? { token: getBearerAccessToken() } : undefined,
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 8,

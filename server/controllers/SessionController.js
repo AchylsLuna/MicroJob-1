@@ -3,7 +3,7 @@ import Session from '../models/Session.js';
 import User from '../models/User.js';
 import TrustedDevice from '../models/TrustedDevice.js';
 import { disconnectSession } from '../lib/socket.js';
-import { createAccessToken, cookieSecurityOptions, isNativeAuthRequest, SESSION_TTL_MS } from '../lib/authSession.js';
+import { createAccessToken, cookieSecurityOptions, isBearerAuthRequest, isNativeAuthRequest, SESSION_TTL_MS } from '../lib/authSession.js';
 import { clearTrustedDevicesForUser, listTrustedDevicesForUser } from '../lib/trustedDevice.js';
 import monitor from '../lib/monitor.js';
 
@@ -66,13 +66,13 @@ const refreshSession = async (req, res) => {
       ip: req.ip || null,
       userAgent: req.get('user-agent'),
       status: 'success',
-      meta: { sessionId: String(rotatedSession._id), client: isNativeAuthRequest(req) ? 'native' : 'web' },
+      meta: { sessionId: String(rotatedSession._id), client: isNativeAuthRequest(req) ? 'native' : isBearerAuthRequest(req) ? 'bearer-web' : 'web' },
     });
 
     return res.status(200).json({
       token: newAccess,
       accessTokenExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
-      ...(isNativeAuthRequest(req) ? { refreshToken: newRefresh, sessionExpiresAt: rotatedSession.expiresAt } : {}),
+      ...(isNativeAuthRequest(req) || isBearerAuthRequest(req) ? { refreshToken: newRefresh, sessionExpiresAt: rotatedSession.expiresAt } : {}),
     });
   } catch (err) {
     console.error('Refresh error', err);

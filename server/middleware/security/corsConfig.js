@@ -17,6 +17,6 @@ export const buildCorsMiddleware = ({ isProduction, allowedOrigins }) =>
         },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-Microjobs-Auth-Transport'],
         preflightContinue: false,
     });

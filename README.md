@@ -72,8 +72,12 @@ For separate hosts, set `VITE_API_BASE=https://api.example.com/api`,
 `VITE_SOCKET_URL=https://api.example.com`, and configure `WEB_ORIGIN` plus any
 additional exact origins on the API. Production origins must use HTTPS/WSS.
 Configure `TRUST_PROXY` only when the API is behind a trusted reverse proxy.
-Use same-origin hosting or subdomains of the same site. Unrelated top-level domains
-are not supported by the secure `SameSite=Lax` session-cookie configuration.
+Use same-origin hosting or subdomains of the same site whenever possible. For
+unrelated HTTPS hosts, such as Azure's `azurestaticapps.net` frontend and
+`azurewebsites.net` API defaults, build the client with `VITE_AUTH_TRANSPORT=bearer`.
+This opt-in mode sends access tokens in `Authorization` and holds the rotating
+refresh token in `sessionStorage` (one browser tab only), avoiding third-party
+cookies. Leave it unset for local development and same-site deployments.
 For split subdomains, set `COOKIE_DOMAIN` to the controlled shared parent domain
 (for example, `.example.com`) so the web client can read the non-HTTP-only CSRF
 cookie. Do not use a parent domain that hosts untrusted tenants.

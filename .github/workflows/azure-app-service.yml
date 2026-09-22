@@ -1,0 +1,32 @@
+name: Deploy API to Azure App Service
+
+on:
+  push:
+    branches: ["99%"]
+    paths: ["server/**", "package.json", "package-lock.json", ".github/workflows/azure-app-service.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+          cache: npm
+      - run: npm ci
+      - run: npm test --prefix server
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          # Deploy the Express workspace itself. Its package.json starts
+          # index.js directly; deploying the repository root would make Oryx
+          # run the unrelated Vite frontend build.
+          package: server

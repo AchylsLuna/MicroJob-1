@@ -1,6 +1,6 @@
 import express from 'express';
 import csrfProtection from '../middleware/csrf.js';
-import { isNativeAuthRequest } from '../lib/authSession.js';
+import { isBearerAuthRequest, isNativeAuthRequest } from '../lib/authSession.js';
 import verifyToken from '../middleware/auth.js';
 import {
   sendOtp,
@@ -70,7 +70,7 @@ export { normalizeExperience } from '../lib/profileValidation.js';
 
 const router = express.Router();
 const protectRefresh = (req, res, next) => {
-  if (isNativeAuthRequest(req) && !req.cookies?.refreshToken && req.body?.refreshToken) return next();
+  if ((isNativeAuthRequest(req) || isBearerAuthRequest(req)) && !req.cookies?.refreshToken && req.body?.refreshToken) return next();
   return csrfProtection(req, res, next);
 };
 

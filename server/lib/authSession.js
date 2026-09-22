@@ -17,10 +17,13 @@ export const normalizeDisplayName = (value = '') => String(value).trim().replace
 export const isNativeAuthRequest = (req) =>
   !req.get?.('Origin') && String(req.get?.('x-microjobs-client') || '').toLowerCase() === 'native';
 
+export const isBearerAuthRequest = (req) =>
+  String(req.get?.('x-microjobs-auth-transport') || '').toLowerCase() === 'bearer';
+
 export const buildAuthTokensPayload = (req, authSession) => ({
   token: authSession.accessToken,
   accessTokenExpiresAt: authSession.accessTokenExpiresAt,
-  ...(isNativeAuthRequest(req) ? {
+  ...(isNativeAuthRequest(req) || isBearerAuthRequest(req) ? {
     refreshToken: authSession.refreshToken,
     sessionExpiresAt: authSession.expiresAt,
   } : {}),

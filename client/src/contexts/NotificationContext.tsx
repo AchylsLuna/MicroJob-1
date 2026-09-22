@@ -2,6 +2,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 /* eslint-disable react-refresh/only-export-components */
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { getBearerAccessToken, usesBearerAuthTransport } from '../utils/authTransport';
 import {
   deleteNotification as deleteNotificationApi,
   deleteReadNotifications,
@@ -80,7 +81,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     socketRef.current?.disconnect();
     socketRef.current = null;
     if (!user || user.role === 'admin') return;
-    const socket = io(socketUrl, { withCredentials: true, transports: ['websocket', 'polling'] });
+    const socket = io(socketUrl, {
+      withCredentials: !usesBearerAuthTransport(),
+      auth: usesBearerAuthTransport() ? { token: getBearerAccessToken() } : undefined,
+      transports: ['websocket', 'polling'],
+    });
     socketRef.current = socket;
     socket.on('connect', () => { void refresh(); });
     socket.on('notification_created', (payload: any) => {

@@ -1,4 +1,5 @@
 import { handleInvalidSession, isInvalidTokenError } from "../utils/authSession";
+import { getBearerAccessToken, getBearerRefreshToken, storeBearerTokens, usesBearerAuthTransport } from '../utils/authTransport';
 
 const trimTrailingSlash = (value: string) => value.replace(/\/$/, '');
 
@@ -311,7 +312,7 @@ async function performRequest(
       res = await fetch(url, {
         method,
         headers,
-        credentials: 'include',
+        credentials: usesBearerAuthTransport() ? 'omit' : 'include',
         body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
         signal: controller.signal,
       });
@@ -355,20 +356,24 @@ async function tryRefreshSession() {
 
   refreshInFlight = (async () => {
     const csrfToken = getCsrfToken();
-    if (!csrfToken) return false;
+    if (!usesBearerAuthTransport() && !csrfToken) return false;
 
     const refreshCandidates = buildApiCandidates('/auth/refresh');
     for (const url of refreshCandidates) {
       try {
         const response = await fetch(url, {
           method: 'POST',
-          credentials: 'include',
+          credentials: usesBearerAuthTransport() ? 'omit' : 'include',
           headers: {
             'Content-Type': 'application/json',
-            'x-csrf-token': csrfToken,
+            ...(usesBearerAuthTransport() ? { 'x-microjobs-auth-transport': 'bearer' } : { 'x-csrf-token': csrfToken }),
           },
+          ...(usesBearerAuthTransport() ? { body: JSON.stringify({ refreshToken: getBearerRefreshToken() }) } : {}),
         });
-        if (response.ok) return true;
+        if (response.ok) {
+          storeBearerTokens(await response.json().catch(() => ({})));
+          return true;
+        }
       } catch {
         // Try the next refresh candidate on network failure.
       }
@@ -408,6 +413,11 @@ async function request<T>(
   const body = options.body;
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
   const headers = new Headers(options.headers || undefined);
+  if (usesBearerAuthTransport()) {
+    headers.set('x-microjobs-auth-transport', 'bearer');
+    const token = getBearerAccessToken();
+    if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+  }
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }

@@ -83,6 +83,7 @@ export function initSocket(httpServer, opts = {}) {
         callback(new Error('Not allowed by CORS'));
       },
       credentials: true,
+      allowedHeaders: ['Authorization', 'X-Microjobs-Auth-Transport'],
     },
     ...socketOptions,
   });
