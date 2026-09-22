@@ -4,6 +4,7 @@ import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
 import { getAuthContextFromRequest, isAdminRole } from '../lib/auth.js';
 import { getStoredUpload, isSafeUploadFileName } from '../lib/uploadStore.js';
+import { getAvatarFromAzure } from '../lib/azureAvatarStorage.js';
 
 const toUploadUrl = (fileName = '') => `/uploads/${fileName}`;
 
@@ -20,11 +21,6 @@ export const createUploadsRouter = () => {
             if (!isSafeUploadFileName(fileName)) {
                 return res.status(400).json({ message: 'Invalid file path.' });
             }
-            const storedUpload = await getStoredUpload(fileName);
-            if (!storedUpload) {
-                return res.status(404).json({ message: 'File not found.' });
-            }
-
             const uploadUrl = toUploadUrl(fileName);
             const owner = await User.findOne({
                 $or: [
@@ -58,6 +54,22 @@ export const createUploadsRouter = () => {
                 (experience.media || []).some((item) => item.url === uploadUrl)
             );
 
+            // Azure is the primary avatar store. Any unavailable/missing blob
+            // falls back to the Mongo-backed upload written by multer.
+            let azureAvatar = null;
+            if (isAvatar) {
+                try {
+                    azureAvatar = await getAvatarFromAzure(fileName);
+                } catch (azureError) {
+                    console.warn('Azure avatar read failed; using the default upload backup:', azureError?.message || azureError);
+                }
+            }
+
+            const storedUpload = azureAvatar ? null : await getStoredUpload(fileName);
+            if (!azureAvatar && !storedUpload) {
+                return res.status(404).json({ message: 'File not found.' });
+            }
+
             if (isSensitiveFile) {
                 const authContext = await getAuthContextFromRequest(req);
                 if (!authContext?.id) {
@@ -80,13 +92,13 @@ export const createUploadsRouter = () => {
             }
 
             if (isAvatar || isPortfolioMedia || isSensitiveFile) {
-                res.setHeader('Content-Type', storedUpload.contentType || 'application/octet-stream');
+                res.setHeader('Content-Type', azureAvatar?.contentType || storedUpload.contentType || 'application/octet-stream');
                 res.setHeader('X-Content-Type-Options', 'nosniff');
                 res.setHeader('Cache-Control', isSensitiveFile ? 'private, no-store' : 'public, max-age=3600');
                 if (isSensitiveFile) {
                     res.setHeader('Content-Disposition', `attachment; filename="${fileName.replace(/["\\\r\n]/g, '_')}"`);
                 }
-                return res.send(Buffer.from(storedUpload.data || []));
+                return res.send(azureAvatar?.data || Buffer.from(storedUpload.data || []));
             }
 
             return res.status(404).json({ message: 'File metadata not found.' });

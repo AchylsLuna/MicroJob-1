@@ -10,9 +10,11 @@ import { normalizeExperience } from '../lib/profileValidation.js';
 import {
   hasValidAvatarFileSignature,
   hasValidResumeFileSignature,
+  removeAvatarFile,
   removeUploadFile,
   isSafeUploadFileName,
 } from '../middleware/uploadConfig.js';
+import { uploadAvatarToAzure } from '../lib/azureAvatarStorage.js';
 
 export const getProfile = async (req, res) => {
   try {
@@ -137,15 +139,28 @@ export const uploadAvatar = async (req, res) => {
       return sendError(res, 400, 'No file uploaded');
     }
     if (!hasValidAvatarFileSignature(req.file)) {
-      await removeUploadFile(req.file.filename);
+      await removeAvatarFile(req.file.filename);
       return sendError(res, 400, 'Image content does not match its JPG, PNG, GIF, or WEBP file type.');
     }
 
     const userId = req.user?.id;
     const user = await User.findById(userId);
     if (!user) {
-      await removeUploadFile(req.file.filename);
+      await removeAvatarFile(req.file.filename);
       return sendError(res, 404, 'User not found');
+    }
+
+    // The multer middleware has already written the default StoredUpload.
+    // Azure is the primary copy when configured; any Azure error leaves the
+    // stored upload intact so the request and existing /uploads URL still work.
+    try {
+      await uploadAvatarToAzure({
+        filename: req.file.filename,
+        buffer: Buffer.from(req.file.buffer),
+        contentType: req.file.mimetype,
+      });
+    } catch (azureError) {
+      console.warn('Azure avatar upload failed; using the default upload backup:', azureError?.message || azureError);
     }
 
     const previousAvatarUrl = user.avatarUrl;
@@ -153,14 +168,14 @@ export const uploadAvatar = async (req, res) => {
     await user.save();
     persisted = true;
     if (previousAvatarUrl && previousAvatarUrl !== user.avatarUrl) {
-      await removeUploadFile(previousAvatarUrl);
+      await removeAvatarFile(previousAvatarUrl);
     }
 
     return sendSuccess(res, 200, 'Avatar uploaded successfully', {
       avatarUrl: user.avatarUrl,
     });
   } catch (error) {
-    if (!persisted && req.file?.filename) await removeUploadFile(req.file.filename);
+    if (!persisted && req.file?.filename) await removeAvatarFile(req.file.filename);
     console.error('Avatar upload error:', error);
     return sendError(res, 500, 'Failed to upload avatar');
   }
@@ -219,7 +234,7 @@ export const deleteAvatar = async (req, res) => {
     const previousAvatarUrl = user.avatarUrl;
     user.avatarUrl = null;
     await user.save();
-    await removeUploadFile(previousAvatarUrl);
+    await removeAvatarFile(previousAvatarUrl);
 
     return sendSuccess(res, 200, 'Avatar deleted successfully', {
       avatarUrl: null,

@@ -21,6 +21,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@azure/storage-blob": "^12.33.0",
     "axios": "^1.19.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",

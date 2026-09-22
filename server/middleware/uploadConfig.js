@@ -9,6 +9,7 @@ import {
   safeExt,
   saveStoredUpload,
 } from '../lib/uploadStore.js';
+import { deleteAvatarFromAzure } from '../lib/azureAvatarStorage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -170,6 +171,17 @@ export const removeUploadFile = async (value) => {
   } catch (error) {
     console.warn(`Failed to remove upload ${String(value || '')}:`, error?.message || error);
   }
+};
+
+// Avatars are mirrored in MongoDB by persistUpload. Delete both copies so the
+// MongoDB record remains a genuine fallback without accumulating stale blobs.
+export const removeAvatarFile = async (value) => {
+  try {
+    await deleteAvatarFromAzure(value);
+  } catch (error) {
+    console.warn(`Failed to remove Azure avatar ${String(value || '')}:`, error?.message || error);
+  }
+  await removeUploadFile(value);
 };
 
 export { uploadsDir, uploadsRoot, safeExt, isSafeUploadFileName };

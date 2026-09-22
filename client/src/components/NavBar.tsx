@@ -10,6 +10,7 @@ import { mapNotificationRecord, type FeedNotification } from "../utils/notificat
 import { useNotifications } from "../contexts/NotificationContext";
 import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/routes";
 import { webUi } from "../styles/webUi";
+import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 import { MicroJobsLogo } from "./MicroJobsLogo";
 import { workerMoreNavigation, workerPrimaryNavigation } from "./workerNavigation";
 
@@ -29,6 +30,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null);
   const prefersReducedMotion = useReducedMotion();
   // Never slide the bar away while one of its own menus is open — the popovers
   // aren't re-anchored to the header's transform, so hiding mid-interaction
@@ -76,6 +78,11 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
   const unreadCount = notificationState.unreadCount;
   const path = location.pathname;
   const isWorkerView = notificationAudience === "worker";
+  // Avatar URLs stay on the app's existing `/uploads` route. That route reads
+  // Azure first and falls back to MongoDB, so the navbar gets the current image
+  // without exposing the storage provider to the client.
+  const avatarUrl = toAbsoluteAssetUrl(user?.avatarUrl);
+  const shouldShowAvatar = Boolean(avatarUrl && avatarUrl !== failedAvatarUrl);
 
   const isPath = (...targets: string[]) => matchesAnyPath(path, targets);
   const isExactPath = (...targets: string[]) => targets.some((target) => matchesPath(path, target));
@@ -775,12 +782,21 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
               aria-expanded={showUserMenu}
               aria-haspopup="menu"
             >
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100">
-                <span className="text-sm font-bold text-[#1C4D8D]">
-                  {user?.firstName?.[0] ?? "U"}
-                  {user?.lastName?.[0] ?? "S"}
-                </span>
-              </div>
+              {shouldShowAvatar ? (
+                <img
+                  src={avatarUrl!}
+                  alt={displayName}
+                  className="h-9 w-9 shrink-0 rounded-xl object-cover"
+                  onError={() => setFailedAvatarUrl(avatarUrl)}
+                />
+              ) : (
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100" aria-hidden="true">
+                  <span className="text-sm font-bold text-[#1C4D8D]">
+                    {user?.firstName?.[0] ?? "U"}
+                    {user?.lastName?.[0] ?? "S"}
+                  </span>
+                </div>
+              )}
               <span className="hidden max-w-32 min-w-0 lg:block">
                 <span className="block truncate text-sm font-bold text-slate-900">{displayName}</span>
                 <span className="block text-xs text-slate-500">{accountLabel}</span>

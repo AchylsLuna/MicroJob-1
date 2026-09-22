@@ -31,6 +31,7 @@ import crypto from "node:crypto";
 import { clearOtpChallenges, issueOtpChallenge, verifyOtpChallenge } from "../lib/otpChallenges.js";
 import monitor from "../lib/monitor.js";
 import { getWebOrigin } from "../lib/runtimeConfig.js";
+import { deleteAvatarFromAzure } from "../lib/azureAvatarStorage.js";
 
 const OTP_GENERIC_MESSAGE = "If the account exists, an OTP has been sent.";
 // One message for every outcome of a password-reset request. Distinct replies
@@ -191,6 +192,15 @@ async function removeStoredUploads(values) {
     }));
 }
 
+async function removeAzureAvatar(value) {
+    if (!value) return;
+    try {
+        await deleteAvatarFromAzure(value);
+    } catch (error) {
+        console.warn(`Failed to remove Azure avatar ${String(value)}:`, error?.message || error);
+    }
+}
+
 async function revokeSessions(userId, exceptSessionId) {
     const query = { user: userId, active: true };
     if (exceptSessionId) query._id = { $ne: exceptSessionId };
@@ -341,7 +351,10 @@ export async function anonymizeAndDeleteUser(userId) {
         SavedJob.deleteMany({ user: userId }),
         Notification.deleteMany({ user: userId }),
     ]);
-    await removeStoredUploads(storedUploads);
+    await Promise.all([
+        removeStoredUploads(storedUploads),
+        removeAzureAvatar(storedUploads[0]),
+    ]);
 
     await clearPhoneVerificationCode(String(userId));
     await clearOtpChallenges(originalEmailKey);
