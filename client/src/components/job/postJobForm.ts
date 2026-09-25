@@ -32,6 +32,7 @@ export type JobEdit = {
   urgent?: boolean;
   positionsNeeded?: number;
   status?: string;
+  highlighted?: boolean;
   createdAt?: string;
   applicants?: unknown[];
 };
@@ -73,6 +74,7 @@ export type FormState = {
   jobType: string;
   deadline: string;
   positionsNeeded: string;
+  highlighted: boolean;
 };
 
 export type RequiredFieldKey =
@@ -108,6 +110,7 @@ export const createEmptyForm = (): FormState => ({
   jobType: "Short-term",
   deadline: "",
   positionsNeeded: "1",
+  highlighted: false,
 });
 
 export interface ProvinceOption {
@@ -212,13 +215,14 @@ export const buildFormFromJob = (job: JobEdit): FormState => {
     jobType: job.jobType || "Short-term",
     deadline: job.deadline ? new Date(job.deadline).toISOString().slice(0, 10) : "",
     positionsNeeded: job.positionsNeeded ? String(job.positionsNeeded) : "1",
+    highlighted: Boolean(job.highlighted),
   };
 };
 
 /** Pure, per-step field check — the same required-field rules `handleSubmit`
  * enforces as a final safety net, scoped to just the step being left so
  * "Next" can gate progress without duplicating the whole-form validation. */
-export const validateStep = (step: 0 | 1 | 2, form: FormState): RequiredFieldKey[] => {
+export const validateStep = (step: 0 | 1 | 2 | 3, form: FormState): RequiredFieldKey[] => {
   const missing: RequiredFieldKey[] = [];
   if (step === 0) {
     if (!form.title.trim()) missing.push("title");
@@ -228,7 +232,7 @@ export const validateStep = (step: 0 | 1 | 2, form: FormState): RequiredFieldKey
     if (!form.province || !form.city || !form.barangay) missing.push("location");
     if (!form.jobType) missing.push("jobType");
     if (!form.deadline) missing.push("deadline");
-  } else {
+  } else if (step === 2) {
     const salaryAmount = Number(form.minimumSalary.replace(/[^0-9]/g, "") || 0);
     if (!salaryAmount) missing.push("salary");
   }

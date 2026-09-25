@@ -14,6 +14,8 @@ export type JobCardData = {
   salaryLabel: string;
   skills: string[];
   urgent: boolean;
+  highlighted: boolean;
+  employerVerified: boolean;
   matchPercentage?: number;
   matchLevel?: string;
 };
@@ -33,6 +35,8 @@ type JobCardInput = {
   salary?: string; // pre-formatted display string
   skills?: string[];
   urgent?: boolean;
+  highlighted?: boolean;
+  employerVerified?: boolean;
   matchPercentage?: number;
   matchLevel?: string;
 };
@@ -53,6 +57,8 @@ export function toJobCardData(job: JobCardInput): JobCardData {
     salaryLabel: job.salaryLabel || job.salary || "Pay not specified",
     skills: job.skills || [],
     urgent: Boolean(job.urgent),
+    highlighted: Boolean(job.highlighted),
+    employerVerified: Boolean(job.employerVerified),
     matchPercentage: job.matchPercentage,
     matchLevel: job.matchLevel,
   };

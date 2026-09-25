@@ -39,7 +39,7 @@ export async function getRecommendedJobs(req, res) {
     // decision that wants a benchmark, not an incidental change.
     const jobs = await Job.find(filter)
       .populate('category', 'name')
-      .populate('jobPoster', 'firstName lastName companyName avatarUrl')
+      .populate('jobPoster', 'firstName lastName companyName avatarUrl verification')
       .sort({ urgent: -1, createdAt: -1 })
       .limit(100);
 

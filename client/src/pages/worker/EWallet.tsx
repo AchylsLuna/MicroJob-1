@@ -28,7 +28,6 @@ const toAmount = (value: unknown) => {
   const amount = Number(value);
   return Number.isFinite(amount) ? amount : 0;
 };
-const TOPUP_FEE_PERCENT = 2.5;
 
 const getPartyId = (party: PaymentTransaction["sender"] | PaymentTransaction["receiver"]) => {
   if (!party) return "";
@@ -135,8 +134,7 @@ export function EWallet() {
   const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
   const [cancellingPayoutId, setCancellingPayoutId] = useState<string | null>(null);
   const [topUpAmount, setTopUpAmount] = useState("");
-  const topUpFee = Number((toAmount(topUpAmount) * TOPUP_FEE_PERCENT / 100).toFixed(2));
-  const topUpTotal = Number((toAmount(topUpAmount) + topUpFee).toFixed(2));
+  const topUpTotal = toAmount(topUpAmount);
   const [employerBalance, setEmployerBalance] = useState(0);
   const [workerBalance, setWorkerBalance] = useState(0);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
@@ -725,7 +723,6 @@ export function EWallet() {
             </p>
             <div className="rounded-[10px] bg-[#F8FAFC] border border-[#E2E8F0] p-3 mb-6 text-[13px] text-[#374151] space-y-1">
               <div className="flex justify-between"><span>{t("eWallet.topUpModal.depositAmount")}</span><span>{formatCurrency(toAmount(topUpAmount))}</span></div>
-              <div className="flex justify-between"><span>{t("eWallet.topUpModal.processingFee")}</span><span>{formatCurrency(topUpFee)}</span></div>
               <div className="flex justify-between font-semibold text-[#111827] pt-1 border-t border-[#E2E8F0]"><span>{t("eWallet.topUpModal.totalAmountCharged")}</span><span>{formatCurrency(topUpTotal)}</span></div>
             </div>
 

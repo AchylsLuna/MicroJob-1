@@ -291,7 +291,7 @@ const PostJob: React.FC = () => {
     setFormError(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setFormError(null);
@@ -373,6 +373,7 @@ const PostJob: React.FC = () => {
         jobType: formData.jobType,
         deadline: parsedDeadline.toISOString(),
         positionsNeeded: Number(formData.positionsNeeded) || 1,
+        highlighted: formData.highlighted,
       };
 
       if (editingJob?._id) {

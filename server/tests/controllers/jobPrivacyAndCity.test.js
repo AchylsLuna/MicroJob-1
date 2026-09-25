@@ -5,7 +5,7 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import Job from '../../models/Job.js';
 import User from '../../models/User.js';
-import { getApplicantsList, getJobList } from '../../controllers/JobController.js';
+import { getApplicantsList, getJobDetails, getJobList } from '../../controllers/JobController.js';
 
 let mongoServer;
 
@@ -35,7 +35,7 @@ const createUser = async (overrides) => {
   return user.save();
 };
 
-const createJob = (jobPoster, location, applicants = []) => Job.create({
+const createJob = (jobPoster, location, applicants = [], overrides = {}) => Job.create({
   title: `Local job in ${location}`,
   description: 'A local community job.',
   location,
@@ -44,6 +44,7 @@ const createJob = (jobPoster, location, applicants = []) => Job.create({
   deadline: new Date('2027-01-01T00:00:00.000Z'),
   jobPoster,
   applicants,
+  ...overrides,
 });
 
 before(async () => {
@@ -114,7 +115,7 @@ test("a worker's saved city ranks first and overrides a different query city", a
   assert.equal(response.payload[0].proximity, 'city');
 });
 
-test('worker discovery prioritizes fully verified employers without exposing verification details', async () => {
+test('worker discovery prioritizes highlighted jobs, then verified employers, without exposing verification details', async () => {
   const [worker, unverifiedEmployer, verifiedEmployer] = await Promise.all([
     createUser({ role: 'work', city: 'Pasig City' }),
     createUser({ role: 'hire', companyName: 'Unverified Employer' }),
@@ -130,17 +131,36 @@ test('worker discovery prioritizes fully verified employers without exposing ver
     }),
   ]);
   await Promise.all([
-    createJob(unverifiedEmployer._id, 'Pasig City, Metro Manila'),
+    createJob(unverifiedEmployer._id, 'Pasig City, Metro Manila', [], {
+      title: 'Highlighted job',
+      highlighted: true,
+    }),
     createJob(verifiedEmployer._id, 'Cebu City, Cebu'),
+    createJob(unverifiedEmployer._id, 'Pasig City, Metro Manila', [], { title: 'Normal job' }),
   ]);
 
   const response = createResponse();
   await getJobList({ query: {}, headers: {}, user: { id: worker._id, role: 'work' } }, response);
 
   assert.equal(response.statusCode, 200);
-  assert.equal(response.payload[0].jobPoster.companyName, 'Verified Employer');
-  assert.equal(response.payload[0].jobPoster.verification, undefined, 'verification details must remain private');
-  assert.equal(response.payload[1].proximity, 'city', 'existing proximity ranking remains within the unverified group');
+  assert.equal(response.payload[0].title, 'Highlighted job');
+  assert.equal(response.payload[0].discoveryPriority, 0);
+  assert.equal(response.payload[1].jobPoster.companyName, 'Verified Employer');
+  assert.equal(response.payload[1].discoveryPriority, 1);
+  assert.equal(response.payload[1].employerVerified, true);
+  assert.equal(response.payload[2].title, 'Normal job');
+  assert.equal(response.payload[2].discoveryPriority, 2);
+  assert.equal(response.payload[2].employerVerified, false);
+  assert.equal(response.payload[1].jobPoster.verification, undefined, 'verification details must remain private');
+
+  const detailResponse = createResponse();
+  await getJobDetails(
+    { params: { id: response.payload[1]._id }, user: { id: worker._id, role: 'work' }, get: () => '' },
+    detailResponse,
+  );
+  assert.equal(detailResponse.statusCode, 200);
+  assert.equal(detailResponse.payload.employerVerified, true);
+  assert.equal(detailResponse.payload.jobPoster.verification, undefined, 'job details must also keep verification details private');
 });
 
 test('a worker with no city set still sees the national list', async () => {

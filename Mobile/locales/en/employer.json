@@ -147,11 +147,19 @@
       "cardTitle": "Top Up Wallet",
       "cardSubtitle": "Add employer funds through the secure payment page.",
       "depositAmount": "Deposit Amount",
-      "processingFee": "Processing Fee (2.5%)",
-      "totalAmountCharged": "Total Amount Charged",
+      "processingFee": "No processing fee",
+      "totalAmountCharged": "Amount Charged",
       "inputLabel": "Top Up Amount (PHP)",
       "inputAccessibilityLabel": "Top up amount in Philippine pesos",
       "submitButton": "Create Top Up"
+    },
+    "withdrawal": {
+      "accordionTitle": "Withdraw employer funds",
+      "accordionSubtitle": "Available to withdraw: {{amount}}. Requests are reviewed before payment.",
+      "cardTitle": "Withdraw Funds",
+      "cardSubtitle": "Withdraw uncommitted employer funds to your bank or e-wallet.",
+      "amountLabel": "Amount (PHP)", "methodLabel": "Method", "institutionLabel": "Institution", "accountNameLabel": "Account name", "accountNumberLabel": "Account number",
+      "submitButton": "Submit Withdrawal", "historyTitle": "Withdrawal History", "historySubtitle": "Employer-balance withdrawal requests.", "emptyTitle": "No withdrawals yet", "emptyBody": "Your employer withdrawal requests will appear here."
     },
     "invoices": {
       "sectionTitle": "Worker Payment Requests",
@@ -189,6 +197,11 @@
       "topupStartFailed": "Unable to start top up right now.",
       "sessionExpired": "Your security session has expired. Please refresh or sign in again.",
       "csrfError": "Security check failed. Please refresh your wallet."
+      ,"invalidWithdrawalAmount": "Enter a valid withdrawal amount."
+      ,"withdrawalExceedsBalance": "Withdrawal amount cannot exceed your employer balance."
+      ,"incompleteWithdrawalDestination": "Complete the destination details before submitting your withdrawal."
+      ,"withdrawalSubmitted": "Employer withdrawal submitted."
+      ,"withdrawalFailed": "Failed to submit employer withdrawal."
     },
     "errors": {
       "profileFailed": "Failed to load wallet profile.",
@@ -198,6 +211,8 @@
       "confirmTopupFailed": "Failed to confirm top-up.",
       "createTopupFailed": "Failed to create top-up session.",
       "checkConnection": "Check your connection and try again."
+      ,"withdrawalsFailed": "Failed to load withdrawals."
+      ,"createWithdrawalFailed": "Failed to create employer withdrawal."
     }
   },
   "employerPaymentMethods": {
@@ -408,7 +423,27 @@
       "calendarTitle": "Application deadline",
       "calendarSetDeadline": "Set deadline",
       "calendarClear": "Clear",
-      "urgentLabel": "Mark as urgent"
+      "urgentLabel": "Mark as urgent",
+      "urgentHint": "Marks the listing as time-sensitive."
+    },
+    "highlight": {
+      "title": "Highlight job · PHP 50",
+      "description": "Places this listing more prominently near the top of job search. This fee is not refundable.",
+      "accessibilityLabel": "Highlight job for 50 Philippine pesos"
+    },
+    "checkout": {
+      "title": "Checkout",
+      "accessibilityLabel": "Job posting checkout",
+      "defaultJobTitle": "Job posting",
+      "reviewButton": "Review checkout",
+      "workerPay": "Workers' pay ({{count}})",
+      "postingFee": "Posting fee",
+      "highlightFee": "Highlight fee",
+      "total": "Total",
+      "nonRefundable": "Posting and highlight fees are non-refundable, even if you delete this listing. Workers receive their full secured pay.",
+      "back": "Back",
+      "submit": "Submit job",
+      "submitAccessibilityLabel": "Submit job posting"
     },
     "submit": { "update": "Update Job", "post": "Post Job" },
     "toast": { "updated": "Job updated successfully.", "posted": "Job posted successfully." },

@@ -62,16 +62,30 @@ function hasFullyVerifiedEmployer(job) {
 }
 
 /**
+ * Public discovery tier. It discloses only the ordering outcome—not any
+ * verification data—so clients can preserve the server's priority when they
+ * apply a user-selected secondary sort.
+ */
+export function getDiscoveryPriority(job, { prioritizeVerifiedEmployers = false } = {}) {
+  if (job?.highlighted) return 0;
+  if (prioritizeVerifiedEmployers && hasFullyVerifiedEmployer(job)) return 1;
+  return 2;
+}
+
+/**
  * Orders a national result set so the viewer's own city surfaces first, then
  * their province, then everywhere else — each group newest-first. Jobs are never
  * removed: a worker in a quiet municipality still sees the whole country.
  */
 export function sortByProximity(jobs, locality, { prioritizeVerifiedEmployers = false } = {}) {
   return [...jobs].sort((a, b) => {
-    if (prioritizeVerifiedEmployers) {
-      const verificationRank = Number(hasFullyVerifiedEmployer(b)) - Number(hasFullyVerifiedEmployer(a));
-      if (verificationRank !== 0) return verificationRank;
-    }
+    // Discovery has three fixed tiers for workers: highlighted, verified
+    // employer, then normal. Proximity and recency only rank jobs *within*
+    // one of those tiers.
+    const priorityRank =
+      getDiscoveryPriority(a, { prioritizeVerifiedEmployers })
+      - getDiscoveryPriority(b, { prioritizeVerifiedEmployers });
+    if (priorityRank !== 0) return priorityRank;
     const rankDiff = PROXIMITY_RANK[proximityOf(a, locality)] - PROXIMITY_RANK[proximityOf(b, locality)];
     if (rankDiff !== 0) return rankDiff;
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
@@ -81,6 +95,9 @@ export function sortByProximity(jobs, locality, { prioritizeVerifiedEmployers = 
 export function serializePublicJob(job) {
   const value = job?.toObject ? job.toObject() : { ...job };
   const poster = value?.jobPoster;
+  // Expose only the final verification outcome for search presentation. The
+  // source records remain on the populated job object and are stripped below.
+  value.employerVerified = hasFullyVerifiedEmployer(job);
   if (poster && typeof poster === 'object') {
     value.jobPoster = {
       _id: poster._id,

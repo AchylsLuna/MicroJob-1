@@ -18,7 +18,7 @@ const TransactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['TOP_UP', 'ESCROW', 'PAYOUT', 'REFUND'],
+      enum: ['TOP_UP', 'ESCROW', 'PAYOUT', 'REFUND', 'POSTING_FEE'],
       required: true,
     },
     status: {

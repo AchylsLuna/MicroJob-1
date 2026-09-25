@@ -77,7 +77,19 @@ async function createWorker(balance = 500) {
   });
 }
 
-async function submitPayout(worker, { amount = 100, idempotencyKey = 'payout-test-key' } = {}) {
+async function createEmployer(balance = 500) {
+  return User.create({
+    email: `employer-${new mongoose.Types.ObjectId()}@example.com`,
+    firstName: 'Payout',
+    lastName: 'Employer',
+    role: 'hire',
+    status: 'active',
+    employerBalance: balance,
+    passwordHashed: 'not-used',
+  });
+}
+
+async function submitPayout(worker, { amount = 100, idempotencyKey = 'payout-test-key', balanceTarget } = {}) {
   const res = response();
   await createPayoutRequest(
     request({
@@ -85,6 +97,7 @@ async function submitPayout(worker, { amount = 100, idempotencyKey = 'payout-tes
       body: {
         amount,
         idempotencyKey,
+        ...(balanceTarget ? { balanceTarget } : {}),
         destinationSnapshot: {
           methodType: 'bank_transfer',
           institutionName: 'Test Bank',
@@ -115,6 +128,29 @@ test('payout submission is atomic and idempotent', async () => {
   assert.equal(await PayoutRequest.countDocuments(), 1);
   assert.equal(await Transaction.countDocuments({ type: 'PAYOUT' }), 1);
   assert.equal((await User.findById(worker._id)).workerBalance, 400);
+});
+
+test('employer payout debits and refunds only the employer balance', async () => {
+  const employer = await createEmployer();
+  const submitted = await submitPayout(employer, { amount: 125, idempotencyKey: 'employer-payout-key', balanceTarget: 'EMPLOYER' });
+  assert.equal(submitted.statusCode, 201);
+  assert.equal(submitted.payload.payoutRequest.balanceTarget, 'EMPLOYER');
+  let refreshedEmployer = await User.findById(employer._id);
+  assert.equal(refreshedEmployer.employerBalance, 375);
+  assert.equal(refreshedEmployer.workerBalance, 0);
+  const payout = await PayoutRequest.findById(submitted.payload.payoutRequest._id);
+  assert.equal((await Transaction.findById(payout.transaction)).balanceTarget, 'EMPLOYER');
+
+  const adminId = new mongoose.Types.ObjectId();
+  const rejected = response();
+  await updateAdminPayoutRequest(
+    request({ user: { id: String(adminId), role: 'admin' }, params: { payoutRequestId: String(payout._id) }, body: { status: 'rejected', reviewNotes: 'Destination could not be verified.' } }),
+    rejected,
+  );
+  assert.equal(rejected.statusCode, 200);
+  refreshedEmployer = await User.findById(employer._id);
+  assert.equal(refreshedEmployer.employerBalance, 500);
+  assert.equal(refreshedEmployer.workerBalance, 0);
 });
 
 test('payout review enforces state order and concurrent rejection refunds once', async () => {

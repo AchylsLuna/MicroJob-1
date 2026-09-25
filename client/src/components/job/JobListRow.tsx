@@ -5,6 +5,7 @@ import { CategoryTile } from "../ui/CategoryTile";
 import { MatchBadge } from "./MatchBadge";
 import type { JobCardData } from "./jobCardModel";
 import { useTranslation } from "react-i18next";
+import verifiedBadgeUrl from "../../assets/verified-badge.svg";
 
 type Props = {
   job: JobCardData;
@@ -45,16 +46,42 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.fast) }}
       className={`group flex cursor-pointer items-start gap-3 rounded-xl border-l-2 p-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
-        selected ? "border-l-[#1C4D8D] bg-[#EAF1FB]" : "border-l-transparent bg-white hover:bg-slate-50"
+        job.highlighted
+          ? "border-l-amber-500 bg-amber-50 hover:bg-amber-100/70"
+          : selected
+            ? "border-l-[#1C4D8D] bg-[#EAF1FB]"
+            : "border-l-transparent bg-white hover:bg-slate-50"
       }`}
     >
       <CategoryTile category={{ id: job.categoryId, name: job.categoryName }} size="sm" />
       <div className="min-w-0 flex-1">
+        {job.highlighted ? (
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-800">
+            {t("findJobs.card.highlightedByEmployer")}
+          </p>
+        ) : null}
         <p className="line-clamp-1 text-[14px] font-bold leading-tight text-slate-950 group-hover:text-blue-700">
           {job.title}
           {job.urgent ? <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 align-middle">Urgent</span> : null}
         </p>
-        <p className="mt-0.5 line-clamp-1 text-[12px] text-slate-500">{job.posterName}</p>
+        <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[12px] text-slate-500">
+          <span className="truncate">{job.posterName}</span>
+          {job.employerVerified ? (
+            <span
+              role="img"
+              aria-label={t("findJobs.card.verifiedEmployer")}
+              className="group/verification relative inline-flex shrink-0"
+            >
+              <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-3.5 w-3.5" />
+              <span
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-center text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/verification:opacity-100"
+              >
+                {t("findJobs.card.verifiedEmployerTooltip")}
+              </span>
+            </span>
+          ) : null}
+        </p>
         {/* Only recommendation results carry a match; ordinary search results
             leave these undefined and render no badge. */}
         {job.matchLevel && typeof job.matchPercentage === "number" ? (

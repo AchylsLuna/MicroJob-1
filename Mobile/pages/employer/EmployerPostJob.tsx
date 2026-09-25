@@ -59,6 +59,8 @@ type CityOption = { code: string; name: string; provinceCode?: string };
 type BarangayOption = { code: string; name: string };
 
 type TFn = (key: string, options?: Record<string, unknown>) => string;
+const POSTING_FEE = 20;
+const HIGHLIGHT_FEE = 50;
 
 const getJobTypeOptions = (t: TFn) =>
   [
@@ -147,6 +149,8 @@ export default function EmployerPostJob({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
   const [positionsNeeded, setPositionsNeeded] = useState('1');
   const [categories, setCategories] = useState<Category[]>([]);
   const [categoryQuery, setCategoryQuery] = useState('');
@@ -210,6 +214,7 @@ export default function EmployerPostJob({
     setDeadlineDate(deadline);
     setDeadlineTime(deadline);
     setIsUrgent(Boolean(jobToEdit.urgent));
+    setIsHighlighted(Boolean(jobToEdit.highlighted));
     setPositionsNeeded(String(jobToEdit.positionsNeeded || 1));
   }, [jobToEdit]);
 
@@ -372,7 +377,7 @@ export default function EmployerPostJob({
     return categories.filter((category) => category.name.toLowerCase().includes(query));
   }, [categories, categoryQuery]);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (confirmed = false) => {
     if (!isEditing && !hasCompleteProfile) {
       setShowProfileIncompleteModal(true);
       return;
@@ -439,6 +444,12 @@ export default function EmployerPostJob({
         return;
       }
 
+      if (!isEditing && !confirmed) {
+        setShowCheckout(true);
+        setSubmitting(false);
+        return;
+      }
+
       const payload = {
         title: trimmedTitle,
         category: formData.category || undefined,
@@ -458,6 +469,7 @@ export default function EmployerPostJob({
         deadline: parsedDeadline.toISOString(),
         urgent: isUrgent,
         positionsNeeded: normalizedPositions,
+        highlighted: isHighlighted,
       };
 
       const result = await apiRequest(`${API_URL}/jobs/${isEditing ? jobToEdit._id : ''}`.replace(/\/$/, ''), {
@@ -489,6 +501,7 @@ export default function EmployerPostJob({
       setDeadlineDate(null);
       setDeadlineTime(null);
       setIsUrgent(false);
+      setIsHighlighted(false);
       setPositionsNeeded('1');
       setCategoryQuery('');
       setProvinceQuery('');
@@ -500,6 +513,10 @@ export default function EmployerPostJob({
       setSubmitting(false);
     }
   };
+
+  const workerPay = Number(formData.salary.replace(/[^0-9]/g, '') || 0) * Number(positionsNeeded || 0);
+  const checkoutHighlightFee = isHighlighted ? HIGHLIGHT_FEE : 0;
+  const checkoutTotal = workerPay + POSTING_FEE + checkoutHighlightFee;
 
   return (
     <View style={styles.container}>
@@ -902,7 +919,7 @@ export default function EmployerPostJob({
           <View style={styles.urgentRow}>
             <View style={styles.urgentCopy}>
               <Text style={styles.urgentLabel}>Mark as urgent</Text>
-              <Text style={styles.urgentHint}>Highlights this post so workers see it first.</Text>
+              <Text style={styles.urgentHint}>{t('employerPostJob.hiring.urgentHint')}</Text>
             </View>
             <Switch
               value={isUrgent}
@@ -915,17 +932,33 @@ export default function EmployerPostJob({
               accessibilityState={{ checked: isUrgent }}
             />
           </View>
+          {!isEditing ? <View style={styles.urgentRow}>
+            <View style={styles.urgentCopy}>
+              <Text style={styles.urgentLabel}>{t('employerPostJob.highlight.title')}</Text>
+              <Text style={styles.urgentHint}>{t('employerPostJob.highlight.description')}</Text>
+            </View>
+            <Switch
+              value={isHighlighted}
+              onValueChange={setIsHighlighted}
+              trackColor={{ false: tokens.colors.border, true: tokens.colors.brand }}
+              thumbColor={tokens.colors.white}
+              ios_backgroundColor={tokens.colors.border}
+              accessibilityRole="switch"
+              accessibilityLabel={t('employerPostJob.highlight.accessibilityLabel')}
+              accessibilityState={{ checked: isHighlighted }}
+            />
+          </View> : null}
           </EmployerAccordion>
 
           <TouchableOpacity
             style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
+            onPress={() => void handleSubmit()}
             disabled={submitting}
           >
             {submitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.submitButtonText}>{isEditing ? 'Update Job' : 'Post Job'}</Text>
+              <Text style={styles.submitButtonText}>{isEditing ? t('employerPostJob.submit.update') : t('employerPostJob.checkout.reviewButton')}</Text>
             )}
           </TouchableOpacity>
           </View>
@@ -983,6 +1016,33 @@ export default function EmployerPostJob({
               >
                 <Text style={styles.balanceModalPrimaryText}>Top up wallet</Text>
               </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showCheckout}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowCheckout(false)}
+      >
+        <View style={styles.balanceModalBackdrop}>
+          <View style={styles.balanceModalCard} accessibilityRole="alert" accessibilityLabel={t('employerPostJob.checkout.accessibilityLabel')}>
+            <Text style={styles.balanceModalTitle}>{t('employerPostJob.checkout.title')}</Text>
+            <Text style={styles.checkoutJobTitle}>{formData.title || t('employerPostJob.checkout.defaultJobTitle')}</Text>
+            <Text style={styles.checkoutDescription} numberOfLines={4}>{formData.description}</Text>
+            <View style={styles.checkoutRows}>
+              <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.workerPay', { count: positionsNeeded || '1' })}</Text><Text style={styles.breakdownValue}>{`PHP ${workerPay.toFixed(2)}`}</Text></View>
+              <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.postingFee')}</Text><Text style={styles.breakdownValue}>PHP 20.00</Text></View>
+              <View style={styles.breakdownRow}><Text style={styles.breakdownLabel}>{t('employerPostJob.checkout.highlightFee')}</Text><Text style={styles.breakdownValue}>{`PHP ${checkoutHighlightFee.toFixed(2)}`}</Text></View>
+              <View style={styles.breakdownTotal}><Text style={styles.breakdownTotalLabel}>{t('employerPostJob.checkout.total')}</Text><Text style={styles.breakdownTotalValue}>{`PHP ${checkoutTotal.toFixed(2)}`}</Text></View>
+            </View>
+            <Text style={styles.checkoutNote}>{t('employerPostJob.checkout.nonRefundable')}</Text>
+            <View style={styles.balanceModalActions}>
+              <TouchableOpacity style={styles.balanceModalSecondaryButton} onPress={() => setShowCheckout(false)} accessibilityRole="button"><Text style={styles.balanceModalSecondaryText}>{t('employerPostJob.checkout.back')}</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.balanceModalPrimaryButton} onPress={() => { setShowCheckout(false); void handleSubmit(true); }} accessibilityRole="button" accessibilityLabel={t('employerPostJob.checkout.submitAccessibilityLabel')}><Text style={styles.balanceModalPrimaryText}>{t('employerPostJob.checkout.submit')}</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -1162,6 +1222,16 @@ const styles = StyleSheet.create({
   urgentCopy: { flex: 1, gap: 2 },
   urgentLabel: { fontSize: 14, color: tokens.colors.text, fontWeight: '700' },
   urgentHint: { fontSize: 12, color: tokens.colors.textMuted, lineHeight: 16 },
+  checkoutJobTitle: { marginTop: 8, color: tokens.colors.text, fontSize: 15, fontWeight: '800' },
+  checkoutDescription: { marginTop: 4, color: tokens.colors.textMuted, fontSize: 12, lineHeight: 17 },
+  checkoutRows: { marginTop: 14, gap: 8 },
+  checkoutNote: { marginTop: 12, color: tokens.colors.textMuted, fontSize: 12, lineHeight: 17 },
+  breakdownRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  breakdownLabel: { flex: 1, color: tokens.colors.textMuted, fontSize: 12 },
+  breakdownValue: { color: tokens.colors.text, fontSize: 12, fontWeight: '700' },
+  breakdownTotal: { width: '100%', marginTop: 3, paddingTop: 8, borderTopWidth: 1, borderTopColor: tokens.colors.border, flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  breakdownTotalLabel: { color: tokens.colors.text, fontSize: 14, fontWeight: '800' },
+  breakdownTotalValue: { color: tokens.colors.brandDark, fontSize: 14, fontWeight: '800' },
   submitButtonDisabled: { opacity: 0.6 },
   submitButtonText: { color: tokens.colors.surface, fontSize: 15, fontWeight: '700' },
   errorCard: {

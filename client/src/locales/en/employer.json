@@ -184,30 +184,49 @@
       "defaultTitle": "this job",
       "confirm": "Delete job"
     },
-    "profileIncomplete": {
-      "toast": "Add a profile photo in Settings before posting a job."
-    },
-    "wizard": {
+  "profileIncomplete": {
+    "toast": "Add a profile photo in Settings before posting a job."
+  },
+  "highlight": {
+    "title": "Highlight job",
+    "tooltip": "Highlighted listings appear more prominently near the top of job search results.",
+    "description": "Make this listing easier to find for {{amount}}. This fee is not refundable."
+  },
+  "checkout": {
+    "title": "Checkout",
+    "workerPay_one": "Worker's pay · {{count}} worker",
+    "workerPay_other": "Workers' pay · {{count}} workers",
+    "postingFee": "Posting fee",
+    "highlightFee": "Highlight fee",
+    "total": "Total",
+    "nonRefundable": "The posting and highlight fees are non-refundable, including if you delete this listing. Workers receive their full secured pay."
+  },
+  "wizard": {
       "stepAria": "Step {{step}} of {{total}}: {{title}}",
       "steps": {
         "job": {
           "title": "The job",
-          "subtitle": "Name it, categorize it, and describe the work."
+          "subtitle": "Name it, categorize it, describe the work, and add helpful requirements or skills."
         },
         "whereWhen": {
           "title": "Where & when",
           "subtitle": "Set the location, opportunity type, and deadline."
         },
-        "payReview": {
-          "title": "Pay & review",
-          "subtitle": "Set the pay, add optional details, and confirm."
+        "pay": {
+          "title": "Pay & highlight",
+          "subtitle": "Set the guaranteed pay and optional listing promotion."
+        },
+        "review": {
+          "title": "Review & checkout",
+          "subtitle": "Confirm the listing and checkout total before posting."
         }
       },
       "back": "Back",
       "next": "Next",
       "summary": {
         "title": "Review before you post",
-        "job": "Job",
+      "job": "Job",
+      "description": "Description",
         "category": "Category",
         "location": "Location",
         "jobType": "Type",
@@ -215,6 +234,22 @@
         "positions": "Positions"
       }
     }
+  },
+  "eWallet": {
+    "balanceLabel": "Available employer balance",
+    "description": "Use this balance to fund jobs or withdraw uncommitted funds to your bank or e-wallet. Pending job escrow cannot be withdrawn.",
+    "topUp": "Top Up",
+    "withdraw": "Withdraw Funds",
+    "topUpDescription": "Add funds through secure checkout.",
+    "cancel": "Cancel",
+    "continue": "Continue to Checkout",
+    "loading": "Loading...",
+    "stats": { "available": "Available", "pending": "Pending withdrawals", "withdrawals": "Withdrawals" },
+    "status": { "requested": "Requested", "approved": "Approved", "paid": "Paid", "rejected": "Rejected", "cancelled": "Cancelled" },
+    "history": { "title": "Withdrawal History", "description": "Track employer-balance withdrawals while they are reviewed.", "empty": "No employer withdrawals yet.", "requested": "Requested {{date}}", "cancelling": "Cancelling...", "cancel": "Cancel Withdrawal" },
+    "form": { "title": "Withdraw Employer Funds", "available": "Available to withdraw: {{amount}}. Withdrawals debit your employer balance immediately and remain pending until reviewed.", "amount": "Amount (PHP)", "method": "Method", "bank": "Bank transfer", "institutionName": "Institution", "accountName": "Account name", "accountNumber": "Account number", "submitting": "Submitting withdrawal...", "submit": "Withdraw Funds" },
+    "transactions": { "title": "Employer Transactions", "empty": "No employer transactions yet." },
+    "toast": { "loadFailed": "Failed to load employer wallet data.", "invalidTopUp": "Enter a valid top-up amount.", "topUpFailed": "Failed to start top-up.", "invalidWithdrawal": "Enter a valid withdrawal amount.", "exceedsBalance": "Withdrawal amount cannot exceed your employer balance.", "destinationRequired": "Complete the destination details before submitting your withdrawal.", "withdrawalSubmitted": "Employer withdrawal submitted.", "withdrawalFailed": "Failed to submit employer withdrawal.", "withdrawalCancelled": "Employer withdrawal cancelled.", "withdrawalCancelFailed": "Failed to cancel employer withdrawal." }
   },
   "applicationsManagement": {
     "title": "Applications",

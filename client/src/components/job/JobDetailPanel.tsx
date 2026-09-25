@@ -20,6 +20,7 @@ import { ROUTES } from "../../utils/routes";
 import { useSavedJobs } from "../../hooks/useSavedJobs";
 import { useAuth } from "../../hooks/useAuth";
 import { formatCurrency, formatDate } from "../../lib/formatters";
+import verifiedBadgeUrl from "../../assets/verified-badge.svg";
 
 type ApiJob = {
   _id: string;
@@ -34,6 +35,7 @@ type ApiJob = {
   requirements?: string[];
   skills?: string[];
   applicants?: string[];
+  employerVerified?: boolean;
   jobPoster?: { _id?: string; firstName?: string; lastName?: string; email?: string };
 };
 
@@ -359,7 +361,22 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                     className="mt-2 flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] hover:opacity-80"
                   >
                     <Building2 className="w-4 h-4" />
-                    {companyName}
+                    <span>{companyName}</span>
+                    {job.employerVerified ? (
+                      <span
+                        role="img"
+                        aria-label={t("jobDetails.verifiedEmployer")}
+                        className="group/verification relative inline-flex shrink-0"
+                      >
+                        <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-4 w-4" />
+                        <span
+                          role="tooltip"
+                          className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-center text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover/verification:opacity-100"
+                        >
+                          {t("jobDetails.verifiedEmployerTooltip")}
+                        </span>
+                      </span>
+                    ) : null}
                   </button>
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-[15px] text-[#6B7280]">
                     <span className="inline-flex items-center gap-1.5">

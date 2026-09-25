@@ -147,11 +147,19 @@
       "cardTitle": "Mag-top Up sa Wallet",
       "cardSubtitle": "Magdagdag ng pondo ng employer sa pamamagitan ng secure na payment page.",
       "depositAmount": "Halaga ng Deposit",
-      "processingFee": "Processing Fee (2.5%)",
-      "totalAmountCharged": "Kabuuang Sisingilin",
+      "processingFee": "Walang bayad sa pagproseso",
+      "totalAmountCharged": "Halagang Sisingilin",
       "inputLabel": "Halaga ng Top Up (PHP)",
       "inputAccessibilityLabel": "Halaga ng top up sa piso",
       "submitButton": "Gumawa ng Top Up"
+    },
+    "withdrawal": {
+      "accordionTitle": "I-withdraw ang pondo ng employer",
+      "accordionSubtitle": "Available na i-withdraw: {{amount}}. Sinusuri ang mga kahilingan bago bayaran.",
+      "cardTitle": "I-withdraw ang Pondo",
+      "cardSubtitle": "I-withdraw ang hindi pa nakatalagang pondo ng employer sa iyong bangko o e-wallet.",
+      "amountLabel": "Halaga (PHP)", "methodLabel": "Paraan", "institutionLabel": "Institusyon", "accountNameLabel": "Pangalan sa account", "accountNumberLabel": "Numero ng account",
+      "submitButton": "Isumite ang Withdrawal", "historyTitle": "Kasaysayan ng Withdrawal", "historySubtitle": "Mga kahilingan sa withdrawal mula sa balanse ng employer.", "emptyTitle": "Wala pang withdrawal", "emptyBody": "Lalabas dito ang iyong mga kahilingan sa withdrawal bilang employer."
     },
     "invoices": {
       "sectionTitle": "Mga Kahilingan sa Bayad ng Manggagawa",
@@ -189,6 +197,11 @@
       "topupStartFailed": "Hindi ma-start ang top up ngayon.",
       "sessionExpired": "Nag-expire ang iyong sesyon ng seguridad. Mangyaring mag-refresh o mag-sign in muli.",
       "csrfError": "Nabigo ang security check. Mangyaring i-refresh ang iyong wallet."
+      ,"invalidWithdrawalAmount": "Maglagay ng valid na halaga ng withdrawal."
+      ,"withdrawalExceedsBalance": "Hindi maaaring lumampas ang withdrawal sa balanse ng employer."
+      ,"incompleteWithdrawalDestination": "Kumpletuhin ang detalye ng destinasyon bago isumite ang withdrawal."
+      ,"withdrawalSubmitted": "Naisumite ang withdrawal ng employer."
+      ,"withdrawalFailed": "Hindi naisumite ang withdrawal ng employer."
     },
     "errors": {
       "profileFailed": "Hindi na-load ang profile ng wallet.",
@@ -198,6 +211,8 @@
       "confirmTopupFailed": "Hindi ma-kumpirma ang top-up.",
       "createTopupFailed": "Hindi magawa ang top-up session.",
       "checkConnection": "Suriin ang iyong koneksyon at subukan muli."
+      ,"withdrawalsFailed": "Hindi na-load ang mga withdrawal."
+      ,"createWithdrawalFailed": "Hindi nagawa ang withdrawal ng employer."
     }
   },
   "employerPaymentMethods": {
@@ -408,7 +423,27 @@
       "calendarTitle": "Deadline ng aplikasyon",
       "calendarSetDeadline": "Itakda ang deadline",
       "calendarClear": "I-clear",
-      "urgentLabel": "Markahan bilang urgent"
+      "urgentLabel": "Markahan bilang urgent",
+      "urgentHint": "Minamarkahan ang listing bilang sensitibo sa oras."
+    },
+    "highlight": {
+      "title": "I-highlight ang trabaho · PHP 50",
+      "description": "Mas kapansin-pansin ang listing na ito malapit sa itaas ng job search. Hindi refundable ang bayad na ito.",
+      "accessibilityLabel": "I-highlight ang trabaho sa halagang 50 piso"
+    },
+    "checkout": {
+      "title": "Checkout",
+      "accessibilityLabel": "Checkout ng job posting",
+      "defaultJobTitle": "Job posting",
+      "reviewButton": "Suriin ang checkout",
+      "workerPay": "Bayad ng mga manggagawa ({{count}})",
+      "postingFee": "Bayad sa pag-post",
+      "highlightFee": "Bayad sa pag-highlight",
+      "total": "Kabuuan",
+      "nonRefundable": "Hindi refundable ang bayad sa pag-post at pag-highlight, kahit i-delete mo ang listing. Matatanggap ng mga manggagawa ang buong naka-secure na bayad.",
+      "back": "Bumalik",
+      "submit": "I-submit ang trabaho",
+      "submitAccessibilityLabel": "I-submit ang job posting"
     },
     "submit": { "update": "I-update ang Trabaho", "post": "I-post ang Trabaho" },
     "toast": { "updated": "Matagumpay na na-update ang trabaho.", "posted": "Matagumpay na na-post ang trabaho." },

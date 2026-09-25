@@ -150,7 +150,7 @@ export type PaymentTransaction = {
   sender?: { _id?: string; firstName?: string; lastName?: string; email?: string } | null;
   receiver?: { _id?: string; firstName?: string; lastName?: string; email?: string } | null;
   amount: number;
-  type: 'TOP_UP' | 'ESCROW' | 'PAYOUT' | 'REFUND';
+  type: 'TOP_UP' | 'ESCROW' | 'PAYOUT' | 'REFUND' | 'POSTING_FEE';
   status?: 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   balanceTarget?: 'EMPLOYER' | 'WORKER' | 'ESCROW' | 'SYSTEM';
   reference?: string | null;
@@ -234,6 +234,7 @@ export type SupportAgent = {
 export type PayoutRequest = {
   _id: string;
   amount: number;
+  balanceTarget?: 'EMPLOYER' | 'WORKER';
   status: 'requested' | 'approved' | 'rejected' | 'paid' | 'cancelled';
   destinationSnapshot: {
     methodType: string;
@@ -1145,12 +1146,13 @@ export function getPaymentTransactions() {
   return request<{ transactions: PaymentTransaction[] }>('/payment/transactions', { method: 'GET' });
 }
 
-export function getPayoutRequests() {
-  return request<{ payoutRequests: PayoutRequest[] }>('/payment/payout-requests', { method: 'GET' });
+export function getPayoutRequests(balanceTarget?: 'EMPLOYER' | 'WORKER') {
+  return request<{ payoutRequests: PayoutRequest[] }>(`/payment/payout-requests${buildQuery(balanceTarget ? { balanceTarget } : undefined)}`, { method: 'GET' });
 }
 
 export function createPayoutRequest(payload: {
   amount: number;
+  balanceTarget?: 'EMPLOYER' | 'WORKER';
   idempotencyKey?: string;
   destinationSnapshot: {
     methodType: string;

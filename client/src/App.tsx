@@ -45,6 +45,7 @@ const AppliedJobs = lazy(() => import("./pages/worker/AppliedJobs"));
 const SavedJobs = lazy(() => import("./pages/worker/SavedJobs").then((module) => ({ default: module.SavedJobs })));
 const WorkerMessages = lazy(() => import("./pages/worker/Messages").then((module) => ({ default: module.Messages })));
 const WorkerEWallet = lazy(() => import("./pages/worker/EWallet").then((module) => ({ default: module.EWallet })));
+const EmployerEWallet = lazy(() => import("./pages/employer/EWallet").then((module) => ({ default: module.EmployerEWallet })));
 const WorkerNotifications = lazy(() => import("./pages/worker/Notifications"));
 const WorkerProfile = lazy(() => import("./pages/worker/Profile").then((module) => ({ default: module.Profile })));
 const EmployerProfile = lazy(() => import("./pages/employer/Profile").then((module) => ({ default: module.Profile })));
@@ -322,7 +323,7 @@ const App: React.FC = () => {
             <Route path={ROUTES.employer.applications} element={<Applications />} />
             <Route path={ROUTES.employer.jobs} element={<JobsManagement />} />
             <Route path={ROUTES.employer.messages} element={<WorkerMessages />} />
-            <Route path={ROUTES.employer.eWallet} element={<WorkerEWallet />} />
+            <Route path={ROUTES.employer.eWallet} element={<EmployerEWallet />} />
             <Route path={ROUTES.employer.notifications} element={<NotificationsRouter />} />
             <Route path={ROUTES.employer.support} element={<SupportRouter />} />
             <Route path={ROUTES.employer.settings} element={<Settings />} />

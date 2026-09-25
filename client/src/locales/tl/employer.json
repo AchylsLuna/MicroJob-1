@@ -184,30 +184,49 @@
       "defaultTitle": "trabahong ito",
       "confirm": "I-delete ang trabaho"
     },
-    "profileIncomplete": {
-      "toast": "Magdagdag ng profile photo sa Settings bago mag-post ng trabaho."
-    },
-    "wizard": {
+  "profileIncomplete": {
+    "toast": "Magdagdag ng profile photo sa Settings bago mag-post ng trabaho."
+  },
+  "highlight": {
+    "title": "I-highlight ang trabaho",
+    "tooltip": "Mas kitang-kita ang mga naka-highlight na listing malapit sa itaas ng mga resulta ng job search.",
+    "description": "Gawing mas madaling makita ang listing na ito sa halagang {{amount}}. Hindi refundable ang bayad na ito."
+  },
+  "checkout": {
+    "title": "Checkout",
+    "workerPay_one": "Bayad ng manggagawa · {{count}} manggagawa",
+    "workerPay_other": "Bayad ng mga manggagawa · {{count}} manggagawa",
+    "postingFee": "Bayad sa pag-post",
+    "highlightFee": "Bayad sa pag-highlight",
+    "total": "Kabuuan",
+    "nonRefundable": "Hindi refundable ang bayad sa pag-post at pag-highlight, kahit i-delete mo ang listing. Matatanggap ng mga manggagawa ang buong naka-secure na bayad."
+  },
+  "wizard": {
       "stepAria": "Hakbang {{step}} ng {{total}}: {{title}}",
       "steps": {
         "job": {
           "title": "Ang trabaho",
-          "subtitle": "Pangalanan, kategoryahin, at ilarawan ang gawain."
+          "subtitle": "Pangalanan, kategoryahin, ilarawan ang gawain, at magdagdag ng mga kapaki-pakinabang na requirement o kasanayan."
         },
         "whereWhen": {
           "title": "Saan at kailan",
           "subtitle": "Itakda ang lokasyon, uri ng oportunidad, at deadline."
         },
-        "payReview": {
-          "title": "Bayad at review",
-          "subtitle": "Itakda ang bayad, magdagdag ng opsyonal na detalye, at kumpirmahin."
+        "pay": {
+          "title": "Bayad at pag-highlight",
+          "subtitle": "Itakda ang garantisadong bayad at opsyonal na promosyon ng listing."
+        },
+        "review": {
+          "title": "Review at checkout",
+          "subtitle": "Kumpirmahin ang listing at kabuuan bago i-post."
         }
       },
       "back": "Bumalik",
       "next": "Susunod",
       "summary": {
         "title": "Suriin bago mag-post",
-        "job": "Trabaho",
+      "job": "Trabaho",
+      "description": "Paglalarawan",
         "category": "Kategorya",
         "location": "Lokasyon",
         "jobType": "Uri",
@@ -215,6 +234,22 @@
         "positions": "Bilang ng posisyon"
       }
     }
+  },
+  "eWallet": {
+    "balanceLabel": "Available na balanse ng employer",
+    "description": "Gamitin ang balanseng ito upang pondohan ang mga trabaho o i-withdraw ang hindi pa nakatalagang pondo sa iyong bangko o e-wallet. Hindi maaaring i-withdraw ang nakabinbing job escrow.",
+    "topUp": "Mag-top Up",
+    "withdraw": "Mag-withdraw ng Pondo",
+    "topUpDescription": "Magdagdag ng pondo sa secure checkout.",
+    "cancel": "Kanselahin",
+    "continue": "Magpatuloy sa Checkout",
+    "loading": "Naglo-load...",
+    "stats": { "available": "Available", "pending": "Nakabinbing withdrawal", "withdrawals": "Mga withdrawal" },
+    "status": { "requested": "Hiniling", "approved": "Aprubado", "paid": "Nabayaran", "rejected": "Tinanggihan", "cancelled": "Kinansela" },
+    "history": { "title": "Kasaysayan ng Withdrawal", "description": "Subaybayan ang mga withdrawal mula sa balanse ng employer habang sinusuri ang mga ito.", "empty": "Wala pang withdrawal ng employer.", "requested": "Hiniling {{date}}", "cancelling": "Kinakansela...", "cancel": "Kanselahin ang Withdrawal" },
+    "form": { "title": "I-withdraw ang Pondo ng Employer", "available": "Available na i-withdraw: {{amount}}. Agad na mababawas ang withdrawal sa balanse ng employer at mananatiling nakabinbin hanggang masuri.", "amount": "Halaga (PHP)", "method": "Paraan", "bank": "Bank transfer", "institutionName": "Institusyon", "accountName": "Pangalan sa account", "accountNumber": "Numero ng account", "submitting": "Isinusumite ang withdrawal...", "submit": "Mag-withdraw ng Pondo" },
+    "transactions": { "title": "Mga Transaksyon ng Employer", "empty": "Wala pang transaksyon ng employer." },
+    "toast": { "loadFailed": "Hindi na-load ang data ng wallet ng employer.", "invalidTopUp": "Maglagay ng valid na halaga ng top-up.", "topUpFailed": "Hindi nasimulan ang top-up.", "invalidWithdrawal": "Maglagay ng valid na halaga ng withdrawal.", "exceedsBalance": "Hindi maaaring lumampas ang withdrawal sa balanse ng employer.", "destinationRequired": "Kumpletuhin ang detalye ng destinasyon bago isumite ang withdrawal.", "withdrawalSubmitted": "Naisumite ang withdrawal ng employer.", "withdrawalFailed": "Hindi naisumite ang withdrawal ng employer.", "withdrawalCancelled": "Kinansela ang withdrawal ng employer.", "withdrawalCancelFailed": "Hindi nakansela ang withdrawal ng employer." }
   },
   "applicationsManagement": {
     "title": "Mga Aplikasyon",

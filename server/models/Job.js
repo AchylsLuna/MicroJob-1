@@ -53,6 +53,22 @@ const JobSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        // A paid promotion that only affects discovery order. The fees are
+        // persisted for the listing audit trail and are never refundable.
+        highlighted: {
+            type: Boolean,
+            default: false,
+        },
+        postingFee: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        highlightFee: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
         // Number of workers needed for this job post
         positionsNeeded: {
             type: Number,

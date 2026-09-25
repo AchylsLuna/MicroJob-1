@@ -7,11 +7,16 @@ import Category from '../models/Category.js';
 import { createNotification } from '../lib/notificationService.js';
 import { scoreJobForWorker } from '../lib/jobMatching.js';
 import { getReviewSummaries } from '../lib/reviewSummary.js';
-import { isSupportedJobType, parseMinimumPay } from '../lib/jobPosting.js';
+import {
+    getJobPostingCosts,
+    isSupportedJobType,
+    parseMinimumPay,
+} from '../lib/jobPosting.js';
 import { recordJobView } from '../lib/jobViews.js';
 import { getEmployerProfileRequirementError } from '../lib/profileCompleteness.js';
 import {
     APPLICANT_SELECT,
+    getDiscoveryPriority,
     PUBLIC_JOB_POSTER_SELECT,
     proximityOf,
     resolveDiscoveryCity,
@@ -36,8 +41,12 @@ const getDiscoveryCity = (req) => resolveDiscoveryCity({
 });
 
 /** Attaches the proximity tag the client uses to group "nearest in your city". */
-const withProximity = (jobs, locality) =>
-    jobs.map((job) => ({ ...serializePublicJob(job), proximity: proximityOf(job, locality) }));
+const withProximity = (jobs, locality, rankingOptions = {}) =>
+    jobs.map((job) => ({
+        ...serializePublicJob(job),
+        discoveryPriority: getDiscoveryPriority(job, rankingOptions),
+        proximity: proximityOf(job, locality),
+    }));
 
 const withApplicationStatus = async (jobs, requesterId) => {
     if (!requesterId || !jobs.length) return jobs;
@@ -98,6 +107,7 @@ export async function getJobList(req, res) {
         res.status(200).json(withProximity(
             sortByProximity(jobsWithApplicationStatus, discovery, { prioritizeVerifiedEmployers }),
             discovery,
+            { prioritizeVerifiedEmployers },
         ));
     } catch (error) {
         console.error('Get jobs error:', error);
@@ -137,7 +147,9 @@ export async function getJobByCategory(req, res) {
 export async function getJobDetails(req, res){
     try {
         const {id} = req.params;
-        const job = await Job.findById(id).populate('category', 'name').populate('jobPoster', PUBLIC_JOB_POSTER_SELECT);
+        const job = await Job.findById(id)
+            .populate('category', 'name')
+            .populate('jobPoster', `${PUBLIC_JOB_POSTER_SELECT} verification`);
         if(!job) {
             return res.status(404).json({message: "Job not found."});
         }
@@ -202,7 +214,8 @@ export async function createJob(req, res){
             category, 
             image,
             urgent,
-            positionsNeeded
+            positionsNeeded,
+            highlighted,
         } = req.body;
         const requesterRole = getRequesterRole(req);
         const jobPosterId = getRequesterId(req);
@@ -261,8 +274,14 @@ export async function createJob(req, res){
             return res.status(400).json({ message: 'positionsNeeded must be a positive whole number.' });
         }
 
-        // total escrow required (salary per worker * positions)
-        const totalEscrow = salaryAmount * positions;
+        // Worker pay stays fully secured in escrow. Posting and highlight
+        // charges are collected separately and are never refundable.
+        const costs = getJobPostingCosts({
+            payPerWorker: salaryAmount,
+            positionsNeeded: positions,
+            highlighted: Boolean(highlighted),
+        });
+        const totalEscrow = costs.workerPay;
 
         // 1. Check if user has enough balance
         const poster = await User.findById(jobPosterId);
@@ -273,25 +292,25 @@ export async function createJob(req, res){
             ? (poster.employerBalance || 0) + (poster.workerBalance || 0)
             : (poster.employerBalance || 0);
         
-        if (availableBalance < totalEscrow) {
+        if (availableBalance < costs.total) {
             return res.status(400).json({
                 code: 'INSUFFICIENT_BALANCE',
                 message: 'You do not have enough balance to fund this job. Please top up your wallet and try again.',
                 availableBalance,
-                requiredBalance: totalEscrow,
-                shortfall: Number((totalEscrow - availableBalance).toFixed(2)),
+                requiredBalance: costs.total,
+                shortfall: Number((costs.total - availableBalance).toFixed(2)),
             });
         }
 
         // 2. Deduct the balance (move to escrow)
         // For "both" role users, deduct from employer balance first, then worker balance
         if (poster.role === 'both') {
-            const employerPortion = Math.min(poster.employerBalance || 0, totalEscrow);
-            const workerPortion = totalEscrow - employerPortion;
+            const employerPortion = Math.min(poster.employerBalance || 0, costs.total);
+            const workerPortion = costs.total - employerPortion;
             poster.employerBalance = (poster.employerBalance || 0) - employerPortion;
             poster.workerBalance = (poster.workerBalance || 0) - workerPortion;
         } else {
-            poster.employerBalance = (poster.employerBalance || 0) - totalEscrow;
+            poster.employerBalance = (poster.employerBalance || 0) - costs.total;
         }
         await poster.save();
 
@@ -310,6 +329,9 @@ export async function createJob(req, res){
             image,
             jobPoster: jobPosterId,
             urgent: Boolean(urgent),
+            highlighted: Boolean(highlighted),
+            postingFee: costs.postingFee,
+            highlightFee: costs.highlightFee,
             positionsNeeded: positions
         });
         await newJob.save();
@@ -328,6 +350,36 @@ export async function createJob(req, res){
             relatedEntityId: String(newJob._id),
             actor: poster._id,
         });
+        await Transaction.create({
+            sender: poster._id,
+            receiver: null,
+            amount: costs.postingFee,
+            type: 'POSTING_FEE',
+            status: 'COMPLETED',
+            balanceTarget: 'EMPLOYER',
+            jobReference: newJob._id,
+            label: `Non-refundable posting fee (Job ${newJob._id})`,
+            relatedEntityType: 'job',
+            relatedEntityId: String(newJob._id),
+            meta: { refundable: false, feeKind: 'posting' },
+            actor: poster._id,
+        });
+        if (costs.highlightFee > 0) {
+            await Transaction.create({
+                sender: poster._id,
+                receiver: null,
+                amount: costs.highlightFee,
+                type: 'POSTING_FEE',
+                status: 'COMPLETED',
+                balanceTarget: 'EMPLOYER',
+                jobReference: newJob._id,
+                label: `Non-refundable highlight fee (Job ${newJob._id})`,
+                relatedEntityType: 'job',
+                relatedEntityId: String(newJob._id),
+                meta: { refundable: false, feeKind: 'highlight' },
+                actor: poster._id,
+            });
+        }
         try { const monitor = await import('../lib/monitor.js'); await monitor.default.audit({ actor: poster._id, action: 'job_escrow', ip: req.ip || null, userAgent: req.get('user-agent'), amount: totalEscrow, status: 'success', meta: { job: newJob._id } }); } catch (e) {}
 
         res.status(201).json({message: "Job created and funds secured.", job: newJob});

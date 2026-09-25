@@ -48,6 +48,14 @@ const PayoutRequestSchema = new mongoose.Schema(
       required: true,
       min: 1,
     },
+    // Existing records predate employer withdrawals, so they stay worker payouts.
+    balanceTarget: {
+      type: String,
+      enum: ['EMPLOYER', 'WORKER'],
+      default: 'WORKER',
+      required: true,
+      index: true,
+    },
     destinationSnapshot: {
       type: DestinationSnapshotSchema,
       required: true,
@@ -98,6 +106,7 @@ const PayoutRequestSchema = new mongoose.Schema(
 );
 
 PayoutRequestSchema.index({ user: 1, createdAt: -1 });
+PayoutRequestSchema.index({ user: 1, balanceTarget: 1, createdAt: -1 });
 PayoutRequestSchema.index({ status: 1, createdAt: -1 });
 PayoutRequestSchema.index(
   { user: 1, idempotencyKey: 1 },

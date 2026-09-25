@@ -33,6 +33,9 @@ interface Job {
   categoryId?: string;
   skills: string[];
   urgent: boolean;
+  highlighted: boolean;
+  employerVerified: boolean;
+  discoveryPriority: 0 | 1 | 2;
   deadline?: string;
   applicationStatus?: string | null;
 }
@@ -86,6 +89,9 @@ interface ApiJob {
   requirements?: string[];
   skills?: string[];
   urgent?: boolean;
+  highlighted?: boolean;
+  employerVerified?: boolean;
+  discoveryPriority?: number;
   deadline?: string;
   applicationStatus?: string | null;
   jobPoster?: { firstName?: string; lastName?: string; email?: string };
@@ -273,6 +279,9 @@ export function FindJobs() {
       categoryId: typeof job.category === "string" ? undefined : job.category?._id,
       skills: job.skills || [],
       urgent: Boolean(job.urgent),
+      highlighted: Boolean(job.highlighted),
+      employerVerified: Boolean(job.employerVerified),
+      discoveryPriority: job.highlighted ? 0 : job.discoveryPriority === 1 ? 1 : 2,
       deadline: job.deadline,
       applicationStatus: job.applicationStatus,
     };
@@ -434,6 +443,9 @@ export function FindJobs() {
 
   // Sort jobs
   const sortedJobs = [...filteredJobs].sort((a, b) => {
+    const discoveryPriority = a.discoveryPriority - b.discoveryPriority;
+    if (discoveryPriority !== 0) return discoveryPriority;
+
     switch (sortBy) {
       case "nearest":
         return locationScore(b.location) - locationScore(a.location);
@@ -721,6 +733,8 @@ export function FindJobs() {
                       categoryName: job.category,
                       skills: job.skills,
                       urgent: job.urgent,
+                      highlighted: job.highlighted,
+                      employerVerified: job.employerVerified,
                       matchPercentage: job.matchPercentage,
                       matchLevel: job.matchLevel,
                     })}
@@ -826,6 +840,8 @@ export function FindJobs() {
                   categoryName: job.category,
                   skills: job.skills,
                   urgent: job.urgent,
+                  highlighted: job.highlighted,
+                  employerVerified: job.employerVerified,
                 })}
                 selected={isLargeScreen && job.id === selectedJobId}
                 saved={job.saved}

@@ -174,12 +174,12 @@ export function PublicProfile() {
                     <button
                       type="button"
                       className="group relative inline-flex shrink-0 cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
-                      aria-label="Verified profile"
+                      aria-label="Fully verified person"
                       aria-describedby="public-profile-verified-tooltip"
                     >
                       <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-5 w-5" />
                       <span id="public-profile-verified-tooltip" role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-center text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100">
-                        This user is fully verified.
+                        This person has completed all identity verification checks.
                       </span>
                     </button>
                   ) : null}
