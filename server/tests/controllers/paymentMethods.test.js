@@ -192,6 +192,8 @@ test('public employer profiles expose verified reviews but not hidden hiring tot
   assert.equal(response.payload.rating.totalReviews, 0);
   assert.equal(response.payload.stats.employer.hires, null);
   assert.equal(response.payload.stats.employer.hiresHidden, true);
+  assert.equal(response.payload.profile.isFullyVerified, false);
+  assert.equal(response.payload.profile.verification, undefined);
   assert.equal(response.payload.profile.address, undefined);
   assert.equal(response.payload.profile.barangay, undefined);
 
@@ -356,6 +358,12 @@ test('public worker profiles include professional work history without private c
     barangay: 'Private Barangay',
     jobPosition: 'Math Tutor',
     website: 'https://portfolio.example.com/',
+    verification: {
+      emailVerified: true,
+      phoneVerified: true,
+      identityDocument: { status: 'complete' },
+      addressDocument: { status: 'complete' },
+    },
     workExperience: [
       {
         title: 'Math Tutor',
@@ -382,6 +390,8 @@ test('public worker profiles include professional work history without private c
   assert.equal(response.payload.profile.website, 'https://portfolio.example.com/');
   assert.equal(response.payload.profile.workExperience.length, 1);
   assert.equal(response.payload.profile.workExperience[0].company, 'Self-employed');
+  assert.equal(response.payload.profile.isFullyVerified, true);
+  assert.equal(response.payload.profile.verification, undefined);
   assert.equal(response.payload.profile.email, undefined);
   assert.equal(response.payload.profile.phoneNumber, undefined);
   assert.equal(response.payload.profile.address, undefined);

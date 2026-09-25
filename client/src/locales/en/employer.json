@@ -406,6 +406,23 @@
       "manageJobs": "Manage jobs",
       "postJob": "Post a job"
     },
+    "profileCompleteness": {
+      "title": "Identity verification",
+      "description": "Complete the remaining verification steps to earn a Verified badge and help more people see your listings.",
+      "verifiedDescription": "All four checks are complete. Your Verified badge is active.",
+      "progressAria": "Employer profile verification progress",
+      "progressText": "{{completed}} of {{total}} verification steps completed",
+      "requirementsTitle": "Complete these requirements to verify your profile",
+      "actions": {
+        "view": "View verification",
+        "retry": "Try again",
+        "verifyEmail": "Verify email",
+        "verifyPhone": "Verify phone",
+        "addPhone": "Add phone number",
+        "verifyId": "Verify ID",
+        "uploadDocument": "Upload document"
+      }
+    },
     "stats": {
       "activeJobs": "Active jobs",
       "loadingJobPosts": "Loading job posts...",

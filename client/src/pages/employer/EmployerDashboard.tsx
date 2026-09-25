@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -12,7 +12,7 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { getEmployerApplications, getMyJobs } from "../../services/api";
+import { getEmployerApplications, getMyJobs, getVerificationStatus } from "../../services/api";
 import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 import { useAuth } from "../../contexts/AuthContext";
@@ -79,6 +79,13 @@ type Application = {
   updatedAt?: string;
   applicant?: { firstName?: string; lastName?: string };
   job?: { title?: string };
+};
+
+type VerificationStep = {
+  id: string;
+  title: string;
+  description: string;
+  status: "complete" | "pending" | "in-review" | "rejected";
 };
 
 const formatRelativeTime = (t: TFunction, value?: string) => {
@@ -197,6 +204,9 @@ export function EmployerDashboard() {
   const [jobSummary, setJobSummary] = useState({ active: 0, total: 0 });
   const [recentActivity, setRecentActivity] = useState<Application[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [verificationSteps, setVerificationSteps] = useState<VerificationStep[]>([]);
+  const [verificationCompletionPercent, setVerificationCompletionPercent] = useState(0);
+  const [isVerificationLoading, setIsVerificationLoading] = useState(true);
 
   useEffect(() => {
     if (user?.accountType === "worker") navigate(ROUTES.worker.findJobs, { replace: true });
@@ -247,6 +257,51 @@ export function EmployerDashboard() {
     };
   }, [t]);
 
+  useEffect(() => {
+    let isMounted = true;
+    const loadVerificationStatus = async () => {
+      setIsVerificationLoading(true);
+      try {
+        const response = await getVerificationStatus();
+        if (!isMounted) return;
+        setVerificationSteps(response?.steps || []);
+        setVerificationCompletionPercent(response?.completionPercent || 0);
+      } catch {
+        if (isMounted) setVerificationSteps([]);
+      } finally {
+        if (isMounted) setIsVerificationLoading(false);
+      }
+    };
+    void loadVerificationStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const completedVerificationSteps = verificationSteps.filter((step) => step.status === "complete").length;
+  const remainingVerificationSteps = verificationSteps.filter((step) => step.status !== "complete");
+  const hasFullyVerifiedProfile = !isVerificationLoading
+    && verificationSteps.length === 4
+    && verificationSteps.every((step) => step.status === "complete");
+  const verificationSettingsUrl = `${ROUTES.employer.settings}?tab=verification`;
+  const verificationLinkFor = (step: VerificationStep) => {
+    if (step.id === "email") return ROUTES.emailVerification;
+    if (step.id === "phone" && !user?.phoneNumber) return `${ROUTES.employer.settings}?tab=personal`;
+    return verificationSettingsUrl;
+  };
+  const verificationActionFor = (step: VerificationStep) => {
+    if (step.status === "in-review") return t("employerDashboard.profileCompleteness.actions.view");
+    if (step.status === "rejected") return t("employerDashboard.profileCompleteness.actions.retry");
+    if (step.id === "email") return t("employerDashboard.profileCompleteness.actions.verifyEmail");
+    if (step.id === "phone") {
+      return user?.phoneNumber
+        ? t("employerDashboard.profileCompleteness.actions.verifyPhone")
+        : t("employerDashboard.profileCompleteness.actions.addPhone");
+    }
+    if (step.id === "identity") return t("employerDashboard.profileCompleteness.actions.verifyId");
+    return t("employerDashboard.profileCompleteness.actions.uploadDocument");
+  };
+
   return (
     <div className="ui-page px-4 md:px-0 pb-16">
       <div className="ui-page-header">
@@ -274,6 +329,61 @@ export function EmployerDashboard() {
           </button>
         </div>
       </div>
+
+      <section className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="employer-profile-completeness-title">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="employer-profile-completeness-title" className="text-[15px] font-semibold text-[#1E3A8A]">
+              {t("employerDashboard.profileCompleteness.title")}
+            </h2>
+            <p className="mt-1 text-[13px] text-[#475569]">
+              {hasFullyVerifiedProfile
+                ? t("employerDashboard.profileCompleteness.verifiedDescription")
+                : t("employerDashboard.profileCompleteness.description")}
+            </p>
+          </div>
+          <span className="text-[22px] font-bold text-[#1C4D8D]">
+            {isVerificationLoading ? "—" : `${verificationCompletionPercent}%`}
+          </span>
+        </div>
+        <div
+          className="mt-4 h-2 overflow-hidden rounded-full bg-white"
+          role="progressbar"
+          aria-label={t("employerDashboard.profileCompleteness.progressAria")}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={verificationCompletionPercent}
+          aria-valuetext={t("employerDashboard.profileCompleteness.progressText", {
+            completed: completedVerificationSteps,
+            total: verificationSteps.length,
+          })}
+        >
+          <div className="h-full rounded-full bg-[#1C4D8D] transition-all" style={{ width: `${verificationCompletionPercent}%` }} />
+        </div>
+        {!isVerificationLoading && remainingVerificationSteps.length > 0 ? (
+          <div className="mt-4 border-t border-[#BFDBFE] pt-4">
+            <p className="text-[13px] font-semibold text-[#1E3A8A]">
+              {t("employerDashboard.profileCompleteness.requirementsTitle")}
+            </p>
+            <ul className="mt-2 space-y-2">
+              {remainingVerificationSteps.map((step) => (
+                <li key={step.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+                  <div>
+                    <p className="font-medium text-slate-800">{step.title}</p>
+                    <p className="text-slate-600">{step.description}</p>
+                  </div>
+                  <Link
+                    to={verificationLinkFor(step)}
+                    className="shrink-0 font-semibold text-[#1C4D8D] underline underline-offset-2 hover:text-[#163F73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                  >
+                    {verificationActionFor(step)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

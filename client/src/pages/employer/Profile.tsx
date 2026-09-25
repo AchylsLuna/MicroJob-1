@@ -7,6 +7,7 @@ import { getProfile, getMyJobs } from "../../services/api";
 import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
+import { isProfileFullyVerified } from "../../lib/profileVerification";
 import { formatDate } from "../../lib/formatters";
 import { SettingsTabList } from "../../components/settings/SettingsTabList";
 import { ProfileHeader } from "../../components/profile/ProfileHeader";
@@ -167,6 +168,7 @@ export function Profile() {
         bio={profileUser?.about}
         moreLabel={t("profile.bio.more")}
         lessLabel={t("profile.bio.less")}
+        isVerified={isProfileFullyVerified(profileUser?.verification)}
         actions={
           <>
             <Button onClick={handleEditProfile}>

@@ -16,12 +16,13 @@ import {
   RefreshCw,
   ExternalLink,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   getProfile,
+  getVerificationStatus,
   getUserApplications,
   type Certificate,
   type Internship,
@@ -30,6 +31,7 @@ import {
 import { ROUTES } from "../../utils/routes";
 import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
+import { isProfileFullyVerified } from "../../lib/profileVerification";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 import { SettingsTabList } from "../../components/settings/SettingsTabList";
 import { ProfileHeader } from "../../components/profile/ProfileHeader";
@@ -52,6 +54,13 @@ interface AcceptedWork {
   description: string;
   skills: string[];
   status: "Completed" | "In Progress";
+}
+
+interface VerificationStep {
+  id: string;
+  title: string;
+  description: string;
+  status: "complete" | "pending" | "in-review" | "rejected";
 }
 
 const initialsOf = (label: string, fallback = "") => {
@@ -88,9 +97,11 @@ export function Profile() {
   const [workExperiences, setWorkExperiences] = useState<WorkExperience[]>([]);
   const [internships, setInternships] = useState<Internship[]>([]);
   const [certificates, setCertificates] = useState<Certificate[]>([]);
-  const [profileLoading, setProfileLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
   const [profileReloadKey, setProfileReloadKey] = useState(0);
+  const [verificationSteps, setVerificationSteps] = useState<VerificationStep[]>([]);
+  const [verificationCompletionPercent, setVerificationCompletionPercent] = useState(0);
+  const [isVerificationLoading, setIsVerificationLoading] = useState(true);
   const [acceptedWorks, setAcceptedWorks] = useState<AcceptedWork[]>([]);
   const [acceptedWorksLoading, setAcceptedWorksLoading] = useState(true);
   const [acceptedWorksError, setAcceptedWorksError] = useState("");
@@ -125,7 +136,6 @@ export function Profile() {
   useEffect(() => {
     let isMounted = true;
     const loadProfile = async () => {
-      setProfileLoading(true);
       try {
         const response = await getProfile();
         const profile = (response as any)?.user ?? response;
@@ -166,8 +176,6 @@ export function Profile() {
         setCertificates(Array.isArray(profile.certificates) ? profile.certificates : []);
       } catch (error) {
         if (isMounted) setProfileError(error instanceof Error ? error.message : "Failed to load profile.");
-      } finally {
-        if (isMounted) setProfileLoading(false);
       }
     };
     loadProfile();
@@ -175,6 +183,30 @@ export function Profile() {
       isMounted = false;
     };
   }, [profileReloadKey, updateAuthProfile]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadVerificationStatus = async () => {
+      setIsVerificationLoading(true);
+      try {
+        const response = await getVerificationStatus();
+        if (!isMounted) return;
+        setVerificationSteps(response?.steps || []);
+        setVerificationCompletionPercent(response?.completionPercent ?? 0);
+      } catch {
+        if (isMounted) {
+          setVerificationSteps([]);
+          setVerificationCompletionPercent(0);
+        }
+      } finally {
+        if (isMounted) setIsVerificationLoading(false);
+      }
+    };
+    void loadVerificationStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, [profileReloadKey]);
 
   useEffect(() => {
     let isMounted = true;
@@ -262,7 +294,28 @@ export function Profile() {
     workExperiences.length > 0 || totalExperience !== "Not set",
     Boolean(resumeUrl),
   ];
-  const profileCompletion = Math.round((completionChecks.filter(Boolean).length / completionChecks.length) * 100);
+  const profileCompletionPercent = Math.round(
+    (completionChecks.filter(Boolean).length / completionChecks.length) * 100,
+  );
+  const completedVerificationSteps = verificationSteps.filter((step) => step.status === "complete").length;
+  const remainingVerificationSteps = verificationSteps.filter((step) => step.status !== "complete");
+  const hasFullyVerifiedProfile = isVerificationLoading
+    ? isProfileFullyVerified(profileUser?.verification)
+    : verificationSteps.length === 4 && verificationSteps.every((step) => step.status === "complete");
+  const verificationSettingsUrl = `${ROUTES.worker.settings}?tab=verification`;
+  const verificationLinkFor = (step: VerificationStep) => {
+    if (step.id === "email") return ROUTES.emailVerification;
+    if (step.id === "phone" && !profileUser?.phoneNumber) return `${ROUTES.worker.settings}?tab=personal`;
+    return verificationSettingsUrl;
+  };
+  const verificationActionFor = (step: VerificationStep) => {
+    if (step.status === "in-review") return "View verification";
+    if (step.status === "rejected") return "Try again";
+    if (step.id === "email") return "Verify email";
+    if (step.id === "phone") return profileUser?.phoneNumber ? "Verify phone" : "Add phone number";
+    if (step.id === "identity") return "Verify ID";
+    return "Upload document";
+  };
 
   const formatExperienceDate = (value?: string | null) => {
     if (!value) return "";
@@ -305,6 +358,7 @@ export function Profile() {
         bio={profileData.about}
         moreLabel={t("profile.bio.more")}
         lessLabel={t("profile.bio.less")}
+        isVerified={hasFullyVerifiedProfile}
         actions={
           <>
             <Button onClick={handleEditProfile}>
@@ -333,23 +387,59 @@ export function Profile() {
         <StatTile label={t("profile.overviewTab.successRate")} value={successRate} />
       </div>
 
-      <div className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] p-5">
+      <section className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-profile-completeness-title">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.completeness.title")}</p>
+            <h2 id="worker-profile-completeness-title" className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.completeness.title")}</h2>
             <p className="mt-1 text-[13px] text-[#475569]">
-              {profileCompletion === 100 ? t("profile.completeness.ready") : t("profile.completeness.incomplete")}
+              {profileCompletionPercent === 100 ? t("profile.completeness.ready") : t("profile.completeness.incomplete")}
+            </p>
+          </div>
+          <span className="text-[22px] font-bold text-[#1C4D8D]">{profileCompletionPercent}%</span>
+        </div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white" role="progressbar" aria-label={t("profile.completeness.ariaLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={profileCompletionPercent}>
+          <div className="h-full rounded-full bg-[#1C4D8D] transition-all" style={{ width: `${profileCompletionPercent}%` }} />
+        </div>
+      </section>
+
+      <section className="rounded-[14px] border border-[#BFDBFE] bg-[#EFF6FF] p-5" aria-labelledby="worker-identity-verification-title">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="worker-identity-verification-title" className="text-[15px] font-semibold text-[#1E3A8A]">{t("profile.identityVerification.title")}</h2>
+            <p className="mt-1 text-[13px] text-[#475569]">
+              {hasFullyVerifiedProfile ? t("profile.identityVerification.verifiedDescription") : t("profile.identityVerification.description")}
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {profileLoading ? <RefreshCw className="h-4 w-4 animate-spin text-[#1C4D8D]" aria-label={t("profile.completeness.refreshingAria")} /> : null}
-            <span className="text-[22px] font-bold text-[#1C4D8D]">{profileCompletion}%</span>
+            {isVerificationLoading ? <RefreshCw className="h-4 w-4 animate-spin text-[#1C4D8D]" aria-label={t("profile.identityVerification.refreshingAria")} /> : null}
+            <span className="text-[22px] font-bold text-[#1C4D8D]">{isVerificationLoading ? "—" : `${verificationCompletionPercent}%`}</span>
           </div>
         </div>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white" role="progressbar" aria-label={t("profile.completeness.ariaLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={profileCompletion}>
-          <div className="h-full rounded-full bg-[#1C4D8D] transition-all" style={{ width: `${profileCompletion}%` }} />
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white" role="progressbar" aria-label={t("profile.identityVerification.ariaLabel")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={verificationCompletionPercent} aria-valuetext={t("profile.identityVerification.progressText", { completed: completedVerificationSteps, total: verificationSteps.length })}>
+          <div className="h-full rounded-full bg-[#1C4D8D] transition-all" style={{ width: `${verificationCompletionPercent}%` }} />
         </div>
-      </div>
+        {!isVerificationLoading && remainingVerificationSteps.length > 0 ? (
+          <div className="mt-4 border-t border-[#BFDBFE] pt-4">
+            <p className="text-[13px] font-semibold text-[#1E3A8A]">{t("profile.identityVerification.requirementsTitle")}</p>
+            <ul className="mt-2 space-y-2">
+              {remainingVerificationSteps.map((step) => (
+                <li key={step.id} className="flex flex-wrap items-center justify-between gap-2 text-[13px]">
+                  <div>
+                    <p className="font-medium text-slate-800">{step.title}</p>
+                    <p className="text-slate-600">{step.description}</p>
+                  </div>
+                  <Link
+                    to={verificationLinkFor(step)}
+                    className="shrink-0 font-semibold text-[#1C4D8D] underline underline-offset-2 hover:text-[#163F73] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                  >
+                    {verificationActionFor(step)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </section>
 
       {/* Tabs */}
       <div className="rounded-[14px] border border-slate-200 bg-white shadow-sm">

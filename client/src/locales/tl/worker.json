@@ -644,6 +644,15 @@
       "refreshingAria": "Nire-refresh ang profile",
       "ariaLabel": "Kakumpletuhan ng profile"
     },
+    "identityVerification": {
+      "title": "Pag-verify ng pagkakakilanlan",
+      "description": "Kumpletuhin ang lahat ng apat na pagsusuri upang makuha ang iyong Verified badge.",
+      "verifiedDescription": "Kumpleto ang lahat ng apat na pagsusuri. Aktibo ang iyong Verified badge.",
+      "refreshingAria": "Nire-refresh ang pag-verify ng pagkakakilanlan",
+      "ariaLabel": "Progreso ng pag-verify ng pagkakakilanlan",
+      "progressText": "{{completed}} sa {{total}} requirement sa pag-verify ng pagkakakilanlan ang nakumpleto",
+      "requirementsTitle": "Kumpletuhin ang mga requirement na ito upang ma-verify ang iyong pagkakakilanlan"
+    },
     "overviewTab": {
       "aboutMe": "Tungkol sa Akin",
       "aboutFallback": "Wala pang idinagdag na buod ng profile.",

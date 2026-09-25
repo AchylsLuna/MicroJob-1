@@ -850,6 +850,13 @@ const toRatingSummary = (completedCount, totalCount) => {
     };
 };
 
+const isProfileFullyVerified = (verification) => (
+    verification?.emailVerified === true
+    && verification?.phoneVerified === true
+    && verification?.identityDocument?.status === "complete"
+    && verification?.addressDocument?.status === "complete"
+);
+
 export async function getPublicProfile(req, res) {
     try {
         const requesterId = req.user?.id || req.user?.userId;
@@ -864,7 +871,7 @@ export async function getPublicProfile(req, res) {
         }
 
         const user = await User.findById(userId).select(
-            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience internships certificates jobsApplied projectsCompleted successRate hideHiredCandidates"
+            "firstName lastName role city province about jobPosition linkedin website totalExperience companyName avatarUrl skills workExperience internships certificates jobsApplied projectsCompleted successRate hideHiredCandidates verification"
         );
 
         if (!user) {
@@ -918,6 +925,9 @@ export async function getPublicProfile(req, res) {
                 totalExperience: user.totalExperience,
                 companyName: user.companyName,
                 avatarUrl: user.avatarUrl,
+                // A public profile exposes only the completed state, never the
+                // sensitive documents or individual verification details.
+                isFullyVerified: isProfileFullyVerified(user.verification),
                 skills: Array.isArray(user.skills) ? user.skills : [],
                 workExperience: Array.isArray(user.workExperience) ? user.workExperience : [],
                 // Credentials are deliberately public: they exist to be shown to

@@ -32,6 +32,7 @@ import {
   normalizeFullName,
   normalizePhone,
 } from "../lib/authValidation";
+import type { ProfileVerification } from "../lib/profileVerification";
 
 export interface User {
   id: string;
@@ -76,6 +77,7 @@ export interface User {
   projectsCompleted?: number;
   jobsApplied?: number;
   successRate?: string;
+  verification?: ProfileVerification;
   /** Employer-side stats, computed fresh on every profile load (never cached) --
    * see server/controllers/ProfileController.js#getProfile. Kept on separate
    * fields from the worker stats above so a 'both'-role user's two roles never
@@ -541,7 +543,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(PENDING_VERIFICATION_EMAIL_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_NAME_KEY);
       localStorage.removeItem(PENDING_VERIFICATION_FLOW_KEY);
-      throw new Error(error?.message || "Registration failed");
+      const registrationError = new Error(error?.message || "Registration failed") as Error & { code?: string };
+      if (typeof error?.code === "string") registrationError.code = error.code;
+      throw registrationError;
     } finally {
       setIsLoading(false);
     }

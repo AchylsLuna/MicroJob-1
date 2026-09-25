@@ -107,12 +107,12 @@ const registerUser = async (req, res) => {
     const existingUser = await User.findOne({ $or: duplicateQuery });
     if (existingUser) {
       if (existingUser.email === normalizedEmail) {
-        return sendError(res, 409, 'Email is already registered');
+        return sendError(res, 409, 'This email address already exists.', { code: 'EMAIL_ALREADY_EXISTS' });
       }
       if (normalizedPhone && existingUser.phoneNumber === normalizedPhone) {
-        return sendError(res, 409, 'Phone number is already registered');
+        return sendError(res, 409, 'This phone number already exists.', { code: 'PHONE_NUMBER_ALREADY_EXISTS' });
       }
-      return sendError(res, 409, 'Username is already taken');
+      return sendError(res, 409, 'This username is already taken.', { code: 'USERNAME_ALREADY_EXISTS' });
     }
 
     const user = new User({
@@ -144,15 +144,15 @@ const registerUser = async (req, res) => {
     if (error?.code === 11000) {
       const duplicateField = Object.keys(error?.keyPattern || {})[0] || '';
       if (duplicateField === 'email') {
-        return sendError(res, 409, 'Email is already registered');
+        return sendError(res, 409, 'This email address already exists.', { code: 'EMAIL_ALREADY_EXISTS' });
       }
       if (duplicateField === 'phoneNumber') {
-        return sendError(res, 409, 'Phone number is already registered');
+        return sendError(res, 409, 'This phone number already exists.', { code: 'PHONE_NUMBER_ALREADY_EXISTS' });
       }
       if (duplicateField === 'username') {
-        return sendError(res, 409, 'Username is already taken');
+        return sendError(res, 409, 'This username is already taken.', { code: 'USERNAME_ALREADY_EXISTS' });
       }
-      return sendError(res, 409, 'Account already exists');
+      return sendError(res, 409, 'An account with these details already exists.', { code: 'ACCOUNT_ALREADY_EXISTS' });
     }
     if (error?.name === 'ValidationError' && error?.errors) {
       const firstValidation = Object.values(error.errors)[0];

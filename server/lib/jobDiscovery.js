@@ -48,12 +48,30 @@ export function proximityOf(job, { city, province } = {}) {
 const PROXIMITY_RANK = { city: 0, province: 1, national: 2 };
 
 /**
+ * Job discovery may inspect these populated fields to rank an employer, but
+ * serializePublicJob deliberately strips them from the response. A worker can
+ * learn that verified employers are prioritized without receiving document or
+ * per-step verification data.
+ */
+function hasFullyVerifiedEmployer(job) {
+  const verification = job?.jobPoster?.verification;
+  return verification?.emailVerified === true
+    && verification?.phoneVerified === true
+    && verification?.identityDocument?.status === 'complete'
+    && verification?.addressDocument?.status === 'complete';
+}
+
+/**
  * Orders a national result set so the viewer's own city surfaces first, then
  * their province, then everywhere else — each group newest-first. Jobs are never
  * removed: a worker in a quiet municipality still sees the whole country.
  */
-export function sortByProximity(jobs, locality) {
+export function sortByProximity(jobs, locality, { prioritizeVerifiedEmployers = false } = {}) {
   return [...jobs].sort((a, b) => {
+    if (prioritizeVerifiedEmployers) {
+      const verificationRank = Number(hasFullyVerifiedEmployer(b)) - Number(hasFullyVerifiedEmployer(a));
+      if (verificationRank !== 0) return verificationRank;
+    }
     const rankDiff = PROXIMITY_RANK[proximityOf(a, locality)] - PROXIMITY_RANK[proximityOf(b, locality)];
     if (rankDiff !== 0) return rankDiff;
     return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();

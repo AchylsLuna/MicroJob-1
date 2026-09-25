@@ -645,6 +645,15 @@
       "refreshingAria": "Refreshing profile",
       "ariaLabel": "Profile completeness"
     },
+    "identityVerification": {
+      "title": "Identity verification",
+      "description": "Complete all four checks to earn your Verified badge.",
+      "verifiedDescription": "All four checks are complete. Your Verified badge is active.",
+      "refreshingAria": "Refreshing identity verification",
+      "ariaLabel": "Identity verification progress",
+      "progressText": "{{completed}} of {{total}} identity verification requirements complete",
+      "requirementsTitle": "Complete these requirements to verify your identity"
+    },
     "overviewTab": {
       "aboutMe": "About Me",
       "aboutFallback": "No profile summary added yet.",

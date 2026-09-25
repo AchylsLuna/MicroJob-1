@@ -88,11 +88,17 @@ export async function getJobList(req, res) {
         // National result set, ordered so the viewer's own city comes first.
         const jobs = await Job.find(filter)
             .populate('category', 'name')
-            .populate('jobPoster', PUBLIC_JOB_POSTER_SELECT)
+            // Verification fields are used only for worker-feed ranking and
+            // are removed by serializePublicJob before the response is sent.
+            .populate('jobPoster', `${PUBLIC_JOB_POSTER_SELECT} verification`)
             .sort({ createdAt: -1 })
             .lean();
         const jobsWithApplicationStatus = await withApplicationStatus(jobs, getRequesterId(req));
-        res.status(200).json(withProximity(sortByProximity(jobsWithApplicationStatus, discovery), discovery));
+        const prioritizeVerifiedEmployers = ['work', 'worker', 'both'].includes(getRequesterRole(req));
+        res.status(200).json(withProximity(
+            sortByProximity(jobsWithApplicationStatus, discovery, { prioritizeVerifiedEmployers }),
+            discovery,
+        ));
     } catch (error) {
         console.error('Get jobs error:', error);
         res.status(500).json({message: "Failed to get jobs.", error: error.message});

@@ -406,6 +406,23 @@
       "manageJobs": "Pamahalaan ang mga trabaho",
       "postJob": "Mag-post ng trabaho"
     },
+    "profileCompleteness": {
+      "title": "Pag-verify ng pagkakakilanlan",
+      "description": "Kumpletuhin ang natitirang hakbang sa pag-verify upang makakuha ng Verified badge at mas makita ang iyong mga listing.",
+      "verifiedDescription": "Kumpleto ang lahat ng apat na pagsusuri. Aktibo ang iyong Verified badge.",
+      "progressAria": "Progreso ng pag-verify ng profile ng employer",
+      "progressText": "{{completed}} sa {{total}} hakbang sa pag-verify ang nakumpleto",
+      "requirementsTitle": "Kumpletuhin ang mga requirement na ito upang ma-verify ang iyong profile",
+      "actions": {
+        "view": "Tingnan ang pag-verify",
+        "retry": "Subukan muli",
+        "verifyEmail": "I-verify ang email",
+        "verifyPhone": "I-verify ang telepono",
+        "addPhone": "Magdagdag ng numero ng telepono",
+        "verifyId": "I-verify ang ID",
+        "uploadDocument": "Mag-upload ng dokumento"
+      }
+    },
     "stats": {
       "activeJobs": "Aktibong trabaho",
       "loadingJobPosts": "Naglo-load ng mga job post...",

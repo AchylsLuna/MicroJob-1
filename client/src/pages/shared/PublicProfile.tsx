@@ -8,6 +8,7 @@ import { safeExternalUrl } from "../../utils/safeExternalUrl";
 import { toAbsoluteAssetUrl } from "../../lib/assetUrl";
 import { ProfileReviewsLoader } from "../../components/reviews/ProfileReviewsLoader";
 import { StatTile } from "../../components/ui";
+import verifiedBadgeUrl from "../../assets/verified-badge.svg";
 
 type PublicProfileResponse = {
   profile?: {
@@ -24,6 +25,7 @@ type PublicProfileResponse = {
     totalExperience?: string;
     companyName?: string;
     avatarUrl?: string;
+    isFullyVerified?: boolean;
     skills?: Array<{ name?: string } | string>;
     workExperience?: Array<{
       _id?: string;
@@ -166,7 +168,22 @@ export function PublicProfile() {
               )}
 
               <div className="flex-1">
-                <h1 className="text-2xl font-bold text-[#0F172A]">{fullName}</h1>
+                <h1 className="flex min-w-0 items-center gap-2 text-2xl font-bold text-[#0F172A]">
+                  <span className="truncate">{fullName}</span>
+                  {data.profile.isFullyVerified ? (
+                    <button
+                      type="button"
+                      className="group relative inline-flex shrink-0 cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                      aria-label="Verified profile"
+                      aria-describedby="public-profile-verified-tooltip"
+                    >
+                      <img src={verifiedBadgeUrl} alt="" aria-hidden="true" className="h-5 w-5" />
+                      <span id="public-profile-verified-tooltip" role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-900 px-2.5 py-1.5 text-center text-xs font-medium text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus:opacity-100">
+                        This user is fully verified.
+                      </span>
+                    </button>
+                  ) : null}
+                </h1>
                 {viewAs === "employer" ? (
                   <p className="mt-1 text-sm font-medium text-[#1C4D8D]">Employer Profile</p>
                 ) : (

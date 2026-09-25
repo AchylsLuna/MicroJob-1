@@ -55,6 +55,8 @@ type SignUpDraft = {
   agreeToTerms: boolean;
 };
 
+type SignUpField = "email" | "phone";
+
 const isSignUpRole = (value: unknown): value is SignUpRole =>
   value === "employer" || value === "worker" || value === "both";
 
@@ -76,6 +78,7 @@ export function SignUp() {
   const [legalDialogDoc, setLegalDialogDoc] = useState<LegalDocId | null>(null);
   const [showOTP, setShowOTP] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [serverFieldErrors, setServerFieldErrors] = useState<Partial<Record<SignUpField, string>>>({});
   const submitInFlightRef = useRef(false);
 
   // The chosen role lives in the URL so the step survives a refresh and can be
@@ -89,8 +92,8 @@ export function SignUp() {
   const normalizedEmail = normalizeEmail(formData.email);
   const normalizedPhone = normalizePhone(formData.phone);
   const fullNameHasError = Boolean(formData.fullName) && !isValidFullName(normalizedFullName);
-  const emailHasError = Boolean(formData.email) && !isValidEmail(normalizedEmail);
-  const phoneHasError = Boolean(formData.phone) && !isValidPhone(normalizedPhone);
+  const emailHasError = (Boolean(formData.email) && !isValidEmail(normalizedEmail)) || Boolean(serverFieldErrors.email);
+  const phoneHasError = (Boolean(formData.phone) && !isValidPhone(normalizedPhone)) || Boolean(serverFieldErrors.phone);
   const passwordStrength = getPasswordStrength(formData.password);
   const passwordsMatch = Boolean(formData.confirmPassword) && formData.password === formData.confirmPassword;
   const confirmPasswordHasError = Boolean(formData.confirmPassword) && formData.password !== formData.confirmPassword;
@@ -150,6 +153,9 @@ export function SignUp() {
   }, [isAuthenticated, navigate, user]);
 
   const handleChange = (field: string, value: string) => {
+    if (field === "email" || field === "phone") {
+      setServerFieldErrors((current) => ({ ...current, [field]: undefined }));
+    }
     if (field === "fullName") {
       setFormData({ ...formData, fullName: sanitizeFullNameInput(value) });
       return;
@@ -234,8 +240,11 @@ export function SignUp() {
       setShowOTP(true);
     } catch (error: any) {
       const message = String(error?.message || "").toLowerCase();
-      if (/already registered|already exists|email.*taken|email.*exists/.test(message)) {
-        toast.error(t("signUp.toast.emailAlreadyRegistered"));
+      const errorCode = String(error?.code || "");
+      if (errorCode === "PHONE_NUMBER_ALREADY_EXISTS" || /phone.*(?:registered|taken|exists)|number.*already exists/.test(message)) {
+        setServerFieldErrors({ phone: t("signUp.fieldErrors.phoneAlreadyExists") });
+      } else if (errorCode === "EMAIL_ALREADY_EXISTS" || /email.*(?:registered|taken|exists)|already registered/.test(message)) {
+        setServerFieldErrors({ email: t("signUp.fieldErrors.emailAlreadyExists") });
       } else if (/invalid email|email.*invalid|valid email/.test(message)) {
         toast.error(t("signUp.toast.emailInvalid"));
       } else if (/password.*(?:weak|must)|weak password/.test(message)) {
@@ -343,6 +352,11 @@ export function SignUp() {
             <label htmlFor="signup-email" className={authLabelClass}>
               {t("signUp.form.emailLabel")}
             </label>
+            {serverFieldErrors.email ? (
+              <p id="signup-email-error" role="alert" className="mb-2 text-[13px] font-medium text-red-600">
+                {serverFieldErrors.email}
+              </p>
+            ) : null}
             <input
               id="signup-email"
               type="email"
@@ -353,6 +367,7 @@ export function SignUp() {
               autoCapitalize="none"
               spellCheck={false}
               aria-invalid={emailHasError || undefined}
+              aria-describedby={serverFieldErrors.email ? "signup-email-error" : undefined}
               className={`${authFieldClass} ${emailHasError ? authFieldErrorClass : ""}`}
             />
           </div>
@@ -361,6 +376,11 @@ export function SignUp() {
             <label htmlFor="signup-phone" className={authLabelClass}>
               {t("signUp.form.phoneLabel")}
             </label>
+            {serverFieldErrors.phone ? (
+              <p id="signup-phone-error" role="alert" className="mb-2 text-[13px] font-medium text-red-600">
+                {serverFieldErrors.phone}
+              </p>
+            ) : null}
             <input
               id="signup-phone"
               type="tel"
@@ -371,6 +391,7 @@ export function SignUp() {
               placeholder={t("signUp.form.phonePlaceholder")}
               autoComplete="tel"
               aria-invalid={phoneHasError || undefined}
+              aria-describedby={serverFieldErrors.phone ? "signup-phone-error" : undefined}
               className={`${authFieldClass} ${phoneHasError ? authFieldErrorClass : ""}`}
             />
           </div>

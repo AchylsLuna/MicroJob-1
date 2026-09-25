@@ -114,6 +114,35 @@ test("a worker's saved city ranks first and overrides a different query city", a
   assert.equal(response.payload[0].proximity, 'city');
 });
 
+test('worker discovery prioritizes fully verified employers without exposing verification details', async () => {
+  const [worker, unverifiedEmployer, verifiedEmployer] = await Promise.all([
+    createUser({ role: 'work', city: 'Pasig City' }),
+    createUser({ role: 'hire', companyName: 'Unverified Employer' }),
+    createUser({
+      role: 'hire',
+      companyName: 'Verified Employer',
+      verification: {
+        emailVerified: true,
+        phoneVerified: true,
+        identityDocument: { status: 'complete' },
+        addressDocument: { status: 'complete' },
+      },
+    }),
+  ]);
+  await Promise.all([
+    createJob(unverifiedEmployer._id, 'Pasig City, Metro Manila'),
+    createJob(verifiedEmployer._id, 'Cebu City, Cebu'),
+  ]);
+
+  const response = createResponse();
+  await getJobList({ query: {}, headers: {}, user: { id: worker._id, role: 'work' } }, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.payload[0].jobPoster.companyName, 'Verified Employer');
+  assert.equal(response.payload[0].jobPoster.verification, undefined, 'verification details must remain private');
+  assert.equal(response.payload[1].proximity, 'city', 'existing proximity ranking remains within the unverified group');
+});
+
 test('a worker with no city set still sees the national list', async () => {
   const [worker, employer] = await Promise.all([
     createUser({ role: 'work' }),
