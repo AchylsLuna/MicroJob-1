@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -30,7 +30,6 @@ export function ForgotPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const processedResetLinkRef = useRef<string | null>(null);
   const passwordStrength = getPasswordStrength(newPassword);
   const passwordsMismatch = Boolean(confirmPassword) && newPassword !== confirmPassword;
 
@@ -51,29 +50,12 @@ export function ForgotPassword() {
 
     if (!normalizedEmail || !validLinkCode) return;
 
+    // A reset link may prefill the code, but it must never verify it or skip
+    // the confirmation action. Verification remains an explicit user action
+    // in `verifyCode`, which is also what enables the password form.
     setCode(validLinkCode);
-    const linkKey = `${normalizedEmail}:${validLinkCode}`;
-    if (processedResetLinkRef.current === linkKey) return;
-    processedResetLinkRef.current = linkKey;
-
     setStep("code");
-    setIsLoading(true);
-    // A reset link already proves possession of the email. Mark its OTP as
-    // verified before showing the password form; the final reset endpoint
-    // intentionally requires this server-side state.
-    void verifyPasswordResetCode(validLinkCode)
-      .then(() => {
-        if (processedResetLinkRef.current !== linkKey) return;
-        setStep("password");
-      })
-      .catch((error: any) => {
-        if (processedResetLinkRef.current !== linkKey) return;
-        toast.error(error?.message || t("forgotPassword.toast.verifyCodeFailed"));
-      })
-      .finally(() => {
-        if (processedResetLinkRef.current === linkKey) setIsLoading(false);
-      });
-  }, [location.search, t, verifyPasswordResetCode]);
+  }, [location.search]);
 
   const sendCode = async (event?: React.FormEvent) => {
     event?.preventDefault();

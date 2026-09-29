@@ -13,21 +13,26 @@ import { ErrorBoundary } from "./ErrorBoundary";
 export function DashboardLayout() {
   const { t } = useTranslation("common");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isDesktopSidebarCollapsed, setIsDesktopSidebarCollapsed] = useState(
+    () => localStorage.getItem("microjobs_sidebar_collapsed") === "true",
+  );
   const mobileNavigationRef = useRef<HTMLDivElement>(null);
   const navigationTriggerRef = useRef<HTMLElement | null>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const { user } = useAuth();
   const normalizedRole = String(user?.role || "").toLowerCase();
-  const isEmployerView =
-    user?.accountType === "employer" ||
-    normalizedRole === "employer" ||
-    normalizedRole === "doctor" ||
-    normalizedRole === "hire";
   const isAdminView = normalizedRole === "admin" || normalizedRole === "superadmin";
-  const isWorkerView = !isEmployerView && !isAdminView;
 
   const isNavBarHidden = useHideOnScroll(contentRef, { disabled: isMobileSidebarOpen });
+
+  const toggleDesktopSidebar = () => {
+    setIsDesktopSidebarCollapsed((current) => {
+      const next = !current;
+      localStorage.setItem("microjobs_sidebar_collapsed", String(next));
+      return next;
+    });
+  };
 
   useEffect(() => {
     setIsMobileSidebarOpen(false);
@@ -78,11 +83,13 @@ export function DashboardLayout() {
 
   return (
     <div className={webUi.layout.shell}>
-      {!isWorkerView && (
-        <div className="hidden h-full w-[280px] shrink-0 lg:block">
-          <Sidebar />
-        </div>
-      )}
+      <div
+        className={`hidden h-full shrink-0 overflow-hidden transition-[width] duration-200 lg:block ${
+          isDesktopSidebarCollapsed ? "w-[108px]" : "w-[304px]"
+        }`}
+      >
+        <Sidebar collapsed={isDesktopSidebarCollapsed} onToggleCollapsed={toggleDesktopSidebar} />
+      </div>
       {isMobileSidebarOpen && (
         <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label={t("dashboardLayout.navigationMenuAria")}>
           <button
@@ -111,7 +118,12 @@ export function DashboardLayout() {
               instead of stranding the user on the fallback. The sidebar and nav
               stay mounted, so they can still navigate their way out. */}
           <ErrorBoundary resetKey={location.pathname}>
-            <Outlet />
+            {/* Re-keying the page surface gives every dashboard route --
+                including cards and quick links that call navigate() -- the
+                same unobtrusive entrance transition. */}
+            <div key={location.pathname} className="page-transition">
+              <Outlet />
+            </div>
           </ErrorBoundary>
         </main>
         {!isAdminView ? <ResponsiveBottomNavigation /> : null}
