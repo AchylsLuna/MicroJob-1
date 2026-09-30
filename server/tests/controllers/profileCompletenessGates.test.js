@@ -107,11 +107,49 @@ test('posting and highlight fees are charged separately and are not returned whe
     (await Transaction.find({ jobReference: createRes.payload.job._id }).sort({ amount: 1 })).map((tx) => [tx.type, tx.amount]),
     [['POSTING_FEE', 20], ['POSTING_FEE', 50], ['ESCROW', 500]],
   );
+  assert.deepEqual(
+    (await Transaction.find({ jobReference: createRes.payload.job._id }).sort({ reference: 1 })).map((tx) => tx.reference),
+    [
+      `job-escrow:${createRes.payload.job._id}`,
+      `job-highlight-fee:${createRes.payload.job._id}`,
+      `job-posting-fee:${createRes.payload.job._id}`,
+    ].sort(),
+    'every job-posting ledger entry has its own stable reference',
+  );
 
   const deleteRes = createResponse();
   await deleteJob({ params: { id: createRes.payload.job._id.toString() }, user: { id: employer._id.toString(), role: 'hire' } }, deleteRes);
   assert.equal(deleteRes.statusCode, 200);
   assert.equal((await User.findById(employer._id)).employerBalance, 930, 'only escrow is refunded');
+});
+
+test('an administrator can delete a job and returns its remaining escrow to the employer', async () => {
+  const category = await Category.create({ name: 'Cleaning' });
+  const employer = await createUser({
+    role: 'hire',
+    avatarUrl: 'https://example.com/logo.png',
+    employerBalance: 1000,
+  });
+  const admin = await createUser({ role: 'admin' });
+  const createRes = createResponse();
+  await createJob({
+    body: jobPayload(category),
+    user: { id: employer._id.toString(), role: 'hire' },
+  }, createRes);
+
+  const deleteRes = createResponse();
+  await deleteJob(
+    { params: { id: createRes.payload.job._id.toString() }, user: { id: admin._id.toString(), role: 'admin' } },
+    deleteRes,
+  );
+
+  assert.equal(deleteRes.statusCode, 200);
+  assert.equal(await Job.exists({ _id: createRes.payload.job._id }), null);
+  assert.equal((await User.findById(employer._id)).employerBalance, 980);
+  const refunds = await Transaction.find({ jobReference: createRes.payload.job._id, type: 'REFUND' });
+  assert.equal(refunds.length, 1);
+  assert.equal(refunds[0].amount, 500);
+  assert.match(refunds[0].reference, /^job-delete-refund:/);
 });
 
 test('applyForJob rejects a worker with no profile photo', async () => {

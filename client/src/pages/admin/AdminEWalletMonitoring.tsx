@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
-import { DollarSign, Wallet, X, Search, Receipt, ArrowRightLeft } from "lucide-react";
+import { ArrowRightLeft, Clipboard, Clock3, CreditCard, DollarSign, Download, History, Receipt, Search, UserRound, Wallet, X } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 import { AdminGate } from "./admin/AdminGate";
 import { useAdminData } from "../../hooks/useAdminData";
 import { formatCurrency, formatDate, formatDateTime } from "../../lib/formatters";
 import type { PaymentTransaction } from "../../services/api";
+import { toast } from "../../lib/toast";
 
 // ── Receipt Modal ──────────────────────────────────────────────────────────────
 const TX_TYPE_STYLES: Record<string, string> = {
@@ -27,12 +28,78 @@ function userLabel(u: any) {
   return name || u.email || u._id || "—";
 }
 
+const readableValue = (value?: string | null) => String(value || "")
+  .replace(/[_-]+/g, " ")
+  .replace(/\b\w/g, (character) => character.toUpperCase()) || "—";
+
+const formatProcessingMethod = (value?: string | null) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  const knownMethods: Record<string, string> = {
+    manual_admin_review: "Manual Admin Review",
+    paymongo: "PayMongo",
+    xendit: "Xendit",
+    "xendit-link": "Xendit Payment Link",
+    gcash: "GCash",
+    maya: "Maya",
+    bank_transfer: "Bank Transfer",
+    dev_webhook: "Development Payment Simulator",
+  };
+  return knownMethods[normalized] || readableValue(value);
+};
+
+const maskEmail = (email?: string | null) => {
+  const [local, domain] = String(email || "").trim().split("@");
+  if (!local || !domain) return "—";
+  return `${local.slice(0, Math.min(8, Math.max(2, local.length - 2)))}****@${domain}`;
+};
+
+const maskAccountNumber = (value?: string | null) => {
+  const account = String(value || "").trim();
+  if (!account) return "—";
+  return `******${account.replace(/\D/g, "").slice(-4) || account.slice(-4)}`;
+};
+
+const getReceiptReference = (tx: PaymentTransaction) => {
+  if (tx.reference?.startsWith("MJ-")) return tx.reference;
+  const date = tx.createdAt ? new Date(tx.createdAt) : new Date();
+  const datePart = Number.isNaN(date.getTime())
+    ? "00000000"
+    : `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+  return `MJ-${String(tx.type || "PAYMENT").replace("_", "")}-${datePart}-${String(tx._id || "").slice(-6).toUpperCase()}`;
+};
+
 function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => void }) {
   const { t } = useTranslation("admin");
   const payout = tx.payoutRequest && typeof tx.payoutRequest === "object" ? tx.payoutRequest : null;
   const dest = (payout as any)?.destinationSnapshot ?? null;
   const linked = tx.linkedTransaction && typeof tx.linkedTransaction === "object" ? tx.linkedTransaction : null;
   const job = tx.jobReference && typeof tx.jobReference === "object" ? tx.jobReference as any : null;
+  const receiptReference = getReceiptReference(tx);
+  const timeline = [
+    ["Created", tx.createdAt],
+    ["Reviewed", payout?.reviewedAt],
+    ["Completed", payout?.paidAt || (tx.status === "COMPLETED" ? tx.createdAt : null)],
+  ].filter(([, value]) => value);
+
+  const copy = async (label: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied.`);
+    } catch {
+      toast.error(`Unable to copy ${label.toLowerCase()}.`);
+    }
+  };
+
+  const downloadReceipt = () => {
+    const content = [`${readableValue(tx.type)} Transaction Receipt`, `Reference Number: ${receiptReference}`, `Transaction ID: ${tx._id}`, `Total Amount: ${formatCurrency(tx.amount)} PHP`].join("\n");
+    const url = URL.createObjectURL(new Blob([content], { type: "text/plain" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${receiptReference}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success("Receipt downloaded.");
+  };
 
   const Field = ({ label, value }: { label: string; value?: string | null }) => (
     <div className="flex flex-col gap-0.5">
@@ -42,30 +109,32 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section role="dialog" aria-modal="true" aria-labelledby="transaction-receipt-title" className="bg-white rounded-[20px] shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-[#E5E7EB]">
+        <div className="sticky top-0 z-10 flex items-start justify-between p-5 sm:p-6 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-[10px] bg-[#F0FDF4] flex items-center justify-center">
               <Receipt className="w-5 h-5 text-[#047857]" />
             </div>
             <div>
-              <h3 className="text-[15px] font-semibold text-[#111827]">{t("eWallet.receipt.title")}</h3>
+              <h3 id="transaction-receipt-title" className="text-lg font-bold text-[#111827]">{readableValue(tx.type)} Transaction Receipt</h3>
+              <p className="text-[12px] text-slate-600 mt-1"><span className="font-semibold">Reference No:</span> {receiptReference}</p>
               <p className="text-[11px] text-[#9CA3AF] mt-0.5">
                 {tx.createdAt ? formatDateTime(tx.createdAt) : "—"}
               </p>
             </div>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-[#F3F4F6] transition-colors"
+            className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-[#F3F4F6] transition-colors"
+            aria-label="Close receipt"
           >
             <X className="w-4 h-4 text-[#6B7280]" />
           </button>
         </div>
 
-        <div className="p-6 space-y-5">
+        <div className="p-5 sm:p-6 space-y-5">
           {/* Type & Status */}
           <div className="flex gap-2">
             <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${TX_TYPE_STYLES[tx.type] || "bg-[#F3F4F6] text-[#374151]"}`}>
@@ -89,33 +158,37 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
             </p>
           </div>
 
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900"><Receipt className="h-4 w-4 text-[#1C4D8D]" />Transaction Information</h4>
           {/* References */}
           <div className="grid grid-cols-1 gap-3">
+            <Field label="Reference Number" value={receiptReference} />
             <Field label={t("eWallet.receipt.fields.transactionId")} value={tx._id} />
             {tx.reference && <Field label={t("eWallet.receipt.fields.referenceNo")} value={tx.reference} />}
-            {tx.provider && <Field label={t("eWallet.receipt.fields.provider")} value={tx.provider} />}
+            {tx.provider && <Field label="Processing Method" value={formatProcessingMethod(tx.provider)} />}
             {tx.providerReference && <Field label={t("eWallet.receipt.fields.providerReference")} value={tx.providerReference} />}
             {tx.label && <Field label={t("eWallet.receipt.fields.label")} value={tx.label} />}
           </div>
+          </section>
 
           {/* Sender / Receiver */}
-          <div className="grid grid-cols-2 gap-4 border-t border-[#F3F4F6] pt-4">
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><h4 className="flex items-center gap-2 text-sm font-bold text-slate-900"><UserRound className="h-4 w-4 text-[#1C4D8D]" />User Information</h4><div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">{t("eWallet.receipt.paidBySender")}</p>
               {tx.sender && typeof tx.sender === "object" ? (
                 <div className="space-y-1">
                   <p className="text-[13px] font-medium text-[#111827]">{userLabel(tx.sender)}</p>
-                  <p className="text-[11px] text-[#6B7280]">{(tx.sender as any).email || ""}</p>
+                  <p className="text-[11px] text-[#6B7280]">Email: {maskEmail((tx.sender as any).email)}</p>
                   <p className="text-[11px] text-[#9CA3AF] capitalize">{(tx.sender as any).role || ""}</p>
                 </div>
               ) : job && (job as any).jobPoster && typeof (job as any).jobPoster === "object" ? (
                 <div className="space-y-1">
                   <p className="text-[13px] font-medium text-[#111827]">{userLabel((job as any).jobPoster)}</p>
-                  <p className="text-[11px] text-[#6B7280]">{(job as any).jobPoster.email || ""}</p>
+                  <p className="text-[11px] text-[#6B7280]">Email: {maskEmail((job as any).jobPoster.email)}</p>
                   <p className="text-[11px] text-[#9CA3AF]">{t("eWallet.receipt.employerViaEscrow")}</p>
                 </div>
               ) : (
-                <p className="text-[13px] text-[#9CA3AF]">{t("eWallet.receipt.escrowOrSystem")}</p>
+                <p className="text-[13px] text-[#9CA3AF]">Not recorded</p>
               )}
             </div>
             <div>
@@ -123,24 +196,24 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
               {tx.receiver && typeof tx.receiver === "object" ? (
                 <div className="space-y-1">
                   <p className="text-[13px] font-medium text-[#111827]">{userLabel(tx.receiver)}</p>
-                  <p className="text-[11px] text-[#6B7280]">{(tx.receiver as any).email || ""}</p>
+                  <p className="text-[11px] text-[#6B7280]">Email: {maskEmail((tx.receiver as any).email)}</p>
                   <p className="text-[11px] text-[#9CA3AF] capitalize">{(tx.receiver as any).role || ""}</p>
                 </div>
               ) : (
-                <p className="text-[13px] text-[#9CA3AF]">{t("eWallet.receipt.systemOrExternal")}</p>
+                <p className="text-[13px] text-[#9CA3AF]">Not recorded</p>
               )}
             </div>
-          </div>
+          </div></section>
 
           {/* Payment Destination (from payout request) */}
           {dest && (
-            <div className="border border-[#E5E7EB] rounded-[12px] p-4 space-y-3 bg-[#FAFAFA]">
-              <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">{t("eWallet.receipt.paymentDestination")}</p>
+            <div className="border border-[#E5E7EB] rounded-2xl p-4 space-y-3 bg-[#FAFAFA]">
+              <p className="flex items-center gap-2 text-sm font-bold text-slate-900"><CreditCard className="h-4 w-4 text-[#1C4D8D]" />Payment Details</p>
               <div className="grid grid-cols-2 gap-3">
-                <Field label={t("eWallet.receipt.fields.methodChannel")} value={dest.methodType} />
-                <Field label={t("eWallet.receipt.fields.institution")} value={dest.institutionName} />
+                <Field label="Payment Method" value={formatProcessingMethod(dest.methodType)} />
+                <Field label="Payment Provider" value={formatProcessingMethod(dest.institutionName)} />
                 <Field label={t("eWallet.receipt.fields.accountName")} value={dest.accountName} />
-                <Field label={t("eWallet.receipt.fields.accountNo")} value={dest.accountNumberMasked || dest.accountNumber} />
+                <Field label="Account Number" value={maskAccountNumber(dest.accountNumberMasked || dest.accountNumber)} />
               </div>
             </div>
           )}
@@ -166,8 +239,20 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
               </div>
             </div>
           )}
+          <section className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <h4 className="flex items-center gap-2 text-sm font-bold text-slate-900"><Clock3 className="h-4 w-4 text-[#1C4D8D]" />Transaction Timeline</h4>
+            <ol id="transaction-timeline" className="mt-3 space-y-3">
+              {timeline.map(([label, value], index) => <li key={String(label)} className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#1C4D8D]/10 text-xs font-bold text-[#1C4D8D]">{index + 1}</span><span className="text-sm font-semibold text-slate-800">{label}</span><span className="text-xs text-slate-500">{formatDateTime(value as string)}</span></li>)}
+            </ol>
+          </section>
         </div>
-      </div>
+        <div className="sticky bottom-0 flex flex-wrap justify-end gap-2 border-t border-slate-200 bg-white p-4">
+          <button type="button" onClick={() => void copy("Transaction ID", tx._id)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Clipboard className="h-4 w-4" />Copy Transaction ID</button>
+          <button type="button" onClick={() => void copy("Reference Number", receiptReference)} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Clipboard className="h-4 w-4" />Copy Reference Number</button>
+          <button type="button" onClick={downloadReceipt} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" />Download Receipt</button>
+          <button type="button" onClick={() => document.getElementById("transaction-timeline")?.scrollIntoView({ behavior: "smooth", block: "center" })} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[#1C4D8D] px-3 text-sm font-semibold text-white hover:bg-[#163f75]"><History className="h-4 w-4" />View Transaction History</button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -345,9 +430,9 @@ function AdminEWalletMonitoringContent() {
                         <td className="py-3 pr-4 text-[#6B7280]">
                           {dest ? (
                             <div>
-                              <div className="font-medium text-[#374151]">{dest.institutionName}</div>
+                              <div className="font-medium text-[#374151]">{formatProcessingMethod(dest.institutionName)}</div>
                               <div className="text-[11px] text-[#9CA3AF] mt-0.5">
-                                {dest.methodType} · {dest.accountNumberMasked || dest.accountNumber || "—"}
+                                {formatProcessingMethod(dest.methodType)} · {maskAccountNumber(dest.accountNumberMasked || dest.accountNumber)}
                               </div>
                             </div>
                           ) : (
@@ -504,9 +589,9 @@ function AdminEWalletMonitoringContent() {
                         <td className="py-3 pr-4 text-[#6B7280]">
                           {dest ? (
                             <div>
-                              <div className="font-medium text-[#374151]">{dest.institutionName}</div>
+                              <div className="font-medium text-[#374151]">{formatProcessingMethod(dest.institutionName)}</div>
                               <div className="text-[11px] text-[#9CA3AF] mt-0.5">
-                                {dest.methodType} · {dest.accountNumberMasked || dest.accountNumber || "—"}
+                                {formatProcessingMethod(dest.methodType)} · {maskAccountNumber(dest.accountNumberMasked || dest.accountNumber)}
                               </div>
                             </div>
                           ) : (
