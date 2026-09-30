@@ -76,12 +76,23 @@ export function CookieConsent() {
 
   // The bar is fixed, so without reserving the space it sits on top of whatever
   // is at the bottom of the page — on a narrow screen it covered the sign-up and
-  // password-reset submit buttons outright. Pad the body by its measured height
-  // for as long as it is shown.
+  // password-reset submit buttons outright.
+  //
+  // Padding `body` only reserves the space on the public pages, where the body
+  // is what scrolls. Inside the dashboard it is a no-op: that shell is
+  // `h-[100dvh] overflow-hidden` and scrolling happens in an inner element, so
+  // the banner covered the bottom of every dashboard screen with nothing
+  // compensating. Publish the measured height instead — `webUi.layout.main`
+  // reserves it for the dashboard, and the body padding still covers the public
+  // pages.
   useEffect(() => {
     const banner = bannerRef.current;
-    if (!bannerVisible || !banner) return;
+    if (!bannerVisible || !banner) {
+      document.documentElement.style.removeProperty("--cookie-banner-height");
+      return;
+    }
     const apply = () => {
+      document.documentElement.style.setProperty("--cookie-banner-height", `${banner.offsetHeight}px`);
       document.body.style.paddingBottom = `calc(${banner.offsetHeight}px + var(--mobile-bottom-nav-height, 0px))`;
     };
     apply();
@@ -90,6 +101,7 @@ export function CookieConsent() {
     return () => {
       observer.disconnect();
       document.body.style.paddingBottom = "";
+      document.documentElement.style.removeProperty("--cookie-banner-height");
     };
   }, [bannerVisible]);
 
@@ -108,12 +120,12 @@ export function CookieConsent() {
           className="fixed inset-x-0 z-[90] border-t border-slate-200 bg-white p-4 shadow-[0_-8px_24px_rgba(15,41,84,0.10)] sm:p-5"
         >
           <div className="mx-auto flex max-w-5xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <p className="text-[14px] leading-6 text-slate-700">
+            <p className="text-body leading-6 text-slate-700">
               We use cookies to keep you signed in, remember your preferences, and understand how
               Micro Jobs is used.{" "}
               <Link
                 to={ROUTES.legalDoc("cookies")}
-                className="font-semibold text-[#1C4D8D] hover:opacity-80"
+                className="font-semibold text-brand hover:opacity-80"
               >
                 Read our Cookie Policy
               </Link>
@@ -123,21 +135,21 @@ export function CookieConsent() {
               <button
                 type="button"
                 onClick={() => setPrefsOpen(true)}
-                className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-4 text-[14px] font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                className="min-h-11 rounded-control border border-slate-300 bg-white px-4 text-body font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
                 Manage preferences
               </button>
               <button
                 type="button"
                 onClick={() => persist(rejectAllConsent())}
-                className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-4 text-[14px] font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                className="min-h-11 rounded-control border border-slate-300 bg-white px-4 text-body font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
               >
                 Reject all
               </button>
               <button
                 type="button"
                 onClick={() => persist(acceptAllConsent())}
-                className="brand-primary-interactive min-h-11 rounded-[10px] px-5 text-[14px] font-semibold"
+                className="brand-primary-interactive min-h-11 rounded-control px-5 text-body font-semibold"
               >
                 Accept all
               </button>
@@ -153,14 +165,14 @@ export function CookieConsent() {
         description="Choose which cookies Micro Jobs may use. You can change this at any time from the footer."
       >
         <div className="space-y-3">
-          <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-[15px] font-bold text-slate-900">
                 {CATEGORY_COPY.necessary.title}
               </h3>
-              <span className="shrink-0 text-[13px] font-semibold text-[#1C4D8D]">Always active</span>
+              <span className="shrink-0 text-body-sm font-semibold text-brand">Always active</span>
             </div>
-            <p className="mt-1.5 text-[13px] leading-6 text-slate-600">
+            <p className="mt-1.5 text-body-sm leading-6 text-slate-600">
               {CATEGORY_COPY.necessary.description}
             </p>
           </div>
@@ -168,7 +180,7 @@ export function CookieConsent() {
           {OPTIONAL_CATEGORIES.map((category) => {
             const checked = draft[category];
             return (
-              <div key={category} className="rounded-[12px] border border-slate-200 p-4">
+              <div key={category} className="rounded-xl border border-slate-200 p-4">
                 <div className="flex items-start justify-between gap-4">
                   <h3 className="text-[15px] font-bold text-slate-900">
                     {CATEGORY_COPY[category].title}
@@ -179,8 +191,8 @@ export function CookieConsent() {
                     aria-checked={checked}
                     aria-label={CATEGORY_COPY[category].title}
                     onClick={() => setDraft((current) => ({ ...current, [category]: !checked }))}
-                    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 ${
-                      checked ? "bg-[#1C4D8D]" : "bg-slate-300"
+                    className={`relative h-7 w-12 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+                      checked ? "bg-brand" : "bg-slate-300"
                     }`}
                   >
                     <span
@@ -191,7 +203,7 @@ export function CookieConsent() {
                     />
                   </button>
                 </div>
-                <p className="mt-1.5 text-[13px] leading-6 text-slate-600">
+                <p className="mt-1.5 text-body-sm leading-6 text-slate-600">
                   {CATEGORY_COPY[category].description}
                 </p>
               </div>
@@ -203,14 +215,14 @@ export function CookieConsent() {
           <button
             type="button"
             onClick={() => persist(rejectAllConsent())}
-            className="min-h-11 rounded-[10px] border border-slate-300 bg-white px-4 text-[14px] font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+            className="min-h-11 rounded-control border border-slate-300 bg-white px-4 text-body font-semibold text-slate-800 transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             Reject all
           </button>
           <button
             type="button"
             onClick={confirmChoices}
-            className="brand-primary-interactive min-h-11 rounded-[10px] px-5 text-[14px] font-semibold"
+            className="brand-primary-interactive min-h-11 rounded-control px-5 text-body font-semibold"
           >
             Confirm my choices
           </button>

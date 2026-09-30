@@ -44,8 +44,19 @@ export function DashboardLayout() {
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return;
+    // Lock the element that actually scrolls. `document.body` does not scroll
+    // inside this shell -- it is `h-[100dvh] overflow-hidden` and scrolling
+    // happens in `contentRef` (webUi.layout.content, `overflow-y-auto`), which
+    // CookieConsent already had to discover the hard way when padding `body`
+    // turned out to be a no-op here. Locking `body` looked like a scroll lock
+    // and did nothing: the page carried on scrolling behind the open drawer.
+    // Body is still locked as well, for the public-shell case where it is the
+    // scroller.
+    const scroller = contentRef.current;
     const previousOverflow = document.body.style.overflow;
+    const previousScrollerOverflow = scroller?.style.overflow ?? "";
     document.body.style.overflow = "hidden";
+    if (scroller) scroller.style.overflow = "hidden";
     const panel = mobileNavigationRef.current;
     const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
     const focusableElements = () => Array.from(panel?.querySelectorAll<HTMLElement>(focusableSelector) ?? []).filter((element) => element.getClientRects().length > 0);
@@ -76,6 +87,7 @@ export function DashboardLayout() {
     return () => {
       window.cancelAnimationFrame(focusFrame);
       document.body.style.overflow = previousOverflow;
+      if (scroller) scroller.style.overflow = previousScrollerOverflow;
       document.removeEventListener("keydown", handleKeyDown);
       navigationTriggerRef.current?.focus();
     };
@@ -91,7 +103,13 @@ export function DashboardLayout() {
         <Sidebar collapsed={isDesktopSidebarCollapsed} onToggleCollapsed={toggleDesktopSidebar} />
       </div>
       {isMobileSidebarOpen && (
-        <div className="fixed inset-0 z-[70] lg:hidden" role="dialog" aria-modal="true" aria-label={t("dashboardLayout.navigationMenuAria")}>
+        /* z-100, matching `ui/index.tsx`'s Dialog: this is an `aria-modal`
+           surface, and the cookie banner (z-90) was painting over it. The app
+           had already decided modals outrank that banner -- the drawer and the
+           message sheet were the two that had not been brought in line. Being
+           the top layer is also what lets this panel use the full viewport
+           height again instead of reserving space for chrome it now covers. */
+        <div className="fixed inset-0 z-[100] lg:hidden" role="dialog" aria-modal="true" aria-label={t("dashboardLayout.navigationMenuAria")}>
           <button
             type="button"
             className="absolute inset-0 bg-slate-950/50"

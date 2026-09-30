@@ -37,16 +37,16 @@ export function RoleChooser({ onSelect }: { onSelect: (role: SignUpRole) => void
             key={role}
             type="button"
             onClick={() => onSelect(role)}
-            className="group flex flex-col items-center rounded-[16px] border border-slate-200 bg-white p-6 text-center transition-colors hover:border-[#1C4D8D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+            className="group flex flex-col items-center rounded-card border border-slate-200 bg-white p-6 text-center transition-colors hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <span
               aria-hidden="true"
-              className="flex h-20 w-20 items-center justify-center rounded-[16px] bg-blue-100 text-[#1C4D8D]"
+              className="flex h-20 w-20 items-center justify-center rounded-card bg-brand-100 text-brand"
             >
               <Icon className="h-11 w-11" />
             </span>
             <span className="mt-5 text-[17px] font-bold text-slate-950">{title}</span>
-            <span className="mt-1 text-[14px] leading-6 text-slate-600">{description}</span>
+            <span className="mt-1 text-body leading-6 text-slate-600">{description}</span>
           </button>
         ))}
       </div>
@@ -55,7 +55,7 @@ export function RoleChooser({ onSelect }: { onSelect: (role: SignUpRole) => void
         <button
           type="button"
           onClick={() => onSelect("both")}
-          className="inline-flex min-h-11 items-center rounded-[10px] px-3 text-[14px] font-semibold text-[#1C4D8D] transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+          className="inline-flex min-h-11 items-center rounded-control px-3 text-body font-semibold text-brand transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           {t("signUp.roleChooser.both")}
         </button>
