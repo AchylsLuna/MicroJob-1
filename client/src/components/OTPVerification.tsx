@@ -212,7 +212,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-[24px] max-w-[480px] w-full p-8 relative animate-in fade-in zoom-in duration-200">
+      <div className="bg-white rounded-[24px] max-w-[480px] w-full p-5 sm:p-8 relative animate-in fade-in zoom-in duration-200">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -225,13 +225,13 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         <h2 className="text-[28px] font-bold text-[#111827] text-center mt-2 mb-3">
           {t("otpVerification.title")}
         </h2>
-        <p className="text-[14px] text-[#6B7280] text-center mb-8">
+        <p className="text-body text-[#6B7280] text-center mb-8">
           {t("otpVerification.description")}<br />
           <span className="font-semibold text-[#111827]">{email}</span>
         </p>
 
         {/* OTP Inputs */}
-        <div className="flex justify-center gap-3 mb-8">
+        <div className="mb-8 flex justify-center gap-2 sm:gap-3">
           {otp.map((digit, index) => (
             <input
               key={index}
@@ -248,7 +248,13 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
               onKeyDown={(e) => handleKeyDown(index, e)}
               onPaste={handlePaste}
               disabled={isVerifying}
-              className="w-[56px] h-[64px] text-center text-[24px] font-bold border-2 border-[#E5E7EB] rounded-[12px] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all disabled:bg-gray-50"
+              // Six 56px boxes plus gaps need 396px, but a 375px phone leaves
+              // only 279px inside this modal's padding -- the boxes shrank to
+              // ~36px there and ~20px on a 280px foldable while the digit
+              // stayed at 24px, so it no longer fit its own box and the targets
+              // fell well under the 44px minimum. Scale the boxes and the type
+              // together, and only take the full size once there is room.
+              className="h-12 w-10 shrink-0 rounded-xl border-2 border-[#E5E7EB] text-center text-lg font-bold transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-brand disabled:bg-gray-50 sm:h-[64px] sm:w-[56px] sm:text-[24px]"
             />
           ))}
         </div>
@@ -264,9 +270,9 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
               checked={rememberDevice}
               onChange={(e) => setRememberDevice(e.target.checked)}
               disabled={isVerifying}
-              className="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+              className="h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-brand focus:ring-2 focus:ring-brand"
             />
-            <span className="text-[14px] text-[#374151]">
+            <span className="text-body text-[#374151]">
               {t("otpVerification.trustDevice")}
             </span>
           </label>
@@ -276,7 +282,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         <button
           onClick={handleSubmit}
           disabled={otp.some(d => !d) || isVerifying}
-          className="brand-primary-interactive mb-6 w-full rounded-[12px] py-4 font-semibold hover:shadow-lg"
+          className="brand-primary-interactive mb-6 w-full rounded-xl py-4 font-semibold hover:shadow-lg"
         >
           {isVerifying ? t("otpVerification.submitLoading") : t("otpVerification.submit")}
         </button>
@@ -287,13 +293,13 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
             <button
               onClick={handleResend}
               disabled={isResending}
-              className="mx-auto flex items-center justify-center gap-2 text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="mx-auto flex items-center justify-center gap-2 text-body font-semibold text-brand hover:opacity-80"
             >
               <RefreshCw className="w-4 h-4" />
               {t("otpVerification.resend")}
             </button>
           ) : (
-            <p className="text-[14px] text-[#6B7280]">
+            <p className="text-body text-[#6B7280]">
               {t("otpVerification.resendPrompt")}{" "}
               <span className="font-semibold text-[#111827]">
                 {t("otpVerification.resendCountdown", { count: countdown })}
@@ -302,8 +308,8 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
           )}
         </div>
 
-        <div className="mt-6 p-4 bg-[#F9FAFB] rounded-[12px] border border-[#E5E7EB]">
-          <p className="text-[12px] text-[#6B7280] text-center">
+        <div className="mt-6 p-4 bg-[#F9FAFB] rounded-xl border border-[#E5E7EB]">
+          <p className="text-caption text-[#6B7280] text-center">
             {t("otpVerification.footerHint")}
           </p>
         </div>

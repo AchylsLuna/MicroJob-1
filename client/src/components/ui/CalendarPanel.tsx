@@ -137,7 +137,7 @@ export function CalendarPanel(props: Props) {
                     aria-disabled={disabled}
                     className={`relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition ${
                       selected
-                        ? "bg-[#1C4D8D] text-white"
+                        ? "bg-brand text-white"
                         : disabled
                         ? "text-slate-300 line-through"
                         : isToday
@@ -160,7 +160,10 @@ export function CalendarPanel(props: Props) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[70] flex items-end justify-center bg-slate-950/50 sm:items-center"
+          /* z-100, matching `ui/index.tsx`'s Dialog and the nav drawer. At
+             z-70 this sat under the cookie banner (z-90), which painted over
+             the sheet's lower half -- where the Apply/Clear footer is. */
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 sm:items-center"
           initial={prefersReducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={prefersReducedMotion ? undefined : { opacity: 0 }}
@@ -171,7 +174,12 @@ export function CalendarPanel(props: Props) {
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            className="flex w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-h-[85vh] sm:rounded-3xl"
+            // The height cap used to be `sm:`-only, so below 640px this sheet
+            // had none at all. The overlay is `items-end`, so any overflow came
+            // off the top -- in landscape on a small phone that carried the
+            // title bar and its close button off-screen, leaving the backdrop as
+            // the only (undiscoverable) way out. Cap at every width.
+            className="flex max-h-[85dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl"
             initial={prefersReducedMotion ? false : { opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReducedMotion ? undefined : { opacity: 0, y: 24 }}
@@ -200,7 +208,9 @@ export function CalendarPanel(props: Props) {
               ))}
             </div>
 
-            <div className="max-h-[55vh] overflow-y-auto px-6 pb-2 sm:max-h-[50vh]">{months.map(renderMonth)}</div>
+            {/* Flexes into whatever the capped sheet leaves, so the header and
+                footer keep their space and only the month list shrinks. */}
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-2 sm:max-h-[50dvh]">{months.map(renderMonth)}</div>
 
             {footer ? (
               <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4">
@@ -213,7 +223,7 @@ export function CalendarPanel(props: Props) {
                   type="button"
                   onClick={footer.onPrimary}
                   disabled={footer.primaryDisabled}
-                  className="min-h-11 rounded-full bg-[#1C4D8D] px-6 text-sm font-bold text-white transition hover:bg-[#163F75] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-11 rounded-full bg-brand px-6 text-sm font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {footer.primaryLabel}
                 </button>

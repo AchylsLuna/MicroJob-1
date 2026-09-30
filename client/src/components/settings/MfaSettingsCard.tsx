@@ -122,12 +122,12 @@ export function MfaSettingsCard() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-slate-900">{t("settings.mfa.title")}</h3>
-          <p className="mt-1 text-[13px] text-slate-500">
+          <p className="mt-1 text-body-sm text-slate-500">
             {t("settings.mfa.description")}
           </p>
         </div>
         <span
-          className={`rounded-full px-3 py-1 text-[12px] font-semibold ${
+          className={`rounded-full px-3 py-1 text-caption font-semibold ${
             status.enabled ? "bg-[#DCFCE7] text-[#166534]" : "bg-[#F1F5F9] text-slate-600"
           }`}
         >
@@ -141,7 +141,7 @@ export function MfaSettingsCard() {
             type="button"
             onClick={handleSetup}
             disabled={isSubmitting}
-            className="rounded-[10px] bg-[#0F172A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+            className="rounded-control bg-[#0F172A] px-4 py-2 text-body-sm font-semibold text-white disabled:opacity-60"
           >
             {isSubmitting
               ? t("settings.mfa.preparingButton")
@@ -151,14 +151,14 @@ export function MfaSettingsCard() {
           </button>
 
           {(secret || status.hasPendingSetup) && (
-            <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4">
-              <p className="text-[13px] font-semibold text-slate-900">{t("settings.mfa.setupHeading")}</p>
-              <p className="mt-1 text-[12px] text-slate-500">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-body-sm font-semibold text-slate-900">{t("settings.mfa.setupHeading")}</p>
+              <p className="mt-1 text-caption text-slate-500">
                 {t("settings.mfa.setupInstructions")}
               </p>
               {secret ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <code className="rounded border border-slate-200 bg-white px-3 py-2 text-[13px] text-[#0F172A]">
+                  <code className="rounded border border-slate-200 bg-white px-3 py-2 text-body-sm text-[#0F172A]">
                     {secret}
                   </code>
                   <button
@@ -167,13 +167,13 @@ export function MfaSettingsCard() {
                       void navigator.clipboard.writeText(secret);
                       toast.success(t("settings.mfa.toast.keyCopied"));
                     }}
-                    className="text-[12px] font-semibold text-[#1C4D8D]"
+                    className="text-caption font-semibold text-brand"
                   >
                     {t("settings.mfa.copyKeyButton")}
                   </button>
                 </div>
               ) : (
-                <p className="mt-3 text-[12px] text-[#92400E]">
+                <p className="mt-3 text-caption text-[#92400E]">
                   {t("settings.mfa.keyHiddenNotice")}
                 </p>
               )}
@@ -187,7 +187,7 @@ export function MfaSettingsCard() {
 
       {!isLoading && (status.enabled || status.hasPendingSetup || secret) && (
         <div className="mt-5">
-          <label className="block text-[13px] font-medium text-slate-700">
+          <label className="block text-body-sm font-medium text-slate-700">
             {status.enabled ? t("settings.mfa.currentOrBackupCodeLabel") : t("settings.mfa.sixDigitCodeLabel")}
             <input
               type="text"
@@ -196,7 +196,7 @@ export function MfaSettingsCard() {
               placeholder={status.enabled ? t("settings.mfa.codeInputPlaceholderEnabled") : t("settings.mfa.codeInputPlaceholder")}
               autoComplete="one-time-code"
               inputMode="numeric"
-              className="mt-2 w-full max-w-sm rounded-[12px] border border-slate-200 bg-white px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+              className="mt-2 w-full max-w-sm rounded-xl border border-slate-200 bg-white px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
             />
           </label>
           <div className="mt-3 flex flex-wrap gap-3">
@@ -205,7 +205,7 @@ export function MfaSettingsCard() {
                 type="button"
                 onClick={handleEnable}
                 disabled={isSubmitting || !status.hasPendingSetup}
-                className="rounded-[10px] bg-[#1C4D8D] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                className="rounded-control bg-brand px-4 py-2 text-body-sm font-semibold text-white disabled:opacity-60"
               >
                 {isSubmitting ? t("settings.mfa.verifyingButton") : t("settings.mfa.verifyAndEnableButton")}
               </button>
@@ -215,7 +215,7 @@ export function MfaSettingsCard() {
                   type="button"
                   onClick={handleRegenerateBackupCodes}
                   disabled={isSubmitting}
-                  className="rounded-[10px] bg-[#0F172A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-60"
+                  className="rounded-control bg-[#0F172A] px-4 py-2 text-body-sm font-semibold text-white disabled:opacity-60"
                 >
                   {t("settings.mfa.regenerateBackupCodesButton")}
                 </button>
@@ -223,7 +223,7 @@ export function MfaSettingsCard() {
                   type="button"
                   onClick={handleDisable}
                   disabled={isSubmitting}
-                  className="rounded-[10px] border border-[#FCA5A5] px-4 py-2 text-[13px] font-semibold text-[#B91C1C] disabled:opacity-60"
+                  className="rounded-control border border-[#FCA5A5] px-4 py-2 text-body-sm font-semibold text-[#B91C1C] disabled:opacity-60"
                 >
                   {t("settings.mfa.disableButton")}
                 </button>
@@ -231,7 +231,7 @@ export function MfaSettingsCard() {
             )}
           </div>
           {status.enabled && (
-            <p className="mt-3 text-[12px] text-slate-500">
+            <p className="mt-3 text-caption text-slate-500">
               {t("settings.mfa.backupCodesRemaining", { count: status.backupCodesRemaining })}
             </p>
           )}
@@ -239,12 +239,12 @@ export function MfaSettingsCard() {
       )}
 
       {backupCodes.length > 0 && (
-        <div className="mt-5 rounded-[12px] border border-[#FDE68A] bg-[#FFFBEB] p-4">
-          <p className="text-[13px] font-semibold text-[#92400E]">{t("settings.mfa.saveBackupCodesHeading")}</p>
-          <p className="mt-1 text-[12px] text-[#92400E]">
+        <div className="mt-5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] p-4">
+          <p className="text-body-sm font-semibold text-[#92400E]">{t("settings.mfa.saveBackupCodesHeading")}</p>
+          <p className="mt-1 text-caption text-[#92400E]">
             {t("settings.mfa.saveBackupCodesInstructions")}
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-[12px] text-[#0F172A] sm:grid-cols-4">
+          <div className="mt-3 grid grid-cols-2 gap-2 font-mono text-caption text-[#0F172A] sm:grid-cols-4">
             {backupCodes.map((backupCode) => (
               <div key={backupCode} className="rounded border border-[#FDE68A] bg-white px-2 py-1">
                 {backupCode}

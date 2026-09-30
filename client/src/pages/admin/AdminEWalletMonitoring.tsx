@@ -8,7 +8,7 @@ import type { PaymentTransaction } from "../../services/api";
 
 // ── Receipt Modal ──────────────────────────────────────────────────────────────
 const TX_TYPE_STYLES: Record<string, string> = {
-  TOP_UP:  "bg-[#1C4D8D]/10 text-[#1C4D8D]",
+  TOP_UP:  "bg-brand/10 text-brand",
   ESCROW:  "bg-[#FEF3C7] text-[#B45309]",
   PAYOUT:  "bg-[#D1FAE5] text-[#047857]",
   REFUND:  "bg-[#E9D5FF] text-[#7C3AED]",
@@ -37,17 +37,17 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
   const Field = ({ label, value }: { label: string; value?: string | null }) => (
     <div className="flex flex-col gap-0.5">
       <span className="text-[11px] font-medium text-[#9CA3AF] uppercase tracking-wide">{label}</span>
-      <span className="text-[13px] text-[#111827] break-all">{value || "—"}</span>
+      <span className="text-body-sm text-[#111827] break-all">{value || "—"}</span>
     </div>
   );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-[20px] shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-[#E5E7EB]">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-[10px] bg-[#F0FDF4] flex items-center justify-center">
+            <div className="w-10 h-10 rounded-control bg-[#F0FDF4] flex items-center justify-center">
               <Receipt className="w-5 h-5 text-[#047857]" />
             </div>
             <div>
@@ -82,7 +82,7 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
           </div>
 
           {/* Amount */}
-          <div className="bg-[#F9FAFB] rounded-[12px] p-4 text-center">
+          <div className="bg-[#F9FAFB] rounded-xl p-4 text-center">
             <p className="text-[11px] text-[#9CA3AF] mb-1">{t("eWallet.receipt.amount")}</p>
             <p className="text-[28px] font-bold text-[#111827]">
               {formatCurrency(tx.amount)}
@@ -104,37 +104,37 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
               <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">{t("eWallet.receipt.paidBySender")}</p>
               {tx.sender && typeof tx.sender === "object" ? (
                 <div className="space-y-1">
-                  <p className="text-[13px] font-medium text-[#111827]">{userLabel(tx.sender)}</p>
+                  <p className="text-body-sm font-medium text-[#111827]">{userLabel(tx.sender)}</p>
                   <p className="text-[11px] text-[#6B7280]">{(tx.sender as any).email || ""}</p>
                   <p className="text-[11px] text-[#9CA3AF] capitalize">{(tx.sender as any).role || ""}</p>
                 </div>
               ) : job && (job as any).jobPoster && typeof (job as any).jobPoster === "object" ? (
                 <div className="space-y-1">
-                  <p className="text-[13px] font-medium text-[#111827]">{userLabel((job as any).jobPoster)}</p>
+                  <p className="text-body-sm font-medium text-[#111827]">{userLabel((job as any).jobPoster)}</p>
                   <p className="text-[11px] text-[#6B7280]">{(job as any).jobPoster.email || ""}</p>
                   <p className="text-[11px] text-[#9CA3AF]">{t("eWallet.receipt.employerViaEscrow")}</p>
                 </div>
               ) : (
-                <p className="text-[13px] text-[#9CA3AF]">{t("eWallet.receipt.escrowOrSystem")}</p>
+                <p className="text-body-sm text-[#9CA3AF]">{t("eWallet.receipt.escrowOrSystem")}</p>
               )}
             </div>
             <div>
               <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide mb-2">{t("eWallet.receipt.fields.receiver")}</p>
               {tx.receiver && typeof tx.receiver === "object" ? (
                 <div className="space-y-1">
-                  <p className="text-[13px] font-medium text-[#111827]">{userLabel(tx.receiver)}</p>
+                  <p className="text-body-sm font-medium text-[#111827]">{userLabel(tx.receiver)}</p>
                   <p className="text-[11px] text-[#6B7280]">{(tx.receiver as any).email || ""}</p>
                   <p className="text-[11px] text-[#9CA3AF] capitalize">{(tx.receiver as any).role || ""}</p>
                 </div>
               ) : (
-                <p className="text-[13px] text-[#9CA3AF]">{t("eWallet.receipt.systemOrExternal")}</p>
+                <p className="text-body-sm text-[#9CA3AF]">{t("eWallet.receipt.systemOrExternal")}</p>
               )}
             </div>
           </div>
 
           {/* Payment Destination (from payout request) */}
           {dest && (
-            <div className="border border-[#E5E7EB] rounded-[12px] p-4 space-y-3 bg-[#FAFAFA]">
+            <div className="border border-[#E5E7EB] rounded-xl p-4 space-y-3 bg-[#FAFAFA]">
               <p className="text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">{t("eWallet.receipt.paymentDestination")}</p>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={t("eWallet.receipt.fields.methodChannel")} value={dest.methodType} />
@@ -226,7 +226,7 @@ function AdminEWalletMonitoringContent() {
       {selectedTx && <ReceiptModal tx={selectedTx} onClose={() => setSelectedTx(null)} />}
 
       {loadError ? (
-        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
           {loadError}
         </div>
       ) : null}
@@ -235,24 +235,24 @@ function AdminEWalletMonitoringContent() {
         {cards.map((card) => (
           <div
             key={card.label}
-            className="bg-white rounded-[16px] border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow"
+            className="bg-white rounded-card border border-[#E5E7EB] p-6 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center justify-between mb-4">
-              <div className={`w-12 h-12 rounded-[12px] ${card.accent} flex items-center justify-center`}>
+              <div className={`w-12 h-12 rounded-xl ${card.accent} flex items-center justify-center`}>
                 {card.icon}
               </div>
             </div>
-            <p className="text-[13px] text-[#6B7280] mb-1">{card.label}</p>
+            <p className="text-body-sm text-[#6B7280] mb-1">{card.label}</p>
             <p className="text-[26px] font-bold text-[#111827] truncate">{card.value}</p>
           </div>
         ))}
       </section>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#F3F4F6] rounded-[12px] p-1 w-fit">
+      <div className="flex gap-1 bg-[#F3F4F6] rounded-xl p-1 w-fit">
         <button
           onClick={() => setActiveTab("payouts")}
-          className={`px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors ${
+          className={`px-4 py-2 rounded-control text-body-sm font-medium transition-colors ${
             activeTab === "payouts"
               ? "bg-white shadow-sm text-[#111827]"
               : "text-[#6B7280] hover:text-[#374151]"
@@ -262,7 +262,7 @@ function AdminEWalletMonitoringContent() {
         </button>
         <button
           onClick={() => setActiveTab("logs")}
-          className={`px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors ${
+          className={`px-4 py-2 rounded-control text-body-sm font-medium transition-colors ${
             activeTab === "logs"
               ? "bg-white shadow-sm text-[#111827]"
               : "text-[#6B7280] hover:text-[#374151]"
@@ -274,16 +274,16 @@ function AdminEWalletMonitoringContent() {
 
       {/* ── Tab: Completed Payouts ── */}
       {activeTab === "payouts" && (
-        <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
           <div className="mb-6">
             <h3 className="text-[18px] font-semibold text-[#111827]">{t("eWallet.cards.completedPayouts")}</h3>
-            <p className="text-[13px] text-[#6B7280] mt-1">
+            <p className="text-body-sm text-[#6B7280] mt-1">
               {t("eWallet.payouts.subtitle")}
             </p>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
+            <table className="w-full min-w-[860px] text-left text-body-sm">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
                   <th className="py-3 pr-4 font-medium">{t("eWallet.table.fromSender")}</th>
@@ -375,7 +375,7 @@ function AdminEWalletMonitoringContent() {
                         <td className="py-3">
                           <button
                             onClick={() => setSelectedTx(tx)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#F0FDF4] text-[#047857] hover:bg-[#DCFCE7] transition-colors"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-caption font-medium bg-[#F0FDF4] text-[#047857] hover:bg-[#DCFCE7] transition-colors"
                           >
                             <Receipt className="w-3.5 h-3.5" />
                             {t("eWallet.viewAction")}
@@ -389,7 +389,7 @@ function AdminEWalletMonitoringContent() {
           </div>
 
           {!isLoading && completedPayouts.length > 0 && (
-            <p className="mt-4 text-[12px] text-[#9CA3AF] text-right">
+            <p className="mt-4 text-caption text-[#9CA3AF] text-right">
               {t("eWallet.payouts.count", { count: completedPayouts.length })}
             </p>
           )}
@@ -398,11 +398,11 @@ function AdminEWalletMonitoringContent() {
 
       {/* ── Tab: Transaction Logs ── */}
       {activeTab === "logs" && (
-        <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
               <h3 className="text-[18px] font-semibold text-[#111827]">{t("eWallet.logs.title")}</h3>
-              <p className="text-[13px] text-[#6B7280] mt-1">
+              <p className="text-body-sm text-[#6B7280] mt-1">
                 <Trans t={t} i18nKey="eWallet.logs.subtitle" components={{ strong: <strong /> }} />
               </p>
             </div>
@@ -411,7 +411,7 @@ function AdminEWalletMonitoringContent() {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="text-[13px] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                className="text-body-sm border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
               >
                 <option value="ALL">{t("eWallet.logs.typeOptions.all")}</option>
                 <option value="TOP_UP">{t("eWallet.logs.typeOptions.topUp")}</option>
@@ -423,7 +423,7 @@ function AdminEWalletMonitoringContent() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-[13px] border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                className="text-body-sm border border-[#E5E7EB] rounded-[8px] px-3 py-2 text-[#374151] bg-white focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
               >
                 <option value="ALL">{t("eWallet.logs.statusOptions.all")}</option>
                 <option value="COMPLETED">{t("eWallet.logs.statusOptions.completed")}</option>
@@ -439,14 +439,14 @@ function AdminEWalletMonitoringContent() {
                   placeholder={t("eWallet.logs.searchPlaceholder")}
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="text-[13px] text-[#374151] bg-transparent outline-none w-48"
+                  className="text-body-sm text-[#374151] bg-transparent outline-none w-48"
                 />
               </div>
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
+            <table className="w-full min-w-[940px] text-left text-body-sm">
               <thead>
                 <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
                   <th className="py-3 pr-4 font-medium">{t("eWallet.table.type")}</th>
@@ -531,7 +531,7 @@ function AdminEWalletMonitoringContent() {
                         <td className="py-3">
                           <button
                             onClick={() => setSelectedTx(tx)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#F0FDF4] text-[#047857] hover:bg-[#DCFCE7] transition-colors"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-caption font-medium bg-[#F0FDF4] text-[#047857] hover:bg-[#DCFCE7] transition-colors"
                           >
                             <Receipt className="w-3.5 h-3.5" />
                             {t("eWallet.viewAction")}
@@ -545,7 +545,7 @@ function AdminEWalletMonitoringContent() {
           </div>
 
           {!isLoading && filteredTxs.length > 0 && (
-            <p className="mt-4 text-[12px] text-[#9CA3AF] text-right">
+            <p className="mt-4 text-caption text-[#9CA3AF] text-right">
               {t("eWallet.logs.showingCount", { shown: filteredTxs.length, total: transactions.length })}
             </p>
           )}

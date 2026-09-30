@@ -19,6 +19,21 @@ export const tokens = {
   radius: {
     sm: 10,
     md: 14,
+    // The dominant panel radius on web -- roughly 160 call sites at 16px
+    // against 53 at 14px. It was missing from this scale even though it is
+    // what most cards on screen already use, so every one of those call sites
+    // had to spell it as an arbitrary value. The 14px sites have since been
+    // folded into it, leaving web with a three-step scale of 10 / 12 / 16.
+    //
+    // Counts are given in prose, not as literal utility strings. A previous
+    // version of this comment spelled the class names out and a later codemod
+    // rewrote them inside the comment, turning the explanation into nonsense.
+    //
+    // Keep comments in these groups free of colons. `check-token-drift.mjs`
+    // scrapes each group body with a name-then-colon-then-value regex that
+    // does not skip comments, so a colon in prose here registers as a phantom
+    // token and fails CI. (This comment previously tripped that itself.)
+    card: 16,
     lg: 18,
     pill: 999,
   },
@@ -36,6 +51,11 @@ export const tokens = {
     h2: 22,
     h3: 18,
     body: 14,
+    // The single most-used text size in the web client (312 uses) and the only
+    // one with no Tailwind equivalent -- it sits between `text-xs` (12) and
+    // `text-sm` (14), so every one of those call sites spelled it as
+    // `text-[13px]`.
+    bodySm: 13,
     caption: 12,
     label: 14,
     control: 15,

@@ -330,22 +330,22 @@ export function MessageDock() {
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-caption font-bold text-white">
           {getInitials(selectedContact.otherUserName)}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold text-slate-900">{selectedContact.otherUserName}</p>
+          <p className="truncate text-body font-semibold text-slate-900">{selectedContact.otherUserName}</p>
           {peerTyping ? (
-            <p className="text-[12px] font-medium text-[#1C4D8D]">{t("messages.typing")}</p>
+            <p className="text-caption font-medium text-brand">{t("messages.typing")}</p>
           ) : selectedContact.jobTitle ? (
-            <p className="truncate text-[12px] text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</p>
+            <p className="truncate text-caption text-slate-400">{t("messages.reJob", { jobTitle: selectedContact.jobTitle })}</p>
           ) : null}
         </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto bg-[#F8FAFD] px-3 py-3">
         {messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-center text-[13px] text-slate-400">
+          <div className="flex h-full items-center justify-center text-center text-body-sm text-slate-400">
             {t("messages.noMessagesYet")}
           </div>
         ) : (
@@ -355,11 +355,11 @@ export function MessageDock() {
               return (
                 <div key={message._id || `message-${index}`} className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[80%] rounded-2xl px-3 py-2 text-[13px] leading-relaxed ${
+                    className={`max-w-[80%] rounded-card px-3 py-2 text-body-sm leading-relaxed ${
                       isOwn
                         ? message.failed
                           ? "border border-red-300 bg-red-50 text-red-700"
-                          : "bg-[#1C4D8D] text-white"
+                          : "bg-brand text-white"
                         : "border border-slate-200 bg-white text-slate-900"
                     } ${message.pending ? "opacity-60" : ""}`}
                   >
@@ -388,14 +388,14 @@ export function MessageDock() {
             rows={1}
             disabled={sending}
             aria-label={t("messages.composerAria")}
-            className="min-h-[40px] max-h-24 flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] text-slate-900 outline-none transition focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20 disabled:opacity-60"
+            className="min-h-[40px] max-h-24 flex-1 resize-none rounded-card border border-slate-200 bg-slate-50 px-3 py-2 text-body-sm text-slate-900 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
           />
           <button
             type="button"
             onClick={() => void handleSend()}
             disabled={!messageText.trim() || sending}
             aria-label={t("messages.sendAria")}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
           </button>
@@ -419,7 +419,7 @@ export function MessageDock() {
         {contacts.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
             <MessagesSquare className="h-6 w-6 text-slate-300" />
-            <p className="text-[13px] text-slate-400">{t("messages.dock.emptyInbox")}</p>
+            <p className="text-body-sm text-slate-400">{t("messages.dock.emptyInbox")}</p>
           </div>
         ) : (
           contacts.map((contact) => {
@@ -431,21 +431,21 @@ export function MessageDock() {
                 onClick={() => void openThread(contact)}
                 className="flex w-full items-start gap-3 border-b border-slate-50 px-4 py-3 text-left transition hover:bg-slate-50"
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[12px] font-bold text-white">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand text-caption font-bold text-white">
                   {getInitials(contact.otherUserName)}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className={`truncate text-[13px] leading-tight text-slate-900 ${hasUnread ? "font-bold" : "font-semibold"}`}>
+                    <p className={`truncate text-body-sm leading-tight text-slate-900 ${hasUnread ? "font-bold" : "font-semibold"}`}>
                       {contact.otherUserName}
                     </p>
                     <span className="whitespace-nowrap text-[11px] text-slate-400">{formatRelativeTime(t, contact.lastMessageAt)}</span>
                   </div>
-                  <p className={`mt-0.5 line-clamp-1 text-[12px] ${hasUnread ? "font-medium text-slate-700" : "text-slate-500"}`}>
+                  <p className={`mt-0.5 line-clamp-1 text-caption ${hasUnread ? "font-medium text-slate-700" : "text-slate-500"}`}>
                     {contact.lastMessage || t("messages.noMessagesPreview")}
                   </p>
                 </div>
-                {hasUnread ? <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#1C4D8D]" /> : null}
+                {hasUnread ? <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-brand" /> : null}
               </button>
             );
           })
@@ -454,7 +454,7 @@ export function MessageDock() {
       <button
         type="button"
         onClick={() => navigate(fullMessagesRoute)}
-        className="border-t border-slate-100 px-4 py-3 text-center text-[13px] font-semibold text-[#1C4D8D] transition hover:bg-slate-50"
+        className="border-t border-slate-100 px-4 py-3 text-center text-body-sm font-semibold text-brand transition hover:bg-slate-50"
       >
         {t("messages.dock.openFullView")}
       </button>
@@ -470,14 +470,34 @@ export function MessageDock() {
         onClick={() => setView(isExpanded ? "collapsed" : "list")}
         aria-expanded={isExpanded}
         aria-label={isExpanded ? t("messages.dock.collapseAria") : t("messages.dock.expandAria")}
-        className={`fixed bottom-24 right-4 z-[45] flex items-center gap-2 rounded-full bg-[#1C4D8D] px-4 py-3 text-white shadow-[0_10px_28px_rgba(28,77,141,0.35)] transition hover:opacity-95 lg:bottom-0 lg:right-6 lg:rounded-b-none lg:rounded-t-2xl lg:px-5 lg:py-3 lg:shadow-[0_-6px_20px_rgba(15,23,42,0.14)] ${
+        // Sits above every piece of fixed bottom chrome, by their *measured*
+        // heights rather than the 6rem this used to assume. The tab bar alone
+        // is `min-h-[66px]` plus padding plus `env(safe-area-inset-bottom)`,
+        // which comes to ~108px on a phone with a home indicator -- taller than
+        // the old offset, so this button ended up under a bar that also
+        // out-stacks it at z-50. The cookie banner (z-90) stacks on top of the
+        // bar again until consent is given, and covered this button outright.
+        style={{
+          bottom: "calc(var(--mobile-bottom-nav-height, 0px) + var(--cookie-banner-height, 0px) + 1rem)",
+        }}
+        // On desktop this docks flush to the bottom edge -- but flush to the
+        // *cookie banner* when there is one, since that is fixed at z-90 and
+        // covered this bar outright otherwise. The variable is 0 once consent
+        // is given, which restores the flush-to-viewport docking.
+        // Hidden on very short viewports. Stacked above the tab bar and the
+        // cookie banner there is nothing left of a 375px-tall landscape phone
+        // to float in, so this button lands in the middle of the content and
+        // covers it -- it sat on top of the empty-state call to action on
+        // /worker/applied-jobs. Messages stay one tap away in the tab bar.
+        // Matches the `[@media(max-height:...)]` convention Sidebar.tsx uses.
+        className={`fixed right-4 z-[45] flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-white shadow-[0_10px_28px_rgba(28,77,141,0.35)] transition hover:opacity-95 [@media(max-height:480px)]:hidden lg:!bottom-[var(--cookie-banner-height,0px)] lg:right-6 lg:rounded-b-none lg:rounded-t-card lg:px-5 lg:py-3 lg:shadow-[0_-6px_20px_rgba(15,23,42,0.14)] ${
           isExpanded ? "hidden lg:flex" : "flex"
         }`}
       >
         <MessagesSquare className="h-4 w-4" />
-        <span className="hidden text-[13px] font-semibold sm:inline">{t("messages.dock.title")}</span>
+        <span className="hidden text-body-sm font-semibold sm:inline">{t("messages.dock.title")}</span>
         {unreadTotal > 0 ? (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-[#1C4D8D]">
+          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-brand">
             {unreadTotal > 99 ? "99+" : unreadTotal}
           </span>
         ) : null}
@@ -491,7 +511,10 @@ export function MessageDock() {
             animate={{ opacity: 1, y: 0 }}
             exit={prefersReducedMotion ? undefined : { opacity: 0, y: 16 }}
             transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
-            className="fixed bottom-0 right-6 z-[45] hidden h-[480px] max-h-[calc(100dvh-6rem)] w-[360px] flex-col rounded-t-2xl border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] lg:flex"
+            // Docks above the cookie banner for the same reason as the trigger
+            // above, and caps its height against it so the composer at the
+            // bottom of the panel stays on screen.
+            className="fixed bottom-[var(--cookie-banner-height,0px)] right-6 z-[45] hidden h-[480px] max-h-[calc(100dvh-var(--cookie-banner-height,0px)-6rem)] w-[360px] flex-col rounded-t-card border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] lg:flex"
             role="dialog"
             aria-label={t("messages.dock.title")}
           >
@@ -504,7 +527,10 @@ export function MessageDock() {
       <AnimatePresence>
         {isExpanded ? (
           <motion.div
-            className="fixed inset-0 z-[70] flex items-end bg-slate-950/40 lg:hidden"
+            // z-100 for the same reason as the nav drawer in DashboardLayout:
+            // this is an `aria-modal` sheet and the cookie banner (z-90) was
+            // painting over its lower portion, which is where the composer is.
+            className="fixed inset-0 z-[100] flex items-end bg-slate-950/40 lg:hidden"
             initial={prefersReducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={prefersReducedMotion ? undefined : { opacity: 0 }}
@@ -517,7 +543,11 @@ export function MessageDock() {
               animate={{ opacity: 1, y: 0 }}
               exit={prefersReducedMotion ? undefined : { opacity: 0, y: 24 }}
               transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
-              className="flex h-[85vh] w-full flex-col rounded-t-3xl bg-white shadow-2xl"
+              // `dvh`, not `vh`: on iOS Safari and Chrome Android `vh` is the
+              // viewport with the browser toolbar *hidden*, so 85vh measured
+              // taller than what was on screen and pushed the composer at the
+              // bottom of this sheet out of view whenever the URL bar showed.
+              className="flex h-[85dvh] w-full flex-col rounded-t-3xl bg-white shadow-2xl"
               role="dialog"
               aria-modal="true"
               aria-label={t("messages.dock.title")}

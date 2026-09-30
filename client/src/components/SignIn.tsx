@@ -179,9 +179,9 @@ export function SignIn() {
         backLabel={t("signIn.backToHome")}
         banner={
           successMessage ? (
-            <div className="rounded-[12px] border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
               <p className="font-semibold">{t("signIn.successBanner.title")}</p>
-              <p className="text-[14px]">{successMessage}</p>
+              <p className="text-body">{successMessage}</p>
             </div>
           ) : null
         }
@@ -191,7 +191,7 @@ export function SignIn() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.signUp)}
-              className="font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="font-semibold text-brand hover:opacity-80"
             >
               {t("signIn.signUpPrompt.action")}
             </button>
@@ -243,14 +243,14 @@ export function SignIn() {
                 type="checkbox"
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-5 w-5 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+                className="h-5 w-5 cursor-pointer rounded border-slate-300 text-brand focus:ring-2 focus:ring-brand"
               />
-              <span className="text-[14px] text-slate-600">{t("signIn.form.rememberMe")}</span>
+              <span className="text-body text-slate-600">{t("signIn.form.rememberMe")}</span>
             </label>
             <button
               type="button"
               onClick={handleForgotPassword}
-              className="text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="text-body font-semibold text-brand hover:opacity-80"
             >
               {t("signIn.form.forgotPassword")}
             </button>
@@ -300,7 +300,7 @@ export function SignIn() {
                 type="button"
                 disabled={isLoading}
                 onClick={() => void handleMethodSelection("mfa")}
-                className="min-h-12 rounded-xl border border-blue-200 bg-blue-50 px-4 text-left font-semibold text-blue-900 hover:bg-blue-100 disabled:opacity-60"
+                className="min-h-12 rounded-xl border border-brand-200 bg-brand-50 px-4 text-left font-semibold text-brand-900 hover:bg-brand-100 disabled:opacity-60"
               >
                 {t("signIn.methodSelection.mfa")}
               </button>

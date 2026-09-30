@@ -68,8 +68,8 @@ function AdminReportsContent() {
       id: "users" as const,
       title: t("reports.cards.users.title"),
       description: t("reports.cards.users.description"),
-      icon: <Users className="w-5 h-5 text-[#1C4D8D]" />,
-      accent: "bg-[#1C4D8D]/[0.06]",
+      icon: <Users className="w-5 h-5 text-brand" />,
+      accent: "bg-brand/[0.06]",
     },
     {
       id: "jobs" as const,
@@ -269,7 +269,7 @@ function AdminReportsContent() {
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
-        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
           {loadError}
         </div>
       )}
@@ -277,7 +277,7 @@ function AdminReportsContent() {
       <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-6 space-y-6">
         <div>
           <h3 className="text-[20px] font-semibold text-[#111827]">{t("reports.generate.title")}</h3>
-          <p className="text-[13px] text-[#6B7280] mt-1">
+          <p className="text-body-sm text-[#6B7280] mt-1">
             {t("reports.generate.subtitle")}
           </p>
         </div>
@@ -290,17 +290,17 @@ function AdminReportsContent() {
                 key={card.id}
                 type="button"
                 onClick={() => setReportType(card.id)}
-                className={`text-left border rounded-[16px] p-4 transition-all ${
+                className={`text-left border rounded-card p-4 transition-all ${
                   isActive
-                    ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]"
+                    ? "border-brand bg-brand/[0.06]"
                     : "border-[#E5E7EB] bg-white hover:border-[#CBD5F5]"
                 }`}
               >
-                <div className={`w-10 h-10 rounded-[12px] ${card.accent} flex items-center justify-center mb-4`}>
+                <div className={`w-10 h-10 rounded-xl ${card.accent} flex items-center justify-center mb-4`}>
                   {card.icon}
                 </div>
                 <p className="text-[15px] font-semibold text-[#111827]">{card.title}</p>
-                <p className="text-[12px] text-[#6B7280] mt-1">{card.description}</p>
+                <p className="text-caption text-[#6B7280] mt-1">{card.description}</p>
               </button>
             );
           })}
@@ -308,7 +308,7 @@ function AdminReportsContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div>
-            <label htmlFor="report-from-date" className="text-[12px] text-[#6B7280] block mb-2">{t("reports.generate.fromDate")}</label>
+            <label htmlFor="report-from-date" className="text-caption text-[#6B7280] block mb-2">{t("reports.generate.fromDate")}</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
@@ -316,12 +316,12 @@ function AdminReportsContent() {
                 type="date"
                 value={fromDate}
                 onChange={(event) => setFromDate(event.target.value)}
-                className="w-full h-11 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                className="w-full h-11 rounded-xl border border-[#E5E7EB] pl-9 pr-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
           </div>
           <div>
-            <label htmlFor="report-to-date" className="text-[12px] text-[#6B7280] block mb-2">{t("reports.generate.toDate")}</label>
+            <label htmlFor="report-to-date" className="text-caption text-[#6B7280] block mb-2">{t("reports.generate.toDate")}</label>
             <div className="relative">
               <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94A3B8]" />
               <input
@@ -329,12 +329,12 @@ function AdminReportsContent() {
                 type="date"
                 value={toDate}
                 onChange={(event) => setToDate(event.target.value)}
-                className="w-full h-11 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                className="w-full h-11 rounded-xl border border-[#E5E7EB] pl-9 pr-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
               />
             </div>
           </div>
           <div>
-            <span id="report-format-label" className="text-[12px] text-[#6B7280] block mb-2">{t("reports.generate.exportFormat")}</span>
+            <span id="report-format-label" className="text-caption text-[#6B7280] block mb-2">{t("reports.generate.exportFormat")}</span>
             <div className="relative">
               <button
                 aria-labelledby="report-format-label"
@@ -343,13 +343,13 @@ function AdminReportsContent() {
                   event.stopPropagation();
                   setShowFormatMenu((prev) => !prev);
                 }}
-                className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] flex items-center justify-between"
+                className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] flex items-center justify-between"
               >
                 {exportFormat}
                 <ChevronDown className="w-4 h-4 text-[#94A3B8]" />
               </button>
               {showFormatMenu && (
-                <div className="absolute z-10 mt-2 w-full bg-white border border-[#E5E7EB] rounded-[12px] shadow-lg overflow-hidden">
+                <div className="absolute z-10 mt-2 w-full bg-white border border-[#E5E7EB] rounded-xl shadow-lg overflow-hidden">
                   {["CSV", "JSON"].map((format) => (
                     <button
                       key={format}
@@ -358,7 +358,7 @@ function AdminReportsContent() {
                         setExportFormat(format as "CSV" | "JSON");
                         setShowFormatMenu(false);
                       }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-[13px] ${
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-body-sm ${
                         exportFormat === format
                           ? "bg-[#10B981] text-white"
                           : "text-[#111827] hover:bg-[#F8FAFC]"
@@ -378,7 +378,7 @@ function AdminReportsContent() {
           type="button"
           onClick={() => generateFile()}
           disabled={isLoading}
-          className="inline-flex items-center gap-2 rounded-[14px] bg-[#1C4D8D] text-white px-5 py-3 text-[13px] font-semibold shadow-sm hover:opacity-90 disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-card bg-brand text-white px-5 py-3 text-body-sm font-semibold shadow-sm hover:opacity-90 disabled:opacity-60"
         >
           <Download className="w-4 h-4" />
           {t("reports.generate.submit")}
@@ -388,29 +388,29 @@ function AdminReportsContent() {
       <section className="bg-white rounded-[20px] border border-[#E5E7EB] p-6 space-y-4">
         <div>
           <h3 className="text-[20px] font-semibold text-[#111827]">{t("reports.recent.title")}</h3>
-          <p className="text-[13px] text-[#6B7280] mt-1">{t("reports.recent.subtitle")}</p>
+          <p className="text-body-sm text-[#6B7280] mt-1">{t("reports.recent.subtitle")}</p>
         </div>
 
         <div className="space-y-3">
           {recentReports.length === 0 && (
-            <div className="text-[13px] text-[#9CA3AF]">{t("reports.recent.empty")}</div>
+            <div className="text-body-sm text-[#9CA3AF]">{t("reports.recent.empty")}</div>
           )}
           {recentReports.map((report) => (
             <div
               key={report.id}
-              className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border border-[#E5E7EB] rounded-[16px]"
+              className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border border-[#E5E7EB] rounded-card"
             >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-[12px] bg-[#F1F5F9] flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-[#64748B]" />
+                <div className="w-12 h-12 rounded-xl bg-[#F1F5F9] flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-slate-500" />
                 </div>
                 <div>
-                  <p className="text-[14px] font-semibold text-[#111827]">
+                  <p className="text-body font-semibold text-[#111827]">
                     {report.title} {report.fromDate || report.toDate ? `(${report.fromDate || ""}${
                       report.fromDate && report.toDate ? " - " : ""
                     }${report.toDate || ""})` : ""}
                   </p>
-                  <p className="text-[12px] text-[#6B7280]">{t("reports.recent.generatedOn", { date: recentLabel(report) })}</p>
+                  <p className="text-caption text-[#6B7280]">{t("reports.recent.generatedOn", { date: recentLabel(report) })}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -429,9 +429,9 @@ function AdminReportsContent() {
                       skipSave: true,
                     });
                   }}
-                  className="w-10 h-10 rounded-[12px] border border-[#E5E7EB] flex items-center justify-center hover:bg-[#F8FAFC]"
+                  className="w-10 h-10 rounded-xl border border-[#E5E7EB] flex items-center justify-center hover:bg-[#F8FAFC]"
                 >
-                  <Download className="w-4 h-4 text-[#64748B]" />
+                  <Download className="w-4 h-4 text-slate-500" />
                 </button>
               </div>
             </div>

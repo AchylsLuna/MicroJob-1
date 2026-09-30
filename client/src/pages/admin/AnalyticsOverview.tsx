@@ -123,25 +123,25 @@ export function AnalyticsOverview({
       label: t("analytics.overview.cards.payoutVolume"),
       value: isLoading ? "—" : formatCurrency(totalPayoutVolume),
       change: percentChange(monthlyPayoutVolume[last] || 0, monthlyPayoutVolume[last - 1] || 0),
-      icon: <DollarSign className="h-6 w-6 text-[#1C4D8D]" />,
+      icon: <DollarSign className="h-6 w-6 text-brand" />,
     },
     {
       label: t("analytics.overview.cards.activeJobs"),
       value: isLoading ? "—" : activeJobs,
       change: percentChange(monthlyJobs[last] || 0, monthlyJobs[last - 1] || 0),
-      icon: <Briefcase className="h-6 w-6 text-[#1C4D8D]" />,
+      icon: <Briefcase className="h-6 w-6 text-brand" />,
     },
     {
       label: t("analytics.overview.cards.totalUsers"),
       value: isLoading ? "—" : totalUsers,
       change: percentChange(monthlyUsers[last] || 0, monthlyUsers[last - 1] || 0),
-      icon: <Users className="h-6 w-6 text-[#1C4D8D]" />,
+      icon: <Users className="h-6 w-6 text-brand" />,
     },
     {
       label: t("analytics.overview.cards.conversionRate"),
       value: isLoading ? "—" : `${conversionRate.toFixed(1)}%`,
       change: null,
-      icon: <TrendingUp className="h-6 w-6 text-[#1C4D8D]" />,
+      icon: <TrendingUp className="h-6 w-6 text-brand" />,
     },
   ];
 
@@ -164,11 +164,11 @@ export function AnalyticsOverview({
   const yAt = (value: number, maxValue: number) => PLOT.top + INNER_H - (value / Math.max(maxValue, 1)) * INNER_H;
 
 
-  const cardClass = "rounded-[16px] border border-[#E5E7EB] bg-white p-6 transition hover:shadow-md";
+  const cardClass = "rounded-card border border-[#E5E7EB] bg-white p-6 transition hover:shadow-md";
   const headingClass = "text-[18px] font-semibold text-[#111827]";
 
   const EmptyPlot = ({ label }: { label: string }) => (
-    <div className="flex h-[200px] items-center justify-center rounded-[12px] border border-dashed border-slate-200 text-[13px] text-slate-500">
+    <div className="flex h-[200px] items-center justify-center rounded-xl border border-dashed border-slate-200 text-body-sm text-slate-500">
       {label}
     </div>
   );
@@ -176,7 +176,7 @@ export function AnalyticsOverview({
   const Legend = ({ items }: { items: { label: string; color: string }[] }) => (
     <ul className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
       {items.map((item) => (
-        <li key={item.label} className="flex items-center gap-2 text-[12px] text-[#475569]">
+        <li key={item.label} className="flex items-center gap-2 text-caption text-[#475569]">
           <span aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: item.color }} />
           <span>{item.label}</span>
         </li>
@@ -252,12 +252,12 @@ export function AnalyticsOverview({
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[13px] text-[#6B7280]">{card.label}</p>
+                <p className="text-body-sm text-[#6B7280]">{card.label}</p>
                 <p className="mt-2 text-[28px] font-semibold text-[#111827]">{card.value}</p>
                 {card.change === null ? (
-                  <p className="mt-2 text-[12px] text-[#94A3B8]">{t("analytics.overview.noPriorMonth")}</p>
+                  <p className="mt-2 text-caption text-[#94A3B8]">{t("analytics.overview.noPriorMonth")}</p>
                 ) : (
-                  <p className={`mt-2 text-[12px] ${card.change < 0 ? "text-[#B91C1C]" : "text-[#15803D]"}`}>
+                  <p className={`mt-2 text-caption ${card.change < 0 ? "text-[#B91C1C]" : "text-[#15803D]"}`}>
                     {t("analytics.overview.changeFromLastMonth", {
                       sign: card.change >= 0 ? "+" : "",
                       value: card.change.toFixed(1),
@@ -265,7 +265,7 @@ export function AnalyticsOverview({
                   </p>
                 )}
               </div>
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#1C4D8D]/[0.06]">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/[0.06]">
                 {card.icon}
               </div>
             </div>

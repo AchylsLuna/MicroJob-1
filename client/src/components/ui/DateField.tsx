@@ -66,7 +66,7 @@ export function DateField(props: Props) {
         onClick={() => setOpen(true)}
         className={
           buttonClassName ||
-          "flex h-11 w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
+          "flex h-11 w-full items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm text-slate-900 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100"
         }
       >
         <Calendar className="h-4 w-4 shrink-0 text-slate-400" />

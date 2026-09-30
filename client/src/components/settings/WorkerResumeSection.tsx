@@ -70,14 +70,14 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
     <section className="space-y-6" aria-labelledby="resume-section-title" aria-busy={isSubmitting}>
       <div>
         <h2 id="resume-section-title" className="text-lg font-semibold text-slate-900">{t("settings.resume.title")}</h2>
-        <p className="text-[13px] text-slate-500">{t("settings.resume.subtitle")}</p>
+        <p className="text-body-sm text-slate-500">{t("settings.resume.subtitle")}</p>
       </div>
       <p className="sr-only" role="status" aria-live="polite">{statusMessage}</p>
       {safeResumeUrl ? (
-        <div className="flex items-center justify-between rounded-[12px] border border-slate-200 bg-slate-50 p-4">
+        <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div>
-            <p className="text-[14px] font-semibold text-slate-900">{resume?.name || t("settings.resume.uploadedLabel")}</p>
-            <p className="text-[12px] text-slate-500">
+            <p className="text-body font-semibold text-slate-900">{resume?.name || t("settings.resume.uploadedLabel")}</p>
+            <p className="text-caption text-slate-500">
               {resume ? t("settings.resume.fileSizeKb", { size: (resume.size / 1024).toFixed(2) }) : t("settings.resume.viewUploaded")}
             </p>
           </div>
@@ -87,7 +87,7 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
               download
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-[8px] p-2 text-[#1C4D8D] transition hover:bg-[#1C4D8D]/[0.06]"
+              className="rounded-[8px] p-2 text-brand transition hover:bg-brand/[0.06]"
               title={t("settings.resume.downloadTitle")}
               aria-label={t("settings.resume.downloadAria")}
             >
@@ -105,9 +105,9 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
           </div>
         </div>
       ) : (
-        <div className="rounded-[12px] border-2 border-dashed border-slate-300 p-8 text-center">
-          <p className="mb-4 text-[14px] text-slate-500">{t("settings.resume.uploadPrompt")}</p>
-          <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-[10px] bg-[#1C4D8D] px-6 py-3 font-semibold text-white hover:opacity-90 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
+        <div className="rounded-xl border-2 border-dashed border-slate-300 p-8 text-center">
+          <p className="mb-4 text-body text-slate-500">{t("settings.resume.uploadPrompt")}</p>
+          <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-control bg-brand px-6 py-3 font-semibold text-white hover:opacity-90 focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2">
             <Upload className="h-4 w-4" />
             {isSubmitting ? t("settings.resume.uploadingButton") : t("settings.resume.chooseFileButton")}
             <input
@@ -122,9 +122,9 @@ export function WorkerResumeSection({ initialResumeUrl }: { initialResumeUrl: st
         </div>
       )}
       {safeResumeUrl ? (
-        <div className="rounded-[12px] border-2 border-dashed border-slate-300 p-5 text-center">
-          <p className="mb-3 text-[13px] text-slate-500">{t("settings.resume.replacePrompt")}</p>
-          <label className={`inline-flex min-h-11 items-center gap-2 rounded-[10px] bg-[#1C4D8D] px-5 py-2.5 font-semibold text-white focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2 ${isSubmitting ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:opacity-90"}`}>
+        <div className="rounded-xl border-2 border-dashed border-slate-300 p-5 text-center">
+          <p className="mb-3 text-body-sm text-slate-500">{t("settings.resume.replacePrompt")}</p>
+          <label className={`inline-flex min-h-11 items-center gap-2 rounded-control bg-brand px-5 py-2.5 font-semibold text-white focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2 ${isSubmitting ? "cursor-not-allowed opacity-60" : "cursor-pointer hover:opacity-90"}`}>
             <Upload className="h-4 w-4" />
             {isSubmitting ? t("settings.resume.workingButton") : t("settings.resume.chooseReplacementButton")}
             <input type="file" accept=".pdf,.doc,.docx" onChange={handleUpload} disabled={isSubmitting} aria-label={t("settings.resume.chooseReplacementAria")} className="sr-only" />

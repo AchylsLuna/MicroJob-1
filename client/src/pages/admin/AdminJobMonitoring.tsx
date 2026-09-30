@@ -91,21 +91,25 @@ function AdminJobMonitoringContent() {
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       {loadError && (
-        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+        <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
           {loadError}
         </div>
       )}
 
-      <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+      <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
         <div>
           <h3 className="text-[18px] font-semibold text-[#111827]">{t("jobMonitoring.title")}</h3>
-          <p className="text-[13px] text-[#6B7280] mt-1">
+          <p className="text-body-sm text-[#6B7280] mt-1">
             {t("jobMonitoring.subtitle")}
           </p>
         </div>
 
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full text-left text-[13px]">
+          {/* `min-w` is what makes the `overflow-x-auto` wrapper above do
+              anything: a bare `w-full` table can never exceed its container, so
+              these 8 columns compressed to ~40px each on a phone instead of
+              scrolling. Matches the other 8-column admin tables. */}
+          <table className="w-full min-w-[940px] text-left text-body-sm">
             <thead>
               <tr className="text-[#6B7280] border-b border-[#E5E7EB]">
                 <th className="py-3 pr-4 font-medium">{t("jobMonitoring.table.job")}</th>
@@ -169,7 +173,7 @@ function AdminJobMonitoringContent() {
                         <div className="flex items-center gap-2">
                           <Link
                             to={ROUTES.worker.jobDetails(job._id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#1C4D8D]/[0.06] text-[#1C4D8D] hover:opacity-80"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-caption font-medium bg-brand/[0.06] text-brand hover:opacity-80"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             {t("jobMonitoring.viewAction")}
@@ -178,7 +182,7 @@ function AdminJobMonitoringContent() {
                             type="button"
                           onClick={() => setDeleteTarget({ id: job._id, title: job.title })}
                             disabled={deletingJobId === job._id}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-[12px] font-medium bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-60"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-[8px] text-caption font-medium bg-[#FEF2F2] text-[#B91C1C] hover:bg-[#FEE2E2] disabled:opacity-60"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                             {deletingJobId === job._id ? t("jobMonitoring.deletingAction") : t("jobMonitoring.deleteAction")}
@@ -193,7 +197,7 @@ function AdminJobMonitoringContent() {
         </div>
 
         {!isLoading && sortedJobs.length > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E5E7EB] text-[13px] text-[#6B7280] mt-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-[#E5E7EB] text-body-sm text-[#6B7280] mt-4">
             <span>
               {t("jobMonitoring.pagination.showing", { start: pageStart + 1, end: pageEnd, total: sortedJobs.length })}
             </span>
@@ -202,7 +206,7 @@ function AdminJobMonitoringContent() {
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                 disabled={safePage === 1}
-                className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
+                className="px-3 py-1.5 rounded-control border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
               >
                 {t("jobMonitoring.pagination.previous")}
               </button>
@@ -212,9 +216,9 @@ function AdminJobMonitoringContent() {
                     key={page}
                     type="button"
                     onClick={() => setCurrentPage(page)}
-                    className={`w-8 h-8 rounded-[8px] text-[13px] ${
+                    className={`w-8 h-8 rounded-[8px] text-body-sm ${
                       page === safePage
-                        ? "bg-[#1C4D8D] text-white"
+                        ? "bg-brand text-white"
                         : "border border-[#E5E7EB] text-[#111827] hover:bg-[#F9FAFB]"
                     }`}
                   >
@@ -226,7 +230,7 @@ function AdminJobMonitoringContent() {
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
                 disabled={safePage === totalPages}
-                className="px-3 py-1.5 rounded-[10px] border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
+                className="px-3 py-1.5 rounded-control border border-[#E5E7EB] text-[#111827] disabled:text-[#9CA3AF] disabled:bg-[#F9FAFB]"
               >
                 {t("jobMonitoring.pagination.next")}
               </button>

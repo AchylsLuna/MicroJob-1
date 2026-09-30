@@ -124,19 +124,19 @@ export function PublicProfile() {
     <div className="max-w-4xl mx-auto space-y-6">
       <button
         onClick={() => navigate(-1)}
-        className="inline-flex items-center gap-2 text-[14px] text-[#475569] hover:text-[#0F172A]"
+        className="inline-flex items-center gap-2 text-body text-[#475569] hover:text-[#0F172A]"
       >
         <ArrowLeft className="w-4 h-4" />
         Back
       </button>
 
-      <div className="bg-white border border-[#E2E8F0] rounded-2xl p-6 shadow-sm">
+      <div className="bg-white border border-[#E2E8F0] rounded-card p-6 shadow-sm">
         {/* Mirrors the loaded header below (avatar + name + meta lines) so the
             layout does not jump once the profile arrives. */}
         {isLoading ? (
           <div role="status" aria-label="Loading profile" className="space-y-6">
             <div className="flex items-start gap-4">
-              <Skeleton className="h-20 w-20 rounded-2xl" />
+              <Skeleton className="h-20 w-20 rounded-card" />
               <div className="flex-1 space-y-2 pt-1">
                 <Skeleton className="h-6 w-1/2" />
                 <Skeleton className="h-4 w-1/3" />
@@ -159,10 +159,10 @@ export function PublicProfile() {
                 <img
                   src={avatarUrl}
                   alt={fullName}
-                  className="w-20 h-20 rounded-2xl object-cover border border-[#E2E8F0]"
+                  className="w-20 h-20 rounded-card object-cover border border-[#E2E8F0]"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-2xl bg-[#1C4D8D]/10 text-[#1C4D8D] font-bold text-2xl flex items-center justify-center">
+                <div className="w-20 h-20 rounded-card bg-brand/10 text-brand font-bold text-2xl flex items-center justify-center">
                   {fullName.charAt(0).toUpperCase()}
                 </div>
               )}
@@ -173,7 +173,7 @@ export function PublicProfile() {
                   {data.profile.isFullyVerified ? (
                     <button
                       type="button"
-                      className="group relative inline-flex shrink-0 cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                      className="group relative inline-flex shrink-0 cursor-help rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                       aria-label="Fully verified person"
                       aria-describedby="public-profile-verified-tooltip"
                     >
@@ -185,7 +185,7 @@ export function PublicProfile() {
                   ) : null}
                 </h1>
                 {viewAs === "employer" ? (
-                  <p className="mt-1 text-sm font-medium text-[#1C4D8D]">Employer Profile</p>
+                  <p className="mt-1 text-sm font-medium text-brand">Employer Profile</p>
                 ) : (
                   <p className="mt-1 text-sm font-medium text-[#0F766E]">{data.profile.jobPosition || "Worker Profile"}</p>
                 )}
@@ -194,24 +194,24 @@ export function PublicProfile() {
 
             {(linkedinUrl || websiteUrl) && (
               <div className="flex flex-wrap gap-3">
-                {linkedinUrl ? <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm font-medium text-[#1C4D8D]">LinkedIn <ExternalLink className="h-3.5 w-3.5" /></a> : null}
-                {websiteUrl ? <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm font-medium text-[#1C4D8D]">Website <ExternalLink className="h-3.5 w-3.5" /></a> : null}
+                {linkedinUrl ? <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm font-medium text-brand">LinkedIn <ExternalLink className="h-3.5 w-3.5" /></a> : null}
+                {websiteUrl ? <a href={websiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] px-3 py-2 text-sm font-medium text-brand">Website <ExternalLink className="h-3.5 w-3.5" /></a> : null}
               </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {data.rating?.hidden ? (
                 <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-4 md:col-span-2">
-                  <p className="text-xs text-[#64748B] mb-1">Hiring performance</p>
+                  <p className="text-xs text-slate-500 mb-1">Hiring performance</p>
                   <p className="text-sm font-semibold text-[#334155]">Private</p>
-                  <p className="mt-1 text-xs text-[#64748B]">
+                  <p className="mt-1 text-xs text-slate-500">
                     This employer has chosen not to share hiring totals.
                   </p>
                 </div>
               ) : (
                 <>
                   <div className="rounded-xl border border-[#E2E8F0] p-4">
-                    <p className="text-xs text-[#64748B] mb-1">Rating</p>
+                    <p className="text-xs text-slate-500 mb-1">Rating</p>
                     <div className="flex items-center gap-2 mb-2">
                       {Array.from({ length: 5 }).map((_, idx) => (
                         <Star
@@ -233,9 +233,9 @@ export function PublicProfile() {
               )}
 
               <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="text-xs text-[#64748B] mb-1">Location</p>
+                <p className="text-xs text-slate-500 mb-1">Location</p>
                 <p className="text-sm font-medium text-[#0F172A] flex items-center gap-1">
-                  <MapPin className="w-4 h-4 text-[#64748B]" />
+                  <MapPin className="w-4 h-4 text-slate-500" />
                   {[data.profile.city, data.profile.province].filter(Boolean).join(", ") || "Not specified"}
                 </p>
               </div>
@@ -243,33 +243,33 @@ export function PublicProfile() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="text-xs text-[#64748B] mb-2">About</p>
+                <p className="text-xs text-slate-500 mb-2">About</p>
                 <p className="text-sm text-[#334155]">{data.profile.about || "No profile summary provided."}</p>
               </div>
 
               <div className="rounded-xl border border-[#E2E8F0] p-4 space-y-2">
                 {viewAs === "employer" ? (
                   <>
-                    <p className="text-xs text-[#64748B]">Company</p>
+                    <p className="text-xs text-slate-500">Company</p>
                     <p className="text-sm font-medium text-[#0F172A] flex items-center gap-1">
-                      <Building2 className="w-4 h-4 text-[#64748B]" />
+                      <Building2 className="w-4 h-4 text-slate-500" />
                       {data.profile.companyName || "Not specified"}
                     </p>
-                    <p className="text-xs text-[#64748B] mt-2">Jobs Posted</p>
+                    <p className="text-xs text-slate-500 mt-2">Jobs Posted</p>
                     <p className="text-sm text-[#334155]">{data.stats?.employer?.jobsPosted || 0}</p>
-                    <p className="text-xs text-[#64748B]">Total Applicants</p>
+                    <p className="text-xs text-slate-500">Total Applicants</p>
                     <p className="text-sm text-[#334155]">{data.stats?.employer?.totalApplicants || 0}</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-xs text-[#64748B]">Experience</p>
+                    <p className="text-xs text-slate-500">Experience</p>
                     <p className="text-sm font-medium text-[#0F172A] flex items-center gap-1">
-                      <Briefcase className="w-4 h-4 text-[#64748B]" />
+                      <Briefcase className="w-4 h-4 text-slate-500" />
                       {data.profile.totalExperience || "Not specified"}
                     </p>
-                    <p className="text-xs text-[#64748B] mt-2">Jobs Applied</p>
+                    <p className="text-xs text-slate-500 mt-2">Jobs Applied</p>
                     <p className="text-sm text-[#334155]">{data.stats?.worker?.jobsApplied || 0}</p>
-                    <p className="text-xs text-[#64748B]">Completed Jobs</p>
+                    <p className="text-xs text-slate-500">Completed Jobs</p>
                     <p className="text-sm text-[#334155]">{data.stats?.worker?.projectsCompleted || 0}</p>
                   </>
                 )}
@@ -278,10 +278,10 @@ export function PublicProfile() {
 
             {skills.length > 0 ? (
               <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="text-xs text-[#64748B] mb-2">Skills</p>
+                <p className="text-xs text-slate-500 mb-2">Skills</p>
                 <div className="flex flex-wrap gap-2">
                   {skills.map((skill) => (
-                    <span key={skill} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#1C4D8D]/[0.06] text-[#1C4D8D] text-xs font-medium">
+                    <span key={skill} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-brand/[0.06] text-brand text-xs font-medium">
                       <CheckCircle2 className="w-3 h-3" />
                       {skill}
                     </span>
@@ -292,15 +292,15 @@ export function PublicProfile() {
 
             {viewAs === "worker" && data.profile.workExperience?.length ? (
               <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="mb-3 text-xs text-[#64748B]">Work history</p>
+                <p className="mb-3 text-xs text-slate-500">Work history</p>
                 <div className="space-y-3">
                   {data.profile.workExperience.map((item, index) => (
                     <div key={item._id || `${item.title}-${index}`} className="flex gap-3 rounded-lg bg-[#F8FAFC] p-3">
-                      <Briefcase className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#1C4D8D]" />
+                      <Briefcase className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand" />
                       <div>
                         <p className="text-sm font-semibold text-[#0F172A]">{item.title || "Work experience"}</p>
                         <p className="text-xs text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                        <p className="mt-1 text-xs text-[#64748B]">{formatExperienceDate(item.startDate)} – {item.current ? "Present" : formatExperienceDate(item.endDate)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{formatExperienceDate(item.startDate)} – {item.current ? "Present" : formatExperienceDate(item.endDate)}</p>
                         {item.description ? <p className="mt-2 whitespace-pre-line text-sm text-[#475569]">{item.description}</p> : null}
                         {item.media?.length ? (
                           <div className="mt-3 flex flex-wrap gap-2">
@@ -313,7 +313,7 @@ export function PublicProfile() {
                                   href={mediaUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="block h-16 w-16 overflow-hidden rounded-lg border border-[#E2E8F0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                  className="block h-16 w-16 overflow-hidden rounded-lg border border-[#E2E8F0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                                 >
                                   <img src={mediaUrl} alt={media.originalName || item.title || ""} className="h-full w-full object-cover" />
                                 </a>
@@ -330,15 +330,15 @@ export function PublicProfile() {
 
             {viewAs === "worker" && data.profile.internships?.length ? (
               <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="mb-3 text-xs text-[#64748B]">Internships</p>
+                <p className="mb-3 text-xs text-slate-500">Internships</p>
                 <div className="space-y-3">
                   {data.profile.internships.map((item, index) => (
                     <div key={item._id || `${item.title}-${index}`} className="flex gap-3 rounded-lg bg-[#F8FAFC] p-3">
-                      <Briefcase className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#1C4D8D]" />
+                      <Briefcase className="mt-0.5 h-4 w-4 flex-shrink-0 text-brand" />
                       <div>
                         <p className="text-sm font-semibold text-[#0F172A]">{item.title || "Internship"}</p>
                         <p className="text-xs text-[#475569]">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                        <p className="mt-1 text-xs text-[#64748B]">{formatExperienceDate(item.startDate)} – {item.current ? "Present" : formatExperienceDate(item.endDate)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{formatExperienceDate(item.startDate)} – {item.current ? "Present" : formatExperienceDate(item.endDate)}</p>
                         {item.description ? <p className="mt-2 whitespace-pre-line text-sm text-[#475569]">{item.description}</p> : null}
                       </div>
                     </div>
@@ -349,7 +349,7 @@ export function PublicProfile() {
 
             {viewAs === "worker" && data.profile.certificates?.length ? (
               <div className="rounded-xl border border-[#E2E8F0] p-4">
-                <p className="mb-3 text-xs text-[#64748B]">Certificates</p>
+                <p className="mb-3 text-xs text-slate-500">Certificates</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {data.profile.certificates.map((item, index) => {
                     const safeCredentialUrl = safeExternalUrl(item.credentialUrl || "", { purpose: "external" });
@@ -357,7 +357,7 @@ export function PublicProfile() {
                       <div key={item._id || `${item.name}-${index}`} className="rounded-lg bg-[#F8FAFC] p-3">
                         <p className="text-sm font-semibold text-[#0F172A]">{item.name}</p>
                         <p className="text-xs text-[#475569]">{item.issuer}</p>
-                        <p className="mt-1 text-xs text-[#64748B]">
+                        <p className="mt-1 text-xs text-slate-500">
                           {formatExperienceDate(item.issueDate)}
                           {item.expiryDate ? ` – ${formatExperienceDate(item.expiryDate)}` : " · No expiry"}
                         </p>
@@ -366,7 +366,7 @@ export function PublicProfile() {
                             href={safeCredentialUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#1C4D8D] hover:underline"
+                            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
                           >
                             Verify credential <ExternalLink className="h-3 w-3" aria-hidden="true" />
                           </a>

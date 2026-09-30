@@ -432,7 +432,7 @@ const PostJob: React.FC = () => {
   };
 
   return (
-    <div className="ui-page px-4 md:px-0 pb-16">
+    <div className="ui-page pb-16">
       <div className="ui-page-header">
         <div>
           <h1 className="ui-page-title">{t("postJob.header.title")}</h1>
@@ -441,7 +441,7 @@ const PostJob: React.FC = () => {
         <button
           type="button"
           onClick={openCreateModal}
-          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#1C4D8D] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+          className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-brand px-6 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
         >
           <Plus size={20} />
           {t("postJob.actions.postJob")}
@@ -471,7 +471,7 @@ const PostJob: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               >
                 <option value="all">{t("postJob.filters.allStatuses")}</option>
                 <option value="Available">{t("postJob.status.available")}</option>
@@ -486,7 +486,7 @@ const PostJob: React.FC = () => {
               <select
                 value={jobTypeFilter}
                 onChange={(e) => setJobTypeFilter(e.target.value)}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-600 focus:ring-2 focus:ring-blue-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-200"
               >
                 <option value="all">{t("postJob.filters.allJobs")}</option>
                 {jobTypeOptions.map((option) => (
@@ -505,7 +505,7 @@ const PostJob: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t("postJob.filters.searchPlaceholder")}
-                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="h-12 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
               />
             </div>
           </div>
@@ -519,20 +519,20 @@ const PostJob: React.FC = () => {
       )}
 
       {jobsError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">{jobsError}</div>
+        <div className="rounded-card border border-red-200 bg-red-50 p-4 text-red-700">{jobsError}</div>
       )}
 
       {!loadingJobs && jobs.length === 0 && (
         <div className="ui-card px-6 py-14 text-center">
-          <div className="mx-auto w-fit rounded-full bg-blue-50 p-4">
-            <BriefcaseBusiness size={32} className="text-[#1C4D8D]" />
+          <div className="mx-auto w-fit rounded-full bg-brand-50 p-4">
+            <BriefcaseBusiness size={32} className="text-brand" />
           </div>
           <h3 className="mt-5 text-xl font-semibold text-slate-900">{t("postJob.emptyState.title")}</h3>
           <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{t("postJob.emptyState.subtitle")}</p>
           <button
             type="button"
             onClick={openCreateModal}
-            className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-6 text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+            className="mt-6 inline-flex h-11 items-center gap-2 rounded-xl bg-brand px-6 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             <Plus size={20} />
             {t("postJob.actions.postJob")}
@@ -570,7 +570,7 @@ const PostJob: React.FC = () => {
                     >
                       {statusLabels[job.status || "Available"] || job.status || t("postJob.status.available")}
                     </span>
-                    <span className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-700">
+                    <span className="rounded-full bg-brand-50 px-3 py-1 text-sm font-semibold text-brand-700">
                       {formatMinimumPay(job.salary, t("postJob.card.payNotSet"))}
                     </span>
                   </div>
@@ -580,14 +580,14 @@ const PostJob: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => openEditModal(job)}
-                    className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   >
                     {t("postJob.card.edit")}
                   </button>
                   <button
                     type="button"
                     onClick={() => handleToggleStatus(job)}
-                    className="inline-flex min-h-11 items-center rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-semibold text-blue-700 transition hover:bg-blue-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="inline-flex min-h-11 items-center rounded-lg border border-brand-200 bg-brand-50 px-4 text-sm font-semibold text-brand-700 transition hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   >
                     {isClosed ? t("postJob.card.reopen") : t("postJob.card.close")}
                   </button>
@@ -626,17 +626,25 @@ const PostJob: React.FC = () => {
       )}
 
       {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/55 p-3 md:p-8">
-          <div className="flex min-h-full items-start justify-center">
-            <div className="flex w-full max-w-5xl max-h-[calc(100vh-1.5rem)] md:max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+        /* z-100, matching `ui/index.tsx`'s Dialog and the layer contract in
+           DashboardLayout.tsx: at z-50 this tied the mobile tab bar and sat
+           under the cookie banner. Centred rather than top-aligned so the
+           dialog lands in front of the reader; the panel below already caps
+           its own height and scrolls internally, which is what makes centring
+           safe -- a flex child taller than its container overflows in both
+           directions, so centring without that cap would push the header and
+           its close button off the top edge. */
+        <div className="fixed inset-0 z-[100] bg-slate-900/55 p-3 md:p-8">
+          <div className="flex min-h-full items-center justify-center">
+            <div className="flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] md:max-h-[calc(100dvh-4rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
               <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-5 md:px-7">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="hidden h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 sm:flex">
+                    <div className="hidden h-12 w-12 items-center justify-center rounded-card bg-brand-50 text-brand-600 sm:flex">
                       <BriefcaseBusiness size={24} />
                     </div>
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">
+                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-600">
                         {t("postJob.modal.employerWorkspace")}
                       </p>
                       <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
@@ -721,7 +729,7 @@ const PostJob: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => navigate(ROUTES.employer.eWallet)}
-                    className="h-11 rounded-xl bg-[#1C4D8D] text-sm font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="h-11 rounded-xl bg-brand text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   >
                     {t("postJob.insufficientBalance.topUp")}
                   </button>

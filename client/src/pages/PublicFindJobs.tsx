@@ -17,22 +17,26 @@ export function PublicFindJobs() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-dvh bg-[#F8FAFC]">
       <header className="border-b border-[#E5E7EB] bg-white">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        {/* Wraps rather than overflowing: the full wordmark plus both auth
+            buttons need ~312px, which is wider than a 280px device leaves once
+            the gutters are taken out, and this row was the one thing forcing a
+            horizontal scroll on the whole page there. */}
+        <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center justify-between gap-y-3 px-4 py-4 sm:px-6 lg:px-8">
           <MicroJobsLogo onClick={() => navigate(ROUTES.home)} />
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
               onClick={() => navigate(ROUTES.signIn)}
-              className="min-h-11 rounded-xl px-4 text-sm font-semibold text-[#1C4D8D] transition hover:bg-[#1C4D8D]/[0.06]"
+              className="min-h-11 rounded-xl px-4 text-sm font-semibold text-brand transition hover:bg-brand/[0.06]"
             >
               {t("publicFindJobs.header.signIn")}
             </button>
             <button
               type="button"
               onClick={() => navigate(ROUTES.signUp)}
-              className="min-h-11 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white transition hover:opacity-90"
+              className="min-h-11 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
             >
               {t("publicFindJobs.header.signUp")}
             </button>

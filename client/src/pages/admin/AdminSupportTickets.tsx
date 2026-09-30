@@ -21,9 +21,9 @@ const formatTicketDate = (value?: string) => {
 };
 
 const statusClasses: Record<SupportTicket["status"], string> = {
-  open: "bg-[#1C4D8D]/10 text-[#1C4D8D]",
+  open: "bg-brand/10 text-brand",
   in_progress: "bg-[#FEF3C7] text-[#B45309]",
-  waiting_user: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
+  waiting_user: "bg-brand/[0.08] text-brand",
   resolved: "bg-[#DCFCE7] text-[#15803D]",
   closed: "bg-[#F3F4F6] text-[#6B7280]",
 };
@@ -196,10 +196,10 @@ function AdminSupportTicketsContent() {
   return (
     <div className="max-w-[1341px] mx-auto space-y-6">
       <div className="grid grid-cols-1 xl:grid-cols-[360px_minmax(0,1fr)] gap-6">
-        <div className="bg-white rounded-[16px] border border-slate-200 p-6 space-y-4">
+        <div className="bg-white rounded-card border border-slate-200 p-6 space-y-4">
           <div>
             <h1 className="text-[22px] font-semibold text-[#111827]">{t("supportTickets.header.title")}</h1>
-            <p className="text-[13px] text-[#6B7280] mt-1">{t("supportTickets.header.subtitle")}</p>
+            <p className="text-body-sm text-[#6B7280] mt-1">{t("supportTickets.header.subtitle")}</p>
           </div>
 
           <div className="relative">
@@ -209,14 +209,14 @@ function AdminSupportTicketsContent() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t("supportTickets.filters.searchPlaceholder")}
-              className="w-full h-10 rounded-[12px] border border-[#E5E7EB] pl-9 pr-3 text-[13px] text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+              className="w-full h-10 rounded-xl border border-[#E5E7EB] pl-9 pr-3 text-body-sm text-[#111827] placeholder-[#9CA3AF] focus:outline-none focus:ring-2 focus:ring-brand"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
-            className="h-10 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+            className="h-10 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
           >
             <option value="all">{t("supportTickets.filters.statusAll")}</option>
             <option value="open">{t("supportTickets.statuses.open")}</option>
@@ -227,7 +227,7 @@ function AdminSupportTicketsContent() {
           </select>
 
           {loadError ? (
-            <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-[12px] text-[13px]">
+            <div className="bg-[#FEE2E2] text-[#991B1B] border border-[#FECACA] px-4 py-3 rounded-xl text-body-sm">
               {loadError}
             </div>
           ) : null}
@@ -242,14 +242,14 @@ function AdminSupportTicketsContent() {
                     <button
                       key={ticket._id}
                       onClick={() => setSelectedTicketId(ticket._id)}
-                      className={`w-full rounded-[14px] border p-4 text-left transition-colors ${
-                        selectedTicketId === ticket._id ? "border-[#1C4D8D] bg-[#1C4D8D]/[0.06]" : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
+                      className={`w-full rounded-card border p-4 text-left transition-colors ${
+                        selectedTicketId === ticket._id ? "border-brand bg-brand/[0.06]" : "border-[#E5E7EB] hover:bg-[#F9FAFB]"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3 mb-2">
                         <div className="min-w-0">
                           <p className="text-[15px] font-semibold text-[#111827] line-clamp-1">{ticket.subject}</p>
-                          <p className="text-[12px] text-[#6B7280] mt-1 line-clamp-1">
+                          <p className="text-caption text-[#6B7280] mt-1 line-clamp-1">
                             {`${requester?.firstName || ""} ${requester?.lastName || ""}`.trim() || requester?.email || "—"}
                           </p>
                         </div>
@@ -257,7 +257,7 @@ function AdminSupportTicketsContent() {
                           {getTicketStatusLabel(ticket.status, t)}
                         </span>
                       </div>
-                      <p className="text-[12px] text-[#9CA3AF]">{t("supportTickets.list.updatedAt", { date: formatTicketDate(ticket.updatedAt) })}</p>
+                      <p className="text-caption text-[#9CA3AF]">{t("supportTickets.list.updatedAt", { date: formatTicketDate(ticket.updatedAt) })}</p>
                     </button>
                   );
                 })
@@ -265,16 +265,16 @@ function AdminSupportTicketsContent() {
           </div>
         </div>
 
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-6">
           {!selectedTicket ? (
             <div className="py-20 text-center text-[#9CA3AF]">{t("supportTickets.detail.emptyState")}</div>
           ) : (
             <div className="space-y-6">
-              <div className="rounded-[14px] bg-[#F8FAFC] border border-[#E5E7EB] p-5">
+              <div className="rounded-card bg-[#F8FAFC] border border-[#E5E7EB] p-5">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   <div>
                     <h2 className="text-[22px] font-semibold text-[#111827]">{selectedTicket.subject}</h2>
-                    <p className="text-[13px] text-[#6B7280] mt-2">
+                    <p className="text-body-sm text-[#6B7280] mt-2">
                       {t("supportTickets.detail.openedBy", {
                         date: formatTicketDate(selectedTicket.createdAt),
                         name: `${selectedTicket.requester?.firstName || ""} ${selectedTicket.requester?.lastName || ""}`.trim() || selectedTicket.requester?.email || "—",
@@ -289,12 +289,12 @@ function AdminSupportTicketsContent() {
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label htmlFor="ticket-status" className="block text-[13px] text-[#374151] mb-2">{t("supportTickets.detail.statusLabel")}</label>
+                  <label htmlFor="ticket-status" className="block text-body-sm text-[#374151] mb-2">{t("supportTickets.detail.statusLabel")}</label>
                   <select
                     id="ticket-status"
                     value={status}
                     onChange={(event) => { detailsDirtyRef.current = true; setStatus(event.target.value as SupportTicket["status"]); }}
-                    className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                    className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
                   >
                     <option value="open">{t("supportTickets.statuses.open")}</option>
                     <option value="in_progress">{t("supportTickets.statuses.inProgress")}</option>
@@ -304,12 +304,12 @@ function AdminSupportTicketsContent() {
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="ticket-priority" className="block text-[13px] text-[#374151] mb-2">{t("supportTickets.detail.priorityLabel")}</label>
+                  <label htmlFor="ticket-priority" className="block text-body-sm text-[#374151] mb-2">{t("supportTickets.detail.priorityLabel")}</label>
                   <select
                     id="ticket-priority"
                     value={priority}
                     onChange={(event) => { detailsDirtyRef.current = true; setPriority(event.target.value as SupportTicket["priority"]); }}
-                    className="w-full h-11 rounded-[12px] border border-[#E5E7EB] px-3 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                    className="w-full h-11 rounded-xl border border-[#E5E7EB] px-3 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
                   >
                     <option value="low">{t("supportTickets.priorities.low")}</option>
                     <option value="medium">{t("supportTickets.priorities.medium")}</option>
@@ -322,7 +322,7 @@ function AdminSupportTicketsContent() {
                     type="button"
                     onClick={handleUpdateTicket}
                     disabled={isUpdating}
-                    className="w-full h-11 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
+                    className="w-full h-11 rounded-xl bg-brand text-white text-body font-semibold disabled:opacity-60"
                   >
                     {isUpdating ? t("supportTickets.detail.savingButton") : t("supportTickets.detail.saveButton")}
                   </button>
@@ -330,19 +330,19 @@ function AdminSupportTicketsContent() {
               </div>
 
               <div>
-                <label htmlFor="ticket-review-note" className="block text-[13px] text-[#374151] mb-2">{t("supportTickets.detail.internalNoteLabel")}</label>
+                <label htmlFor="ticket-review-note" className="block text-body-sm text-[#374151] mb-2">{t("supportTickets.detail.internalNoteLabel")}</label>
                 <textarea
                   id="ticket-review-note"
                   rows={3}
                   value={reviewNotes}
                   onChange={(event) => { detailsDirtyRef.current = true; setReviewNotes(event.target.value); }}
                   placeholder={t("supportTickets.detail.internalNotePlaceholder")}
-                  className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                  className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
                 />
               </div>
 
               {(selectedTicket.internalNotes || []).length > 0 ? (
-                <section className="rounded-[14px] border border-amber-200 bg-amber-50 p-4" aria-labelledby="internal-notes-title">
+                <section className="rounded-card border border-amber-200 bg-amber-50 p-4" aria-labelledby="internal-notes-title">
                   <h3 id="internal-notes-title" className="text-sm font-semibold text-amber-950">{t("supportTickets.detail.internalNotesTitle")}</h3>
                   <div className="mt-3 space-y-3">
                     {(selectedTicket.internalNotes || []).map((note) => (
@@ -361,22 +361,22 @@ function AdminSupportTicketsContent() {
                   return (
                     <div
                       key={message._id}
-                      className={`rounded-[14px] p-4 border ${
-                        isAdmin ? "bg-[#1C4D8D]/[0.06] border-[#1C4D8D]/20" : "bg-[#F9FAFB] border-[#E5E7EB]"
+                      className={`rounded-card p-4 border ${
+                        isAdmin ? "bg-brand/[0.06] border-brand/20" : "bg-[#F9FAFB] border-[#E5E7EB]"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3 mb-2">
                         <div className="flex items-center gap-2">
                           {isAdmin ? (
-                            <ShieldCheck className="w-4 h-4 text-[#1C4D8D]" />
+                            <ShieldCheck className="w-4 h-4 text-brand" />
                           ) : (
                             <MessageSquare className="w-4 h-4 text-[#6B7280]" />
                           )}
-                          <p className="text-[13px] font-semibold text-[#111827]">{isAdmin ? t("supportTickets.detail.roleAdmin") : t("supportTickets.detail.roleUser")}</p>
+                          <p className="text-body-sm font-semibold text-[#111827]">{isAdmin ? t("supportTickets.detail.roleAdmin") : t("supportTickets.detail.roleUser")}</p>
                         </div>
-                        <p className="text-[12px] text-[#6B7280]">{formatTicketDate(message.createdAt)}</p>
+                        <p className="text-caption text-[#6B7280]">{formatTicketDate(message.createdAt)}</p>
                       </div>
-                      <p className="text-[14px] leading-relaxed text-[#374151]">{message.body}</p>
+                      <p className="text-body leading-relaxed text-[#374151]">{message.body}</p>
                     </div>
                   );
                 })}
@@ -388,13 +388,13 @@ function AdminSupportTicketsContent() {
                   value={replyDraft}
                   onChange={(event) => setReplyDraft(event.target.value)}
                   placeholder={t("supportTickets.detail.replyPlaceholder")}
-                  className="w-full rounded-[12px] border border-[#E5E7EB] px-3 py-2 text-[13px] text-[#111827] focus:outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                  className="w-full rounded-xl border border-[#E5E7EB] px-3 py-2 text-body-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-brand"
                 />
                 <button
                   type="button"
                   onClick={handleReply}
                   disabled={isReplying || !replyDraft.trim()}
-                  className="inline-flex items-center gap-2 px-4 py-3 rounded-[12px] bg-[#1C4D8D] text-white text-[14px] font-semibold disabled:opacity-60"
+                  className="inline-flex items-center gap-2 px-4 py-3 rounded-xl bg-brand text-white text-body font-semibold disabled:opacity-60"
                 >
                   <Send className="w-4 h-4" />
                   {isReplying ? t("supportTickets.detail.sendingReply") : t("supportTickets.detail.sendReply")}

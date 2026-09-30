@@ -74,10 +74,10 @@ export function ProfileReviewsLoader({
   }, [loadPage]);
 
   if (!profileOwnerId || loading) {
-    return <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading ratings and reviews…</div>;
+    return <div className="rounded-card border border-slate-200 bg-white p-6 text-sm text-slate-500">Loading ratings and reviews…</div>;
   }
   if (error) {
-    return <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">{error}</div>;
+    return <div className="rounded-card border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">{error}</div>;
   }
 
   return (

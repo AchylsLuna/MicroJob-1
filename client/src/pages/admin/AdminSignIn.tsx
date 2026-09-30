@@ -89,15 +89,15 @@ export function AdminSignIn() {
   };
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#1C4D8D] p-4 sm:p-6">
+    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-brand p-4 sm:p-6">
       <div className="relative w-full max-w-[520px] rounded-[24px] border border-white/70 bg-white/95 p-6 shadow-[0_24px_80px_rgba(15,41,84,0.35)] backdrop-blur sm:p-8 lg:p-10">
         <div className="text-center mb-8">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#1C4D8D] shadow-lg shadow-[#1C4D8D]/20">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[18px] bg-brand shadow-lg shadow-brand/20">
             <Shield className="w-8 h-8 text-white" />
           </div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">{t("signIn.eyebrow")}</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-brand">{t("signIn.eyebrow")}</p>
           <h1 className="mb-2 text-[28px] font-bold text-[#111827]">{t("signIn.title")}</h1>
-          <p className="text-[14px] text-[#4B5563]">{t("signIn.subtitle")}</p>
+          <p className="text-body text-[#4B5563]">{t("signIn.subtitle")}</p>
         </div>
 
         {mfaChallenge ? (
@@ -113,7 +113,7 @@ export function AdminSignIn() {
           />
         ) : <form onSubmit={handleSignIn} className="space-y-5">
           <div>
-            <label htmlFor="admin-email" className="text-[14px] font-medium text-[#111827] mb-2 block">{t("signIn.emailLabel")}</label>
+            <label htmlFor="admin-email" className="text-body font-medium text-[#111827] mb-2 block">{t("signIn.emailLabel")}</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
@@ -125,14 +125,14 @@ export function AdminSignIn() {
                 autoComplete="username"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-4 py-4 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl pl-12 pr-4 py-4 text-body text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                 disabled={isLoading}
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="admin-password" className="text-[14px] font-medium text-[#111827] mb-2 block">{t("signIn.passwordLabel")}</label>
+            <label htmlFor="admin-password" className="text-body font-medium text-[#111827] mb-2 block">{t("signIn.passwordLabel")}</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
               <input
@@ -144,7 +144,7 @@ export function AdminSignIn() {
                 autoCorrect="off"
                 autoCapitalize="none"
                 spellCheck={false}
-                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-[12px] pl-12 pr-12 py-4 text-[14px] text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl pl-12 pr-12 py-4 text-body text-[#111827] placeholder-[#9CA3AF] outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                 disabled={isLoading}
               />
               <button
@@ -161,7 +161,7 @@ export function AdminSignIn() {
           <button
             type="submit"
             disabled={isLoading}
-            className="brand-primary-interactive w-full rounded-[12px] px-6 py-4 font-semibold hover:shadow-xl"
+            className="brand-primary-interactive w-full rounded-xl px-6 py-4 font-semibold hover:shadow-xl"
           >
             {isLoading ? t("signIn.submitLoading") : t("signIn.submit")}
           </button>

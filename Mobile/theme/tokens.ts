@@ -47,6 +47,10 @@ export const tokens = {
   radius: {
     sm: 10,
     md: 14,
+    // Mirrors `client/src/constants/tokens.ts`, where 16 is the dominant panel
+    // radius. Added here to satisfy the bidirectional drift check rather than
+    // because mobile needs it today -- no mobile component is being restyled.
+    card: 16,
     lg: 18,
     pill: 999,
   },
@@ -64,6 +68,9 @@ export const tokens = {
     h2: 22,
     h3: 18,
     body: 14,
+    // Mirrors `client/src/constants/tokens.ts`, where 13 is the most-used text
+    // size. Added for drift parity; no mobile component is being restyled.
+    bodySm: 13,
     caption: 12,
     label: 14,
     control: 15,

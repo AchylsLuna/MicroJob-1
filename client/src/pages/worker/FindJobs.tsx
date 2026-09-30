@@ -567,8 +567,8 @@ export function FindJobs() {
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-4 font-sans">
-      <section className="relative overflow-hidden rounded-3xl bg-[#1C4D8D] px-5 py-7 text-white shadow-[0_14px_36px_rgba(28,77,141,0.18)] sm:px-8 lg:px-10" aria-labelledby="job-search-heading">
-        <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-blue-400/10" aria-hidden="true" />
+      <section className="relative overflow-hidden rounded-3xl bg-brand px-5 py-7 text-white shadow-[0_14px_36px_rgba(28,77,141,0.18)] sm:px-8 lg:px-10" aria-labelledby="job-search-heading">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-brand-400/10" aria-hidden="true" />
         <div className="relative max-w-4xl">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/85">{t("findJobs.hero.eyebrow")}</p>
           <h1 id="job-search-heading" className="mt-2 max-w-3xl text-3xl font-bold tracking-tight sm:text-4xl">{t("findJobs.hero.title")}</h1>
@@ -576,7 +576,7 @@ export function FindJobs() {
         </div>
 
         <form
-          className="relative mt-6 grid gap-3 rounded-2xl bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.35fr)_minmax(11rem,0.35fr)]"
+          className="relative mt-6 grid gap-3 rounded-card bg-white/10 p-3 lg:grid-cols-[minmax(0,1fr)_minmax(11rem,0.35fr)_minmax(11rem,0.35fr)]"
           role="search"
           onSubmit={(event) => event.preventDefault()}
         >
@@ -588,7 +588,7 @@ export function FindJobs() {
               value={searchParams.get("q") || ""}
               onChange={(event) => updateSearchParam("q", event.target.value || null)}
               placeholder={t("findJobs.hero.searchPlaceholder")}
-              className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500"
+              className="h-14 w-full rounded-xl border-0 bg-white pl-12 pr-4 text-base text-slate-950 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-brand-500"
             />
           </label>
           <label className="min-w-0">
@@ -596,7 +596,7 @@ export function FindJobs() {
             <select
               value={selectedCategory}
               onChange={(event) => updateSearchParam("category", event.target.value || null)}
-              className="h-14 w-full rounded-xl border-0 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+              className="h-14 w-full rounded-xl border-0 bg-white px-4 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">{t("findJobs.hero.allCategories")}</option>
               {categories.map((category) => <option key={category._id} value={category._id}>{category.name}</option>)}
@@ -610,7 +610,7 @@ export function FindJobs() {
       </section>
 
       {isLocationLoaded && !workerCity && (
-        <aside role="status" className="flex flex-col gap-3 rounded-2xl border border-[#1C4D8D]/20 bg-[#1C4D8D]/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <aside role="status" className="flex flex-col gap-3 rounded-card border border-brand/20 bg-brand/[0.06] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-bold text-slate-950">{t("findJobs.locationBanner.title")}</p>
             <p className="mt-1 text-sm text-slate-600">{t("findJobs.locationBanner.subtitle")}</p>
@@ -635,15 +635,15 @@ export function FindJobs() {
             onClick={() => setShowPreferences((prev) => !prev)}
             aria-haspopup="menu"
             aria-expanded={showPreferences}
-            className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition ${
-              preferencesActive ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]" : "border-slate-300 text-slate-700 hover:border-slate-400"
+            className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-body-sm font-semibold transition ${
+              preferencesActive ? "border-brand bg-[#EAF2FC] text-brand" : "border-slate-300 text-slate-700 hover:border-slate-400"
             }`}
           >
             {t("findJobs.preferences.title")}
             <ChevronDown className={`h-3.5 w-3.5 transition-transform ${showPreferences ? "rotate-180" : ""}`} aria-hidden="true" />
           </button>
           {showPreferences ? (
-            <div role="menu" aria-label={t("findJobs.preferences.title")} className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-96">
+            <div role="menu" aria-label={t("findJobs.preferences.title")} className="absolute left-0 right-0 top-full z-50 mt-2 w-auto overflow-hidden rounded-card border border-slate-200 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.16)] sm:right-auto sm:w-96">
               <p className="text-xs text-slate-500">{t("findJobs.preferences.subtitle")}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {categories.map((category) => {
@@ -658,7 +658,7 @@ export function FindJobs() {
                       aria-pressed={selected}
                       className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                         selected
-                          ? "border-[#1C4D8D] bg-[#EAF2FC] text-[#1C4D8D]"
+                          ? "border-brand bg-[#EAF2FC] text-brand"
                           : "border-slate-200 text-slate-600 hover:border-slate-300"
                       }`}
                     >
@@ -674,13 +674,13 @@ export function FindJobs() {
                   value={jobPreferenceText}
                   onChange={(event) => setJobPreferenceText(event.target.value)}
                   placeholder={t("findJobs.preferences.keywordsPlaceholder")}
-                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-[#1C4D8D] focus:ring-2 focus:ring-blue-100"
+                  className="min-h-11 min-w-0 flex-1 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand-100"
                 />
                 <button
                   type="button"
                   onClick={savePreferences}
                   disabled={savingPreferences}
-                  className="min-h-11 rounded-xl bg-[#1C4D8D] px-5 text-sm font-bold text-white transition hover:bg-[#163F75] disabled:opacity-50"
+                  className="min-h-11 rounded-xl bg-brand px-5 text-sm font-bold text-white transition hover:opacity-90 disabled:opacity-50"
                 >
                   {savingPreferences ? t("findJobs.preferences.saving") : t("findJobs.preferences.save")}
                 </button>
@@ -691,8 +691,8 @@ export function FindJobs() {
 
         {activeFilterCount > 0 ? (
           <>
-            <span className="text-[13px] text-slate-400">{t("findJobs.filters.activeCount", { count: activeFilterCount })}</span>
-            <button type="button" onClick={clearAllFilters} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+            <span className="text-body-sm text-slate-400">{t("findJobs.filters.activeCount", { count: activeFilterCount })}</span>
+            <button type="button" onClick={clearAllFilters} className="text-body-sm font-semibold text-brand hover:underline">
               {t("findJobs.filters.clearAll")}
             </button>
           </>
@@ -704,7 +704,7 @@ export function FindJobs() {
           profile data to match on we show a prompt instead of zero-percent
           cards dressed up as personalised picks. */}
       {showRecommendations ? (
-        <section aria-labelledby="recommended-heading" className="rounded-2xl border border-slate-200 bg-white p-4">
+        <section aria-labelledby="recommended-heading" className="rounded-card border border-slate-200 bg-white p-4">
           <h2 id="recommended-heading" className="text-[15px] font-bold text-slate-950">
             {t("findJobs.recommended.title")}
           </h2>
@@ -750,7 +750,7 @@ export function FindJobs() {
                 <button
                   type="button"
                   onClick={() => setShowAllRecommended((previous) => !previous)}
-                  className="mt-2 text-[13px] font-semibold text-[#1C4D8D] hover:underline"
+                  className="mt-2 text-body-sm font-semibold text-brand hover:underline"
                 >
                   {showAllRecommended
                     ? t("findJobs.recommended.showLess")
@@ -775,7 +775,7 @@ export function FindJobs() {
               : t("findJobs.results.sortedBy", { sort: sortLabels[sortBy].toLowerCase() })}
           </p>
         </div>
-        <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-600 shadow-sm focus-within:ring-2 focus-within:ring-blue-600">
+        <label className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-slate-600 shadow-sm focus-within:ring-2 focus-within:ring-brand-600">
           <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
           <span className="sr-only">{t("findJobs.sort.ariaLabel")}</span>
           <select value={sortBy} onChange={(event) => setSortBy(event.target.value as typeof sortBy)} className="min-h-10 bg-transparent text-sm font-semibold outline-none" aria-label={t("findJobs.sort.ariaLabel")}>
@@ -789,13 +789,13 @@ export function FindJobs() {
           wrapper mirrors the loaded grid below exactly -- without it the
           placeholder list spanned the full width on lg+ and then snapped
           into the 380px column once results arrived. The tile is 44px /
-          rounded-[14px] to match CategoryTile size="sm". */}
+          rounded-card to match CategoryTile size="sm". */}
       {isLoading && (
         <div role="status" aria-label={t("findJobs.status.loading.title")} className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)]">
           <div className="space-y-1">
             {[0, 1, 2, 3, 4].map((index) => (
               <div key={index} className="flex items-start gap-3 rounded-xl border-l-2 border-l-transparent bg-white p-3">
-                <Skeleton className="h-11 w-11 rounded-[14px]" />
+                <Skeleton className="h-11 w-11 rounded-card" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-4 w-2/5" />
                   <Skeleton className="h-3 w-3/5" />

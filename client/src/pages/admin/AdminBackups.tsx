@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Dialog } from "../../components/ui";
 import {
   Archive,
   CheckCircle2,
@@ -183,14 +184,14 @@ function AdminBackupsContent() {
 
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
-      <section className="rounded-2xl border border-[#1C4D8D]/20 bg-[#1C4D8D] p-6 text-white shadow-lg shadow-[#1C4D8D]/10">
+      <section className="rounded-card border border-brand/20 bg-brand p-6 text-white shadow-lg shadow-brand/10">
         <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
           <div>
             <div className="mb-2 inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold"><ShieldCheck className="h-4 w-4" /> Protected backup vault</div>
             <h1 className="text-2xl font-bold">Automatic Backup &amp; Recovery</h1>
             <p className="mt-2 max-w-2xl text-sm text-white/85">Back up users, jobs, transactions, application settings, reports, and other system records on a controlled schedule.</p>
           </div>
-          <button type="button" onClick={() => void createBackup()} disabled={isBackingUp || isLoading} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-[#1C4D8D] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+          <button type="button" onClick={() => void createBackup()} disabled={isBackingUp || isLoading} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-brand hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
             <Archive className={`h-4 w-4 ${isBackingUp ? "animate-pulse" : ""}`} /> {isBackingUp ? "Creating…" : "Create backup now"}
           </button>
         </div>
@@ -199,10 +200,10 @@ function AdminBackupsContent() {
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {[
           { label: "Last successful backup", value: latest ? new Date(latest.createdAt).toLocaleString() : "No backup yet", icon: CheckCircle2, tone: "text-emerald-700 bg-emerald-50" },
-          { label: "Next scheduled backup", value: nextRun ? nextRun.toLocaleString() : "After the first backup", icon: Clock3, tone: "text-blue-700 bg-blue-50" },
+          { label: "Next scheduled backup", value: nextRun ? nextRun.toLocaleString() : "After the first backup", icon: Clock3, tone: "text-brand-700 bg-brand-50" },
           { label: "Protected records", value: recordsLabel, icon: HardDrive, tone: "text-violet-700 bg-violet-50" },
         ].map((card) => (
-          <div key={card.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div key={card.label} className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
             <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${card.tone}`}><card.icon className="h-5 w-5" /></div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
             <p className="mt-2 text-sm font-semibold text-slate-900">{card.value}</p>
@@ -210,26 +211,55 @@ function AdminBackupsContent() {
         ))}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3"><RefreshCw className="mt-1 h-5 w-5 text-[#1C4D8D]" /><div><h2 className="text-lg font-semibold text-slate-900">Backup schedule &amp; retention</h2><p className="mt-1 text-sm text-slate-500">Automatic runs are checked while an authorized admin session is active. Old history is removed after the retention period.</p></div></div>
+      <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-3"><RefreshCw className="mt-1 h-5 w-5 text-brand" /><div><h2 className="text-lg font-semibold text-slate-900">Backup schedule &amp; retention</h2><p className="mt-1 text-sm text-slate-500">Automatic runs are checked while an authorized admin session is active. Old history is removed after the retention period.</p></div></div>
         <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-          <label className="text-sm font-medium text-slate-700">Frequency<select value={settings.frequency} onChange={(event) => updateSettings({ frequency: event.target.value as BackupFrequency })} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="custom">Custom interval</option></select></label>
-          <label className="text-sm font-medium text-slate-700">{settings.frequency === "custom" ? "Run every (days)" : "Custom interval (days)"}<input type="number" min="1" max="365" value={settings.customDays} onChange={(event) => updateSettings({ customDays: Math.max(1, Number(event.target.value) || 1) })} disabled={settings.frequency !== "custom"} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 disabled:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]" /></label>
-          <label className="text-sm font-medium text-slate-700">Retention period (days)<input type="number" min="1" max="3650" value={settings.retentionDays} onChange={(event) => updateSettings({ retentionDays: Math.max(1, Number(event.target.value) || 1) })} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]" /></label>
+          <label className="text-sm font-medium text-slate-700">Frequency<select value={settings.frequency} onChange={(event) => updateSettings({ frequency: event.target.value as BackupFrequency })} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="custom">Custom interval</option></select></label>
+          <label className="text-sm font-medium text-slate-700">{settings.frequency === "custom" ? "Run every (days)" : "Custom interval (days)"}<input type="number" min="1" max="365" value={settings.customDays} onChange={(event) => updateSettings({ customDays: Math.max(1, Number(event.target.value) || 1) })} disabled={settings.frequency !== "custom"} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 disabled:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" /></label>
+          <label className="text-sm font-medium text-slate-700">Retention period (days)<input type="number" min="1" max="3650" value={settings.retentionDays} onChange={(event) => updateSettings({ retentionDays: Math.max(1, Number(event.target.value) || 1) })} className="mt-2 min-h-11 w-full rounded-xl border border-slate-300 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand" /></label>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section className="rounded-card border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center justify-between gap-3"><div><h2 className="text-lg font-semibold text-slate-900">Backup history</h2><p className="mt-1 text-sm text-slate-500">Each snapshot is checksum-validated before it can be recovered.</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{history.length} stored</span></div>
         <div className="mt-5 overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm"><caption className="sr-only">Backup history</caption><thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Date &amp; time</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">File size</th><th className="px-3 py-3">Checksum</th><th className="px-3 py-3 text-right">Actions</th></tr></thead><tbody className="divide-y divide-slate-100">
-            {history.map((record) => <tr key={record.id}><td className="px-3 py-4 font-medium text-slate-900">{new Date(record.createdAt).toLocaleString()}</td><td className="px-3 py-4">{record.status === "success" ? <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Successful</span> : <span className="inline-flex items-center gap-1.5 font-semibold text-red-700" title={record.error}><XCircle className="h-4 w-4" /> Failed</span>}</td><td className="px-3 py-4 text-slate-600">{record.status === "success" ? formatSize(record.sizeBytes) : "—"}</td><td className="px-3 py-4 font-mono text-xs text-slate-500">{record.checksum ? `${record.checksum.slice(0, 12)}…` : "—"}</td><td className="px-3 py-4"><div className="flex justify-end gap-2">{record.status === "success" && <><button type="button" onClick={() => downloadBackup(record)} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-[#1C4D8D] hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"><Download className="h-4 w-4" /> Download</button><button type="button" onClick={() => setRestoreId(record.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"><RotateCcw className="h-4 w-4" /> Restore</button></>}</div></td></tr>)}
+            {history.map((record) => <tr key={record.id}><td className="px-3 py-4 font-medium text-slate-900">{new Date(record.createdAt).toLocaleString()}</td><td className="px-3 py-4">{record.status === "success" ? <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Successful</span> : <span className="inline-flex items-center gap-1.5 font-semibold text-red-700" title={record.error}><XCircle className="h-4 w-4" /> Failed</span>}</td><td className="px-3 py-4 text-slate-600">{record.status === "success" ? formatSize(record.sizeBytes) : "—"}</td><td className="px-3 py-4 font-mono text-xs text-slate-500">{record.checksum ? `${record.checksum.slice(0, 12)}…` : "—"}</td><td className="px-3 py-4"><div className="flex justify-end gap-2">{record.status === "success" && <><button type="button" onClick={() => downloadBackup(record)} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-brand hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><Download className="h-4 w-4" /> Download</button><button type="button" onClick={() => setRestoreId(record.id)} className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"><RotateCcw className="h-4 w-4" /> Restore</button></>}</div></td></tr>)}
             {!history.length && <tr><td colSpan={5} className="px-3 py-10 text-center text-sm text-slate-500">No backups yet. Create one now or wait for the configured schedule.</td></tr>}
           </tbody></table>
         </div>
       </section>
 
-      {restoreId && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="restore-title"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"><h2 id="restore-title" className="text-lg font-semibold text-slate-900">Validate and restore backup?</h2><p className="mt-2 text-sm text-slate-600">Only authorized administrators can continue. The snapshot will be checksum-validated before recovery.</p><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setRestoreId(null)} className="min-h-11 rounded-xl px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100">Cancel</button><button type="button" onClick={() => { const record = history.find((item) => item.id === restoreId); if (record) void restoreBackup(record); }} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-semibold text-white hover:bg-[#0F2954]"><ShieldCheck className="h-4 w-4" /> Validate &amp; restore</button></div></div></div>}
+      {restoreId ? (
+        <Dialog
+          open
+          title="Validate and restore backup?"
+          description="Only authorized administrators can continue. The snapshot will be checksum-validated before recovery."
+          onClose={() => setRestoreId(null)}
+        >
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setRestoreId(null)}
+              className="min-h-11 rounded-xl px-4 text-sm font-semibold text-slate-600 hover:bg-slate-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const record = history.find((item) => item.id === restoreId);
+                if (record) void restoreBackup(record);
+              }}
+              // Opacity, not a darker blue. `bg-[#0F2954]` was a hand-picked
+              // shade step the brand does not have -- see constants/tokens.ts.
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white transition hover:opacity-90"
+            >
+              <ShieldCheck className="h-4 w-4" /> Validate &amp; restore
+            </button>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

@@ -25,7 +25,7 @@ interface EmployerJob {
 
 const JOB_STATUS_STYLE: Record<EmployerJob["status"], string> = {
   Available: "bg-emerald-100 text-emerald-800",
-  "In Progress": "bg-blue-100 text-blue-800",
+  "In Progress": "bg-brand-100 text-brand-800",
   Completed: "bg-violet-100 text-violet-800",
   Cancelled: "bg-red-100 text-red-800",
   Closed: "bg-slate-200 text-slate-700",
@@ -151,7 +151,7 @@ export function Profile() {
   return (
     <div className="ui-page">
       {profileError && (
-        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-[14px] text-[#991B1B]">
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-[#FECACA] bg-[#FEF2F2] px-5 py-4 text-body text-[#991B1B]">
           <span>{profileError}</span>
           <button type="button" onClick={() => setProfileReloadKey((value) => value + 1)} className="flex items-center gap-2 font-semibold">
             <RefreshCw className="h-4 w-4" /> {t("profile.retry")}
@@ -178,7 +178,7 @@ export function Profile() {
             {profileUserId ? (
               <Button
                 onClick={() => navigate(`${ROUTES.publicProfile(profileUserId)}?viewAs=employer`)}
-                className="!bg-white !text-[#1C4D8D] ring-1 ring-[#1C4D8D]/30 hover:!bg-[#1C4D8D]/[0.06]"
+                className="!bg-white !text-brand ring-1 ring-brand/30 hover:!bg-brand/[0.06]"
               >
                 <Eye className="h-4 w-4" aria-hidden="true" />
                 {t("profile.publicView")}
@@ -196,7 +196,7 @@ export function Profile() {
       </div>
 
       {/* Tabs */}
-      <div className="rounded-[14px] border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-card border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-6">
           <SettingsTabList
             variant="underline"
@@ -217,7 +217,7 @@ export function Profile() {
               <div className="lg:col-span-2 space-y-6">
                 <div>
                   <h2 className="mb-3 text-[17px] font-bold text-[#0F172A]">{t("profile.overviewTab.companyDescription")}</h2>
-                  <p className="text-[14px] leading-6 text-slate-600">
+                  <p className="text-body leading-6 text-slate-600">
                     {profileUser?.about || t("profile.overviewTab.aboutFallback")}
                   </p>
                 </div>
@@ -227,46 +227,46 @@ export function Profile() {
                 <h2 className="mb-3 text-[15px] font-bold text-[#0F172A]">{t("profile.overviewTab.contactInfo")}</h2>
                 <dl className="divide-y divide-slate-100 border-y border-slate-100">
                   <div className="flex items-baseline justify-between gap-4 py-2.5">
-                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                    <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                       <Mail className="h-4 w-4 text-slate-400" aria-hidden="true" />
                       {t("profile.overviewTab.email")}
                     </dt>
-                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                    <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                       {profileUser?.email
-                        ? <a href={`mailto:${profileUser.email}`} className="break-all hover:text-[#1C4D8D]">{profileUser.email}</a>
+                        ? <a href={`mailto:${profileUser.email}`} className="break-all hover:text-brand">{profileUser.email}</a>
                         : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-4 py-2.5">
-                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                    <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                       <Phone className="h-4 w-4 text-slate-400" aria-hidden="true" />
                       {t("profile.overviewTab.phone")}
                     </dt>
-                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                    <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                       {profileUser?.phoneNumber
-                        ? <a href={`tel:${profileUser.phoneNumber}`} className="hover:text-[#1C4D8D]">{profileUser.phoneNumber}</a>
+                        ? <a href={`tel:${profileUser.phoneNumber}`} className="hover:text-brand">{profileUser.phoneNumber}</a>
                         : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-4 py-2.5">
-                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                    <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                       <Linkedin className="h-4 w-4 text-slate-400" aria-hidden="true" />
                       {t("profile.overviewTab.linkedin")}
                     </dt>
-                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                    <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                       {safeLinkedinUrl
-                        ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                        ? <a href={safeLinkedinUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-brand">{t("profile.overviewTab.openProfile")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
                         : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                     </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-4 py-2.5">
-                    <dt className="flex shrink-0 items-center gap-2 text-[13px] text-slate-500">
+                    <dt className="flex shrink-0 items-center gap-2 text-body-sm text-slate-500">
                       <Globe className="h-4 w-4 text-slate-400" aria-hidden="true" />
                       {t("profile.overviewTab.website")}
                     </dt>
-                    <dd className="min-w-0 text-right text-[14px] font-medium text-[#0F172A]">
+                    <dd className="min-w-0 text-right text-body font-medium text-[#0F172A]">
                       {safeWebsiteUrl
-                        ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-[#1C4D8D]">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
+                        ? <a href={safeWebsiteUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-brand">{t("profile.overviewTab.visitWebsite")} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" /></a>
                         : <span className="text-slate-400">{t("profile.overviewTab.notSet")}</span>}
                     </dd>
                   </div>
@@ -281,21 +281,21 @@ export function Profile() {
                 <div>
                   <h2 className="text-[20px] font-semibold text-[#1e293b]">{t("profile.jobsTab.heading")}</h2>
                   {!profileLoading && totalApplicants > 0 ? (
-                    <p className="mt-1 text-[13px] text-[#64748b]">
+                    <p className="mt-1 text-body-sm text-slate-500">
                       {t("profile.jobsTab.totalApplicants", { count: totalApplicants })}
                     </p>
                   ) : null}
                 </div>
-                <button type="button" onClick={() => navigate(ROUTES.employer.jobs)} className="text-[13px] font-semibold text-[#1C4D8D] hover:underline">
+                <button type="button" onClick={() => navigate(ROUTES.employer.jobs)} className="text-body-sm font-semibold text-brand hover:underline">
                   {t("profile.jobsTab.manage")}
                 </button>
               </div>
 
               {jobsLoading ? (
-                <p className="py-8 text-center text-[14px] text-[#64748b]">{t("profile.jobsTab.loading")}</p>
+                <p className="py-8 text-center text-body text-slate-500">{t("profile.jobsTab.loading")}</p>
               ) : jobsError ? (
-                <div className="rounded-[16px] border border-[#fed7aa] bg-[#fff7ed] py-8 text-center">
-                  <p className="text-[14px] text-[#9a3412]">{jobsError}</p>
+                <div className="rounded-card border border-[#fed7aa] bg-[#fff7ed] py-8 text-center">
+                  <p className="text-body text-[#9a3412]">{jobsError}</p>
                 </div>
               ) : jobs.length ? (
                 <div className="space-y-3">
@@ -304,9 +304,9 @@ export function Profile() {
                       key={job._id}
                       type="button"
                       onClick={() => navigate(ROUTES.employer.jobs)}
-                      className="flex w-full gap-4 rounded-[14px] border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-left transition hover:border-[#1C4D8D]/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                      className="flex w-full gap-4 rounded-card border border-[#E2E8F0] bg-[#F8FAFC] p-5 text-left transition hover:border-brand/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#1C4D8D] text-[13px] font-bold text-white">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-brand text-body-sm font-bold text-white">
                         {initialsOf(job.title, "J")}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -316,11 +316,11 @@ export function Profile() {
                             {job.status}
                           </span>
                         </div>
-                        <p className="text-[13px] text-[#475569]">{job.location || t("profile.jobsTab.locationNotSet")}</p>
+                        <p className="text-body-sm text-[#475569]">{job.location || t("profile.jobsTab.locationNotSet")}</p>
                         {job.description ? (
-                          <p className="mt-2 line-clamp-2 text-[13px] leading-relaxed text-[#475569]">{job.description}</p>
+                          <p className="mt-2 line-clamp-2 text-body-sm leading-relaxed text-[#475569]">{job.description}</p>
                         ) : null}
-                        <div className="mt-3 flex flex-wrap items-center gap-4 text-[12px] text-[#64748B]">
+                        <div className="mt-3 flex flex-wrap items-center gap-4 text-caption text-slate-500">
                           <span className="flex items-center gap-1.5">
                             <Briefcase className="h-3.5 w-3.5" />
                             {job.createdAt ? formatDate(new Date(job.createdAt), { month: "short", year: "numeric" }) : t("profile.jobsTab.dateUnavailable")}
@@ -335,13 +335,13 @@ export function Profile() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-[16px] border border-dashed border-[#CBD5E1] bg-[#F8FAFC] py-12 text-center">
+                <div className="rounded-card border border-dashed border-[#CBD5E1] bg-[#F8FAFC] py-12 text-center">
                   <Briefcase className="mx-auto mb-3 h-10 w-10 text-[#94A3B8]" />
-                  <p className="text-[14px] text-[#64748b] mb-4">{t("profile.jobsTab.empty")}</p>
+                  <p className="text-body text-slate-500 mb-4">{t("profile.jobsTab.empty")}</p>
                   <button
                     type="button"
                     onClick={() => navigate(ROUTES.employer.postJob)}
-                    className="bg-[#1C4D8D] text-white font-semibold py-2 px-4 rounded-[10px] hover:opacity-90 transition-all text-[13px]"
+                    className="bg-brand text-white font-semibold py-2 px-4 rounded-control hover:opacity-90 transition-all text-body-sm"
                   >
                     {t("profile.jobsTab.postJobCta")}
                   </button>

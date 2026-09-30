@@ -325,8 +325,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     }`;
 
   const getChildNavButtonClass = (active: boolean) =>
-    `flex min-h-11 w-full items-center rounded-xl py-2.5 pl-12 pr-4 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
-      active ? "bg-blue-50 font-semibold text-[#1C4D8D]" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+    `flex min-h-11 w-full items-center rounded-xl py-2.5 pl-12 pr-4 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+      active ? "bg-brand-50 font-semibold text-brand" : "font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900"
     }`;
 
   const CollapsedMenuIcon = ({ icon }: { icon: string }) => {
@@ -371,7 +371,13 @@ const Sidebar: React.FC<SidebarProps> = ({
     <aside
       id={mobile ? "mobile-dashboard-navigation" : undefined}
       aria-label="Primary navigation"
-      className={`${webUi.sidebar.root} w-full p-4 transition-[padding] duration-200 sm:p-5 [@media(max-height:700px)]:p-2 ${isCollapsed ? "items-center px-3 sm:px-3" : ""}`}
+      // The mobile drawer stops short of the cookie banner, so on a short phone
+      // there may not be room for the nav list *and* the pinned footer. The
+      // desktop rail keeps `overflow-hidden` (it always has the full column
+      // height), but in the drawer the panel itself has to be able to scroll --
+      // otherwise the footer's Settings entry and account card are clipped away
+      // with no way to reach them.
+      className={`${webUi.sidebar.root} w-full p-4 transition-[padding] duration-200 sm:p-5 [@media(max-height:700px)]:p-2 ${mobile ? "!overflow-y-auto overscroll-contain" : ""} ${isCollapsed ? "items-center px-3 sm:px-3" : ""}`}
     >
       <div className="dashboard-sidebar-header mb-6 flex shrink-0 items-center justify-between [@media(max-height:700px)]:mb-0">
         <MicroJobsLogo onClick={() => navigate(ROUTES.home)} markOnly={isCollapsed} className="min-h-11 min-w-0 cursor-pointer" />
@@ -381,7 +387,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             type="button"
             onClick={onClose}
             data-mobile-nav-close="true"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             aria-label="Close navigation menu"
           >
             <X className="h-5 w-5" />
@@ -390,7 +396,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             type="button"
             onClick={onToggleCollapsed}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
@@ -433,7 +439,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       event.stopPropagation();
                       setIsEmployerGroupOpen((prev) => !prev);
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+                    className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 transition-colors hover:text-gray-700"
                     aria-label={isEmployerGroupOpen ? "Collapse Post a Job menu" : "Expand Post a Job menu"}
                   >
                     <ChevronDown
@@ -497,7 +503,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {isCollapsed ? <Settings aria-hidden="true" className="mx-auto h-5 w-5" /> : <span>{pinnedSettingsItem.label}</span>}
           </button>
         )}
-        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-blue-200 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1">
+        <button onClick={() => navigate(effectiveRole === "user" ? ROUTES.worker.profile : dashboardPath)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-card border border-slate-200 bg-slate-50 p-3 text-slate-900 transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand [@media(max-height:700px)]:min-h-11 [@media(max-height:700px)]:p-1">
           <div className="flex items-center gap-3">
             {authUser?.avatarUrl ? (
               <img
@@ -506,7 +512,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 className="h-10 w-10 flex-shrink-0 rounded-full object-cover [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8"
               />
             ) : (
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-blue-700 text-sm font-bold text-white [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-brand-700 text-sm font-bold text-white [@media(max-height:700px)]:h-8 [@media(max-height:700px)]:w-8">
                 {displayUserName.slice(0, 2).toUpperCase()}
               </div>
             )}

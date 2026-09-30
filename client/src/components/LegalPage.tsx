@@ -37,12 +37,12 @@ export function LegalPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[#F8FAFC] py-8 sm:py-10">
+    <main className="min-h-dvh bg-[#F8FAFC] py-8 sm:py-10">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
         <button
           type="button"
           onClick={handleBack}
-          className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#D1D5DB] bg-white px-4 text-[13px] font-semibold text-[#374151] transition-colors hover:bg-[#F9FAFB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+          className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-lg border border-[#D1D5DB] bg-white px-4 text-body-sm font-semibold text-[#374151] transition-colors hover:bg-[#F9FAFB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           Back
@@ -55,7 +55,7 @@ export function LegalPage() {
               screens instead of scrolling inside itself. */}
           <nav
             aria-label="Legal documents"
-            className="min-w-0 rounded-[16px] border border-[#E5E7EB] bg-white p-2 shadow-sm"
+            className="min-w-0 rounded-card border border-[#E5E7EB] bg-white p-2 shadow-sm"
           >
             <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:overflow-visible">
               {LEGAL_DOCUMENTS.map((doc) => {
@@ -66,9 +66,9 @@ export function LegalPage() {
                       type="button"
                       onClick={() => selectDoc(doc.id)}
                       aria-current={selected ? "page" : undefined}
-                      className={`w-full whitespace-nowrap rounded-[10px] px-4 py-3 text-left text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] lg:whitespace-normal ${
+                      className={`w-full whitespace-nowrap rounded-control px-4 py-3 text-left text-body font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand lg:whitespace-normal ${
                         selected
-                          ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]"
+                          ? "bg-brand/[0.08] text-brand"
                           : "text-[#4B5563] hover:bg-[#F9FAFB] hover:text-[#111827]"
                       }`}
                     >

@@ -36,24 +36,24 @@ export function InitialPasswordChange() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-10 flex items-center justify-center">
-      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" noValidate>
+    <main className="min-h-dvh bg-slate-50 px-4 py-10 flex items-center justify-center">
+      <form onSubmit={handleSubmit} className="w-full max-w-md rounded-card border border-slate-200 bg-white p-6 shadow-sm" noValidate>
         <div className="mb-6">
-          <p className="text-sm font-semibold text-blue-700">{t("initialPasswordChange.eyebrow")}</p>
+          <p className="text-sm font-semibold text-brand-700">{t("initialPasswordChange.eyebrow")}</p>
           <h1 className="mt-1 text-2xl font-bold text-slate-900">{t("initialPasswordChange.title")}</h1>
           <p className="mt-2 text-sm text-slate-600">{t("initialPasswordChange.subtitle")}</p>
         </div>
         {error && <div role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
         <div className="space-y-4">
           <label className="block text-sm font-medium text-slate-700">{t("initialPasswordChange.form.currentPasswordLabel")}
-            <input autoComplete="current-password" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+            <input autoComplete="current-password" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-700" />
           </label>
           <label className="block text-sm font-medium text-slate-700">{t("initialPasswordChange.form.newPasswordLabel")}
-            <input autoComplete="new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required aria-describedby="initial-password-help" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+            <input autoComplete="new-password" type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} required aria-describedby="initial-password-help" className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-700" />
           </label>
           <p id="initial-password-help" className="text-xs text-slate-500">{t("initialPasswordChange.form.passwordHelp")}</p>
           <label className="block text-sm font-medium text-slate-700">{t("initialPasswordChange.form.confirmPasswordLabel")}
-            <input autoComplete="new-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-700" />
+            <input autoComplete="new-password" type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} required className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand-700" />
           </label>
         </div>
         <button type="submit" disabled={isSubmitting} className="brand-primary-interactive mt-6 w-full rounded-xl px-4 py-3 font-semibold">

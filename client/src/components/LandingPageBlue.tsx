@@ -331,7 +331,7 @@ export function LandingPageBlue() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white overflow-hidden">
+    <div className="min-h-dvh bg-white overflow-hidden">
       {/* Navigation */}
       <motion.nav 
         initial={{ y: -100 }}
@@ -362,8 +362,8 @@ export function LandingPageBlue() {
                       onClick={() => setOpenMenu(isOpen ? null : intent)}
                       aria-haspopup="true"
                       aria-expanded={isOpen}
-                      className={`inline-flex min-h-11 items-center gap-1 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
-                        isOpen ? "text-[#1C4D8D]" : "text-gray-600 hover:text-gray-900"
+                      className={`inline-flex min-h-11 items-center gap-1 text-body font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
+                        isOpen ? "text-brand" : "text-gray-600 hover:text-gray-900"
                       }`}
                     >
                       {label}
@@ -377,12 +377,12 @@ export function LandingPageBlue() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={prefersReducedMotion ? undefined : { opacity: 0, y: -6 }}
                           transition={{ duration: prefersReducedMotion ? 0 : 0.15 }}
-                          className="absolute left-0 top-full z-50 mt-3 w-[740px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg"
+                          className="absolute left-0 top-full z-50 mt-3 w-[740px] overflow-hidden rounded-card border border-slate-200 bg-white shadow-lg"
                         >
                           <div className="grid grid-cols-[190px_minmax(0,1fr)]">
                             <div className="border-r border-slate-100 bg-slate-50 px-5 py-6">
                               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Categories</p>
-                              <p className="mt-3 text-[13px] leading-relaxed text-slate-500">
+                              <p className="mt-3 text-body-sm leading-relaxed text-slate-500">
                                 {intent === "work"
                                   ? "Browse local openings by the kind of work you do."
                                   : "Find verified workers by the kind of help you need."}
@@ -390,7 +390,7 @@ export function LandingPageBlue() {
                             </div>
                             <div className="px-6 py-6">
                               {chipCategoriesFull.length === 0 ? (
-                                <p className="py-6 text-[13px] text-slate-500">Categories are loading…</p>
+                                <p className="py-6 text-body-sm text-slate-500">Categories are loading…</p>
                               ) : (
                                 <div className="grid grid-cols-2 gap-x-8 gap-y-5">
                                   {chipCategoriesFull.map((category) => (
@@ -401,12 +401,12 @@ export function LandingPageBlue() {
                                         setOpenMenu(null);
                                         goToSearch({ categoryId: category._id, intent });
                                       }}
-                                      className="group/item block text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                      className="group/item block text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                                     >
-                                      <span className="block text-[15px] font-bold leading-snug text-slate-900 group-hover/item:text-[#1C4D8D]">
+                                      <span className="block text-[15px] font-bold leading-snug text-slate-900 group-hover/item:text-brand">
                                         {category.name}
                                       </span>
-                                      <span className="mt-0.5 block text-[13px] leading-snug text-slate-500">
+                                      <span className="mt-0.5 block text-body-sm leading-snug text-slate-500">
                                         {intent === "work"
                                           ? `Local ${category.name.toLowerCase()} jobs`
                                           : `Hire for ${category.name.toLowerCase()}`}
@@ -424,7 +424,7 @@ export function LandingPageBlue() {
                                 setOpenMenu(null);
                                 goToSearch({ intent });
                               }}
-                              className="inline-flex items-center gap-1 text-[14px] font-bold text-[#1C4D8D] transition hover:opacity-80"
+                              className="inline-flex items-center gap-1 text-body font-bold text-brand transition hover:opacity-80"
                             >
                               {intent === "work" ? "See all jobs" : "Post a job"}
                               <ChevronRight className="h-4 w-4" aria-hidden />
@@ -437,9 +437,9 @@ export function LandingPageBlue() {
                 );
               })}
 
-              <a href="#features" className="inline-flex min-h-11 items-center text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Features</a>
-              <a href="#help" className="inline-flex min-h-11 items-center text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">How it works</a>
-              <a href="#contact" className="inline-flex min-h-11 items-center text-[14px] text-gray-600 hover:text-gray-900 font-medium transition-colors">Contact Us</a>
+              <a href="#features" className="inline-flex min-h-11 items-center text-body text-gray-600 hover:text-gray-900 font-medium transition-colors">Features</a>
+              <a href="#help" className="inline-flex min-h-11 items-center text-body text-gray-600 hover:text-gray-900 font-medium transition-colors">How it works</a>
+              <a href="#contact" className="inline-flex min-h-11 items-center text-body text-gray-600 hover:text-gray-900 font-medium transition-colors">Contact Us</a>
             </div>
 
             <div className="flex items-center gap-3">
@@ -447,7 +447,7 @@ export function LandingPageBlue() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: motionTokens.press.scale }}
                 onClick={() => navigate(isAuthenticated ? appEntryPath : ROUTES.signIn)}
-                className="hidden text-[14px] font-semibold text-gray-700 px-5 py-2 rounded-full hover:bg-gray-100 transition-colors sm:inline-flex"
+                className="hidden text-body font-semibold text-gray-700 px-5 py-2 rounded-full hover:bg-gray-100 transition-colors sm:inline-flex"
               >
                 {isAuthenticated ? "Go to app" : "Sign In"}
               </motion.button>
@@ -455,7 +455,7 @@ export function LandingPageBlue() {
                 whileHover={{ scale: 1.05, boxShadow: "0 10px 30px rgba(73, 136, 196, 0.3)" }}
                 whileTap={{ scale: motionTokens.press.scale }}
                 onClick={() => navigate(ROUTES.signUp)}
-                className="brand-primary-interactive hidden rounded-full px-6 py-2.5 text-[14px] font-semibold hover:shadow-lg sm:inline-flex"
+                className="brand-primary-interactive hidden rounded-full px-6 py-2.5 text-body font-semibold hover:shadow-lg sm:inline-flex"
               >
                 Get Started
               </motion.button>
@@ -540,8 +540,8 @@ export function LandingPageBlue() {
                     type="button"
                     onClick={() => setHeroIntent(intent)}
                     aria-pressed={heroIntent === intent}
-                    className={`min-h-11 rounded-full px-6 text-[14px] font-semibold transition ${
-                      heroIntent === intent ? "bg-[#1C4D8D] text-white" : "text-slate-600 hover:bg-slate-50"
+                    className={`min-h-11 rounded-full px-6 text-body font-semibold transition ${
+                      heroIntent === intent ? "bg-brand text-white" : "text-slate-600 hover:bg-slate-50"
                     }`}
                   >
                     {intent === "work" ? "I want to work" : "I want to hire"}
@@ -551,7 +551,7 @@ export function LandingPageBlue() {
 
               <h1 className="text-[48px] lg:text-[56px] font-bold leading-tight text-gray-900 mb-6">
                 {heroCopy.leadIn}<br />
-                <span className="text-[#1C4D8D]">{heroCopy.highlight}</span><br />
+                <span className="text-brand">{heroCopy.highlight}</span><br />
                 {heroCopy.trailing}
               </h1>
 
@@ -574,7 +574,7 @@ export function LandingPageBlue() {
                     value={heroQuery}
                     onChange={(event) => setHeroQuery(event.target.value)}
                     placeholder={heroCopy.placeholder}
-                    className="h-14 w-full rounded-full border border-slate-200 bg-white pl-13 pr-4 text-[15px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]/20"
+                    className="h-14 w-full rounded-full border border-slate-200 bg-white pl-13 pr-4 text-[15px] text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-brand focus:ring-2 focus:ring-brand/20"
                     style={{ paddingLeft: "3.25rem" }}
                   />
                 </label>
@@ -595,7 +595,7 @@ export function LandingPageBlue() {
                       key={category._id}
                       type="button"
                       onClick={() => goToSearch({ categoryId: category._id })}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 transition hover:border-[#1C4D8D] hover:text-[#1C4D8D]"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-body-sm font-semibold text-slate-700 transition hover:border-brand hover:text-brand"
                     >
                       {category.name}
                       <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -604,8 +604,8 @@ export function LandingPageBlue() {
                 </div>
               ) : null}
 
-              <p className="mt-5 text-[13px] text-slate-500">
-                <button type="button" onClick={() => navigate(ROUTES.signUp)} className="font-bold text-[#1C4D8D] hover:underline">
+              <p className="mt-5 text-body-sm text-slate-500">
+                <button type="button" onClick={() => navigate(ROUTES.signUp)} className="font-bold text-brand hover:underline">
                   Create a free account
                 </button>{" "}
                 · No credit card required · Free forever
@@ -642,11 +642,11 @@ export function LandingPageBlue() {
                 {/* Attribution is a stand-in too — replace with that person's
                     details once the photo above is filled in. */}
                 <figure className="mt-4 rounded-[20px] border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,41,84,0.08)] sm:mt-5 sm:p-5">
-                  <blockquote className="text-[13px] font-semibold leading-snug text-[#0F2954] sm:text-[15px]">
+                  <blockquote className="text-body-sm font-semibold leading-snug text-[#0F2954] sm:text-[15px]">
                     &ldquo;We built MicroJobs so finding real work near you doesn&rsquo;t depend on
                     who you already know.&rdquo;
                   </blockquote>
-                  <p className="mt-1.5 text-[11px] text-slate-500 sm:text-[12px]">
+                  <p className="mt-1.5 text-[11px] text-slate-500 sm:text-caption">
                     Team member &middot; Micro Jobs
                   </p>
                 </figure>
@@ -659,7 +659,7 @@ export function LandingPageBlue() {
       {/* Stats Section with Animated Counters */}
       <section className="relative overflow-hidden bg-slate-50 px-6 py-20">
         <motion.div 
-          className="absolute -top-20 -right-20 w-96 h-96 bg-[#1C4D8D]/5 rounded-full blur-3xl"
+          className="absolute -top-20 -right-20 w-96 h-96 bg-brand/5 rounded-full blur-3xl"
           animate={{ rotate: 360 }}
           transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
         />
@@ -678,7 +678,7 @@ export function LandingPageBlue() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="mb-16 text-[36px] font-bold text-[#1C4D8D]"
+            className="mb-16 text-[36px] font-bold text-brand"
           >
             The Power of Numbers
           </motion.p>
@@ -699,7 +699,7 @@ export function LandingPageBlue() {
                 className="bg-white/80 backdrop-blur-sm rounded-[24px] p-8 shadow-lg border border-white/50"
               >
                 <motion.div 
-                  className="mb-2 text-[48px] font-bold text-[#1C4D8D]"
+                  className="mb-2 text-[48px] font-bold text-brand"
                   initial={{ scale: 0 }}
                   whileInView={{ scale: 1 }}
                   viewport={{ once: true }}
@@ -707,7 +707,7 @@ export function LandingPageBlue() {
                 >
                   <AnimatedCounter target={stat.value} suffix="%" />
                 </motion.div>
-                <p className="text-[14px] text-gray-600">{stat.label}</p>
+                <p className="text-body text-gray-600">{stat.label}</p>
               </motion.div>
             ))}
           </div>
@@ -724,7 +724,7 @@ export function LandingPageBlue() {
             className="text-center mb-16"
           >
             <h2 className="text-[36px] font-bold text-gray-900 mb-2">
-              Why <span className="text-[#1C4D8D]">Micro Jobs?</span>
+              Why <span className="text-brand">Micro Jobs?</span>
             </h2>
             <p className="mx-auto mt-3 max-w-2xl text-[15px] leading-relaxed text-gray-600">
               We start in your community — cleaning, delivery, tutoring, repairs, child care and more, right in your city.
@@ -743,10 +743,10 @@ export function LandingPageBlue() {
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all perspective-1000"
             >
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Local jobs, first</h3>
-              <p className="text-[14px] text-gray-600 leading-relaxed mb-6">
+              <p className="text-body text-gray-600 leading-relaxed mb-6">
                 Set your city and see work happening around you. Every listing is matched to your area first, so the commute is short and the pay is real.
               </p>
-              <div className="space-y-3 rounded-[16px] bg-slate-50 p-4">
+              <div className="space-y-3 rounded-card bg-slate-50 p-4">
                 {[
                   ["Cleaning", "In your barangay"],
                   ["Delivery", "Same-day routes"],
@@ -760,8 +760,8 @@ export function LandingPageBlue() {
                     transition={{ delay: i * 0.15 }}
                     className="flex items-center justify-between"
                   >
-                    <span className="text-[12px] font-semibold text-gray-700">{label}</span>
-                    <span className="text-[12px] text-gray-500">{detail}</span>
+                    <span className="text-caption font-semibold text-gray-700">{label}</span>
+                    <span className="text-caption text-gray-500">{detail}</span>
                   </motion.div>
                 ))}
               </div>
@@ -777,12 +777,12 @@ export function LandingPageBlue() {
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">National when you need it</h3>
-              <p className="text-[14px] text-gray-600 leading-relaxed mb-6">
+              <p className="text-body text-gray-600 leading-relaxed mb-6">
                 Hiring outside your city? If the employer allows it, we open the listing nationwide and support the whole process — from applicants to interviews to payout.
               </p>
-              <div className="rounded-[16px] bg-[#ECFDF5] p-6 text-center">
-                <p className="text-[14px] font-semibold text-gray-900">Local by default</p>
-                <p className="text-[14px] font-semibold text-[#047857]">Nationwide on request</p>
+              <div className="rounded-card bg-[#ECFDF5] p-6 text-center">
+                <p className="text-body font-semibold text-gray-900">Local by default</p>
+                <p className="text-body font-semibold text-[#047857]">Nationwide on request</p>
               </div>
             </motion.div>
 
@@ -795,7 +795,7 @@ export function LandingPageBlue() {
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">People you can verify</h3>
-              <p className="text-[14px] text-gray-600 leading-relaxed">
+              <p className="text-body text-gray-600 leading-relaxed">
                 Employers and workers both go through ID and address checks, and every finished job leaves a public review. You know who you are working with before you commit.
               </p>
             </motion.div>
@@ -809,7 +809,7 @@ export function LandingPageBlue() {
               className="bg-white rounded-[24px] p-8 border border-gray-100 hover:shadow-2xl transition-all"
             >
               <h3 className="text-[22px] font-bold text-gray-900 mb-3">Get paid, safely</h3>
-              <p className="text-[14px] text-gray-600 leading-relaxed">
+              <p className="text-body text-gray-600 leading-relaxed">
                 Pay is secured in escrow the moment a job is posted and released when the work is accepted. Apply, track your applications, schedule interviews, and cash out — all in one place.
               </p>
             </motion.div>
@@ -835,9 +835,9 @@ export function LandingPageBlue() {
                   type="button"
                   onClick={() => setHowItWorksIntent(intent)}
                   aria-pressed={howItWorksIntent === intent}
-                  className={`min-h-11 rounded-full px-6 text-[14px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
+                  className={`min-h-11 rounded-full px-6 text-body font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
                     howItWorksIntent === intent
-                      ? "bg-[#1C4D8D] text-white"
+                      ? "bg-brand text-white"
                       : "text-slate-600 hover:bg-slate-50"
                   }`}
                 >
@@ -883,7 +883,7 @@ export function LandingPageBlue() {
                         type="button"
                         onClick={toggleDemoPlayback}
                         aria-label={isDemoPlaying ? "Pause the demo" : "Play the demo"}
-                        className="absolute bottom-4 right-4 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-[#1C4D8D] shadow-md transition hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                        className="absolute bottom-4 right-4 inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-brand shadow-md transition hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                       >
                         {isDemoPlaying ? (
                           <Pause className="h-4 w-4" aria-hidden />
@@ -910,7 +910,7 @@ export function LandingPageBlue() {
                   <button
                     type="button"
                     onClick={() => goToSearch({ intent: howItWorksIntent })}
-                    className="brand-primary-interactive mt-6 inline-flex min-h-11 items-center gap-2 rounded-full px-7 text-[15px] font-semibold transition hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                    className="brand-primary-interactive mt-6 inline-flex min-h-11 items-center gap-2 rounded-full px-7 text-[15px] font-semibold transition hover:opacity-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   >
                     {step.action}
                     <ArrowRight className="h-4 w-4" aria-hidden />
@@ -931,7 +931,7 @@ export function LandingPageBlue() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="mb-2 text-[36px] font-bold text-[#1C4D8D]">
+            <h2 className="mb-2 text-[36px] font-bold text-brand">
               Find Your Match
             </h2>
             <p className="text-[36px] font-bold text-gray-900">Job Here</p>
@@ -961,12 +961,12 @@ export function LandingPageBlue() {
                     src={job.image}
                     alt=""
                     loading="lazy"
-                    className="mb-4 h-16 w-16 rounded-[16px] border border-slate-200 object-cover"
+                    className="mb-4 h-16 w-16 rounded-card border border-slate-200 object-cover"
                   />
                 ) : (
                   <div
                     aria-hidden="true"
-                    className="mb-4 flex h-16 w-16 items-center justify-center rounded-[16px] bg-[#1C4D8D] text-[24px] font-bold text-white"
+                    className="mb-4 flex h-16 w-16 items-center justify-center rounded-card bg-brand text-[24px] font-bold text-white"
                   >
                     {job.company.trim().charAt(0).toUpperCase() || "M"}
                   </div>
@@ -974,12 +974,12 @@ export function LandingPageBlue() {
 
                 <h3 className="text-[18px] font-bold text-gray-900 mb-2 group-hover:opacity-80 transition-colors">{job.title}</h3>
                 
-                <div className="flex items-center gap-2 text-[13px] text-gray-600 mb-1">
+                <div className="flex items-center gap-2 text-body-sm text-gray-600 mb-1">
                   <Briefcase className="w-4 h-4" />
                   <span>{job.company}</span>
                 </div>
                 
-                <div className="flex items-center gap-2 text-[13px] text-gray-600 mb-4">
+                <div className="flex items-center gap-2 text-body-sm text-gray-600 mb-4">
                   <MapPin className="w-4 h-4" />
                   <span>{job.location}</span>
                 </div>
@@ -998,7 +998,7 @@ export function LandingPageBlue() {
                         navigate(getJobsPath);
                       }}
                       aria-label={`View ${job.title}`}
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1C4D8D] text-white transition-all group-hover:shadow-lg"
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-white transition-all group-hover:shadow-lg"
                     >
                       <ChevronRight className="w-5 h-5" />
                     </motion.button>
@@ -1009,7 +1009,7 @@ export function LandingPageBlue() {
                         event.stopPropagation();
                         navigate(`${ROUTES.signUp}?role=worker`);
                       }}
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#1C4D8D] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-brand px-4 text-body-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     >
                       Sign up to apply
                       <ChevronRight className="h-4 w-4" aria-hidden />
@@ -1021,13 +1021,13 @@ export function LandingPageBlue() {
           </div>
 
           {!isJobsLoading && jobCards.length === 0 ? (
-            <div className="mx-auto max-w-xl rounded-2xl border border-[#1C4D8D]/15 bg-white p-6 text-center text-sm text-slate-600">
+            <div className="mx-auto max-w-xl rounded-card border border-brand/15 bg-white p-6 text-center text-sm text-slate-600">
               {jobsLoadError || 'No jobs are available right now. Please check back soon.'}
             </div>
           ) : null}
 
           {!isAuthenticated && jobCards.length > 0 ? (
-            <p className="mx-auto mt-8 max-w-2xl text-center text-[14px] leading-6 text-slate-600">
+            <p className="mx-auto mt-8 max-w-2xl text-center text-body leading-6 text-slate-600">
               Browsing jobs is free and open to everyone. Create an account and finish
               verification to apply, message employers, and get paid through escrow.
             </p>
@@ -1042,7 +1042,7 @@ export function LandingPageBlue() {
             <motion.button
               whileHover={{ scale: 1.1 }}
               onClick={() => navigate(getJobsPath)}
-              className="text-[14px] font-semibold text-[#1C4D8D] hover:opacity-80 transition-colors"
+              className="text-body font-semibold text-brand hover:opacity-80 transition-colors"
             >
               Show More →
             </motion.button>
@@ -1064,7 +1064,7 @@ export function LandingPageBlue() {
             className="text-center mb-16"
           >
             <h2 className="text-[36px] font-bold text-gray-900 mb-2">Meet the team behind</h2>
-            <p className="text-[36px] font-bold text-[#1C4D8D]">
+            <p className="text-[36px] font-bold text-brand">
               Micro Jobs
             </p>
           </motion.div>
@@ -1098,20 +1098,20 @@ export function LandingPageBlue() {
                       src={member.photo}
                       alt=""
                       loading="lazy"
-                      className="h-16 w-16 shrink-0 rounded-[16px] object-cover"
+                      className="h-16 w-16 shrink-0 rounded-card object-cover"
                     />
                   ) : (
                     <div
                       aria-hidden="true"
-                      className="h-16 w-16 shrink-0 rounded-[16px] border border-slate-200 bg-slate-100"
+                      className="h-16 w-16 shrink-0 rounded-card border border-slate-200 bg-slate-100"
                     />
                   )}
                   <div className="min-w-0">
                     <p className="text-[17px] font-bold text-[#0F2954]">{member.name}</p>
-                    <p className="mt-1 text-[13px] text-gray-600">{member.role}</p>
+                    <p className="mt-1 text-body-sm text-gray-600">{member.role}</p>
                   </div>
                 </div>
-                <p className="text-[14px] text-gray-600 leading-relaxed">
+                <p className="text-body text-gray-600 leading-relaxed">
                   {member.text}
                 </p>
               </motion.div>
@@ -1128,7 +1128,7 @@ export function LandingPageBlue() {
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             whileHover={{ scale: 1.02 }}
-            className="relative overflow-hidden rounded-[32px] bg-[#1C4D8D] p-12 shadow-2xl"
+            className="relative overflow-hidden rounded-[32px] bg-brand p-12 shadow-2xl"
           >
             <motion.div 
               className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full blur-3xl"
@@ -1167,7 +1167,7 @@ export function LandingPageBlue() {
                 whileHover={{ scale: 1.1, boxShadow: "0 20px 40px rgba(255, 255, 255, 0.3)" }}
                 whileTap={{ scale: motionTokens.press.scale }}
                 onClick={() => navigate(ROUTES.signUp)}
-                className="inline-flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
+                className="inline-flex items-center gap-2 text-[16px] font-semibold text-brand px-8 py-4 rounded-full bg-white hover:shadow-xl transition-all"
               >
                 Get Started for Free
                 <ArrowRight className="w-5 h-5" />
@@ -1195,7 +1195,7 @@ export function LandingPageBlue() {
                   onClick={() => navigate(ROUTES.home)}
                 />
               </motion.div>
-              <p className="text-[13px] text-gray-400">
+              <p className="text-body-sm text-gray-400">
                 © 2026 Micro Jobs. All rights reserved.
               </p>
 
@@ -1209,12 +1209,12 @@ export function LandingPageBlue() {
                   className="h-20 w-20 rounded-lg bg-white p-1"
                 />
                 <div>
-                  <p className="text-[13px] font-semibold text-white">Download here:</p>
+                  <p className="text-body-sm font-semibold text-white">Download here:</p>
                   <a
                     href="https://expo.dev/accounts/bananas1/projects/mobile/builds/ce8b9734-a33d-45cd-9bb1-d0e288a7e809"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                    className="text-body-sm text-gray-400 hover:text-white transition-colors"
                   >
                     for Android app
                   </a>
@@ -1228,11 +1228,11 @@ export function LandingPageBlue() {
               viewport={{ once: true }}
               transition={{ delay: 0.1 }}
             >
-              <h3 className="text-[14px] font-semibold mb-4">Resources</h3>
+              <h3 className="text-body font-semibold mb-4">Resources</h3>
               <ul className="space-y-2">
-                <li><a href="#jobs" className="text-[13px] text-gray-400 hover:text-white transition-colors">Jobs</a></li>
-                <li><a href="#employers" className="text-[13px] text-gray-400 hover:text-white transition-colors">Employers</a></li>
-                <li><a href="#features" className="text-[13px] text-gray-400 hover:text-white transition-colors">Companies</a></li>
+                <li><a href="#jobs" className="text-body-sm text-gray-400 hover:text-white transition-colors">Jobs</a></li>
+                <li><a href="#employers" className="text-body-sm text-gray-400 hover:text-white transition-colors">Employers</a></li>
+                <li><a href="#features" className="text-body-sm text-gray-400 hover:text-white transition-colors">Companies</a></li>
               </ul>
             </motion.div>
 
@@ -1242,11 +1242,11 @@ export function LandingPageBlue() {
               viewport={{ once: true }}
               transition={{ delay: 0.2 }}
             >
-              <h3 className="text-[14px] font-semibold mb-4">Company</h3>
+              <h3 className="text-body font-semibold mb-4">Company</h3>
               <ul className="space-y-2">
-                <li><a href="#features" className="text-[13px] text-gray-400 hover:text-white transition-colors">About Us</a></li>
-                <li><a href="#contact" className="text-[13px] text-gray-400 hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#help" className="text-[13px] text-gray-400 hover:text-white transition-colors">Help</a></li>
+                <li><a href="#features" className="text-body-sm text-gray-400 hover:text-white transition-colors">About Us</a></li>
+                <li><a href="#contact" className="text-body-sm text-gray-400 hover:text-white transition-colors">Contact</a></li>
+                <li><a href="#help" className="text-body-sm text-gray-400 hover:text-white transition-colors">Help</a></li>
               </ul>
             </motion.div>
 
@@ -1256,13 +1256,13 @@ export function LandingPageBlue() {
               viewport={{ once: true }}
               transition={{ delay: 0.3 }}
             >
-              <h3 className="text-[14px] font-semibold mb-4">Legal</h3>
+              <h3 className="text-body font-semibold mb-4">Legal</h3>
               <ul className="space-y-2">
                 <li>
                   <button
                     type="button"
                     onClick={() => navigate(ROUTES.legalDoc("terms"))}
-                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                    className="text-body-sm text-gray-400 hover:text-white transition-colors"
                   >
                     Terms of Service
                   </button>
@@ -1271,7 +1271,7 @@ export function LandingPageBlue() {
                   <button
                     type="button"
                     onClick={() => navigate(ROUTES.legalDoc("privacy"))}
-                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                    className="text-body-sm text-gray-400 hover:text-white transition-colors"
                   >
                     Privacy Policy
                   </button>
@@ -1280,7 +1280,7 @@ export function LandingPageBlue() {
                   <button
                     type="button"
                     onClick={() => navigate(ROUTES.legalDoc("cookies"))}
-                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                    className="text-body-sm text-gray-400 hover:text-white transition-colors"
                   >
                     Cookie Policy
                   </button>
@@ -1291,7 +1291,7 @@ export function LandingPageBlue() {
                   <button
                     type="button"
                     onClick={openCookiePreferences}
-                    className="text-[13px] text-gray-400 hover:text-white transition-colors"
+                    className="text-body-sm text-gray-400 hover:text-white transition-colors"
                   >
                     Your privacy choices
                   </button>
@@ -1306,7 +1306,7 @@ export function LandingPageBlue() {
             viewport={{ once: true }}
             className="border-t border-gray-800 pt-8"
           >
-            <p className="text-[12px] text-gray-500 text-center">
+            <p className="text-caption text-gray-500 text-center">
               Made by Computer Security 3rd Year Block 1 - COMSEC 01
             </p>
           </motion.div>

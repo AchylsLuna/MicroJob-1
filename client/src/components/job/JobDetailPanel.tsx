@@ -131,17 +131,17 @@ const formatDeadline = (t: TFunction, deadline?: string) => {
 const getBadgeClass = (kind: "experience" | "jobType" | "workMode", key: string) => {
   if (kind === "experience") {
     if (key === "senior") return "bg-[#F3E8FF] text-[#7E22CE]";
-    if (key === "midLevel") return "bg-[#1C4D8D]/10 text-[#1C4D8D]";
+    if (key === "midLevel") return "bg-brand/10 text-brand";
     return "bg-[#DCFCE7] text-[#15803D]";
   }
   if (kind === "jobType") {
     if (key === "shortTerm") return "bg-[#E0F2FE] text-[#0369A1]";
     if (key === "sideHustle") return "bg-[#FEF3C7] text-[#B45309]";
     if (key === "recruiting") return "bg-[#DCFCE7] text-[#15803D]";
-    if (key === "partTime") return "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]";
+    if (key === "partTime") return "bg-brand/[0.08] text-brand";
     if (key === "contract") return "bg-[#FFEDD5] text-[#C2410C]";
     if (key === "projectWork") return "bg-[#FEF3C7] text-[#B45309]";
-    return "bg-[#DFE8FF] text-[#1C4D8D]";
+    return "bg-[#DFE8FF] text-brand";
   }
   if (key === "remote") return "bg-[#D1FAE5] text-[#047857]";
   if (key === "hybrid") return "bg-[#CCFBF1] text-[#0F766E]";
@@ -329,19 +329,19 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
   return (
     <div className="space-y-6 font-sans">
       {isLoading && (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
           {t("jobDetails.loading")}
         </div>
       )}
 
       {loadError && !isLoading && (
-        <div className="bg-[#FEF2F2] rounded-[16px] border border-[#FECACA] p-6 text-[#B91C1C]">
+        <div className="bg-[#FEF2F2] rounded-card border border-[#FECACA] p-6 text-[#B91C1C]">
           {loadError}
         </div>
       )}
 
       {!isLoading && !loadError && !job && (
-        <div className="bg-white rounded-[16px] border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
+        <div className="bg-white rounded-card border border-[#E5E7EB] p-8 text-center text-[#6B7280]">
           {t("jobDetails.notAvailable")}
         </div>
       )}
@@ -349,16 +349,16 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
       {!isLoading && !loadError && job && (
         <div className={compact ? "space-y-6" : "grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px] gap-6"}>
           <div className="space-y-6">
-            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-4 sm:p-8">
+            <section className="bg-white rounded-card border border-[#E5E7EB] p-4 sm:p-8">
               <div className="flex items-start gap-4">
-                <div className="w-[74px] h-[74px] rounded-[18px] bg-[#E7ECF8] text-[#1C4D8D] flex items-center justify-center text-[36px] font-semibold shrink-0">
+                <div className="w-[74px] h-[74px] rounded-[18px] bg-[#E7ECF8] text-brand flex items-center justify-center text-[36px] font-semibold shrink-0">
                   {companyLogo}
                 </div>
                 <div className="min-w-0">
                   <h1 className="text-[28px] sm:text-[32px] leading-tight font-bold text-[#0F172A]">{job.title}</h1>
                   <button
                     onClick={handleCompanyProfile}
-                    className="mt-2 flex items-center gap-2 text-[16px] font-semibold text-[#1C4D8D] hover:opacity-80"
+                    className="mt-2 flex items-center gap-2 text-[16px] font-semibold text-brand hover:opacity-80"
                   >
                     <Building2 className="w-4 h-4" />
                     <span>{companyName}</span>
@@ -398,13 +398,13 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-2">
-                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("experience", experienceKey)}`}>
+                <span className={`px-3 py-1 rounded-full text-caption font-semibold ${getBadgeClass("experience", experienceKey)}`}>
                   {experienceLevel}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("jobType", jobTypeKey)}`}>
+                <span className={`px-3 py-1 rounded-full text-caption font-semibold ${getBadgeClass("jobType", jobTypeKey)}`}>
                   {jobTypeLabel}
                 </span>
-                <span className={`px-3 py-1 rounded-full text-[12px] font-semibold ${getBadgeClass("workMode", workModeKey)}`}>
+                <span className={`px-3 py-1 rounded-full text-caption font-semibold ${getBadgeClass("workMode", workModeKey)}`}>
                   {workModeLabel}
                 </span>
               </div>
@@ -413,14 +413,14 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                 <p className="text-[22px] sm:text-[26px] font-bold text-[#2FA66D] leading-none">
                   {salaryDisplay.amount}
                   {salaryDisplay.cadence && (
-                    <span className="text-[14px] font-medium text-[#6B7280] ml-2">{salaryDisplay.cadence}</span>
+                    <span className="text-body font-medium text-[#6B7280] ml-2">{salaryDisplay.cadence}</span>
                   )}
                 </p>
               </div>
 
               <div className="mt-8 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-center">
                 {isAdminViewer ? (
-                  <div className="w-full rounded-[14px] border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-[13px] text-[#64748B]">
+                  <div className="w-full rounded-card border border-[#E5E7EB] bg-[#F8FAFC] px-4 py-3 text-body-sm text-slate-500">
                     {t("jobDetails.adminReadOnly")}
                   </div>
                 ) : (
@@ -428,7 +428,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                     {hasApplied ? (
                       <button
                         disabled
-                        className="col-span-2 flex min-h-14 w-full flex-1 items-center justify-center gap-2 rounded-[14px] bg-[#D1FAE5] px-6 py-4 font-semibold text-[#065F46] sm:min-w-[240px]"
+                        className="col-span-2 flex min-h-14 w-full flex-1 items-center justify-center gap-2 rounded-card bg-[#D1FAE5] px-6 py-4 font-semibold text-[#065F46] sm:min-w-[240px]"
                       >
                         <CheckCircle2 className="w-5 h-5" />
                         {t("jobDetails.applicationSubmitted")}
@@ -436,7 +436,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                     ) : (
                       <button
                         onClick={handleApply}
-                        className="col-span-2 min-h-14 w-full flex-1 rounded-[14px] bg-[#1C4D8D] px-6 py-4 font-semibold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 sm:min-w-[240px]"
+                        className="col-span-2 min-h-14 w-full flex-1 rounded-card bg-brand px-6 py-4 font-semibold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 sm:min-w-[240px]"
                       >
                         {t("jobDetails.applyNow")}
                       </button>
@@ -445,7 +445,7 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                     <button
                       onClick={handleMessageEmployer}
                       disabled={startingInquiry}
-                      className="flex min-h-12 items-center justify-center rounded-[14px] bg-[#1C4D8D]/[0.06] px-4 text-[#1C4D8D] transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
+                      className="flex min-h-12 items-center justify-center rounded-card bg-brand/[0.06] px-4 text-brand transition-colors hover:opacity-90/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 disabled:opacity-60 sm:h-16 sm:w-16 sm:px-0"
                       title={t("jobDetails.messageEmployerLabel")}
                       aria-label={t("jobDetails.messageEmployerLabel")}
                     >
@@ -453,9 +453,9 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
                     </button>
                     <button
                       onClick={handleSave}
-                      className={`flex min-h-12 items-center justify-center rounded-[14px] border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 sm:h-16 sm:w-16 sm:px-0 ${
+                      className={`flex min-h-12 items-center justify-center rounded-card border px-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 sm:h-16 sm:w-16 sm:px-0 ${
                         isSaved
-                          ? "bg-[#1C4D8D] text-white border-[#1C4D8D]"
+                          ? "bg-brand text-white border-brand"
                           : "bg-[#F9FAFB] text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
                       }`}
                       title={isSaved ? t("jobDetails.save.removeTitle") : t("jobDetails.save.saveTitle")}
@@ -469,31 +469,31 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
               </div>
             </section>
 
-            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
+            <section className="bg-white rounded-card border border-[#E5E7EB] p-8">
               <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.description")}</h2>
               <p className="text-[16px] text-[#6B7280] leading-relaxed">
                 {job.description || t("jobDetails.sections.noDescription")}
               </p>
             </section>
 
-            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
+            <section className="bg-white rounded-card border border-[#E5E7EB] p-8">
               <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.responsibilities")}</h2>
               <ul className="space-y-3">
                 {(job.responsibilities?.length ? job.responsibilities : [t("jobDetails.sections.noResponsibilities")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
-                    <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
+                    <div className="w-2 h-2 rounded-full bg-brand mt-3.5 shrink-0"></div>
                     <span>{item}</span>
                   </li>
                 ))}
               </ul>
             </section>
 
-            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-8">
+            <section className="bg-white rounded-card border border-[#E5E7EB] p-8">
               <h2 className="text-[20px] font-bold text-[#111827] mb-4">{t("jobDetails.sections.requirements")}</h2>
               <ul className="space-y-3">
                 {(job.requirements?.length ? job.requirements : [t("jobDetails.sections.noRequirements")]).map((item) => (
                   <li key={item} className="flex items-start gap-3 text-[15px] text-[#6B7280]">
-                    <div className="w-2 h-2 rounded-full bg-[#1C4D8D] mt-3.5 shrink-0"></div>
+                    <div className="w-2 h-2 rounded-full bg-brand mt-3.5 shrink-0"></div>
                     <span>{item}</span>
                   </li>
                 ))}
@@ -502,58 +502,58 @@ export function JobDetailPanel({ jobId, compact = false }: Props) {
           </div>
 
           <aside className="space-y-6">
-            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
               <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.overview.title")}</h3>
               <div className="space-y-5">
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-[14px] bg-[#FFF7ED] flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-card bg-[#FFF7ED] flex items-center justify-center shrink-0">
                     <Calendar className="w-5 h-5 text-[#EA580C]" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.deadline")}</p>
+                    <p className="text-body text-[#6B7280]">{t("jobDetails.overview.deadline")}</p>
                     <p className="text-[16px] font-semibold text-[#111827]">{formatDeadline(t, job.deadline)}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-[14px] bg-[#F3E8FF] flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-card bg-[#F3E8FF] flex items-center justify-center shrink-0">
                     <Users className="w-5 h-5 text-[#7E22CE]" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.totalApplicants")}</p>
+                    <p className="text-body text-[#6B7280]">{t("jobDetails.overview.totalApplicants")}</p>
                     <p className="text-[16px] font-semibold text-[#111827]">{t("jobDetails.overview.applicantsCount", { count: job.applicants?.length || 0 })}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-[14px] bg-[#DCFCE7] flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-card bg-[#DCFCE7] flex items-center justify-center shrink-0">
                     <BadgeCheck className="w-5 h-5 text-[#15803D]" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.experienceLevel")}</p>
+                    <p className="text-body text-[#6B7280]">{t("jobDetails.overview.experienceLevel")}</p>
                     <p className="text-[16px] font-semibold text-[#111827]">{experienceLevel}</p>
                   </div>
                 </div>
 
                 <div className="flex items-start gap-3">
-                  <div className="w-12 h-12 rounded-[14px] bg-[#1C4D8D]/10 flex items-center justify-center shrink-0">
-                    <Briefcase className="w-5 h-5 text-[#1C4D8D]" />
+                  <div className="w-12 h-12 rounded-card bg-brand/10 flex items-center justify-center shrink-0">
+                    <Briefcase className="w-5 h-5 text-brand" />
                   </div>
                   <div>
-                    <p className="text-[14px] text-[#6B7280]">{t("jobDetails.overview.jobType")}</p>
+                    <p className="text-body text-[#6B7280]">{t("jobDetails.overview.jobType")}</p>
                     <p className="text-[16px] font-semibold text-[#111827]">{jobTypeLabel}</p>
                   </div>
                 </div>
               </div>
             </section>
 
-            <section className="bg-white rounded-[16px] border border-[#E5E7EB] p-6">
+            <section className="bg-white rounded-card border border-[#E5E7EB] p-6">
               <h3 className="text-[18px] font-bold text-[#111827] mb-5">{t("jobDetails.sections.requiredSkills")}</h3>
               <div className="flex flex-wrap gap-2">
                 {skills.map((skill) => (
                   <span
                     key={skill}
-                    className="px-4 py-2 rounded-full bg-[#E7ECF8] text-[#1C4D8D] text-[14px] font-semibold"
+                    className="px-4 py-2 rounded-full bg-[#E7ECF8] text-brand text-body font-semibold"
                   >
                     {skill}
                   </span>

@@ -275,7 +275,7 @@ export function SignUp() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.signIn)}
-              className="font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="font-semibold text-brand hover:opacity-80"
             >
               {t("signUp.signInPrompt.action")}
             </button>
@@ -301,14 +301,14 @@ export function SignUp() {
             <button
               type="button"
               onClick={() => navigate(ROUTES.signIn)}
-              className="font-semibold text-[#1C4D8D] hover:opacity-80"
+              className="font-semibold text-brand hover:opacity-80"
             >
               {t("signUp.signInPrompt.action")}
             </button>
           </>
         }
       >
-        <div className="mb-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-[10px] bg-slate-50 px-4 py-3 text-[14px]">
+        <div className="mb-6 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-control bg-slate-50 px-4 py-3 text-body">
           <span className="text-slate-600">{t("signUp.roleChooser.selectedLabel")}</span>
           <span className="font-semibold text-slate-900">
             {t(`signUp.roleChooser.roleName.${selectedRole}`)}
@@ -316,7 +316,7 @@ export function SignUp() {
           <button
             type="button"
             onClick={() => setSearchParams({})}
-            className="font-semibold text-[#1C4D8D] hover:opacity-80"
+            className="font-semibold text-brand hover:opacity-80"
           >
             {t("signUp.roleChooser.change")}
           </button>
@@ -353,7 +353,7 @@ export function SignUp() {
               {t("signUp.form.emailLabel")}
             </label>
             {serverFieldErrors.email ? (
-              <p id="signup-email-error" role="alert" className="mb-2 text-[13px] font-medium text-red-600">
+              <p id="signup-email-error" role="alert" className="mb-2 text-body-sm font-medium text-red-600">
                 {serverFieldErrors.email}
               </p>
             ) : null}
@@ -377,7 +377,7 @@ export function SignUp() {
               {t("signUp.form.phoneLabel")}
             </label>
             {serverFieldErrors.phone ? (
-              <p id="signup-phone-error" role="alert" className="mb-2 text-[13px] font-medium text-red-600">
+              <p id="signup-phone-error" role="alert" className="mb-2 text-body-sm font-medium text-red-600">
                 {serverFieldErrors.phone}
               </p>
             ) : null}
@@ -424,10 +424,10 @@ export function SignUp() {
           />
 
           {showPasswordStrength ? (
-            <div className="rounded-[12px] border border-slate-200 bg-slate-50 p-4">
-              <div className="flex items-center justify-between gap-4 text-[13px] font-bold text-slate-900">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex items-center justify-between gap-4 text-body-sm font-bold text-slate-900">
                 <span>{t("signUp.passwordStrength.label")}</span>
-                <span className={passwordStrength.isStrong ? "text-emerald-700" : "text-[#1C4D8D]"}>
+                <span className={passwordStrength.isStrong ? "text-emerald-700" : "text-brand"}>
                   {passwordStrength.label}
                 </span>
               </div>
@@ -440,11 +440,11 @@ export function SignUp() {
                 aria-valuenow={passwordStrength.percent}
               >
                 <div
-                  className={`h-full rounded-full transition-[width] ${passwordStrength.isStrong ? "bg-emerald-600" : "bg-[#1C4D8D]"}`}
+                  className={`h-full rounded-full transition-[width] ${passwordStrength.isStrong ? "bg-emerald-600" : "bg-brand"}`}
                   style={{ width: `${passwordStrength.percent}%` }}
                 />
               </div>
-              <ul className="mt-3.5 grid gap-x-5 gap-y-2 text-[13px] text-slate-600 sm:grid-cols-2">
+              <ul className="mt-3.5 grid gap-x-5 gap-y-2 text-body-sm text-slate-600 sm:grid-cols-2">
                 {PASSWORD_RULES.map((rule) => (
                   <li
                     key={rule.key}
@@ -478,7 +478,7 @@ export function SignUp() {
               type="checkbox"
               checked={agreeToTerms}
               onChange={(e) => setAgreeToTerms(e.target.checked)}
-              className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-[#1C4D8D] focus:ring-2 focus:ring-[#1C4D8D]"
+              className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-slate-300 text-brand focus:ring-2 focus:ring-brand"
             />
             {/* The links live inside the <label>, so a click on one would also
                 activate the label and silently flip the consent checkbox.
@@ -486,7 +486,7 @@ export function SignUp() {
                 Opening a dialog instead of navigating to /legal also means the
                 click never leaves this page, so the password field (deliberately
                 excluded from the sessionStorage draft) never gets wiped. */}
-            <label htmlFor="signup-terms" className="text-[13px] leading-6 text-slate-600">
+            <label htmlFor="signup-terms" className="text-body-sm leading-6 text-slate-600">
               <Trans
                 t={t}
                 i18nKey="signUp.terms.agreement"
@@ -498,7 +498,7 @@ export function SignUp() {
                         event.stopPropagation();
                         setLegalDialogDoc("terms");
                       }}
-                      className="font-medium text-[#1C4D8D] hover:opacity-80"
+                      className="font-medium text-brand hover:opacity-80"
                     />
                   ),
                   privacy: (
@@ -508,7 +508,7 @@ export function SignUp() {
                         event.stopPropagation();
                         setLegalDialogDoc("privacy");
                       }}
-                      className="font-medium text-[#1C4D8D] hover:opacity-80"
+                      className="font-medium text-brand hover:opacity-80"
                     />
                   ),
                 }}

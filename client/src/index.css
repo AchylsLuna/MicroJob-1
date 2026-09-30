@@ -2,9 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* No `will-change` here. It is only a performance hint, but `will-change:
+   transform` establishes a containing block for `position: fixed` descendants
+   -- permanently, not just while the animation runs. DashboardLayout wraps
+   every dashboard route in this class, so every fixed modal backdrop beneath
+   it resolved against the <main> content box instead of the viewport: the dim
+   layer stopped at the sidebar and left the header and page margins bright.
+   That also defeated z-index entirely, since the element was geometrically
+   constrained before stacking was ever considered. The animation is identical
+   without the hint. */
 .page-transition {
 	animation: page-slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
-	will-change: opacity, transform;
 }
 
 /* Keep the desktop dashboard rail fully visible on short laptop viewports.
@@ -83,10 +91,14 @@
 
 :root {
 	color-scheme: light;
+	/* Only these two are consumed. `--brand-primary-soft`, `-muted` and
+	   `-border` were defined here and referenced by nothing -- no rule in this
+	   file and no component read them, so they read as an available palette
+	   while every call site went on spelling those alphas inline instead.
+	   Removed rather than wired up: the brand alpha steps now live in
+	   tailwind.config.js as `brand-100`/`brand-200`, which is where a Tailwind
+	   codebase will actually look for them. */
 	--brand-primary: #1c4d8d;
-	--brand-primary-soft: rgb(28 77 141 / 0.08);
-	--brand-primary-muted: rgb(28 77 141 / 0.16);
-	--brand-primary-border: rgb(28 77 141 / 0.24);
 	--brand-focus-ring: rgb(28 77 141 / 0.34);
 	--app-font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 	--ui-title-size: clamp(1.875rem, 2.2vw, 2.25rem);
@@ -150,7 +162,9 @@ select {
 }
 
 #root {
-	min-height: 100vh;
+	/* dvh so the mobile browser toolbar is accounted for; vh measures the
+	   viewport as if the toolbar were hidden. */
+	min-height: 100dvh;
 }
 
 @layer components {
@@ -183,7 +197,7 @@ select {
 	}
 
 	.dashboard-scope .ui-card {
-		@apply rounded-2xl border border-slate-200 bg-white shadow-sm;
+		@apply rounded-card border border-slate-200 bg-white shadow-sm;
 	}
 
 	.dashboard-scope :where(
@@ -267,5 +281,33 @@ button.microjobs-logo:active .microjobs-logo-mark {
 		animation: none !important;
 		opacity: 1 !important;
 		transform: none !important;
+	}
+}
+
+/* The dashboard header slides out of view as you scroll down. While it is away
+   it should also be inert -- otherwise its buttons stay keyboard-focusable
+   (tab lands on an off-screen toolbar) and its text is still measured for
+   colour contrast against whatever happens to be behind it. Visibility flips
+   only after the slide has finished, so the transition still plays. */
+/* Inside `@layer utilities`, and setting `transition-property` rather than the
+   `transition` shorthand.
+
+   Unlayered, this rule outranked Tailwind's own utilities (which live in that
+   layer), so its 300ms duration beat the `duration-[0ms]` class NavBar.tsx
+   computes when `prefers-reduced-motion` is set -- the reduced-motion branch
+   was dead whenever this class was applied, and only the blanket `!important`
+   override further down was saving it. Declaring the property list here and
+   leaving duration/easing to the utility classes lets both cooperate. */
+@layer utilities {
+	.navbar-slide-hidden {
+		visibility: hidden;
+		transition-property: transform, visibility;
+		transition-delay: 0s, 300ms;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.navbar-slide-hidden {
+			transition-delay: 0s, 0s;
+		}
 	}
 }

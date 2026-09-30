@@ -22,16 +22,16 @@ type SettingsTabListProps<T extends string> = {
 const VARIANT_CLASSES: Record<TabVariant, { list: string; base: string; selected: string; idle: string }> = {
   pill: {
     list: "flex flex-wrap gap-2",
-    base: "min-h-11 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors",
-    selected: "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]",
+    base: "min-h-11 rounded-full px-4 py-2 text-body-sm font-semibold transition-colors",
+    selected: "bg-brand/[0.08] text-brand",
     idle: "text-slate-500 hover:bg-slate-50",
   },
   underline: {
     // -mb-px pulls the tab's own border onto the container's bottom border so
     // the active underline sits flush with it instead of floating above.
     list: "-mb-px flex flex-wrap gap-6",
-    base: "min-h-11 border-b-2 px-1 pb-3 text-[14px] font-semibold transition-colors",
-    selected: "border-[#1C4D8D] text-[#1C4D8D]",
+    base: "min-h-11 border-b-2 px-1 pb-3 text-body font-semibold transition-colors",
+    selected: "border-brand text-brand",
     idle: "border-transparent text-slate-500 hover:text-slate-900",
   },
 };
@@ -92,7 +92,7 @@ export function SettingsTabList<T extends string>({
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(event) => moveFocus(event, index)}
-            className={`${styles.base} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 ${
+            className={`${styles.base} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
               selected ? styles.selected : styles.idle
             }`}
           >

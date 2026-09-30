@@ -157,10 +157,10 @@ const verificationStatusMeta: Record<
 // client-side concern, keyed on step.id. Any id not listed here still renders — it falls into
 // the trailing "other" group rather than disappearing.
 const verificationActionClass =
-  "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#1C4D8D] px-4 text-xs font-semibold text-white transition hover:bg-[#163f75] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 disabled:opacity-60";
+  "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 text-xs font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60";
 
 const verificationSecondaryActionClass =
-  "inline-flex min-h-11 items-center justify-center rounded-lg border border-[#1C4D8D] px-4 text-xs font-semibold text-[#1C4D8D] transition hover:bg-[#1C4D8D]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 disabled:opacity-60";
+  "inline-flex min-h-11 items-center justify-center rounded-lg border border-brand px-4 text-xs font-semibold text-brand transition hover:bg-brand/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60";
 
 const VERIFICATION_GROUPS: Array<{ key: string; label: string; stepIds: string[] }> = [
   { key: "contact", label: "Contact details", stepIds: ["email", "phone"] },
@@ -205,16 +205,16 @@ function ProfilePhotoSelector({
 }) {
   return (
     <div>
-      <p className="mb-2 block text-[14px] font-medium text-slate-600">Profile photo</p>
+      <p className="mb-2 block text-body font-medium text-slate-600">Profile photo</p>
       {avatarUrl ? (
         <div className="flex items-center gap-4">
           <img
             src={avatarUrl}
             alt="Profile"
-            className="h-24 w-24 rounded-[12px] border-2 border-slate-200 object-cover"
+            className="h-24 w-24 rounded-xl border-2 border-slate-200 object-cover"
           />
           <div className="flex flex-col gap-2">
-            <label className="flex cursor-pointer items-center gap-2 rounded-[10px] border border-[#1C4D8D] bg-white px-6 py-2 text-[14px] font-semibold text-[#1C4D8D] transition-all hover:bg-[#1C4D8D]/[0.06]">
+            <label className="flex cursor-pointer items-center gap-2 rounded-control border border-brand bg-white px-6 py-2 text-body font-semibold text-brand transition-all hover:bg-brand/[0.06]">
               <Upload className="h-4 w-4" />
               Change photo
               <input
@@ -231,7 +231,7 @@ function ProfilePhotoSelector({
               onClick={onDelete}
               disabled={isSubmitting}
               aria-busy={isSubmitting}
-              className="rounded-[10px] border border-[#FCA5A5] px-6 py-2 text-[14px] font-medium text-[#EF4444] transition-all hover:bg-[#FEE2E2]"
+              className="rounded-control border border-[#FCA5A5] px-6 py-2 text-body font-medium text-[#EF4444] transition-all hover:bg-[#FEE2E2]"
             >
               Remove photo
             </button>
@@ -239,7 +239,7 @@ function ProfilePhotoSelector({
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-4">
-          <label className="flex cursor-pointer items-center gap-2 rounded-[10px] bg-[#1C4D8D] px-6 py-3 font-semibold text-white transition-all hover:opacity-90 focus-within:ring-2 focus-within:ring-[#1C4D8D] focus-within:ring-offset-2">
+          <label className="flex cursor-pointer items-center gap-2 rounded-control bg-brand px-6 py-3 font-semibold text-white transition-all hover:opacity-90 focus-within:ring-2 focus-within:ring-brand focus-within:ring-offset-2">
             <Upload className="h-4 w-4 text-white" />
             <span className="text-white">Upload your photo</span>
             <input
@@ -251,7 +251,7 @@ function ProfilePhotoSelector({
               className="sr-only"
             />
           </label>
-          <span className="text-[13px] text-slate-500">(jpg/png format)</span>
+          <span className="text-body-sm text-slate-500">(jpg/png format)</span>
         </div>
       )}
     </div>
@@ -1691,7 +1691,7 @@ export function Settings() {
     <div className="ui-page mx-auto max-w-[1200px] px-4 pb-16 md:px-0">
       <div className="ui-page-header">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#1C4D8D]">Account preferences</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand">Account preferences</p>
           <h1 className="ui-page-title mt-1">Settings</h1>
           <p className="ui-page-subtitle">Manage your profile, security, verification, and payment information.</p>
         </div>
@@ -1746,16 +1746,16 @@ export function Settings() {
                         <h2 className="text-lg font-semibold text-slate-900">
                           {isEmployerRole ? "Business Information" : "Personal Information"}
                         </h2>
-                        <p className="text-[13px] text-slate-500">
+                        <p className="text-body-sm text-slate-500">
                           Update your {isEmployerRole ? "employer profile" : "profile information"}.
                         </p>
                         {isProfileLoading && (
-                          <p className="text-[12px] text-slate-500 mt-1" role="status">Loading profile...</p>
+                          <p className="text-caption text-slate-500 mt-1" role="status">Loading profile...</p>
                         )}
                       </div>
 
                       {profileFormError ? (
-                        <div id="settings-profile-error" className="rounded-[12px] border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-800" role="alert">
+                        <div id="settings-profile-error" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-body-sm font-medium text-red-800" role="alert">
                           {profileFormError}
                         </div>
                       ) : null}
@@ -1771,24 +1771,30 @@ export function Settings() {
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                          <label htmlFor="settings-first-name" className="text-[14px] font-medium text-slate-600 mb-2 block">First name</label>
+                          <label htmlFor="settings-first-name" className="text-body font-medium text-slate-600 mb-2 block">First name</label>
                           <input
                             id="settings-first-name"
                             type="text"
                             value={personalInfo.firstName}
                             maxLength={PROFILE_LIMITS.name}
                             required
-                            disabled
+                            // `readOnly`, not `disabled`, to match the Last name
+                            // field beside it and the `aria-readonly` both
+                            // already declare. `disabled` contradicts that
+                            // attribute and drops the field out of the tab
+                            // order, so a keyboard or screen-reader user could
+                            // not reach their own name to read or copy it.
+                            readOnly
                             aria-readonly="true"
                             autoComplete="given-name"
                             aria-invalid={profileErrorField === "firstName"}
                             aria-describedby={profileErrorField === "firstName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
-                            className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
+                            className="w-full bg-gray-50 border border-slate-200 rounded-control px-4 py-3 text-body text-[#94A3B8] outline-none"
                           />
                         </div>
                         <div>
-                          <label htmlFor="settings-last-name" className="text-[14px] font-medium text-slate-600 mb-2 block">Last name</label>
+                          <label htmlFor="settings-last-name" className="text-body font-medium text-slate-600 mb-2 block">Last name</label>
                           <input
                             id="settings-last-name"
                             type="text"
@@ -1801,14 +1807,14 @@ export function Settings() {
                             aria-invalid={profileErrorField === "lastName"}
                             aria-describedby={profileErrorField === "lastName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
-                            className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
+                            className="w-full bg-gray-50 border border-slate-200 rounded-control px-4 py-3 text-body text-[#94A3B8] outline-none"
                           />
                         </div>
                       </div>
 
                       {isEmployerRole && (
                         <div>
-                          <label htmlFor="settings-company-name" className="text-[14px] font-medium text-slate-600 mb-2 block">Company name</label>
+                          <label htmlFor="settings-company-name" className="text-body font-medium text-slate-600 mb-2 block">Company name</label>
                           <input
                             id="settings-company-name"
                             type="text"
@@ -1820,7 +1826,7 @@ export function Settings() {
                             aria-describedby={profileErrorField === "companyName" ? "settings-profile-error" : undefined}
                             onChange={(e) => handlePersonalInfoChange("companyName", e.target.value)}
                             placeholder="Enter your company name"
-                            className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                            className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                           />
                         </div>
                       )}
@@ -1828,7 +1834,7 @@ export function Settings() {
                       {!isAdminRole && (
                         <>
                           {locationDataError ? (
-                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900" role="status">
+                            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-body-sm text-amber-900" role="status">
                               <span>{locationDataError}</span>
                               <button
                                 type="button"
@@ -1839,10 +1845,10 @@ export function Settings() {
                               </button>
                             </div>
                           ) : null}
-                          <p className="text-[12px] text-slate-500">Type to search, or pick from the list.</p>
+                          <p className="text-caption text-slate-500">Type to search, or pick from the list.</p>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                              <label htmlFor="settings-province" className="text-[14px] font-medium text-slate-600 mb-2 block">Province</label>
+                              <label htmlFor="settings-province" className="text-body font-medium text-slate-600 mb-2 block">Province</label>
                               <div className="relative">
                                 <input
                                   id="settings-province"
@@ -1854,7 +1860,7 @@ export function Settings() {
                                   aria-invalid={Boolean(personalInfo.province) && !selectedProvince}
                                   onChange={(event) => handlePersonalInfoChange("province", event.target.value)}
                                   placeholder={isLoadingLocationData ? "Loading provinces..." : "Search province"}
-                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                  className="w-full bg-white border border-slate-200 rounded-control pl-4 pr-9 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                               </div>
@@ -1864,7 +1870,7 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label htmlFor="settings-city" className="text-[14px] font-medium text-slate-600 mb-2 block">City / Municipality</label>
+                              <label htmlFor="settings-city" className="text-body font-medium text-slate-600 mb-2 block">City / Municipality</label>
                               <div className="relative">
                                 <input
                                   id="settings-city"
@@ -1876,7 +1882,7 @@ export function Settings() {
                                   aria-invalid={Boolean(personalInfo.city) && !selectedCity}
                                   onChange={(event) => handlePersonalInfoChange("city", event.target.value)}
                                   placeholder={selectedProvince ? "Search city or municipality" : "Select province first"}
-                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                  className="w-full bg-white border border-slate-200 rounded-control pl-4 pr-9 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                               </div>
@@ -1886,7 +1892,7 @@ export function Settings() {
                             </div>
 
                             <div>
-                              <label htmlFor="settings-barangay" className="text-[14px] font-medium text-slate-600 mb-2 block">Barangay</label>
+                              <label htmlFor="settings-barangay" className="text-body font-medium text-slate-600 mb-2 block">Barangay</label>
                               <div className="relative">
                                 <input
                                   id="settings-barangay"
@@ -1898,25 +1904,25 @@ export function Settings() {
                                   aria-describedby={barangayDataError ? "settings-barangay-help" : undefined}
                                   onChange={(event) => handlePersonalInfoChange("barangay", event.target.value)}
                                   placeholder={!selectedCity ? "Select city first" : isLoadingBarangays ? "Loading barangays..." : "Search barangay"}
-                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-slate-50 disabled:text-slate-500"
+                                  className="w-full bg-white border border-slate-200 rounded-control pl-4 pr-9 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand disabled:bg-slate-50 disabled:text-slate-500"
                                 />
                                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                               </div>
                               <datalist id="settings-barangay-options">
                                 {barangayOptions.map((barangay) => <option key={barangay.code} value={barangay.name} />)}
                               </datalist>
-                              {barangayDataError ? <p id="settings-barangay-help" className="mt-1 text-[12px] text-amber-800">{barangayDataError}</p> : null}
+                              {barangayDataError ? <p id="settings-barangay-help" className="mt-1 text-caption text-amber-800">{barangayDataError}</p> : null}
                             </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label htmlFor="settings-location-type" className="text-[14px] font-medium text-slate-600 mb-2 block">Location type</label>
+                              <label htmlFor="settings-location-type" className="text-body font-medium text-slate-600 mb-2 block">Location type</label>
                               <select
                                 id="settings-location-type"
                                 value={personalInfo.addressType}
                                 onChange={(e) => handlePersonalInfoChange("addressType", e.target.value)}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                               >
                                 <option value="home">Home address</option>
                                 <option value="office">Office / Business address</option>
@@ -1924,7 +1930,7 @@ export function Settings() {
                               </select>
                             </div>
                             <div>
-                              <label htmlFor="settings-address" className="text-[14px] font-medium text-slate-600 mb-2 block">Address / Place</label>
+                              <label htmlFor="settings-address" className="text-body font-medium text-slate-600 mb-2 block">Address / Place</label>
                               <div className="relative">
                                 <input
                                   id="settings-address"
@@ -1937,7 +1943,7 @@ export function Settings() {
                                   aria-describedby={profileErrorField === "address" ? "settings-profile-error" : undefined}
                                   onChange={(e) => handlePersonalInfoChange("address", e.target.value)}
                                   placeholder={personalInfo.addressType === "place" ? "e.g., Near City Hall" : "House no., street, subdivision"}
-                                  className="w-full bg-white border border-slate-200 rounded-[10px] pl-4 pr-9 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                  className="w-full bg-white border border-slate-200 rounded-control pl-4 pr-9 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                                 />
                                 {addressSuggestions.length > 0 ? (
                                   <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
@@ -1957,9 +1963,9 @@ export function Settings() {
                       {!isAdminRole && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div>
-                            <label htmlFor="settings-phone" className="mb-2 block text-[14px] font-medium text-slate-600">
+                            <label htmlFor="settings-phone" className="mb-2 block text-body font-medium text-slate-600">
                               Phone number
-                              <span className={`ml-1 text-[12px] font-semibold ${isCurrentPhoneVerified ? "text-emerald-700" : "text-slate-500"}`}>
+                              <span className={`ml-1 text-caption font-semibold ${isCurrentPhoneVerified ? "text-emerald-700" : "text-slate-500"}`}>
                                 ({isCurrentPhoneVerified ? "Phone number verified" : "Phone number not verified"})
                               </span>
                             </label>
@@ -1976,17 +1982,17 @@ export function Settings() {
                               maxLength={20}
                               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
                               placeholder="e.g., 0917 123 4567"
-                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                             />
                           </div>
                           <div>
-                            <label htmlFor="settings-employer-email" className="text-[14px] font-medium text-slate-600 mb-2 block">Email</label>
+                            <label htmlFor="settings-employer-email" className="text-body font-medium text-slate-600 mb-2 block">Email</label>
                             <input
                               id="settings-employer-email"
                               type="email"
                               value={personalInfo.email}
                               disabled
-                              className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
+                              className="w-full bg-gray-50 border border-slate-200 rounded-control px-4 py-3 text-body text-[#94A3B8] outline-none"
                             />
                           </div>
                         </div>
@@ -1994,13 +2000,13 @@ export function Settings() {
 
                       {isAdminRole && (
                         <div>
-                          <label htmlFor="settings-worker-email" className="text-[14px] font-medium text-slate-600 mb-2 block">Email</label>
+                          <label htmlFor="settings-worker-email" className="text-body font-medium text-slate-600 mb-2 block">Email</label>
                           <input
                             id="settings-worker-email"
                             type="email"
                             value={personalInfo.email}
                             disabled
-                            className="w-full bg-gray-50 border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-[#94A3B8] outline-none"
+                            className="w-full bg-gray-50 border border-slate-200 rounded-control px-4 py-3 text-body text-[#94A3B8] outline-none"
                           />
                         </div>
                       )}
@@ -2008,7 +2014,7 @@ export function Settings() {
                       {!isAdminRole && (
                         <>
                           <div>
-                            <label htmlFor="settings-about" className="text-[14px] font-medium text-slate-600 mb-2 block">About Me</label>
+                            <label htmlFor="settings-about" className="text-body font-medium text-slate-600 mb-2 block">About Me</label>
                             <textarea
                               id="settings-about"
                               value={personalInfo.about}
@@ -2017,16 +2023,16 @@ export function Settings() {
                               aria-describedby={profileErrorField === "about" ? "settings-profile-error settings-about-count" : "settings-about-count"}
                               onChange={(e) => handlePersonalInfoChange("about", e.target.value)}
                               placeholder="Tell us about yourself, your experience, and what you're passionate about..."
-                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
+                              className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all resize-none"
                               rows={4}
                             />
-                            <p id="settings-about-count" className="mt-1 text-right text-[12px] text-slate-500">
+                            <p id="settings-about-count" className="mt-1 text-right text-caption text-slate-500">
                               {personalInfo.about.length}/{PROFILE_LIMITS.about}
                             </p>
                           </div>
 
                           <div>
-                            <label htmlFor="settings-job-position" className="text-[14px] font-medium text-slate-600 mb-2 block">Professional headline</label>
+                            <label htmlFor="settings-job-position" className="text-body font-medium text-slate-600 mb-2 block">Professional headline</label>
                             <input
                               id="settings-job-position"
                               type="text"
@@ -2036,13 +2042,13 @@ export function Settings() {
                               maxLength={PROFILE_LIMITS.jobPosition}
                               aria-invalid={profileErrorField === "jobPosition"}
                               aria-describedby={profileErrorField === "jobPosition" ? "settings-profile-error" : undefined}
-                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                             />
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div>
-                              <label htmlFor="settings-linkedin" className="text-[14px] font-medium text-slate-600 mb-2 block">LinkedIn URL</label>
+                              <label htmlFor="settings-linkedin" className="text-body font-medium text-slate-600 mb-2 block">LinkedIn URL</label>
                               <input
                                 id="settings-linkedin"
                                 type="url"
@@ -2053,11 +2059,11 @@ export function Settings() {
                                 autoComplete="url"
                                 aria-invalid={profileErrorField === "linkedin"}
                                 aria-describedby={profileErrorField === "linkedin" ? "settings-profile-error" : undefined}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                               />
                             </div>
                             <div>
-                              <label htmlFor="settings-website" className="text-[14px] font-medium text-slate-600 mb-2 block">Portfolio or website</label>
+                              <label htmlFor="settings-website" className="text-body font-medium text-slate-600 mb-2 block">Portfolio or website</label>
                               <input
                                 id="settings-website"
                                 type="url"
@@ -2068,18 +2074,18 @@ export function Settings() {
                                 autoComplete="url"
                                 aria-invalid={profileErrorField === "website"}
                                 aria-describedby={profileErrorField === "website" ? "settings-profile-error" : undefined}
-                                className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                               />
                             </div>
                           </div>
 
                           <div>
-                            <label htmlFor="settings-experience" className="text-[14px] font-medium text-slate-600 mb-2 block">Total Experience</label>
+                            <label htmlFor="settings-experience" className="text-body font-medium text-slate-600 mb-2 block">Total Experience</label>
                             <select
                               id="settings-experience"
                               value={experienceStats.totalExperience}
                               onChange={(e) => setExperienceStats({ ...experienceStats, totalExperience: e.target.value })}
-                              className="w-full bg-white border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                              className="w-full bg-white border border-slate-200 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                             >
                               <option value="">Select experience</option>
                               <option value="Less than 1 Year">Less than 1 Year</option>
@@ -2104,7 +2110,7 @@ export function Settings() {
                           type="submit"
                           disabled={isProfileSaving || isProfileLoading}
                           aria-busy={isProfileSaving || isProfileLoading}
-                          className={`bg-[#1C4D8D] text-white font-semibold px-8 py-3 rounded-[10px] transition-all ${
+                          className={`bg-brand text-white font-semibold px-8 py-3 rounded-control transition-all ${
                             isProfileSaving || isProfileLoading ? "opacity-70 cursor-not-allowed" : "hover:opacity-90"
                           }`}
                         >
@@ -2125,58 +2131,58 @@ export function Settings() {
                     >
                       <div>
                         <h2 className="text-lg font-semibold text-slate-900">Skills & Experience</h2>
-                        <p className="text-[13px] text-slate-500">Add and manage your skills, work history, internships, and certificates.</p>
+                        <p className="text-body-sm text-slate-500">Add and manage your skills, work history, internships, and certificates.</p>
                       </div>
 
-                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
+                      <div className="rounded-card border border-slate-200 bg-white p-6 space-y-5">
                         <div>
                           <h3 className="text-base font-semibold text-slate-900">
                             {editingExperienceId ? "Edit work experience" : "Add work experience"}
                           </h3>
-                          <p className="mt-1 text-[13px] text-slate-500">Show employers the roles, client work, or self-employment that support your skills.</p>
+                          <p className="mt-1 text-body-sm text-slate-500">Show employers the roles, client work, or self-employment that support your skills.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label htmlFor="experience-title" className="text-[13px] font-medium text-slate-600 mb-2 block">Job title *</label>
-                            <input id="experience-title" value={experienceDraft.title} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Math tutor" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-title" className="text-body-sm font-medium text-slate-600 mb-2 block">Job title *</label>
+                            <input id="experience-title" value={experienceDraft.title} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Math tutor" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="experience-company" className="text-[13px] font-medium text-slate-600 mb-2 block">Company or client *</label>
-                            <input id="experience-company" value={experienceDraft.company} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Self-employed" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-company" className="text-body-sm font-medium text-slate-600 mb-2 block">Company or client *</label>
+                            <input id="experience-company" value={experienceDraft.company} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Self-employed" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="experience-location" className="text-[13px] font-medium text-slate-600 mb-2 block">Location</label>
-                            <input id="experience-location" value={experienceDraft.location} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="experience-location" className="text-body-sm font-medium text-slate-600 mb-2 block">Location</label>
+                            <input id="experience-location" value={experienceDraft.location} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label htmlFor="experience-start" className="text-[13px] font-medium text-slate-600 mb-2 block">Start *</label>
-                              <input id="experience-start" type="month" value={experienceDraft.startDate} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                              <label htmlFor="experience-start" className="text-body-sm font-medium text-slate-600 mb-2 block">Start *</label>
+                              <input id="experience-start" type="month" value={experienceDraft.startDate} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-slate-200 rounded-control px-3 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                             </div>
                             <div>
-                              <label htmlFor="experience-end" className="text-[13px] font-medium text-slate-600 mb-2 block">End *</label>
-                              <input id="experience-end" type="month" value={experienceDraft.endDate || ""} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={experienceDraft.current} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
+                              <label htmlFor="experience-end" className="text-body-sm font-medium text-slate-600 mb-2 block">End *</label>
+                              <input id="experience-end" type="month" value={experienceDraft.endDate || ""} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={experienceDraft.current} className="w-full border border-slate-200 rounded-control px-3 py-3 text-body outline-none focus:ring-2 focus:ring-brand disabled:bg-[#F1F5F9]" />
                             </div>
                           </div>
                         </div>
 
-                        <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
+                        <label className="flex items-center gap-2 text-body-sm text-slate-600 cursor-pointer">
                           <input type="checkbox" checked={experienceDraft.current} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? "" : prev.endDate }))} className="w-4 h-4" />
                           I currently work here
                         </label>
 
                         <div>
-                          <label htmlFor="experience-description" className="text-[13px] font-medium text-slate-600 mb-2 block">Description</label>
-                          <textarea id="experience-description" value={experienceDraft.description} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
+                          <label htmlFor="experience-description" className="text-body-sm font-medium text-slate-600 mb-2 block">Description</label>
+                          <textarea id="experience-description" value={experienceDraft.description} onChange={(e) => setExperienceDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand resize-none" />
                         </div>
 
                         <div className="flex flex-wrap gap-3">
-                          <button type="button" onClick={handleSaveExperience} disabled={isExperienceSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                          <button type="button" onClick={handleSaveExperience} disabled={isExperienceSaving} className="bg-brand text-white font-semibold px-5 py-2.5 rounded-control disabled:opacity-60">
                             {isExperienceSaving ? "Saving..." : editingExperienceId ? "Save experience" : "Add experience"}
                           </button>
                           {editingExperienceId && (
-                            <button type="button" onClick={resetExperienceEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                            <button type="button" onClick={resetExperienceEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-control">Cancel</button>
                           )}
                         </div>
                       </div>
@@ -2184,18 +2190,18 @@ export function Settings() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <h3 className="text-base font-semibold text-slate-900">Work history</h3>
-                          <span className="text-[12px] text-slate-500">{workExperiences.length} {workExperiences.length === 1 ? "entry" : "entries"}</span>
+                          <span className="text-caption text-slate-500">{workExperiences.length} {workExperiences.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {workExperiences.length ? workExperiences.map((item) => (
-                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
+                          <div key={item.id} className="rounded-card border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
                             <div className="min-w-0 flex-1">
                               <p className="text-[15px] font-semibold text-slate-900">{item.title}</p>
-                              <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                              <p className="mt-1 text-[12px] text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
-                              {item.description ? <p className="mt-3 text-[13px] text-slate-600 whitespace-pre-line">{item.description}</p> : null}
+                              <p className="text-body-sm text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                              <p className="mt-1 text-caption text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
+                              {item.description ? <p className="mt-3 text-body-sm text-slate-600 whitespace-pre-line">{item.description}</p> : null}
 
                               <div className="mt-3">
-                                <p className="text-[12px] font-semibold text-slate-500 mb-2">Media</p>
+                                <p className="text-caption font-semibold text-slate-500 mb-2">Media</p>
                                 <div className="flex flex-wrap items-center gap-2">
                                   {(item.media || []).map((media) => {
                                     const mediaUrl = toAbsoluteAssetUrl(media.url);
@@ -2218,7 +2224,7 @@ export function Settings() {
                                     );
                                   })}
                                   {(item.media?.length || 0) < PROFILE_LIMITS.experienceMediaPerEntry ? (
-                                    <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-[#1C4D8D] hover:text-[#1C4D8D] focus-within:ring-2 focus-within:ring-[#1C4D8D]">
+                                    <label className="flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-brand hover:text-brand focus-within:ring-2 focus-within:ring-brand">
                                       <Upload className="h-4 w-4" />
                                       <span className="text-[10px] font-semibold">{mediaUploadingId === item.id ? "…" : "Add"}</span>
                                       <input
@@ -2235,64 +2241,64 @@ export function Settings() {
                               </div>
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <button type="button" onClick={() => handleEditExperience(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => handleEditExperience(item)} className="text-caption font-semibold text-brand px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
                               <button type="button" onClick={() => setDeleteExperienceTarget(item)} aria-label={`Delete ${item.title} experience`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </div>
                         )) : (
-                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No work history added yet.</div>
+                          <div className="rounded-card border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-body-sm text-slate-500">No work history added yet.</div>
                         )}
                       </div>
 
-                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
+                      <div className="rounded-card border border-slate-200 bg-white p-6 space-y-5">
                         <div>
                           <h3 className="text-base font-semibold text-slate-900">
                             {editingInternshipId ? "Edit internship" : "Add internship"}
                           </h3>
-                          <p className="mt-1 text-[13px] text-slate-500">Internships are shown separately from paid work experience on your profile.</p>
+                          <p className="mt-1 text-body-sm text-slate-500">Internships are shown separately from paid work experience on your profile.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label htmlFor="internship-title" className="text-[13px] font-medium text-slate-600 mb-2 block">Title *</label>
-                            <input id="internship-title" value={internshipDraft.title} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Marketing Intern" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="internship-title" className="text-body-sm font-medium text-slate-600 mb-2 block">Title *</label>
+                            <input id="internship-title" value={internshipDraft.title} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, title: e.target.value }))} maxLength={100} placeholder="e.g., Marketing Intern" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="internship-company" className="text-[13px] font-medium text-slate-600 mb-2 block">Company *</label>
-                            <input id="internship-company" value={internshipDraft.company} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Acme Co." className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="internship-company" className="text-body-sm font-medium text-slate-600 mb-2 block">Company *</label>
+                            <input id="internship-company" value={internshipDraft.company} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, company: e.target.value }))} maxLength={120} placeholder="e.g., Acme Co." className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="internship-location" className="text-[13px] font-medium text-slate-600 mb-2 block">Location</label>
-                            <input id="internship-location" value={internshipDraft.location} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="internship-location" className="text-body-sm font-medium text-slate-600 mb-2 block">Location</label>
+                            <input id="internship-location" value={internshipDraft.location} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, location: e.target.value }))} maxLength={120} placeholder="City or Remote" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div className="grid grid-cols-2 gap-3">
                             <div>
-                              <label htmlFor="internship-start" className="text-[13px] font-medium text-slate-600 mb-2 block">Start *</label>
-                              <input id="internship-start" type="month" value={internshipDraft.startDate} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                              <label htmlFor="internship-start" className="text-body-sm font-medium text-slate-600 mb-2 block">Start *</label>
+                              <input id="internship-start" type="month" value={internshipDraft.startDate} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, startDate: e.target.value }))} className="w-full border border-slate-200 rounded-control px-3 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                             </div>
                             <div>
-                              <label htmlFor="internship-end" className="text-[13px] font-medium text-slate-600 mb-2 block">End *</label>
-                              <input id="internship-end" type="month" value={internshipDraft.endDate || ""} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={internshipDraft.current} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] disabled:bg-[#F1F5F9]" />
+                              <label htmlFor="internship-end" className="text-body-sm font-medium text-slate-600 mb-2 block">End *</label>
+                              <input id="internship-end" type="month" value={internshipDraft.endDate || ""} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, endDate: e.target.value }))} disabled={internshipDraft.current} className="w-full border border-slate-200 rounded-control px-3 py-3 text-body outline-none focus:ring-2 focus:ring-brand disabled:bg-[#F1F5F9]" />
                             </div>
                           </div>
                         </div>
 
-                        <label className="flex items-center gap-2 text-[13px] text-slate-600 cursor-pointer">
+                        <label className="flex items-center gap-2 text-body-sm text-slate-600 cursor-pointer">
                           <input type="checkbox" checked={internshipDraft.current} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, current: e.target.checked, endDate: e.target.checked ? "" : prev.endDate }))} className="w-4 h-4" />
                           I currently intern here
                         </label>
 
                         <div>
-                          <label htmlFor="internship-description" className="text-[13px] font-medium text-slate-600 mb-2 block">Description</label>
-                          <textarea id="internship-description" value={internshipDraft.description} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D] resize-none" />
+                          <label htmlFor="internship-description" className="text-body-sm font-medium text-slate-600 mb-2 block">Description</label>
+                          <textarea id="internship-description" value={internshipDraft.description} onChange={(e) => setInternshipDraft((prev) => ({ ...prev, description: e.target.value }))} maxLength={1000} rows={3} placeholder="Describe your responsibilities and results" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand resize-none" />
                         </div>
 
                         <div className="flex flex-wrap gap-3">
-                          <button type="button" onClick={handleSaveInternship} disabled={isInternshipSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                          <button type="button" onClick={handleSaveInternship} disabled={isInternshipSaving} className="bg-brand text-white font-semibold px-5 py-2.5 rounded-control disabled:opacity-60">
                             {isInternshipSaving ? "Saving..." : editingInternshipId ? "Save internship" : "Add internship"}
                           </button>
                           {editingInternshipId && (
-                            <button type="button" onClick={resetInternshipEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                            <button type="button" onClick={resetInternshipEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-control">Cancel</button>
                           )}
                         </div>
                       </div>
@@ -2300,67 +2306,67 @@ export function Settings() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <h3 className="text-base font-semibold text-slate-900">Internships</h3>
-                          <span className="text-[12px] text-slate-500">{internships.length} {internships.length === 1 ? "entry" : "entries"}</span>
+                          <span className="text-caption text-slate-500">{internships.length} {internships.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {internships.length ? internships.map((item) => (
-                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
+                          <div key={item.id} className="rounded-card border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
                             <div className="min-w-0 flex-1">
                               <p className="text-[15px] font-semibold text-slate-900">{item.title}</p>
-                              <p className="text-[13px] text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
-                              <p className="mt-1 text-[12px] text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
-                              {item.description ? <p className="mt-3 text-[13px] text-slate-600 whitespace-pre-line">{item.description}</p> : null}
+                              <p className="text-body-sm text-slate-600">{[item.company, item.location].filter(Boolean).join(" · ")}</p>
+                              <p className="mt-1 text-caption text-slate-500">{formatExperienceMonth(item.startDate)} – {item.current ? "Present" : formatExperienceMonth(item.endDate)}</p>
+                              {item.description ? <p className="mt-3 text-body-sm text-slate-600 whitespace-pre-line">{item.description}</p> : null}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <button type="button" onClick={() => handleEditInternship(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => handleEditInternship(item)} className="text-caption font-semibold text-brand px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
                               <button type="button" onClick={() => setDeleteInternshipTarget(item)} aria-label={`Delete ${item.title} internship`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </div>
                         )) : (
-                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No internships added yet.</div>
+                          <div className="rounded-card border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-body-sm text-slate-500">No internships added yet.</div>
                         )}
                       </div>
 
-                      <div className="rounded-[16px] border border-slate-200 bg-white p-6 space-y-5">
+                      <div className="rounded-card border border-slate-200 bg-white p-6 space-y-5">
                         <div>
                           <h3 className="text-base font-semibold text-slate-900">
                             {editingCertificateId ? "Edit certificate" : "Add certificate"}
                           </h3>
-                          <p className="mt-1 text-[13px] text-slate-500">Add licenses or certifications employers can verify.</p>
+                          <p className="mt-1 text-body-sm text-slate-500">Add licenses or certifications employers can verify.</p>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <label htmlFor="certificate-name" className="text-[13px] font-medium text-slate-600 mb-2 block">Certificate name *</label>
-                            <input id="certificate-name" value={certificateDraft.name} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, name: e.target.value }))} maxLength={120} placeholder="e.g., AWS Solutions Architect" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="certificate-name" className="text-body-sm font-medium text-slate-600 mb-2 block">Certificate name *</label>
+                            <input id="certificate-name" value={certificateDraft.name} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, name: e.target.value }))} maxLength={120} placeholder="e.g., AWS Solutions Architect" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="certificate-issuer" className="text-[13px] font-medium text-slate-600 mb-2 block">Issuing organization *</label>
-                            <input id="certificate-issuer" value={certificateDraft.issuer} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issuer: e.target.value }))} maxLength={120} placeholder="e.g., Amazon Web Services" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="certificate-issuer" className="text-body-sm font-medium text-slate-600 mb-2 block">Issuing organization *</label>
+                            <input id="certificate-issuer" value={certificateDraft.issuer} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issuer: e.target.value }))} maxLength={120} placeholder="e.g., Amazon Web Services" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="certificate-issue-date" className="text-[13px] font-medium text-slate-600 mb-2 block">Issue date *</label>
-                            <input id="certificate-issue-date" type="month" value={certificateDraft.issueDate} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issueDate: e.target.value }))} className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="certificate-issue-date" className="text-body-sm font-medium text-slate-600 mb-2 block">Issue date *</label>
+                            <input id="certificate-issue-date" type="month" value={certificateDraft.issueDate} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, issueDate: e.target.value }))} className="w-full border border-slate-200 rounded-control px-3 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="certificate-expiry-date" className="text-[13px] font-medium text-slate-600 mb-2 block">Expiry date</label>
-                            <input id="certificate-expiry-date" type="month" value={certificateDraft.expiryDate || ""} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, expiryDate: e.target.value }))} placeholder="Leave blank if it never expires" className="w-full border border-slate-200 rounded-[10px] px-3 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="certificate-expiry-date" className="text-body-sm font-medium text-slate-600 mb-2 block">Expiry date</label>
+                            <input id="certificate-expiry-date" type="month" value={certificateDraft.expiryDate || ""} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, expiryDate: e.target.value }))} placeholder="Leave blank if it never expires" className="w-full border border-slate-200 rounded-control px-3 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="certificate-credential-id" className="text-[13px] font-medium text-slate-600 mb-2 block">Credential ID</label>
-                            <input id="certificate-credential-id" value={certificateDraft.credentialId} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialId: e.target.value }))} maxLength={80} placeholder="Optional" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="certificate-credential-id" className="text-body-sm font-medium text-slate-600 mb-2 block">Credential ID</label>
+                            <input id="certificate-credential-id" value={certificateDraft.credentialId} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialId: e.target.value }))} maxLength={80} placeholder="Optional" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                           <div>
-                            <label htmlFor="certificate-credential-url" className="text-[13px] font-medium text-slate-600 mb-2 block">Credential URL</label>
-                            <input id="certificate-credential-url" type="url" value={certificateDraft.credentialUrl} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialUrl: e.target.value }))} maxLength={500} placeholder="https://…" className="w-full border border-slate-200 rounded-[10px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]" />
+                            <label htmlFor="certificate-credential-url" className="text-body-sm font-medium text-slate-600 mb-2 block">Credential URL</label>
+                            <input id="certificate-credential-url" type="url" value={certificateDraft.credentialUrl} onChange={(e) => setCertificateDraft((prev) => ({ ...prev, credentialUrl: e.target.value }))} maxLength={500} placeholder="https://…" className="w-full border border-slate-200 rounded-control px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand" />
                           </div>
                         </div>
 
                         <div className="flex flex-wrap gap-3">
-                          <button type="button" onClick={handleSaveCertificate} disabled={isCertificateSaving} className="bg-[#1C4D8D] text-white font-semibold px-5 py-2.5 rounded-[10px] disabled:opacity-60">
+                          <button type="button" onClick={handleSaveCertificate} disabled={isCertificateSaving} className="bg-brand text-white font-semibold px-5 py-2.5 rounded-control disabled:opacity-60">
                             {isCertificateSaving ? "Saving..." : editingCertificateId ? "Save certificate" : "Add certificate"}
                           </button>
                           {editingCertificateId && (
-                            <button type="button" onClick={resetCertificateEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-[10px]">Cancel</button>
+                            <button type="button" onClick={resetCertificateEditor} className="bg-[#F1F5F9] text-slate-600 font-semibold px-5 py-2.5 rounded-control">Cancel</button>
                           )}
                         </div>
                       </div>
@@ -2368,35 +2374,35 @@ export function Settings() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <h3 className="text-base font-semibold text-slate-900">Certificates</h3>
-                          <span className="text-[12px] text-slate-500">{certificates.length} {certificates.length === 1 ? "entry" : "entries"}</span>
+                          <span className="text-caption text-slate-500">{certificates.length} {certificates.length === 1 ? "entry" : "entries"}</span>
                         </div>
                         {certificates.length ? certificates.map((item) => (
-                          <div key={item.id} className="rounded-[14px] border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
+                          <div key={item.id} className="rounded-card border border-slate-200 bg-slate-50 p-5 flex items-start justify-between gap-4">
                             <div className="min-w-0 flex-1">
                               <p className="text-[15px] font-semibold text-slate-900">{item.name}</p>
-                              <p className="text-[13px] text-slate-600">{item.issuer}</p>
-                              <p className="mt-1 text-[12px] text-slate-500">
+                              <p className="text-body-sm text-slate-600">{item.issuer}</p>
+                              <p className="mt-1 text-caption text-slate-500">
                                 {formatExperienceMonth(item.issueDate)}
                                 {item.expiryDate ? ` – ${formatExperienceMonth(item.expiryDate)}` : " · No expiry"}
                               </p>
-                              {item.credentialId ? <p className="mt-1 text-[12px] text-slate-500">Credential ID: {item.credentialId}</p> : null}
+                              {item.credentialId ? <p className="mt-1 text-caption text-slate-500">Credential ID: {item.credentialId}</p> : null}
                             </div>
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <button type="button" onClick={() => handleEditCertificate(item)} className="text-[12px] font-semibold text-[#1C4D8D] px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
+                              <button type="button" onClick={() => handleEditCertificate(item)} className="text-caption font-semibold text-brand px-3 py-2 rounded-[8px] hover:bg-[#DBEAFE]">Edit</button>
                               <button type="button" onClick={() => setDeleteCertificateTarget(item)} aria-label={`Delete ${item.name} certificate`} className="text-[#EF4444] p-2 rounded-[8px] hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /></button>
                             </div>
                           </div>
                         )) : (
-                          <div className="rounded-[14px] border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-[13px] text-slate-500">No certificates added yet.</div>
+                          <div className="rounded-card border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-body-sm text-slate-500">No certificates added yet.</div>
                         )}
                       </div>
 
-                      <div className="bg-[#1C4D8D]/[0.08] border border-[#1C4D8D]/20 rounded-[16px] p-6">
+                      <div className="bg-brand/[0.08] border border-brand/20 rounded-card p-6">
                         <h3 className="text-base font-semibold text-slate-900 mb-4">Add New Skill</h3>
                         <div className="space-y-4">
                           {/* Skill Selection Mode */}
                           <div>
-                            <p className="text-[14px] font-medium text-slate-600 mb-2 block">Choose Option</p>
+                            <p className="text-body font-medium text-slate-600 mb-2 block">Choose Option</p>
                             <div className="flex gap-4">
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -2404,9 +2410,9 @@ export function Settings() {
                                   name="skillMode"
                                   checked={skillSelectionMode === "predefined"}
                                   onChange={() => setSkillSelectionMode("predefined")}
-                                  className="w-4 h-4 text-[#1C4D8D]"
+                                  className="w-4 h-4 text-brand"
                                 />
-                                <span className="text-[14px] text-slate-600">Select from list</span>
+                                <span className="text-body text-slate-600">Select from list</span>
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -2414,22 +2420,22 @@ export function Settings() {
                                   name="skillMode"
                                   checked={skillSelectionMode === "custom"}
                                   onChange={() => setSkillSelectionMode("custom")}
-                                  className="w-4 h-4 text-[#1C4D8D]"
+                                  className="w-4 h-4 text-brand"
                                 />
-                                <span className="text-[14px] text-slate-600">Custom skill</span>
+                                <span className="text-body text-slate-600">Custom skill</span>
                               </label>
                             </div>
                           </div>
 
                           {/* Skill Name Input */}
                           <div>
-                            <p id="settings-skill-name-label" className="text-[14px] font-medium text-slate-600 mb-2 block">Skill Name</p>
+                            <p id="settings-skill-name-label" className="text-body font-medium text-slate-600 mb-2 block">Skill Name</p>
                             {skillSelectionMode === "predefined" ? (
                               <select
                                 aria-labelledby="settings-skill-name-label"
                                 value={selectedPredefinedSkill}
                                 onChange={(e) => setSelectedPredefinedSkill(e.target.value)}
-                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-brand/20 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                               >
                                 <option value="">Select a skill</option>
                                 <optgroup label="Household & Cleaning">
@@ -2537,7 +2543,7 @@ export function Settings() {
                                 maxLength={PROFILE_LIMITS.skillName}
                                 onChange={(e) => setNewSkillName(e.target.value)}
                                 placeholder="e.g., Flutter, Blockchain, Video Editing"
-                                className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all"
+                                className="w-full bg-white border border-brand/20 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all"
                                 onKeyDown={(event) => {
                                   if (event.key === "Enter") {
                                     event.preventDefault();
@@ -2549,7 +2555,7 @@ export function Settings() {
                           </div>
 
                           <div>
-                            <label htmlFor="settings-skill-description" className="text-[14px] font-medium text-slate-600 mb-2 block">Description or experience note</label>
+                            <label htmlFor="settings-skill-description" className="text-body font-medium text-slate-600 mb-2 block">Description or experience note</label>
                             <textarea
                               id="settings-skill-description"
                               value={newSkillDescription}
@@ -2557,10 +2563,10 @@ export function Settings() {
                               aria-describedby="settings-skill-description-count"
                               onChange={(e) => setNewSkillDescription(e.target.value)}
                               placeholder="Optional: describe what you can do or your experience with this skill"
-                              className="w-full bg-white border border-[#1C4D8D]/20 rounded-[10px] px-4 py-3 text-[14px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
+                              className="w-full bg-white border border-brand/20 rounded-control px-4 py-3 text-body text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all resize-none"
                               rows={3}
                             />
-                            <p id="settings-skill-description-count" className="mt-1 text-right text-[12px] text-slate-500">
+                            <p id="settings-skill-description-count" className="mt-1 text-right text-caption text-slate-500">
                               {newSkillDescription.length}/{PROFILE_LIMITS.skillDescription}
                             </p>
                           </div>
@@ -2569,7 +2575,7 @@ export function Settings() {
                             onClick={handleAddSkill}
                             disabled={Boolean(skillMutationId)}
                             aria-busy={skillMutationId === "new"}
-                            className="w-full bg-[#1C4D8D] text-white font-semibold py-2.5 px-4 rounded-[10px] hover:opacity-90 transition-all"
+                            className="w-full bg-brand text-white font-semibold py-2.5 px-4 rounded-control hover:opacity-90 transition-all"
                           >
                             {skillMutationId === "new" ? "Saving..." : "Add Skill"}
                           </button>
@@ -2578,15 +2584,15 @@ export function Settings() {
 
                       {skills.length > 0 ? (
                         <div>
-                          <h3 className="text-[14px] font-semibold text-slate-900 mb-3">Your Skills</h3>
+                          <h3 className="text-body font-semibold text-slate-900 mb-3">Your Skills</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {skills.map((skill) => (
                               <div
                                 key={skill.id}
-                                className="bg-white border border-slate-200 rounded-[10px] p-4 flex items-start justify-between hover:shadow-md transition-all"
+                                className="bg-white border border-slate-200 rounded-control p-4 flex items-start justify-between hover:shadow-md transition-all"
                               >
                                 <div className="flex-1">
-                                  <p className="text-[14px] font-semibold text-slate-900">{skill.name}</p>
+                                  <p className="text-body font-semibold text-slate-900">{skill.name}</p>
                                   {editingSkillId === skill.id ? (
                                     <div className="mt-3 space-y-3">
                                       <textarea
@@ -2595,14 +2601,14 @@ export function Settings() {
                                         maxLength={PROFILE_LIMITS.skillDescription}
                                         onChange={(e) => setEditingSkillDescription(e.target.value)}
                                         placeholder="Describe your experience with this skill"
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-[10px] px-3 py-2 text-[13px] text-slate-900 outline-none focus:ring-2 focus:ring-[#1C4D8D] focus:border-transparent transition-all resize-none"
+                                        className="w-full bg-slate-50 border border-slate-200 rounded-control px-3 py-2 text-body-sm text-slate-900 outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-all resize-none"
                                         rows={3}
                                       />
                                       <div className="flex items-center gap-2">
                                         <button
                                           onClick={() => handleEditSkillDescription(skill.id)}
                                           disabled={skillMutationId === skill.id}
-                                          className="bg-[#1C4D8D] text-white text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:opacity-90 transition-all"
+                                          className="bg-brand text-white text-caption font-semibold px-3 py-2 rounded-[8px] hover:opacity-90 transition-all"
                                         >
                                           {skillMutationId === skill.id ? "Saving..." : "Save note"}
                                         </button>
@@ -2611,7 +2617,7 @@ export function Settings() {
                                             setEditingSkillId(null);
                                             setEditingSkillDescription("");
                                           }}
-                                          className="bg-slate-100 text-slate-700 text-[12px] font-semibold px-3 py-2 rounded-[8px] hover:bg-slate-200 transition-all"
+                                          className="bg-slate-100 text-slate-700 text-caption font-semibold px-3 py-2 rounded-[8px] hover:bg-slate-200 transition-all"
                                         >
                                           Cancel
                                         </button>
@@ -2619,7 +2625,7 @@ export function Settings() {
                                     </div>
                                   ) : (
                                     <>
-                                      <p className="mt-2 text-[13px] text-slate-500">
+                                      <p className="mt-2 text-body-sm text-slate-500">
                                         {skill.description?.trim() || "No description added"}
                                       </p>
                                       <div className="flex items-center gap-2 mt-3">
@@ -2628,12 +2634,12 @@ export function Settings() {
                                             setEditingSkillId(skill.id);
                                             setEditingSkillDescription(skill.description || "");
                                           }}
-                                          className="text-[12px] font-semibold text-[#1C4D8D] hover:opacity-80"
+                                          className="text-caption font-semibold text-brand hover:opacity-80"
                                         >
                                           Edit description
                                         </button>
                                         {skill.endorsements ? (
-                                          <span className="text-[12px] text-slate-500">{skill.endorsements} endorsements</span>
+                                          <span className="text-caption text-slate-500">{skill.endorsements} endorsements</span>
                                         ) : null}
                                       </div>
                                     </>
@@ -2654,9 +2660,9 @@ export function Settings() {
                           </div>
                         </div>
                       ) : (
-                        <div className="text-center py-12 bg-slate-50 rounded-[16px] border border-slate-200">
-                          <p className="text-[14px] text-slate-500 mb-2">No skills added yet</p>
-                          <p className="text-[12px] text-[#94A3B8]">Add your skills above to showcase your expertise</p>
+                        <div className="text-center py-12 bg-slate-50 rounded-card border border-slate-200">
+                          <p className="text-body text-slate-500 mb-2">No skills added yet</p>
+                          <p className="text-caption text-[#94A3B8]">Add your skills above to showcase your expertise</p>
                         </div>
                       )}
                     </div>
@@ -2686,14 +2692,14 @@ export function Settings() {
               <Card>
                 <div className="mb-6">
                   <h2 className="text-lg font-semibold text-slate-900">Change Password</h2>
-                  <p className="text-[13px] text-slate-500">
+                  <p className="text-body-sm text-slate-500">
                     Changing your password will revoke your other active sessions and keep this one signed in.
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
-                    <label htmlFor="settings-current-password" className="text-[13px] text-slate-500">Current Password</label>
+                    <label htmlFor="settings-current-password" className="text-body-sm text-slate-500">Current Password</label>
                     <div className="relative">
                       <input
                         id="settings-current-password"
@@ -2701,7 +2707,7 @@ export function Settings() {
                         autoComplete="current-password"
                         value={securityData.currentPassword}
                         onChange={(e) => setSecurityData({ ...securityData, currentPassword: e.target.value })}
-                        className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                        className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
                       />
                       <button
                         type="button"
@@ -2715,7 +2721,7 @@ export function Settings() {
                     </div>
                   </div>
 
-                  <div className="rounded-[10px] border border-slate-200 bg-slate-50 p-3 text-[12px] text-slate-600">
+                  <div className="rounded-control border border-slate-200 bg-slate-50 p-3 text-caption text-slate-600">
                     Request OTP first. You will need the OTP from your email before setting a new password.
                   </div>
 
@@ -2723,14 +2729,14 @@ export function Settings() {
                     <button
                       onClick={handleRequestPasswordOtp}
                       disabled={isOtpSending}
-                      className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-[13px] font-semibold disabled:opacity-60"
+                      className="px-5 py-2.5 bg-[#0F766E] text-white rounded-full text-body-sm font-semibold disabled:opacity-60"
                     >
                       {isOtpSending ? "Sending OTP..." : passwordOtpRequested ? "Resend OTP" : "Send OTP"}
                     </button>
                   </div>
 
                   <div>
-                    <label htmlFor="settings-password-otp" className="text-[13px] text-slate-500">OTP Code</label>
+                    <label htmlFor="settings-password-otp" className="text-body-sm text-slate-500">OTP Code</label>
                     <input
                       id="settings-password-otp"
                       type="text"
@@ -2740,13 +2746,13 @@ export function Settings() {
                       value={passwordOtp}
                       onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
                       placeholder="Enter 6-digit OTP"
-                      className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                      className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
                     />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label htmlFor="settings-new-password" className="text-[13px] text-slate-500">New Password</label>
+                      <label htmlFor="settings-new-password" className="text-body-sm text-slate-500">New Password</label>
                       <div className="relative">
                         <input
                           id="settings-new-password"
@@ -2754,7 +2760,7 @@ export function Settings() {
                           autoComplete="new-password"
                           value={securityData.newPassword}
                           onChange={(e) => setSecurityData({ ...securityData, newPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                          className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
                         />
                         <button
                           type="button"
@@ -2769,7 +2775,7 @@ export function Settings() {
                     </div>
 
                     <div>
-                      <label htmlFor="settings-confirm-password" className="text-[13px] text-slate-500">Confirm Password</label>
+                      <label htmlFor="settings-confirm-password" className="text-body-sm text-slate-500">Confirm Password</label>
                       <div className="relative">
                         <input
                           id="settings-confirm-password"
@@ -2777,7 +2783,7 @@ export function Settings() {
                           autoComplete="new-password"
                           value={securityData.confirmPassword}
                           onChange={(e) => setSecurityData({ ...securityData, confirmPassword: e.target.value })}
-                          className="w-full mt-2 bg-white border border-slate-200 rounded-[12px] px-4 py-3 text-[14px] outline-none focus:ring-2 focus:ring-[#1C4D8D]"
+                          className="w-full mt-2 bg-white border border-slate-200 rounded-xl px-4 py-3 text-body outline-none focus:ring-2 focus:ring-brand"
                         />
                         <button
                           type="button"
@@ -2796,14 +2802,14 @@ export function Settings() {
                 <div className="flex items-center gap-4 mt-6">
                   <button
                     onClick={handleDiscardPassword}
-                    className="px-6 py-2.5 border border-slate-200 text-slate-500 rounded-full text-[14px]"
+                    className="px-6 py-2.5 border border-slate-200 text-slate-500 rounded-full text-body"
                   >
                     Discard
                   </button>
                   <button
                     onClick={handleChangePassword}
                     disabled={isPasswordSubmitting}
-                    className="px-6 py-2.5 bg-[#1C4D8D] text-white rounded-full text-[14px] font-semibold disabled:opacity-60"
+                    className="px-6 py-2.5 bg-brand text-white rounded-full text-body font-semibold disabled:opacity-60"
                   >
                     {isPasswordSubmitting ? "Saving..." : "Save New Password"}
                   </button>
@@ -2820,29 +2826,29 @@ export function Settings() {
                   {sessions.length > 0 && (
                     <button
                       onClick={handleRevokeAllSessions}
-                      className="text-[#EF4444] hover:bg-[#FEE2E2] px-4 py-2 rounded-[8px] text-[13px] font-medium transition-colors"
+                      className="text-[#EF4444] hover:bg-[#FEE2E2] px-4 py-2 rounded-[8px] text-body-sm font-medium transition-colors"
                     >
                       Sign out all sessions
                     </button>
                   )}
                 </div>
-                <p className="text-[13px] text-slate-500 mb-4">
+                <p className="text-body-sm text-slate-500 mb-4">
                   See your currently logged in sessions and remove unrecognized ones.
                 </p>
                 <div className="space-y-4">
                   {isLoadingSessions ? (
-                    <p className="text-[13px] text-slate-500">Loading sessions...</p>
+                    <p className="text-body-sm text-slate-500">Loading sessions...</p>
                   ) : sessions.length === 0 ? (
-                    <p className="text-[13px] text-slate-500">No active sessions found.</p>
+                    <p className="text-body-sm text-slate-500">No active sessions found.</p>
                   ) : (
                     sessions.map((session, index) => (
-                      <div key={session.id} className="border border-slate-200 rounded-[12px] p-4">
+                      <div key={session.id} className="border border-slate-200 rounded-xl p-4">
                         <div className="flex items-start justify-between mb-3">
-                          <p className="text-[13px] font-semibold text-slate-900">Session {index + 1}</p>
+                          <p className="text-body-sm font-semibold text-slate-900">Session {index + 1}</p>
                           {!session.current && (
                             <button
                               onClick={() => handleRevokeSession(session.id)}
-                              className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-[12px] font-medium transition-colors"
+                              className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-caption font-medium transition-colors"
                             >
                               Revoke
                             </button>
@@ -2850,28 +2856,28 @@ export function Settings() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <p className="text-[12px] text-slate-500">Current Session?</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{session.current ? "Yes" : "No"}</p>
+                            <p className="text-caption text-slate-500">Current Session?</p>
+                            <p className="text-body font-semibold text-slate-900">{session.current ? "Yes" : "No"}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-slate-500">Device Details</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{session.device}</p>
+                            <p className="text-caption text-slate-500">Device Details</p>
+                            <p className="text-body font-semibold text-slate-900">{session.device}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-slate-500">IP Address</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{session.ip}</p>
+                            <p className="text-caption text-slate-500">IP Address</p>
+                            <p className="text-body font-semibold text-slate-900">{session.ip}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-slate-500">Location</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{session.location}</p>
+                            <p className="text-caption text-slate-500">Location</p>
+                            <p className="text-body font-semibold text-slate-900">{session.location}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-slate-500">Last activity</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{session.lastActive}</p>
+                            <p className="text-caption text-slate-500">Last activity</p>
+                            <p className="text-body font-semibold text-slate-900">{session.lastActive}</p>
                           </div>
                           <div className="flex items-end">
                             <span
-                              className={`px-3 py-1 rounded-full text-[12px] font-semibold ${
+                              className={`px-3 py-1 rounded-full text-caption font-semibold ${
                                 session.current ? "bg-[#DCFCE7] text-[#166534]" : "bg-slate-200 text-slate-600"
                               }`}
                             >
@@ -2887,38 +2893,38 @@ export function Settings() {
 
               <Card>
                 <h3 className="text-base font-semibold text-slate-900 mb-2">Trusted Devices</h3>
-                <p className="text-[13px] text-slate-500 mb-4">
+                <p className="text-body-sm text-slate-500 mb-4">
                   Devices you chose to trust skip the email code on sign-in for 30 days. Revoke any you don't recognize.
                 </p>
                 <div className="space-y-4">
                   {isLoadingTrustedDevices ? (
-                    <p className="text-[13px] text-slate-500">Loading trusted devices...</p>
+                    <p className="text-body-sm text-slate-500">Loading trusted devices...</p>
                   ) : trustedDevices.length === 0 ? (
-                    <p className="text-[13px] text-slate-500">No trusted devices.</p>
+                    <p className="text-body-sm text-slate-500">No trusted devices.</p>
                   ) : (
                     trustedDevices.map((device, index) => (
-                      <div key={device.id} className="border border-slate-200 rounded-[12px] p-4">
+                      <div key={device.id} className="border border-slate-200 rounded-xl p-4">
                         <div className="flex items-start justify-between mb-3">
-                          <p className="text-[13px] font-semibold text-slate-900">Device {index + 1}</p>
+                          <p className="text-body-sm font-semibold text-slate-900">Device {index + 1}</p>
                           <button
                             onClick={() => handleRevokeTrustedDevice(device.id)}
-                            className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-[12px] font-medium transition-colors"
+                            className="text-[#EF4444] hover:bg-[#FEE2E2] px-3 py-1 rounded-[8px] text-caption font-medium transition-colors"
                           >
                             Revoke
                           </button>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <p className="text-[12px] text-slate-500">Device Details</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{device.device}</p>
+                            <p className="text-caption text-slate-500">Device Details</p>
+                            <p className="text-body font-semibold text-slate-900">{device.device}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-slate-500">Trusted since</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{device.createdAt}</p>
+                            <p className="text-caption text-slate-500">Trusted since</p>
+                            <p className="text-body font-semibold text-slate-900">{device.createdAt}</p>
                           </div>
                           <div>
-                            <p className="text-[12px] text-slate-500">Last used</p>
-                            <p className="text-[14px] font-semibold text-slate-900">{device.lastActive}</p>
+                            <p className="text-caption text-slate-500">Last used</p>
+                            <p className="text-body font-semibold text-slate-900">{device.lastActive}</p>
                           </div>
                         </div>
                       </div>
@@ -2971,7 +2977,7 @@ export function Settings() {
                       >
                         <div
                           className={`h-full transition-[width] duration-300 motion-reduce:transition-none ${
-                            isProfileVerified ? "bg-[#22C55E]" : "bg-[#1C4D8D]"
+                            isProfileVerified ? "bg-[#22C55E]" : "bg-brand"
                           }`}
                           style={{ width: `${verificationCompletionPercent}%` }}
                         />
@@ -3042,7 +3048,7 @@ export function Settings() {
                                             of blowing the row out. */}
                                         <div className="min-w-0 flex-1">
                                           <p className="text-[15px] font-semibold text-slate-900">{step.title}</p>
-                                          <p className="mt-1 text-[13px] text-slate-500">{step.description}</p>
+                                          <p className="mt-1 text-body-sm text-slate-500">{step.description}</p>
 
                                           {step.id === "email" && needsAction && (
                                             <button
@@ -3056,7 +3062,7 @@ export function Settings() {
 
                                           {step.id === "phone" && !isCurrentPhoneVerified && (
                                             phoneHasUnsavedChanges ? (
-                                              <p className="mt-2 text-[12px] text-slate-500">Save your phone changes before requesting a verification code.</p>
+                                              <p className="mt-2 text-caption text-slate-500">Save your phone changes before requesting a verification code.</p>
                                             ) : personalInfo.phone.trim() ? (
                                               <div className="mt-3 space-y-2">
                                                 <div className="flex flex-wrap items-center gap-2">
@@ -3091,7 +3097,7 @@ export function Settings() {
                                                         )
                                                       }
                                                       placeholder="Enter 6-digit code"
-                                                      className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-[#1C4D8D] focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                                                      className="h-11 w-[180px] rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 outline-none focus-visible:border-brand focus-visible:ring-2 focus-visible:ring-brand"
                                                     />
                                                     <button
                                                       type="button"
@@ -3105,7 +3111,7 @@ export function Settings() {
                                                 )}
                                               </div>
                                             ) : (
-                                              <p className="mt-2 text-[12px] text-slate-500">Save your phone number first to verify it.</p>
+                                              <p className="mt-2 text-caption text-slate-500">Save your phone number first to verify it.</p>
                                             )
                                           )}
 

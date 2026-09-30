@@ -11,6 +11,7 @@ import {
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Pressable, type PressableBaseProps } from "./Pressable";
@@ -20,13 +21,13 @@ const join = (...values: Array<string | false | null | undefined>) => values.fil
 export const Button = forwardRef<HTMLButtonElement, PressableBaseProps>(
   ({ className, type = "button", ...props }, ref) => (
     // Hover is expressed through opacity, not a darker blue: tailwind.config.js
-    // flattens blue-500 through blue-950 to the same value, so the previous
-    // `hover:bg-blue-800` on a `bg-blue-700` base rendered no change at all.
+    // flattens brand-500 through brand-950 to the same value, so the previous
+    // `hover:bg-brand-800` on a `bg-brand-700` base rendered no change at all.
     <Pressable
       ref={ref}
       type={type}
       className={join(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
       {...props}
@@ -43,7 +44,7 @@ export const IconButton = forwardRef<HTMLButtonElement, PressableBaseProps & { l
       aria-label={label}
       title={label}
       className={join(
-        "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
+        "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60",
         className,
       )}
       {...props}
@@ -68,7 +69,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
           aria-describedby={descriptionId}
           className={join(
             "min-h-11 w-full rounded-xl border bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none transition focus:ring-2",
-            error ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-blue-600 focus:ring-blue-100",
+            error ? "border-red-400 focus:border-red-500 focus:ring-red-200" : "border-slate-300 focus:border-brand-600 focus:ring-brand-100",
             className,
           )}
           {...props}
@@ -88,7 +89,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
     return (
       <label htmlFor={fieldId} className="block space-y-1.5 text-sm font-semibold text-slate-700">
         <span>{label}</span>
-        <select ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100", className)} {...props}>{children}</select>
+        <select ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100", className)} {...props}>{children}</select>
         {error ? <span id={descriptionId} className="block text-xs font-medium text-red-700">{error}</span> : null}
         {!error && hint ? <span id={descriptionId} className="block text-xs font-normal text-slate-500">{hint}</span> : null}
       </label>
@@ -104,7 +105,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
     return (
       <label htmlFor={fieldId} className="block space-y-1.5 text-sm font-semibold text-slate-700">
         <span>{label}</span>
-        <textarea ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100", className)} {...props} />
+        <textarea ref={ref} id={fieldId} aria-invalid={Boolean(error)} aria-describedby={descriptionId} className={join("min-h-28 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal text-slate-900 outline-none focus:border-brand-600 focus:ring-2 focus:ring-brand-100", className)} {...props} />
         {error ? <span id={descriptionId} className="block text-xs font-medium text-red-700">{error}</span> : null}
         {!error && hint ? <span id={descriptionId} className="block text-xs font-normal text-slate-500">{hint}</span> : null}
       </label>
@@ -114,7 +115,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 Textarea.displayName = "Textarea";
 
 export function Card({ className, ...props }: ComponentPropsWithRef<"div">) {
-  return <div className={join("rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6", className)} {...props} />;
+  return <div className={join("rounded-card border border-slate-200 bg-white p-5 shadow-sm sm:p-6", className)} {...props} />;
 }
 
 export function Badge({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
@@ -144,7 +145,7 @@ export function StatTile({
   className?: string;
 }) {
   return (
-    <div className={join("rounded-[14px] border border-slate-200 bg-white px-4 py-3", className)}>
+    <div className={join("rounded-card border border-slate-200 bg-white px-4 py-3", className)}>
       <p className="truncate text-xs font-semibold text-slate-500">{label}</p>
       <div className="mt-0.5 flex items-center gap-1.5">
         {icon}
@@ -158,8 +159,8 @@ export function StatTile({
 export function StatusState({ title, description, action, tone = "neutral" }: { title: string; description?: string; action?: ReactNode; tone?: "neutral" | "error" | "loading" }) {
   const colors = tone === "error" ? "border-red-200 bg-red-50 text-red-900" : "border-slate-200 bg-white text-slate-700";
   return (
-    <div className={join("rounded-2xl border p-8 text-center", colors)} role={tone === "error" ? "alert" : "status"} aria-live="polite">
-      {tone === "loading" ? <span className="mx-auto mb-3 block h-8 w-8 animate-spin rounded-full border-4 border-blue-200 border-t-blue-700" aria-hidden="true" /> : null}
+    <div className={join("rounded-card border p-8 text-center", colors)} role={tone === "error" ? "alert" : "status"} aria-live="polite">
+      {tone === "loading" ? <span className="mx-auto mb-3 block h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-700" aria-hidden="true" /> : null}
       <p className="font-semibold">{title}</p>
       {description ? <p className="mt-1 text-sm opacity-80">{description}</p> : null}
       {action ? <div className="mt-4">{action}</div> : null}
@@ -167,7 +168,20 @@ export function StatusState({ title, description, action, tone = "neutral" }: { 
   );
 }
 
-export function Dialog({ open, title, description, children, onClose, initialFocusRef, restoreFocusRef, closeDisabled = false }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; restoreFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean }) {
+/**
+ * Width steps. `md` is the default and is exactly what every existing call
+ * site already rendered, so adding this prop changed none of them. The wider
+ * steps exist so the hand-rolled modals being migrated onto this component can
+ * keep their own widths instead of being squeezed into `max-w-lg`.
+ */
+const DIALOG_WIDTHS = {
+  md: "max-w-lg",
+  lg: "max-w-2xl",
+  xl: "max-w-3xl",
+  full: "max-w-5xl",
+} as const;
+
+export function Dialog({ open, title, description, children, onClose, initialFocusRef, restoreFocusRef, closeDisabled = false, size = "md" }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; restoreFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean; size?: keyof typeof DIALOG_WIDTHS }) {
   const { t } = useTranslation("common");
   const closeRef = useRef<HTMLButtonElement>(null);
   const onCloseRef = useRef(onClose);
@@ -199,15 +213,22 @@ export function Dialog({ open, title, description, children, onClose, initialFoc
     };
   }, [closeDisabled, initialFocusRef, open, restoreFocusRef]);
   if (!open) return null;
-  return (
+  // Portalled to <body>. `position: fixed` is only viewport-relative while no
+  // ancestor establishes a containing block for it, and a `transform`,
+  // `filter`, `contain` or `will-change` anywhere up the tree silently does --
+  // `.page-transition` wrapped every dashboard route and confined this backdrop
+  // to the <main> box. Rendering outside the app tree makes that structurally
+  // impossible rather than something the next ancestor can break again.
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
-      <section role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+      <section role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={join("relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-card bg-white p-6 shadow-2xl", DIALOG_WIDTHS[size])}>
         <IconButton ref={closeRef} label={t("dialog.closeLabel")} onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
         <h2 id={titleId} className="pr-12 text-xl font-bold text-slate-900">{title}</h2>
         {description ? <p id={descriptionId} className="mt-2 text-sm text-slate-600">{description}</p> : null}
         <div className="mt-6">{children}</div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

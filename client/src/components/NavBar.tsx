@@ -12,7 +12,10 @@ import { ROUTES, matchesAnyPath, matchesPath, startsWithPath } from "../utils/ro
 import { webUi } from "../styles/webUi";
 import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 import { MicroJobsLogo } from "./MicroJobsLogo";
-import { workerMoreNavigation, workerPrimaryNavigation } from "./workerNavigation";
+// `workerPrimaryNavigation` is no longer imported here: the header's duplicate
+// worker nav was removed, and the sidebar (which owns that list now) imports it
+// directly.
+import { workerMoreNavigation } from "./workerNavigation";
 
 interface NavBarProps {
   isNavigationOpen?: boolean;
@@ -64,6 +67,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
       ? "employer"
       : "worker";
 
+  const headerRef = useRef<HTMLElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notificationButtonRef = useRef<HTMLButtonElement>(null);
@@ -428,6 +432,26 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
     }
   };
 
+  // Published as a CSS variable so the dropdowns below can size and place
+  // themselves against the header's real height instead of a magic number --
+  // it is 4rem normally but 5rem on "home context" pages, and a hardcoded
+  // offset got that wrong on exactly the two most-visited screens. Mirrors the
+  // same ResizeObserver -> CSS variable pattern ResponsiveBottomNavigation uses.
+  useEffect(() => {
+    const header = headerRef.current;
+    if (!header) return;
+    const apply = () => {
+      document.documentElement.style.setProperty("--navbar-height", `${header.offsetHeight}px`);
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(header);
+    return () => {
+      observer.disconnect();
+      document.documentElement.style.removeProperty("--navbar-height");
+    };
+  }, []);
+
   useEffect(() => {
     if (!showNotifications && !showUserMenu && !showMoreMenu) return;
     const handleEscape = (event: KeyboardEvent) => {
@@ -542,9 +566,10 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
 
   return (
     <header
+      ref={headerRef}
       className={`${webUi.navbar.root} transform-gpu transition-transform ${
         prefersReducedMotion ? "duration-[0ms]" : "duration-300 ease-out"
-      } ${isNavBarHidden ? "-translate-y-full" : "translate-y-0"}`}
+      } ${isNavBarHidden ? "-translate-y-full navbar-slide-hidden" : "translate-y-0"}`}
     >
 
       <div className={`${webUi.navbar.container} ${pageMeta.homeContext ? "!h-20 !min-h-20" : ""}`}>
@@ -552,59 +577,52 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
           <button
             type="button"
             onClick={onOpenNavigation}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 lg:hidden"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 lg:hidden"
             aria-label={t("navbar.openNavigationMenu")}
-            aria-controls="mobile-dashboard-navigation"
+            // Only while the drawer exists. The id is applied by the `mobile`
+            // Sidebar, which DashboardLayout renders only when the drawer is
+            // open, so a permanent `aria-controls` pointed at nothing in the
+            // closed state -- which is the state this button is in almost
+            // always, and exactly when a screen-reader user would follow the
+            // reference to find out what it opens.
+            aria-controls={isNavigationOpen ? "mobile-dashboard-navigation" : undefined}
             aria-expanded={isNavigationOpen}
           >
             <Menu className="h-5 w-5" />
           </button>
-          {isWorkerView && (
-            <MicroJobsLogo
-              onClick={() => navigate(ROUTES.worker.findJobs)}
-              ariaLabel={t("navbar.workerHomeAria")}
-              className="hidden min-h-11 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 lg:flex"
-            />
-          )}
-          {isWorkerView && (
-            <nav className="hidden min-w-0 items-stretch gap-1 lg:flex" aria-label={t("navbar.workerPrimaryNavigationAria")}>
-              {workerPrimaryNavigation.map((item) => {
-                const active = isWorkerNavigationActive(item.path);
-                return (
-                  <button
-                    key={item.path}
-                    type="button"
-                    onClick={() => navigate(item.path)}
-                    className={`relative min-h-16 whitespace-nowrap px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${active ? "text-[#1C4D8D]" : "text-slate-600 hover:text-slate-950"}`}
-                    aria-current={active ? "page" : undefined}
-                  >
-                    {item.label}
-                    {active && <span className="absolute inset-x-3 bottom-0 h-0.5 rounded-full bg-[#1C4D8D]" aria-hidden="true" />}
-                  </button>
-                );
-              })}
-            </nav>
-          )}
+          {/* The worker's desktop navigation is the sidebar, and only the
+              sidebar. A second `<nav>` used to live here at `xl`, listing the
+              same destinations -- so above 1280px a worker had two navigation
+              landmarks with identical links, and a screen reader announced the
+              same menu twice. The sidebar renders from `lg` upward with no
+              upper bound (DashboardLayout.tsx) and already carries every one of
+              those destinations, so this was pure duplication.
+
+              Removing it also lets the wordmark and page title below drop their
+              `xl:` guards, which existed only to hand off to this nav. */}
           {pageMeta.title && (
             <div className="flex min-w-0 items-center gap-3">
-              <MicroJobsLogo markOnly className="shrink-0 lg:hidden" />
+              <MicroJobsLogo markOnly className="shrink-0" />
               {pageMeta.icon && (
-                <span className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-[#E8F2F8]">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8F2F8]">
                   {pageMeta.icon}
                 </span>
               )}
-              <div className={`min-w-0 leading-tight ${isWorkerView ? "lg:hidden" : ""}`}>
+              {/* Always shown now. This used to be `xl:hidden` for workers so
+                  the header nav could take over; with that nav gone, hiding it
+                  would leave the worker header empty above 1280px. */}
+              <div className="min-w-0 leading-tight">
                 <h1 className={webUi.navbar.title}>{pageMeta.title}</h1>
                 {pageMeta.subtitle && pageMeta.subtitleAction ? (
                   <button
                     type="button"
                     onClick={() => navigate(pageMeta.subtitleAction!)}
-                    className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full bg-[#EAF1FB] px-3 text-left text-xs font-bold text-[#0F2954] transition hover:bg-[#DCE6F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                    className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full bg-[#EAF1FB] px-3 text-left text-xs font-bold text-[#0F2954] transition hover:bg-[#DCE6F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     aria-label={t("navbar.locationSettingsAria", { subtitle: pageMeta.subtitle })}
                   >
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-[#1C4D8D]" aria-hidden />
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
                     <span className="truncate">{pageMeta.subtitle}</span>
-                    <span className="shrink-0 text-[#1C4D8D]" aria-hidden>›</span>
+                    <span className="shrink-0 text-brand" aria-hidden>›</span>
                   </button>
                 ) : pageMeta.subtitle ? <p className={webUi.navbar.subtitle}>{pageMeta.subtitle}</p> : null}
               </div>
@@ -623,7 +641,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                   setShowNotifications(false);
                   setShowUserMenu(false);
                 }}
-                className={`inline-flex h-10 items-center gap-1.5 rounded-xl border px-2.5 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] xl:px-3 ${isHeaderMoreActive ? "border-[#B8CBE5] bg-[#EAF2FC] text-[#1C4D8D]" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                className={`inline-flex h-10 items-center gap-1.5 rounded-xl border px-2.5 text-sm font-semibold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand xl:px-3 ${isHeaderMoreActive ? "border-[#B8CBE5] bg-[#EAF2FC] text-brand" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
                 aria-label={t("navbar.openMoreNavigation")}
                 aria-expanded={showMoreMenu}
                 aria-haspopup="menu"
@@ -647,7 +665,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                           type="button"
                           role="menuitem"
                           onClick={() => navigate(item.path)}
-                          className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${active ? "bg-[#1C4D8D]/[0.08] text-[#1C4D8D]" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
+                          className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${active ? "bg-brand/[0.08] text-brand" : "text-slate-600 hover:bg-slate-50 hover:text-slate-950"}`}
                           aria-current={active ? "page" : undefined}
                         >
                           {item.label}
@@ -677,7 +695,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
               type="button"
               data-testid="header-context-action"
               onClick={() => navigate(pageMeta.action!.to)}
-              className="hidden min-h-10 items-center gap-2 rounded-xl bg-[#1C4D8D] px-4 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 sm:inline-flex"
+              className="hidden min-h-10 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white shadow-sm transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 sm:inline-flex"
             >
               {pageMeta.action.label}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -707,24 +725,35 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
             </button>
 
             {showNotifications && (
-              <div role="menu" aria-label={t("navbar.notifications")} className={`fixed left-4 right-4 top-[4.5rem] z-50 max-h-[calc(100dvh-5rem)] overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[380px] ${webUi.navbar.popover}`}>
-                <div className="flex items-center justify-between border-b border-slate-200 p-4">
+              /* `top-full` is the bottom edge of this popover's containing
+                 block, which is the header on mobile (the header carries a
+                 transform, so it contains its own fixed descendants) and the
+                 bell button's wrapper at sm+. Both are exactly where the menu
+                 should start, so the same class is correct in both modes --
+                 unlike the `top-[4.5rem]` it replaces, which assumed a 4rem
+                 header and so overlapped it on the 5rem "home" pages. */
+              <div role="menu" aria-label={t("navbar.notifications")} className={`fixed left-4 right-4 top-full mt-2 z-50 flex max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] flex-col overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:w-[380px] ${webUi.navbar.popover}`}>
+                <div className="flex shrink-0 items-center justify-between border-b border-slate-200 p-4">
                   <h3 className="font-semibold text-[16px] text-[#111827]">
                     {t("navbar.notifications")} {unreadCount > 0 && `(${unreadCount})`}
                   </h3>
                   {unreadCount > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="min-h-9 rounded-lg px-2 text-xs font-bold text-[#1C4D8D] hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D]"
+                      className="min-h-9 rounded-lg px-2 text-xs font-bold text-brand hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     >
                       {t("navbar.markAllAsRead")}
                     </button>
                   )}
                 </div>
 
-                <div className="max-h-[400px] overflow-y-auto">
+                {/* Flexes into whatever the popover's own cap leaves rather
+                    than carrying its own 400px cap -- with a fixed height here
+                    and `overflow-hidden` on the parent, anything past the cap
+                    was clipped outright instead of scrolling. */}
+                <div className="min-h-0 flex-1 overflow-y-auto sm:max-h-[400px]">
                   {notificationsLoading ? (
-                    <div className="p-6 text-center text-[14px] text-[#6B7280]">
+                    <div className="p-6 text-center text-body text-[#6B7280]">
                       {t("navbar.loadingNotifications")}
                     </div>
                   ) : notifications.length > 0 ? (
@@ -732,8 +761,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                       <button
                         type="button"
                         key={notification.id}
-                        className={`block min-h-11 w-full border-b border-slate-100 p-4 text-left transition-colors last:border-b-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D] ${
-                          !notification.read ? "bg-[#1C4D8D]/[0.06]" : ""
+                        className={`block min-h-11 w-full border-b border-slate-100 p-4 text-left transition-colors last:border-b-0 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand ${
+                          !notification.read ? "bg-brand/[0.06]" : ""
                         }`}
                         onClick={async () => {
                           await markAsRead(notification);
@@ -744,14 +773,14 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <p className="font-semibold text-[14px] text-[#111827]">
+                              <p className="font-semibold text-body text-[#111827]">
                                 {notification.title}
                               </p>
                               {!notification.read && (
-                                <div className="w-2 h-2 rounded-full bg-[#1C4D8D]"></div>
+                                <div className="w-2 h-2 rounded-full bg-brand"></div>
                               )}
                             </div>
-                            <p className="text-[13px] text-[#6B7280] mb-1">{notification.message}</p>
+                            <p className="text-body-sm text-[#6B7280] mb-1">{notification.message}</p>
                             <p className="text-[11px] text-[#9CA3AF]">{notification.time}</p>
                           </div>
                         </div>
@@ -760,7 +789,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                   ) : (
                     <div className="p-8 text-center">
                       <Bell className="w-12 h-12 text-[#D1D5DB] mx-auto mb-3" />
-                      <p className="text-[14px] text-[#6B7280]">{t("navbar.noNotifications")}</p>
+                      <p className="text-body text-[#6B7280]">{t("navbar.noNotifications")}</p>
                     </div>
                   )}
                 </div>
@@ -777,7 +806,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                 setShowNotifications(false);
                 setShowMoreMenu(false);
               }}
-              className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent px-1.5 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] sm:pr-2"
+              className="flex min-h-11 items-center gap-2 rounded-xl border border-transparent px-1.5 text-left transition hover:border-slate-200 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:pr-2"
               aria-label={t("navbar.openAccountMenu")}
               aria-expanded={showUserMenu}
               aria-haspopup="menu"
@@ -790,8 +819,8 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                   onError={() => setFailedAvatarUrl(avatarUrl)}
                 />
               ) : (
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100" aria-hidden="true">
-                  <span className="text-sm font-bold text-[#1C4D8D]">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-100" aria-hidden="true">
+                  <span className="text-sm font-bold text-brand">
                     {user?.firstName?.[0] ?? "U"}
                     {user?.lastName?.[0] ?? "S"}
                   </span>
@@ -799,13 +828,13 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
               )}
               <span className="hidden max-w-32 min-w-0 lg:block">
                 <span className="block truncate text-sm font-bold text-slate-900">{displayName}</span>
-                <span className="block text-xs text-slate-500">{accountLabel}</span>
+                <span className="block text-xs text-slate-600">{accountLabel}</span>
               </span>
               <ChevronDown className={`hidden h-4 w-4 text-slate-400 transition-transform lg:block ${showUserMenu ? "rotate-180" : ""}`} aria-hidden="true" />
             </button>
 
             {showUserMenu && (
-              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-[4.5rem] z-50 overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[300px] ${webUi.navbar.popover}`}>
+              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-full mt-2 z-50 max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] overflow-y-auto sm:absolute sm:left-auto sm:right-0 sm:w-[300px] ${webUi.navbar.popover}`}>
                 <div className="border-b border-slate-200 p-4">
                   <p className="text-lg font-bold text-slate-950">{displayName}</p>
                   <p className="text-sm text-slate-500">{t("navbar.accountSuffix", { role: accountLabel })}</p>
@@ -815,7 +844,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                   <div className="p-4 border-b border-[#E5E7EB]">
                     <button
                       onClick={() => handleSwitchTo(user?.accountType === "worker" ? "employer" : "worker")}
-                      className="min-h-11 w-full rounded-xl bg-[#1C4D8D] px-4 py-3 text-sm font-bold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+                      className="min-h-11 w-full rounded-xl bg-brand px-4 py-3 text-sm font-bold text-white transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     >
                       {t("navbar.switchTo", { role: user?.accountType === "worker" ? t("navbar.roleEmployer") : t("navbar.roleWorker") })}
                     </button>
@@ -831,7 +860,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                         navigate(ROUTES.worker.profile);
                         setShowUserMenu(false);
                       }}
-                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D]"
+                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
                     >
                       {t("navbar.viewProfile")}
                     </button>
@@ -847,7 +876,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                         navigate(`${ROUTES.publicProfile(user.id)}?viewAs=${isWorkerView ? "worker" : "employer"}`);
                         setShowUserMenu(false);
                       }}
-                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1C4D8D]"
+                      className="min-h-11 w-full rounded-xl px-3 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
                     >
                       {t("navbar.ratingsAndReviews")}
                     </button>

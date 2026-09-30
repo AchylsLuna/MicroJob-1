@@ -43,7 +43,7 @@
     "lint:all": "eslint client/src Mobile server scripts *.config.*",
     "test:server": "npm test --prefix server",
     "test:e2e": "playwright test",
-    "verify": "npm run check:security && npm run check:token-drift && npm run check:mobile-theme && npm run check:mobile-locales && npm run check:web-locales && npm run check:mobile-auth-accessibility && npm run check:mobile-motion && npm run lint && npm run typecheck:web && npm run typecheck:mobile && npm run test:server && npm run build",
+    "verify": "npm run check:security && npm run check:ui-security && npm run check:token-drift && npm run check:mobile-theme && npm run check:mobile-locales && npm run check:web-locales && npm run check:mobile-auth-accessibility && npm run check:mobile-motion && npm run lint && npm run typecheck:web && npm run typecheck:mobile && npm run test:server && npm run build",
     "verify:full": "npm run verify && npm run test:e2e",
     "preview": "node scripts/run-with-node.cjs node node_modules/vite/bin/vite.js preview --config client/vite.config.ts",
     "seed:superadmin": "node server/scripts/seedSuperAdmin.js",
@@ -69,6 +69,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^9.39.5",
+    "@fontsource-variable/inter": "^5.3.0",
     "@playwright/test": "^1.62.0",
     "@types/node": "^20.0.0",
     "@types/react": "~19.1.10",

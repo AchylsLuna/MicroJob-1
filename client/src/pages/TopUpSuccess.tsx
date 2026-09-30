@@ -58,10 +58,10 @@ export function TopUpSuccess() {
   }, [referenceNumber, checkoutId]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center px-4">
-      <div className="w-full max-w-lg bg-white border border-[#E5E7EB] rounded-2xl p-8 shadow-sm">
+    <div className="min-h-dvh bg-[#F8FAFC] flex items-center justify-center px-4">
+      <div className="w-full max-w-lg bg-white border border-[#E5E7EB] rounded-card p-8 shadow-sm">
         <div className="flex items-start gap-3">
-          {state === "loading" && <Loader2 className="w-6 h-6 text-[#1C4D8D] animate-spin mt-0.5" />}
+          {state === "loading" && <Loader2 className="w-6 h-6 text-brand animate-spin mt-0.5" />}
           {state === "success" && <CheckCircle2 className="w-6 h-6 text-[#059669] mt-0.5" />}
           {state === "error" && <XCircle className="w-6 h-6 text-[#DC2626] mt-0.5" />}
 
@@ -71,9 +71,9 @@ export function TopUpSuccess() {
               {state === "success" && "Top-up Confirmed"}
               {state === "error" && "Top-up Confirmation Failed"}
             </h1>
-            <p className="text-[14px] text-[#4B5563] mt-2">{message}</p>
+            <p className="text-body text-[#4B5563] mt-2">{message}</p>
             {referenceNumber ? (
-              <p className="text-[12px] text-[#6B7280] mt-2">Reference: {referenceNumber}</p>
+              <p className="text-caption text-[#6B7280] mt-2">Reference: {referenceNumber}</p>
             ) : null}
           </div>
         </div>
@@ -82,13 +82,13 @@ export function TopUpSuccess() {
           <button
             type="button"
             onClick={() => navigate(ROUTES.worker.eWallet)}
-            className="px-4 py-2 rounded-lg bg-[#1C4D8D] text-white text-[14px] font-medium hover:opacity-90 transition"
+            className="px-4 py-2 rounded-lg bg-brand text-white text-body font-medium hover:opacity-90 transition"
           >
             Go to E-Wallet
           </button>
           <Link
             to={ROUTES.worker.findJobs}
-            className="px-4 py-2 rounded-lg border border-[#D1D5DB] text-[#111827] text-[14px] font-medium hover:bg-[#F9FAFB] transition"
+            className="px-4 py-2 rounded-lg border border-[#D1D5DB] text-[#111827] text-body font-medium hover:bg-[#F9FAFB] transition"
           >
             Find Jobs
           </Link>

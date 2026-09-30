@@ -88,11 +88,11 @@ export function ResponsiveBottomNavigation() {
               onClick={() => {
                 if (!active) navigate(item.path);
               }}
-              className={`flex min-h-[66px] min-w-0 flex-1 flex-col items-center justify-center rounded-2xl px-0.5 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] sm:text-xs ${active ? "text-[#1C4D8D]" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}
+              className={`flex min-h-[66px] min-w-0 flex-1 flex-col items-center justify-center rounded-card px-0.5 text-[10px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:text-xs ${active ? "text-brand" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"}`}
             >
               <span className={`relative flex h-10 w-10 items-center justify-center rounded-full ${active ? "bg-[#EAF2FC]" : ""}`}>
                 {item.id === "profile" ? (
-                  <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${active ? "bg-[#1C4D8D] text-white" : "bg-slate-200 text-slate-600"}`}>{initials}</span>
+                  <span className={`flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold ${active ? "bg-brand text-white" : "bg-slate-200 text-slate-600"}`}>{initials}</span>
                 ) : Icon ? <Icon className="h-5 w-5" aria-hidden /> : null}
                 {badge > 0 ? <span className="absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border border-white bg-red-500 px-1 text-[9px] font-bold text-white">{badgeLabel(badge)}</span> : null}
               </span>

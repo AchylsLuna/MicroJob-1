@@ -45,7 +45,7 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
       initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index, 8) * 0.03, duration: seconds(motionTokens.duration.fast) }}
-      className={`group flex cursor-pointer items-start gap-3 rounded-xl border-l-2 p-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+      className={`group flex cursor-pointer items-start gap-3 rounded-xl border-l-2 p-3 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 ${
         job.highlighted
           ? "border-l-amber-500 bg-amber-50 hover:bg-amber-100/70"
           : selected
@@ -60,11 +60,11 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
             {t("findJobs.card.highlightedByEmployer")}
           </p>
         ) : null}
-        <p className="line-clamp-1 text-[14px] font-bold leading-tight text-slate-950 group-hover:text-blue-700">
+        <p className="line-clamp-1 text-body font-bold leading-tight text-slate-950 group-hover:text-brand-700">
           {job.title}
           {job.urgent ? <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold text-red-600 align-middle">Urgent</span> : null}
         </p>
-        <p className="mt-0.5 flex min-w-0 items-center gap-1 text-[12px] text-slate-500">
+        <p className="mt-0.5 flex min-w-0 items-center gap-1 text-caption text-slate-500">
           <span className="truncate">{job.posterName}</span>
           {job.employerVerified ? (
             <span
@@ -101,7 +101,7 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
             </span>
           ) : null}
         </div>
-        <p className="mt-1 text-[13px] font-bold text-slate-950">{job.salaryLabel}</p>
+        <p className="mt-1 text-body-sm font-bold text-slate-950">{job.salaryLabel}</p>
         {applicationStatus ? (
           <div className={`mt-2 rounded-lg px-2.5 py-2 text-[11px] font-bold ${
             applicationStatus === "Rejected"
@@ -125,13 +125,13 @@ export function JobListRow({ job, selected, saved, applicationStatus, onPress, o
             event.stopPropagation();
             onToggleSave();
           }}
-          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition ${
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition ${
             saved ? "bg-white/85 hover:bg-white" : "bg-slate-100 hover:bg-slate-200"
           }`}
           aria-label={saved ? "Remove from saved jobs" : "Save job"}
           aria-pressed={Boolean(saved)}
         >
-          <Bookmark className={`h-3.5 w-3.5 ${saved ? "fill-[#1C4D8D] text-[#1C4D8D]" : "text-slate-500"}`} />
+          <Bookmark className={`h-3.5 w-3.5 ${saved ? "fill-brand text-brand" : "text-slate-500"}`} />
         </button>
       ) : null}
     </motion.div>

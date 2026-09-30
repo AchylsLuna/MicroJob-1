@@ -159,7 +159,13 @@ export default function PostJobWizard({
         </div>
       )}
 
-      <div className="flex items-center justify-center gap-3">
+      {/* The dot is the indicator; the button around it is the tap target. The
+          dot used to be the button, which made these 10px -- the smallest
+          interactive elements in the app, and they are how you navigate back
+          through the wizard. The dot keeps its size so the stepper looks
+          unchanged. `-mx-3` absorbs the extra width so the connecting rules
+          still meet the dots. */}
+      <div className="flex items-center justify-center">
         {STEP_KEYS.map((key, index) => (
           <React.Fragment key={key}>
             <button
@@ -172,15 +178,20 @@ export default function PostJobWizard({
                 total: STEP_KEYS.length,
                 title: t(`postJob.wizard.steps.${key}.title`),
               })}
-              className={`h-2.5 w-2.5 rounded-full transition ${
-                index <= step ? "bg-[#1C4D8D]" : "bg-[#E5E7EB]"
-              } ${index < step ? "cursor-pointer" : index === step ? "" : "cursor-not-allowed"}`}
-            />
-            {index < STEP_KEYS.length - 1 && <div className="h-px w-8 bg-[#E5E7EB]" aria-hidden="true" />}
+              className={`-mx-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${
+                index < step ? "cursor-pointer" : index === step ? "" : "cursor-not-allowed"
+              }`}
+            >
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 rounded-full transition ${index <= step ? "bg-brand" : "bg-[#E5E7EB]"}`}
+              />
+            </button>
+            {index < STEP_KEYS.length - 1 && <div className="h-px w-8 shrink-0 bg-[#E5E7EB]" aria-hidden="true" />}
           </React.Fragment>
         ))}
       </div>
-      <p className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-[#1C4D8D]">
+      <p className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-brand">
         {t("postJob.wizard.stepAria", {
           step: step + 1,
           total: STEP_KEYS.length,
@@ -191,9 +202,9 @@ export default function PostJobWizard({
       <AnimatePresence mode="wait">
         <motion.div key={step} {...stepMotionProps}>
           {step === 0 && (
-            <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:p-6">
+            <section className="space-y-5 rounded-card border border-slate-200 bg-slate-50/60 p-4 md:p-6">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-slate-200">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm ring-1 ring-slate-200">
                   <ClipboardList size={20} />
                 </div>
                 <div>
@@ -213,7 +224,7 @@ export default function PostJobWizard({
                     data-field="title"
                     value={formData.title}
                     onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                     placeholder={t("postJob.modal.fields.jobTitle.placeholder")}
                     maxLength={100}
                     required
@@ -229,7 +240,7 @@ export default function PostJobWizard({
                     data-field="category"
                     value={formData.category}
                     onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                     required
                   >
                     <option value="">{t("postJob.modal.fields.category.placeholder")}</option>
@@ -251,7 +262,7 @@ export default function PostJobWizard({
                   data-field="description"
                   value={formData.description}
                   onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  className="min-h-[140px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  className="min-h-[140px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
                   placeholder={t("postJob.description.placeholder")}
                   maxLength={3000}
                   required
@@ -271,7 +282,7 @@ export default function PostJobWizard({
                     id="job-requirements"
                     value={formData.requirements}
                     onChange={(e) => setFormData((prev) => ({ ...prev, requirements: e.target.value }))}
-                    className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
                     placeholder={t("postJob.requirements.placeholder")}
                   />
                 </div>
@@ -285,7 +296,7 @@ export default function PostJobWizard({
                     id="job-skills"
                     value={formData.skills}
                     onChange={(e) => setFormData((prev) => ({ ...prev, skills: e.target.value }))}
-                    className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    className="min-h-[110px] w-full rounded-xl border border-slate-200 px-4 py-3 text-sm leading-6 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
                     placeholder={t("postJob.skills.placeholder")}
                   />
                   <p className="mt-2 text-xs text-slate-400">{t("postJob.skills.helper")}</p>
@@ -295,9 +306,9 @@ export default function PostJobWizard({
           )}
 
           {step === 1 && (
-            <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
+            <section className="space-y-5 rounded-card border border-slate-200 bg-white p-4 md:p-6">
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                   <MapPin size={20} />
                 </div>
                 <div>
@@ -319,7 +330,7 @@ export default function PostJobWizard({
                       setFormData((prev) => ({ ...prev, province: e.target.value, city: "", barangay: "" }))
                     }
                     disabled={isLoadingLocationData}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                     required
                   >
                     <option value="">
@@ -344,7 +355,7 @@ export default function PostJobWizard({
                     value={formData.city}
                     onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value, barangay: "" }))}
                     disabled={isLoadingLocationData || !formData.province}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                     required
                   >
                     <option value="">
@@ -371,7 +382,7 @@ export default function PostJobWizard({
                     value={formData.barangay}
                     onChange={(e) => setFormData((prev) => ({ ...prev, barangay: e.target.value }))}
                     disabled={isLoadingBarangays || !formData.city}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                     required
                   >
                     <option value="">
@@ -400,7 +411,7 @@ export default function PostJobWizard({
                   type="text"
                   value={formData.address}
                   onChange={(e) => setFormData((prev) => ({ ...prev, address: e.target.value }))}
-                  className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                   placeholder={t("postJob.modal.location.address.placeholder")}
                 />
               </div>
@@ -427,13 +438,13 @@ export default function PostJobWizard({
                         role="radio"
                         aria-checked={selected}
                         onClick={() => setFormData((prev) => ({ ...prev, jobType: option.value }))}
-                        className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        className={`rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-brand-500 ${
                           selected
-                            ? "border-blue-600 bg-blue-50 shadow-sm"
-                            : "border-slate-200 bg-white hover:border-blue-300"
+                            ? "border-brand-600 bg-brand-50 shadow-sm"
+                            : "border-slate-200 bg-white hover:border-brand-300"
                         }`}
                       >
-                        <span className={`block text-sm font-semibold ${selected ? "text-blue-700" : "text-slate-900"}`}>
+                        <span className={`block text-sm font-semibold ${selected ? "text-brand-700" : "text-slate-900"}`}>
                           {option.label}
                         </span>
                         <span className="mt-1 block text-xs leading-5 text-slate-500">{option.description}</span>
@@ -473,7 +484,7 @@ export default function PostJobWizard({
                     min={1}
                     value={formData.positionsNeeded}
                     onChange={(e) => setFormData((prev) => ({ ...prev, positionsNeeded: e.target.value }))}
-                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="h-11 w-full rounded-xl border border-slate-200 px-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                   />
                 </div>
               </div>
@@ -482,9 +493,9 @@ export default function PostJobWizard({
 
           {step === 2 && (
             <>
-              <section className="space-y-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 md:p-6">
+              <section className="space-y-5 rounded-card border border-slate-200 bg-slate-50/60 p-4 md:p-6">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm ring-1 ring-slate-200">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-brand-600 shadow-sm ring-1 ring-slate-200">
                     <WalletCards size={20} />
                   </div>
                   <div>
@@ -514,7 +525,7 @@ export default function PostJobWizard({
                           minimumSalary: e.target.value.replace(/[^0-9]/g, ""),
                         }))
                       }
-                      className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      className="h-11 w-full rounded-xl border border-slate-200 pl-9 pr-4 text-sm outline-none focus:ring-2 focus:ring-brand-500"
                       placeholder={t("postJob.modal.pay.placeholder")}
                       required
                     />
@@ -522,32 +533,32 @@ export default function PostJobWizard({
                   <p className="mt-2 text-xs leading-5 text-slate-500">{t("postJob.modal.pay.helper")}</p>
                 </div>
 
-                <div className="flex flex-col gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 rounded-card border border-brand-100 bg-brand-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-bold text-blue-900">
+                    <p className="text-sm font-bold text-brand-900">
                       {editingJob ? t("postJob.modal.walletSummary.estimatedValue") : t("postJob.modal.walletSummary.fundsNeeded")}
                     </p>
-                    <p className="mt-0.5 text-xs text-blue-700">
+                    <p className="mt-0.5 text-xs text-brand-700">
                       {t("postJob.modal.walletSummary.formula", {
                         rate: formatCurrency(Number(formData.minimumSalary || 0), { maximumFractionDigits: 0 }),
                         count: Number(formData.positionsNeeded || 0),
                       })}
                     </p>
                   </div>
-                  <p className="text-2xl font-bold tracking-tight text-blue-700">
+                  <p className="text-2xl font-bold tracking-tight text-brand-700">
                     {formatCurrency(estimatedEscrow, { maximumFractionDigits: 0 })}
                   </p>
                 </div>
 
                 {!editingJob && (
-                  <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 transition hover:border-amber-300">
+                  <div className="flex items-start gap-3 rounded-card border border-amber-200 bg-amber-50 p-4 transition hover:border-amber-300">
                     <input
                       id="highlight-job"
                       type="checkbox"
                       aria-labelledby="highlight-job-label"
                       checked={formData.highlighted}
                       onChange={(event) => setFormData((prev) => ({ ...prev, highlighted: event.target.checked }))}
-                      className="mt-1 h-4 w-4 rounded border-amber-400 text-[#1C4D8D] focus:ring-[#1C4D8D]"
+                      className="mt-1 h-4 w-4 rounded border-amber-400 text-brand focus:ring-brand"
                     />
                     <span className="min-w-0 flex-1">
                       <span id="highlight-job-label" className="flex items-center gap-1.5 text-sm font-bold text-slate-900">
@@ -573,9 +584,9 @@ export default function PostJobWizard({
 
           {step === 3 && (
             <>
-              <section className="mt-6 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 md:p-6">
+              <section className="mt-6 space-y-3 rounded-card border border-slate-200 bg-white p-4 md:p-6">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
                     <FileText size={20} />
                   </div>
                   <h3 className="font-bold text-slate-900">{t("postJob.wizard.summary.title")}</h3>
@@ -615,7 +626,7 @@ export default function PostJobWizard({
               </section>
 
               {!editingJob && (
-                <section className="mt-4 rounded-2xl border border-[#1C4D8D]/20 bg-[#F5F9FF] p-4 md:p-6">
+                <section className="mt-4 rounded-card border border-brand/20 bg-[#F5F9FF] p-4 md:p-6">
                   <h3 className="text-base font-bold text-slate-900">{t("postJob.checkout.title")}</h3>
                   <dl className="mt-3 space-y-2 text-sm">
                     <div className="flex justify-between gap-4"><dt className="text-slate-600">{t("postJob.wizard.summary.job")}</dt><dd className="text-right font-semibold text-slate-900">{formData.title || "—"}</dd></div>
@@ -623,7 +634,7 @@ export default function PostJobWizard({
                     <div className="flex justify-between gap-4"><dt className="text-slate-600">{t("postJob.checkout.workerPay", { count: Number(formData.positionsNeeded || 1) })}</dt><dd className="font-semibold text-slate-900">{formatCurrency(estimatedEscrow, { maximumFractionDigits: 0 })}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-slate-600">{t("postJob.checkout.postingFee")}</dt><dd className="font-semibold text-slate-900">{formatCurrency(postingFee, { maximumFractionDigits: 0 })}</dd></div>
                     <div className="flex justify-between gap-4"><dt className="text-slate-600">{t("postJob.checkout.highlightFee")}</dt><dd className="font-semibold text-slate-900">{formatCurrency(highlightFee, { maximumFractionDigits: 0 })}</dd></div>
-                    <div className="flex justify-between gap-4 border-t border-[#1C4D8D]/20 pt-3 text-base"><dt className="font-bold text-slate-900">{t("postJob.checkout.total")}</dt><dd className="font-bold text-[#1C4D8D]">{formatCurrency(checkoutTotal, { maximumFractionDigits: 0 })}</dd></div>
+                    <div className="flex justify-between gap-4 border-t border-brand/20 pt-3 text-base"><dt className="font-bold text-slate-900">{t("postJob.checkout.total")}</dt><dd className="font-bold text-brand">{formatCurrency(checkoutTotal, { maximumFractionDigits: 0 })}</dd></div>
                   </dl>
                   <p className="mt-3 text-xs leading-5 text-slate-600">{t("postJob.checkout.nonRefundable")}</p>
                 </section>
@@ -666,7 +677,7 @@ export default function PostJobWizard({
               event.preventDefault();
               goNext();
             }}
-            className="h-11 rounded-xl bg-[#1C4D8D] text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2"
+            className="h-11 rounded-xl bg-brand text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           >
             {t("postJob.wizard.next")}
           </button>
@@ -674,7 +685,7 @@ export default function PostJobWizard({
           <button
             type="button"
             onClick={submitCheckout}
-            className="h-11 rounded-xl bg-[#1C4D8D] text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] focus-visible:ring-offset-2 disabled:opacity-60"
+            className="h-11 rounded-xl bg-brand text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:opacity-60"
             disabled={submitting}
           >
             {submitting

@@ -99,14 +99,14 @@ function AdminModerationQueueContent() {
   return (
     <div className="mx-auto max-w-[1341px] space-y-6">
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-800">
             <AlertOctagon className="h-5 w-5" aria-hidden="true" />
           </div>
           <p className="mt-4 text-sm font-medium text-slate-500">{t("moderationQueue.cards.pending")}</p>
           <p className="mt-1 text-2xl font-bold text-slate-950">{pendingCount}</p>
         </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <article className="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
             <ShieldOff className="h-5 w-5" aria-hidden="true" />
           </div>
@@ -115,7 +115,7 @@ function AdminModerationQueueContent() {
         </article>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+      <section className="rounded-card border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
         <div>
           <h1 className="text-xl font-bold text-slate-950">{t("moderationQueue.title")}</h1>
           <p className="mt-1 text-sm text-slate-600">{t("moderationQueue.subtitle")}</p>

@@ -73,7 +73,7 @@ const AdminModerationQueue = lazy(() => import("./pages/admin/AdminModerationQue
 const AdminVerificationReview = lazy(() => import("./pages/admin/AdminVerificationReview").then((module) => ({ default: module.AdminVerificationReview })));
 const AdminFinancialDisputes = lazy(() => import("./pages/admin/AdminFinancialDisputes").then((module) => ({ default: module.AdminFinancialDisputes })));
 
-const RouteLoading = () => <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-600"><span className="mr-3 h-6 w-6 animate-spin rounded-full border-4 border-blue-200 border-t-blue-700" aria-hidden="true" />Loading page…</div>;
+const RouteLoading = () => <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-600"><span className="mr-3 h-6 w-6 animate-spin rounded-full border-4 border-brand-200 border-t-brand-700" aria-hidden="true" />Loading page…</div>;
 
 const InactivityHandler: React.FC = () => {
   const navigate = useNavigate();
@@ -173,7 +173,7 @@ const InactivityHandler: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" role="presentation">
-      <div role="alertdialog" aria-modal="true" aria-labelledby="session-timeout-title" aria-describedby="session-timeout-description" className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+      <div role="alertdialog" aria-modal="true" aria-labelledby="session-timeout-title" aria-describedby="session-timeout-description" className="w-full max-w-sm rounded-card bg-white p-6 shadow-xl">
         <h3 id="session-timeout-title" className="text-lg font-bold text-gray-900 mb-2">Session ending soon</h3>
         <p id="session-timeout-description" className="text-sm text-gray-700 mb-6">
           Your session will end in about 30 seconds because of inactivity. Continue working to keep your session active.
@@ -186,11 +186,11 @@ const InactivityHandler: React.FC = () => {
               markActivity();
               handleActivity(true);
             }}
-            className="flex-1 rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+            className="flex-1 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2"
           >
             Continue working
           </button>
-          <button type="button" onClick={performLogout} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2">Sign out</button>
+          <button type="button" onClick={performLogout} className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2">Sign out</button>
         </div>
       </div>
     </div>

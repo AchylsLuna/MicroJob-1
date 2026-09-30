@@ -37,7 +37,7 @@ export function MatchBadge({ percentage, level }: Props) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-        strong ? "bg-[#EAF1FB] text-[#1C4D8D]" : "bg-slate-100 text-slate-600"
+        strong ? "bg-[#EAF1FB] text-brand" : "bg-slate-100 text-slate-600"
       }`}
     >
       {t(`findJobs.recommended.level.${levelKey}`)}

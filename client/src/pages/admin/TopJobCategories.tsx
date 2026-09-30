@@ -69,10 +69,10 @@ export function TopJobCategories({ jobs }: { jobs: AdminJob[] }) {
   }, [rows, total]);
 
   return (
-    <div className="rounded-[16px] border border-[#E5E7EB] bg-white p-6 transition hover:shadow-md">
+    <div className="rounded-card border border-[#E5E7EB] bg-white p-6 transition hover:shadow-md">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-[18px] font-semibold text-[#111827]">{t("analytics.topCategories.title")}</h3>
-        <div className="flex gap-1 rounded-[10px] bg-slate-100 p-1" role="tablist" aria-label={t("analytics.topCategories.title")}>
+        <div className="flex gap-1 rounded-control bg-slate-100 p-1" role="tablist" aria-label={t("analytics.topCategories.title")}>
           {metrics.map((item) => (
             <button
               key={item.id}
@@ -80,7 +80,7 @@ export function TopJobCategories({ jobs }: { jobs: AdminJob[] }) {
               role="tab"
               aria-selected={metric === item.id}
               onClick={() => setMetric(item.id)}
-              className={`min-h-8 rounded-[8px] px-3 text-[12px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1C4D8D] ${
+              className={`min-h-8 rounded-[8px] px-3 text-caption font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
                 metric === item.id ? "bg-white text-[#111827] shadow-sm" : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -91,7 +91,7 @@ export function TopJobCategories({ jobs }: { jobs: AdminJob[] }) {
       </div>
 
       {rows.length === 0 ? (
-        <div className="mt-5 flex h-[180px] items-center justify-center rounded-[12px] border border-dashed border-slate-200 text-[13px] text-slate-500">
+        <div className="mt-5 flex h-[180px] items-center justify-center rounded-xl border border-dashed border-slate-200 text-body-sm text-slate-500">
           {t("analytics.overview.noData")}
         </div>
       ) : (
@@ -99,7 +99,7 @@ export function TopJobCategories({ jobs }: { jobs: AdminJob[] }) {
           <ul className="mt-5 flex flex-wrap gap-x-8 gap-y-3">
             {rows.slice(0, 3).map((row) => (
               <li key={row.label}>
-                <span className="flex items-center gap-2 text-[13px] text-[#64748B]">
+                <span className="flex items-center gap-2 text-body-sm text-slate-500">
                   <span aria-hidden="true" className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: row.color }} />
                   <span className="truncate">{row.label}</span>
                 </span>
@@ -114,10 +114,14 @@ export function TopJobCategories({ jobs }: { jobs: AdminJob[] }) {
             ))}
           </div>
 
-          <table className="mt-6 w-full text-left">
+          {/* The only one of the admin tables without a scroll wrapper. Three
+              narrow columns fit today, but a long translated category name had
+              no safety net. */}
+          <div className="mt-6 overflow-x-auto">
+          <table className="w-full text-left">
             <caption className="sr-only">{t("analytics.topCategories.title")}</caption>
             <thead>
-              <tr className="text-[13px] text-[#94A3B8]">
+              <tr className="text-body-sm text-[#94A3B8]">
                 <th scope="col" className="pb-3 font-normal">{t("analytics.topCategories.columnCategory")}</th>
                 <th scope="col" className="pb-3 text-right font-normal">{t("analytics.topCategories.columnPercent")}</th>
                 <th scope="col" className="pb-3 text-right font-normal">{t("analytics.topCategories.columnTotal")}</th>
@@ -129,17 +133,18 @@ export function TopJobCategories({ jobs }: { jobs: AdminJob[] }) {
                   <td className="py-3">
                     <span className="flex min-w-0 items-center gap-2.5">
                       <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-[3px]" style={{ backgroundColor: row.color }} />
-                      <span className="truncate text-[14px] font-medium text-[#111827]">{row.label}</span>
+                      <span className="truncate text-body font-medium text-[#111827]">{row.label}</span>
                     </span>
                   </td>
-                  <td className="py-3 text-right text-[14px] tabular-nums text-[#475569]">{Math.round(share(row.value))}%</td>
-                  <td className="py-3 text-right text-[14px] font-semibold tabular-nums text-[#111827]">
+                  <td className="py-3 text-right text-body tabular-nums text-[#475569]">{Math.round(share(row.value))}%</td>
+                  <td className="py-3 text-right text-body font-semibold tabular-nums text-[#111827]">
                     {row.value.toLocaleString()}
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         </>
       )}
     </div>
