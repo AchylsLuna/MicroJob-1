@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Job from '../models/Job.js';
 import JobApplication from '../models/JobApplication.js';
+import JobOffer from '../models/JobOffer.js';
 import User from '../models/User.js';
 import Transaction from '../models/Transaction.js';
 import Category from '../models/Category.js';
@@ -345,6 +346,11 @@ export async function createJob(req, res){
             status: 'COMPLETED',
             balanceTarget: 'ESCROW',
             jobReference: newJob._id,
+            // References must be present and unique. Besides making the ledger
+            // auditable, this keeps posting working for databases that still
+            // have the legacy unique `reference` index (where multiple nulls
+            // would otherwise raise E11000 and turn a successful post into 500).
+            reference: `job-escrow:${newJob._id}`,
             label: `Escrow (Job ${newJob._id})`,
             relatedEntityType: 'job',
             relatedEntityId: String(newJob._id),
@@ -358,6 +364,7 @@ export async function createJob(req, res){
             status: 'COMPLETED',
             balanceTarget: 'EMPLOYER',
             jobReference: newJob._id,
+            reference: `job-posting-fee:${newJob._id}`,
             label: `Non-refundable posting fee (Job ${newJob._id})`,
             relatedEntityType: 'job',
             relatedEntityId: String(newJob._id),
@@ -373,6 +380,7 @@ export async function createJob(req, res){
                 status: 'COMPLETED',
                 balanceTarget: 'EMPLOYER',
                 jobReference: newJob._id,
+                reference: `job-highlight-fee:${newJob._id}`,
                 label: `Non-refundable highlight fee (Job ${newJob._id})`,
                 relatedEntityType: 'job',
                 relatedEntityId: String(newJob._id),
@@ -890,7 +898,7 @@ export async function updateJob(req, res) {
 export async function deleteJob(req, res) {
     try {
         const { id } = req.params;
-        const userId = req.user?.id;
+        const userId = getRequesterId(req);
         const requesterRole = getRequesterRole(req);
 
         const job = await Job.findById(id);
@@ -898,47 +906,88 @@ export async function deleteJob(req, res) {
             return res.status(404).json({ message: 'Job not found.' });
         }
 
-        if (job.jobPoster.toString() !== userId && !isAdminRole(requesterRole)) {
+        if (String(job.jobPoster || '') !== String(userId || '') && !isAdminRole(requesterRole)) {
             return res.status(403).json({ message: 'You are not allowed to delete this job.' });
         }
 
-        // Refund any unspent escrow before deleting (for Active / Closed jobs)
-        const nonRefundedStatuses = ['Completed', 'Cancelled'];
-        if (!nonRefundedStatuses.includes(job.status)) {
+        // The ledger is the source of truth: it includes the original escrow
+        // and any additional escrow attached to an accepted/pending offer.
+        // Deducting already-paid and already-refunded amounts ensures an admin
+        // deletion returns precisely the remaining employer funds.
+        const [ledger] = await Transaction.aggregate([
+            { $match: { jobReference: job._id, status: 'COMPLETED' } },
+            {
+                $group: {
+                    _id: null,
+                    escrowed: { $sum: { $cond: [{ $eq: ['$type', 'ESCROW'] }, '$amount', 0] } },
+                    paid: { $sum: { $cond: [{ $eq: ['$type', 'PAYOUT'] }, '$amount', 0] } },
+                    refunded: { $sum: { $cond: [{ $eq: ['$type', 'REFUND'] }, '$amount', 0] } },
+                },
+            },
+        ]);
+        const totalEscrow = Number(ledger?.escrowed || 0);
+        const totalPaid = Number(ledger?.paid || 0);
+        const totalRefunded = Number(ledger?.refunded || 0);
+        // Legacy jobs may predate ledger entries, so retain a conservative
+        // fallback based on the job's original secured worker pay.
+        const securedAmount = totalEscrow || Number(job.salary || 0) * Number(job.positionsNeeded || 1);
+        const refundAmount = Math.max(0, Number((securedAmount - totalPaid - totalRefunded).toFixed(2)));
+
+        if (refundAmount > 0) {
             const poster = await User.findById(job.jobPoster);
-            if (poster) {
-                const totalEscrow = Number(job.salary || 0) * Number(job.positionsNeeded || 1);
-                const payouts = await Transaction.aggregate([
-                    { $match: { jobReference: job._id, type: 'PAYOUT', status: 'COMPLETED' } },
-                    { $group: { _id: null, totalPaid: { $sum: '$amount' } } },
-                ]);
-                const totalPaid = (payouts[0] && payouts[0].totalPaid) || 0;
-                const refundAmount = Math.max(0, totalEscrow - totalPaid);
-                if (refundAmount > 0) {
-                    poster.employerBalance = (poster.employerBalance || 0) + refundAmount;
-                    await poster.save();
-                    await Transaction.create({
-                        sender: null,
-                        receiver: poster._id,
+            if (!poster) {
+                return res.status(409).json({
+                    code: 'JOB_POSTER_UNAVAILABLE',
+                    message: 'This job cannot be deleted because its employer account is unavailable for the escrow refund.',
+                });
+            }
+
+            const refundReference = `job-delete-refund:${job._id}`;
+            try {
+                await Transaction.create({
+                    sender: null,
+                    receiver: poster._id,
+                    amount: refundAmount,
+                    type: 'REFUND',
+                    status: 'COMPLETED',
+                    balanceTarget: 'EMPLOYER',
+                    jobReference: job._id,
+                    reference: refundReference,
+                    label: `Unused escrow refund on job deletion`,
+                    relatedEntityType: 'job',
+                    relatedEntityId: String(job._id),
+                    actor: userId || poster._id,
+                });
+                await User.updateOne({ _id: poster._id }, { $inc: { employerBalance: refundAmount } });
+                try {
+                    const monitor = await import('../lib/monitor.js');
+                    await monitor.default.audit({
+                        actor: userId || null,
+                        action: 'job_refund_on_delete',
+                        ip: req.ip || null,
+                        userAgent: req.get?.('user-agent') || null,
                         amount: refundAmount,
-                        type: 'REFUND',
-                        status: 'COMPLETED',
-                        balanceTarget: 'EMPLOYER',
-                        jobReference: job._id,
-                        label: `Escrow refund on job delete (Job ${job._id})`,
-                        relatedEntityType: 'job',
-                        relatedEntityId: String(job._id),
-                        actor: poster._id,
+                        status: 'success',
+                        meta: { job: job._id, employer: poster._id },
                     });
-                }
+                } catch (_) {}
+            } catch (error) {
+                // A concurrent retry may find the uniquely referenced refund
+                // already recorded. In that case the balance was already
+                // credited and deletion can safely continue without a second
+                // refund.
+                if (error?.code !== 11000) throw error;
             }
         }
 
-        // Delete associated applications
+        // Remove dependent offer/application documents after the refund has
+        // been safely recorded; dangling offers would otherwise reference a
+        // deleted job and application.
         try {
+            await JobOffer.deleteMany({ job: job._id });
             await JobApplication.deleteMany({ job: id });
         } catch (e) {
-            console.warn('Failed to remove job applications for deleted job', e);
+            console.warn('Failed to remove job dependencies for deleted job', e);
         }
 
         await Job.findByIdAndDelete(id);
