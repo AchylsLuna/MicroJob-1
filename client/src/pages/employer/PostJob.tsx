@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { BriefcaseBusiness, Filter, Plus, Search, X } from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 import { useAuth } from "../../contexts/AuthContext";
@@ -35,7 +34,6 @@ const PostJob: React.FC = () => {
   const location = useLocation();
   const locationState = location.state as { job?: JobEdit; returnTo?: string } | null;
   const incomingJobToEdit = locationState?.job;
-  const prefersReducedMotion = useReducedMotion();
   const jobTypeOptions = useMemo(() => getJobTypeOptions(t), [t]);
   const requiredFieldLabels = useMemo(() => getRequiredFieldLabels(t), [t]);
   const statusLabels: Record<string, string> = useMemo(

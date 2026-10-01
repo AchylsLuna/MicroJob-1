@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Pressable, type PressableBaseProps } from "./Pressable";
+import { ALERT_LAYER_Z } from "./layers";
 
 const join = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 
@@ -288,20 +289,6 @@ export function ConfirmDialog({ open, title, description, confirmLabel, cancelLa
     </Dialog>
   );
 }
-
-/**
- * The app's layer ladder, so a new surface does not have to be guessed at:
- *
- *   60    navbar (sticky, `webUi.navbar.root`)
- *   90    cookie banner
- *   100   modals: `Dialog`, the nav drawer, the post-a-job modal, the message sheet
- *   110   alerts raised *by* a modal, which must outrank the modal underneath
- *   9999  the global error layer in `lib/toast.tsx`, which outranks everything
- */
-export const ALERT_LAYER_Z = {
-  overModal: "z-[110]",
-  global: "z-[9999]",
-} as const;
 
 /**
  * Backdrop and modal behaviour for an alert, with no opinion on its contents.

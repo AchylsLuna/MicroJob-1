@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { AlertCard, AlertLayer, ALERT_LAYER_Z } from "../components/ui";
+import { AlertCard, AlertLayer } from "../components/ui";
+import { ALERT_LAYER_Z } from "../components/ui/layers";
 
 type ToastType = "success" | "error" | "info";
 
@@ -119,8 +120,11 @@ export function Toaster({ position = "top-right" }: { position?: "top-right" | "
   const errorLayer = (
     <AlertLayer
       open={errorToasts.length > 0}
-      labelledBy={errorToasts.length ? `${errorToasts[0].id}-title` : undefined}
-      describedBy={errorToasts.length && errorToasts[0].description ? `${errorToasts[0].id}-message` : undefined}
+      // An alertdialog needs an accessible name. With several errors stacked it
+      // takes the first one's, which is imprecise but announced -- better than
+      // an unnamed dialog, and the stacked case is already the rare one.
+      labelledBy={errorToasts[0] ? `${errorToasts[0].id}-title` : undefined}
+      describedBy={errorToasts[0]?.description ? `${errorToasts[0].id}-message` : undefined}
       z={ALERT_LAYER_Z.global}
       onDismiss={() => {
         const topmost = errorToasts[errorToasts.length - 1];
