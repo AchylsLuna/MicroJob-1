@@ -426,7 +426,13 @@
       "moneyInHelper": "Completed top-ups, payouts, and refunds received",
       "moneyOut": "Money Out",
       "moneyOutHelper": "Completed job escrow and wallet withdrawals",
-      "withdrawals": "Withdrawals"
+      "withdrawals": "Withdrawals",
+      "withdrawalsHelper": "Requested, approved, and paid withdrawal requests"
+    },
+    "pager": {
+      "ariaLabel": "Wallet sections",
+      "previous": "Previous section",
+      "next": "Next section"
     },
     "history": {
       "title": "Withdrawal History",
@@ -434,6 +440,7 @@
       "workerOnly": "Worker wallet only",
       "loading": "Loading withdrawals...",
       "empty": "No withdrawals yet.",
+      "emptyDescription": "Withdrawals you request will appear here with their review status.",
       "requested": "Requested",
       "reviewed": "Reviewed",
       "paid": "Paid",

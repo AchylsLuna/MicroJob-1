@@ -425,7 +425,13 @@
       "moneyInHelper": "Nakumpletong top-up, payout, at refund na natanggap",
       "moneyOut": "Palabas na Pera",
       "moneyOutHelper": "Nakumpletong escrow ng trabaho at mga withdrawal sa wallet",
-      "withdrawals": "Mga Withdrawal"
+      "withdrawals": "Mga Withdrawal",
+      "withdrawalsHelper": "Mga hiniling, naaprubahan, at nabayarang withdrawal"
+    },
+    "pager": {
+      "ariaLabel": "Mga seksyon ng wallet",
+      "previous": "Nakaraang seksyon",
+      "next": "Susunod na seksyon"
     },
     "history": {
       "title": "Kasaysayan ng Withdrawal",
@@ -433,6 +439,7 @@
       "workerOnly": "Para sa wallet ng manggagawa lamang",
       "loading": "Naglo-load ng mga withdrawal...",
       "empty": "Wala pang withdrawal.",
+      "emptyDescription": "Lilitaw dito ang mga withdrawal na hihilingin mo kasama ang status ng pagsusuri.",
       "requested": "Hiniling",
       "reviewed": "Nasuri",
       "paid": "Nabayaran",
