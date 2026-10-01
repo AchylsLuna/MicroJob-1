@@ -12,6 +12,9 @@
   "dialog": {
     "closeLabel": "Isara ang dialog"
   },
+  "alert": {
+    "dismiss": "Naintindihan ko"
+  },
   "loading": "Naglo-load...",
   "settings": {
     "saveChanges": "I-save ang mga pagbabago",
@@ -62,13 +65,6 @@
       "markNotificationFailed": "Hindi na-mark ang abiso.",
       "markAllReadSuccess": "Lahat ng abiso ay minarkahan bilang nabasa",
       "markAllReadFailed": "Hindi namarkahan lahat bilang nabasa."
-    },
-    "moreNav": {
-      "jobsManagement": "Pamamahala ng trabaho",
-      "applications": "Mga Aplikasyon",
-      "eWallet": "E-Wallet",
-      "support": "Suporta",
-      "settings": "Mga Setting"
     },
     "pages": {
       "findJobs": { "title": "Maghanap ng Trabaho", "searchPlaceholder": "Maghanap ng trabaho..." },

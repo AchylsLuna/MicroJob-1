@@ -36,6 +36,8 @@
     },
     "errors": {
       "loadFailed": "Failed to load job postings.",
+      "popupTitle": "Please check your details",
+      "popupDismiss": "Got it",
       "missingFields": "Please complete: {{fields}}.",
       "invalidPositions": "Please provide a whole number of workers needed (minimum 1).",
       "invalidDeadline": "Please provide a valid deadline date.",

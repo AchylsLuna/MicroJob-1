@@ -7,7 +7,7 @@ import { BriefcaseBusiness, Filter, Plus, Search, X } from "lucide-react";
 import { categoriesAPI, jobsAPI } from "../../services/jobs";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "../../lib/toast";
-import { ConfirmDialog } from "../../components/ui";
+import { AlertCard, AlertLayer, Button, ConfirmDialog } from "../../components/ui";
 import { ROUTES } from "../../utils/routes";
 import { formatMinimumPay } from "../../lib/jobCompensation";
 import PostJobWizard from "../../components/job/PostJobWizard";
@@ -625,32 +625,44 @@ const PostJob: React.FC = () => {
         </div>
       )}
 
-      {showModal && (
-        /* z-100, matching `ui/index.tsx`'s Dialog and the layer contract in
+      {showModal && typeof document !== "undefined" && createPortal(
+        /* Portalled to <body>, for the same reason `ui/index.tsx`'s Dialog is:
+           `position: fixed` is only viewport-relative while no ancestor
+           establishes a containing block for it, and `.page-transition` -- which
+           wraps every dashboard route -- does exactly that whenever its
+           transform animation is live. Confined to the <main> box the backdrop
+           stops short of the shell's chrome and leaves the sidebar's header row
+           bright. Rendering outside the app tree makes that structurally
+           impossible instead of something the next ancestor can break again.
+
+           z-100 matches `ui/index.tsx`'s Dialog and the layer contract in
            DashboardLayout.tsx: at z-50 this tied the mobile tab bar and sat
            under the cookie banner. Centred rather than top-aligned so the
            dialog lands in front of the reader; the panel below already caps
            its own height and scrolls internally, which is what makes centring
            safe -- a flex child taller than its container overflows in both
            directions, so centring without that cap would push the header and
-           its close button off the top edge. */
+           its close button off the top edge. The cap is 82dvh rather than the
+           full viewport so the dialog reads as a layer over the page instead of
+           swallowing it: centred, that leaves a 9dvh gutter, which clears the
+           64px navbar on any viewport taller than ~710px. */
         <div className="fixed inset-0 z-[100] bg-slate-900/55 p-3 md:p-8">
           <div className="flex min-h-full items-center justify-center">
-            <div className="flex w-full max-w-5xl max-h-[calc(100dvh-1.5rem)] md:max-h-[calc(100dvh-4rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
-              <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-5 md:px-7">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="hidden h-12 w-12 items-center justify-center rounded-card bg-brand-50 text-brand-600 sm:flex">
-                      <BriefcaseBusiness size={24} />
+            <div className="flex w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] md:max-h-[82dvh] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+              <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 md:px-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="hidden h-10 w-10 items-center justify-center rounded-card bg-brand-50 text-brand-600 sm:flex">
+                      <BriefcaseBusiness size={20} />
                     </div>
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-brand-600">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600">
                         {t("postJob.modal.employerWorkspace")}
                       </p>
-                      <h2 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+                      <h2 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
                         {editingJob ? t("postJob.modal.editTitle") : t("postJob.modal.createTitle")}
                       </h2>
-                      <p className="mt-1 text-sm text-slate-500">
+                      <p className="mt-0.5 text-sm text-slate-500">
                         {t("postJob.modal.subtitle")}
                       </p>
                     </div>
@@ -658,15 +670,15 @@ const PostJob: React.FC = () => {
                   <button
                     type="button"
                     onClick={closeModal}
-                    className="ml-3 rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700"
+                    className="shrink-0 rounded-xl border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-slate-50 hover:text-slate-700"
                     aria-label={t("postJob.modal.closeAria")}
                   >
-                    <X size={24} />
+                    <X size={22} />
                   </button>
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">
+              <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-5 md:px-6">
                 <PostJobWizard
                   formData={formData}
                   setFormData={setFormData}
@@ -682,64 +694,44 @@ const PostJob: React.FC = () => {
                   hasInsufficientBalanceError={hasInsufficientBalanceError}
                   onSubmit={handleSubmit}
                   onCancel={closeModal}
+                  onDismissError={() => setFormError(null)}
                 />
               </div>
             </div>
           </div>
-        </div>
-      )}
-      {typeof document !== "undefined" && createPortal(
-        <AnimatePresence>
-          {hasInsufficientBalanceError && (
-            <motion.div
-              className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4"
-              initial={prefersReducedMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0 }}
-              transition={{ duration: prefersReducedMotion ? 0 : 0.18 }}
-            >
-              <motion.div
-                role="alertdialog"
-                aria-modal="true"
-                aria-labelledby="insufficient-balance-title"
-                aria-describedby="insufficient-balance-description"
-                className="w-full max-w-md rounded-3xl border border-red-100 bg-white p-6 text-center shadow-2xl"
-                initial={prefersReducedMotion ? false : { opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={prefersReducedMotion ? undefined : { opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ duration: prefersReducedMotion ? 0 : 0.2 }}
-              >
-                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600">
-                  !
-                </div>
-                <h3 id="insufficient-balance-title" className="mt-4 text-xl font-bold text-slate-900">
-                  {t("postJob.insufficientBalance.title")}
-                </h3>
-                <p id="insufficient-balance-description" className="mt-2 text-sm leading-6 text-slate-600">
-                  {formError}
-                </p>
-                <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormError(null)}
-                    className="h-11 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                  >
-                    {t("postJob.insufficientBalance.notNow")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate(ROUTES.employer.eWallet)}
-                    className="h-11 rounded-xl bg-brand text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                  >
-                    {t("postJob.insufficientBalance.topUp")}
-                  </button>
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
+        </div>,
         document.body,
       )}
+      {/* At z-70 this was painted behind the post-a-job modal (z-100) that
+          raises it, so the one error the employer most needs to act on was the
+          one they could not see. `AlertLayer` defaults to the rung above the
+          modal. */}
+      <AlertLayer
+        open={hasInsufficientBalanceError}
+        labelledBy="insufficient-balance-title"
+        describedBy="insufficient-balance-description"
+        onDismiss={() => setFormError(null)}
+      >
+        <AlertCard
+          title={t("postJob.insufficientBalance.title")}
+          titleId="insufficient-balance-title"
+          message={formError}
+          messageId="insufficient-balance-description"
+          actions={
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                className="!bg-white !text-slate-700 ring-1 ring-slate-300 hover:!bg-slate-50"
+                onClick={() => setFormError(null)}
+              >
+                {t("postJob.insufficientBalance.notNow")}
+              </Button>
+              <Button onClick={() => navigate(ROUTES.employer.eWallet)}>
+                {t("postJob.insufficientBalance.topUp")}
+              </Button>
+            </div>
+          }
+        />
+      </AlertLayer>
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title={t("postJob.deleteDialog.title")}

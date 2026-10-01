@@ -181,12 +181,35 @@ const DIALOG_WIDTHS = {
   full: "max-w-5xl",
 } as const;
 
-export function Dialog({ open, title, description, children, onClose, initialFocusRef, restoreFocusRef, closeDisabled = false, size = "md" }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; restoreFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean; size?: keyof typeof DIALOG_WIDTHS }) {
-  const { t } = useTranslation("common");
-  const closeRef = useRef<HTMLButtonElement>(null);
+const FOCUSABLE_SELECTOR =
+  'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/**
+ * Focus capture, focus restore, Escape-to-close and a tab trap for one modal
+ * surface. Shared by `Dialog` and `AlertLayer` so the two cannot drift: this
+ * logic used to live inline in `Dialog`, and every hand-rolled modal in the app
+ * reimplemented whichever parts its author remembered.
+ *
+ * `containerRef` must point at the element that holds the focusable content --
+ * the trap enumerates its descendants, so a ref on the backdrop would let Tab
+ * escape through anything else the backdrop renders.
+ */
+function useDialogBehavior({
+  open,
+  containerRef,
+  initialFocusRef,
+  restoreFocusRef,
+  closeDisabled = false,
+  onClose,
+}: {
+  open: boolean;
+  containerRef: RefObject<HTMLElement | null>;
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  restoreFocusRef?: RefObject<HTMLElement | null>;
+  closeDisabled?: boolean;
+  onClose: () => void;
+}) {
   const onCloseRef = useRef(onClose);
-  const titleId = useId();
-  const descriptionId = useId();
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
@@ -194,24 +217,43 @@ export function Dialog({ open, title, description, children, onClose, initialFoc
     if (!open) return;
     const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const restoreTarget = restoreFocusRef?.current || previouslyFocused;
-    (initialFocusRef?.current || closeRef.current)?.focus();
+    const focusables = () =>
+      Array.from(containerRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR) || []);
+    (initialFocusRef?.current || focusables()[0])?.focus();
     const handleKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !closeDisabled) onCloseRef.current();
+      if (event.key === "Escape") {
+        if (closeDisabled) return;
+        event.preventDefault();
+        // Stopped here rather than allowed to bubble: a surface underneath this
+        // one may have its own Escape handler, and closing both at once -- the
+        // alert *and* the modal that raised it -- would discard work the user
+        // has not been told about.
+        event.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
       if (event.key !== "Tab") return;
-      const dialog = closeRef.current?.closest('[role="dialog"]');
-      const focusable = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') || []);
+      const focusable = focusables();
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
-    document.addEventListener("keydown", handleKey);
+    document.addEventListener("keydown", handleKey, true);
     return () => {
-      document.removeEventListener("keydown", handleKey);
+      document.removeEventListener("keydown", handleKey, true);
       restoreTarget?.focus();
     };
-  }, [closeDisabled, initialFocusRef, open, restoreFocusRef]);
+  }, [closeDisabled, containerRef, initialFocusRef, open, restoreFocusRef]);
+}
+
+export function Dialog({ open, title, description, children, onClose, initialFocusRef, restoreFocusRef, closeDisabled = false, size = "md" }: { open: boolean; title: string; description?: string; children: ReactNode; onClose: () => void; initialFocusRef?: RefObject<HTMLElement | null>; restoreFocusRef?: RefObject<HTMLElement | null>; closeDisabled?: boolean; size?: keyof typeof DIALOG_WIDTHS }) {
+  const { t } = useTranslation("common");
+  const panelRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  useDialogBehavior({ open, containerRef: panelRef, initialFocusRef, restoreFocusRef, closeDisabled, onClose });
   if (!open) return null;
   // Portalled to <body>. `position: fixed` is only viewport-relative while no
   // ancestor establishes a containing block for it, and a `transform`,
@@ -221,8 +263,8 @@ export function Dialog({ open, title, description, children, onClose, initialFoc
   // impossible rather than something the next ancestor can break again.
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
-      <section role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={join("relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-card bg-white p-6 shadow-2xl", DIALOG_WIDTHS[size])}>
-        <IconButton ref={closeRef} label={t("dialog.closeLabel")} onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
+      <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={join("relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-card bg-white p-6 shadow-2xl", DIALOG_WIDTHS[size])}>
+        <IconButton label={t("dialog.closeLabel")} onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
         <h2 id={titleId} className="pr-12 text-xl font-bold text-slate-900">{title}</h2>
         {description ? <p id={descriptionId} className="mt-2 text-sm text-slate-600">{description}</p> : null}
         <div className="mt-6">{children}</div>
@@ -244,5 +286,81 @@ export function ConfirmDialog({ open, title, description, confirmLabel, cancelLa
         <Button className={destructive ? "!bg-red-700 hover:!bg-red-800" : undefined} onClick={() => void onConfirm()} disabled={pending} aria-busy={pending}>{pending ? t("confirmDialog.pending") : resolvedConfirmLabel}</Button>
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * The app's layer ladder, so a new surface does not have to be guessed at:
+ *
+ *   60    navbar (sticky, `webUi.navbar.root`)
+ *   90    cookie banner
+ *   100   modals: `Dialog`, the nav drawer, the post-a-job modal, the message sheet
+ *   110   alerts raised *by* a modal, which must outrank the modal underneath
+ *   9999  the global error layer in `lib/toast.tsx`, which outranks everything
+ */
+export const ALERT_LAYER_Z = {
+  overModal: "z-[110]",
+  global: "z-[9999]",
+} as const;
+
+/**
+ * Backdrop and modal behaviour for an alert, with no opinion on its contents.
+ *
+ * Split from `AlertCard` because one backdrop has to be able to hold several
+ * stacked alerts: the global error layer shows every unacknowledged error at
+ * once, and a scrim per error would compound the dimming until the page went
+ * black. Callers that show exactly one alert pass a single `AlertCard`.
+ *
+ * An `alertdialog` must have an accessible name, so pass `labelledBy` (the id
+ * of a heading inside) or `label`.
+ */
+export function AlertLayer({ open, label, labelledBy, describedBy, z = ALERT_LAYER_Z.overModal, onDismiss, children }: { open: boolean; label?: string; labelledBy?: string; describedBy?: string; z?: string; onDismiss: () => void; children: ReactNode }) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useDialogBehavior({ open, containerRef: panelRef, onClose: onDismiss });
+  if (!open) return null;
+  // Portalled for the reason spelled out on `Dialog` above: an ancestor with a
+  // transform silently turns `position: fixed` into something else.
+  return createPortal(
+    <div
+      className={join("fixed inset-0 flex items-start justify-center overflow-y-auto overscroll-contain bg-slate-950/55 p-4 sm:items-center", z)}
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && onDismiss()}
+    >
+      <div
+        ref={panelRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={labelledBy ? undefined : label}
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        className="my-auto flex w-full max-w-md flex-col gap-3"
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * The alert itself. Deliberately not wrapped in its own backdrop -- see
+ * `AlertLayer`. `actions` replaces the default single dismiss button for alerts
+ * that offer a way forward as well as a way out.
+ */
+export function AlertCard({ title, titleId, message, messageId, dismissLabel, actions, onDismiss }: { title: string; titleId?: string; message?: string | null; messageId?: string; dismissLabel?: string; actions?: ReactNode; onDismiss?: () => void }) {
+  const { t } = useTranslation("common");
+  return (
+    <div className="w-full rounded-3xl border border-red-100 bg-white p-6 text-center shadow-2xl">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-2xl font-bold text-red-600" aria-hidden="true">
+        !
+      </div>
+      <h2 id={titleId} className="mt-4 text-xl font-bold text-slate-900">{title}</h2>
+      {message ? <p id={messageId} className="mt-2 text-sm leading-6 text-slate-600">{message}</p> : null}
+      <div className="mt-6">
+        {actions ?? (
+          <Button className="w-full" onClick={onDismiss}>{dismissLabel ?? t("alert.dismiss")}</Button>
+        )}
+      </div>
+    </div>
   );
 }

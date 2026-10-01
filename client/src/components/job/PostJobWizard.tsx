@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { motionTokens, seconds } from "@/constants/motion";
 import { useTranslation } from "react-i18next";
 import { ClipboardList, FileText, Info, MapPin, WalletCards } from "lucide-react";
+import { AlertCard, AlertLayer } from "../ui";
 import { DateField } from "../ui/DateField";
 import { formatCurrency } from "../../lib/formatters";
 import {
@@ -46,6 +47,9 @@ type PostJobWizardProps = {
   hasInsufficientBalanceError: boolean;
   onSubmit: (event: React.SyntheticEvent) => void;
   onCancel: () => void;
+  /** Clears the owner's `formError` when the error popup is dismissed. Without
+      it the popup would reopen on every render until the next submit. */
+  onDismissError: () => void;
 };
 
 const STEP_KEYS = ["job", "whereWhen", "pay", "review"] as const;
@@ -67,6 +71,7 @@ export default function PostJobWizard({
   hasInsufficientBalanceError,
   onSubmit,
   onCancel,
+  onDismissError,
 }: PostJobWizardProps) {
   const { t } = useTranslation("employer");
   const prefersReducedMotion = useReducedMotion();
@@ -74,6 +79,23 @@ export default function PostJobWizard({
   const requiredFieldLabels = useMemo(() => getRequiredFieldLabels(t), [t]);
   const [step, setStep] = useState<0 | 1 | 2 | 3>(0);
   const [stepError, setStepError] = useState<string | null>(null);
+  // Which field the dismissed popup should hand focus back to. Held in a ref
+  // rather than focused at validation time: the popup takes focus the moment it
+  // opens, so focusing the field first only means focusing it twice and losing.
+  const pendingFieldRef = useRef<RequiredFieldKey | null>(null);
+  // The insufficient-balance case has its own dialog in PostJob.tsx with its own
+  // actions, so it is excluded here rather than shown twice.
+  const alertMessage = stepError || (hasInsufficientBalanceError ? null : formError);
+
+  const dismissAlert = useCallback(() => {
+    const field = pendingFieldRef.current;
+    pendingFieldRef.current = null;
+    setStepError(null);
+    onDismissError();
+    // Runs in a rAF, so it lands after `AlertLayer` has restored focus to
+    // whatever raised the alert -- the field wins, which is the point.
+    if (field) focusField(field);
+  }, [onDismissError]);
 
   const selectedProvince = provinceOptions.find(
     (item) => item.name.toLowerCase() === formData.province.trim().toLowerCase()
@@ -104,7 +126,7 @@ export default function PostJobWizard({
           fields: missing.map((field) => requiredFieldLabels[field]).join(", "),
         })
       );
-      focusField(missing[0]);
+      pendingFieldRef.current = missing[0];
       return;
     }
     setStepError(null);
@@ -148,16 +170,29 @@ export default function PostJobWizard({
 
   return (
     <form onSubmit={handleFormSubmit} noValidate className="space-y-6">
-      {formError && !hasInsufficientBalanceError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
-          <p>{formError}</p>
-        </div>
-      )}
-      {stepError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-red-700" role="alert">
-          <p>{stepError}</p>
-        </div>
-      )}
+      {/* Centred over the viewport rather than banner-stacked at the top of the
+          form. The banner sat above the fold of a scrolling dialog body, so a
+          failed Next from halfway down the step scrolled nothing and looked
+          like the button had simply not worked.
+
+          Kept as its own instance rather than routed through `toast.error`,
+          which now centres too: only this one knows which field to hand focus
+          back to once it closes. */}
+      <AlertLayer
+        open={Boolean(alertMessage)}
+        labelledBy="post-job-error-title"
+        describedBy="post-job-error-message"
+        onDismiss={dismissAlert}
+      >
+        <AlertCard
+          title={t("postJob.errors.popupTitle")}
+          titleId="post-job-error-title"
+          message={alertMessage}
+          messageId="post-job-error-message"
+          dismissLabel={t("postJob.errors.popupDismiss")}
+          onDismiss={dismissAlert}
+        />
+      </AlertLayer>
 
       {/* The dot is the indicator; the button around it is the tap target. The
           dot used to be the button, which made these 10px -- the smallest

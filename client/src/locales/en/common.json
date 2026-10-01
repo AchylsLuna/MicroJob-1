@@ -12,6 +12,9 @@
   "dialog": {
     "closeLabel": "Close dialog"
   },
+  "alert": {
+    "dismiss": "Got it"
+  },
   "loading": "Loading...",
   "settings": {
     "saveChanges": "Save changes",
@@ -62,13 +65,6 @@
       "markNotificationFailed": "Failed to mark notification.",
       "markAllReadSuccess": "All notifications marked as read",
       "markAllReadFailed": "Failed to mark all as read."
-    },
-    "moreNav": {
-      "jobsManagement": "Jobs management",
-      "applications": "Applications",
-      "eWallet": "E-Wallet",
-      "support": "Support",
-      "settings": "Settings"
     },
     "pages": {
       "findJobs": { "title": "Find Jobs", "searchPlaceholder": "Search jobs..." },

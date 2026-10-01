@@ -537,17 +537,13 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
 
   const displayName = user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() || t("navbar.defaultUserName") : t("navbar.defaultUserName");
   const accountLabel = user?.role === "admin" ? t("navbar.roleAdmin") : user?.accountType === "employer" ? t("navbar.roleEmployer") : t("navbar.roleWorker");
-  const headerMoreNavigation = isWorkerView
-    ? workerMoreNavigation
-    : notificationAudience === "employer"
-    ? [
-        { label: t("navbar.moreNav.jobsManagement"), path: ROUTES.employer.jobs },
-        { label: t("navbar.moreNav.applications"), path: ROUTES.employer.applications },
-        { label: t("navbar.moreNav.eWallet"), path: ROUTES.employer.eWallet },
-        { label: t("navbar.moreNav.support"), path: ROUTES.employer.support },
-        { label: t("navbar.moreNav.settings"), path: ROUTES.employer.settings },
-      ]
-    : [];
+  // Worker only. The employer branch listed Jobs Management, Applications,
+  // E-Wallet, Support and Settings -- every one of them already a row in the
+  // employer sidebar, so the menu was a second navigation competing with the
+  // first rather than a shortcut to anything. The button and the menu below are
+  // already guarded on this being non-empty, so emptying it is the whole
+  // removal; the worker still has destinations here that its sidebar omits.
+  const headerMoreNavigation = isWorkerView ? workerMoreNavigation : [];
 
   const isWorkerNavigationActive = (target: string) => {
     if (target === ROUTES.worker.findJobs) {
@@ -614,10 +610,19 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
               <div className="min-w-0 leading-tight">
                 <h1 className={webUi.navbar.title}>{pageMeta.title}</h1>
                 {pageMeta.subtitle && pageMeta.subtitleAction ? (
+                  /* No pill background on this one: the chip read as a status
+                     badge next to the page title rather than the quiet link to
+                     location settings that it is. The hover underline carries
+                     the affordance the fill used to.
+                     The 44px tap target is the `::after` overlay, not the box
+                     itself. With the fill gone, `min-h-11` was 44px of visible
+                     emptiness between the title and this line -- and it pushed
+                     the whole header past its own `h-16`. The overlay keeps the
+                     target without taking the space. */
                   <button
                     type="button"
                     onClick={() => navigate(pageMeta.subtitleAction!)}
-                    className="mt-1 inline-flex min-h-11 max-w-full items-center gap-1.5 rounded-full bg-[#EAF1FB] px-3 text-left text-xs font-bold text-[#0F2954] transition hover:bg-[#DCE6F7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    className="relative mt-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md text-left text-xs font-bold leading-tight text-[#0F2954] transition after:absolute after:inset-x-0 after:-inset-y-4 after:content-[''] hover:text-brand hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                     aria-label={t("navbar.locationSettingsAria", { subtitle: pageMeta.subtitle })}
                   >
                     <MapPin className="h-3.5 w-3.5 shrink-0 text-brand" aria-hidden />
