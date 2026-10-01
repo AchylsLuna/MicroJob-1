@@ -129,6 +129,8 @@ export function EWallet() {
   const { t } = useTranslation("worker");
   const { user } = useAuth();
   const payoutRequestRef = useRef<HTMLDivElement | null>(null);
+  const pendingWithdrawScrollRef = useRef(false);
+  const [walletSectionId, setWalletSectionId] = useState("withdraw");
   const payoutIdempotencyKeyRef = useRef<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreatingTopUp, setIsCreatingTopUp] = useState(false);
@@ -336,12 +338,31 @@ export function EWallet() {
     }
   };
 
+  /**
+   * On desktop the form lives on one tab of `WalletSectionPager`, so its node
+   * is only mounted while that tab is showing — the plain `scrollIntoView` this
+   * used to do would hit a null ref and silently do nothing.
+   *
+   * Scrolling cannot simply be deferred by a frame either: the pager's
+   * `AnimatePresence` runs in `mode="wait"`, so the outgoing pane animates away
+   * before the form mounts. The ref callback below does the scroll at the
+   * moment the node actually appears.
+   */
   const handleWithdrawClick = () => {
-    payoutRequestRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    if (payoutRequestRef.current) {
+      payoutRequestRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    pendingWithdrawScrollRef.current = true;
+    setWalletSectionId("withdraw");
   };
+
+  const attachPayoutCard = useCallback((node: HTMLDivElement | null) => {
+    payoutRequestRef.current = node;
+    if (!node || !pendingWithdrawScrollRef.current) return;
+    pendingWithdrawScrollRef.current = false;
+    node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   // Sections are built as data so `WalletSectionPager` can render them either
   // stacked or one-at-a-time behind its tab strip, from a single copy of each
@@ -352,7 +373,7 @@ export function EWallet() {
     ...(isWorkerWalletView || isBothRole
       ? [
           { id: "withdraw", label: t("eWallet.form.title"), content: (
-                  <div ref={payoutRequestRef} className="ui-card p-6">
+                  <div ref={attachPayoutCard} className="ui-card p-6">
                     <div className="flex items-center gap-3 mb-4">
                       <Wallet className="w-5 h-5 text-brand" />
                       <h3 className="text-[20px] font-semibold text-[#111827]">{t("eWallet.form.title")}</h3>
@@ -732,6 +753,8 @@ export function EWallet() {
         previousLabel={t("eWallet.pager.previous")}
         nextLabel={t("eWallet.pager.next")}
         idPrefix="wallet-section"
+        activeId={walletSectionId}
+        onActiveIdChange={setWalletSectionId}
       />
 
       {(isEmployerWalletView || isBothRole) && isTopUpOpen ? (

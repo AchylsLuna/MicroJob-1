@@ -19,6 +19,14 @@ type WalletSectionPagerProps = {
   previousLabel: string;
   nextLabel: string;
   idPrefix?: string;
+  /**
+   * Optional controlled mode. Pass both to let the page drive which section is
+   * showing -- the wallet needs it so its "Withdraw Funds" button can bring the
+   * form's section forward before scrolling to it. Omit both and the pager
+   * keeps its own state.
+   */
+  activeId?: string;
+  onActiveIdChange?: (id: string) => void;
 };
 
 /**
@@ -43,13 +51,20 @@ export function WalletSectionPager({
   previousLabel,
   nextLabel,
   idPrefix = "wallet-section",
+  activeId,
+  onActiveIdChange,
 }: WalletSectionPagerProps) {
   const prefersReducedMotion = useReducedMotion();
   const isPaged = useMediaQuery("(min-width: 1024px)");
-  const [activeId, setActiveId] = useState<string>(sections[0]?.id ?? "");
+  const [uncontrolledId, setUncontrolledId] = useState<string>(sections[0]?.id ?? "");
+  const currentId = activeId ?? uncontrolledId;
+  const setCurrentId = (id: string) => {
+    if (activeId === undefined) setUncontrolledId(id);
+    onActiveIdChange?.(id);
+  };
   // Derived, not stored: the section list changes with the signed-in role, and
   // a stored index would survive into a shorter list and point at nothing.
-  const activeIndex = Math.max(0, sections.findIndex((section) => section.id === activeId));
+  const activeIndex = Math.max(0, sections.findIndex((section) => section.id === currentId));
   const [direction, setDirection] = useState(0);
 
   if (sections.length === 0) return null;
@@ -64,7 +79,7 @@ export function WalletSectionPager({
 
   const goTo = (section: WalletSection, towards: number) => {
     setDirection(towards);
-    setActiveId(section.id);
+    setCurrentId(section.id);
   };
 
   const paneMotion = prefersReducedMotion
