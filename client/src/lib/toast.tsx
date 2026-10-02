@@ -154,7 +154,7 @@ export function Toaster({ position = "top-right" }: { position?: "top-right" | "
       {/* `aria-live` stays on the corner region only. The error layer is an
           `alertdialog`, which screen readers announce on focus -- inside a live
           region it would be read twice. */}
-      <div aria-live="polite" aria-relevant="additions" className={`pointer-events-none fixed z-[9999] flex flex-col gap-3 ${positionClasses}`}>
+      <div aria-live="polite" aria-relevant="additions" className={`pointer-events-none fixed ${ALERT_LAYER_Z.global} flex flex-col gap-3 ${positionClasses}`}>
         {passiveToasts.map((toastItem) => (
           <div
             key={toastItem.id}

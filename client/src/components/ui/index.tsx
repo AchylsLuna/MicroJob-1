@@ -15,7 +15,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Pressable, type PressableBaseProps } from "./Pressable";
-import { ALERT_LAYER_Z } from "./layers";
+import { ALERT_LAYER_Z, LAYER_Z } from "./layers";
 
 const join = (...values: Array<string | false | null | undefined>) => values.filter(Boolean).join(" ");
 
@@ -263,7 +263,7 @@ export function Dialog({ open, title, description, children, onClose, initialFoc
   // to the <main> box. Rendering outside the app tree makes that structurally
   // impossible rather than something the next ancestor can break again.
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
+    <div className={join("fixed inset-0 flex items-center justify-center bg-slate-950/55 p-4", LAYER_Z.modal)} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && !closeDisabled && onClose()}>
       <section ref={panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={join("relative max-h-[calc(100dvh-2rem)] w-full overflow-y-auto rounded-card bg-white p-6 shadow-2xl", DIALOG_WIDTHS[size])}>
         <IconButton label={t("dialog.closeLabel")} onClick={onClose} disabled={closeDisabled} className="absolute right-3 top-3"><X className="h-5 w-5" /></IconButton>
         <h2 id={titleId} className="pr-12 text-xl font-bold text-slate-900">{title}</h2>

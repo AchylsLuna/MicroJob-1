@@ -17,6 +17,7 @@ import { motionTokens, seconds } from "@/constants/motion";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { toast } from "../../lib/toast";
+import { LAYER_Z } from "../../components/ui/layers";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 import { isStaffConversation } from "../../utils/staffConversation";
@@ -1592,7 +1593,7 @@ export function Messages() {
       <AnimatePresence>
         {deleteTarget ? (
           <motion.div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4"
+            className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/45 p-4`}
             initial={prefersReducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={prefersReducedMotion ? undefined : { opacity: 0 }}
@@ -1607,7 +1608,7 @@ export function Messages() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={prefersReducedMotion ? undefined : { opacity: 0, scale: 0.96, y: 8 }}
               onMouseDown={(event) => event.stopPropagation()}
-              className="w-full max-w-md rounded-card bg-white p-6 shadow-2xl"
+              className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-card bg-white p-6 shadow-2xl"
             >
               <div className="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
                 <Trash2 className="h-5 w-5" />

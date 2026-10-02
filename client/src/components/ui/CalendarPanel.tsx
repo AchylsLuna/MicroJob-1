@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
+import { LAYER_Z } from "./layers";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { X } from "lucide-react";
 import {
@@ -163,7 +164,7 @@ export function CalendarPanel(props: Props) {
           /* z-100, matching `ui/index.tsx`'s Dialog and the nav drawer. At
              z-70 this sat under the cookie banner (z-90), which painted over
              the sheet's lower half -- where the Apply/Clear footer is. */
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 sm:items-center"
+          className={`fixed inset-0 ${LAYER_Z.modal} flex items-end justify-center bg-slate-950/50 sm:items-center`}
           initial={prefersReducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={prefersReducedMotion ? undefined : { opacity: 0 }}

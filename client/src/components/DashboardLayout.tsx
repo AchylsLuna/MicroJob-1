@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { LAYER_Z } from "./ui/layers";
 import Sidebar from "./Sidebar";
 import { NavBar } from "./NavBar";
 import { webUi } from "../styles/webUi";
@@ -109,7 +110,7 @@ export function DashboardLayout() {
            message sheet were the two that had not been brought in line. Being
            the top layer is also what lets this panel use the full viewport
            height again instead of reserving space for chrome it now covers. */
-        <div className="fixed inset-0 z-[100] lg:hidden" role="dialog" aria-modal="true" aria-label={t("dashboardLayout.navigationMenuAria")}>
+        <div className={`fixed inset-0 ${LAYER_Z.modal} lg:hidden`} role="dialog" aria-modal="true" aria-label={t("dashboardLayout.navigationMenuAria")}>
           <button
             type="button"
             className="absolute inset-0 bg-slate-950/50"

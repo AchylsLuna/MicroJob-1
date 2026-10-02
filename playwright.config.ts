@@ -4,6 +4,7 @@ const e2eClientPort = Number(process.env.E2E_CLIENT_PORT || 8082);
 const e2eApiPort = Number(process.env.E2E_API_PORT || 5055);
 
 const RESPONSIVE_SPEC = /responsive-audit\.spec\.ts/;
+const OVERLAY_SPEC = /overlay-audit\.spec\.ts/;
 const AUTH_SETUP = /auth\.setup\.ts/;
 const WORKER_STATE = "tests/e2e/.auth/worker.json";
 
@@ -46,6 +47,27 @@ const RESPONSIVE_PROFILES = [
   { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
 ];
 
+/**
+ * The overlay audit's own, smaller matrix. Four of the seven responsive
+ * profiles, chosen so each distinct layout regime for a modal is covered once
+ * rather than fanning every modal across all seven:
+ *
+ *  - fold             280px, narrower than `sm`, so base styles only
+ *  - phone-se         375px, the common small phone
+ *  - phone-landscape  375px *tall*, the regime where a dialog without a height
+ *                     cap pushes its own close button off the top edge
+ *  - desktop          regression guard, and the only width with the full navbar
+ *
+ * Each project sets its own `storageState` per `test.describe` block rather than
+ * here, because the audit spans public, employer and admin routes.
+ */
+const OVERLAY_PROFILES = [
+  { name: "fold", use: mobile(280, 653) },
+  { name: "phone-se", use: mobile(375, 667) },
+  { name: "phone-landscape", use: mobile(667, 375) },
+  { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } } },
+];
+
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 45_000,
@@ -67,7 +89,7 @@ export default defineConfig({
     {
       name: "app",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: [RESPONSIVE_SPEC, AUTH_SETUP],
+      testIgnore: [RESPONSIVE_SPEC, OVERLAY_SPEC, AUTH_SETUP],
     },
     // Signs the seeded worker in once; every responsive project reuses that
     // session instead of signing in again. Seven more logins on top of what the
@@ -82,6 +104,15 @@ export default defineConfig({
       name: `responsive:${profile.name}`,
       use: { ...profile.use, storageState: WORKER_STATE },
       testMatch: RESPONSIVE_SPEC,
+      dependencies: ["setup"],
+    })),
+    // Separate projects rather than extra tests inside `responsive:*`: that
+    // matrix is seven profiles deep already, and opening a modal per case is
+    // slower than the geometry checks it runs today.
+    ...OVERLAY_PROFILES.map((profile) => ({
+      name: `overlay:${profile.name}`,
+      use: { ...profile.use },
+      testMatch: OVERLAY_SPEC,
       dependencies: ["setup"],
     })),
   ],

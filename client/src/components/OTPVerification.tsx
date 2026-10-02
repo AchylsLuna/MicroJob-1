@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
+import { LAYER_Z } from "./ui/layers";
 
 interface OTPVerificationProps {
   onClose: () => void;
@@ -210,9 +212,24 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
     }
   };
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-[24px] max-w-[480px] w-full p-5 sm:p-8 relative animate-in fade-in zoom-in duration-200">
+  // Portalled to <body> and on the modal rung, for the reasons spelled out on
+  // `ui/index.tsx`'s Dialog: `position: fixed` is only viewport-relative while
+  // no ancestor establishes a containing block, and at `z-50` this sat under
+  // the navbar (60) and the cookie banner (90) -- so a first-time visitor
+  // signing in got the banner painted across the code entry.
+  //
+  // The panel caps its own height and scrolls internally. Centring a flex
+  // child taller than its container overflows in *both* directions, and this
+  // dialog is tall enough to do that on a 375px-high landscape phone: the
+  // close button left the top edge with nothing to scroll it back.
+  return createPortal(
+    <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-black/50 p-4`}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="otp-verification-title"
+        className="relative max-h-[calc(100dvh-2rem)] w-full max-w-[480px] overflow-y-auto rounded-[24px] bg-white p-5 animate-in fade-in zoom-in duration-200 sm:p-8"
+      >
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -222,7 +239,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
         </button>
 
         {/* Header */}
-        <h2 className="text-[28px] font-bold text-[#111827] text-center mt-2 mb-3">
+        <h2 id="otp-verification-title" className="text-[28px] font-bold text-[#111827] text-center mt-2 mb-3">
           {t("otpVerification.title")}
         </h2>
         <p className="text-body text-[#6B7280] text-center mb-8">
@@ -314,6 +331,7 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

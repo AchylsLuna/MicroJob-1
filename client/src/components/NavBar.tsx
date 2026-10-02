@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, type ReactNode } from "react";
 import { ArrowRight, Bell, ChevronDown, Ellipsis, MapPin, Menu, Search } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
+import { LAYER_Z } from "./ui/layers";
 import { toast } from "../lib/toast";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -737,7 +738,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
                  should start, so the same class is correct in both modes --
                  unlike the `top-[4.5rem]` it replaces, which assumed a 4rem
                  header and so overlapped it on the 5rem "home" pages. */
-              <div role="menu" aria-label={t("navbar.notifications")} className={`fixed left-4 right-4 top-full mt-2 z-50 flex max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] flex-col overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:w-[380px] ${webUi.navbar.popover}`}>
+              <div role="menu" aria-label={t("navbar.notifications")} className={`fixed left-4 right-4 top-full mt-2 ${LAYER_Z.furniture} flex max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] flex-col overflow-hidden sm:absolute sm:left-auto sm:right-0 sm:w-[380px] ${webUi.navbar.popover}`}>
                 <div className="flex shrink-0 items-center justify-between border-b border-slate-200 p-4">
                   <h3 className="font-semibold text-[16px] text-[#111827]">
                     {t("navbar.notifications")} {unreadCount > 0 && `(${unreadCount})`}
@@ -839,7 +840,7 @@ export function NavBar({ isNavigationOpen = false, onOpenNavigation, isHidden = 
             </button>
 
             {showUserMenu && (
-              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-full mt-2 z-50 max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] overflow-y-auto sm:absolute sm:left-auto sm:right-0 sm:w-[300px] ${webUi.navbar.popover}`}>
+              <div role="menu" aria-label={t("navbar.accountMenuAria")} className={`fixed left-4 right-4 top-full mt-2 ${LAYER_Z.furniture} max-h-[calc(100dvh-var(--navbar-height,4rem)-var(--mobile-bottom-nav-height,0px)-var(--cookie-banner-height,0px)-1.5rem)] overflow-y-auto sm:absolute sm:left-auto sm:right-0 sm:w-[300px] ${webUi.navbar.popover}`}>
                 <div className="border-b border-slate-200 p-4">
                   <p className="text-lg font-bold text-slate-950">{displayName}</p>
                   <p className="text-sm text-slate-500">{t("navbar.accountSuffix", { role: accountLabel })}</p>

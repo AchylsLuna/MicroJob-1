@@ -10,6 +10,7 @@ import { isValidEmail, normalizeEmail } from "../lib/authValidation";
 import { ROUTES } from "../utils/routes";
 import { OTPVerification } from "./OTPVerification";
 import { MfaLoginForm } from "./auth/MfaLoginForm";
+import { LAYER_Z } from "./ui/layers";
 import {
   AuthDivider,
   AuthShell,
@@ -274,8 +275,8 @@ export function SignIn() {
       )}
 
       {mfaChallenge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-label={t("signIn.mfaModal.ariaLabel")}>
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+        <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/50 p-4`} role="dialog" aria-modal="true" aria-label={t("signIn.mfaModal.ariaLabel")}>
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
             <MfaLoginForm
               email={mfaChallenge.email}
               method={mfaChallenge.method}
@@ -291,8 +292,8 @@ export function SignIn() {
       )}
 
       {loginMethodSelection && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
+        <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/50 p-4`} role="dialog" aria-modal="true">
+          <div className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl sm:p-8">
             <h2 className="text-xl font-bold text-slate-950">{t("signIn.methodSelection.title")}</h2>
             <p className="mt-2 text-sm leading-5 text-slate-600">{t("signIn.methodSelection.description")}</p>
             <div className="mt-6 grid gap-3">

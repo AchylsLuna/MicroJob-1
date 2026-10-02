@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Dialog } from "./ui";
+import { LAYER_Z } from "./ui/layers";
 import { ROUTES } from "../utils/routes";
 import {
   OPEN_COOKIE_PREFERENCES_EVENT,
@@ -117,7 +118,7 @@ export function CookieConsent() {
           // (0 on desktop, where it's hidden), so this defaults to the plain
           // bottom-0 behavior everywhere the bar doesn't exist.
           style={{ bottom: "var(--mobile-bottom-nav-height, 0px)" }}
-          className="fixed inset-x-0 z-[90] border-t border-slate-200 bg-white p-4 shadow-[0_-8px_24px_rgba(15,41,84,0.10)] sm:p-5"
+          className={`fixed inset-x-0 ${LAYER_Z.cookieBanner} border-t border-slate-200 bg-white p-4 shadow-[0_-8px_24px_rgba(15,41,84,0.10)] sm:p-5`}
         >
           <div className="mx-auto flex max-w-5xl flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <p className="text-body leading-6 text-slate-700">

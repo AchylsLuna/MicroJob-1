@@ -17,6 +17,7 @@ import { toast } from "../../lib/toast";
 import { ROUTES } from "../../utils/routes";
 import { formatCurrency, formatDate } from "../../lib/formatters";
 import { Badge, Dialog } from "../../components/ui";
+import { LAYER_Z } from "../../components/ui/layers";
 
 interface JobPosting {
   id: string;
@@ -526,8 +527,13 @@ export function JobsManagement() {
       </div>
 
       {viewingJob ? (
+        /* On the modal rung, not `z-50`. The three confirms below were brought
+           onto `ui`'s Dialog for exactly this reason -- at z-50 they sat under
+           the navbar (60) and the cookie banner (90) -- and this one was left
+           behind. The panel already caps its height and scrolls internally,
+           which is what makes centring safe. */
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4"
+          className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-900/55 p-4`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="job-details-title"

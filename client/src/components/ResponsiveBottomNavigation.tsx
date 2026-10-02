@@ -10,6 +10,7 @@ import {
   WalletCards,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { LAYER_Z } from "./ui/layers";
 import { useAuth } from "../contexts/AuthContext";
 import { useMessaging } from "../contexts/MessagingContext";
 import { useNotifications } from "../contexts/NotificationContext";
@@ -70,7 +71,7 @@ export function ResponsiveBottomNavigation() {
     <nav
       ref={navRef}
       aria-label={`${mode === "employer" ? "Employer" : "Worker"} mobile navigation`}
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.09)] backdrop-blur lg:hidden"
+      className={`fixed inset-x-0 bottom-0 ${LAYER_Z.furniture} border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.09)] backdrop-blur lg:hidden`}
     >
       <div className="mx-auto flex w-full max-w-2xl items-stretch justify-around" role="tablist">
         {items.map((item) => {

@@ -11,6 +11,7 @@ import { toast } from "../../lib/toast";
 import { useNavigate } from "react-router-dom";
 import { ROUTES } from "../../utils/routes";
 import { Button, ConfirmDialog, Dialog, Input, Select } from "../../components/ui";
+import { LAYER_Z } from "../../components/ui/layers";
 import { useAuth } from "../../hooks/useAuth";
 import { useAdminPermissions } from "../../hooks/useAdminPermissions";
 import { getPasswordStrength, STRONG_PASSWORD_ERROR } from "../../lib/passwordPolicy";
@@ -71,7 +72,7 @@ function RowActionsMenu({
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-[80] w-44 rounded-xl border border-[#E5E7EB] bg-white text-left shadow-lg"
+      className={`fixed ${LAYER_Z.furniture} w-44 rounded-xl border border-[#E5E7EB] bg-white text-left shadow-lg`}
       style={{
         top: position?.top ?? 0,
         left: position?.left ?? 0,
@@ -665,7 +666,7 @@ function AdminUserManagementContent() {
 
       {selectedUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+          className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-black/30 p-4`}
           role="presentation"
           onClick={(event) => event.target === event.currentTarget && setSelectedUserId(null)}
         >

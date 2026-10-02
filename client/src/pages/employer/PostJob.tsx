@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { LAYER_Z } from "../../components/ui/layers";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BriefcaseBusiness, Filter, Plus, Search, X } from "lucide-react";
@@ -633,9 +634,9 @@ const PostJob: React.FC = () => {
            bright. Rendering outside the app tree makes that structurally
            impossible instead of something the next ancestor can break again.
 
-           z-100 matches `ui/index.tsx`'s Dialog and the layer contract in
-           DashboardLayout.tsx: at z-50 this tied the mobile tab bar and sat
-           under the cookie banner. Centred rather than top-aligned so the
+           The rung comes from `components/ui/layers.ts`, which owns the whole
+           ladder: at z-50 this tied the mobile tab bar and sat under the
+           cookie banner. Centred rather than top-aligned so the
            dialog lands in front of the reader; the panel below already caps
            its own height and scrolls internally, which is what makes centring
            safe -- a flex child taller than its container overflows in both
@@ -644,9 +645,14 @@ const PostJob: React.FC = () => {
            full viewport so the dialog reads as a layer over the page instead of
            swallowing it: centred, that leaves a 9dvh gutter, which clears the
            64px navbar on any viewport taller than ~710px. */
-        <div className="fixed inset-0 z-[100] bg-slate-900/55 p-3 md:p-8">
+        <div className={`fixed inset-0 ${LAYER_Z.modal} bg-slate-900/55 p-3 md:p-8`}>
           <div className="flex min-h-full items-center justify-center">
-            <div className="flex w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] md:max-h-[82dvh] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="post-job-modal-title"
+              className="flex w-full max-w-3xl max-h-[calc(100dvh-1.5rem)] md:max-h-[82dvh] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl"
+            >
               <div className="shrink-0 border-b border-slate-200 bg-white px-5 py-4 md:px-6">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
@@ -657,7 +663,7 @@ const PostJob: React.FC = () => {
                       <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-600">
                         {t("postJob.modal.employerWorkspace")}
                       </p>
-                      <h2 className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
+                      <h2 id="post-job-modal-title" className="text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
                         {editingJob ? t("postJob.modal.editTitle") : t("postJob.modal.createTitle")}
                       </h2>
                       <p className="mt-0.5 text-sm text-slate-500">

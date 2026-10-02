@@ -17,8 +17,15 @@ import { expect, test as setup } from "@playwright/test";
  */
 
 const WORKER = { email: "e2e-user@microjobs.local", password: "ReviewPass123!" };
+/**
+ * The superadmin `start-e2e-server.cjs` seeds. The overlay audit needs it
+ * because three of the modals it measures only exist on admin routes, and a
+ * fresh in-memory database has no rows to open them from otherwise.
+ */
+const ADMIN = { email: "e2e-admin@microjobs.local", password: "AdminPass123!" };
 
 export const WORKER_STATE = "tests/e2e/.auth/worker.json";
+export const ADMIN_STATE = "tests/e2e/.auth/admin.json";
 
 setup("authenticate worker", async ({ page }) => {
   await page.goto("/sign-in");
@@ -50,4 +57,19 @@ setup("authenticate worker", async ({ page }) => {
 
   await page.waitForURL(/\/worker\//);
   await page.context().storageState({ path: WORKER_STATE });
+});
+
+/**
+ * The admin sign-in form is a separate route with its own submit label, and the
+ * seeded superadmin has no MFA enrolled, so this flow has no second factor to
+ * clear -- unlike `admin-critical.spec.ts`, which stubs an MFA challenge to
+ * test the challenge itself.
+ */
+setup("authenticate admin", async ({ page }) => {
+  await page.goto("/admin-sign-in");
+  await page.getByPlaceholder("Enter your email").fill(ADMIN.email);
+  await page.getByPlaceholder("Enter your password").fill(ADMIN.password);
+  await page.getByRole("button", { name: /Sign In as Admin/i }).click();
+  await page.waitForURL(/\/admin\/dashboard/);
+  await page.context().storageState({ path: ADMIN_STATE });
 });

@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } fr
 import { motionTokens } from "@/constants/motion";
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { MicroJobsLogo } from "./MicroJobsLogo";
+import { LAYER_Z } from "./ui/layers";
 import { getPostAuthLandingPath } from "../utils/dashboardRoutes";
 import { ROUTES } from "../utils/routes";
 import { getCategories, getJobs } from "../services/api";
@@ -14,11 +15,83 @@ import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 type LandingCategory = { _id: string; name: string };
 type HeroIntent = "work" | "hire";
 
-// Animated Counter Component
-function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: string }) {
+/** Live marketplace figures, measured from the public job board. */
+type MarketplaceStats = {
+  openJobs: number;
+  employers: number;
+  totalPay: number;
+  cities: number;
+};
+
+/**
+ * Derives the landing page's figures from the public job list.
+ *
+ * Counting the array is accurate rather than a sample: `getJobList` ignores
+ * `limit` and returns the whole filtered set, ordered by proximity -- the page
+ * slices to six for the cards itself. So one request serves both the cards and
+ * these totals, and no second round-trip is added for them.
+ *
+ * `status` is not filtered server-side, so "open" is applied here. Everything
+ * reported is a count or a sum of rows that exist; nothing is projected,
+ * rounded up, or annualised.
+ */
+function summarizeMarketplace(payload: unknown): MarketplaceStats {
+  const jobs = Array.isArray(payload) ? payload : [];
+  const open = jobs.filter((job: any) => job?.status === "Available");
+  const employers = new Set(
+    open
+      .map((job: any) => {
+        const poster = job?.jobPoster;
+        if (!poster) return null;
+        return typeof poster === "object" ? poster._id ?? null : poster;
+      })
+      .filter(Boolean)
+      .map(String),
+  );
+  const cities = new Set(
+    open
+      .map((job: any) => (typeof job?.location === "string" ? job.location.trim().toLowerCase() : ""))
+      .filter(Boolean),
+  );
+  const totalPay = open.reduce((sum: number, job: any) => {
+    const salary = Number(job?.salary);
+    return Number.isFinite(salary) && salary > 0 ? sum + salary : sum;
+  }, 0);
+
+  return { openJobs: open.length, employers: employers.size, totalPay, cities: cities.size };
+}
+
+/**
+ * Counts up to a real figure.
+ *
+ * `format` exists because the numbers this now animates are live platform
+ * totals rather than the three invented percentages it used to show, and they
+ * do not share one shape: a peso total needs grouping and a currency mark, a
+ * job count needs neither. Counting up through a raw peso figure also reads as
+ * noise, so the caller formats every intermediate value, not just the last one.
+ */
+function AnimatedCounter({
+  target,
+  prefix = "",
+  suffix = "",
+  format = (value: number) => value.toLocaleString(),
+}: {
+  target: number;
+  prefix?: string;
+  suffix?: string;
+  format?: (value: number) => string;
+}) {
   const [count, setCount] = useState(0);
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
+    // Honour the OS setting rather than counting anyway: this is decorative
+    // motion over information the reader came for.
+    if (prefersReducedMotion) {
+      setCount(target);
+      return;
+    }
+
     const duration = 2000;
     const steps = 60;
     const increment = target / steps;
@@ -35,9 +108,9 @@ function AnimatedCounter({ target, suffix = "" }: { target: number; suffix?: str
     }, duration / steps);
 
     return () => clearInterval(timer);
-  }, [target]);
+  }, [prefersReducedMotion, target]);
 
-  return <span>{count}{suffix}</span>;
+  return <span>{prefix}{format(count)}{suffix}</span>;
 }
 
 export function LandingPageBlue() {
@@ -59,6 +132,7 @@ export function LandingPageBlue() {
   }>>([]);
   const [isJobsLoading, setIsJobsLoading] = useState(false);
   const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
+  const [landingStats, setLandingStats] = useState<MarketplaceStats | null>(null);
 
   // Shared by both the hero chips and the nav mega-menu — fetched once.
   // GET /categories is a public endpoint, so this works signed-out.
@@ -233,6 +307,7 @@ export function LandingPageBlue() {
       try {
         const data = await getJobs({ limit: 6, city: user?.city || undefined });
         if (!isMounted) return;
+        setLandingStats(summarizeMarketplace(data));
         setJobCards(
           (Array.isArray(data) ? data : []).slice(0, 6).map((job: any) => ({
             title: job.title || "Job Title",
@@ -246,6 +321,11 @@ export function LandingPageBlue() {
         );
       } catch (error: any) {
         if (!isMounted) return;
+        // Leave `landingStats` null rather than falling back to a plausible
+        // number. The whole point of that section is that the figures are
+        // measured, so a fabricated stand-in would be worse than saying
+        // nothing -- the section says so itself when this is null.
+        setLandingStats(null);
         setJobsLoadError(error?.message || "Unable to load jobs yet.");
       } finally {
         if (isMounted) setIsJobsLoading(false);
@@ -336,7 +416,7 @@ export function LandingPageBlue() {
       <motion.nav 
         initial={{ y: -100 }}
         animate={{ y: 0 }}
-        className="fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md z-50 border-b border-gray-100"
+        className={`fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-md ${LAYER_Z.furniture} border-b border-gray-100`}
       >
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
@@ -665,52 +745,123 @@ export function LandingPageBlue() {
         />
         
         <div className="max-w-7xl mx-auto text-center relative z-10">
-          <motion.h2 
+          {/* These three figures used to be 95% / 98% / 90% -- invented
+              outcome claims ("users were hired", "placement among trusted
+              employers") that nothing in the product measured and that a
+              marketplace this young could not have substantiated. They are now
+              counts read off the live job board on every page load. Being a
+              small, early number is the honest position, and a visitor can
+              verify all three by opening the board. */}
+          <motion.h2
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="text-[36px] font-bold text-gray-900 mb-3"
           >
-            Join Micro Jobs Today and Experience
+            We're a startup, so here are the real numbers
           </motion.h2>
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.2 }}
-            className="mb-16 text-[36px] font-bold text-brand"
+            className="mb-4 text-[36px] font-bold text-brand"
           >
-            The Power of Numbers
+            Live from the job board
+          </motion.p>
+          <motion.p
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.3 }}
+            className="mx-auto mb-16 max-w-2xl text-[15px] leading-relaxed text-gray-600"
+          >
+            No projections and no rounded-up claims — every figure below is counted from the jobs open on
+            MicroJobs right now, and changes the moment an employer posts or a worker is hired.
           </motion.p>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { value: 95, label: "Users were hired through Micro Jobs in the past year" },
-              { value: 98, label: "Users were the placement among trusted Employers" },
-              { value: 90, label: "Users were job placement with top companies" },
-            ].map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.2 }}
-                whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.2)" }}
-                className="bg-white/80 backdrop-blur-sm rounded-[24px] p-8 shadow-lg border border-white/50"
-              >
-                <motion.div 
-                  className="mb-2 text-[48px] font-bold text-brand"
-                  initial={{ scale: 0 }}
-                  whileInView={{ scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.2 + 0.3, type: "spring", stiffness: 200 }}
+          {isJobsLoading && !landingStats ? (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-3" aria-hidden="true">
+              {[0, 1, 2].map((placeholder) => (
+                <div
+                  key={placeholder}
+                  className="rounded-[24px] border border-white/50 bg-white/80 p-8 shadow-lg backdrop-blur-sm"
                 >
-                  <AnimatedCounter target={stat.value} suffix="%" />
-                </motion.div>
-                <p className="text-body text-gray-600">{stat.label}</p>
-              </motion.div>
-            ))}
-          </div>
+                  <div className="mx-auto mb-4 h-12 w-32 animate-pulse rounded-xl bg-slate-200" />
+                  <div className="mx-auto h-4 w-48 animate-pulse rounded bg-slate-100" />
+                </div>
+              ))}
+            </div>
+          ) : landingStats ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {[
+                  {
+                    value: landingStats.openJobs,
+                    render: (value: number) => <AnimatedCounter target={value} />,
+                    label: "Jobs open right now, ready to apply to",
+                  },
+                  {
+                    value: landingStats.employers,
+                    render: (value: number) => <AnimatedCounter target={value} />,
+                    label: "Employers currently hiring on MicroJobs",
+                  },
+                  {
+                    value: landingStats.totalPay,
+                    render: (value: number) => (
+                      <AnimatedCounter
+                        target={value}
+                        prefix="₱"
+                        format={(amount) => Math.round(amount).toLocaleString()}
+                      />
+                    ),
+                    label: "Total pay on offer across every open job",
+                  },
+                ].map((stat, index) => (
+                  <motion.div
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 50 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: index * 0.2 }}
+                    whileHover={{ y: -10, boxShadow: "0 20px 40px rgba(73, 136, 196, 0.2)" }}
+                    className="bg-white/80 backdrop-blur-sm rounded-[24px] p-8 shadow-lg border border-white/50"
+                  >
+                    <motion.div
+                      className="mb-2 text-[48px] font-bold text-brand"
+                      initial={{ scale: 0 }}
+                      whileInView={{ scale: 1 }}
+                      viewport={{ once: true }}
+                      transition={{ delay: index * 0.2 + 0.3, type: "spring", stiffness: 200 }}
+                    >
+                      {stat.render(stat.value)}
+                    </motion.div>
+                    <p className="text-body text-gray-600">{stat.label}</p>
+                  </motion.div>
+                ))}
+              </div>
+              <p className="mt-8 text-[14px] text-gray-500">
+                {landingStats.openJobs === 0
+                  ? "The board is empty at this moment — new work is posted most days, and posting a job is free."
+                  : `Across ${landingStats.cities.toLocaleString()} ${
+                      landingStats.cities === 1 ? "city" : "cities"
+                    } in the Philippines. Counted when you loaded this page.`}
+              </p>
+            </>
+          ) : (
+            <p className="text-body text-gray-600">
+              We can't reach the live job board right now, so there are no numbers to show you. Rather than
+              estimate them, we'd sooner you{" "}
+              <button
+                type="button"
+                onClick={() => navigate(getJobsPath)}
+                className="font-semibold text-brand underline underline-offset-4 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              >
+                open the board and see for yourself
+              </button>
+              .
+            </p>
+          )}
         </div>
       </section>
 

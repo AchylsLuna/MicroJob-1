@@ -6,6 +6,7 @@ import { useAdminData } from "../../hooks/useAdminData";
 import { formatCurrency, formatDate, formatDateTime } from "../../lib/formatters";
 import type { PaymentTransaction } from "../../services/api";
 import { toast } from "../../lib/toast";
+import { LAYER_Z } from "../../components/ui/layers";
 
 // ── Receipt Modal ──────────────────────────────────────────────────────────────
 const TX_TYPE_STYLES: Record<string, string> = {
@@ -109,7 +110,7 @@ function ReceiptModal({ tx, onClose }: { tx: PaymentTransaction; onClose: () => 
   );
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className={`fixed inset-0 ${LAYER_Z.modal} flex items-center justify-center bg-slate-950/55 p-4`} role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section role="dialog" aria-modal="true" aria-labelledby="transaction-receipt-title" className="bg-white rounded-[20px] shadow-2xl w-full max-w-4xl max-h-[calc(100dvh-2rem)] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-start justify-between p-5 sm:p-6 border-b border-[#E5E7EB] bg-white/95 backdrop-blur">

@@ -1,3 +1,5 @@
+import { LAYER_Z } from "../components/ui/layers";
+
 export const webUi = {
   layout: {
     // `h-screen` and `h-[100dvh]` were both set here; which one won was decided
@@ -14,15 +16,17 @@ export const webUi = {
     maxContainer: "mx-auto w-full max-w-[1440px]",
   },
   navbar: {
-    // Above the mobile tab bar's z-50: `sticky` + a z-index makes this header a
+    // Above the mobile tab bar's rung: `sticky` + a z-index makes this header a
     // stacking context, so its dropdowns can never out-stack anything painted
     // above the header itself no matter what z-index they carry. Stays below
-    // the cookie banner (z-90) and every modal surface (z-100: the nav drawer,
-    // ui/index.tsx's Dialog, CalendarPanel, the MessageDock sheet).
+    // the cookie banner and every modal surface.
     //
-    // Not yet true of the hand-rolled modals that still sit at z-50 and so
-    // paint *under* this header -- they are being migrated onto Dialog.
-    root: "sticky top-0 z-[60] w-full bg-white/95 shadow-[inset_0_-1px_0_#e2e8f0] backdrop-blur",
+    // The rung comes from `components/ui/layers.ts`, which owns the whole
+    // ladder. Every hand-rolled modal that used to sit at z-50 -- and so
+    // painted *under* this header -- is now on `LAYER_Z.modal`, and
+    // `scripts/check-overlay-centering.mjs` fails the build on a new one that
+    // spells its own z-index instead.
+    root: `sticky top-0 ${LAYER_Z.navbar} w-full bg-white/95 shadow-[inset_0_-1px_0_#e2e8f0] backdrop-blur`,
     container:
       "mx-auto grid h-16 min-h-16 w-full max-w-[1440px] min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 sm:px-6 lg:px-8",
     title: "truncate text-lg font-bold leading-tight tracking-tight text-[#0F2954] sm:text-xl",

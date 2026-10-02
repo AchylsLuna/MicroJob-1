@@ -8,6 +8,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useMessaging, conversationIdOf, type Contact, type ChatMessage } from "../../contexts/MessagingContext";
 import { getConversationWithUser, markMessagesAsRead, sendMessage } from "../../services/api";
 import { toast } from "../../lib/toast";
+import { LAYER_Z } from "../ui/layers";
 import { ROUTES } from "../../utils/routes";
 import { formatDate } from "../../lib/formatters";
 
@@ -490,7 +491,7 @@ export function MessageDock() {
         // covers it -- it sat on top of the empty-state call to action on
         // /worker/applied-jobs. Messages stay one tap away in the tab bar.
         // Matches the `[@media(max-height:...)]` convention Sidebar.tsx uses.
-        className={`fixed right-4 z-[45] flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-white shadow-[0_10px_28px_rgba(28,77,141,0.35)] transition hover:opacity-95 [@media(max-height:480px)]:hidden lg:!bottom-[var(--cookie-banner-height,0px)] lg:right-6 lg:rounded-b-none lg:rounded-t-card lg:px-5 lg:py-3 lg:shadow-[0_-6px_20px_rgba(15,23,42,0.14)] ${
+        className={`fixed right-4 ${LAYER_Z.dockLauncher} flex items-center gap-2 rounded-full bg-brand px-4 py-3 text-white shadow-[0_10px_28px_rgba(28,77,141,0.35)] transition hover:opacity-95 [@media(max-height:480px)]:hidden lg:!bottom-[var(--cookie-banner-height,0px)] lg:right-6 lg:rounded-b-none lg:rounded-t-card lg:px-5 lg:py-3 lg:shadow-[0_-6px_20px_rgba(15,23,42,0.14)] ${
           isExpanded ? "hidden lg:flex" : "flex"
         }`}
       >
@@ -514,7 +515,7 @@ export function MessageDock() {
             // Docks above the cookie banner for the same reason as the trigger
             // above, and caps its height against it so the composer at the
             // bottom of the panel stays on screen.
-            className="fixed bottom-[var(--cookie-banner-height,0px)] right-6 z-[45] hidden h-[480px] max-h-[calc(100dvh-var(--cookie-banner-height,0px)-6rem)] w-[360px] flex-col rounded-t-card border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] lg:flex"
+            className={`fixed bottom-[var(--cookie-banner-height,0px)] right-6 ${LAYER_Z.dockLauncher} hidden h-[480px] max-h-[calc(100dvh-var(--cookie-banner-height,0px)-6rem)] w-[360px] flex-col rounded-t-card border border-slate-200 bg-white shadow-[0_18px_48px_rgba(15,23,42,0.16)] lg:flex`}
             role="dialog"
             aria-label={t("messages.dock.title")}
           >
@@ -530,7 +531,7 @@ export function MessageDock() {
             // z-100 for the same reason as the nav drawer in DashboardLayout:
             // this is an `aria-modal` sheet and the cookie banner (z-90) was
             // painting over its lower portion, which is where the composer is.
-            className="fixed inset-0 z-[100] flex items-end bg-slate-950/40 lg:hidden"
+            className={`fixed inset-0 ${LAYER_Z.modal} flex items-end bg-slate-950/40 lg:hidden`}
             initial={prefersReducedMotion ? false : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={prefersReducedMotion ? undefined : { opacity: 0 }}
