@@ -51,15 +51,19 @@ export function RoleChooser({ onSelect }: { onSelect: (role: SignUpRole) => void
         ))}
       </div>
 
-      <div className="mt-6 text-center">
-        <button
-          type="button"
-          onClick={() => onSelect("both")}
-          className="inline-flex min-h-11 items-center rounded-control px-3 text-body font-semibold text-brand transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
-        >
-          {t("signUp.roleChooser.both")}
-        </button>
-      </div>
+      {/* A third choice, so it has to look like one. As bare brand-coloured
+          text under two bordered cards it read as a footnote or a link rather
+          than the option it is -- the only selectable thing on the step with
+          no visible edge. It takes the cards' border, hover and focus
+          treatment; it stays a full-width bar rather than a third card
+          because it applies to both of the roles above it. */}
+      <button
+        type="button"
+        onClick={() => onSelect("both")}
+        className="mt-4 flex min-h-11 w-full items-center justify-center rounded-card border border-slate-200 bg-white px-4 py-3 text-body font-semibold text-brand transition-colors hover:border-brand hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+      >
+        {t("signUp.roleChooser.both")}
+      </button>
     </div>
   );
 }

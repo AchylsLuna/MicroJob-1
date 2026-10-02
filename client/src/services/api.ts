@@ -340,8 +340,49 @@ throw new Error(import.meta.env.DEV
   : 'Unable to reach the MicroJobs service. Please try again.');
   }
 
-  const data = (await res.json().catch(() => ({}))) as any;
+  const data = (await parseResponseBody(res)) as any;
   return { res, data };
+}
+
+/**
+ * Parses a response body, raising rather than inventing one.
+ *
+ * This used to be `res.json().catch(() => ({}))`, which turned any successful
+ * response that was not JSON into an empty object. Nothing downstream could
+ * tell that apart from a real empty payload: a misrouted `/api/*` call served
+ * the SPA's `index.html` with a 200, became `{}` here, and rendered on the
+ * landing page as "no jobs are available" -- an outage reported to the user as
+ * an empty marketplace.
+ *
+ * A body that genuinely has nothing in it is still fine and still yields `{}`:
+ * 204/205 carry no content by definition, and a zero `content-length` says so
+ * outright. An error response is also allowed to be unparseable, because the
+ * caller reports it by status and we must not mask a 500 with a parse error.
+ * What is no longer tolerated is a 2xx that claimed to have a body and then
+ * could not be read as JSON.
+ */
+async function parseResponseBody(res: Response) {
+  if (res.status === 204 || res.status === 205 || res.headers.get('content-length') === '0') {
+    return {};
+  }
+
+  const text = await res.text().catch(() => null);
+  if (text === null) {
+    if (!res.ok) return {};
+    throw new Error(`The server returned an unreadable ${res.status} response.`);
+  }
+  if (text.trim() === '') return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    if (!res.ok) return {};
+    const contentType = res.headers.get('content-type') || 'an unknown content type';
+    throw new Error(
+      `The server returned ${contentType} instead of JSON (status ${res.status}). ` +
+        'This usually means the API request did not reach the backend.',
+    );
+  }
 }
 
 // The refresh endpoint rotates the refresh token and rejects reuse of the old

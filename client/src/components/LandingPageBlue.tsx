@@ -15,6 +15,33 @@ import { toAbsoluteAssetUrl } from "../lib/assetUrl";
 type LandingCategory = { _id: string; name: string };
 type HeroIntent = "work" | "hire";
 
+/**
+ * Retries a job fetch a couple of times before giving up.
+ *
+ * The API's database connection has been observed flapping in development --
+ * `GET /api/jobs` alternates between a 200 and a 500 from the controller's own
+ * catch block. A single transient timeout currently takes out both the job
+ * grid and the figures below it for the whole visit, which is a harsh outcome
+ * for a fault that clears on its own in a second.
+ *
+ * Deliberately small: two retries with a short backoff. Anything longer makes
+ * a genuinely down backend feel like a hung page instead of a clear error.
+ */
+async function fetchJobsWithRetry<T>(fetcher: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await fetcher();
+    } catch (error) {
+      lastError = error;
+      if (attempt < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastError;
+}
+
 /** Live marketplace figures, measured from the public job board. */
 type MarketplaceStats = {
   openJobs: number;
@@ -130,7 +157,9 @@ export function LandingPageBlue() {
     /** The job's own photo if the employer uploaded one, else their avatar. */
     image: string | null;
   }>>([]);
-  const [isJobsLoading, setIsJobsLoading] = useState(false);
+  // Starts true: the effect below fires on mount, and starting at `false`
+  // flashed the "no jobs" box for a frame before the first fetch resolved.
+  const [isJobsLoading, setIsJobsLoading] = useState(true);
   const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
   const [landingStats, setLandingStats] = useState<MarketplaceStats | null>(null);
 
@@ -305,11 +334,18 @@ export function LandingPageBlue() {
       setIsJobsLoading(true);
       setJobsLoadError(null);
       try {
-        const data = await getJobs({ limit: 6, city: user?.city || undefined });
+        const data = await fetchJobsWithRetry(() => getJobs({ limit: 6, city: user?.city || undefined }));
         if (!isMounted) return;
+        // A non-array is a broken response, not an empty marketplace. This used
+        // to be coerced to `[]`, which rendered a transport failure as "no jobs
+        // are available" -- the one sentence guaranteed to stop a visitor, and
+        // the reason an outage here went unnoticed.
+        if (!Array.isArray(data)) {
+          throw new Error("The job board returned an unexpected response.");
+        }
         setLandingStats(summarizeMarketplace(data));
         setJobCards(
-          (Array.isArray(data) ? data : []).slice(0, 6).map((job: any) => ({
+          data.slice(0, 6).map((job: any) => ({
             title: job.title || "Job Title",
             company: getCompanyName(job),
             location: job.location || "Location not specified",
