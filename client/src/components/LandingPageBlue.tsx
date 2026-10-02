@@ -11,6 +11,7 @@ import { ROUTES } from "../utils/routes";
 import { getCategories, getJobs } from "../services/api";
 import { openCookiePreferences } from "../lib/cookieConsent";
 import { toAbsoluteAssetUrl } from "../lib/assetUrl";
+import { Skeleton } from "./ui/Skeleton";
 
 type LandingCategory = { _id: string; name: string };
 type HeroIntent = "work" | "hire";
@@ -162,6 +163,8 @@ export function LandingPageBlue() {
   const [isJobsLoading, setIsJobsLoading] = useState(true);
   const [jobsLoadError, setJobsLoadError] = useState<string | null>(null);
   const [landingStats, setLandingStats] = useState<MarketplaceStats | null>(null);
+  // Bumped by the error state's "Try again", which re-runs the fetch effect.
+  const [jobsReloadToken, setJobsReloadToken] = useState(0);
 
   // Shared by both the hero chips and the nav mega-menu — fetched once.
   // GET /categories is a public endpoint, so this works signed-out.
@@ -371,7 +374,7 @@ export function LandingPageBlue() {
     return () => {
       isMounted = false;
     };
-  }, [formatJobSalary, isAuthenticated, user?.city]);
+  }, [formatJobSalary, isAuthenticated, jobsReloadToken, user?.city]);
 
   /**
    * "How it works" media are real recordings and screenshots of this app, taken
@@ -1124,7 +1127,34 @@ export function LandingPageBlue() {
             <p className="text-[36px] font-bold text-gray-900">Job Here</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Skeletons rather than a spinner: the shape of this grid is known
+              before the data lands, so the page can hold its layout instead of
+              collapsing and then jumping. Six, matching the slice the fetch
+              takes. */}
+          {isJobsLoading ? (
+            <div role="status" aria-live="polite" className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <span className="sr-only">Loading jobs</span>
+              {/* Each tile mirrors the real card below block for block: 64px
+                  avatar, title, two icon+text meta rows, then a divider with
+                  the salary and its action. A differently-shaped placeholder
+                  would still make the grid jump when the data lands, which is
+                  the whole thing a skeleton is for. */}
+              {[0, 1, 2, 3, 4, 5].map((placeholder) => (
+                <div key={placeholder} className="rounded-[24px] border border-gray-100 bg-white p-6">
+                  <Skeleton className="mb-4 h-16 w-16 rounded-card" />
+                  <Skeleton className="mb-2 h-[18px] w-4/5" />
+                  <Skeleton className="mb-1 h-4 w-1/2" />
+                  <Skeleton className="mb-4 h-4 w-2/5" />
+                  <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-4">
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-11 w-32 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 ${isJobsLoading ? "hidden" : ""}`}>
             {jobCards.map((job, index) => (
               <motion.div
                 key={index}
@@ -1207,9 +1237,54 @@ export function LandingPageBlue() {
             ))}
           </div>
 
-          {!isJobsLoading && jobCards.length === 0 ? (
-            <div className="mx-auto max-w-xl rounded-card border border-brand/15 bg-white p-6 text-center text-sm text-slate-600">
-              {jobsLoadError || 'No jobs are available right now. Please check back soon.'}
+          {/* Error and empty are different situations and no longer share a
+              box. "No jobs posted yet" is a true statement about a young
+              marketplace; "we could not reach the board" is an outage. Showing
+              the first when the second is true is how a broken API went
+              unnoticed. */}
+          {!isJobsLoading && jobsLoadError ? (
+            <div className="mx-auto max-w-xl rounded-card border border-red-200 bg-red-50 p-6 text-center" role="alert">
+              <p className="text-sm font-semibold text-red-800">We couldn't load the job board.</p>
+              <p className="mt-1 text-sm text-red-700">{jobsLoadError}</p>
+              <button
+                type="button"
+                onClick={() => setJobsReloadToken((token) => token + 1)}
+                className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-red-700 px-4 text-sm font-semibold text-white transition hover:bg-red-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2"
+              >
+                Try again
+              </button>
+            </div>
+          ) : null}
+
+          {!isJobsLoading && !jobsLoadError && jobCards.length === 0 ? (
+            <div className="mx-auto max-w-2xl rounded-card border border-brand/15 bg-white p-8 text-center">
+              <p className="text-base font-semibold text-slate-900">No jobs are posted right now.</p>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
+                We're an early-stage marketplace, so the board is quiet some days. Browse a category to
+                be ready when work lands, or post the first job yourself — posting is free.
+              </p>
+              {categories.length > 0 ? (
+                <div className="mt-6 flex flex-wrap justify-center gap-2">
+                  {categories.slice(0, 6).map((category) => (
+                    <button
+                      key={category._id}
+                      type="button"
+                      onClick={() => navigate(getJobsPath)}
+                      className="inline-flex min-h-11 items-center rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-brand hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    >
+                      {category.name}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => navigate(isAuthenticated ? ROUTES.employer.postJob : ROUTES.signUp)}
+                className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-5 text-sm font-semibold text-white transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              >
+                Post a job — it's free
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
             </div>
           ) : null}
 
@@ -1220,20 +1295,24 @@ export function LandingPageBlue() {
             </p>
           ) : null}
 
-          <motion.div 
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mt-12"
-          >
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              onClick={() => navigate(getJobsPath)}
-              className="text-body font-semibold text-brand hover:opacity-80 transition-colors"
+          {/* Hidden when there is nothing to show more of -- it pointed at an
+              equally empty board. */}
+          {jobCards.length > 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              className="text-center mt-12"
             >
-              Show More →
-            </motion.button>
-          </motion.div>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                onClick={() => navigate(getJobsPath)}
+                className="text-body font-semibold text-brand hover:opacity-80 transition-colors"
+              >
+                Show More →
+              </motion.button>
+            </motion.div>
+          ) : null}
         </div>
       </section>
 

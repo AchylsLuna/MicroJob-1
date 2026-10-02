@@ -9,6 +9,7 @@ import {
   useParams,
 } from "react-router-dom";
 import SidebarLayout from "./components/layout/SidebarLayout";
+import { RouteSkeleton } from "./components/ui/PageSkeletons";
 import { RoleRoute } from "./components/routing/RoleRoute";
 import { useAuth } from "./hooks/useAuth";
 import { logoutUser } from "./services/api";
@@ -74,7 +75,27 @@ const AdminModerationQueue = lazy(() => import("./pages/admin/AdminModerationQue
 const AdminVerificationReview = lazy(() => import("./pages/admin/AdminVerificationReview").then((module) => ({ default: module.AdminVerificationReview })));
 const AdminFinancialDisputes = lazy(() => import("./pages/admin/AdminFinancialDisputes").then((module) => ({ default: module.AdminFinancialDisputes })));
 
-const RouteLoading = () => <div role="status" aria-live="polite" className="flex min-h-[40vh] items-center justify-center text-sm font-medium text-slate-600"><span className="mr-3 h-6 w-6 animate-spin rounded-full border-4 border-brand-200 border-t-brand-700" aria-hidden="true" />Loading page…</div>;
+/**
+ * Suspense fallback for every lazily-loaded route.
+ *
+ * A skeleton rather than the spinner this used to be, and a route-aware one:
+ * this single boundary covers every route (see the `<Suspense>` below), so a
+ * fixed placeholder would be the wrong shape for most of them. `RouteSkeleton`
+ * reads the pathname and renders the matching frame -- dashboard shell, auth
+ * card, or marketing page -- so the layout the user is waiting for is already
+ * standing when its chunk lands.
+ *
+ * The announcement is unchanged in substance: `Skeleton` is `aria-hidden`, so
+ * the live region below carries the label the spinner used to show as text.
+ */
+const RouteLoading = () => (
+  <>
+    <p role="status" aria-live="polite" className="sr-only">
+      Loading page…
+    </p>
+    <RouteSkeleton />
+  </>
+);
 
 const InactivityHandler: React.FC = () => {
   const navigate = useNavigate();

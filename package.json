@@ -49,7 +49,8 @@
     "preview": "node scripts/run-with-node.cjs node node_modules/vite/bin/vite.js preview --config client/vite.config.ts",
     "seed:superadmin": "node server/scripts/seedSuperAdmin.js",
     "seed:demo-user": "node server/scripts/seedDemoUser.js",
-    "seed:alerts": "node server/scripts/seedAlerts.js"
+    "seed:alerts": "node server/scripts/seedAlerts.js",
+    "seed:demo-jobs": "node scripts/seed-demo-jobs.mjs"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.103.1",
