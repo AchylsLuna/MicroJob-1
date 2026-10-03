@@ -361,7 +361,8 @@
       "employerInfoMissing": "Hindi available ang impormasyon ng employer para sa trabahong ito.",
       "startConversationFailed": "Hindi ma-simulan ang usapan sa employer na ito.",
       "employerProfileMissing": "Hindi available ang profile ng employer para sa trabahong ito.",
-      "profileIncomplete": "Idagdag ang larawan sa profile sa Settings bago mag-apply sa trabaho."
+      "profileIncomplete": "Idagdag ang larawan sa profile sa Settings bago mag-apply sa trabaho.",
+      "applicationRejected": "Tinanggihan ang aplikasyon. Hindi ka na maaaring mag-apply muli para sa trabahong ito."
     }
   },
   "eWallet": {

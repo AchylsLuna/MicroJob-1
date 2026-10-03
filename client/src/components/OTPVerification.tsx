@@ -16,7 +16,7 @@ interface OTPVerificationProps {
 
 export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerificationProps) {
   const { t } = useTranslation("auth");
-  const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode } = useAuth();
+  const { verifyOTP, resendOTP, verifyLoginOtpCode, resendLoginOtpCode, devVerificationCode } = useAuth();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isVerifying, setIsVerifying] = useState(false);
   const verifyInFlightRef = useRef(false);
@@ -246,6 +246,34 @@ export function OTPVerification({ onClose, email, mode = "signup" }: OTPVerifica
           {t("otpVerification.description")}<br />
           <span className="font-semibold text-[#111827]">{email}</span>
         </p>
+
+        {/* Development only. `UserController.sendOtp` returns the code in the
+            response on every non-production request, whether or not SMTP is
+            configured -- and the client used to drop it, which made sign-up
+            impossible to finish locally the moment mail stopped arriving.
+            Nothing renders here in production because the server sends no
+            code to render. */}
+        {devVerificationCode ? (
+          <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+            <p className="text-caption font-semibold uppercase tracking-wide text-amber-800">
+              {t("otpVerification.devCode.label")}
+            </p>
+            <p className="mt-1 text-[22px] font-bold tracking-[0.3em] text-amber-900">{devVerificationCode}</p>
+            <button
+              type="button"
+              onClick={() => {
+                const digits = devVerificationCode.replace(/\D/g, "").slice(0, 6).split("");
+                if (digits.length === 6) {
+                  setOtp(digits);
+                  inputRefs.current[5]?.focus();
+                }
+              }}
+              className="mt-3 inline-flex min-h-11 items-center rounded-lg border border-amber-300 bg-white px-4 text-body-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            >
+              {t("otpVerification.devCode.fill")}
+            </button>
+          </div>
+        ) : null}
 
         {/* OTP Inputs */}
         <div className="mb-8 flex justify-center gap-2 sm:gap-3">
